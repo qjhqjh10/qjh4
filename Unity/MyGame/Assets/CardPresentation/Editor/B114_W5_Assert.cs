@@ -111,19 +111,30 @@ public static class B114_W5_Assert
                                  + "；α=0 等于「建了但看不见」）");
 
             // ---- A4🧨 换段位号 ⇒ 贴图必须跟着换（钉住「号→图」是查表直读，不是写死一张）----
+            // 🔴 **快照化**（2026-11-01 · `B114_R11` 判定，铁律 5·b）：`Show()` → `Build()` 首句是
+            //   `MenuDraw.ClearChildren(transform)`（`RankedSeasonEndedWindow.cs:167`），非 playing 下走
+            //   `DestroyImmediate`（`MenuDraw.cs:145`）⇒ 上一次的 `ImageQuad` 是**已销毁的 Unity 对象**，
+            //   `q1 != null` 会因为 Unity 的运算符重载**恒为 false** ⇒ 跨重建比较**必须先把值快照下来**。
+            //   ⚠️ 即便实现改成「复用同一颗 quad 只换贴图」，`q1.Texture` 也会变成 `07-Legend` ⇒ 同样必红。
             win.DivisionNumber = 1; win.Show();
             var q1 = win.DivisionNode != null ? win.DivisionNode.GetComponent<ImageQuad>() : null;
-            Ok(q1 != null && q1.Texture != null && q1.Texture.name == Art1,
+            var t1 = q1 != null ? q1.Texture : null;              // 快照：跨 `Show()` 重建后仍有效（`CardArt.Release` 不销毁贴图）
+            string n1 = t1 != null ? t1.name : null;
+            Ok(t1 != null && n1 == Art1,
                "A4🧨 段位号 **1** ⇒ 贴图 **`" + Art1 + "`**（现读 "
-             + (q1 != null && q1.Texture != null ? "`" + q1.Texture.name + "`" : "**null**") + "）");
+             + (n1 != null ? "`" + n1 + "`" : "**null**") + "）");
 
             win.DivisionNumber = 7; win.Show();
             var q7 = win.DivisionNode != null ? win.DivisionNode.GetComponent<ImageQuad>() : null;
-            Ok(q7 != null && q7.Texture != null && q7.Texture.name == Art7,
+            var t7 = q7 != null ? q7.Texture : null;              // 同上，快照
+            string n7 = t7 != null ? t7.name : null;
+            Ok(t7 != null && n7 == Art7,
                "A4b🧨 段位号 **7** ⇒ 贴图 **`" + Art7 + "`**（现读 "
-             + (q7 != null && q7.Texture != null ? "`" + q7.Texture.name + "`" : "**null**") + "）");
-            Ok(q1 != null && q7 != null && q1.Texture != null && q7.Texture != null && q1.Texture != q7.Texture,
+             + (n7 != null ? "`" + n7 + "`" : "**null**") + "）");
+            Ok(t1 != null && t7 != null && t1 != t7 && n1 != n7,
                "A4c🧨 段位 1 与 7 画的是**两张不同的贴图**（⛔ 不是同一张图换个用法）"
+             + "（现读 1 = `" + (n1 != null ? n1 : "**null**") + "` · 7 = `"
+             + (n7 != null ? n7 : "**null**") + "`）"
              + "｜🧨 实现里把图名写死成一张 ⇒ 1 与 7 相同 ⇒ 红");
 
             // ---- A5 父子关系：`Rank Icon` 仍挂在 `Division Image` 底下（prefab `m_Children` 实读）----
