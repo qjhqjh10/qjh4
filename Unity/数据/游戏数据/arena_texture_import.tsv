@@ -1,0 +1,128 @@
+name	width	height	mipCount	colorSpace	bundle	wrapU	wrapV	filterMode	aniso
+Aeldari Vortex Reflection	256	256	9	1	battlesharedresources_assets_all.bundle	2	2	1	1
+Aeldari_Ships	128	512	10	1	scenes_scenes_battlearenaaeldari.bundle	0	0	1	1
+Asteroid_sheet_2	256	256	9	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Astra Militarum Ground Atlas	4096	4096	13	1	scenes_scenes_battlearenaastramilitarum.bundle	0	0	1	1
+Atack_Icon BW	2048	2048	1	1	atlasindividual_assets_battleatlasui.bundle	1	1	1	1
+Battle Arean Emperor's Children Baked Mat-_BaseMap-atlas-0	4096	4096	1	1	scenes_scenes_battlearenaemperorschildren.bundle	0	0	1	1
+Battle Arena 1 Back  Background	2048	2048	1	1	scenes_scenes_battlearena1.bundle	2	2	1	16
+Battle Arena 1 Background	2048	2048	1	1	scenes_scenes_battlearena1.bundle	1	1	1	16
+Battle Arena 1 Floor	4096	4096	1	1	scenes_scenes_battlearena1.bundle	2	2	1	1
+Battle Arena 2 Ground	4096	4096	1	1	scenes_scenes_battlearena2.bundle	2	2	1	1
+Battle Arena Aeldari Atlas 2	4096	4096	1	1	battlesharedresources_assets_all.bundle	2	2	1	1
+Battle Arena Aeldari Atlas-mat-_BaseMap-atlas-0	4096	4096	1	1	battlesharedresources_assets_all.bundle	2	2	1	1
+Battle Arena Aeldari Ground Mask	2048	2048	12	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Battle Arena Astra Militarum Texture Bake result-mat-_BaseMap-atlas-0	4096	4096	13	1	scenes_scenes_battlearenaastramilitarum.bundle	0	0	1	1
+Battle Arena Dark Angels Texture Bake result 2-mat-_BaseMap-atlas-0	1024	512	11	1	scenes_scenes_battlearenadarkangels.bundle	0	0	1	1
+Battle Arena Dark Angels Texture Bake result-mat-_BaseMap-atlas-0	4096	4096	1	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Battle Arena Necrons Ground With Reflection Mask	4096	4096	1	1	battlesharedresources_assets_all.bundle	2	2	1	1
+Battle Arena Space Wolves Floor	4096	4096	1	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Battle Arena Tau Viorla Combined Material-mat-_BaseMap-atlas-0	4096	4096	1	1	scenes_scenes_battlearenatauviorla.bundle	0	0	1	1
+Battle Arena Tau Viorla Ground Atlas	4096	4096	1	1	scenes_scenes_battlearenatauviorla.bundle	0	0	1	1
+Battle Arena Tyranids Ground	4096	4096	1	1	battlesharedresources_assets_all.bundle	2	2	1	1
+Battle arena 1 Clouds	512	256	10	1	shaders_assets_all.bundle	0	0	1	1
+BattleArena1 Texture Baked	2048	4096	1	1	scenes_scenes_battlearena1.bundle	2	2	1	1
+BattleArena2Atlas Baked	4096	4096	1	1	scenes_scenes_battlearena2.bundle	2	2	1	1
+BattleArena2Atlas Baked 2	4096	4096	1	1	scenes_scenes_battlearena2.bundle	2	2	1	1
+BattleArena3Atlas-mat-_BaseMap-atlas-0	4096	4096	1	1	battlesharedresources_assets_all.bundle	2	2	1	1
+Black Legion Atlas 2 Banners	2048	2048	1	1	scenes_scenes_battlearenablacklegion.bundle	0	0	1	1
+Black Legion Atlas 2-mat-_MainTex-atlas-0	8192	4096	1	1	scenes_scenes_battlearenablacklegion.bundle	2	2	1	1
+Black Legion Ground Atlas	4096	4096	1	1	scenes_scenes_battlearenablacklegion.bundle	0	0	1	1
+CandleFlame	512	512	10	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Card Text smooth background	32	32	1	1	duplicateassetisolation_assets_all.bundle	1	1	1	1
+Circle Halo	128	128	1	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+Circle Particle	128	128	8	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+Circle_Hoop	256	256	9	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+Cloud_puff	256	256	9	0	battlesharedresources_assets_all.bundle	0	0	1	1
+Dark Angels Ground Atlas	4096	4096	1	1	scenes_scenes_battlearenadarkangels.bundle	0	0	1	1
+Data-mat-_MainTex-atlas-0	4096	2048	1	1	battlesharedresources_assets_all.bundle	2	2	1	1
+Debris	256	256	9	1	battlesharedresources_assets_all.bundle	1	1	1	16
+Default-Particle	64	64	7	1	Warpforge_unitybuiltinassets.bundle	0	0	1	1
+Eclipse Sun	256	256	1	1	battlesharedresources_assets_all.bundle	1	1	1	1
+Embers	128	128	1	1	battleprefabs_vfxandmisc_assets_all.bundle	0	0	1	1
+Emperors Children Ground Atlas	4096	4096	1	1	scenes_scenes_battlearenaemperorschildren.bundle	0	0	1	1
+Emperos Children Fake Distort 1	256	512	10	1	scenes_scenes_battlearenaemperorschildren.bundle	0	0	1	1
+Emperos Children Fake Distort 2	128	128	8	1	scenes_scenes_battlearenaemperorschildren.bundle	0	0	1	1
+Explosion	2048	2048	12	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Explosion Distort	64	64	7	0	duplicateassetisolation_assets_all.bundle	1	1	1	1
+ExplosionEmission	1024	1024	11	1	battlesharedresources_assets_all.bundle	0	0	1	1
+FireBallEmission	512	512	10	1	battlesharedresources_assets_all.bundle	0	0	1	1
+FireExplosion	2048	2048	12	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Fireball	2048	2048	12	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Flame01	2048	2048	12	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Flame03	2048	2048	12	1	scenes_scenes_battlearena2.bundle	0	0	1	1
+Flare 6	128	128	8	1	battleprefabs_vfxandmisc_assets_all.bundle	0	0	1	1
+Floor fire embers	256	256	9	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Genestaler Fan	1024	1024	11	1	scenes_scenes_battlearenagenestealers.bundle	0	0	1	1
+Genestealers Atlas 1-_BaseMap-atlas-0	4096	4096	1	1	scenes_scenes_battlearenagenestealers.bundle	0	0	1	1
+Genestealers Ground reflections Atlas	4096	4096	1	1	scenes_scenes_battlearenagenestealers.bundle	0	0	1	1
+Glow	128	128	1	1	duplicateassetisolation_assets_all.bundle	1	1	1	1
+Glow Rays	128	128	8	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+Glow Scattered	128	128	1	1	battleprefabs_vfxandmisc_assets_all.bundle	1	1	1	1
+LUT Battle Arena Aeldari	256	16	9	0	scenes_scenes_battlearenaaeldari.bundle	0	0	1	1
+LUT Battle Arena Emperors Children	256	16	9	0	scenes_scenes_battlearenaemperorschildren.bundle	0	0	1	1
+LUT Battle Arena Genestaler Cults	256	16	9	0	scenes_scenes_battlearenagenestealers.bundle	0	0	1	1
+LUT Battle Arena Leviathan	256	16	9	0	scenes_scenes_battlearenaleviathan.bundle	0	0	1	1
+LUT Battle Arena Sororitas	256	16	9	0	scenes_scenes_battlearenasororitas.bundle	0	0	1	1
+LUT Battle Arena Space Wolves	256	16	9	0	scenes_scenes_battlearenaspacewolves.bundle	0	0	1	1
+LUT Battle Arena Tau Viorla	256	16	9	0	scenes_scenes_battlearenatauviorla.bundle	0	0	1	1
+LargeFlame01	2048	2048	12	1	battlesharedresources_assets_all.bundle	0	0	1	1
+LargeFlame02	1024	2048	12	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Lens_Flare_1	512	512	10	1	battlesharedresources_assets_all.bundle	0	0	1	1
+LightningTrail	128	128	8	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+Lightning_Burst_Random	512	512	10	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+Lightning_Random	1024	1024	11	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+MatCap Polish	128	128	1	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Matcap Gold Emperos Children	1024	1024	11	1	scenes_scenes_battlearenaemperorschildren.bundle	0	0	1	1
+MuzzleFlash_Side	64	64	7	0	battlesharedresources_assets_all.bundle	0	0	1	1
+Noise Blob	128	128	8	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Noise Combined	128	128	1	0	duplicateassetisolation_assets_all.bundle	0	0	1	1
+NoiseContrast	512	512	1	1	battleprefabs_vfxandmisc_assets_all.bundle	0	0	1	1
+NoiseNRM	128	128	8	0	battlesharedresources_assets_all.bundle	0	0	1	1
+Ork eye	64	64	7	1	scenes_scenes_battlearena2.bundle	0	0	1	1
+Railgun texture	512	512	10	1	scenes_scenes_battlearenatauviorla.bundle	0	0	1	1
+RippleSubtle	128	128	8	0	battlesharedresources_assets_all.bundle	1	1	1	1
+Sand Wind 1	128	256	9	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Sand Wind 2	128	256	9	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Scarab_Necron	64	64	7	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Shaft_SoftEdges	128	128	8	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+Shimmers01	256	256	9	1	battlesharedresources_assets_all.bundle	0	0	1	1
+SmallDots	128	128	8	1	battleprefabs_vfxandmisc_assets_all.bundle	0	0	1	1
+Smoke	128	128	1	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+Smoke Cloud	256	256	9	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+Smoke Sprite Sheet	512	512	10	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Smoke Tile Texture	256	256	9	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Smoke5	1024	1024	11	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+SmokeLoop	2048	2048	12	1	battlesharedresources_assets_all.bundle	0	0	1	1
+SmokePuff	2048	2048	12	1	battlesharedresources_assets_all.bundle	0	0	1	1
+SmokePuff01	2048	2048	12	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Sororitas Atlas 3-_BaseMap-atlas-0	4096	4096	1	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Sororitas Ground Atlas	4096	4096	1	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0	4096	4096	1	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Spark	64	64	1	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+Spark UI	128	128	1	1	battleprefabs_vfxandmisc_assets_all.bundle	0	0	1	1
+Sparkle Large	256	256	9	1	scenes_scenes_battlearenadarkangels.bundle	0	0	1	1
+SphereAlbedo	256	256	9	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Splash01	1024	1024	11	1	battlesharedresources_assets_all.bundle	1	1	1	1
+SplatNormal	512	512	10	0	battlesharedresources_assets_all.bundle	0	0	1	1
+Square Smooth	128	128	8	1	battleprefabs_vfxandmisc_assets_all.bundle	0	0	1	1
+Square_Glow_Icon	64	64	7	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+TinyFlame	2048	2048	12	1	battlesharedresources_assets_all.bundle	0	0	1	1
+TinyStones	256	256	9	1	battleprefabs_vfxandmisc_assets_all.bundle	1	1	1	16
+Trail_fading	128	128	8	1	battleprefabs_vfxandmisc_assets_all.bundle	0	0	1	1
+Twinkle	512	512	10	1	battlesharedresources_assets_all.bundle	0	0	1	1
+WF 3D Card_Card 3D_BaseColor	512	512	10	1	battlesharedresources_assets_all.bundle	0	0	1	1
+WaterRipplesParticle	256	256	9	1	battlesharedresources_assets_all.bundle	0	0	1	1
+Wispy Clouds	256	256	9	1	battlesharedresources_assets_all.bundle	0	0	1	1
+bubble	256	256	9	1	battleprefabs_vfxandmisc_assets_all.bundle	0	0	1	1
+burst_puff	256	256	9	0	battleprefabs_vfxandmisc_assets_all.bundle	0	0	1	1
+chestrays_mat	256	512	10	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+drops_cloud	256	256	9	0	duplicateassetisolation_assets_all.bundle	0	0	1	1
+fighter jets	256	256	9	1	battlesharedresources_assets_all.bundle	0	0	1	1
+glowsphere01	256	256	9	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+line	256	256	1	1	battlesharedresources_assets_all.bundle	0	0	1	1
+ring4	256	256	9	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+shockwave	512	512	10	1	duplicateassetisolation_assets_all.bundle	0	0	1	1
+smokeysteam	2048	2048	12	1	battlesharedresources_assets_all.bundle	0	0	1	1
+spacemarine droppod	64	64	7	1	scenes_scenes_battlearena1.bundle	0	0	1	1
+wispySmoke	1024	2048	1	1	battlesharedresources_assets_all.bundle	0	0	1	1

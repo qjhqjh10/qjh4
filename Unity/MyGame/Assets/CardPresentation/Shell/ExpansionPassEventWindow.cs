@@ -878,8 +878,8 @@ namespace CardPresentation
                 _npButtonText.SetWrapping(false);
                 MenuDraw.SetVAlign(_npButtonText, Label.VAlign.Capline, NpButtonTextR);
             }
-            MenuDraw.Nine(btn, Tex(ArtGlowBorder, "付费档入口高亮"), NpHighlightR,
-                          new Vector4(50f, 50f, 50f, 50f), 128f, 128f, QPanelHi, Color.white, true, "Highlight");
+            var hiNp = MenuDraw.Nine(btn, Tex(ArtGlowBorder, "付费档入口高亮"), NpHighlightR,
+                          new Vector4(50f, 50f, 50f, 50f), 128f, 128f, QPanelHi, Color.white, true, "Highlight"); MenuFxMaterials.ApplyBorderHighlightAppearAll(hiNp, MenuFxMaterials.BorderHighlightAppear.RotationYellow);
             // 原版 `ExpansionPassPurchasePremiumPanel.PurchasePremiumClick` → `GetComponentReference(premiumOfferData, 0xc)`
             // → `WindowsManager.OpenWindow(...)`。那个窗口引用在**远端** premium 报价数据里 ⇒ 🔶 用本地报价表顶替，
             // 落在 `ExpansionPassPremiumOffers`（`WindowsManager.OpenPurchasePremiumWindow` 那一跳）。
@@ -1113,11 +1113,11 @@ namespace CardPresentation
             // （B101_R3 已删）原 `Note("…未导入 Resources/ ⇒ 这一件没画")`：图已在盘上，节点现在**真的画图**了；
             //   显隐仍由下方 `ApplyRewardDrawer` 那句 `FindDeep("Premium Glow").SetActive(m.IsPremium)` 驱动（未改动）；⛔ 别拿 `40k_Rewards_icon_base_card.png`（非 SDF 那张）顶。
 
-            // ---- `Collect Highlight Effect`（`Border_Line_FX` 九宫 50 · ppuMul 0.5 · 图 alpha 实读 = 0）----
+            // ---- `Collect Highlight Effect`（`Border_Line_FX` 九宫 50 · ppuMul 0.5 · 图 alpha 实读 = 0）---- 🆕 2026-11-01（`B112W_B08` = `B-08` #1）原版材质 = `Border Highlight Appear Expansion pass`（`Material_-265774635809289417.json`，shader `Everguild/UI/UI Border Highlight Appear`）⇒ 走原件运行期材质；原版 `Initialize` 出厂 `SetActive(false)`、领取后 `ToggleHighlightEffect(true)` → `Play()`（`_Reveal` −0.5→1 · 1 s）。判据 → `判据/B112W_B08_接线图.md` §表 2 #1 + §2·2
             var hi = MenuDraw.Node(root, "Collect Highlight Effect", CollectHiR);
             MenuDraw.Nine(hi, Tex(ArtGlowBorder, "领取高亮框"), CollectHiR,
                           new Vector4(50f, 50f, 50f, 50f), 128f, 128f, QCardGlow, CollectHiTint, true, "Image",
-                          new Vector4(50f / 0.5f, 50f / 0.5f, 50f / 0.5f, 50f / 0.5f));
+                          new Vector4(50f / 0.5f, 50f / 0.5f, 50f / 0.5f, 50f / 0.5f)); MenuFxMaterials.ApplyBorderHighlightAppearAll(hi.gameObject, MenuFxMaterials.BorderHighlightAppear.ExpansionPass); hi.gameObject.SetActive(false);
 
             // ---- `RewardTransform`（`ExpansionPassRewardDrawerController`）----
             var rt = MenuDraw.Node(root, "RewardTransform", RewardTransformR);
@@ -1180,9 +1180,9 @@ namespace CardPresentation
             var cbt = MenuDraw.TextBox(cb, ClaimBtnTextR, Loc.T(TermClaim), Color.white, "Button Text",
                                        41.1f, 12f, QCardText, 44f, 12f, face: TmpFont.Face.LatinCardBody);
             if (cbt != null) MenuDraw.SetVAlign(cbt, Label.VAlign.Midline, ClaimBtnTextR);
-            MenuDraw.Nine(cb, Tex(ArtOctagon2, "领取钮高亮框"), ClaimHiR,
+            var hiClaim = MenuDraw.Nine(cb, Tex(ArtOctagon2, "领取钮高亮框"), ClaimHiR,
                           new Vector4(53f, 53f, 53f, 53f), 128f, 128f, QCardHi, Color.white, true,
-                          "Highlight button claim");
+                          "Highlight button claim"); MenuFxMaterials.ApplyBorderHighlightPulseBlueAll(hiClaim);
             // 原版 `ExpansionPassProgressClaimButtonController.CollectionClick` → base（发 `onCollect` = 容器的 `OnCollect`）
             // → `RewardSelector.CollectRewardClicked(index)` → `PurchaseMilestone`。
             // 索引按节点反查（见类尾 `CollectionClickOn` 的 doc）；无数据时只出声。
@@ -2262,8 +2262,8 @@ namespace CardPresentation
         /// `highlightReward.SetActive(option)`；`option` 时再 `SoundManager.Play2D(soundOnCollect)` + `highlightEffect.Play()`。
         /// <para>⚠️ `soundOnCollect` / `rewardClaimedSound` 那两个 `AudioCue` 是 prefab 引用、本地拿不到具体 cue
         /// ⇒ 用本工程的通用正向 cue 代（`WindowSounds.PositiveCue`，与各窗按钮同一份口径），如实记。</para>
-        /// <para>⚠️ `UIBorderGlow` 本壳没挂（`Collect Highlight Effect` 是九宫图、图本身 alpha 实读 = 0）
-        /// ⇒ `Play()` 那跳无对应物，出声一次。</para></summary>
+        /// <para>🆕 2026-11-01（`B112W_B08` = `B-08` #1）：`highlightEffect.Play()` 的等价物 = `MenuFxMaterials.RevealSweep`
+        /// （`_Reveal` −0.5→1 线性 · 1 s）；⛔ 不用 `UIBorderGlow` 的两条理由见那个方法的 doc。</para></summary>
         public void ToggleHighlightEffect(int index, bool option)
         {
             var node = (index >= 0 && index < _containers.Count) ? _containers[index] : null;
@@ -2272,10 +2272,10 @@ namespace CardPresentation
             if (hi != null) hi.gameObject.SetActive(option);
             if (!option) return;
             WindowSounds.PlayFx(WindowSounds.PositiveCue, "ExpansionPass/Highlight");
-            var glow = hi != null ? hi.GetComponent<UIBorderGlow>() : null;
-            if (glow != null) glow.Play();
-            else Note("`Collect Highlight Effect` 上没有 `UIBorderGlow`（本壳没挂那个组件；九宫图本身 alpha = 0）"
-                    + " ⇒ `highlightEffect.Play()` 这一跳没有对应物");
+            if (hi == null) Note("`Collect Highlight Effect` 节点没找到 ⇒ `highlightEffect.Play()` 这一跳没有对应物（出声，不静默）");
+            else StartCoroutine(MenuFxMaterials.RevealSweep(hi, 1f, 0f));
+            // 上面那句 = 原版 `UIBorderGlow.Play()`（`_Reveal` −0.5→1 · animTime 1 · animDelay 0）；⛔ 不用那个组件
+            // 的理由见 `MenuFxMaterials.RevealSweep` 的 doc（两支原版 shader 都没有 `_Color`，且原版是一颗 Image、我们是九宫）。
         }
 
         /// <summary>= 原版 `ExpansionPassRewardItemContainer.TestHighlighOn()`（`:301-304`，调试钩子）= `ToggleHighlightEffect(true)`。

@@ -449,6 +449,11 @@ namespace WarpforgeVFX
             //      顶」，而那正是 B11 要销掉的那条近似（⛔ 不许拿近似当兜底成品）。
             //    ⚠️ 导出期占位材质仍然用 `TextMeshPro/Distance Field`（`EffectExporter.ShaderMap`，标 `*`）
             //       —— 那条只管编辑器里占位，运行时会被 binder 换成原件。
+            // 🆕 2026-11-01（B112W · `B-08` #13）：`UI Border Highlight Pulse Alpha` 的**照源重建版**。
+            //    原版那份住 `bundle_menus_assets_all`、**不在**我们随包的 `wf_shaders.bundle` 里
+            //    ⇒ 走不了 `UseOriginal`，只能落自建。加进本表是为了让**出 player 时不被剥**
+            //    （运行期只靠 `Shader.Find` 取用，未进 Always Included 的 shader 会被裁掉）。
+            { "Everguild/UI/UI Border Highlight Pulse Alpha", "WarpforgeVFX/UI/UI Border Highlight Pulse Alpha" },
         };
 
         /// <summary>有些原版 shader 把混合写死在 shader 里，材质上没有 _SrcBlend。

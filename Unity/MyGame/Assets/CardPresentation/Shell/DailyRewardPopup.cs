@@ -503,7 +503,7 @@ namespace CardPresentation
             //    `grep -rl <pid> d:/2/Warpforge_tools/data/ui_extract/*/Sprite/`。
             var hl = MenuDraw.Node(node, "Highlight", R(D_Highlight));
             MenuDraw.Nine(hl, Art(ArtHighlight), R(D_Highlight), new Vector4(0f, 0f, 0f, 0f), 128f, 128f,
-                          QPanel, HighlightTint);
+                          QPanel, HighlightTint); MenuFxMaterials.ApplyBorderHighlightAppearAll(hl.gameObject, MenuFxMaterials.BorderHighlightAppear.Green);
             // 显隐**不在这里设** —— 三态五件统一由 `Drawer.SetState` 开（见本方法末尾那三行）。
             // `Reward Holder` → 图标
             var holder = MenuDraw.Node(node, "Reward Holder", R(D_Holder));

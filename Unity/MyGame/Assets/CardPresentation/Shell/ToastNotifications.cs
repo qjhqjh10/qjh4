@@ -958,12 +958,12 @@ namespace CardPresentation
                 if (ctx.Type != ToastNotificationType.MissionProgress)
                 {
                     var bg = go.transform.Find("Background");
-                    var bgQuads = bg != null ? bg.GetComponentsInChildren<ImageQuad>(true) : null;
+                    var bgQuads = bg != null ? HueTintableQuads(bg.GetComponentsInChildren<ImageQuad>(true)) : null;
                     if (bgQuads != null && bgQuads.Length > 0)
                         hitBtn.TintOn(bgQuads);
                     else
                         Debug.LogWarning($"[ToastNotifications] `{ctx.Type}` 的 hover 色偏没接上："
-                                       + "`Background` 下没有 quad ⇒ 悬停时**画面不变**（⛔ 不静默）。");
+                                       + "`Background` 下没有**可染色**的 quad ⇒ 悬停时**画面不变**（⛔ 不静默）。");
                 }
             }
 
@@ -1210,7 +1210,7 @@ namespace CardPresentation
             foreach (var q in go.GetComponentsInChildren<ImageQuad>())
             {
                 q.SetTint(Color.white);
-                q.SetRenderQueue(QBg);
+                q.SetRenderQueue(QBg); if (fancy) { MenuFxMaterials.ApplyOrangeButtonToPurple(q); q.SetVertexTintChannel(true); }   // 🆕 `B-188` 挂 HUE 材质（量高重建也要挂回）· `B-190` 同刻开顶点色通道（那支 shader 没有 `_Color`，色偏走顶点色）
             }
         }
 
@@ -1500,7 +1500,7 @@ namespace CardPresentation
             Texture2D tex; Vector4 border, borderOut; float texW, texH;
             BackgroundSpec(true, out tex, out border, out texW, out texH, out borderOut);
             if (tex == null) return;          // 取不到（异常档）⇒ `BackgroundSpec` 的调用方已出声
-            MenuDraw.Nine(parent, tex, r, border, texW, texH, q, Color.white, true, name, borderOut);
+            { var go = MenuDraw.Nine(parent, tex, r, border, texW, texH, q, Color.white, true, name, borderOut); if (go != null) foreach (var z in go.GetComponentsInChildren<ImageQuad>(true)) { MenuFxMaterials.ApplyOrangeButtonToPurple(z); z.SetVertexTintChannel(true); } }   // 🆕 `B-188` 原版根 Image 挂 `UI Orange Button To Purple` ⇒ 底图换 HUE 材质 · `B-190` 同刻开顶点色通道（判据/口径 → 类尾那一段）
         }
 
         /// <summary>原版那张 fancy 底图**本地 Resources 里没有**（只在源图，导入器没导）⇒ 出声一次，
@@ -1556,6 +1556,77 @@ namespace CardPresentation
             }
             var c = new Context(string.Format(fmt, grantedXp), ToastNotificationType.CollectionGainXP);
             return ShowNotification(c);
+        }
+
+        // ============================================================ `B-188`：根底图的 HUE 材质（追加在类尾）
+        //
+        // ============================ 判据（原版实读，2026-11-01）============================
+        // · 材质 `UI Orange Button To Purple`（guid **`b4649ed10edec2348bd3205ab1b94b83`**）：
+        //   shader = **`Shader Graphs/Sprite HUE Color change`**，`m_SavedProperties` 只有四格
+        //   `_Hue_Offset 0.679` · `_Contrast 1` · `_Saturation 1` · `_Brightness 0`（无 `_Color`、无贴图槽）。
+        // · **消费者 = 两个 prefab 的【根 GameObject】**（不是子件）：
+        //   `d:/2/tools/assetripper_out/ExportedProject/Assets/GameObject/Toast Collection Level Up.prefab`
+        //   与 `…/Toast Collection Get XP.prefab` —— 两个文件里 `b4649ed10edec…` 各命中 1 处，都在
+        //   `m_GameObject: {fileID: …}` 指**根**（`m_Father: {fileID: 0}`）的那个 `UnityEngine.UI.Image`
+        //   （`m_Script = guid d3e719b59ab71ba3f6b398058c866280`）的 `m_Material` 上；
+        //   同一颗 Image 的 `m_Sprite` = `WF_UI_Generic_FancyNotification_Background`、`m_Type = 1`(Sliced)、
+        //   `m_PixelsPerUnitMultiplier = 1.3`、`m_Color = 白`。
+        //   ⚠️ `B112W_B08_接线图.md` §3·C 第 34 行把消费者写成 `…/Upgrade Panel/Content/Title`（另一个
+        //   scene 里的同名材质），与本条**不是同一处**；以 prefab 这两个消费者为准（本文件 §顺手发现 3 的存疑另记）。
+        // · 原版**悬停色偏照样生效**：`EverguildButton.m_Transition = ColorTint` → uGUI 走
+        //   `CanvasRenderer.SetColor`（顶点色），而这支 shader 的 PS 末句是 `mul o0.xyzw, r0.xyzw, v2.xyzw`
+        //   （`工具/disasm_dxbc.py "Sprite HUE Color change"` 实读）⇒ **乘顶点色**，所以「根 Image 有色偏」
+        //   与「材质没有 `_Color`」在原版里并不矛盾。
+        //
+        // ============================ 我们的结构与落差（如实标注）============================
+        // · 本仓的 toast 根是**裸 `RectTransform`**（`Node(...)`，见 `BuildLevelUp` / `BuildGetXP`），
+        //   可见的「根 Image」= 子节点 `Background` 的那套九宫格 quad
+        //   ⇒ 材质挂在**那九块**上（`FancyBackground` 建的时候挂一次、`RebuildBackground` 量高重建时再挂一次）。
+        //   ⛔ **没有**为了挂材质把根改成 `Image`/`ImageQuad`（节点结构不动）。
+        // · ✅ **`B-190` 已补齐（2026-11-01）**：`ImageQuad.SetTint` 原本只写 `sharedMaterial.color`（= `_Color`），
+        //   而原版这支 shader **没有 `_Color`** ⇒ 悬停色偏会整层落空。补齐走的是**原版那条路**：
+        //   给 `ImageQuad` 加**顶点色染色**通道（`SetVertexTintChannel` / `SetVertexTint`），
+        //   底层判据 = 原版 uGUI `CrossFadeColor` 走 `CanvasRenderer.SetColor`（顶点色）+ 这支 shader 的
+        //   PS 末句 `mul o0.xyzw, r0.xyzw, v2.xyzw`（乘 `COLOR`）—— 证据见 `ImageQuad.cs` 类尾那一段。
+        //   ⚠️ **另写一支带 `_Color` 的等价 shader**（原方案 ②）没做：那会把原版材质参数表**多塞一格**
+        //   （原版属性表里没有 `_Color`），与「照原版复刻」相悖；而且顶点色这条路本来就已在原版跑着。
+        //   ⚠️ 通道的开关**与材质挂载同刻**（`FancyBackground` 建时一次、`RebuildBackground` 量高重建时一次）
+        //   ⇒ 重建出来的新块天然带着通道，不依赖调用方补。
+        static bool _loggedHueVertexRoute;
+
+        /// <summary>`Background` 九宫格里**该跟着 `WindowButton` 变色的那一批**（给 `WindowButton.TintOn`）。
+        /// <para>🆕 **`B-190` 起不再剔除任何一块**：挂了我们 `B-188` HUE 材质的那几块 shader 没有 `_Color`，
+        /// 于是这里给它们**打开顶点色通道**（`SetVertexTintChannel(true)`）—— 之后 `SetTint` 走 `Mesh.colors`，
+        /// 不再去碰不存在的 `_Color`；有 `_Color` 的那些（如缺 shader 时退回的 `Sprites/Default`）**原样不动**，
+        /// 继续走材质色。两条路都只乘**一次**（顶点色那一支不写 `_Color`）。</para>
+        /// <para>⚠️ 这里再开一次是**幂等兜底**：正常调用链上通道已在建块时开好（见
+        /// `FancyBackground` / `RebuildBackground`），这一句兜住「别处新建、没走那两条」的块。</para></summary>
+        static ImageQuad[] HueTintableQuads(ImageQuad[] quads)
+        {
+            if (quads == null || quads.Length == 0) return quads;
+            int vertex = 0;
+            for (int i = 0; i < quads.Length; i++)
+            {
+                if (quads[i] == null || HasColorProp(quads[i])) continue;
+                vertex++;
+                quads[i].SetVertexTintChannel(true);
+            }
+            if (vertex > 0 && !_loggedHueVertexRoute)
+            {
+                _loggedHueVertexRoute = true;
+                Debug.Log("[ToastNotifications] `Toast Collection Level Up` / `Get XP` 的根底图挂着原版 "
+                        + "`UI Orange Button To Purple`（shader `Shader Graphs/Sprite HUE Color change`）—— "
+                        + "那支 shader 没有 `_Color`，已给这几块开**顶点色染色**通道（原版 uGUI 色偏就是顶点色）。"
+                        + " hover/按下的色偏按这条通道生效。");
+            }
+            return quads;
+        }
+
+        static bool HasColorProp(ImageQuad q)
+        {
+            if (q == null) return false;
+            var mr = q.GetComponent<MeshRenderer>();
+            return mr != null && mr.sharedMaterial != null && mr.sharedMaterial.HasProperty("_Color");
         }
     }
 }

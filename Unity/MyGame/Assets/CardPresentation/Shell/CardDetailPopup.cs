@@ -1237,7 +1237,7 @@ namespace CardPresentation
             // 🔴 **每格一个独立的渲染队列**（越靠前台越高）—— 判据与坑（为什么必须走 `.material`）→ `CardFan`。
             //    ⚠️ **这一段必须落在【遮罩之上】**（`QShade = 3105`）：原来卡格在 `3009–3017`、遮罩在 `3110`
             //    ⇒ **整叠卡被压暗了一半**（2026-09-28 实拍量出来的，见本文件头部那段订正）。
-            CardFan.ApplyQueues(SlotViews, SlotCount, QCardStack);
+            CardFan.ApplyQueues(SlotViews, SlotCount, QCardStack); if (SlotViews[0] != null) CardDisplayEffects.BuildUnder2DCard(SlotViews[0].FaceRoot);   // 🔴 2026-11-01（`B-195`/`B-196`）：原版这一层挂在**主卡 `2DCard`** 下（`2DCard ▸ {Level Up Effect, 10 颗粒子}`），⛔ 不是战斗窗的层根；换算 `s = 1`（原版单位 == 我们的 `2DCard` 局部单位）
             _swapping = false;
             Debug.Log($"[CardDetail] 卡片那一叠：**{SlotCount} 格**（1 主卡 + {Mathf.Max(0, SlotCount - 1)} 相关卡）"
                     + " —— 扇形：槽 0–4 照原版 clip `Card Display Open`，槽 5–8 是**我们外推的**（正本 §8·7）");
@@ -2953,17 +2953,17 @@ namespace CardPresentation
         /// <summary>升级成功之后的挂点（= 原版 `UpgradePanel.TryUpgrade` 里 `levelUpAnimationController.DoAnim()` 那一跳）：
         /// 实例化/复用组件 → 接线 → `DoAnim()`。**唯一调用点 = `DoUpgrade()` 末尾**（与 `RebuildKeepingState()` 同一行）。
         /// <para>⚠️ 顺序是「**先重建、再这一句**」：升级要**立刻**看得见新卡框（2026-10-18 用户口径）+ 面板计数刷新；
-        /// 原版是 1.45 s 的 `ChangeFrame` 才换框 ⇒ 我们**在 0 s 就换了那一次**（如实标注：同档位多重建一次，
-        /// 画面无跳变 —— `Build()` 幂等，且 `ChangeFrame` 那一次也同样重建）。</para></summary>
+        /// 🔴 组件挂在**主卡 `CardView` 根**（原版 `CardUI`）上，不是窗根 —— 动画事件是 `SendMessage` 到 `Animation` 所在 GO，两者必须同 GO；
+        /// 卡被重建过就重挂（`Animation` 随之重挂）。1.45 s 那一次**只就地换框、不重建**（见 `OnLevelUpChangeFrame`）。</para></summary>
         void PlayUpgradeAnimation(int afterLevel)
         {
             if (Card == null) return;
             bool created = false;
-            if (LevelUpEffect == null)
-            {
-                LevelUpEffect = GetComponent<CardDisplayLevelUp>();
-                if (LevelUpEffect == null) { LevelUpEffect = gameObject.AddComponent<CardDisplayLevelUp>(); created = true; }
-            }
+            // 🔴 宿主 = **主卡（槽 0）的 `CardView` 根**（原版 `MainMenu Warpforge.unity` 的 `…/Cards/CardUI`，GO &88）⇒ clip 的 `2DCard/...` 相对这张卡解析
+            var host = SlotView(0);
+            if (host == null) { Debug.LogWarning("[CardDetail] 升级动画：主卡（槽 0）没建出来 ⇒ 没有宿主，本次不播（⛔ 不静默）"); return; }
+            LevelUpEffect = host.GetComponent<CardDisplayLevelUp>();   // 卡被重建过 ⇒ 旧组件随旧卡销毁（Unity 假 null）⇒ 这里会重挂
+            if (LevelUpEffect == null) { LevelUpEffect = host.gameObject.AddComponent<CardDisplayLevelUp>(); created = true; }
             // 抖**窗根**：菜单层没有相机（施工单 178 风险栏）⇒ 等价物 = 抖窗容器（先例 `BoosterPackOpenWindow.StepBursts`）。
             // 量纲安全：窗根挂在 `WindowHolder`（`ShellRuntime` 的 `Shell` 根下、`localScale = 1`）
             // ⇒ `LayoutSpace.Px` 的 108 px/世界单位成立；抖完组件会把 `localPosition` 还原（自检里有一条断言钉它）。
@@ -2974,7 +2974,7 @@ namespace CardPresentation
             EnsureUpgradeAnimation();   // `Level Up Card`（`Resources/Animations/`）挂到 `myAnimation`；缺 clip 时保持空并出声
             RewireLevelUpTargets();
             // 原版组件那条 `OnEnable`（三张图 α 归零）在这一档必须**显式补**：
-            //   ① 组件的 GO 一直是活的（= 窗根），`AddComponent` 那一下三格**还没接线** ⇒ `FadeOutImages` 什么都没淡；
+            //   ① 组件的 GO 一直是活的（= 主卡根，`DoUpgrade` 刚重建完就重挂），`AddComponent` 那一下三格**还没接线** ⇒ `FadeOutImages` 什么都没淡；
             //   ② 编辑模式/批处理下 `AddComponent` **根本不触发** OnEnable（本工程踩过）。
             // 只在**建出来那一次**补（= 原版「每次启用一次」的口径）；顺手让 `FadeOutImage` 的「没接线」警告**响一次**。
             if (created) LevelUpEffect.FadeOutImages();
@@ -2995,13 +2995,13 @@ namespace CardPresentation
             LevelUpEffect.DoAnim();
         }
 
-        /// <summary>`ChangeFrame` 的换框落点（原版 ② `upgradePanel.ChangeFrameOnLevelUp()`）。
-        /// 卡框档 = `CardProgress.Level`（`CardView.Build` 里取）⇒ **重建即换档**，⛔ 不在这里另算 tier。</summary>
+        /// <summary>`ChangeFrame` 的换框落点（原版 ② `upgradePanel.ChangeFrameOnLevelUp()` → `BasicCardUI.RefreshCardVisualEffects` → `CardTierUIController.SetTier`）。
+        /// 🔴 **就地换框、⛔ 不重建**（原版只对两颗已存在的 `Image` 换 sprite）—— 重建会把这卡上的 `Animation` 一起销毁 ⇒ 3.48 s 的 `AnimationFinished` 永不到、输入锁死。</summary>
         void OnLevelUpChangeFrame()
         {
-            RebuildKeepingState();
-            // 🔴 重建把子件换掉了 ⇒ 三格「可淡图」必须**重指**：不重指的话下面 ③ 的背景淡出会落在一批
-            //    已销毁的引用上 = `FadeImage.Valid` 为假 ⇒ SetAlpha 直接 return（**静默什么都不做**）。
+            var cv = SlotView(0); if (cv != null && cv.RefreshTier()) Debug.Log("[CardDetail] 升级换框（1.45 s）：主卡**就地**换到新档卡框（原版 `SetTier` 语义；⛔ 不重建 ⇒ 卡上的 `Animation`/`CardDisplayLevelUp` 存活）");
+            // 🔴 换框不再销毁子件（见上），但三格「可淡图」仍要重指一次 —— 光效层随 `Build()` 重建时它们会换引用
+            //    （`FadeImage.Valid` 为假 ⇒ `SetAlpha` 直接 return = 静默什么都不做）。
             RewireLevelUpTargets();
         }
 
@@ -3371,7 +3371,7 @@ namespace CardPresentation
         // ============================================================ 升级 clip 的运行时路径（2026-10-27 `B9_W37CLIP`）
         // 判据：原版 `DoAnim` 第 ② 跳是 `myAnimation.Play()`（无参 ⇒ 播组件上的默认 clip），而 `myAnimation`
         //   是原版序列化字段（`CardDisplayLevelUpAnimationController.myAnimation`）⇒ 我们这侧等价物 =
-        //   给**窗根**挂 `Animation` 并把 `Level Up Card` 设成默认 clip（事件由 `SendMessage` 回调同名方法）。
+        //   给**主卡（槽 0）的 `CardView` 根**挂 `Animation` 并把 `Level Up Card` 设成默认 clip（事件由 `SendMessage` 回调同名方法）。🔴 **2026-11-01（`B112W_B149`）就地订正**：原来挂「窗根」是错的 —— 原版 `Animation` 在 `…/Cards/CardUI`（展示卡本身），而 clip 10 条 path 全是 `2DCard/...` / `Lighting Rays`（相对那张卡）；挂窗根 ⇒ **一条都解析不到**。
         // 🔴 **`m_AnimationClipSettings.m_StopTime = 1` 不是 legacy clip 的 length**（本波已证：原版 66/66 条
         //   `m_Legacy: 1` 全都是 1；该字段只在 `UnityEditor.CoreModule.dll` 里存在、`UnityEngine.CoreModule.dll` 里 0 命中）。
         //   length = **曲线最晚键** ⇒ `Level Up Card` 的 3.4833 s，两条事件（1.45 / 3.4833）都在跨度之内。
@@ -3386,8 +3386,8 @@ namespace CardPresentation
             var fx = LevelUpEffect;
             if (fx == null) return;
             if (fx.myAnimation != null && fx.myAnimation.clip != null) return;   // 已经接过
-            var anim = fx.myAnimation != null ? fx.myAnimation : GetComponent<Animation>();
-            if (anim == null) anim = gameObject.AddComponent<Animation>();
+            var anim = fx.myAnimation != null ? fx.myAnimation : fx.gameObject.GetComponent<Animation>();   // 🔴 必须与 `CardDisplayLevelUp` **同 GO**（动画事件是 `SendMessage`）；宿主 = 主卡根
+            if (anim == null) anim = fx.gameObject.AddComponent<Animation>();
             var clip = Resources.Load<AnimationClip>(UpgradeAnimResourcePath);
             if (clip == null)
             {

@@ -18,18 +18,18 @@
 //   ③ 我们这边：本窗（`CardDetailPopup`）**只有一张卡**（槽 0，见 `RewireLevelUpTargets` 那条 doc）
 //      ⇒ 天然满足「只有一张」。`inheritChild` = `SlotView(0).FaceContentRoot`（= `CardView` 的 `2DCard/Front`）。
 //
-// 🔴 **④ 本窗没有 `Level Up Effect` 节点（结构性缺口，如实记）**：
-//    `Level Up Effect` / `…Down` 只在 `Shell/CardDisplayEffects.cs` 建的那一层里，而那一层**只有一个调用点**——
-//    `Battle/CardDisplayWindow.cs:646`（`_fx = CardDisplayEffects.Build(_cards, …)`，那扇「卡片展示窗」）。
-//    本窗（`CardDetailPopup`）**不建**它（同族事实：`RewireLevelUpTargets` 里 `levelUpEffect1/2` 也一直是空，
-//    文件自己的注释写着「我们这棵树上没有那三格」）。
-//    ⇒ `inheritTarget = FindNewest("Level Up Effect")` **今天只能是 null**，`CardDisplayLevelUp` 会**出声一次**
-//      并**不开窗**（⛔ 不是静默）。要让它真生效，得满足二者之一（**都不在本代理白名单**）：
-//        a) 本窗也建那一层光效（`Shell/CardDisplayEffects.cs` 一族的活），或
-//        b) 把这一跳搬到**真有那个节点的那扇窗**上跑（`Battle/CardDisplayWindow` 有 `Front` 也有 `Level Up Effect`）；
-//      并注意原版里两者是**同一个 `2DCard` 下的同级兄弟**，而我们这边 `Front` 在 `CardView` 内部、
-//      `Level Up Effect` 在 `Card Display Effects` 层根下 —— **不同父**（见 `报告/B111_F1C.md` §五·2）。
-//    ⛔ 本文件**不伪造**一个 target（例如拿窗根/卡根顶替）—— 那会让「钉住」变成原版没有的行为。
+// 🔴 **④ 旧口径「本窗没有 `Level Up Effect` 节点」已作废（2026-11-01 `B-195`/`B-196` 已补 ⇒ 主卡 `2DCard` 下真的建了它）**：
+//    `CardDetailPopup.BuildCardStack` 现在调 `CardDisplayEffects.BuildUnder2DCard(SlotViews[0].FaceRoot)`
+//    ⇒ 那 4 条图件 + 10 颗粒子直接建在**主卡的 `2DCard`** 下（原版 `CardUI ▸ 2DCard ▸ …`），换算 `s = 1`。
+//    ⇒ `inheritTarget = FindNewest("Level Up Effect")` 现在**找得到**；它和 `Front` 是**同一个 `2DCard` 下的
+//    同级兄弟**（原版如此，见 `报告/B112W_B149_B195_B196.md`）。
+//    ⚠️ 旧口径（「本窗不建、恒 null」）的根因是那一层原来只建在 `Battle/CardDisplayWindow` 的层根下 ——
+//      那是**错窗 + 错父件**（`B-195`），两个错已一并修掉。
+//    ⛔ 本文件**仍然不伪造**一个 target（例如拿窗根/卡根顶替）—— 那会让「钉住」变成原版没有的行为；
+//      目标只能来自**精确名** `FindNewest("Level Up Effect")`。
+//    ⚠️ 仍然生效的边界：`FindNewest` 是从**窗根**按「最新那棵子树」往下找，而光效层在主卡内部 ⇒ 能命中；
+//      若将来把光效层挪出主卡，这条又会静默变 null（`CardDisplayLevelUp` 会出声一次，⛔ 不是静默）。
+//    📌 判据（原版一手）：`MainMenu Warpforge.unity` 的 `!u!111 &622`（`Animation`）在 `GO 88 = …/Cards/CardUI`，其下 `!u!224 &1323`（`2DCard`）→ `!u!224 &1126`（`Level Up Effect`）`m_Father: 1323`。
 // ─────────────────────────────────────────────────────────────────────────────
 using UnityEngine;
 
@@ -40,7 +40,7 @@ namespace CardPresentation
         /// <summary>本窗那张卡的 `2DCard/Front`（原版 `inheritChild` 那一格；由 <see cref="BindLevelUpInheritTargets"/> 填）。</summary>
         public Transform LevelUpInheritChild { get; private set; }
 
-        /// <summary>原版 `2DCard/Level Up Effect`。⚠️ **本窗不建这个节点** ⇒ 今天恒 `null`（见文件头 ④）。</summary>
+        /// <summary>原版 `2DCard/Level Up Effect`。✅ **2026-11-01（`B-195`/`B-196`）起本窗真的建了它**（主卡 `2DCard` 下，见文件头 ④）。</summary>
         public Transform LevelUpInheritTarget { get; private set; }
 
         /// <summary>`inheritTarget` 为空这件事只解释一次（⛔ 不刷屏，也不静默）。</summary>
@@ -69,8 +69,8 @@ namespace CardPresentation
             if (LevelUpInheritTarget == null && !_warnedNoInheritTargetB111F1D)
             {
                 _warnedNoInheritTargetB111F1D = true;
-                Debug.Log("[CardDetail] 升级动画的 `inheritTarget` **接不上**：本窗不建 `Level Up Effect` 节点"
-                        + "（那一层只在 `Battle/CardDisplayWindow` 里由 `CardDisplayEffects.Build` 建）"
+                Debug.LogWarning("[CardDetail] 升级动画的 `inheritTarget` **接不上**：主卡 `2DCard` 下没有 `Level Up Effect`"
+                        + "（`BuildCardStack` 里那句 `CardDisplayEffects.BuildUnder2DCard` 没建成 / 判据 JSON 或材质缺）"
                         + " ⇒ 原版 clip 的 `2DCard/Front · inheritPosition/inheritRotation`（0→1.45 s 钉住）**不生效**"
                         + "（`CardDisplayLevelUp` 那边也会再出声一次）。`inheritChild` = "
                         + (LevelUpInheritChild != null ? LevelUpInheritChild.name : "**空**"));

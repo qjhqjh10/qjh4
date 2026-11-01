@@ -76,8 +76,12 @@ Unity 的两个事实（本项目已两处记档：`判据/B108_AUD09_纹理格�
 **A. 贴图采样（4,628 份）** — 🟢 **低风险 / 大部分是「变对」**
 Gamma 下旗标变 no-op ⇒ 全部按 `raw` 采，**这正是原版的行为**。`sRGB=0` 的那 151 张（数据图）本来就该 raw，不受影响。
 
-**B. 自建 shader 的 `LinearToSrgb()` 桥（13 份 / 32 处）** — 🔴 **高风险 / 必改**
-这些调用是**为了在 Linear 管线里模仿原版在 gamma 空间做的运算**。切到 Gamma 后它们变成**二次编码** ⇒ 这些效果会整体变暗/变色。
+**B. 自建 shader 的 `LinearToSrgb()` 桥（13 份 / 32 处）** — 🔴 **高风险 / ~~必改~~** → 🔴🔴 **2026-11-01 就地订正：⛔ 不要改，它们必须保留**
+~~这些调用是为了在 Linear 管线里模仿原版在 gamma 空间做的运算。切到 Gamma 后它们变成二次编码 ⇒ 这些效果会整体变暗/变色。~~
+**实际不成立**：这些调用是**原版字节码的逐字复刻**，不是 Linear 补偿 —— `_tmp_view/dxbc/` 的 27 份反汇编里 **9 份**命中 sRGB 编码常量 `0.003131 / 12.9232 / 1.055`（`matcap_with_tex` · `multi_ray` · `dissolve_mask` · `alpha_masks_two` · `premul_grey` · `trailshader1` · `unlit_uvscroll` · `extra_color_vs`）。
+原版在 **Gamma** 下：属性原值 `C` → shader `encode(C)` → 无管线编码 → 最终 `encode(C)`。我们切 Gamma 后**逐位相同**；切前（Linear）反而是 `SetVector` 灌原值 + shader 编码 + 管线再编码 = **双重编码**。
+⇒ **切 Gamma 就是它们的「归位」**；删掉会把 13 个特效改成原版不做的样子。同样保留 `WFUIGlowSdfNoise.shader:147` / `WFUIDivisionChange.shader:131` 的手写 `LinToGamma*`。
+📌 全过程与判据 → `报告/B167_色彩空间切Gamma.md` §二。
 必改清单（非注释调用点数）：`WFMultiRay` 5 · `WFEclipseTau` 3 · `WFMatcap` 3 · `WFParticleDissolveMask` 3 · `WFParticlePremultiplyGreyscale` 3 · `WFUnlitAmbient` 3 · `WFAlphaMasksTwoLayer` 2 · `WFDoomweaverEffect` 2 · `WFParticlePremultiply` 2 · `WFParticlesExtraColorEC` 2 · `WFUnlitUVScroll` 2 · `WFTrailShader1` 1 · `WFTrailShaderFading` 1。
 ⚠️ 另有 3 份 shader 是**手写的 gamma 编码常量**而不是调 `LinearToSrgb`：`CardPresentation/Resources/Shaders/WFUIGlowSdfNoise.shader:147` 的 `LinToGamma()`、`WFUIDistort` / `WFUIDivisionChange` —— 一并要查。
 
@@ -119,7 +123,7 @@ Gamma 下旗标变 no-op ⇒ 全部按 `raw` 采，**这正是原版的行为**�
 | 阶段 | 做什么 | 前置 | 验收 |
 |---|---|---|---|
 | **一（本批）** | 资产级：按 §三 把「数据类」的 `sRGBTexture` 改 0；压缩档按 §四 提到 BC7 / 未压缩。**不动项目开关** | 无 | 跑一次受影响宿主；难点是 `.meta` 在 gitignore 里（见 §五） |
-| **二（独立批次）** | ① `m_ActiveColorSpace: 1 → 0`；② 清掉 13 份 shader 的 32 处 `LinearToSrgb` + 3 份手写 gamma 函数；③ 重跑 `EffectCompare` 全量 sweep；④ 重校 13 套 `*_PostFx` + `DefaultVolumeProfile`；⑤ 卡面/UI 整体重看 | 用一次完整会话 + 能反复跑 Unity 的时间窗 | ① `EffectCompare` 全量 `>0.30` 归零；② 四宿主截图与之前比、差异能逐条解释；③ 真 Play 一轮 |
+| **二（独立批次）** | ① `m_ActiveColorSpace: 1 → 0`（**2026-11-01 已做**）；② ~~清掉 32 处 `LinearToSrgb`~~ → 🔴 **订正：不要删，它们是原版字节码的复刻（见 §2·2 B）**；③ 重跑 `EffectSweepBatch` 两趟 + `analyze_sweep`；④ 重校 13 套 `*_PostFx` + `DefaultVolumeProfile`；⑤ 卡面/UI 整体重看 | 用一次完整会话 + 能反复跑 Unity 的时间窗 | ① sweep `>0.30` 归零；② 四宿主截图与之前比、差异能逐条解释；③ 真 Play 一轮 |
 | **回滚** | 只改一行（`m_ActiveColorSpace`）就能回去，但**shader 那 32 处必须一起回滚**，否则会回到「桥 + 桥」的双重编码 | —— | git 分支 |
 
 ⚠️ **一句话记住**：**Phase 1 是「止损」，Phase 2 是「归位」**。Phase 1 无论如何都该做；Phase 2 要不要做，请用户点头后按上表走。
@@ -164,6 +168,12 @@ Gamma 下旗标变 no-op ⇒ 全部按 `raw` 采，**这正是原版的行为**�
 —— 全员 `sRGB=1 · enableMipMap=1 · textureCompression=1 · nPOTScale=1`，而
 `CardPresentation/Battle/WarpforgeVatDriver.cs:40-43` 白纸黑字要求 **`sRGBTexture: 0` · `textureCompression: 0` · `enableMipMap: 0` · `nPOTScale: 0`**（VAT 顶点数据、28×41 是 NPOT）。
 **判定 = 真缺陷（隐患）**：这 12 个 guid 在 `Assets/**` 的 prefab/material/asset/unity 里 **0 次引用**，prefab 用的是 `WarpforgeVFX/Textures/` 那两份副本。谁把它们接回去，就会 NPOT 重采样 + 数据被压 + gamma 解码，VAT 直接错乱。
+
+> 🔴 **2026-11-01 就地订正（`B111W` 现读）**：上面这段有三处不准确 ——
+> ① **真正被 prefab 引用的那 12 份副本早就对了**：`WarpforgeVFX/Textures/` 下同名副本现读 `sRGB=0 · nPOT=0 · mip=0 · comp(Default)=0`，是 `EffectExporter.RestoreVatTextures()`（`EffectExporter.cs:782-820`，`:802` 只 `File.Copy` 读 PNG、**不读那份 meta**）自己写的，重跑导出器也不会冲掉。引用证据：`RemnantBody3D Necrons.prefab` 引 10 份、`Vanguard Frame Animated VAT.prefab` / `VanguardIdleEffect.prefab` 各引 2 份。
+> ② **`nPOTScale` 现读 12/12 都是 `0`**（不是写的 `1`）；四项里只差 `mip` 与 `comp`。
+> ③ **「28×41 是 NPOT」只覆盖 Vanguard 两张**；Remnant 那 10 张实测是 **150×15 / 75×15**。
+> ⇒ 「手改 12 份 `Runtime/Vat/*.meta`」改的是**没人用的那份**；剩的真欠账只有 `mip`/`comp`/`format`（0 引用、不影响画面）。判据全文 → `判据/B111W_B115_B110_现状复核.md`。
 
 ### 3·4 B 组 · 纯输出色（R2）· 保持 `sRGBTexture: 1` · 10 条
 

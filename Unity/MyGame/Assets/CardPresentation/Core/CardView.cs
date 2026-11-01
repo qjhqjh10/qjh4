@@ -15733,5 +15733,62 @@ namespace CardPresentation
                 if (t.name == "Booster Animation Parent") return true;
             return false;
         }
+
+        // ==================================================================
+        //  🆕 2026-11-01（`B112W_B149`）：**就地换卡框档（不重建卡）** = 原版 `CardTierUIController.SetTier` 的等价物
+        // ==================================================================
+        //  判据（第一权威，`d:/2/tools/decomp_full/`，2026-11-01 现读）：
+        //    `BasicCardUI__RefreshCardVisualEffects.c` ⇒ 全文只有一句
+        //        `CardTierUIController__SetTier(cardTierUI, rawCardData, tier, 0)`
+        //    `CardTierUIController__SetTier.c`          ⇒ `GetClanFrame(army, tier, cardType, 0)` 拿到两张图，
+        //        对**已存在**的两颗 `Image` 各做一次 `set_sprite`（`+0x38` / `+0x40`）—— **不销毁、不重建任何节点**。
+        //  ⇒ 原版 1.45 s 的换框 = 「**就地换两张贴图**」。本方法照这个语义落：
+        //    只换 `_frame` / `_shadowLayer` 的贴图 + 按新卡框重算那几块**由卡框派生的**网格与 `_info`，
+        //    ⛔ **不建/不毁任何 GameObject**（这样卡上的 `Animation` 与 `CardDisplayLevelUp` 存活，
+        //    `Level Up Card` 的后半段与 `AnimationFinished`(3.48 s) 才会到 —— 见 `CardDetailPopup.OnLevelUpChangeFrame`）。
+        //  ⚠️ 为什么不是 `Build(Data)`：`Build` 里每个 `AddLayer` 都会 `new GameObject`（且**不先清旧层**，
+        //    见 `AddLayer`）⇒ 重入一次就**整卡层数翻倍**，它**不是幂等的**。本方法因此只重算**值**。
+        //  ⚠️ 换掉 `_frameTex` 之后，`HitAt` / `StatWorld` 里那几处 `CostAt01(_frameTex)` / `StatAt01` 是
+        //    **调用时**才算 ⇒ 命中区自动跟上，不必在这里再刷一遍。
+        /// <summary>把这张卡**就地**换到它当前等级对应的卡框档（原版 `UpgradePanel.ChangeFrameOnLevelUp`
+        /// → `BasicCardUI.RefreshCardVisualEffects` → `CardTierUIController.SetTier`）。
+        /// <para>返回 `true` = 真的换了（卡框贴图变了）；`false` = 没建卡 / 场上形态 / 档位没变
+        /// （含没有原版卡框的占位卡面）。</para>
+        /// <para>⛔ **不重建卡**：销毁重建会把挂在这张卡上的 `Animation` 一起毁掉，后半段动画与
+        /// `AnimationFinished` 就永远不会到（静默死锁，`CardDetailPopup.UpgradeAnimLocked` 会一直 true）。</para></summary>
+        public bool RefreshTier()
+        {
+            if (_tiltRoot == null) return false;                      // `Build` 没跑过（占位/未建）
+            if (_faceMode == CardFace.Board) return false;            // 场上不画 2D 卡面（3D 体那条路）
+            var frameTex = CardArt.Frame(Data.faction, Data.rarity, !Data.isUnit, CardTierFor(Data));
+            if (frameTex == null || frameTex == _frameTex) return false;   // 占位卡面 / 档位没变
+            _frameTex = frameTex;
+            // ① 卡框（原版 `SetTier` 第一次 `set_sprite`）
+            if (_frame != null && _frame.sharedMaterial != null) _frame.sharedMaterial.mainTexture = frameTex;
+            // ② 软光/影那张 SDF（原版 `SetTier` 第二次 `set_sprite`；`CardArt.Sdf` 与 `Frame` 同一档口径）
+            var sdfTex = CardArt.Sdf(Data.faction, Data.rarity, !Data.isUnit, CardTierFor(Data));
+            if (_shadowLayer != null && _shadowLayer.sharedMaterial != null && sdfTex != null)
+                _shadowLayer.sharedMaterial.mainTexture = sdfTex;
+            // ③ 三块**按卡框烘**的网格（`_art` / 卡框 uv2 / `_artFront`）—— 现成入口，与状态切换共用一份判据
+            RebakeArtMeshes();
+            // ④ 稀有度宝石的落点跟卡框走（`GemMesh` → `FaceGemAt01(_frameTex)`）
+            if (_gem != null)
+            {
+                var gmf = _gem.GetComponent<MeshFilter>();
+                if (gmf != null) gmf.sharedMesh = GemMesh(frameTex);
+            }
+            // ⑤ 数值/费用那张烘图（`InfoTexture` 的缓存键**带 `frameTex`** ⇒ 必须重取）
+            if (_info != null && _info.sharedMaterial != null)
+                _info.sharedMaterial.mainTexture = InfoTexture(Data, _faceMode == CardFace.Board, SplitStats(Data), frameTex);
+            // ⑥ 四个数值 TMP 的落点（`StatAt01` 读 `_frameTex`）—— 与 `Build` 里建它们那一处逐字同一算式
+            for (int s = StatMelee; s <= StatHealth; s++)
+            {
+                var c = _faceStatContainer[s];
+                if (c == null) continue;
+                var at = StatAt01(s, false, frameTex);
+                c.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, InfoZ);
+            }
+            return true;
+        }
     }
 }

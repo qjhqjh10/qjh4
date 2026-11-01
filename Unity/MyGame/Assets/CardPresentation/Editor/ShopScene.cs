@@ -1051,8 +1051,13 @@ public static class ShopScene
     {
         var q = t != null ? t.GetComponentInChildren<ImageQuad>() : null;
         if (q == null) return new Color(0f, 0f, 0f, 0f);
-        var mr = q.GetComponent<MeshRenderer>();
-        return mr != null && mr.sharedMaterial != null ? mr.sharedMaterial.color : new Color(0f, 0f, 0f, 0f);
+        // 🔴 2026-11-01（`B112W_B190`/`R2`）：**染色有两个通道** —— `_Color` 与**顶点色**。
+        //   `UI Border Highlight Appear` 那一族原版 shader **属性表里没有 `_Color`**
+        //   （DXBC 现读：PS 末句 `mul o0.xyzw, r0.yzwx, v2.xyzw`，`v2` = 顶点色）
+        //   ⇒ B-08 已把它们改走顶点色通道。这里再读 `sharedMaterial.color` 会拿到 0 并触发
+        //   `Material … doesn't have a color property '_Color'`。
+        //   `ImageQuad.Tint` 两个通道都兜住（通道未开时**逐字等于**原来那句）⇒ 直接用它。
+        return q.Tint;
     }
 
     static string TextOf(Transform t)

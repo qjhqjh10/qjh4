@@ -8871,6 +8871,20 @@ public static class RewardsScene
             var pvHolder = pvNormal != null ? FindChild(pvNormal, "Reward Holder") : null;
             Check(ArtOf(pvHolder), DailyData.RewardIconOf(pvDay, false),
                   "命中件建在图标**之后** ⇒ `ArtOf(Reward Holder)` 仍取到图标（不变成命中件的透明底）");
+            // 🆕 2026-11-01（B111W · B-57 的 N138③ 第 5 条）：**抽屉不是占位板** ——
+            //   `ArtOf` 在占位板情况下也会返回一张图名（`CardArt.Solid()`），而 `MissingArt` 只看窗自己的 `Art()`
+            //   ⇒ 「退化成占位板」今天没有任何断言能看见。判据 = `Shell/ItemDrawer.cs:849-850/1305/1317`。
+            var pvDrawerRoot = pvHolder != null ? FindChild(pvHolder, "Item Drawer") : null;
+            var pvIconNode = pvDrawerRoot != null ? FindChild(pvDrawerRoot, ItemDrawer.NodeIcon) : null;
+            CheckTrue(pvDrawerRoot != null,
+                      "★ N138③：`Reward Holder` 下面是**真抽屉** `Item Drawer`（原版 `ItemDrawer.Draw` 那一层，`Shell/ItemDrawer.cs:849-850`）"
+                    + "｜🧨 换回裸 `MenuDraw.Rect` ⇒ 红");
+            CheckTrue(pvIconNode != null && ArtOf(pvIconNode) != null,
+                      "★ N138③：…而且抽屉下有 `Icon` 且**真画了图**（`ImageQuad.Texture != null`；`Shell/ItemDrawer.cs:1305`）"
+                    + "｜🧨 图名解析断 ⇒ 只剩占位板 ⇒ 红");
+            CheckTrue(pvDrawerRoot != null && FindChild(pvDrawerRoot, ItemDrawer.NodePlaceholder) == null,
+                      "★ N138③：…而且落的是 `Icon` 档、**不是** `IconPlaceholder` 占位板（`Tex()` 取不到图才会落 `Placeholder()`，`Shell/ItemDrawer.cs:1317`）"
+                    + " —— 这是 `MissingArt` 看不见的那一半（两条路不同源）｜🧨 `CardArt.MenuUi` 与 `Tex` 分家 / 图被拿走 ⇒ 红");
 
             // ④ 真点它 ⇒ 开 Preview 态 RewardWindow，带 2 条奖励
             int goldBefore = Wallet.Of("40k_topmarquee_currency_gold");
@@ -9680,6 +9694,15 @@ public static class RewardsScene
             // ⚠️ **前提**：`drawnArt` 取不到的话，下面那条「窗里的 `Id` = 画的那张图」与「一份都没再发」
             // 都会**空转**（`null == null` / `0 == 0` 恒真）⇒ 先把这一条钉住（本仓「弱断言分不出两种状态」）。
             CheckTrue(drawnArt != null, "（前提）那一格的 `Reward Holder` 画得出来（取不到图名 ⇒ 下面两条会空转成恒真）");
+            // 🆕 2026-11-01（B111W · B-57 的 N138③ 第 5b 条）：连登窗同一件事 —— 抽屉不能退化成占位板。
+            var stDrawerRoot = eClaim != null ? FindChild(FindChild(eClaim, "Reward Holder"), "Item Drawer") : null;
+            var stIconNode = stDrawerRoot != null ? FindChild(stDrawerRoot, ItemDrawer.NodeIcon) : null;
+            CheckTrue(stDrawerRoot != null,
+                      "★ N138③（连登）：`Reward Holder` 下面是**真抽屉** `Item Drawer`（`Shell/ItemDrawer.cs:849-850`）");
+            CheckTrue(stIconNode != null && ArtOf(stIconNode) != null,
+                      "★ N138③（连登）：…而且抽屉下有 `Icon` 且**真画了图**（`Shell/ItemDrawer.cs:1305`）");
+            CheckTrue(stDrawerRoot != null && FindChild(stDrawerRoot, ItemDrawer.NodePlaceholder) == null,
+                      "★ N138③（连登）：…而且落的是 `Icon` 档、**不是** `IconPlaceholder` 占位板（`Shell/ItemDrawer.cs:1317`）");
             int wStreak0 = drawnArt != null ? Wallet.Of(drawnArt) : 0;
 
             var rwStreak = cBtn != null ? ClickCollectAndDismiss(cNode, cBtn, "连登奖格的 `Collect`") : null;

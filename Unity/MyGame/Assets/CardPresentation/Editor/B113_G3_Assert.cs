@@ -18,6 +18,9 @@
 //      🧨 把 `CardProgress.Owned` 的兜底公式改成 `DeckCap`（漏掉 +9）⇒ O-1 红。
 //      🧨 把 `MigrateBadCardAmounts` 的「一条都没修好 ⇒ 不写盘」那道闸去掉 ⇒ O-4c 红（文件被重写）。
 //      🧨 把 `stillBad` 判据从 `> BadCardAmountSentinel` 改成「播种过就算修好」⇒ O-4a 红。
+//      🧨 **`B-161`**：把复核判据改回 `now > BadCardAmountSentinel`（旧口径）⇒ **B161-1e** 红
+//         （`_owned` 毒成 5 时它会被当成「修好」并落盘）；删掉 `RestoreUnfixedAmounts` 的调用 ⇒ **B161-2g** 红
+//         （坏卡会被**同一次 Save** 写成 5）；把挑坏行改成「`!= 基准量`」⇒ **B161-3c** 红。
 //
 // ============================ 怎么接（⚠️ 本代理不动断言宿主）============================
 //  自包含（不建窗、不依赖 UI）。**建议接在 `Editor/CollectionScene.cs:13250` 那条聚合行的最末尾**
@@ -278,6 +281,163 @@ public static class B113_G3_Assert
             Tr(!string.IsNullOrEmpty(Inventories.LastCardAmountMigrationReport)
                && Inventories.LastCardAmountMigrationReport.Contains("修好 1 条"),
                "O-5b 同一份迁移报告此时写 **「修好 1 条」**：" + (Inventories.LastCardAmountMigrationReport ?? "<null>"));
+
+            // ════════════════════════════════════════════════════════════════════════════════════
+            //  🆕 2026-11-01 `B-161`：坏行判据 = 「**低于基准量**」（`Shell/InventoryPartial_B112G.cs`）
+            //    旧判据是 `== 1`（挑坏行）与 `> 1`（复核）⇒ `1 < 数量 < 基准量` 的陈旧值
+            //    （典型来源 = `WarpforgeCardLevels.json` 残留的 `owned[5]`，它压过「给足」公式）
+            //    会被当成「修好了」**静默落盘**。三条各钉一处：
+            //      B161-1 复核判据（播种给 5 ⇒ 仍算**没修好** ⇒ 不写盘）；
+            //      B161-2 **落盘前还原**（同一盘上还有能修好的卡 ⇒ 迁移会 Save ⇒ 坏的那条不许被同一次 Save 写成 5）；
+            //      B161-3 坏行筛选（12 ≥ 基准量 ⇒ 不进 bad、不重算、不备份、不重写）。
+            //    参考值一律走 `FormulaAmount(...)`（= `CardProgress.Owned` 的兜底分支，与 O-5 的 `want` 同一个式子）。
+            // ════════════════════════════════════════════════════════════════════════════════════
+            int oidWant = FormulaAmount(def.Rarity);
+
+            // ---------------- B161-1：`_owned` 毒成 **5**（>1 但 < 基准量）⇒ 播种出来还是 5 ⇒ **没修好**、不写盘 ----------------
+            {
+                string dir1 = Path.Combine(root, "b161_1");
+                Directory.CreateDirectory(dir1);
+                InventoryStore.OverrideDir = dir1;
+                InventoryStore.Delete(CardProgress.InventoryName);
+
+                var info1 = bag.Get(OId);
+                Tr(dOwned != null, "B161-1a **前提**：拿得到 `CardProgress._owned`（反射）—— 没有它就毒不出 5，本条会空转");
+                Tr(info1 != null, "B161-1b **前提**：背包里有 `" + OId + "` 的条目");
+                if (dOwned != null && info1 != null)
+                {
+                    info1.SetAmount(Inventories.BadCardAmountSentinel);
+                    Tr(InventoryStore.Save(CardProgress.InventoryName, bag), "B161-1c **前提**：坏档（`" + OId + "` = 1）写下去了");
+                    string p1 = InventoryStore.StorePath(CardProgress.InventoryName);
+                    Tr(FileHasAmount(File.Exists(p1) ? File.ReadAllText(p1) : null, OId, 1),
+                       "B161-1d **前提**：盘上 `" + OId + "` 的 `amount` **确实是 1**");
+                    byte[] b1 = File.Exists(p1) ? File.ReadAllBytes(p1) : new byte[0];
+
+                    dOwned[OId] = 5;                        // ★ 毒化：> 1 但 < 基准量（旧判据 `now > 1` 正好放过它）
+                    Inventories.ResetCardAmountMigrationForTest();
+                    InventoryStore.Load(CardProgress.InventoryName, bag);
+
+                    Tr(!string.IsNullOrEmpty(Inventories.LastCardAmountMigrationReport)
+                       && Inventories.LastCardAmountMigrationReport.Contains("一条都没修好"),
+                       "B161-1e ★ 播种给 5 仍算**「没修好」**：报告 = " + (Inventories.LastCardAmountMigrationReport ?? "<null>")
+                       + "｜🧨 复核判据改回 `now > BadCardAmountSentinel` ⇒ 报告写「修好 1 条」⇒ 红");
+
+                    byte[] b1After = File.Exists(p1) ? File.ReadAllBytes(p1) : new byte[0];
+                    Tr(SameBytes(b1, b1After), "B161-1f ★ **不写盘**：原档逐字节不变（" + b1.Length + " → " + b1After.Length + " 字节）"
+                       + "｜🧨 放开「一条都没修好 ⇒ 不写」那道闸 ⇒ 盘上被写成 5 ⇒ 红");
+                    Tr(FileHasAmount(File.Exists(p1) ? File.ReadAllText(p1) : null, OId, 1),
+                       "B161-1g 盘上 `" + OId + "` **仍是 1**（不是 5）");
+                    C(bag.Get(OId) != null ? bag.Get(OId).Amount : -1, Inventories.BadCardAmountSentinel,
+                      "B161-1h 内存也回到迁移前（= 1）｜🧨 去掉「一条都没修好」分支里的还原 ⇒ 内存停在 5、"
+                      + "**下一次任何 Save**（`AddOwned` 等）照样把它带走 ⇒ 红");
+                }
+            }
+
+            // ---------------- B161-2：同一盘上「一条修不好（毒 5）」+「一条能修好」⇒ 迁移**会** Save ----------------
+            //    ★ 这条堵的是第三个洞：`InventoryStore.Save` 写的是**整份** `SnapshotAmounts()`
+            //      ⇒ 落盘前不还原的话，那条坏卡（内存里是 5）会**跟着这次 Save 一起写进盘**，
+            //        把盘上原来的 1 悄悄换成 5（= 本条要消灭的「静默写进盘」）。
+            {
+                RuleEngine.CardDef second = null;
+                for (int i = 0; i < pool.Count; i++)
+                {
+                    var c = pool[i];
+                    if (c == null || string.IsNullOrEmpty(c.Id) || c.Id == OId) continue;
+                    if (bag.Get(c.Id) == null) continue;
+                    second = c; break;
+                }
+                Tr(second != null, "B161-2a **前提**：池里另有一张背包里已有的卡（当「能修好的那条」）");
+                Tr(dOwned != null, "B161-2a2 **前提**：拿得到 `CardProgress._owned`（反射）");
+                if (second != null && dOwned != null)
+                {
+                    int secondWant = FormulaAmount(second.Rarity);
+                    string dir2 = Path.Combine(root, "b161_2");
+                    Directory.CreateDirectory(dir2);
+                    InventoryStore.OverrideDir = dir2;
+                    InventoryStore.Delete(CardProgress.InventoryName);
+
+                    var infoO = bag.Get(OId);
+                    var infoS = bag.Get(second.Id);
+                    Tr(infoO != null && infoS != null, "B161-2b **前提**：两条都在背包里");
+                    if (infoO != null && infoS != null)
+                    {
+                        infoO.SetAmount(Inventories.BadCardAmountSentinel);
+                        infoS.SetAmount(Inventories.BadCardAmountSentinel);
+                        Tr(InventoryStore.Save(CardProgress.InventoryName, bag), "B161-2c **前提**：坏档（两条都是 1）写下去了");
+                        string p2 = InventoryStore.StorePath(CardProgress.InventoryName);
+                        string t2before = File.Exists(p2) ? File.ReadAllText(p2) : null;
+                        Tr(FileHasAmount(t2before, OId, 1) && FileHasAmount(t2before, second.Id, 1),
+                           "B161-2d **前提**：盘上两条的 `amount` **都是 1**（`" + OId + "` / `" + second.Id + "`）");
+
+                        dOwned[OId] = 5;             // ★ 这条播种出来还是 5（< 基准量 ⇒ 修不好）
+                        dOwned.Remove(second.Id);    // ★ 另一条不毒 ⇒ 播种给基准量（修得好）
+                        Inventories.ResetCardAmountMigrationForTest();
+                        InventoryStore.Load(CardProgress.InventoryName, bag);
+
+                        Tr(!string.IsNullOrEmpty(Inventories.LastCardAmountMigrationReport)
+                           && Inventories.LastCardAmountMigrationReport.Contains("修好 1 条"),
+                           "B161-2e **前提（这一轮迁移真的修了一条）**：报告 = " + (Inventories.LastCardAmountMigrationReport ?? "<null>"));
+                        string t2 = File.Exists(p2) ? File.ReadAllText(p2) : null;
+                        Tr(FileHasAmount(t2, second.Id, secondWant),
+                           "B161-2f **前提（盘真被重写了）**：`" + second.Id + "` 在盘上已变成基准量 " + secondWant
+                           + "｜🧨 迁移没 Save ⇒ 这条红（否则 B161-2g 会空转）");
+                        Tr(FileHasAmount(t2, OId, 1),
+                           "B161-2g ★★ **落盘前还原生效**：盘上 `" + OId + "` **仍是 1**（不是播种出来的 5）"
+                           + "｜🧨 删掉 `RestoreUnfixedAmounts` 那一次调用 ⇒ 盘上变成 5 ⇒ 红");
+                        Tr(!FileHasAmount(t2, OId, 5),
+                           "B161-2h 盘上**没有** `" + OId + "` = 5 这一行（B161-2g 的显式否定面）");
+                        Tr(!FileHasAmount(t2, OId, secondWant),
+                           "B161-2i 盘上也没有 `" + OId + "` = " + secondWant + "（那条坏卡**没有被当成修好**）");
+                    }
+                }
+            }
+
+            // ---------------- B161-3：盘上写 **12**（≥ 基准量）⇒ 不进 bad、不重算、不备份、不重写 ----------------
+            {
+                string dir3 = Path.Combine(root, "b161_3");
+                Directory.CreateDirectory(dir3);
+                InventoryStore.OverrideDir = dir3;
+                InventoryStore.Delete(CardProgress.InventoryName);
+
+                // 先把上一段留下的毒清掉、把 `OId` 摆回基准量（否则它自己会进 bad，这条就测不干净）
+                if (dOwned != null) dOwned.Remove(OId);
+                var infoO3 = bag.Get(OId);
+                if (infoO3 != null) infoO3.SetAmount(oidWant);
+
+                RuleEngine.CardDef hi = null;
+                for (int i = 0; i < pool.Count; i++)
+                {
+                    var c = pool[i];
+                    if (c == null || string.IsNullOrEmpty(c.Id) || c.Id == OId) continue;
+                    if (bag.Get(c.Id) == null) continue;
+                    hi = c; break;
+                }
+                Tr(hi != null, "B161-3a **前提**：找得到另一张背包里已有的卡（当「高于基准量」的那条）");
+                if (hi != null)
+                {
+                    int hiBase = FormulaAmount(hi.Rarity);
+                    bag.Get(hi.Id).SetAmount(hiBase + 1);           // 12（> 基准量 11）
+                    Tr(InventoryStore.Save(CardProgress.InventoryName, bag), "B161-3b **前提**：档写下去了");
+                    string p3 = InventoryStore.StorePath(CardProgress.InventoryName);
+                    byte[] b3 = File.Exists(p3) ? File.ReadAllBytes(p3) : new byte[0];
+                    if (dOwned != null) dOwned.Remove(hi.Id);
+
+                    Inventories.ResetCardAmountMigrationForTest();
+                    InventoryStore.Load(CardProgress.InventoryName, bag);
+
+                    Tr(!string.IsNullOrEmpty(Inventories.LastCardAmountMigrationReport)
+                       && Inventories.LastCardAmountMigrationReport.Contains("没有可修的"),
+                       "B161-3c ★ " + (hiBase + 1) + "（≥ 基准量 " + hiBase + "）**不进 bad**：报告 = "
+                       + (Inventories.LastCardAmountMigrationReport ?? "<null>")
+                       + "｜🧨 把挑坏行改成「!= 基准量」⇒ 它会进 bad ⇒ 报告不再是「没有可修的」⇒ 红");
+                    byte[] b3After = File.Exists(p3) ? File.ReadAllBytes(p3) : new byte[0];
+                    Tr(SameBytes(b3, b3After), "B161-3d **不重写**：盘逐字节不变（" + b3.Length + " → " + b3After.Length + " 字节）");
+                    C(Directory.GetFiles(dir3, "*" + Inventories.MigrationBackupSuffix + "*").Length, 0,
+                      "B161-3e **不备份**（没写盘 ⇒ 没备份）｜🧨 无条件先备份再判 ⇒ 红");
+                    C(bag.Get(hi.Id) != null ? bag.Get(hi.Id).Amount : -1, hiBase + 1,
+                      "B161-3f " + (hiBase + 1) + " **没被拉回基准量**（高于基准量的一律不动）");
+                }
+            }
         }
         finally
         {
@@ -305,5 +465,33 @@ public static class B113_G3_Assert
             }
             catch (Exception e) { Debug.LogError("[B113G3] 收尾失败：" + e); }
         }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════════════════
+    //  ④ 小工具（`B-161` 那三条用；⛔ 不改 O-1~O-5）
+    // ════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>基准量 = `CardProgress.Owned` 的兜底分支（`Shell/CardDetailPopup.cs:247`）：
+    /// <c>DeckCap(rarity) + (NeedCopies[MaxLevel] - NeedCopies[1])</c>。
+    /// ⚠️ 这是**断言侧的参考值**（与 O-5 里的 `want` 同一个式子），不是第二套算法。</summary>
+    static int FormulaAmount(string rarity)
+    {
+        return CardProgress.DeckCap(rarity)
+             + (CardProgress.NeedCopies[CardProgress.MaxLevel] - CardProgress.NeedCopies[1]);
+    }
+
+    /// <summary>盘上那一行 `{"k":"&lt;id&gt;","amount":&lt;n&gt;,` 在不在。
+    /// ⚠️ **连逗号一起比**：`"amount":1` 是 `"amount":10` 的前缀（同 `B112_G_Assert` 的 A1）。</summary>
+    static bool FileHasAmount(string text, string id, int amount)
+    {
+        return text != null && text.Contains("{\"k\":\"" + id + "\",\"amount\":" + amount + ",");
+    }
+
+    /// <summary>逐字节相同（`null` / 长度不等 ⇒ false）。</summary>
+    static bool SameBytes(byte[] a, byte[] b)
+    {
+        if (a == null || b == null || a.Length != b.Length) return false;
+        for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+        return true;
     }
 }

@@ -1639,7 +1639,7 @@ namespace RuleEngine
             public bool IsKeyword;
             public string Name;              // 属性名（attack/health/armour/ranged）或关键词名
             public int Value;
-            public int Owner;                // 施放者玩家号（`until your next turn` 按他的回合算）
+            public int Owner; public int TargetOwner = -1;                // 施放者玩家号（`+0x34` 那一档按他判）；🆕 2026-11-01（`B-127` S1）：`TargetOwner` = **持效果那张卡的主人**（原版 `CardScript__OnTurnSetup.c:40` 的 `param_1 + 0x40` = 卡片自己的 isPlayer）· -1 = 判不到 ⇒ 消费端回落到 `Owner`（改前行为，⛔ 不是「谁的回合都撤」）
             public bool UntilMyNextTurn; public bool UntilOpponentNextTurn;   // 判据 = CardScript__OnTurnSetup.c:+0x33/+0x34/+0x35 三档。my-next-turn=true ⇒ 施放者下回合开始撤 · opponent-next-turn=true ⇒ **对面**回合开始撤（Owner≠player）· 两者都 false ⇒ 本回合结束撤；UntilOpponentNextTurn 优先
             public string Src; public int Seq; public int RowGroup; public EffectOrigin Origin;   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：`Origin` = 归属四元组（`AddTempBuff` 建/补 `Mod` 时写进 `StatMod.EffectOwner/EffectAb/EffectLg/EffectIsHand`；关键词那条不用它，`TraitRec` 自带）｜🆕 2026-10-30（执行代理 `B103_W3` · 账 521 S3-c）：`RowGroup` = 同一次 `give` 的合并组号（`AddTempBuff` 建 `Mod` 时透传进 `StatMod.RowGroup`）｜Src = 来源卡名（日志用）｜🆕 2026-10-29（`B97_US2` · `特效动画:521` S2）：`Seq` = 加序戳（同 `StatMod.Seq`，由 `AddTempBuff` 在登记那一刻取；今天无消费者 = 休眠）。⚠️ `BuffType` / `TraitValue` 本类**不在这里**定义 —— 它们是 `UnitStateEffectDisplay.cs` 里的**派生属性**（⛔ 别加同名字段，会撞属性）
             /// <summary>
@@ -3769,12 +3769,12 @@ namespace RuleEngine
             /// <summary>
             /// **这一条限时增益会不会在 <paramref name="turnPlayer"/> 的【回合开始】时到期** ——
             /// 唯一判据（口径与出处见本段上面的注释）。`turnPlayer` = 此刻**轮到的那一方**，
-            /// ⛔ 不是「谁施加的」（`Owner` 才是施放者，比较就发生在这里面）。
+            /// ⛔ 不是「谁施加的」（`Owner` 才是施放者）；🆕 2026-11-01（`B-127` S1）：非附魔按**持效果那张卡的主人** `TargetOwner` 判（原版 `CardScript__OnTurnSetup.c:40` 比的是 `param_1 + 0x40`），判不到（-1）才回落到 `Owner`。
             /// <para>⚠️ 纯查询：不改状态、不打日志 ⇒ 可以在判据里随便调。</para>
             /// </summary>
             public bool IsDueAtTurnStart(int turnPlayer)
             {
-                return UntilOpponentNextTurn ? (Owner != turnPlayer) : (UntilMyNextTurn && Owner == turnPlayer);
+                return UntilOpponentNextTurn ? (Owner != turnPlayer) : (UntilMyNextTurn && (TargetOwner >= 0 ? TargetOwner : Owner) == turnPlayer);   // 2026-11-01（`B-127` S1）：`+0x33` 比的是持效果那张卡的主人（`TargetOwner`，判据 `CardScript__OnTurnSetup.c:40`），不是施放者；`+0x34` 仍用施放者 `Owner`（`originalIsPlayer`）
             }
         }
     }

@@ -296,7 +296,20 @@ namespace RuleEngine
         /// 全池方括号标记实测 39 种（2026-09-16 扫过），属于**图标名**的是这几个。
         /// </summary>
         static readonly string[] IconNames =
-            { "wings", "skull", "icon", "eye icon", "codex icon", "faith icon" };
+            { "wings", "skull", "icon", "eye icon", "codex icon", "faith icon", "shield" };
+
+        /// <summary>
+        /// 🆕 **2026-11-01（`B-186`）：`IconNames` 里**同时又是合法载荷词**的那几个。
+        ///
+        /// 🔴 为什么单列：`shield` 既是**卡面图标名**（`[Shield] Armour 1`），又是**真关键词**
+        ///   （`Give Shield to a friendly unit`，卡池 33 张都这么写）—— 别的图标词（`wings` / `skull` /
+        ///   `icon` …）**不在** `GiveKw` 里，可以无条件剥；`shield` 剥错就是把一次真授予**静默删掉**。
+        ///   ⇒ 段首剥图标时，**只有「后面那截自己解得成一份载荷」才剥**
+        ///   （`shield armour 1` → `armour 1`；裸 `shield` / `shield 1` 原样保留）。
+        /// 判据：`GOF_Worst_Temper` 卡面 `+1 [Attack], [Shield] Armour 1 and [Wings] Flying` ——
+        ///   `[Shield]` 是图标、`Armour 1` 才是真载荷；原版数据该卡是 `armourChange 1`（不是 shield）。
+        /// </summary>
+        static readonly string[] IconWordsThatArePayloads = { "shield" };
 
         /// <summary>🆕 **`[X] X`**（记号 + 同一个词、忽略大小写）—— 见 `ParseInto` 的 ①-a 那一段（`A992`）。
         /// <para>⚠️ **只在这里写一次**：⛔ **不在 `PayloadOp` 层再去一次重** ——
@@ -473,15 +486,27 @@ namespace RuleEngine
             //   `wings flying` ⇒ `GiveKw` 从头匹配不到 `flying` ⇒ 整段还是判不认识。
             //   做法：段首若是图标名、**直接丢掉那一个词**（见 `IconNames` —— 那几个词
             //   **永远不是**合法的载荷词，`wings` / `skull` / `icon` 都不在 `GiveKw` 里）。
+            //   🔴 **2026-11-01（`B-186`）例外**：`shield` 进了 `IconNames`，但它**在** `GiveKw` 里
+            //   （`Give Shield to a friendly unit`）⇒ 它**不能无条件剥**，只有后面那截自己解得成
+            //   一份载荷时才剥（判据与名单见 `IconWordsThatArePayloads`）。
+            //   不剥的后果（改前实测）：`shield armour 1` 被前缀匹配吃成 `shield` 关键词，
+            //   `armour 1` **整段静默丢掉**（`Worst Temper` 的护甲那半句从来没生效）。
             for (int guard = 0; guard < 4; guard++)
             {
                 string wl = w.ToLowerInvariant();
                 bool cut = false;
                 foreach (string icon in IconNames)
                 {
-                    if (wl.Length > icon.Length + 1
-                        && wl.StartsWith(icon + " ", System.StringComparison.Ordinal))
-                    { w = w.Substring(icon.Length + 1).TrimStart(); cut = true; break; }
+                    if (wl.Length <= icon.Length + 1) continue;
+                    if (!wl.StartsWith(icon + " ", System.StringComparison.Ordinal)) continue;
+                    string rest = w.Substring(icon.Length + 1).TrimStart();
+                    // 图标词本身也是合法载荷词 ⇒ 要求「剩下那截解得成」才肯剥
+                    if (System.Array.IndexOf(IconWordsThatArePayloads, icon) >= 0)
+                    {
+                        var trial = new List<PayloadOp>();
+                        if (rest.Length == 0 || !ParseInto(rest, trial)) continue;
+                    }
+                    w = rest; cut = true; break;
                 }
                 if (!cut) break;
             }

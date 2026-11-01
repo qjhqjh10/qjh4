@@ -331,7 +331,10 @@ public static class B109_E33_MenuMat_Assert
         //   本批**没动**，只有 `待接线` 补丁交回调度台 —— 所以它们**不在**下面的清单里（别写成绿的）。
         AssertCall("Shell/ForgeTab.cs",                    "PulsatingForge");
         AssertCall("Shell/CampaignTab.cs",                 "PulsatingCampaign");
-        AssertCall("Shell/CampaignTab.cs",                 "GlowSdfHighlightSmoothRed");
+        // 🔴 2026-11-01（`B112W_B187`）：`Collectable Highlight` 那颗原版挂的是 `Border Highlight Rotating Campaign`
+        //   （`UI Border Highlight Appear Pulsating Scale`），不是 `UI Glow SDF Noise` 族 ⇒ 这里跟着换口径。
+        //   ⚠️ `GlowSdfHighlightSmoothRed` 常量与 `.mat` 仍保留（Social/TrophyDisplay 的 `Collectable Highlight` 用它）。
+        AssertCall("Shell/CampaignTab.cs",                 "ApplyBorderHighlightRotatingCampaign");
         AssertCall("Shell/EnergySinglePlayerOnlyEventWindow.cs", "GlowSdfBorderChestCollect");
         AssertCall("Shell/AllianceMemberTab.cs",           "GlowSdfAllianceTrophy");
         AssertCall("Shell/DraftModeWindow.cs",             "GlowSdfBorderChestCollect");

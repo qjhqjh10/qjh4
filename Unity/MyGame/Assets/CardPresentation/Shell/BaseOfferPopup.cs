@@ -1027,7 +1027,7 @@ namespace CardPresentation
             var ws = MenuDraw.Node(row, "WebShop Button", G.WebShop);
             var gt = Art(ArtGlow);
             if (gt != null)
-                MenuDraw.Nine(ws, gt, G.WebGlow, GlowBorder, GlowTexW, GlowTexH, QBtn, GlowTint, true, "Highlight");
+                { var wsHi = MenuDraw.Nine(ws, gt, G.WebGlow, GlowBorder, GlowTexW, GlowTexH, QBtn, GlowTint, true, "Highlight"); MenuFxMaterials.ApplyBorderHighlightAppearAll(wsHi, MenuFxMaterials.BorderHighlightAppear.Green); }
             else
                 MenuDraw.Node(ws, "Highlight", G.WebGlow);
             var wq = Rect(ws, ArtBtn, G.WebImg, "Button Image", QBtn, WebTint, true);

@@ -2079,8 +2079,8 @@ public static class CardFaceProbe
     /// ⛔ 期望值**不取我们的常量**：开口的存在性由 `FrameArtCoverage` 从**卡框贴图 alpha** 逐像素数出来
     /// （`quads ≥ 2` = 走的是逐行开口条带），不是把 `ArtMeshInFrame` 再算一遍。</para>
     ///
-    /// <para>⚠️ 前提：这张卡必须**非单位**（`clipWindow` 才为 true）且**有抠图立绘**（前景层的门是 `cut && UseFrontLayer`）。
-    /// 池子里这一类今天只有 7 张（`SW39`–`SW45`）；一张都建不出来 ⇒ 本条报「没验到」，⛔ 不算通过。</para></summary>
+    /// <para>⚠️ 前提：这张卡必须**非单位**（`clipWindow` 才为 true）且**有抠图立绘**（前景层的门是 `cut && UseFrontLayer`）。🔴 **2026-11-01（`B-180`）现读 = 这个交集是【空集】**：`Art/cards/card_cutouts.json` 的 668 条 = 卡 id 642（unit 586 + hero 56，逐条 `Slug` 对上）+ 26 条名字 slug，而 `CardDef.IsUnit`（`RuleEngine/Core/CardDef.cs:5981`）= `Type=="unit" || Type=="hero"` ⇒ **非单位卡命中 0**。
+    /// 根因 = `工具/import_original_art.py:1719-1722` 只按「全透明像素 &gt; 5%」判、**无卡型判断**，而战术卡源贴图（`bundle_spacemarines…/Texture2D/SM_SpaceWolves_strat_*.png`）**0.00% 透明**（同 bundle 单位卡 75–89%）⇒ 战术卡永远进不了清单 ⇒ 本条现在**报「不适用（空集）」并断「空集的原因可解释」**，⛔ 不再 `Check(false)`、也⛔ 不改恒真；**旧 doc 那句「今天只有 7 张 `SW39`–`SW45`」已作废**。⚠️ 本条**不覆盖非单位卡的开口裁切**。</para></summary>
     static void CheckFrontLayerSmallClipsToWindow(List<CardDef> pool)
     {
         var prevUse = CardView.UseFrontLayer;
@@ -2150,10 +2150,35 @@ public static class CardFaceProbe
                     + "｜🧨 `clipWindow` 被丢掉/被忽略 ⇒ 两个数相等 ⇒ 红");
 
                 used = $"{key}（{def.Name}）";
-                return;   // 验到一张就够（7 张走的是同一条 `Build`/`ArtMeshInFrame` 路）
+                return;   // 验到一张就够（这一族走同一条 `Build`/`ArtMeshInFrame` 路；⚠️ 2026-11-01 现读：今天一张都没有，见下面空集那两句）
             }
-            Check(false, "P1-3 前提：池子里找不到「非单位 + 有抠图立绘 + 建得出 `_artFront`」的卡 ⇒"
-                       + " 这一条**没验到**（别读成通过）");
+            // 🔴 2026-11-01（`B-180`）：走到这里 = 一张都没验到。**这不是「前提不成立」，是【空集】**。
+            //   现读事实：`card_cutouts.json` 只收单位/战将的抠图 ⇒ 非单位卡恒无 `HasCutout`。
+            //   ⛔ 既不许 `Check(false)`（那会记成永久红、逼下一个人去「修」一个不存在的缺陷），
+            //      也不许改成恒真（那就变空转绿）。改成**显式的空集判定**两条：
+            //      ①（前提）池里确实有非单位卡；②（结论）它们**一张都不带抠图** —— 这才是空集的**唯一**原因。
+            int nonUnit = 0, nonUnitWithCutout = 0, overrideSkipped = 0;
+            foreach (var d in pool)
+            {
+                if (d == null || d.IsUnit) continue;
+                nonUnit++;
+                if (!CardArt.HasCutout(BattleDriver.ArtKey(d))) continue;
+                nonUnitWithCutout++;                                   // 有抠图 ⇒ 本该被上面那圈验到（走到这里 = 它被别的原因跳过了 ⇒ 红）
+                // ⚠️ `CardData` 是 **struct**（`ToCardData` 返回值类型）⇒ ⛔ 不能写 `dd != null`（CS0019）
+                if (BattleDriver.ToCardData(d, d.Faction).artOverride != null) overrideSkipped++;
+            }
+            string why = $"非单位卡 {nonUnit} 张 / 其中有抠图立绘 {nonUnitWithCutout} 张 / 其中异画（本片段不覆盖）{overrideSkipped} 张";
+            Check(nonUnit > 0, $"P1-3 空集前提：池子里确实有非单位卡（{why}）");
+            Check(nonUnitWithCutout == 0 && overrideSkipped == 0,
+                  $"P1-3 **不适用（空集）**：非单位卡一张都进不了 opt-in 前景层清单（{why}）"
+                + "｜原因 = `card_cutouts.json` 只收单位/战将立绘（`工具/import_original_art.py:1720-1722` 按「全透明像素 > 5%」判、"
+                + "无卡型判断；战术卡源贴图 0.00% 透明 ⇒ 永远进不了），而前景层的门是 `cut && UseFrontLayer`"
+                + "｜🧨 若哪天非单位卡有了抠图、或它被别的原因（异画 / 建不出网格）跳过 ⇒ 这里红（说明本片段漏验）"
+                + "｜⚠️ 本条**不覆盖非单位卡的开口裁切**");
+            used = "（不适用 / 空集：非单位卡无抠图立绘）";
+            Debug.Log("[cardface-chk] P1-3 小图档前景层裁开口：**不适用（空集）** —— " + why
+                    + "；原因 = 抠图清单只收单位/战将立绘（战术卡源贴图全不透明）。⛔ 这条不覆盖非单位卡的开口裁切。");
+            return;
         }
         catch (System.Exception e)
         {

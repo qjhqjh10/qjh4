@@ -663,13 +663,13 @@ namespace CardPresentation
                 var hl = UguiRect.Child(r, UguiRect.P50c, UguiRect.P50c, UguiRect.P50c,
                                         Vector2.zero, new Vector2(HighlightSize, HighlightSize));
                 var hlQ = _win.Rect(node, "Border_Thick_Circle_FX", hl, "Collectable Highlight", QNodeHighlight);
-                // 🆕 2026-10-31（`B109_E33` · R15 §1·5 / #5）：原版这颗用 `Everguild/UI/UI Glow SDF Noise`
-                //   那一族（自走 `_Time` 的噪声+SDF 边缘辉光）。我们原来只有一张静态图。
-                //   ⚠️ **档位是推断**：5 份材质里只有 `UI Highlight Smooth Red SDF` 的名字对得上「红色可领描边」
-                //   （判据：`Material_6690636151482980369.json`）；但原版那颗 `Collectable Highlight` 的
-                //   `m_Sprite`（8880629346401627699）与我们用的 `Border_Thick_Circle_FX` **不是同一张**
-                //   ⇒ **未坐实**，真机验收时优先核这一处。
-                MenuFxMaterials.Apply(hlQ, MenuFxMaterials.GlowSdfHighlightSmoothRed);
+                // 🔴 2026-11-01（`B-187` 订正 · 铁律 5）：原来挂 `GlowSdfHighlightSmoothRed`（`UI Glow SDF Noise` 族）—— **装错了族**。
+                //   原版那颗 `m_Material` 实测 = `Border Highlight Rotating Campaign`（`Material_1780489488266546679.json`；
+                //   shader `… UI Border Highlight Appear Pulsating Scale`）。参数照抄：`_ColorMain (0,0.248,0.461)` ·
+                //   `_ColorSecondary (0,0.137,2.271)` · `_AutoRotationSpeed -0.5` · `_FLIPDIRECTION 1` · `_Reveal 1` · `_Smoothness 0.706`。
+                //   判据 → `判据/B112W_B08_接线图.md` §表 2 第 11 行 + `:149` 参数行 + §顺手发现 1。
+                //   原版那颗 `m_Sprite` = `Border Thick Circle FX`（`menu_dump` 实读）⇒ 与我们同一张（早先「不是同一张」已作废）；它挂 `Image,UIBorderGlow`。
+                MenuFxMaterials.ApplyBorderHighlightRotatingCampaign(hlQ);
             }
             // `Item Holder`：奖励物品的运行时挂点（出厂空、`CanvasGroup.blocksRaycasts=false`）。
             // 🆕 **2026-10-03：把首奖励画进去**（原版 `CampaignNode.Setup` 那句 `ItemDrawer.Draw`）——

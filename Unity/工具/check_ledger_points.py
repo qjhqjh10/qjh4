@@ -82,6 +82,11 @@
     「名字不在这一行」按**漂移**报（带 `（次要落点）` 前缀），人读。
     ⚠️ 只取**紧跟该处 `:行` 之后、到下一处 `:行` 之前**的那一段当它的括号
     （否则会把别人的括号算到自己头上）。
+    🆕 2026-11-01（B112W_B170 · **修「顺序效应」**）：`check_extra_refs` 的**调用点挪到了
+    `check_file` 开头**（原来在函数尾部）。原来主落点只要走进 11 处 `continue` 里的任何一处
+    （越界 / 不像声明 / 数据行是空的 / 名字对不上 / 漂移 / 歧义 …），**次要落点就整段不检**
+    ⇒ 闸只报得出「第一处」，主落点一修好下一轮又浮出新问题（修一条浮一条）。
+    现在**全部落点先预计算、逐个判**，`check_extra_refs` 的**判据一个字没改**。
   · **② 带基类列表的 `class X : Y` 现在认得出**（`find_decl_candidates` 的候选正则补了 `:`）。
     原来名字后面跟的是 `:`、模式只认 `( < { ; = $` ⇒ `public sealed class Foo : Bar { }`
     **当不了落点**（会被判「文件里找不到这份声明」）。F2 §④2 点名的就是这条。
@@ -820,6 +825,31 @@ def check_file(path, roots, show_pass=False, do_fix=False):
 
         seen_warn = set()
 
+        # ---- 🆕 2026-11-01（B112W_B170）：**全部落点先预计算、逐个判** ----
+        # 🔴 **修的是「顺序效应」**：这段原来只出现在函数**尾部**（`check_extra_refs` 调用处），
+        #   而主落点只要走到任何一个 `continue`（越界 / 不像声明 / 数据行是空的 / 名字对不上 /
+        #   漂移 / 歧义 …共 11 处），**次要落点就整段不检** ⇒ 闸只报得出「第一处」。
+        #   后果实测：主落点修好之后，下一轮才浮出「次要落点也坏了」的新问题 —— **修一条浮一条**
+        #   （上一波靠这条多绕了一轮、约 10 处，见报告 B112W_B170 §三）。
+        # ⇒ 挪到**最前**：它只依赖 `land` / `roots`，与主落点判成什么**无关**。
+        #   ⚠️ `check_extra_refs` 的判据**一个字没改**（⛔ 没有放宽任何一条）；
+        #   ⚠️ 这里**不 `continue`** —— 主落点照旧往下走，它的 verdict 与改前逐字一致。
+        #   ⚠️ 失效面唯一变化：同一行里「次要落点」的消息现在排在「主落点」消息**之前**
+        #      （列表插入顺序）。报告按「档位」分组打印 ⇒ **输出文本不受影响**。
+        _r0 = REF.search(land)
+        ex_fails, ex_warns = check_extra_refs(
+            land, roots,
+            skip_key=((_r0.group(1).replace("\\", "/"), int(_r0.group(2))) if _r0 else None))
+        for _rel, _ln2, _why in ex_fails:
+            fail("（次要落点）" + _why)
+        for _rel, _ln2, _why in ex_warns:
+            # ⚠️ 直连 `warns`（不走 `warn()`）：它的去重键是 `(行, 档位)`，会把同一行里
+            #    第二、三处次要落点的明细合并成一条 —— 这里每一条都要看得见。
+            if is_b:
+                bwarn(WARN_SECOND, "（次要落点）" + _why)
+            else:
+                warns.append((base, who, land, WARN_SECOND, "（次要落点）" + _why))
+
         r = REF.search(land)
         if not r:
             fail("落点里没有 `文件:行`")
@@ -956,17 +986,8 @@ def check_file(path, roots, show_pass=False, do_fix=False):
         #   ⛔ 次要落点**从不产生 `--fix` 改写**（`--fix` 的重定位语义一个字没动），只报漂移 / 失败。
         # 🆕 2026-10-29（B94_T1）：**B 行也过这里** —— R-T 实测 `其他460` / `日常549` / `战斗227` /
         #   `战斗645` 的**次要落点全漂在注释行**，而原来这段只跑在 A 行上，一条都没报。
-        ex_fails, ex_warns = check_extra_refs(
-            land, roots, skip_key=(rel.replace("\\", "/"), int(r.group(2))))
-        for _rel, _ln2, _why in ex_fails:
-            fail("（次要落点）" + _why)
-        for _rel, _ln2, _why in ex_warns:
-            # ⚠️ 直连 `warns`（不走 `warn()`）：它的去重键是 `(行, 档位)`，会把同一行里
-            #    第二、三处次要落点的明细合并成一条 —— 这里每一条都要看得见。
-            if is_b:
-                bwarn(WARN_SECOND, "（次要落点）" + _why)
-            else:
-                warns.append((base, who, land, WARN_SECOND, "（次要落点）" + _why))
+        # 🆕 2026-11-01（B112W_B170）：**调用点已上移到函数开头**（`ex_fails` / `ex_warns` 在那里算好）
+        #   —— 原来它在这里，被上面 11 处 `continue` 短路，次要落点整段不检。这里只留「通过」的打印。
         if show_pass and not ex_fails and not is_b:
             print("OK   | %-22s | %-52s | %s" % (base, who[:52], land[:70]))
     return total, fails, drifts, rewrites, getters, warns, (b_total, b_warns)
@@ -1067,6 +1088,7 @@ def main():
                 return 2
 
     ga = gf = gd = gw = 0
+    gp = 0                                   # 🆕 有问题的**行数**（去重；见下面 B112W_B170 注释）
     gb = 0                                   # 🆕 B 行条数（只报告）
     all_f, all_d, all_g, all_w, all_b = [], [], [], [], []
     print("= 账本 A 档落点机检（判法见文件头：失败 / 漂移 / 告警 / 通过）="
@@ -1085,9 +1107,18 @@ def main():
             continue
         if do_fix and rewrites:
             apply_fixes(f, rewrites)
+        # 🆕 2026-11-01（B112W_B170）：**「通过」按【行】去重算**。
+        #   原来写 `total - len(fails) - len(drifts)` —— 那时一个落点行**最多**报一条问题
+        #   （主落点一失败就 `continue`），所以「问题数 == 行数」。B170 把次要落点挪到开头预计算之后，
+        #   **同一个落点行可以同时报「主落点」和「次要落点」两条** ⇒ 再按条数减，`通过` 会变成负数
+        #   （实测合成夹具 `A=8 失败=12 通过=-5`）。⇒ 改成按 `(类.方法, 落点)` 去重数**有问题的那几行**。
+        #   ⚠️ 该键在现账 9,687 行里**零重复**（2026-11-01 实测）⇒ 可当行标识；
+        #      `失败` / `漂移` / `告警` 三列**仍是「问题条数」**（明细表里一条一行，不合并）。
+        prob_rows = len({(x[1], x[2]) for x in fails} | {(x[1], x[2]) for x in drifts})
         ga += total
         gf += len(fails)
         gd += len(drifts)
+        gp += prob_rows
         gw += len(warns)
         all_f.extend(fails)
         all_d.extend(drifts)
@@ -1095,7 +1126,7 @@ def main():
         all_w.extend(warns)
         print("%s %-22s A=%-4d 通过=%-4d 漂移=%-3d 告警=%-3d%s 失败=%d"
               % ("OK" if not fails else "XX", os.path.basename(f), total,
-                 total - len(fails) - len(drifts), len(drifts), len(warns),
+                 total - prob_rows, len(drifts), len(warns),
                  "（已就地改正）" if (do_fix and rewrites) else "", len(fails)))
 
     if all_d:
@@ -1128,7 +1159,7 @@ def main():
             print("  %-24s %4d" % ("合计", len(all_w)))
 
     print(NL + "合计：A %d 条 · 通过 %d（其中告警 %d 条）· 漂移 %d · 失败 %d%s"
-          % (ga, ga - gf - gd, gw, gd, gf, "（漂移已就地改正，请复核 git diff）" if do_fix else ""))
+          % (ga, ga - gp, gw, gd, gf, "（漂移已就地改正，请复核 git diff）" if do_fix else ""))
     # ---- 🆕 2026-10-29（B94_T1）：B 档单独一行（⛔ 不改上面 A 那行的任何一个数字）----
     if gb:
         _bkind = {}

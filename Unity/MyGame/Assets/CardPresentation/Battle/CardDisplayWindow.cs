@@ -643,7 +643,7 @@ namespace CardPresentation
                                                 new PxRect(CardWinBox.CardL, CardWinBox.CardT, CardWinBox.CardR, CardWinBox.CardB));
                 _cards = MenuDraw.Node(cardsHolder, "Cards",
                                        new PxRect(CardWinBox.CardsCx - CardWinBox.CardsS * 0.5f, CardWinBox.CardsCy - CardWinBox.CardsS * 0.5f,
-                                                  CardWinBox.CardsCx + CardWinBox.CardsS * 0.5f, CardWinBox.CardsCy + CardWinBox.CardsS * 0.5f)); _fx = CardDisplayEffects.Build(_cards, CardWinBox.CardsS);
+                                                  CardWinBox.CardsCx + CardWinBox.CardsS * 0.5f, CardWinBox.CardsCy + CardWinBox.CardsS * 0.5f));   // 🔴 2026-11-01（`B-195`）：原版**战斗窗没有** `Level Up Effect` 那一族（`Battle Arena 1.unity` 里 `Level Up Effect` / `Lighting Rays` 全 0 命中；`Upgrade Panel` / `options` 在 13/13 竞技场为 null）⇒ 这一层**不建**（`_fx` 恒 null）。唯一合法建点 = `Shell/CardDetailPopup` 的主卡 `2DCard` 下
             }
             else Debug.LogError("[展示窗] 世界壳（装卡体那一层）没建出来 ⇒ **卡体建不了**（本窗只剩字）");
 

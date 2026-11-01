@@ -855,7 +855,7 @@ namespace CardPresentation
             card.Highlight = MenuDraw.Node(root, "Collect Highlight Effect", CollectHighlightR);
             MenuDraw.Nine(card.Highlight, Tex(ArtGlowBorder, "领取高亮框"), CollectHighlightR,
                           new Vector4(50f, 50f, 50f, 50f), 128f, 128f, QCardArt, Color.white, true, "Image",
-                          new Vector4(50f / 0.5f, 50f / 0.5f, 50f / 0.5f, 50f / 0.5f));
+                          new Vector4(50f / 0.5f, 50f / 0.5f, 50f / 0.5f, 50f / 0.5f)); MenuFxMaterials.ApplyBorderHighlightAppearAll(card.Highlight.gameObject, MenuFxMaterials.BorderHighlightAppear.Raid);
             card.Highlight.gameObject.SetActive(false);
 
             // `RewardTransform`（`UITransformTweenController` + `RaidRewardDrawerController`）
@@ -1482,7 +1482,7 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `RaidEventRewardItemContainer.ToggleHighlightEffect(bool option)` 的视图侧：
-        /// `highlight.SetActive(option)`；`option == true` 时再放音 + 起 glow（三跳顺序照抄）。</summary>
+        /// `highlight.SetActive(option)`；`option == true` 时再放音 + 起 glow（`MenuFxMaterials.RevealSweep`，见它的 doc）。</summary>
         void SetHighlight(RewardCard card, bool option)
         {
             if (card == null || card.Highlight == null) return;
@@ -1490,7 +1490,7 @@ namespace CardPresentation
             card.Highlight.gameObject.SetActive(plan.Active);
             if (!plan.Active) return;
             if (plan.PlaySound) WindowSounds.PlayFx(WindowSounds.PositiveCue, "Raid/Highlight");
-            if (plan.PlayGlow) Note("`Collect Highlight Effect` 的 `UIBorderGlow.Play()` 本壳没有等价运行时 ⇒ 只亮框、不起 glow（已记账）");
+            if (plan.PlayGlow) StartCoroutine(MenuFxMaterials.RevealSweep(card.Highlight, 1f, 0f));
         }
 
         /// <summary>自检入口：把「点亮高亮」那一跳直接跑一次（= 原版 `TestHighlighOn` = `ToggleHighlightEffect(true)`）。</summary>

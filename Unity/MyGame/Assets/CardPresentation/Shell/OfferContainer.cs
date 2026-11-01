@@ -1645,9 +1645,9 @@ namespace CardPresentation
             {
                 var hr = g.WebShopHighlight;
                 var bar = R(hr.x1, hr.y1, hr.x2, hr.y2);
-                MenuDraw.Nine(node, CardArt.MenuUi(HighlightArt), bar, HighlightBorder,
+                var hiWs = MenuDraw.Nine(node, CardArt.MenuUi(HighlightArt), bar, HighlightBorder,
                               HighlightTexW, HighlightTexH, qBase + QoWebShopHi, HighlightTint, true,
-                              NWebShopHighlight, HighlightBorder / HighlightPpuMul);
+                              NWebShopHighlight, HighlightBorder / HighlightPpuMul); MenuFxMaterials.ApplyBorderHighlightAppearAll(hiWs, MenuFxMaterials.BorderHighlightAppear.Green);
             }
 
             var n9 = MenuDraw.Nine(node, CardArt.MenuUi(WebShopArt), R(wr.x1, wr.y1, wr.x2, wr.y2),

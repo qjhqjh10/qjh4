@@ -20,6 +20,10 @@
 //     `unitToPx = CardsS / 2.0927`（原版单位 → px），`pxToWorld = 1/108`（本工程的 px→世界单位换算，`LayoutSpace.Px`）。
 //   粒子节点 `localScale = unitToPx/108` ⇒ 粒子里那些「原版单位」的量（startSize / speed / shape.radius / 位置）
 //   由 Unity 的 `scalingMode = Hierarchy` 自动乘上这个缩放，**不必逐字段换算**（这也是原版 `scalingMode = 0` 的语义）。
+//   🔴 **2026-11-01（`B-195`/`B-196`）现行**：主路径已改成 `BuildUnder2DCard(主卡的 2DCard)`、**`s = 1`**
+//     （原版单位 == 我们的 `2DCard` 局部单位，`CardView.Width/Height` 与原版 `m_SizeDelta` 逐值相同）。
+//     上面那套 `unitToPx = CardsS/2.0927` 里的 `CardsS = 100` 是「100×100 的**定位框**」、**不是卡宽**
+//     （`Core/CardWinBox.cs:22`）⇒ 按它算出来整层比卡**小 5.23 倍**；`Build(cardParent, cardWidthPx)` 只留给旧调用方/自检。
 //
 // 🔶 自己设计（非原版）：`unitToPx` 这个换算系数 · 「原版单位 → 本窗 px」的桥在本机没有第二个判据可用
 //   （原版那份 prefab 的 canvas 缩放值不在离线数据里）· 调度台 2026-10-27 裁定 ·
@@ -53,6 +57,60 @@ namespace CardPresentation
         public static Transform Build(Transform cardParent, float cardWidthPx)
         {
             if (cardParent == null) return null;
+            float unitToPx = cardWidthPx > 1f ? cardWidthPx / 2.0927f : 1f;
+            float s = unitToPx / 108f;                       // 原版单位 → 世界单位（见文件头换算那一段）
+
+            var root = new GameObject("Card Display Effects").transform;
+            root.SetParent(cardParent, false);
+            root.localPosition = Vector3.zero;
+            root.localRotation = Quaternion.identity;
+            root.localScale = Vector3.one;
+            return BuildInto(root, s);
+        }
+
+        /// <summary>🆕 2026-11-01（`B-195` / `B-196`）：把这一层**直接建在主卡的 `2DCard` 下** —— 原版就是这一层
+        /// （`MainMenu Warpforge.unity`：`CardUI ▸ 2DCard ▸ {Glow Explosion, Level Up Effect, 10 颗粒子}`），
+        /// 也是 `Level Up Card` clip 里 `2DCard/Level Up Effect` · `2DCard/Level Up Effect/Level Up Effect Down`
+        /// 两条 path 能解析到的**唯一前提**（挂层根时它们一条都不命中，静默空转）。
+        /// <para>🔴 换算 **`s = 1`**：原版这些节点的坐标/尺寸/缩放就是 `2DCard` 的局部单位，而我们的
+        /// `CardView.Width/Height = 2.0927/3.3313` 与原版 `2DCard.m_SizeDelta` **逐值相同** ⇒ 不需要单位桥。
+        /// 旧调用 `Build(cardParent, CardsS)` 里的 `CardsS = 100` 是「100×100 的**定位框**」、**不是卡宽**
+        /// （`Core/CardWinBox.cs:22`）⇒ 按它算出的 `s` 会让整层比卡**小 5.23 倍**（既有缺陷，本次换父件一并修掉）。</para>
+        /// <para>⚠️ **不建中间层**：`Level Up Effect` 必须是 `2DCard` 的**直接子件**（clip 的 path 就是这么写的）；
+        /// `Level Up Effect Down` 才是它的子件（判据 JSON 的 `parent` 字段）。</para></summary>
+        public static Transform BuildUnder2DCard(Transform twoDCard)
+        {
+            if (twoDCard == null) return null;
+            var root = BuildInto(twoDCard, 1f);
+            SetLayerRenderQueue(root);
+            return root;
+        }
+
+        /// <summary>🔴 2026-11-01（`B112W_R2` · `B-195`/`B-196` 的收尾）：把整层的渲染队列抬到**卡格那一叠之上**。
+        /// <para>**为什么必须有**：这一层换父件后落在 `2DCard` 下，而 `BuildInto` 全篇没有 `SetRenderQueue`
+        /// ⇒ 图件落默认 **3000**，粒子同理；而卡面层带是 **3106–3114**、整屏遮罩是 **3105**
+        /// （`Shell/CardDetailPopup.cs:619-626` 的 `QShade = 3105` / `QCardStack = 3106`，`Core/CardFan.cs:45` 的 `Slots = 9`）
+        /// ⇒ 辉光会被**自己的卡框盖住**（断言「卡格队列高于遮罩」那条就是因此红的）。</para>
+        /// <para>取值 = **`QCardStack + CardFan.Slots` = 3106 + 9 = 3115**：在卡带之上、本窗的钮/字/面板之下。
+        /// ⚠️ 这里的 `3115` 是**由那两个常量推出来的**（`QCardStack` 是 `CardDetailPopup` 的 private const，跨类引不到）
+        /// —— 那两处若改，这里必须同步。</para></summary>
+        static void SetLayerRenderQueue(Transform layerRoot)
+        {
+            if (layerRoot == null) return;
+            const int q = 3106 + 9;   // = CardDetailPopup.QCardStack + CardFan.Slots
+            foreach (var iq in layerRoot.GetComponentsInChildren<ImageQuad>(true))
+                if (iq != null) iq.SetRenderQueue(q);
+            foreach (var pr in layerRoot.GetComponentsInChildren<ParticleSystemRenderer>(true))
+            {
+                if (pr == null) continue;
+                var m = pr.material;          // 实例材质（不污染共用材质）
+                if (m != null) m.renderQueue = q + 1;   // 粒子在图件之上一点，仍在本窗面板之下
+            }
+        }
+
+        static Transform BuildInto(Transform root, float s)
+        {
+            if (root == null) return null;
             var ta = Resources.Load<TextAsset>(DtoPath);
             if (ta == null)
             {
@@ -68,15 +126,6 @@ namespace CardPresentation
                 return null;
             }
             if (doc == null || doc.particles == null) return null;
-
-            float unitToPx = cardWidthPx > 1f ? cardWidthPx / 2.0927f : 1f;
-            float s = unitToPx / 108f;                       // 原版单位 → 世界单位（见文件头换算那一段）
-
-            var root = new GameObject("Card Display Effects").transform;
-            root.SetParent(cardParent, false);
-            root.localPosition = Vector3.zero;
-            root.localRotation = Quaternion.identity;
-            root.localScale = Vector3.one;
 
             int built = 0, noMat = 0;
             for (int i = 0; i < doc.particles.Length; i++)

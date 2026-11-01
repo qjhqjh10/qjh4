@@ -397,7 +397,7 @@ namespace CardPresentation
 
         public void SetTint(Color c)
         {
-            if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.color = c;
+            ApplyTintColor(c);              // 🆕 `B-190`：开了顶点色通道的 quad 改走 `Mesh.colors`（见类尾那一段）
             // 🆕 **2026-10-04（A38③）**：软边切出来的子块**跟着刷** —— 它们是独立的 quad
             //（同一张贴图、只有顶点色不同），不跟着就会出现「边带那一条颜色不对」（静默）。
             // ⚠️ **只有登记过软边子块的宿主会进这个循环**（子块自己不会再有子块 ⇒ 不会递归）。
@@ -409,7 +409,7 @@ namespace CardPresentation
         /// 一张 α0.694 的板子画成 α1 在截图上很容易看漏（尤其底下本来就有图案的时候）。</summary>
         public Color Tint
         {
-            get { return (_mr != null && _mr.sharedMaterial != null) ? _mr.sharedMaterial.color : Color.white; }
+            get { return CurrentTintColor(); }   // 🆕 `B-190`：顶点色通道开着时读那一份（否则逐字等于原来那句）
         }
 
         /// <summary>
@@ -496,7 +496,7 @@ namespace CardPresentation
             // UV 默认是整张图；九宫格/平铺靠 `SetUvRect` 只取一块（`fill < 1` 时这里已经是右段）
             m.uv = new[] { new Vector2(uv.xMin, uv.yMin), new Vector2(uv.xMax, uv.yMin), new Vector2(uv.xMax, uv.yMax), new Vector2(uv.xMin, uv.yMax) };
             // 顶点色：默认白（= 不染色）。`Sprites/Default` 会 `tex × 顶点色`，所以四角给了不同颜色就是渐变。
-            m.colors = cols ?? WhiteVerts;
+            m.colors = CornerColorsWithTint(cols ?? WhiteVerts);   // 🆕 `B-190`：通道没开 ⇒ 原样返回（零行为变化）
             m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
             m.RecalculateBounds();
             _mf.sharedMesh = m;
@@ -721,6 +721,110 @@ namespace CardPresentation
             }
             RebuildMesh();
             NotifySoftEdgeChanged();
+        }
+
+        // ============================================================ `B-190`：顶点色染色通道（追加在类尾）
+        //
+        // **为什么要这条通道**：原版 uGUI 的悬停/按下色偏走 `CanvasRenderer.SetColor` —— 那是**顶点色**
+        //   （`EverguildButton.m_Transition = ColorTint` → `Graphic.CrossFadeColor`），**不是**材质 `_Color`。
+        //   我们 `SetTint` 一直写的是 `sharedMaterial.color`（=`_Color`）—— 对 `Sprites/Default` 那类
+        //   「`tex × _Color × 顶点色`」的 shader 两者等效，但对**没有 `_Color`** 的 shader 就整层落空。
+        //
+        // **判据（原版实读，2026-11-01）**：材质 `UI Orange Button To Purple` 的 shader
+        //   `Shader Graphs/Sprite HUE Color change` ——
+        //   · 属性表 `_Brightness _Contrast _Hue_Offset _MainTex _Saturation`，**没有 `_Color`**
+        //     （`WarpforgeVFX/Runtime/OriginalShaderBlendTable.cs:422`）；
+        //   · VS 的输入签名里有 `COLOR 0 xyzw`，体里 `mul o2.xyzw, cb0[130], v4` 把它原样转给 PS 的 `v2`；
+        //   · PS 末句 `mul o0.xyzw, r0.xyzw, v2.xyzw` —— **最终乘顶点色**
+        //     （`工具/disasm_dxbc.py "Sprite HUE Color change" --stage vs|ps` 现读）。
+        //   ⇒ 原版「根 Image 有色偏」与「材质没有 `_Color`」并不矛盾：色偏就是**顶点色**这一路。
+        //
+        // **影响面（为什么既有调用点一个字节都不变）**：`_vertexTint` 默认 `false`
+        //   ⇒ `SetTint` / `Tint` / `RebuildMesh` 三处走的分支与改动前**逐字相同**
+        //   （`CornerColorsWithTint` 在通道关闭时原样返回入参、不分配）。只有调用方**显式**
+        //   `SetVertexTintChannel(true)` / `SetVertexTint(c)` 过的 quad 才换路。
+        //   ⚠️ 与 `_Color` **不会双重相乘**：这条通道只写顶点色、**不写 `_Color`**；
+        //     目标 shader 本来就没有 `_Color`，所以顶点色在整个管线里只被乘一次。
+        //
+        // ⚠️ **如实标的差异**：这是「按原版机制补齐」，不是自设计 —— 原版本来就乘顶点色。
+        //   唯一我们自己定的是「怎么在 `ImageQuad` 里表达它」（opt-in 开关而不是全局改 `SetTint`），
+        //   理由：`ImageQuad` 是全工程共用件，全局改会把所有「shader 没有 `_Color`」的站点**静默**换路。
+
+        bool _vertexTint;
+        Color _vertexTintColor = Color.white;
+
+        /// <summary>这条 quad 现在是不是走**顶点色**染色（而不是材质 `_Color`）。自检/诊断用。</summary>
+        public bool UsesVertexTint { get { return _vertexTint; } }
+
+        /// <summary>开关「顶点色染色」通道。判据与影响面 → 本节头部注释。
+        /// <para>打开后 `SetTint` / `Tint` 都改走 `Mesh.colors`（**不再写 `_Color`**，于是没有 `_Color`
+        /// 的 shader 也不会再报「Material doesn't have a color property」）；关掉时回到原来那条路。</para>
+        /// <para>⚠️ 打开时那一份颜色默认是**白**（= 不偏色），调用方随后照常用 `SetTint` 推色即可。</para></summary>
+        public void SetVertexTintChannel(bool on)
+        {
+            if (_vertexTint == on) return;
+            _vertexTint = on;
+            if (_mf != null) RebuildMesh();     // 把 `_vertexTintColor` 重新乘进四角顶点色
+            // 软边切出来的子块是**独立 quad**、共用同一支材质（`SetTint` 会逐块转过去，见那一处）——
+            // 只给宿主开、不给子块开，子块就会继续去写不存在的 `_Color`（静默报错路）。没登记过子块时是空循环。
+            for (int i = 0; i < _softKids.Count; i++)
+                if (_softKids[i] != null) _softKids[i].SetVertexTintChannel(on);
+        }
+
+        /// <summary>直接设一次顶点色（**顺带打开通道**）。等价于 `SetVertexTintChannel(true)` + `SetTint(c)`。</summary>
+        public void SetVertexTint(Color c)
+        {
+            _vertexTint = true;
+            ApplyTintColor(c);
+        }
+
+        /// <summary>`SetTint` 的实现体（**逐字保留**原来那一句作为 `_vertexTint == false` 的分支）。
+        /// ⚠️ 顶点色这一支要 `RebuildMesh`：四角顶点色是在建网格时写进 `Mesh.colors` 的。</summary>
+        void ApplyTintColor(Color c)
+        {
+            if (_vertexTint)
+            {
+                _vertexTintColor = c; UploadVertexTint();
+                // 子块可能是**之后**才被 `MenuDraw.ReapplySoftEdges` 重切出来的（那一刻还没有通道）——
+                // 每次推色顺手补齐，避免子块回落到写不存在的 `_Color`。没登记过子块时是空循环。
+                for (int i = 0; i < _softKids.Count; i++)
+                    if (_softKids[i] != null) _softKids[i].SetVertexTintChannel(true);
+                return;
+            }
+            if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.color = c;
+        }
+
+        /// <summary>把当前顶点色写进网格（**只改 `Mesh.colors`，不重建几何**）。
+        /// <para>🔴 为什么不直接 `RebuildMesh()`：`WindowButton.Update` 在 0.1 s 补间里**每帧**调一次
+        /// `SetTint` ⇒ 每次重建整块网格（新建 `Mesh` + 顶点/uv/三角数组）会在悬停那几帧里反复分配。
+        /// 几何没变、只有颜色变 ⇒ 走 `Mesh.colors` 这一条就够（uGUI 的 `SetColor` 也是只动顶点色）。</para>
+        /// <para>⚠️ `fillAmount &lt; 1` 那一档的四角色要先按填充量插值（见 `RebuildMesh`），这里不重算
+        /// ⇒ 退回 `RebuildMesh()`（只有 `ChatPreview/Container` 用填充，且它不开这条通道）。</para></summary>
+        void UploadVertexTint()
+        {
+            if (_mf == null) return;
+            var mesh = _mf.sharedMesh;
+            if (mesh == null || mesh.vertexCount != 4 || _fillAmount < 1f) { RebuildMesh(); return; }
+            mesh.colors = CornerColorsWithTint(_cornerColors ?? WhiteVerts);
+        }
+
+        /// <summary>`Tint` 的实现体（同上：通道关闭时逐字等于原来那句）。</summary>
+        Color CurrentTintColor()
+        {
+            if (_vertexTint) return _vertexTintColor;
+            return (_mr != null && _mr.sharedMaterial != null) ? _mr.sharedMaterial.color : Color.white;
+        }
+
+        /// <summary>把 `_vertexTintColor` **乘进**四角顶点色（`RebuildMesh` 用）。
+        /// 🔴 通道关闭、或颜色本来就是白 ⇒ **原样返回入参**（同一个数组、零分配）——
+        /// 这正是「既有几百个 quad 一个字节都不变」的结构性保证。</summary>
+        Color[] CornerColorsWithTint(Color[] cornerColors)
+        {
+            if (!_vertexTint || _vertexTintColor == Color.white) return cornerColors;
+            var dst = new Color[4];
+            for (int i = 0; i < 4; i++)
+                dst[i] = cornerColors != null ? cornerColors[i] * _vertexTintColor : _vertexTintColor;
+            return dst;
         }
     }
 }

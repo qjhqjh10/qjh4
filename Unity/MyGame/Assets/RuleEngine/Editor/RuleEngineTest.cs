@@ -1375,7 +1375,7 @@ public static partial class RuleEngineTest
         // 🆕 2026-10-31（调度台 · AUD11）：`EngineE1Assert`（v24 三列 / 版本守卫 / 按能力种类归位）
         //   头注释自己写着「请主对话并进宿主」，此前**全仓 0 宿主** ⇒ 一条都没跑过。
         {
-            EngineE1Assert.Run(); _pass += EngineE1Assert.Pass; _fail += EngineE1Assert.Fail; C1_EngineFixes_Assert.Run(); _pass += C1_EngineFixes_Assert.Pass; _fail += C1_EngineFixes_Assert.Fail; C8_Assert.Run(); _pass += C8_Assert.Pass; _fail += C8_Assert.Fail; B110C09(); B110_E5_Assert.Run(); _pass += B110_E5_Assert.Pass; _fail += B110_E5_Assert.Fail; B111E1(); B111E3B_Assert.Run(); _pass += B111E3B_Assert.Pass; _fail += B111E3B_Assert.Fail; B112_T2C_Assert.Run(); _pass += B112_T2C_Assert.Pass; _fail += B112_T2C_Assert.Fail;
+            EngineE1Assert.Run(); _pass += EngineE1Assert.Pass; _fail += EngineE1Assert.Fail; C1_EngineFixes_Assert.Run(); _pass += C1_EngineFixes_Assert.Pass; _fail += C1_EngineFixes_Assert.Fail; C8_Assert.Run(); _pass += C8_Assert.Pass; _fail += C8_Assert.Fail; B110C09(); B110_E5_Assert.Run(); _pass += B110_E5_Assert.Pass; _fail += B110_E5_Assert.Fail; B111E1(); B111E3B_Assert.Run(); _pass += B111E3B_Assert.Pass; _fail += B111E3B_Assert.Fail; B112_T2C_Assert.Run(); _pass += B112_T2C_Assert.Pass; _fail += B112_T2C_Assert.Fail; B112W_B127_Assert.Run(); _pass += B112W_B127_Assert.Pass; _fail += B112W_B127_Assert.Fail;
         }
 
         // ---- 汇总 ----

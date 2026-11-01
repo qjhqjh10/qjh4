@@ -777,7 +777,7 @@ public static class EffectExporter
     /// 🔴 **导入项必须显式设、不能吃默认值**（原资产实测）：**28×41 / 14×41 是 NPOT**
     ///    （默认 `ToNearest` 会把它缩放 ⇒ 布局全毁）· `m_ColorSpace: 0` ⇒ **线性数据贴图** ·
     ///    无 mip · **RGBA32 不压缩**。
-    ///    ⛔ **别改成走 `ImportTexture`**：它写死 `sRGBTexture = true`、mip 照原资产，一导就毁。
+    ///    ⛔ **别改成走 `ImportTexture`**：它的 mip 照原资产（🆕 2026-11-01 B-184 起 `sRGBTexture` 已改成照源贴图 = false，**这一格不再冲突**），一导就毁。
     /// </summary>
     static void RestoreVatTextures()
     {
@@ -1335,9 +1335,9 @@ public static class EffectExporter
     //    （它们是**手放进** `Textures/` 的，导入设置照原资产手设过：28×41 / 14×41 是 **NPOT** ⇒
     //     `nPOTScale: 0`、`sRGBTexture: 0`（线性数据贴图）、无 mip、RGBA32 不压缩）。
     //    ⇒ 这里**只按路径取、取不到就出声**，⛔ **不拿 `ImportTexture` 重导** ——
-    //      `ImportTexture` 写死 `sRGBTexture = true`、mip 照原资产，一导就把那套手设的导入设置冲掉
+    //      `ImportTexture` 的 mip 照原资产（🆕 2026-11-01 B-184 起 `sRGBTexture` 也照源贴图 = false），一导就冲
     //      （2026-10-19 FX-2 起 `ImportTexture` 也无条件写 `nPOTScale = None`，**这一格不再冲突**；
-    //       但 sRGB / mip / 不压缩那三格仍会被冲 ⇒「别用它重导 VAT」这条**照旧成立**）。
+    //       但 mip / 不压缩那两格仍会被冲（🆕 B-184 起 sRGB 不再被冲）⇒「别用它重导 VAT」这条**照旧成立**）。
     //
     //  ⚠️ **本支【不管】的另一处**（同一趟重导也会抹掉、但**不是本题**）：`VanguardIdleEffect` 那条
     //    legacy `Animation.m_Animation` / `m_Animations[0]` 的 guid 现在是人手补的（`:59081/59083`），
@@ -1680,7 +1680,7 @@ public static class EffectExporter
                            + "`RestoreVatTextures()` 自动补回（真身常驻 `" + RuntimeVatDir + "`）。"
                            + "真出现了 ⇒ 先看 `RestoreVatTextures` 那两条出声里的哪一条。"
                            + "（判据：28×41 / 14×41 是 **NPOT** ⇒ `npotsScale: None`、`sRGBTexture: 0` 线性、无 mip、RGBA32 不压缩；"
-                           + "⛔ 别走 `ImportTexture`：它写死 `sRGBTexture = true`，一导就把布局毁了。）");
+                           + "⛔ 别走 `ImportTexture`：它的 mip 照原资产（🆕 B-184 起 sRGB 已照源贴图），一导就把布局毁了。）");
         return t;
     }
 
@@ -3676,7 +3676,7 @@ public static class EffectExporter
     {
         if (tex == null) return null;
         if (tex is Cubemap) return null;                       // 立方图单独处理，先跳过
-        if (TexCache.TryGetValue(tex, out var c) && c != null) return c;
+        if ((TexCache.TryGetValue(tex, out var c) && c != null) || AlreadyOurs(tex as Texture2D)) return c ?? (tex as Texture2D);   // 🔴 B-185：见类尾 `AlreadyOurs`
 
         var src = tex as Texture2D;
         if (src == null) return null;
@@ -3694,6 +3694,7 @@ public static class EffectExporter
             throw;
         }
         if (readable == null) return null;
+        TexProbe(src, readable);                    // 🔴 B-185：`WF_TEX_PROBE=1` 才出声（见类尾），平时零噪声
 
         // 🔴 2026-09-17 定位到的真因：**`EncodeToPNG` 对压缩格式（实测 DXT5）返回 `null`，而且「不抛异常」**
         //    ⇒ 下面那句 `File.WriteAllBytes(full, png)` 拿 null 当字节数组，抛
@@ -3729,7 +3730,7 @@ public static class EffectExporter
         if (ti != null)
         {
             ti.textureType = TextureImporterType.Default;
-            ti.sRGBTexture = true;
+            ti.sRGBTexture = SrcIsSrgb(src);   // 🔴 B-184：原来写死 `true`，把原版 `m_ColorSpace: 0` 的数据贴图（法线/遮罩/Noise）改成了颜色图
             ti.alphaIsTransparency = true;
             // 🔴 2026-10-19（本波 FX-2 · 账 V1）：**无条件 `nPOTScale = None`**（原版真值）。
             //   判据同 `FixTextureImportSettings`：原版 runtime 的 `Texture2D` 尺寸就是 NPOT
@@ -3879,7 +3880,7 @@ public static class EffectExporter
             ti.textureType = TextureImporterType.Sprite;
             ti.spriteImportMode = SpriteImportMode.Single;
             ti.spritePixelsPerUnit = ppu > 0f ? ppu : 100f;
-            ti.alphaIsTransparency = true;
+            ti.alphaIsTransparency = true; ti.sRGBTexture = SrcIsSrgb(tex);   // 🔴 B-184：精灵也照源贴图写（原来留 Unity 默认的 1）
             ti.mipmapEnabled = false;
             ti.wrapMode = TextureWrapMode.Clamp;
             ti.filterMode = FilterMode.Bilinear;
@@ -4602,12 +4603,12 @@ public static class EffectExporter
         //    在 GPU 上采样是不受 crunch 限制的。
         if (src.isReadable && !IsCrunched(src.format)) return src;
 
-        var rt = RenderTexture.GetTemporary(src.width, src.height, 0,
-            RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+        var rt = RenderTexture.GetTemporary(src.width, src.height, 0, RenderTextureFormat.ARGB32,
+            SrcIsSrgb(src) ? RenderTextureReadWrite.sRGB : RenderTextureReadWrite.Linear);   // 🔴 B-184：见 SrcIsSrgb
         Graphics.Blit(src, rt);
         var prev = RenderTexture.active;
         RenderTexture.active = rt;
-        var readable = new Texture2D(src.width, src.height, TextureFormat.RGBA32, false);
+        var readable = new Texture2D(src.width, src.height, TextureFormat.RGBA32, false, !SrcIsSrgb(src));   // 🔴 B-184：与 RT 同色域，回读才不串色
         readable.ReadPixels(new Rect(0, 0, src.width, src.height), 0, 0);
         readable.Apply();
         RenderTexture.active = prev;
@@ -5263,5 +5264,136 @@ public static class EffectExporter
             Debug.LogWarning($"[EffectExporter] 摊平 {t.name} 失败：{e.GetType().Name}: {e.Message}");
             return null;
         }
+    }
+
+    // ═══ B-184（2026-11-01）：源贴图是「sRGB 颜色图」还是「线性数据图」（原版 `m_ColorSpace: 0`）═══
+    //
+    // **为什么必须有这个判定**：`ReadableCopy` 对「不可读 / crunch」的原版贴图走 GPU 回读
+    //   （`Graphics.Blit` → `RenderTexture` → `ReadPixels`）。**回读用的 RT 色域必须与源贴图一致**，
+    //   否则那一次往返会**多做或少做一次 sRGB 编码**：
+    //   · 源是 sRGB 颜色图 + RT 也是 sRGB ⇒ 采样解码 → 写回编码，**字节原样回来**；
+    //   · 源是**线性数据图**（法线 / 遮罩 / Noise）+ RT 是 sRGB ⇒ 采样**不解码**、写回**照编一次**
+    //     ⇒ 落盘的是 `sRGB_encode(原版)` ❌ —— 这正是 B-184 那 22 张的成因。
+    //   （Linear 工程下采样/写入真的会转换；Gamma 工程下整条链不转换，故两者只会错在一边。）
+    //
+    // **实证**（普查 → `资料/完全复刻/判据/B112W_B184_双编码贴图普查.md`）：
+    //   `WarpforgeVFX/Textures/` 484 张里判 `ENCODE` 的 **22 张，22/22** 的原版 AssetRipper `.meta`
+    //   都是 `sRGBTexture: 0`（`RippleSubtle` / `Noise Combined` / `EarthCrackNormal` / `MuzzleFlash_*` …），
+    //   而判 `EXACT` 的抽样**全是 `sRGBTexture: 1`**。
+    //   反证：`NoiseNRM` 同样是 `sRGBTexture: 0` **却没被编码**（普查判 `OTHER`）—— 因为它**可读**，
+    //   走的是 `ReadableCopy` 开头「直接返回 src」那条路 ⇒ **只有「不可读 + 线性数据」同时成立才中招**。
+    //
+    // **同一份判定也管 `.meta`**：原版这 24 张（22 + `NoiseNRM` + `Large_Monolith_Mask`）的导入设置就是
+    //   `sRGBTexture: 0`；原来 `ImportTexture` 写死 `true`（`ImportSprite` 更是一个字没写 = Unity 默认 1）
+    //   ⇒ 在 Linear 工程里这些数据贴图会被**多解码一次**。现在两边都照源贴图写。
+    //
+    // **判据来源**：`Texture.isDataSRGB`（Unity 文档：「Returns true if the texture pixel data is in sRGB
+    //   color space」）—— 对 bundle 载入的 `Texture2D` 即原版序列化的 `m_ColorSpace`；
+    //   它读不到时退回 `GraphicsFormat` 的 `_SRGB` 位。
+    // ⚠️ 判断不了时**一律返回 true** = 保持「加这个判定之前」的行为，
+    //    ⛔ 绝不静默改掉已经正确的 459 张（它们全部是 sRGB 颜色图）。
+    static bool SrcIsSrgb(Texture2D t)
+    {
+        if (t == null) return true;
+        try { return t.isDataSRGB; } catch { }
+        try
+        {
+            var gf = t.graphicsFormat;
+            if (gf != UnityEngine.Experimental.Rendering.GraphicsFormat.None)
+                return UnityEngine.Experimental.Rendering.GraphicsFormatUtility.IsSRGBFormat(gf);
+        }
+        catch { }
+        return true;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    // B-185（2026-11-01）：贴图被「再导一遍」时会掉进 **DXT5 往返** —— 判据 / 防护 / 探针
+    // ══════════════════════════════════════════════════════════════════════════════════════════
+    //
+    // **病灶（实测，判据 → `资料/完全复刻/报告/B112W_B185.md`）**：
+    //   `WarpforgeVFX/Textures/` 里 **`NoiseNRM` / `Gauss Rays` / `Lighting Trail`** 三张的 PNG
+    //   是 **`DXT5(原版)`**，不是原版本身：
+    //     · 每个 4×4 块只有 **≤4 个不同 G 值**（BC1 4 色板：`{c0,c1,(2c0+c1)/3,(c0+2c1)/3}`，
+    //       实测 2048/2048 块满足 1/3-2/3 关系）· alpha 每块 **≤8 个值**且 **块内极值与原版逐块完全相等**
+    //       （1024/1024 块，mean 0.00 std 0.00）· 端点落在 **RGB565 网格**上（G 50.9%、B 54.5%，随机 25%/12.5%）。
+    //     · 原版原件本身**不是**这样：UnityPy 从 bundle 解码 vs `assets_full` = **MAE 0.000 / 100.00% 逐字节相同**。
+    //   ⇒ 那层 DXT5 是**我们这一侧**加上去的，而且是**对正确像素做的单次编码**（alpha 端点 = 原版块内极值）。
+    //
+    // **为什么必然是「导入了我们自己那张工程资产」**：
+    //   `Gauss Rays` 与 `Gauss Rays Noise` 在包里**每一项属性都相同**（BC7 · 256×128 · 9 mips ·
+    //   不可读 · sRGB），前者坏了、后者完好 ⇒ 差异**不在格式、不在 `ReadableCopy` 的哪条分支**，
+    //   而在「传进来的那个 `Texture2D` 到底是谁」。
+    //   全流程里**唯一**能产生 DXT5 的地方是 **Unity 的导入器**：这批 PNG 的 `.meta` 是
+    //   `textureCompression: 1`（Compressed）⇒ Unity 把 RGBA 导成 **DXT5**。
+    //   ⇒ 只要 `ImportTexture` 拿到的是「我们已经导好的那张工程资产」，落盘就是**把导入器的有损压缩
+    //     结果写回 PNG**，一次往返就永久留在盘上（同一个入口也会把 sRGB 往返一起写回去）。
+    //
+    // **防护**：`AlreadyOurs()` —— 源贴图如果就挂在**我们这个目标路径**上，直接返回它、**不再编码**。
+    //   ⚠️ 别改成「先 ReadableCopy 再 Encode」：工程资产本身是压缩的，那条路照样解出 DXT5 像素。
+    //
+    // **探针**：`WF_TEX_PROBE=1` 时 `TexProbe()` 逐张打「实例号 / 资产路径 / 格式 / 可读性 / 走哪条分支 /
+    //   像素指纹」，用来在**重导之后**确认：(a) 还有没有「资产路径 = 目标 PNG」的调用；(b) 直取与回读
+    //   两条路的像素指纹差多少。平时**一条都不打**（⛔ 不留永久日志噪声）。
+    static bool AlreadyOurs(Texture2D t)
+    {
+        if (t == null) return false;
+        try
+        {
+            var p = AssetDatabase.GetAssetPath(t);
+            // 只有「已经就是我们这次要写的那个文件」才算 —— 别的工程资产（战场树、图集切片）
+            // 仍然照常导出，⛔ 别用「有没有资产路径」当判据（那会把它们全挡掉）。
+            return !string.IsNullOrEmpty(p) && p == $"{TexDir}/{Sanitize(t.name)}.png";
+        }
+        catch { return false; }
+    }
+
+    static bool _texProbeInit, _texProbeOn;
+    static bool TexProbeOn
+    {
+        get
+        {
+            if (!_texProbeInit)
+            {
+                var v = Environment.GetEnvironmentVariable("WF_TEX_PROBE");
+                _texProbeOn = !string.IsNullOrEmpty(v) && v != "0";
+                _texProbeInit = true;
+            }
+            return _texProbeOn;
+        }
+    }
+
+    static void TexProbe(Texture2D src, Texture2D readable)
+    {
+        if (!TexProbeOn || src == null) return;
+        long fp = 0;
+        // ⚠️ 8192² 摊成 `Color[]` 是 268 MB ⇒ 超过 400 万像素只打元数据、不算指纹（探针是诊断用的，别把机器撑爆）
+        try { fp = readable.width * (long)readable.height > 4000000 ? 0L : PixelFingerprint(readable.GetPixels()); }
+        catch (Exception e) { Debug.LogWarning(EX1 + $"TEXPROBE {src.name} 像素指纹算不出来：{e.GetType().Name}: {e.Message}"); }
+        string ap = "";
+        try { ap = AssetDatabase.GetAssetPath(src); } catch { }
+        int mips = -1;
+        try { mips = src.mipmapCount; } catch { }
+        Debug.Log($"[TEXPROBE] {src.name}：实例 {src.GetInstanceID()} · 资产路径 `{ap}` · fmt={src.format}"
+                + $" · isReadable={src.isReadable} · mips={mips}"
+                + $" · 走 {(ReferenceEquals(src, readable) ? "直取 src" : "GPU 回读")}"
+                + $" · 像素指纹 {fp:x16}");
+    }
+
+    /// <summary>逐像素 8-bit 量化的 FNV-1a —— 只用来「同/不同」判等，不做保证。
+    /// ⚠️ 别用 `Buffer.BlockCopy(Color[], …)`：`Color[]` 不是基元数组，那会抛
+    /// 「Object must be an array of primitives」（`Color` 是 4×float 的结构体）。</summary>
+    static long PixelFingerprint(Color[] px)
+    {
+        ulong h = 14695981039346656037UL;
+        for (int i = 0; i < px.Length; i++)
+        {
+            int r = Mathf.Clamp(Mathf.RoundToInt(px[i].r * 255f), 0, 255);
+            int g = Mathf.Clamp(Mathf.RoundToInt(px[i].g * 255f), 0, 255);
+            int b = Mathf.Clamp(Mathf.RoundToInt(px[i].b * 255f), 0, 255);
+            int a = Mathf.Clamp(Mathf.RoundToInt(px[i].a * 255f), 0, 255);
+            h ^= (uint)(r | (g << 8) | (b << 16) | (a << 24));
+            h *= 1099511628211UL;
+        }
+        return (long)h;
     }
 }

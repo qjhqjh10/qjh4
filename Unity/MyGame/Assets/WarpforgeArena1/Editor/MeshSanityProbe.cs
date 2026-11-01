@@ -81,11 +81,18 @@ public static class MeshSanityProbe
         camGo.transform.LookAt(b.center);
         cam.fieldOfView = 40f;
 
+        // 🟢 B-191（2026-11-01）逐条核过：这里的 `sRGB` **不是** B-184 那个坑，**故意保留**，⛔ 别改成 Linear。
+        //   ① 本方法没有「源贴图」可跟：材质是当场 `new Material(URP/Unlit)` + 纯白 `_BaseColor` + `_BaseMap = null`
+        //      ⇒ 参与渲的没有任何贴图，也就谈不上「源的 `m_ColorSpace`」；
+        //   ② 这支的产物是**给人看的 PNG**（判「网格形状对不对」，见文件头），要的是**显示就绪的 sRGB**：
+        //      sRGB RT + 下面那张 `linear: false`（= sRGB）的 `Texture2D` **配对** ⇒
+        //      Linear 工程里硬件在写入 RT 时做 linear→sRGB 编码、Gamma 工程里全链不转换 ⇒ **两态都出正确亮度的图**；
+        //   ③ 若改成 Linear：Linear 工程下 PNG 会变成**未编码的线性字节**（肉眼偏黑），反而会让人误判「这个网格做暗了」。
         var rt = new RenderTexture(512, 512, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
         cam.targetTexture = rt;
         cam.Render();
         RenderTexture.active = rt;
-        var tex = new Texture2D(512, 512, TextureFormat.RGBA32, false);
+        var tex = new Texture2D(512, 512, TextureFormat.RGBA32, false, false);   // 第 5 参 `linear: false` = sRGB，**必须与上面 RT 同色域**
         tex.ReadPixels(new Rect(0, 0, 512, 512), 0, 0);
         tex.Apply();
         RenderTexture.active = null;

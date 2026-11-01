@@ -670,7 +670,7 @@ namespace CardPresentation
             _openCrateHighlightGo = MenuDraw.Nine(_openCrateBtn, Tex(ArtOctagon, "开箱钮高亮框"), PriceBtnHiR,
                           new Vector4(52f, 52f, 52f, 52f), 128f, 128f, QChestButton, Color.white, false,
                           "Button Higlight border",
-                          new Vector4(52f / 0.85f, 52f / 0.85f, 52f / 0.85f, 52f / 0.85f));
+                          new Vector4(52f / 0.85f, 52f / 0.85f, 52f / 0.85f, 52f / 0.85f)); MenuFxMaterials.ApplyBorderGachaButtonGlowAll(_openCrateHighlightGo);
 
             // `Open Chest Button`（`40K_button` Simple + preserveAspect · tint 粉）
             var btn = MenuDraw.Node(_openCrateBtn, "Open Chest Button", OpenBtnR);

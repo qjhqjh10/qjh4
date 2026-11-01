@@ -1435,7 +1435,7 @@ namespace CardPresentation
             var bonus = _p2TeamBonus[isA ? 0 : 1] = MenuDraw.Node(row, "Team Bonus", Scr(bonusR));
             // `Skull SDF`（128×128）**本工程未导入** ⇒ 只建节点、不出图 + 记账
             var sdf = MenuDraw.Node(bonus, "Skull SDF", Scr(sdfR));
-            MenuDraw.Rect(sdf, Tex(ArtSkullSdf, "骷髅 SDF 光晕"), Scr(sdfR), "Image", QPageArt);
+            MenuDraw.Rect(sdf, Tex(ArtSkullSdf, "骷髅 SDF 光晕"), Scr(sdfR), "Image", QPageArt); MenuFxMaterials.ApplyBorderHighlightAppearAll(sdf.gameObject, MenuFxMaterials.BorderHighlightAppear.PurpleNoSmooth);
             MenuDraw.Rect(bonus, Tex(ArtSkull, "骷髅"), Scr(skullR), "Skull", QPageArt1);
         }
 

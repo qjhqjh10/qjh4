@@ -11335,7 +11335,7 @@ namespace RuleEngine
                     IsKeyword = true,
                     Name = norm,
                     Value = 1,
-                    Owner = fromAura ? -1 : 0,
+                    Owner = fromAura ? -1 : 0, TargetOwner = TargetSeatOf(ctx, u),   // 2026-11-01（`B-127` S1）：嵌入关键词这条路的 `Owner` 是写死常量 ⇒ 到期按**持卡人** `TargetOwner` 判（判据同 `+0x33`：`CardScript__OnTurnSetup.c:40`）
                     UntilMyNextTurn = duration == "nextturn",
                     Src = by,
                     SourceCard = ctx.PlayingCard != null ? ctx.PlayingCard.Name : by,
@@ -12111,7 +12111,7 @@ namespace RuleEngine
                         GrantDarkPact(ctx, owner, t, p.Variant, by);
                         continue;
                     }
-                    ApplyOneGain(ctx, owner, t, p, sign, op.Duration, by, null, unresolved,
+                    ApplyOneGain(ctx, owner, t, p, sign, ItemDurationOutlier(ctx, op.Duration, p), by, null, unresolved,   // 2026-11-01（`B-127` S2）：逐属性时长 —— 原版数据孤例（`Worst Temper` 的 `armour` 那半是 `+0x34`，卡面却写 `this turn`），照数据不照卡面
                                  op.AddTraitRemnant, rowGroup);   // 🆕 2026-10-30（`B103_W3` · S3-c）：把本子句的组号传下去（属性/限时两条路都靠它合并成一行）
                 }
             }
@@ -12460,8 +12460,8 @@ namespace RuleEngine
                     //   现在数值走修饰表，名字不对就是「这条增益根本不存在」——必须归一。
                     Name = p.IsKeyword ? p.Keyword : NormalizeAttr(p.Attr),
                     Value = val,
-                    Owner = owner,
-                    UntilMyNextTurn = duration == "nextturn",
+                    Owner = owner, TargetOwner = TargetSeatOf(ctx, u),   // 2026-11-01（`B-127` S1）：`Owner` = 施放者（`+0x34` 用），`TargetOwner` = 持效果那张卡的主人（`+0x33` 用；判据 `CardScript__OnTurnSetup.c:40`）
+                    UntilMyNextTurn = duration == "nextturn", UntilOpponentNextTurn = duration == "untilEnemyTurnStart",   // 2026-11-01（`B-127` S2）：bit2 的生产者（`+0x34`，判据 `CardScript__OnTurnSetup.c:71/:76`）
                     Src = by, RowGroup = rowGroup,   // 🆕 2026-10-30（`B103_W3` · S3-c）：限时那一路也带组号（`AddTempBuff` 会把它透传进它建的那条 `Mod`）
                     // 真卡名（`by` 在战术卡那条路上恒为「战术卡」，不足以定位「本卡施加的」）
                     SourceCard = ctx.PlayingCard != null ? ctx.PlayingCard.Name : by,
@@ -15090,8 +15090,8 @@ namespace RuleEngine
                     // 限时的那一份：到期**摘格**（`RevertBuffs` 会 `RemoveStatMod` + `ClampHealthToMax`）
                     t.AddTempBuff(new UnitState.TempBuff
                     {
-                        IsKeyword = false, Name = "health", Value = op.Amount, Owner = owner,
-                        UntilMyNextTurn = op.Duration == "nextturn", Src = by,
+                        IsKeyword = false, Name = "health", Value = op.Amount, Owner = owner, TargetOwner = TargetSeatOf(ctx, t),   // 2026-11-01（`B-127` S1）：到期按持效果那张卡的主人（`+0x33`，判据 `CardScript__OnTurnSetup.c:40`）
+                        UntilMyNextTurn = op.Duration == "nextturn", UntilOpponentNextTurn = op.Duration == "untilEnemyTurnStart", Src = by,   // 2026-11-01（`B-127` S2）：bit2 的生产者（`+0x34`，判据 `CardScript__OnTurnSetup.c:71/:76`）
                         SourceCard = ctx.PlayingCard != null ? ctx.PlayingCard.Name : by,
                         Mod = setMod,
                     });
@@ -17030,12 +17030,12 @@ namespace RuleEngine
         /// <para>`""`（无时长）⇒ `0`（永久，四个位全假）；`"turn"`（`this turn`）⇒ `bit0`；
         /// `"nextturn"`（`until your next turn`）⇒ `bit1`。</para>
         ///
-        /// <para>⚠️ **`nextturn` 只取 bit1**：原版 `until your next turn` 在 IL 里落在 `+0x33`
-        /// （`untilPlayerTurnStart`）**或** `+0x35`（`untilFollowingPlayerTurnStart`）——
-        /// 我们解析层只产出**一个** `nextturn` 档、分不出这两者（判据缺口已记在
-        /// `资料/完全复刻/判据/GetCardEffectsToShow_施工细则.md` §六）。
-        /// 这里取 bit1 是**记录侧的合并键口径**（同一档要能并、不同档不能并），
-        /// ⛔ 别把它当成「原版到底是哪一位」的结论。</para>
+        /// <para>✅ **`nextturn` → bit1 = 原版 `+0x33 untilPlayerTurnStart`**（2026-11-01 查实：`decomp_full/CardScript__OnTurnSetup.c:29/:40/:65`，
+        /// 非附魔比的是**持效果那张卡**的 `isPlayer(+0x40)`）；它**不是** `+0x35`
+        /// （`untilFollowingPlayerTurnStart`，`OnTurnSetup.c:90/:124/:129` 那一档在主人回合开始**降级成 `+0x32`**，我们尚无载体）。
+        /// 逐位对照表 → `资料/完全复刻/判据/B113_G2_回合起止语义.md` §三；
+        /// ⚠️ 运行时那一格的差异（施放者 vs 持卡人）见 `B-127` S1，⛔ 别在注释里把它写成「已对齐」。
+        /// `bit0..4` 的位序判据 = <see cref="UnitState.TraitEffectRecord.TimingBits"/> 的 doc。</para>
         /// </summary>
         static int TimingBitsOfDuration(string duration)
         {
@@ -21048,6 +21048,49 @@ namespace RuleEngine
               + $"已归位到 (ab{(op != null ? op.AbilityIndex : -1)}, lg{(op != null ? op.LogicIndex : -1)})，"
               + "但卡表**没有这一格 `abilityDamage`** ⇒ 判不出是不是原版 `valueOptions == 80`，"
               + "按「非 80 档」继续（⛔ 不退回形状判据 —— 判据 → `判据/B108_N08_valueOptions80.md` §四·1）。");
+        }
+    }
+}
+
+// ==============================================================================================
+//  🆕 2026-11-01（执行代理 `B112W` · 活状态表 `B-127` S1/S2）：
+//  `+0x33` 的「持卡人」解析 + `+0x34` 孤例的逐属性时长。
+//  ⛔ 本块追加在**文件尾**（`EffectResolver.cs` 有账落点按行号引用 ⇒ 只有尾部零漂移，铁律 18·b）。
+// ==============================================================================================
+namespace RuleEngine
+{
+    public static partial class RuleCore
+    {
+        /// <summary>🆕 2026-11-01（`B-127` S1）：**持效果那张卡的主人**（原版 `CardScript__OnTurnSetup.c:40`
+        /// 的 `param_1 + 0x40` = 卡片自己的 `isPlayer`）。站点优先用 `OwnerSeat`（离场后仍记得），
+        /// 否则回落 `OwnerOf` 现扫；都判不到 ⇒ -1（消费端 `IsDueAtTurnStart` 回落到施放者 = 改前行为，
+        /// ⛔ 不是「谁的回合都撤」）。</summary>
+        static int TargetSeatOf(BattleContext ctx, UnitState u)
+        {
+            if (u == null) return -1;
+            if (u.SeatKnown) return u.OwnerSeat;
+            return OwnerOf(ctx, u);
+        }
+
+        /// <summary>🆕 2026-11-01（`B-127` S2）：**原版数据孤例的逐属性时长**（卡面与数据不一致，照抄数据）。
+        /// 现读唯一一条（`cards_raw.json`）：`Worst Temper` 的 `[Shield] Armour` 那半 = `untilEnemyTurnStart(+0x34)`，
+        /// 而卡面写 `this turn`（判据 → `判据/B113_G2_回合起止语义.md` §3·4 bit2）。
+        /// ⚠️ 收得极窄：卡名全等 ∧ 只有 `armour` 那一项 ∧ 时长原本就是 `turn`，其余各项（attack / flying）**保持 `turn`**。
+        /// 🔴 2026-11-01 落地时的现状（见报告 §还差什么）：解析层把该卡面段 `[Shield] Armour 1` 解成了
+        /// **`shield` 关键词**（`GivePayload.GiveKw` 里 `"shield"` 前缀抢先匹配、`Armour 1` 被静默丢掉）
+        /// ⇒ 今天根本不存在 `armour` 那一格 ⇒ 本函数**不会命中**，是**非激活**的生产者，
+        /// 要等 `GivePayload.cs` 的图标词表（`IconNames` 缺 `shield`）修好之后才生效。
+        /// ⚠️ 来源卡取 `ctx.CardPlaySource`（一次出牌/结算作用域内 save/restore），**⛔ 不用 `ctx.PlayingCard`**
+        /// —— 后者从不清空（`BattleContext.cs:714` 那条已记的坑），会在别的卡结算时读到陈旧卡名。</summary>
+        static string ItemDurationOutlier(BattleContext ctx, string dur, PayloadOp p)
+        {
+            if (string.IsNullOrEmpty(dur) || dur != "turn" || p == null) return dur;
+            string attr = p.IsKeyword ? p.Keyword : NormalizeAttr(p.Attr);
+            if (attr != "armour") return dur;
+            var src = ctx != null ? ctx.CardPlaySource : null;
+            if (src == null) return dur;
+            return string.Equals(src.Name, "Worst Temper", System.StringComparison.Ordinal)
+                 ? "untilEnemyTurnStart" : dur;
         }
     }
 }

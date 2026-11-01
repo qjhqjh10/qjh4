@@ -4602,7 +4602,7 @@ namespace RuleEngine
             if (ParseTarget(b) == null) return null;                               // ④
 
             target = a;
-            return b;
+            return InheritTargetSide(a, b);
         }
 
         /// <summary>把新尾巴接到已有尾巴后面（两句并列）。</summary>
@@ -10241,8 +10241,8 @@ namespace RuleEngine
             if (spec.Kind != "warlord")
             {
                 if (t.Contains("warlord")) spec.Kind = "warlord";
-                else if (t.Contains("troop")) spec.Kind = "troop";
-                else if (t.Contains("unit")) spec.Kind = "unit";
+                else if (t.Contains("troop")) { spec.Kind = "troop"; ApplyKindNounSubtype(spec, t); }
+                else if (t.Contains("unit")) { spec.Kind = "unit"; ApplyKindNounSubtype(spec, t); }
                 else if (t.Contains("enem")) spec.Kind = "any";     // `an enemy` = 任意敌方单位
                 else if (t.Contains("target")) spec.Kind = "prev";
                 else
@@ -10707,6 +10707,180 @@ namespace RuleEngine
                     && op.Payload != null
                     && op.Payload.IndexOf("attack", System.StringComparison.OrdinalIgnoreCase) >= 0)
                     op.Duration = "nextturn";
+        }
+
+        // ============================================================================================
+        // 🔴 **2026-11-01（`B112W` · 活状态表 `B-189`）：并列目标列表里的 `your` 覆盖【整个列表】**
+        // ============================================================================================
+        // 病灶：`SplitTargetList` 把 `to <A> and <B>` 切成两条 op —— A 留在本句、B 拼成尾句
+        //   （`give <载荷> to <B>`）再递归解析。**A 身上那个所有格不跟着走**，而 B 自己没写侧别
+        //   ⇒ `ParseTarget` 的 `Side` 初始值 `"any"` 原样留着 = **打到对手身上**。
+        // 卡面实证：`Grisly Feast`（`b3735ef3d1408d544b0947e31f898e20`）
+        //   `Give +1 [Attack] this turn and +1 Health to **your Warlord and Infantry troops**`
+        //   —— 改前探针（`ruleprobe card "Grisly Feast"`）第二/第四条 op：
+        //   `T:Raw=infantry troops|Side=any|Kind=troop`。
+        // 判据：英文 `your X and Y` 的 `your` **并列分配**到 Y（= `your Warlord and your Infantry troops`）；
+        //   中文卡面同文「（给你的）战将和步兵部队」。⛔ 这不是猜 —— 若 `your` 只作用到 X，
+        //   卡面就该写成「你的督军 和 某个步兵部队」，可这一族的 Y 前面**连冠词都没有**。
+        //
+        // 🔴 **收得极窄，三条全满足才套**（⛔ 别放宽成「B 一律继承 A 的侧别」）：
+        //   ① **B 自己一点侧别/范围词都没写**（`your`/`friendly`/`enemy`/`enemies`/`all`/`each`/`every`/`any`）；
+        //   ② A 里有明确侧别（`your`/`friendly` → own，`enemy`/`enemies` → enemy），取**最左出现**的那个；
+        //   ③ B **不是以限定词/代词/数字开头**（`a`/`an`/`the`/`another`/`random`/`it`/`them`/`they`/`this`/`that`…）。
+        //      那一族的侧别**不由并列分配**：`Destroy an enemy unit and another troop` 里的
+        //      `another troop` 只是「另一个部队」，不是「另一个敌方部队」；套上去 = 造一条卡面没有的句子。
+        // 📏 现池（1129 张）实测命中 = **只有 `Grisly Feast` 这一句**（改前/改后全池 `scan` 逐行比，
+        //   判据与读法 → `资料/完全复刻/报告/B112W_B189.md` §四）。
+        static string InheritTargetSide(string a, string b)
+        {
+            if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b)) return b;
+            if (HasExplicitScopeWord(b)) return b;
+            string side = SideWordOf(a);
+            if (side == null) return b;
+            string first = FirstWord(b).ToLowerInvariant();
+            switch (first)
+            {
+                case "a": case "an": case "the": case "another": case "random": case "any":
+                case "it": case "them": case "they": case "he": case "she":
+                case "this": case "that": case "these": case "those": case "target":
+                    return b;
+            }
+            if (first.Length > 0 && char.IsDigit(first[0])) return b;
+            return side + " " + b;
+        }
+
+        /// <summary>`B` 自己写了侧别/范围词吗（`your`/`friendly`/`enemy`/`enemies`/`all`/`each`/`every`/`any`）。
+        /// **整词**比，⛔ 不用 `Contains`（`your` 会命中 `yourself` 那类）。</summary>
+        static bool HasExplicitScopeWord(string s)
+        {
+            foreach (var w in s.Split(new[] { ' ', ',', '.', ';', ':' }, System.StringSplitOptions.RemoveEmptyEntries))
+            {
+                string t = w.ToLowerInvariant();
+                if (t == "your" || t == "friendly" || t == "enemy" || t == "enemies"
+                    || t == "all" || t == "each" || t == "every" || t == "any") return true;
+            }
+            return false;
+        }
+
+        /// <summary>`A` 里那个「谁的」—— 最左出现的 `your`/`friendly`（→ own）或 `enemy`/`enemies`（→ enemy）。
+        /// 都没有返回 null（= 不套）。⚠️ 按**最左**取：卡面里侧别词同时出现两种的写法不存在，
+        /// 真碰上了以先出现者为准（⛔ 别在这里另造一套优先级）。</summary>
+        static string SideWordOf(string a)
+        {
+            string best = null;
+            int bestIdx = int.MaxValue;
+            foreach (var w in new[] { "your", "friendly", "enemy", "enemies" })
+            {
+                int i = IndexOfWord(a, w);
+                if (i >= 0 && i < bestIdx)
+                {
+                    bestIdx = i;
+                    best = (w == "enemies") ? "enemy" : w;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>**整词**查（大小写不敏感），返下标，没有返 -1。`enemy` 不会命中 `enemies`（后者多一个字母）。</summary>
+        static int IndexOfWord(string s, string w)
+        {
+            if (string.IsNullOrEmpty(s)) return -1;
+            var m = Regex.Match(s, @"(?<![a-z])" + w + @"(?![a-z])", RegexOptions.IgnoreCase);
+            return m.Success ? m.Index : -1;
+        }
+
+        // ============================================================================================
+        // 🔴 **2026-11-01（`B112W` · 活状态表 `B-203`）：`<兵种词> troops/units` 的兵种词被丢掉**
+        // ============================================================================================
+        // 病灶：`ParseTarget` 的「哪种」那一段**先**判 `t.Contains("troop")` ⇒ `Kind = "troop"`，
+        //   而唯一会填 `SubtypeFilter` 的是最后那支「既不认 troop 也不认 unit」的兵种词分支
+        //   ⇒ `your infantry troops` 解成 `Kind=troop` + **`SubtypeFilter=-`**（不筛兵种），
+        //   而 `your infantry`（不带 `troops`）是 `Kind=infantry` + `SubtypeFilter=Infantry`。
+        //   后果：`Grisly Feast` 修好 `Side`（`B-189`）之后仍**宽于卡面** ——
+        //   给己方全体部队，而不是己方步兵。
+        //
+        // 判据（第一权威 = 原版卡数据字段，`RuleEngine/Resources/cards_engine.json` 的
+        //   `abilityTargetCriteria[].criteria.keywordFilter`）：它就是卡表 `card.keyword` 那**同一套枚举**
+        //   （`Infantry=5 / Vehicle=10 / Monster=15 / Building=20 / Battlesuit=25 / Drone=30 /
+        //   Beast=35 / Daemon=40`，枚举出处见 `CardDef` 里 `Keyword` 那一段的注释）。逐张核对：
+        //     · `UM13 Primaris Chaplain`（`… to your Infantry troops`）⇒ `keywordFilter = 5`；
+        //     · `TAU73 Hidden Hunters`（同上）⇒ `5`；`AM41 Move! Move! Move!`（同上）⇒ `5`；
+        //     · `b3735ef3… Grisly Feast`（`… your Warlord and Infantry troops`）⇒ lg=0/2 两行是
+        //       `includeHero=1 / includeMinions=0 / keywordFilter=0`（**督军**），lg=1/3 是
+        //       `includeHero=0 / includeMinions=1 / keywordFilter=5`（**步兵部队**）
+        //       ⇒ 原版是「**兵种筛 + 只限 troop**」两层，不是一个。
+        //   佐证：全池 `keywordFilter` 的取值分布 = `{5,10,25,30,35,40}`，**全部**落在上面那套
+        //   兵种枚举里 ⇒ 它不是「关键词」、就是**兵种**（我们叫 `SubtypeFilter`）。
+        //
+        // 消费侧**不用改**：`Kind == "troop"` ⇒ `AddSide(..., troopOnly: true)`（排督军），
+        //   `SubtypeFilter` 由 `ApplyTargetFilters` 单独筛 —— 两层是**并且**关系，正是原版形状
+        //   （`EffectResolver.cs:1743` 与 `:2268`）。督军卡自己的 `Subtype` 恒为 `Warlord`
+        //   （56/56），所以真正的兵种筛也不会误吞督军。
+        //
+        // ⚠️ **只认「紧贴在 noun 前面」的兵种词**（`infantry troops` / `infantry and battlesuit troops`）
+        //   —— 别拿整句 `FirstKindWord` 去扫：那会把**别的分句**里的兵种词也当成这一句的筛
+        //   （`GOF72 Dead Choppy` 的 `Give Blood Thirst to a friendly Vehicle or +2 [attack] to
+        //   another friendly troop`，那个 `vehicle` 属于前一句，不在 `another friendly troop` 里）。
+        //
+        // 📏 现池（1,129 张）实读：走这一支的只有 **4 张**（`AM41` / `TAU73` / `UM13` /
+        //   `Grisly Feast` 的两条 `infantry troops` 子句）；另外 4 张同形状的卡**不经过这里** ——
+        //   `AM28` / `TAU29` 走光环（`Auras.SubjectFilters` 已经认兵种，且 `and` 是并集）、
+        //   `SAU57` 走 `TryDeploy` + `CreatePool.MatchKindWord`（subtype 优先于 type）、
+        //   `TL41` 走 `TryLowerCost` + `CreatePool.IsKindWord`。判据与逐行 diff →
+        //   `资料/完全复刻/报告/B112W_B203.md` §四/§五/§六。
+
+        /// <summary>`<兵种词> [and|or <兵种词>] (troop|troops|unit|units)` 这个**名词头**里的兵种筛。
+        ///
+        /// 返回 `"Infantry"` / `"Infantry|Battlesuit"`（与 `SubtypeFilter` 的 `|` 枚举同一形状）；
+        /// **认不出返回 null**，并用 <paramref name="sawKindWord"/> 报「有没有见到兵种词」——
+        /// 见到了却映射不了（`terminator troops` 那种细到型号的词）⇒ 调用方如实记
+        /// `KindUnfilterable`，⛔ 别静默当成「不筛」。
+        /// </summary>
+        static string SubtypeFilterOfKindNoun(string t, out bool sawKindWord)
+        {
+            sawKindWord = false;
+            if (string.IsNullOrEmpty(t)) return null;
+
+            string[] toks = t.Split(new[] { ' ', ',', '.', ';', ':', '\n', '\r' },
+                                    System.StringSplitOptions.RemoveEmptyEntries);
+            // ① 找**第一个**通称名词（`troop(s)` / `unit(s)`）—— 它就是这个名词头的中心词
+            int noun = -1;
+            for (int i = 0; i < toks.Length; i++)
+            {
+                string w = toks[i].ToLowerInvariant();
+                if (w == "troop" || w == "troops" || w == "unit" || w == "units") { noun = i; break; }
+            }
+            if (noun <= 0) return null;
+
+            // ② 从中心词往回走：兵种词 / 连接词才继续，遇到任何别的词就停
+            //    （`all your infantry troops` ⇒ 走到 `your` 停；`another friendly troop` ⇒ 走到 `another` 停）
+            int start = noun;
+            for (int i = noun - 1; i >= 0; i--)
+            {
+                string w = toks[i].ToLowerInvariant();
+                if (w == "and" || w == "or") { start = i; continue; }
+                if (System.Array.IndexOf(KindWords, w) >= 0) { start = i; sawKindWord = true; continue; }
+                break;
+            }
+            if (start == noun) return null;
+
+            // ③ 按**原句顺序**映射（`|` 是并集，顺序不影响筛，只影响 dump 的可读性）
+            var seen = new List<string>();
+            for (int i = start; i < noun; i++)
+            {
+                string m = MapToSubtype(toks[i]);
+                if (m != null && !seen.Contains(m)) seen.Add(m);
+            }
+            return seen.Count == 0 ? null : string.Join("|", seen.ToArray());
+        }
+
+        /// <summary>`troop` / `unit` 那两支的收口：把名词头里的兵种词填进
+        /// <see cref="EffectTargetSpec.SubtypeFilter"/>（认不出但确实写了兵种词 ⇒ `KindUnfilterable`）。</summary>
+        static void ApplyKindNounSubtype(EffectTargetSpec spec, string t)
+        {
+            string f = SubtypeFilterOfKindNoun(t, out bool sawKindWord);
+            if (f != null) spec.SubtypeFilter = f;
+            else if (sawKindWord) spec.KindUnfilterable = true;
         }
     }
 

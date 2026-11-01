@@ -16,6 +16,10 @@
 //      ⛔ 不是「保持指针点」——旧实现返回 `reticleWorld`，本轮已照抄原版怪值）；
 //   C. **准星本体跟原始指针 / 弧线终点走求交**（原版是两个不同的点：`MoveCrosshair` 的 set_position vs `UpdateTrail` 的 desiredWorldPosition）。
 //
+//   📌 2026-11-01（`B162`）：`TargetReticle.ResolveAim` 改成「`hc`→`hc` 同一台相机往返」（原版那对是 hud→board，
+//      而我们的弧线画在 HUD 帧，照抄会跨帧双投）⇒ **B / C 两段的夹具同步改成「两个平面穿过相机」**（恒打空、不靠浮点零），
+//      机理与「为什么不能沿用旧的斜角相机」写在 B 段那段注释里。
+//
 // ============================ 怎么用（宿主·由调度台接）============================
 //   `B94X2_Assert.Run();`
 //   `_sink.Pass += B94X2_Assert.Pass; _sink.Fail += B94X2_Assert.Fail;`
@@ -88,28 +92,38 @@ public static class B94X2_Assert
             var ret = go.AddComponent<TargetReticle>();
             ret.Build();
 
-            // 战场相机：正常朝前；点在它正前方 ⇒ 投到**屏幕中心**（z>0，过掉「在相机背后」那道闸）。
+            // 战场相机：**只是「有 3D 战场」的标记** —— 2026-11-01（`B162`）起 `ResolveAim` 改成 `hc`→`hc` 同一台相机往返，
+            //   **不再用它求交**。但它**必须非 null**：`boardCam == null` 会走「2D 兜底、不求交」那条早退，
+            //   这一段就变成验另一条分支了（A 段才是那条路的场子）。
             var bcGo = new GameObject("x2_bc");
             bc = bcGo.AddComponent<Camera>();
             bc.transform.position = new Vector3(5f, 10f, -16f);
             bc.transform.LookAt(new Vector3(0f, 0f, 0f));
             bc.fieldOfView = 46.4f;
 
-            // HUD 相机：forward = (0, +1, +1)/√2 —— **两条平面都结构性打空**，不靠浮点巧合。
-            //   · 地面平面 (y=0, 法线 up)：origin 在 y=5（在地面之上）且 dir.y = +0.707 ⇒ enter < 0 ⇒ **打空**；
-            //   · 敌兵平面 (z=enemyRowZ, 法线 -z)：dir.z = +0.707 ⇒ vdot = −0.707 < 0 ⇒ enter < 0 ⇒ **打空**。
-            //   ⛔ 别改回 `Quaternion.Euler(-90,0,0)`：它的 forward 是 `(0, 0.99999996, ±2e-8)`（float 精度残差），
-            //      而 Unity `Plane.Raycast` 的闸是 `vdot == 0`（**精确零**、不是 Approximately）⇒ 敌兵平面
-            //      `vdot ≈ 8e-8 ≠ 0` ⇒ 在 4/8e-8 ≈ **4.7e7** 处判「命中」（实测落点 `(0, 47171730, −4)`，z=−4 就是敌方那面）。
+            // HUD 相机：**两个平面都穿过相机** ⇒ 两条平面求交都必打空，而且**不依赖浮点零**：
+            //   · 地面 (法线 up、过 point(y=floorY))：取 floorY = 相机 y ⇒ 平面过相机；
+            //   · 敌兵 (法线 −z、过 point(z=enemyRowZ))：取 enemyRowZ = 相机 z ⇒ 平面过相机。
+            //   射线原点 = `相机位 + forward × nearClip`，平面又过相机位 ⇒ `ndot = −vdot × nearClip`
+            //   ⇒ `enter = −nearClip < 0` ⇒ `Plane.Raycast` 的 `enter > 0` 不成立 ⇒ **恒打空**（与方向、与残差都无关）；
+            //   万一某个方向恰好与法线平行，走的是 `vdot ≈ 0` 的平行分支，同样返回 false。
+            //   ⛔ 别改回「相机斜着看 + 平面放 y=0 / z=−4」那种摆法：那要靠 dir 的分量与法线**精确**不垂直，
+            //      而 Unity 的斜角/90° 旋转会留 ~1e-8 残差 ⇒ 在 4/1e-8 ≈ **4e7** 处误判「命中」
+            //      （2026-10-24 实测到落点 `(0, 47171730, −4)`）。
+            //   📌 2026-11-01（`B162`）：`ResolveAim` 改为 `hc`→`hc` 后同步改的夹具 —— 旧摆法要靠「透视 `bc` 投屏 +
+            //      斜着的 `hc` 出射」凑双打空，那一刻指针会落到 HUD 相机背后（走「在相机背后」早退，落点 = 原指针），
+            //      于是 B2 与 C4/C5 会红。
             var hcGo = new GameObject("x2_hc");
             hc = hcGo.AddComponent<Camera>();
-            hc.transform.position = new Vector3(0f, 5f, 0f);
-            hc.transform.rotation = Quaternion.LookRotation(new Vector3(0f, 1f, 1f).normalized);
+            hc.transform.position = new Vector3(0f, 5f, -20f);
+            hc.transform.rotation = Quaternion.identity;                 // forward = (0,0,1)（**精确**：不做任何旋转运算）
             hc.fieldOfView = 60f;
 
-            ret.boardCam = bc; ret.hudCam = hc; ret.floorY = 0f; ret.enemyRowZ = -4f;
+            ret.boardCam = bc; ret.hudCam = hc;
+            ret.floorY    = hc.transform.position.y;                     // 地面平面**过相机** ⇒ 必打空
+            ret.enemyRowZ = hc.transform.position.z;                     // 敌兵平面**过相机** ⇒ 必打空
 
-            Vector3 pointer = bc.transform.position + bc.transform.forward * 10f;   // 非零点、在战场相机正前方
+            Vector3 pointer = hc.transform.position + hc.transform.forward * 10f;   // (0,5,−10)：从**同一台 hc** 出发、在它正前方（z>0 过掉「在相机背后」那道闸）
             Tr(pointer.sqrMagnitude > 1f, "B0（前提）原始指针点非零（否则 B2 分不出「原点」与「原样返回」）");
 
             int miss0 = ret.AimMisses;
@@ -139,26 +153,27 @@ public static class B94X2_Assert
             var ret = go.AddComponent<TargetReticle>();
             ret.Build();
 
-            // 复用 B 的「双平面都打空」相机 ⇒ 求交结果 = Vector3.zero，而原始指针是个**非零**点
-            // ⇒ 两者必不同，足以分辨「准星跟谁」。
+            // 复用 B 的「双平面都打空」摆法 ⇒ 求交结果 = Vector3.zero，而原始指针是个**非零**点
+            // ⇒ 两者必不同，足以分辨「准星跟谁」。（两个平面**穿过相机** ⇒ 恒打空，机理见 B 段那段注释；
+            //   📌 2026-11-01 `B162` 改 `ResolveAim` 为 hc→hc 后同步改的夹具。）
             var bcGo = new GameObject("x2_bc_C");
             bc = bcGo.AddComponent<Camera>();
             bc.transform.position = new Vector3(5f, 10f, -16f);
             bc.transform.LookAt(new Vector3(0f, 0f, 0f));
-            bc.fieldOfView = 46.4f;
+            bc.fieldOfView = 46.4f;          // 只是「有 3D 战场」的标记（`ResolveAim` 已不拿它求交），但**必须非 null**
 
             var hcGo = new GameObject("x2_hc_C");
             hc = hcGo.AddComponent<Camera>();
-            hc.transform.position = new Vector3(0f, 5f, 0f);
-            // 与 B 段**同一套**「结构性双打空」朝向 —— forward = (0,+1,+1)/√2（⛔ 别改回 `Euler(-90,0,0)`，
-            // 那条的 float 残差会让敌兵平面在 4.7e7 处命中；机理与实测见 B 段那段注释）。
-            hc.transform.rotation = Quaternion.LookRotation(new Vector3(0f, 1f, 1f).normalized);
+            hc.transform.position = new Vector3(0f, 5f, -20f);
+            hc.transform.rotation = Quaternion.identity;      // forward = (0,0,1)（**精确**）
             hc.fieldOfView = 60f;
 
-            ret.boardCam = bc; ret.hudCam = hc; ret.floorY = 0f; ret.enemyRowZ = -4f;
+            ret.boardCam = bc; ret.hudCam = hc;
+            ret.floorY    = hc.transform.position.y;          // 地面平面**过相机** ⇒ 必打空
+            ret.enemyRowZ = hc.transform.position.z;          // 敌兵平面**过相机** ⇒ 必打空
 
             var anchor = new Vector3(-2f, 0f, -6f);
-            Vector3 pointer = bc.transform.position + bc.transform.forward * 10f;
+            Vector3 pointer = hc.transform.position + hc.transform.forward * 10f;   // (0,5,−10)：从同一台 hc 出发
             Tr(pointer.sqrMagnitude > 1f, "C0（前提）原始指针点非零");
 
             // Show 先把状态点亮（`Visible = true`），再每帧 Aim 喂原始指针。

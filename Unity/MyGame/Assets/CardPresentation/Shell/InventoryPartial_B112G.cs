@@ -17,12 +17,22 @@
 //     **已在背包里的**条目直接回条目数量 ⇒ n 就是那个 1，补了等于没补（`判据/B110_V2` 四① 的实证）。
 //
 // ============================ 三条硬要求（`B-84` 的验收口径）============================
-//  ① **幂等**：连跑两遍结果相同（第二遍找不到数量 = 1 的条目 ⇒ 一个字节都不写）。
+//  ① **幂等**：连跑两遍结果相同（第二遍找不到低于基准量的条目 ⇒ 一个字节都不写）。
 //  ② **可回滚**：写盘前先把旧档**复制**一份 `<档>.B112G-bak-<UTC 时间戳>`（同目录，改名即可回滚）。
 //     备份失败 ⇒ **整次迁移不动**（⛔ 不回滚就等于不可回滚）。
-//  ③ **只动坏的那几条**：`amount != 1` 的条目全部不碰；**一条坏记录都没有时连 `Save` 都不调**
+//  ③ **只动坏的那几条**：`amount >= 基准量` 的条目全部不碰；**一条坏记录都没有时连 `Save` 都不调**
 //     （⇒ 正确档**逐字节不变**，这是「防顺手改坏」的关键）。
-//  取不到应有数量（id 在卡池里查不到 / 播种后仍是 1）⇒ **不动 + `LogError` 出声**（⛔ 不许猜）。
+//  取不到应有数量（id 在卡池里查不到 / 播种后仍低于基准量）⇒ **不动 + `LogError` 出声**（⛔ 不许猜）。
+//
+// ============================ 🆕 2026-11-01 `B-161`：坏行判据 = 「低于基准量」============================
+//  原来两处判据都写成「== 1 / > 1」（`BadCardAmountSentinel`）⇒ **`1 < 数量 < 基准量` 的陈旧值两头都漏**：
+//    · 坏行筛选（`kv.Value != BadCardAmountSentinel` ⇒ `continue`）根本**挑不进 `bad`**；
+//    · 复核（`now > BadCardAmountSentinel ⇒ repaired`）会把播种出来的 5 当「修好」。
+//  5 从哪来：播种那句 `CardProgress.Owned` 对**背包里没有的卡**先查 `_owned` 缓存（`Shell/CardDetailPopup.cs:243-249`）
+//  ⇒ `WarpforgeCardLevels.json` 残留的 `owned[5]` 会压过「给足」公式（应为 11），被原样播进背包并**落盘、不出声**。
+//  现判据：**期望值 = 基准量**（`ExpectedCardAmount`，见下面那一处注释），`now >= expected` 才算修好；
+//  `now < expected` ⇒ 进 `stillBad` + `LogError`，而且**落盘前先把它恢复成迁移前的值**
+//  （`InventoryStore.Save` 写的是整份 `SnapshotAmounts()` ⇒ 不还原等于把那个 5 趁别人的 Save 写进盘）。
 //
 // ============================ 挂在哪儿 / 为什么挂那儿 ============================
 //  `InventoryStore.Load` 的 `inv.RestoreAmounts(am);` **之后**（同一物理行追加，既有行号零漂移），
@@ -34,7 +44,7 @@
 // ============================ 已知未覆盖（如实记）============================
 //  · `WarpforgeCardLevels.json` 的 `owned` 数组若也残留 1，播种会**照样**把它当基准量写进背包
 //    （`CardProgress.Owned` 对「背包里没有的卡」优先读 `_owned` 缓存）。本迁移只认 `cards.json`
-//    —— 那条是另一份档，要动得先有裁定（见报告 §没查清）。
+//    —— 那条是另一份档，要动得先有裁定（见 `报告/B112W_B161.md` §边界 · 第 3 条）。
 //  · 中央档（`WarpforgeSave/OursInventory.cards.json`）的备份也做了，但**自检里 `SaveCenter.StoreOn`
 //    关着** ⇒ 自检只覆盖旧档那一份（生产两遍都走 `SaveCenter.SaveThroughLegacy`，形状相同）。
 using System;
@@ -64,11 +74,13 @@ namespace CardPresentation
     // ============================================================ ② 一次性迁移
     public static partial class Inventories
     {
-        /// <summary>「坏数量」的哨兵值 —— `B-84` 记的就是这个 1（`B-14` 修之前 `CardInventory.Add`
+        /// <summary>「确定坏」的哨兵值 —— `B-84` 记的就是这个 1（`B-14` 修之前 `CardInventory.Add`
         /// 给新卡建的第一条数量 = 奖励数量 1，之后播种那句 `if (Cards.Get(c) != null) continue;` 永远跳过它）。
         /// <para>为什么「1」一定是坏的：全解锁口径下基准量 = `DeckCap(rarity) + 9`，**恒 ≥ 10**；
         /// 而且本工程**没有任何**扣卡路径（升级只做「够不够」检查、不真扣 —— 见 `CardDetailPopup.DoDowngrade`
-        /// 的注释「不消耗任何东西」）⇒ 合法值不可能落到 1。</para></summary>
+        /// 的注释「不消耗任何东西」）⇒ 合法值不可能落到 1。</para>
+        /// <para>🆕 2026-11-01 `B-161`：**它现在只是「卡池查不到时」用来判「确定坏」的地板**，不再是修复判据 ——
+        /// 修复判据是「**低于基准量**」（见 <see cref="ExpectedCardAmount"/>）。`1 < 数量 < 基准量` 同样是坏的。</para></summary>
         public const int BadCardAmountSentinel = 1;
 
         /// <summary>迁移备份的后缀：`<档>.B112G-bak-<UTC 时间戳>`（**与档同目录** ⇒ 回滚 = 改名回来）。</summary>
@@ -127,24 +139,33 @@ namespace CardPresentation
                     if (!defs.ContainsKey(c.Id)) defs[c.Id] = c;
                 }
 
-                // ② 先把「坏行」找出来
+                // ② 先把「坏行」找出来 —— 🆕 2026-11-01 `B-161`：判据 = **低于基准量**（原来只挑「== 1」）。
+                //    ⚠️ 卡池查不到的 id 算不出基准量 ⇒ 只把「确定坏」的那一档（`<= BadCardAmountSentinel`）报出来，
+                //       其余**不动也不报**（⛔ 不猜）。
                 var bad = new List<string>();
                 var unresolved = new List<string>();
+                var expectedById = new Dictionary<string, int>(StringComparer.Ordinal);
                 foreach (var kv in diskAmounts)
                 {
-                    if (kv.Value != BadCardAmountSentinel) continue;
-                    if (!string.IsNullOrEmpty(kv.Key) && defs.ContainsKey(kv.Key)) bad.Add(kv.Key);
-                    else unresolved.Add(kv.Key ?? "<null>");
+                    RuleEngine.CardDef d;
+                    if (string.IsNullOrEmpty(kv.Key) || !defs.TryGetValue(kv.Key, out d))
+                    {
+                        if (kv.Value <= BadCardAmountSentinel) unresolved.Add(kv.Key ?? "<null>");
+                        continue;
+                    }
+                    int want = ExpectedCardAmount(d);
+                    expectedById[kv.Key] = want;
+                    if (kv.Value < want) bad.Add(kv.Key);          // ★ `1 < 数量 < 基准量` 现在也进 bad
                 }
 
                 var sb = new System.Text.StringBuilder();
-                sb.Append("盘上 ").Append(diskAmounts.Count).Append(" 条；数量 = 1 的 ")
+                sb.Append("盘上 ").Append(diskAmounts.Count).Append(" 条；低于基准量的 ")
                   .Append(bad.Count + unresolved.Count).Append(" 条（可解析 ").Append(bad.Count).Append(" / 卡池查不到 ")
                   .Append(unresolved.Count).Append("）");
 
                 if (unresolved.Count > 0)
                     UnityEngine.Debug.LogError("[Inventories] `B-84` 迁移：有 " + unresolved.Count
-                        + " 条「数量 = 1」的 id **在卡池里查不到** ⇒ 不知道它该有多少张 ⇒ 这几条**不动**（⛔ 不猜）："
+                        + " 条「数量 ≤ 1」的 id **在卡池里查不到** ⇒ 不知道它该有多少张 ⇒ 这几条**不动**（⛔ 不猜）："
                         + string.Join(", ", unresolved.ToArray()));
 
                 if (bad.Count == 0)
@@ -201,23 +222,41 @@ namespace CardPresentation
                 }
                 SeedCardsAllUnlocked(pool, c => CardProgress.Owned(c.Id, c.Rarity));   // ★★ 与 `CollectionWindow.CardsState` 逐字同一句
 
-                // ⑥ 复核：只有**真的变成 > 1** 的才算修好
+                // ⑥ 复核：**相对基准量**才算修好（🆕 `B-161`：原来只要求 `> 1` ⇒ 播种出来的 5 也算「修好」）
                 int repaired = 0;
                 var stillBad = new List<string>();
+                var stillBadIds = new List<string>();
                 for (int i = 0; i < bad.Count; i++)
                 {
                     var info = bag.Get(bad[i]);
                     int now = info != null ? info.Amount : -1;
-                    if (now > BadCardAmountSentinel) repaired++;
-                    else stillBad.Add(bad[i] + "=" + now + "（原 " + before[bad[i]] + "）");
+                    int expected = expectedById[bad[i]];
+                    if (now >= expected) repaired++;
+                    else
+                    {
+                        stillBad.Add(bad[i] + "=" + now + "（期望 " + expected + "，原 " + before[bad[i]] + "）");
+                        stillBadIds.Add(bad[i]);
+                    }
                 }
 
                 if (repaired == 0)
                 {
-                    UnityEngine.Debug.LogError("[Inventories] `B-84` 迁移：**一条都没修好**（播种口径对这些 id 也给了 1）"
+                    RestoreUnfixedAmounts(bag, stillBadIds, before, stillBad);   // 内存也回到迁移前（写盘本来就不做）
+                    UnityEngine.Debug.LogError("[Inventories] `B-84` 迁移：**一条都没修好**（播种口径给的值仍低于基准量）"
                         + " ⇒ **不写盘**、原档一个字节没改。明细：" + string.Join(", ", stillBad.ToArray()));
                     _cardsAmountMigrationDone = true;
                     LastCardAmountMigrationReport = sb.Append("；一条都没修好 ⇒ 不动").ToString();
+                    return false;
+                }
+
+                // ⑥·b 🆕 `B-161`：**没修好的那几条必须恢复成迁移前的值**再落盘。
+                //    `InventoryStore.Save` 写的是整份 `SnapshotAmounts()`（`Inventory.cs:261-267`）⇒ 不还原的话，
+                //    那个「仍不对但 > 1」的值（例：`_owned` 缓存里的 5）会趁**别的卡被修好**的这一次 Save **静默写进盘**。
+                //    还原不了（条目在背包里没了 / 迁移前就没有）⇒ **整次不写盘**（宁可这轮不修，也不许毁数据）。
+                if (!RestoreUnfixedAmounts(bag, stillBadIds, before, stillBad))
+                {
+                    _cardsAmountMigrationDone = true;
+                    LastCardAmountMigrationReport = sb.Append("；仍不对的那条恢复不了 ⇒ 不动").ToString();
                     return false;
                 }
 
@@ -234,8 +273,8 @@ namespace CardPresentation
                 {
                     sb.Append("；").Append(stillBad.Count).Append(" 条仍不对（不动）：")
                       .Append(string.Join(", ", stillBad.ToArray()));
-                    UnityEngine.Debug.LogError("[Inventories] `B-84` 迁移：这些 id 播种后仍 ≤ 1（**不动**，⛔ 不猜）："
-                        + string.Join(", ", stillBad.ToArray()));
+                    UnityEngine.Debug.LogError("[Inventories] `B-84` 迁移：这些 id 播种后**仍低于基准量**（已恢复成迁移前的值，"
+                        + "**不动**，⛔ 不猜）：" + string.Join(", ", stillBad.ToArray()));
                 }
                 sb.Append("；备份 = ").Append(legacyBak ?? "<旧档不存在>");
                 if (centralBak != null) sb.Append(" / ").Append(centralBak);
@@ -253,6 +292,50 @@ namespace CardPresentation
                 return false;
             }
             finally { _cardsAmountMigrating = false; }
+        }
+
+        /// <summary>🆕 2026-11-01 `B-161`：把「复核后仍不对」的那几条**恢复成迁移前的值**（内存与「不写盘」口径一致）。
+        /// <para>为什么两处都要调：① 有别的卡被修好要落盘时 —— `InventoryStore.Save` 写的是整份
+        /// `SnapshotAmounts()`（`Inventory.cs:261-267`），不还原就等于把这个仍不对的值（例：缓存里的 5）**跟着写进盘**；
+        /// ② 「一条都没修好 ⇒ 不写盘」那条分支 —— 内存若留在播种值上，**下一次任何 Save**（`AddOwned` 等）照样会把它带走。</para>
+        /// <returns>`true` = 全都还原好了；`false` = 有条目在背包里没了 / 迁移前就没有值（⇒ 调用方**整次不写盘**）。</returns></summary>
+        static bool RestoreUnfixedAmounts(Inventory<RuleEngine.CardDef> bag, List<string> ids,
+                                          Dictionary<string, int> before, List<string> details)
+        {
+            bool ok = true;
+            for (int i = 0; i < ids.Count; i++)
+            {
+                var entry = bag.Get(ids[i]);
+                int prev;
+                if (entry == null || !before.TryGetValue(ids[i], out prev) || prev < 0)
+                {
+                    UnityEngine.Debug.LogError("[Inventories] `B-84` 迁移：仍不对的 `" + ids[i]
+                        + "` 在背包里**恢复不了**（条目=" + (entry == null ? "<无>" : "有") + "）⇒ **整次迁移不写盘**。明细："
+                        + string.Join(", ", details.ToArray()));
+                    ok = false;
+                    continue;
+                }
+                entry.SetAmount(prev);
+            }
+            return ok;
+        }
+
+        /// <summary>🆕 2026-11-01 `B-161`：这张卡**应当**有多少张（= 播种那句会给出的基准量）。
+        /// <para>式子与 `CardProgress.Owned` 的兜底分支（`Shell/CardDetailPopup.cs:247`）**逐字同一句**：
+        /// <c>DeckCap(rarity) + (NeedCopies[MaxLevel] - NeedCopies[1])</c>（全解锁「给足」口径，恒 ≥ 10）。</para>
+        /// <para>🔴 **为什么不直接调 `CardProgress.Owned(c.Id, c.Rarity)` 求期望值**（那样更省事）：
+        /// 它对「背包里没有的卡」**先查 `_owned` 缓存**（`CardDetailPopup.cs:243-249`）；而迁移第 ⑤ 步正是
+        /// 「先摘掉条目、再播种」⇒ 那一刻 `Owned` 回的就是缓存里那个**陈旧 5** ⇒ `现在(5) >= 期望(5)` 恒真、
+        /// 判据重新变成**恒绿**（= 本就要堵的那个洞）。只有这一式子绕得开缓存。</para>
+        /// <para>⚠️ 这是**同一式子的第二处副本**（不是第二套算法）：唯一权威仍是 `CardProgress.Owned` 的兜底分支，
+        /// 那边改口径这里必须跟着改。要彻底消掉这份副本，得给 `CardProgress` 开一个「不含 `_owned` 缓存的基准量」
+        /// 公开口 —— `_owned` 是 `private static`（`CardDetailPopup.cs:133`），本次白名单不含那个文件 ⇒ 没开（见报告）。</para>
+        /// <para>⚠️ 刻意走**不带卡型**的 `DeckCap(rarity)`：与播种那句 `Owned(c.Id, c.Rarity)` 同档
+        /// （那一条也吃不到 `CardDef.Type`）—— 否则督军那张「期望 10 / 播种实际给 11」差 1，会误判成没修好。</para></summary>
+        static int ExpectedCardAmount(RuleEngine.CardDef c)
+        {
+            return CardProgress.DeckCap(c.Rarity)
+                 + (CardProgress.NeedCopies[CardProgress.MaxLevel] - CardProgress.NeedCopies[1]);
         }
 
         /// <summary>把一个档复制成 `<档>.B112G-bak-<stamp>`（**名字撞了就在末尾加 `-2` / `-3` …**，见下）。

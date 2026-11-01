@@ -4804,10 +4804,10 @@ public static class CardBaseDemo
     //  与原有口径一致：`ProbeTextBgDiff` 原来在分母为 0 时返回 `NaN`（= 无法测量），不是 0。
     // ==================================================================
 
-    /// <summary>一个像素的**线性** Rec.709 亮度（0..1）—— `MeanLumLinear` 的单像素版
-    /// （逐像素求比值要用它：`MeanLumLinear` 是**整块平均**，拆不开）。</summary>
+    /// <summary>一个像素在**混合空间**里的 Rec.709 亮度（0..1）—— 逐像素求比值用它（`MeanLumLinear` 是整块平均、拆不开）。
+    /// 🔴 2026-11-01 切 Gamma：混合发生在显示空间 ⇒ Gamma 下直接用 sRGB 原值，只有 Linear 才先线性化。</summary>
     static double LinLum(Color32 c)
-        => 0.2126 * SrgbToLinear(c.r) + 0.7152 * SrgbToLinear(c.g) + 0.0722 * SrgbToLinear(c.b);
+        => QualitySettings.activeColorSpace == ColorSpace.Gamma ? (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b) / 255.0 : 0.2126 * SrgbToLinear(c.r) + 0.7152 * SrgbToLinear(c.g) + 0.0722 * SrgbToLinear(c.b);
 
     /// <summary>🔴 **`mean-of-ratios`**（`A1934` 现行估计量）：逐像素 `on_i / off_i` 再取平均。
     /// `off_i &lt;= 0` 的像素**跳过**并计入 `skipped`（见上面那段注释）；

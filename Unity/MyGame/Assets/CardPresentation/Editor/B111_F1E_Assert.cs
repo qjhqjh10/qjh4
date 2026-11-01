@@ -171,9 +171,13 @@ public static class B111_F1E_Assert
             }
             if (fxCp != null && win != null)
             {
-                Check(win.Contains("CardDisplayEffects.Build(_cards"),
-                      "B6 · 光效层确实挂在本窗的 `_cards` 下（`CardDisplayEffects.Build(_cards, …)`）"
-                      + "—— 这正是 `Front` 与 `Level Up Effect` 能同处一棵树的理由");
+                // 🔴 2026-11-01（`B112W_B195`）：光效层**不再**建在战斗窗的 `_cards` 下 ——
+                //    那一层来自**主菜单**判据（`mainmenu_effects.json`），原版只在菜单版 `CardDisplayWindow` 里有；
+                //    我们的战斗窗建它是**搬错了窗**。现在改由 `CardDisplayEffects.BuildUnder2DCard(...)`
+                //    挂在**主卡 `2DCard`** 之下（`Front` 与 `Level Up Effect` 仍是同一棵树，只是树根对了）。
+                Check(!win.Contains("CardDisplayEffects.Build(_cards"),
+                      "B6 · 光效层**不再**建在战斗窗的 `_cards` 下（`B-195`：那一层属主菜单判据，建在这边是搬错窗）"
+                      + "｜🧨 把 `CardDisplayEffects.Build(_cards, …)` 加回去 ⇒ 红");
             }
         }
         catch (System.Exception e)

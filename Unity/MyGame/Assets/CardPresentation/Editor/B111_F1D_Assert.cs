@@ -119,9 +119,11 @@ public static class B111_F1D_Assert
                       && !part.Contains("LevelUpInheritTarget = LevelUpInheritChild"),
                       "B4 · 没有拿窗根 / 卡面层顶替 target（那会让「钉住」变成原版没有的行为）");
 
-                // B5 · 已知结构性缺口如实写着（不是悄悄过）
-                Check(part.Contains("本窗没有 `Level Up Effect`"),
-                      "B5 · 文件头如实写明「本窗不建 `Level Up Effect`」这个结构性缺口");
+                // B5 · 🔴 2026-11-01（`B112W_B195`/`B-196`）：**语义已反转** —— 原来这里是「本窗不建 `Level Up Effect`」
+                //    的结构性缺口声明；现在主卡 `2DCard` 下**真的建了**那层，旧口径必须写成「已作废」而不是继续挂着。
+                Check(part.Contains("已作废") && part.Contains("BuildUnder2DCard"),
+                      "B5 · 文件头把**旧口径「本窗不建 `Level Up Effect`」标成已作废**、并写明现在由 `BuildUnder2DCard` 建"
+                      + "｜🧨 把旧缺口声明改回「现役」口径 / 删掉 `BuildUnder2DCard` 那句 ⇒ 红");
             }
         }
         catch (System.Exception e)

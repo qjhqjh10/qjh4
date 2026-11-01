@@ -1577,24 +1577,24 @@ public static class ArenaBuilder
         AssetDatabase.SaveAssets();
     }
 
-    /// <summary>给某个战场的贴图定导入设置。
-    /// 🔴 **判据 = 原版运行时的 `Texture2D` 实读值**（2026-09-20 实测 `scenes_scenes_battlearena1.bundle`）：
-    ///   · `Battle Arena 1 Floor` = **4096×4096** · **`m_MipCount = 1`（= 原版没有 mipmap）** · `m_IsReadable = false`
-    ///   · `Battle Arena 1 Background` / `Back Background` = 2048×2048 · 同样 mips=1
-    /// 而 Unity 默认导入是 **`maxTextureSize 2048` + `enableMipMap 1`**
-    /// ⇒ 我们那张 4096² 的地板**被砍成一半**、还多生成了一整套 mipmap。**两处都与原版不符。**
-    /// ⚠️ 这条以前没人管过（`ArtBaker.ApplyImportSettings` 只覆盖 `Resources/Art`，不含战场贴图）。</summary>
+    /// <summary>给某个战场的贴图定导入设置 —— **逐张**按原版 `Texture2D` 实读值，⛔ 不许一刀切。
+    /// 🔴 判据 = `UnityPy` 读源 bundle 的 `m_ColorSpace` / `m_MipCount`（旁挂表
+    ///   `数据/游戏数据/arena_texture_import.tsv` ← `工具/gen_arena_texture_import.py`；覆盖 `Textures/`+`Sprites/`+`Textures/LUT/` **251/251** 份。🆕 2026-11-01（B-201/B-202）：范围从 `Textures/` 扩到 `Sprites/`（18 份，`textureType` 保 `Sprite`）与顶层 `Textures/LUT/`（7 份，**只核对不写** —— 归 `EnsureLutImportSettings`，唯一差距 wrap 属账 `B-119`）；新增 wrapU/wrapV/filterMode/aniso 四格照抄原版。
+    ///   原来写死 `mipmapEnabled = false` + 从不设 `sRGBTexture`：前者拿 `Battle Arena 1 Floor`（实读 `m_MipCount = 1`，
+    ///   那张确实没 mip）当**全体**判据 ⇒ **77 个名字 / 143 份原版是有 mip 的**（`SplatNormal` 10 级 · `drops_cloud` 9 级…）；
+    ///   后者吃 Unity 默认 `1` ⇒ **9 个名字 / 25 份原版是 `m_ColorSpace: 0`（线性）**。地板 4096² 也曾被 2048 砍半。
+    /// ⚠️ 工程现在是 **Gamma** ⇒ sRGB 旗标不参与采样转换，**改完画面看不出差别**，验收只能读 `.meta`。</summary>
     public static void ApplyTextureImportSettings(string sceneName)
     {
         int n = 0;
-        foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { TexDir(sceneName) }))
+        foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", ArenaTextureRoots(sceneName)))
         {
             var path = AssetDatabase.GUIDToAssetPath(guid);
             var ti = AssetImporter.GetAtPath(path) as TextureImporter;
             if (ti == null) continue;
 
-            ti.textureType         = TextureImporterType.Default;
-            ti.mipmapEnabled       = false;                       // 原版 m_MipCount = 1
+            ApplyTextureType(ti, path);                           // 贴图 = Default；`Sprites/` = Sprite（⛔ 别设 Default：`LoadSpriteAsset` 要靠 Sprite 子资产）
+            if (!ApplyOriginalImport(ti, path)) continue;         // 原版逐张 mip/sRGB/wrapU/wrapV/filter/aniso（旁挂表；表外退回旧口径并出声）；返回 false = 该目录归别人管（LUT）⇒ 跳过下面几格
             ti.npotScale           = TextureImporterNPOTScale.None;
             // 🔴 **2026-09-21 修：这里原来是 `false`，是个真 bug。**
             //    Unity 的语义是「**false ⇒ 可以压成不带 alpha 的格式**」（BC1/DXT1）——
@@ -1611,12 +1611,12 @@ public static class ArenaBuilder
             ti.alphaIsTransparency = true;
             // 别被 Unity 默认的 2048 砍掉 —— 按源图最大边取到 2 的幂（原版地板就是 4096²）
             ti.GetSourceTextureWidthAndHeight(out int srcW, out int srcH);
-            int maxSide = Mathf.Max(srcW, srcH);
-            ti.maxTextureSize = Mathf.Clamp(Mathf.NextPowerOfTwo(maxSide), 512, 8192);
+            int maxSide = IsSpriteTexture(path) ? 0 : Mathf.Max(srcW, srcH);   // 精灵不设上限：尺寸由 LoadSpriteAsset 按原版 ptu 定
+            ti.maxTextureSize = maxSide <= 0 ? ti.maxTextureSize : Mathf.Clamp(Mathf.NextPowerOfTwo(maxSide), 512, 8192);
             ti.SaveAndReimport();
             n++;
         }
-        Debug.Log($"[Arena] {sceneName} 贴图导入设置已按原版实读值重设：{n} 张（无 mipmap · 不缩分辨率）");
+        Debug.Log($"[Arena] {sceneName} 贴图导入设置已按原版逐张实读值重设：{n} 张（含 Sprites/ · mip/sRGB/wrap/filter/aniso 见表 · 不缩分辨率）");
     }
 
     /// <summary>原版那支太阳耀斑（`LensFlareDataSRP`）在我们工程里的资产路径。</summary>
@@ -6015,4 +6015,165 @@ public static class ArenaBuilder
 
     /// <summary>`Vector3` → `float[]`（只为复用 `Vec3Str`，不引入第二套格式化）。</summary>
     static float[] F3(Vector3 v) { return new float[] { v.x, v.y, v.z }; }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 战场贴图的原版导入真值（账 `B-198` sRGB / `B-199` mipmap / `B-201` wrap+aniso / `B-202` 范围扩到 Sprites+LUT）
+    // 判据 → `资料/完全复刻/判据/B112W_B192_战场贴图树普查.md` §五·2（25 份 sRGB）· §六·2（143 份 mipmap）
+    //        · `报告/B112W_B198_B199.md` §七·2（wrapU/wrapV 36 份 · aniso 5 份 · filterMode 0 份）
+    // 数据 → `数据/游戏数据/arena_texture_import.tsv`（`工具/gen_arena_texture_import.py` 生成，现读 127 个名字）
+    // ⚠️ 一律**逐张**查表，⛔ 别再拿一张贴图当全体判据（原来就是这么错的：`Battle Arena 1 Floor` 的
+    //    `m_MipCount = 1` 被当成了「全体无 mip」，而 77 个名字 / 143 份原版是有 mip 的）。
+    // 放在类尾：本文件被账按行号引用，⚠️ 新成员插在中间会让下游行号整体漂移。
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>旁挂表路径（绝对路径，与 `EffectExporter.FixTextureImportSettings` 读 `vfx_texture_mips.tsv` 同一口径）。</summary>
+    const string ArenaTexImportTsv = @"d:/4/Unity/数据/游戏数据/arena_texture_import.tsv";
+
+    /// <summary>旁挂表一行里本方法要用的六格（其余列是给人看的）。</summary>
+    struct ArenaTexImportRow
+    {
+        public int MipCount;     // 原版 `Texture2D.m_MipCount`：1 = 没有 mip，>1 = 满链（已核：没有中间值）
+        public int ColorSpace;   // 原版 `Texture2D.m_ColorSpace`：0 = 线性，1 = sRGB
+        // 🆕 2026-11-01（B-201）：四格照抄原版 `m_TextureSettings`。**-1 = 未知/老表没有这列 ⇒ 调用方不许拿它覆盖现值**。
+        public int WrapU;        // `TextureWrapMode`：0=Repeat 1=Clamp 2=Mirror 3=MirrorOnce
+        public int WrapV;
+        public int FilterMode;   // 0=Point 1=Bilinear 2=Trilinear
+        public int Aniso;        // 原版 `m_Aniso`（1 = 关；>1 = 各向异性等级）
+    }
+
+    /// <summary>表缓存。⚠️ **只缓存加载成功的那次** —— 表缺失时下次调用会重试
+    /// （生成器可能在编辑器进程存活期间才跑出来；缓存住失败就等于本进程内永远不生效）。</summary>
+    static Dictionary<string, ArenaTexImportRow> _arenaTexImport;
+
+    /// <summary>LUT wrap 不一致的警告**只出一次**（本方法每场都会扫到 LUT 目录 ⇒ 不压会刷 13×7 行）。</summary>
+    static readonly HashSet<string> _lutWrapWarned = new HashSet<string>();
+
+    /// <summary>本方法负责的**哪些目录**（🆕 2026-11-01 `B-202`：原来只有 `arenas/&lt;场>/Textures`）。
+    /// <para>`Sprites/` = 战场上的 `SpriteRenderer` 贴图（18 份）；`Textures/LUT/` = 7 张调色 LUT ——
+    ///   那 7 张**只核对不写**（见 `ApplyOriginalImport` 的 LUT 分支），写它们的是 `EnsureLutImportSettings`。</para></summary>
+    static string[] ArenaTextureRoots(string scene) => new[]
+    {
+        TexDir(scene),
+        ArenaDir(scene) + "/Sprites",
+        RootDir + "/Textures/LUT",
+    };
+
+    /// <summary>是不是精灵贴图（`arenas/&lt;场>/Sprites/`）—— 这类必须以 `Sprite` 导入，⛔ 不能设成 `Default`
+    /// （否则没有 Sprite 子资产，`LoadSpriteAsset` 的 `LoadAssetAtPath&lt;Sprite&gt;` 读不到）。</summary>
+    static bool IsSpriteTexture(string path) => path.Replace('\\', '/').Contains("/Sprites/");
+
+    /// <summary>是不是 LUT（顶层 `Textures/LUT/`）—— 归 `EnsureLutImportSettings` 管。</summary>
+    static bool IsLutTexture(string path) => path.Replace('\\', '/').Contains("/Textures/LUT/");
+
+    /// <summary>按目录定 `textureType`：`Sprites/` = Sprite（`ptu`/`pivot`/`spriteImportMode` 由 `LoadSpriteAsset`
+    /// 按清单逐条写，⛔ 不在这里定 —— 原版这一族 `m_PixelsToUnits` 25/100 混用，且 `spriteMode` 换值会重排
+    /// sprite 子资产的 fileID，只能由**唯一的那个写手**动）；其余 = Default；LUT 不动。</summary>
+    static void ApplyTextureType(TextureImporter ti, string path)
+    {
+        if (IsLutTexture(path)) return;
+        ti.textureType = IsSpriteTexture(path) ? TextureImporterType.Sprite : TextureImporterType.Default;
+    }
+
+    /// <summary>读旁挂表（懒加载）。文件不存在 ⇒ 返回 null 并**出声一次**（不静默）。</summary>
+    static Dictionary<string, ArenaTexImportRow> LoadArenaTexImport()
+    {
+        if (_arenaTexImport != null) return _arenaTexImport;
+        if (!File.Exists(ArenaTexImportTsv))
+        {
+            Debug.LogError($"[Arena] 缺旁挂表 {ArenaTexImportTsv} —— 先跑 " +
+                           "`\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_arena_texture_import.py`");
+            return null;
+        }
+        var d = new Dictionary<string, ArenaTexImportRow>();
+        int bad = 0, first = 1, noWrapCols = 0;
+        foreach (var line in File.ReadLines(ArenaTexImportTsv))
+        {
+            if (first-- > 0) continue;                     // 表头
+            var c = line.Split('\t');
+            if (c.Length < 5) continue;
+            int mip, cs;
+            if (!int.TryParse(c[3], out mip) || !int.TryParse(c[4], out cs)) { bad++; continue; }
+            if (c.Length < 10) noWrapCols++;               // 老表（只有 6 列）⇒ 四格保持 -1 = 未知 = 不动
+            d[c[0]] = new ArenaTexImportRow
+            {
+                MipCount = mip, ColorSpace = cs,
+                WrapU = ParseOr(c, 6), WrapV = ParseOr(c, 7),
+                FilterMode = ParseOr(c, 8), Aniso = ParseOr(c, 9),
+            };
+        }
+        if (bad > 0) Debug.LogWarning($"[Arena] 旁挂表里有 {bad} 行解析不了（列序 name/width/height/mipCount/colorSpace/bundle/wrapU/wrapV/filterMode/aniso）");
+        if (noWrapCols > 0)
+            Debug.LogWarning($"[Arena] 旁挂表有 {noWrapCols} 行缺 wrapU/wrapV/filterMode/aniso 四列 ⇒ 那几行**不动** wrap/filter/aniso。" +
+                             "重跑 `工具/gen_arena_texture_import.py` 补列");
+        _arenaTexImport = d;
+        return d;
+    }
+
+    /// <summary>旁挂表某列 → int；越界/解析不了返回 **-1（未知）**（⛔ 未知不许覆盖现值）。</summary>
+    static int ParseOr(string[] c, int idx)
+    {
+        if (c == null || idx < 0 || idx >= c.Length) return -1;
+        int v;
+        return int.TryParse(c[idx], out v) ? v : -1;
+    }
+
+    /// <summary>按原版**逐张**真值设 `mipmapEnabled` / `sRGBTexture` / `wrapModeU` / `wrapModeV` / `filterMode` / `anisoLevel`。
+    /// <para>返回值：**true = 调用方继续做通用的几格**（npotScale / alpha / maxTextureSize）；
+    ///   **false = 这张贴图归别人管，调用方跳过**（目前只有 LUT —— 归 `EnsureLutImportSettings`）。</para>
+    /// <para>表里查不到这张 ⇒ **退回旧口径（`mipmapEnabled = false`，其余原样保留）+ 出声**，
+    ///   ⛔ 不猜、也不静默当成「原版没有 mip」。现读覆盖 251/251，走到这一支说明有贴图新加进来了。</para>
+    /// <para>⚠️ 只影响 `.meta`：本工程现在是 **Gamma**，`sRGBTexture` 不参与采样转换 ⇒ 画面看不出差别，
+    ///   验收读 `.meta` 的 `sRGBTexture` / `enableMipMap` / `wrapU` / `wrapV` / `filterMode` / `aniso`。</para></summary>
+    static bool ApplyOriginalImport(TextureImporter ti, string path)
+    {
+        var table = LoadArenaTexImport();
+        var name = Path.GetFileNameWithoutExtension(path);
+        ArenaTexImportRow row = default(ArenaTexImportRow);
+        bool has = table != null && table.TryGetValue(name, out row);
+
+        // 🔴 LUT：**只核对、不写**。这 7 张的 sRGB / 压缩 / maxTextureSize 是 `EnsureLutImportSettings` 定的
+        //    （LUT 是**数据不是颜色纹理**）；它唯一与原版不一致的是 wrap（原版 Repeat / 我们 Clamp）——
+        //    那是**账 `B-119`**，属战场线执行窗口，本方法⛔ 不在这里悄悄改掉它的结论。
+        if (IsLutTexture(path))
+        {
+            // 每个场景构建都会扫到这个目录 ⇒ **同一条只出声一次**（否则 13 场 × 7 张 = 91 行噪声）
+            if (has && row.WrapU >= 0 && (int)ti.wrapModeU != row.WrapU && _lutWrapWarned.Add(name))
+                Debug.LogWarning($"[Arena] LUT `{name}` 的 wrapU 与原版不一致（我们 {(int)ti.wrapModeU} / 原版 {row.WrapU}）" +
+                                 " ⇒ 账 `B-119`，本方法**不改**（LUT 的导入设置归 `EnsureLutImportSettings`）");
+            return false;
+        }
+
+        if (!has)
+        {
+            ti.mipmapEnabled = false;
+            Debug.LogWarning($"[Arena] 旁挂表里没有这张贴图：`{name}`（{path}）⇒ mipmap 退回旧口径 false、sRGB/wrap/filter/aniso 未动。" +
+                             "补表：跑 `工具/gen_arena_texture_import.py`");
+            return true;
+        }
+
+        ti.mipmapEnabled = row.MipCount > 1;   // 原版 m_MipCount（已核 = 满链，Unity 只能开/关）
+        ti.sRGBTexture = row.ColorSpace == 1;  // 原版 m_ColorSpace：0 = 线性
+        // 🆕 2026-11-01（B-201）：四格照抄原版 `m_TextureSettings`；-1 = 未知 ⇒ 不动。
+        //   ⚠️ U/V **分开写**（Unity 6000.3 的 `TextureImporter` 有独立的 `wrapModeU/V`）——
+        //   原版确实有 U≠V 的贴图（`vfx_texture_mips.tsv` 那边 2984 张里 4 张，同款先例见
+        //   `EffectExporter.FixTextureImportSettings` 的注释）；按 U 一刀切会把 V 的 Clamp 丢掉。
+        if (row.WrapU >= 0 && row.WrapU <= 3) ti.wrapModeU = (TextureWrapMode)row.WrapU;
+        if (row.WrapV >= 0 && row.WrapV <= 3) ti.wrapModeV = (TextureWrapMode)row.WrapV;
+        if (row.FilterMode >= 0 && row.FilterMode <= 2) ti.filterMode = (FilterMode)row.FilterMode;
+        if (row.Aniso > 0) ti.anisoLevel = row.Aniso;
+        return true;
+    }
+
+    /// <summary>**只重导贴图导入设置**（13 场 × [Textures + Sprites] + 7 张 LUT 的核对），⛔ 不建场、
+    /// ⛔ 不存场景。给「B-198/199/201/202 的代码改了、但不想跑一次整场重建」用。
+    /// <para>跑法：`unity -batchmode -quit -projectPath d:/4/Unity/MyGame -executeMethod ArenaBuilder.ApplyAllTextureImportsFromCLI -logFile -`
+    ///   （⚠️ 与所有 Unity 批处理一样**全局串行**；它会 `SaveAndReimport` 改到的贴图）</para>
+    /// <para>验收：跑完 `git status` 应只看到 `arenas/*/Textures/**/*.png.meta` 与 `arenas/*/Sprites/**/*.png.meta`
+    ///   的改动（LUT 的 7 份**不应**有 diff —— 本方法对它们只核对不写）。</para></summary>
+    public static void ApplyAllTextureImportsFromCLI()
+    {
+        foreach (var arena in AllArenas) ApplyTextureImportSettings(arena);
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[Arena] 13 场贴图导入设置重导完成（含 Sprites/；LUT 仅核对，见 `B-119`）");
+    }
 }
