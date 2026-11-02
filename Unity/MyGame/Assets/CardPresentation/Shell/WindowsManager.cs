@@ -68,7 +68,7 @@ namespace CardPresentation
     /// 窗口管理器单例。**名字照原版（`WindowsManager`，注意有个 s；全工程没有 `WindowManager` 这个类）**。
     /// 挂在 `Shell` 场景里的常驻对象上。
     /// </summary>
-    public class WindowsManager : MonoBehaviour
+    public partial class WindowsManager : MonoBehaviour   // 🆕 2026-11-02（B118_W21 · #203）加 `partial`：场景过渡层那一族追加在**文件末尾的 partial 段**（⛔ 不插进类体 —— 本文件被账按 `文件:行号` 引用，插中间会让下游落点整体漂移）
     {
         public static WindowsManager Instance { get; private set; }
 
@@ -1538,29 +1538,29 @@ namespace CardPresentation
 
         /// <summary>= 原版 `TransitionUIAnchor.DisableAnchor()`（判据 = `d:/2/tools/decomp_full/TransitionUIAnchor__DisableAnchor.c`
         /// **全 118 行逐跳读完**；`out_cpp2il_dev_ilspy/TransitionUIAnchor.cs:14` 只有签名壳，⛔ 别拿它当体）。
+        /// <para>🆕 2026-11-02（#203）：本方法的**调用方已经接上**（那一半是 <see cref="BeginTransitionAnchor"/>）。
         /// <para>**原版逐跳**（`EnableAnchor` 的反向那一半）：
         /// <list type="number">
         /// <item>`WindowsManager.UnregisterAnchorOverride()`（.c 第 46 行那一跳）；</item>
         /// <item>遍历**自己的直接子件**（`Transform.GetEnumerator`）；</item>
         /// <item>每颗 `TryGetComponent&lt;GameWindow&gt;` —— 不是窗就跳过；</item>
         /// <item>是窗 ⇒ `parentInternal = WindowsManager.Instance.GetWindowAnchor(win.placement)`（`:103-117`）；</item>
-        /// <item>`localPosition = Vector3.zero`（`:126-131`）· `localRotation = identity`（`:140-145`）·
-        ///   `localScale = Vector3.one`（`:148-152`）—— 三样都**复位到单位**，不是「恢复进过渡前的值」
-        ///   （原版没存过旧值，它靠「过渡时只改父节点 + 单位 TRS」这一条自洽）。</item></list></para>
-        /// <para>⚠️ **与 <see cref="RegisterAnchorOverride"/> 同一档**：本机**还没有场景过渡那一层**
-        /// （原版那颗组件的唯一宿主是 `simpletransition` 场景）⇒ 今天没有调用方，行为零变化；
-        /// 记在账里的是「方法已对齐、调用方未建」，⛔ 不是「不可达」。
-        /// ⚠️ 遍历用**倒序下标**而不是原版的 `IEnumerator`：原版一边遍历一边把子件 `SetParent` 挪走，
-        /// 那正是 `Transform` 枚举器最容易踩空/重复的形状；倒序下标在语义上等价且不会跳件。</para>
-        /// <para>⛔ **别把「复位三样」改成「什么都不动」** —— 少了它们，过渡结束后窗会留在
-        /// `EnableAnchor` 期间的缩放/偏移上（原版每个子窗都是靠这一跳回到常态的）。</para></summary>
+        /// <item>**只复位两样**：`localPosition = Vector3.zero`（`:126-131`，`DAT_1842da2a8` 的 `.zero`）与
+        ///   `localScale = Vector3.one`（`:148-152`，同一静态类的 `.one`）—— 不是「恢复进过渡前的值」
+        ///   （原版没存过旧值，它靠「过渡时只改父节点 + 单位 P/S」这一条自洽）。</item></list></para>
+        /// <para>🔴 **2026-11-02（B118_W21 · #203）就地订正（铁律 5）**：原来写「`localRotation = identity` · 三样都复位」——
+        /// **`.c` 里没有 rotation 那一跳**（全文只有 `set_localPosition` / `set_localScale`）⇒ 那行是我们自己加的
+        /// （今天零可观测差异），已按「照抄原版」撤掉。⚠️ 与 <see cref="RegisterAnchorOverride"/> 同一档：现在
+        /// **调用方开始有了** —— 另一半（`EnableAnchor`）= 文件末尾 partial 段的 <see cref="BeginTransitionAnchor"/>
+        /// （两半由 `Shell/ShellRuntime.LoadSceneWithFade` 在淡黑前后调，补丁在本波报告里）。⛔ 别把「复位两样」改成
+        /// 「什么都不动」—— 少了它们，过渡结束后窗会留在缩放/偏移上；遍历用**倒序下标**（原版一边遍历一边 `SetParent`）。</para></summary>
         public static void EndTransitionAnchor(Transform anchorRoot)
         {
             UnregisterAnchorOverride();                       // 原版第一跳
             if (anchorRoot == null)
             {
                 Debug.LogError("[Win] `EndTransitionAnchor(null)` —— 过渡锚点根为空，没有任何子窗会被复位" +
-                               "（原版这一跳会 NRE，我们出声后照旧返回）");
+                               "（原版这一跳会 NRE，我们出声后照旧返回）"); _transitionActive = false;
                 return;
             }
             for (int i = anchorRoot.childCount - 1; i >= 0; i--)
@@ -1570,10 +1570,10 @@ namespace CardPresentation
                 if (win == null) continue;                    // 不是窗 ⇒ 原版不碰它（父级/TRS 都不动）
                 Transform anchor = win.HasPlacement ? GetWindowAnchor(win.placement) : null;
                 t.SetParent(anchor, false);                   // 原版 `set_parentInternal`
-                t.localPosition = Vector3.zero;               // `DAT_1842da2a8` = Vector3.zero
-                t.localRotation = Quaternion.identity;
-                t.localScale = Vector3.one;
+                t.localPosition = Vector3.zero;               // `DAT_1842da2a8` = `.zero`
+                t.localScale = Vector3.one;                   // 同一静态类的 `.one`（⛔ 原版**不复位** localRotation）
             }
+            _transitionActive = false;
         }
 
         // ============================================================ 354 `BlockGame`（B89-E10b 追加在类尾）
@@ -1857,5 +1857,92 @@ namespace CardPresentation
 
         /// <summary>自检口（`_said` 去重闩）。</summary>
         public static void ResetForTest() { _said = false; }
+    }
+
+    // ============================================================ 🆕 2026-11-02（B118_W21 · 分诊 #203）：场景过渡层
+    //
+    // 原版那一层由三件组成（判据全部现读，⛔ 不是按名字猜）：
+    //   ① `TransitionUIAnchor : MonoBehaviour`（`dump.cs:118368`）：`EnableAnchor()` = `WindowsManager.anchorOverride = this.transform`
+    //      （`decomp_full/TransitionUIAnchor__EnableAnchor.c` 全文 = 一次静态字段写 + 一次 GC 屏障）；`DisableAnchor()` = 本文件的
+    //      `EndTransitionAnchor`（`:1556` 起，118 行逐跳对过）。
+    //   ② `SimpleSceneTransition : SceneTransition`（`dump.cs:123196`，字段 `doOutAnimation` `doInAnimation` `blackout`
+    //      `fadeDuration` `anchorOverride`）：
+    //      `_OutAnimation_d__5__MoveNext.c` = 「`if (anchorOverride) anchorOverride.EnableAnchor();` →
+    //      `blackout.DOFade(1, fadeDuration)` → `WaitForCompletion()`」；
+    //      `_InAnimation_d__6__MoveNext.c` = 「`if (anchorOverride) anchorOverride.DisableAnchor();` →
+    //      `blackout.DOFade(0, fadeDuration)`」。
+    //      场景实例实读（`bundle_scenes_scenes_simpletransition/MonoBehaviour/MonoBehaviour_23.json`）：
+    //      `doOutAnimation=1 · doInAnimation=1 · fadeDuration=1.0 · blackout → GO "Blackout" · anchorOverride → GO "Override"`。
+    //   ③ `SceneTransition.Awake`（`dump.cs:123075`）= `EverguildSceneManager.currentTransition = this`（调度器那一半，本仓见下）。
+    //
+    // 🔴 **本仓哪些件已经有 / 缺的是哪一件**（这是本条的实质，别照 J10 的判词整层重造）：
+    //   · `EndTransitionAnchor`（= `DisableAnchor`）**早就有**；`RegisterAnchorOverride`（= `EnableAnchor` 的实质）**早就有**；
+    //     缺的是「**谁**在切场景前把 `anchorOverride` 指向**哪颗节点**」+「切完谁把它解掉」 ⇒ 本段补的正是这两跳。
+    //   · 黑场**已经有一个**：`Shell/LoadingMenu`（`ShellRuntime.Loading` 的 `LoadingFade(true/false, cb)`，参数判据在
+    //     `Shell/LoadingMenu.cs` 文件头）—— 它就是原版 `blackout.DOFade(1/0, fadeDuration)` 的等价物
+    //     ⛔ **不另建第二块黑布**（两块会出现「谁先淡回」的竞态，画面结果完全一样）。
+    //   · 过渡锚点节点：原版那格叫 `Override`、住在 `simpletransition` 场景里（场景一卸载它就没了）。我们**没有**那个场景
+    //     （原版 `SceneTransitionList` 的 SO 实例本地 0 个 ⇒ 「按 from/to 选哪条过渡」那半判 D，见 `B88_J2` 普查），
+    //     ⇒ 锚点挂在**常驻的** `WindowsManager` 自己下面（跨场景存活），名字照原版语义取 `Transition UI Anchor`。
+    //
+    // ⚠️ **接线（不在本代理白名单，交调度台）**：`Shell/ShellRuntime.LoadSceneWithFade` 里两次调用 ——
+    //   淡黑**之前** `var ta = WindowsManager.BeginTransitionAnchor();`；淡回**之前** `WindowsManager.EndTransitionAnchor(ta);`。
+    //   补丁与逐行落点写在报告 `资料/完全复刻/报告/B118_W21_批3外壳五条.md` §待调度台接线。
+    //   在那之前本层**只有自检在调**（`Editor/B118W21_Assert.cs`）—— 如实记，⛔ 不是「不可达」。
+    public partial class WindowsManager
+    {
+        /// <summary>过渡锚点节点（= 原版 `simpletransition` 场景里的 `Override`）。惰性建、跨场景存活。</summary>
+        static Transform _transitionAnchorRoot;
+        /// <summary>现在是不是处在一次过渡里（= 原版 `WindowsManager.anchorOverride != null` 的显式记账，只给自检读）。</summary>
+        static bool _transitionActive;
+
+        /// <summary>自检读口：过渡期间的临时锚点节点（没走过过渡 ⇒ `null`）。</summary>
+        public static Transform TransitionAnchorRootForTest { get { return _transitionAnchorRoot; } }
+        /// <summary>自检读口：现在在不在一次过渡里。</summary>
+        public static bool TransitionActiveForTest { get { return _transitionActive; } }
+
+        /// <summary>过渡锚点节点（没有就建一颗，挂在 <see cref="Instance"/> 下面）。
+        /// <para>⚠️ 挂 `Instance` 而不是场景根：`ShellRuntime.Awake` 只 DDOL 了 `Shell` 自己（`MainMenuRuntime.cs:450` 那条注），
+        /// 而 `WindowsManager` 在那棵常驻树里 ⇒ 过渡期间被塞到这里的窗**不会随旧场景一起销毁**（原版靠
+        /// `simpletransition` 场景与 `EverguildSceneManager` 的加法加载达到同一效果）。</para></summary>
+        public static Transform EnsureTransitionAnchorRoot()
+        {
+            if (_transitionAnchorRoot != null) return _transitionAnchorRoot;
+            var inst = Instance;
+            if (inst == null)
+            {
+                Debug.LogError("[Win] `EnsureTransitionAnchorRoot()`：场上没有 `WindowsManager` 实例 ⇒ 建不出过渡锚点"
+                             + "（原版这一跳由 `simpletransition` 场景里的 prefab 提供）");
+                return null;
+            }
+            var go = new GameObject("Transition UI Anchor");
+            go.transform.SetParent(inst.transform, false);
+            _transitionAnchorRoot = go.transform;
+            return _transitionAnchorRoot;
+        }
+
+        /// <summary>= 原版 `TransitionUIAnchor.EnableAnchor()`（+ `SimpleSceneTransition.OutAnimation` 的前半）：
+        /// 把 `anchorOverride` 指向过渡锚点 ⇒ 过渡期间开的窗全部挂到它下面（切完由 <see cref="EndTransitionAnchor"/> 归位）。
+        /// <para>⚠️ 原版 `SimpleSceneTransition` 里这一跳有闸（`if (anchorOverride)`）：**没有配锚点就什么都不做**。
+        /// 我们等价于「建不出锚点 ⇒ 出声 + 返回 null」，调用方据此跳过 `EndTransitionAnchor`（否则会报一次空锚点错）。</para></summary>
+        public static Transform BeginTransitionAnchor()
+        {
+            var root = EnsureTransitionAnchorRoot();
+            if (root == null) return null;
+            RegisterAnchorOverride(root);
+            _transitionActive = true;
+            Debug.Log("[Win] 场景过渡开始：`anchorOverride` → `" + root.name + "`"
+                    + "（= 原版 `TransitionUIAnchor.EnableAnchor()`；过渡期间开的窗会先挂这里，切完由 `EndTransitionAnchor` 归位）");
+            return root;
+        }
+
+        /// <summary>自检收尾：把过渡层复位到「没走过过渡」的状态（⛔ 生产路径别调）。
+        /// <para>⚠️ 只清**静态记账**，不销毁节点 —— 节点是可复用的（同 `_anchors` 那族）。</para></summary>
+        public static void ResetTransitionLayerForTest()
+        {
+            UnregisterAnchorOverride();
+            _transitionActive = false;
+            _transitionAnchorRoot = null;
+        }
     }
 }

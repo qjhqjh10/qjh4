@@ -783,8 +783,8 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `SetDefaultDeck(CardDeck deck, bool upload = true)`（`PlayEvent.cs:1371`）：
-        /// `SaveGame.defaultDeckId = deck.deckId`；`if (upload &amp;&amp; !IsNullOrEmpty(defaultDeckId)) 打云脚本`.
-        /// ⚠️ 本地等价：写字段 + **落盘**（`SaveEventProgress`）；「云脚本」那一跳换成出声。</summary>
+        /// `SaveGame.defaultDeckId = deck.deckId`；`if (upload &amp;&amp; !IsNullOrEmpty(defaultDeckId)) 打云脚本`. 🔴 2026-11-02（`B118_W5`）：原版唯一生产调用 = `RankedDeckSelector__ChangeDeck.c:121`（`IPlayEvent` 槽 **8**，`dump.cs:130038`，`upload` 传 `false`；另有 FTUE 送卡 / Demo 两处）⇒ 换卡组只写本地格、不上传。
+        /// ⚠️ 本仓**没有**生产调用 —— 活动窗是 `LiveOpsEventWindow`（不是 `PlayEvent<,>`，拿不到 `IPlayEvent` 实例）⇒ 同一格由 `LiveOpsEventWindow.EventDeckSave/RememberEventDeckSave` 写（活动存档 = `LocalLiveOpsEvent`，`TSave = PlayEventSaveGame`）。本地还会**落盘**（`SaveEventProgress`），「云脚本」那一跳换成出声。</summary>
         public void SetDefaultDeck(string deckId, bool upload = true)
         {
             if (SaveGame == null)

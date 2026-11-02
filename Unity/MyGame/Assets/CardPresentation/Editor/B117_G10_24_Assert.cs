@@ -200,7 +200,7 @@ public static class B117G1024Assert
             + "把常量改回 `0x40000001` ⇒ 红（实得 mask = 0x" + mask.ToString("X8") + "）");
 
         Check((mask & (1 << 10)) != 0,
-              "A3b 掩码**含** layer 10（`BoardElements`）—— 原版这一位用来让**场上的卡/棋盘件挡住地面反馈**"
+              "A3b 掩码**含** layer 10（`BoardElements`）—— 原版让**场上的卡**挡住地面反馈（出处：`CardPrefab.prefab` 的 `Card 3D` 节点 `m_Layer: 10` + `--- !u!65` BoxCollider 1.827034×3.01×0.5）"
             + "（最近那条没有定义 ⇒ 整帧不播，闸⑬不顺延）（实得 mask = 0x" + mask.ToString("X8") + "）");
 
         int bits = 0;

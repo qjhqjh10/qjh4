@@ -242,6 +242,7 @@ public static partial class RuleEngineTest
             var ctx = Battle(new CardDef[0], new CardDef[0]);
             var wl = new CardDef("W34WarlordText", "W34WarlordText", "hero",
                                  "Start the game with W34Bonus in hand.", "common", "Test", 0, 3, 30, 0, null);
+            wl.AttachCardType(CardDef.CardTypeHero);   // B118-W7：督军夹具必须挂原版 cardType（⛔ 缺省 -1 会让 SetupDropPodStats/FTUE 那道闸静默 return）
             CheckTrue(wl.StartWithInHand.Count > 0,
                       "★ B1 （前提）卡面文本真的抽出了「开局上手」那一张（否则下面两行都是空转）");
             var ps = ctx.Players[0];
@@ -267,6 +268,7 @@ public static partial class RuleEngineTest
             var ctx = Battle(new CardDef[0], new CardDef[0]);
             var wl = new CardDef("W34WarlordTruth", "W34WarlordTruth", "hero",
                                  "Start the game with W34FromText in hand.", "common", "Test", 0, 3, 30, 0, null);
+            wl.AttachCardType(CardDef.CardTypeHero);   // B118-W7：同上（督军夹具挂 cardType=10）
             wl.AttachStartingCardInHand("W34FromData");
             var ps = ctx.Players[0];
             ps.Warlord = new UnitState(ctx.NewInstance(wl), true);

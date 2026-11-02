@@ -60,7 +60,14 @@ Shader "CardPresentation/ArtOpaque"
                 // 🆕 A2139：去饱和（同 `CardSprite.shader` 的口径：Rec.601 · 只动 RGB）
                 fixed lum = dot(c.rgb, fixed3(0.299, 0.587, 0.114));
                 c.rgb = lerp(c.rgb, lum.xxx, saturate(_GreyScale));
-                c.a = 1;                       // **关键**：贴图的 alpha 是「角色抠图」，这一层不要它
+                // **关键**：贴图的 alpha 是「角色抠图」，这一层不要它 —— 要的是 **`_Color`/顶点色**那个 alpha。
+                // 🔴 2026-11-02（`B118-W14` 就地订正）：原来是把 a 硬写成 1 —— 那会把**材质**的 alpha 也一起
+                //   丢掉 ⇒ `CardView.ApplyTint` 给这一层写的 `_tint.a × _alpha × _artAlpha × _alpha2D`
+                //   **全部静默失效**（整卡淡出 / 回手「2D 卡面淡回来」在屏幕上一点都看不出来，只有
+                //   `Show()` 的硬开关起作用 —— 用户报的「回手露出一块无框矩形」有一半就是这条）。
+                //   `c.a = i.color.a` 的语义正是想要的：**贴图 alpha 不要、材质与顶点 alpha 要**
+                //   （mesh 没有 COLOR 流时 Unity 供 (1,1,1,1) ⇒ `_Color.a = 1` 时与改前**逐像素相同**）。
+                c.a = i.color.a;
                 return c;
             }
             ENDCG

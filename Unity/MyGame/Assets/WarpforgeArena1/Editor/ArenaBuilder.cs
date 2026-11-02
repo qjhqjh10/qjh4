@@ -3701,9 +3701,9 @@ public static class ArenaBuilder
     ///     `else if (c.type == "ColorLookup")` 那一段的注释（2026-10-11 A293 补）。
     /// 原版那台 `BoardCamera` 的 `UniversalAdditionalCameraData.m_RenderPostProcessing = 1`（开着），
     /// 而 `UI Camera` 是 **Overlay 类型且后处理关**（`m_CameraType=1` / `m_RenderPostProcessing=0`）。
-    /// ⚠️ **已知差异（没接）**：原版是「base + overlay 相机栈」⇒ 后处理作用在**合成后**的整帧（UI 也被
-    ///    压暗）；我们是两台各自独立的 base 相机 ⇒ 后处理只作用在 3D 那层，**HUD 不带 bloom/vignette**。
-    ///    证据与取舍见 `资料/普查产出_0920/场景后处理_原版规格.md`。</summary>
+    /// ✅ **已对齐（⚠️ 2026-11-02 `B118-W8` 就地订正，原来这里写的是「已知差异（没接）」）**：原版是
+    ///    「base + overlay 相机栈」⇒ 后处理作用在**合成后**的整帧；`Scenes/Battle.unity` 现读**就是**这一形态
+    ///    （`904738761` `m_CameraType:0`·`m_RenderPostProcessing:1`，其 `m_Cameras` 栈深 1；`930645148` type 1、pp 0）。</summary>
     public static void ApplyPostFx(Transform parent, Manifest mf)
     {
         if (mf.postFx == null || mf.postFx.components == null || mf.postFx.components.Length == 0)

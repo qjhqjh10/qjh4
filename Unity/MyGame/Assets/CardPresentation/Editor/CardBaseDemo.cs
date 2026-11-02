@@ -5788,9 +5788,9 @@ public static class CardBaseDemo
             + " 原版在「装得下」那一支把 `extra` 归零；把门闸改回 `!IsCompressed` 会让本行变红");
 
         // ---- 悬停抬起 / 放大 = 原版 `VarsDesktop` 那两个值 ----
-        Check(Mathf.Abs(layout.hoverLift * 108f - 30f) < 0.01f,
-              $"悬停抬起 = 原版 `cardInHandShownYOffset` **30 px**（实测 {layout.hoverLift * 108f:F2} px）"
-            + " —— 换回自造的 0.06 世界单位（= 6.5 px）会让本行变红");
+        Check(Mathf.Abs(layout.hoverLift / HandLayout.OurUnitsPerWorldUnit - 30f) < 0.01f,
+              $"悬停抬起 = 原版 `cardInHandShownYOffset` **30 世界单位（= 445 px）**（实测 {layout.hoverLift / HandLayout.OurUnitsPerWorldUnit:F2} 世界单位）"
+            + " —— 换回自造的 0.06 世界单位 / 或把 30 当成 px（`30/108`）都会让本行变红");
         Check(Mathf.Abs(layout.hoverScale - 1.3f) < 1e-4f,
               $"悬停放大 = 原版 `cardInHandShownScale` **1.3**（实测 {layout.hoverScale}）");
 

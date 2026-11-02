@@ -1008,7 +1008,7 @@ namespace CardPresentation
             //   ⚠️ 叉图取不到时退回圆底那颗（= 旧 `HitClose` 的兜底支），并出声。
             _btnClose = AttachClick(_closeIcon ?? _close, OnCloseClicked, "Generic Close Button",
                                     CloseIconRectW + 2f * -CloseIconPadPx,     // 56.37 + 2×20 = 96.37
-                                    CloseIconRectH + 2f * -CloseIconPadPx);    // 54.50 + 2×20 = 94.50
+                                    CloseIconRectH + 2f * -CloseIconPadPx, cue: WindowSounds.DefaultCloseCue);    // 54.50 + 2×20 = 94.50 · cue 判据 = 原版 MB 4038 的 m_onClickSound pid 8084683923307806969 = ButtonClick Back
 
             // ---- 投降：原版 `Resign`，面板左下角 ----
             // 🔴 **2026-09-19 照原版真值重做** —— 原来这里是 (0,−U(120)) / 宽 249 / 橙字，
@@ -1059,7 +1059,7 @@ namespace CardPresentation
                                 + "（`40K_button` 取不到？⇒ 本节 `HasArt` 会先红）");
             // 🔴 **2026-10-20（W57 · `T09` A3-b）**：uGUI 点击（原版 `Resign Button` = `EverguildButton`，
             //   `MB` 字段 t=2 SpriteSwap）。我们的 rect **就是**原版 300×90 ⇒ 不用补 padding。
-            _btnResign = AttachClick(_resignBtn, OnResignClicked, "Resign Button");
+            _btnResign = AttachClick(_resignBtn, OnResignClicked, "Resign Button", cue: WindowSounds.NegativeCue);   // 原版 MB 4837 `m_onClickSound` pid 1387228150816026206 = ButtonClick Negative
             // 文字：原版 `Resign`（本地化 key `Battle/Settings/ResignButton`）。
             // 🔴 **2026-09-19 用户口径：先用英文**（原版就是英文；中文**查不到** —— 客户端没有 I2 语言表），
             //    之后再做彻底的完全翻译。字号 fs38 按**拉丁大写高度**定（见 `SliderLabel` 那条注释）。
@@ -1097,7 +1097,7 @@ namespace CardPresentation
             else Debug.LogWarning("[Settings] 「跳过教程」那颗钮（`settings_skip_tutorial`）没建起来");
             // 🔴 **2026-10-20（W57 · `T09` A3-b）**：uGUI 点击（原版 `SkipTutorial Button` 与 `Resign` 同族，
             //   同为 uGUI `Selectable`）。rect 也是原版 300×90 ⇒ 不补 padding。
-            _btnSkip = AttachClick(_skipBtn, OnSkipTutorialClicked, "SkipTutorial Button");
+            _btnSkip = AttachClick(_skipBtn, OnSkipTutorialClicked, "SkipTutorial Button", cue: WindowSounds.DefaultButtonCue);   // 原版 MB 4945 无自带 cue、useDefaultAudioClipIfNull=1
             // 文字：原版 `Button Text` 的 TMP 原文就是 `Skip tutorial`（`mTerm` 见 `SkipTutorialTerm`）。
             // 🆕 **2026-10-17（`A1753` #16）**：`SkipTutorial ▸ Button Text` 与 `Resign` **同族同材质**
             //   （`Pragati-Regular Off White Cold`）⇒ 同一个屏上颜色。
@@ -1142,7 +1142,7 @@ namespace CardPresentation
             //   （`Toggle` 的 Image，`m_RaycastTarget = 1`，rect 74.0616×57.6656）② 文字那一格
             //   （TMP `m_RaycastTarget = 1`，rect 229.291×75.641）—— **两块、中间有 4.94 px 的缝**（`AzHitPx`）。
             //   我们画出来的勾选框按贴图比例内接（比原版那格小）⇒ 用 padding 补成原版那一格。
-            _btnAutoZoom = AttachClick(_azBox, OnAutoZoomClicked, "Auto Zoom Toggle", AzBoxWPx, AzBoxHPx);
+            _btnAutoZoom = AttachClick(_azBox, OnAutoZoomClicked, "Auto Zoom Toggle", AzBoxWPx, AzBoxHPx, WindowSounds.SelectToggleCue);   // 原版 MB 4356 `m_onClickSound` pid 8881786964274599484 = Select Toggle
             // ⚠️ 那个绿是 `Selectable` 的 `m_NormalColor`（ColorTint 常态档），**不是** Image 自己的 `m_Color`
             //    （那个是白）。`EverguildToggle.colorTintOnValueChange = 0` ⇒ 开关翻动**不**改色。
             if (_azBox != null) _azBox.SetTint(AzBoxTint);
@@ -1182,7 +1182,7 @@ namespace CardPresentation
             _azLabelHit = Img(_panel, "settings_autozoom_label_hit", SolidTex(1f),
                               U(-203.42f + AzLabelWPx * 0.5f), U(AzLabelCyPx),
                               U(AzLabelWPx), U(AzRowHPx), Z - 0.021f, 0, Color.clear);
-            AttachClick(_azLabelHit, OnAutoZoomClicked, "Auto Zoom Toggle(label)");
+            AttachClick(_azLabelHit, OnAutoZoomClicked, "Auto Zoom Toggle(label)", cue: WindowSounds.SelectToggleCue);   // 同一颗原版钮（MB 4356）
 
             // ---- 🆕 2026-10-16（`T01`）：`ChatToggle`「静音对手」那一行 ----
             // 位置 = `Volume Sliders` 下面那一行（原版父链就是这么挂的：`BattleSettingsPanel/
@@ -1278,7 +1278,7 @@ namespace CardPresentation
         /// 写死就会在换图/换比例时**静默缩水**。</para>
         /// <returns>`null` = 没挂上（件是 null / 世界空间 / 拿不到 `Image`）—— 已经出声。</returns></summary>
         static BattleHudButton AttachClick(HudPiece piece, Action action, string node,
-                                           float hitW = -1f, float hitH = -1f)
+                                           float hitW = -1f, float hitH = -1f, string cue = null)
         {
             if (piece == null)
             {
@@ -1296,7 +1296,7 @@ namespace CardPresentation
                     Debug.LogWarning($"[Settings] 可点件 `{node}` 的命中框补不上去 ⇒ 保持它自己的矩形");
                 }
             }
-            var btn = BattleHudButton.Attach(piece, action);
+            var btn = BattleHudButton.Attach(piece, action, cue);
             if (btn == null) Debug.LogWarning($"[Settings] 可点件 `{node}` **没挂上 uGUI 点击**（见上一行）");
             return btn;
         }
@@ -2190,11 +2190,11 @@ namespace CardPresentation
             //   ① 挂**OFF 那半**：它恒 active，且 ON 那块 `raycastTarget = false`（装饰）⇒ 射线穿过去落在它身上；
             //     我们画出来的底图按贴图比例内接（比原版那格小）⇒ 用 padding 补成原版矩形。
             //   ② 我们的 TMP 不吃射线 ⇒ 透明 Image 盖上原版那一格。
-            _btnMuteChat = AttachClick(_muteOffBg, OnMuteChatClicked, "ChatToggle", MuteBgWPx, MuteBgHPx);
+            _btnMuteChat = AttachClick(_muteOffBg, OnMuteChatClicked, "ChatToggle", MuteBgWPx, MuteBgHPx, WindowSounds.SelectToggleCue);   // 原版 MB 4784 `m_onClickSound` pid 8881786964274599484 = Select Toggle
             _muteLabelHit = Img(_panel, "settings_mute_label_hit", SolidTex(1f),
                                 U(MuteLabelLeftPx + MuteLabelWPx * 0.5f), U(MuteLabelCyPx),
                                 U(MuteLabelWPx), U(MuteLabelHPx), z - 0.052f, 0, Color.clear);
-            AttachClick(_muteLabelHit, OnMuteChatClicked, "ChatToggle(label)");
+            AttachClick(_muteLabelHit, OnMuteChatClicked, "ChatToggle(label)", cue: WindowSounds.SelectToggleCue);   // 同一颗原版钮（MB 4784）
 
             RefreshMuteChat();
         }

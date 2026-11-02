@@ -244,10 +244,10 @@ namespace CardPresentation
 
         void AttachClicks()
         {
-            BindClick(Btn.Replay, _replay);
-            BindClick(Btn.Play,   _play);
-            BindClick(Btn.Pause,  _pause);
-            BindClick(Btn.Step,   _step);
+            BindClick(Btn.Replay, _replay); BindPressedFeedback(Btn.Replay, _replay);
+            BindClick(Btn.Play,   _play);   BindPressedFeedback(Btn.Play,   _play);
+            BindClick(Btn.Pause,  _pause);  BindPressedFeedback(Btn.Pause,  _pause);
+            BindClick(Btn.Step,   _step);   BindPressedFeedback(Btn.Step,   _step);
         }
 
         void BindClick(Btn which, HudPiece piece)
@@ -376,5 +376,99 @@ namespace CardPresentation
                 return new Vector2(_play.WorldW, _play.WorldH);
             }
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B118-W1` · `B117-T06` 第 1 件）：四颗钮的**按下态换图**
+        //
+        //  判据（`bundle_scenes_scenes_battlearena1` 四份 `EverguildButton` 现读）：
+        //   · `m_Transition = 2`（SpriteSwap）四颗都是；
+        //   · `m_SpriteState` 的 **`m_PressedSprite` 有值**，`m_HighlightedSprite` / `m_SelectedSprite` /
+        //     `m_DisabledSprite` **全部等于 `Normal`**（不是另一张图）——
+        //     `MB 5177 Replay` / `MB 4109 Play` / `MB 4709 Pause` / `MB 5265 StepPlay`；
+        //   · 四张 pressed 图的名字（`ui_extract/scenes_scenes_battlearena1_sprites/Sprite/` 按 pathID 反查）：
+        //     `40K_replay_bt_restart_pushed` / `…_play_pushed` / `…_pause_pushed` / **`40K_replay_bt_next_ushed`**
+        //     （⚠️ 最后一个原版资产名**少一个 `p`**，照抄别「修」—— 改了就在贴图库里找不到）。
+        //  ⇒ 我们这一档只做「按下换图」：悬停**不换图**（原版 HighlightedSprite == Normal），
+        //     `Swap(piece, name, normal, normal, pressed)` 的第二参喂 normal 就是照这个。
+        //  ⚠️ 图本体 2026-11-02 才导进 `Resources/Art/ui/`（`40K_replay_bt_*_pushed.png` + `_ushed`）。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>四颗的按下图资产名（`None` ⇒ null）。</summary>
+        static string PushedArtOf(Btn which)
+        {
+            switch (which)
+            {
+                case Btn.Replay: return "40K_replay_bt_restart_pushed";
+                case Btn.Play:   return "40K_replay_bt_play_pushed";
+                case Btn.Pause:  return "40K_replay_bt_pause_pushed";
+                case Btn.Step:   return "40K_replay_bt_next_ushed";     // ⚠️ 原版名少一个 p，照抄
+            }
+            return null;
+        }
+
+        /// <summary>按下态换图（悬停不换图，判据见上面那段）。
+        /// <para>`PointerDown` ⇒ `Pressed` · `PointerUp` / `PointerExit` ⇒ `Normal`
+        /// （后者照 uGUI `Selectable.OnPointerExit`：指针离开时**回到 Normal 而不是留 Pressed**）。</para>
+        /// <para>⚠️ 取不到按下图 ⇒ 出声且**不换图**（⛔ 不静默；补齐图后自动生效）。</para></summary>
+        void BindPressedFeedback(Btn which, HudPiece piece)
+        {
+            if (piece == null || piece.gameObject == null) return;   // 件缺这一路已由 `BindClick` 出声
+            var art = PushedArtOf(which);
+            var pressed = art != null ? CardArt.Ui(art) : null;
+            if (pressed == null)
+            {
+                Debug.LogWarning($"[ReplayBar] `{which}` 的按下图 `{art}` 取不到 ⇒ 这一颗按下时**不换图**"
+                               + "（`Resources/Art/ui/` 里缺这一张）");
+                return;
+            }
+            var normal = piece.Texture as Texture2D;
+            var fx = BattleButtonFx.Swap(piece, "ReplayBar_" + which + "_fx", normal, normal, pressed);
+            if (fx == null)
+            {
+                Debug.LogWarning($"[ReplayBar] `{which}` 的按下态反馈件建不出来（`BattleButtonFx.Swap` 回了 null）");
+                return;
+            }
+            if (_pressFx == null) _pressFx = new BattleButtonFx[5];
+            _pressFx[(int)which] = fx;
+            AddTrigger(piece, UnityEngine.EventSystems.EventTriggerType.PointerDown, _ => fx.SetPressed(true));
+            AddTrigger(piece, UnityEngine.EventSystems.EventTriggerType.PointerUp,   _ => fx.SetPressed(false));
+            AddTrigger(piece, UnityEngine.EventSystems.EventTriggerType.PointerExit, _ => fx.SetPressed(false));
+        }
+
+        /// <summary>挂一条 `EventTrigger`。⚠️ 同一 GO 上已有就**复用**（再 `AddComponent` 会得到两个实例、
+        /// 两个都收事件 ⇒ 一次按下写两遍）。⚠️ 不新写 `MonoBehaviour`（本仓「类名 == 文件名」硬规矩）。</summary>
+        static UnityEngine.EventSystems.EventTrigger AddTrigger(HudPiece piece,
+            UnityEngine.EventSystems.EventTriggerType type,
+            UnityEngine.Events.UnityAction<UnityEngine.EventSystems.BaseEventData> cb)
+        {
+            if (piece == null || piece.gameObject == null) return null;
+            var go = piece.gameObject;
+            var trig = go.GetComponent<UnityEngine.EventSystems.EventTrigger>();
+            if (trig == null) trig = go.AddComponent<UnityEngine.EventSystems.EventTrigger>();
+            var entry = new UnityEngine.EventSystems.EventTrigger.Entry { eventID = type };
+            entry.callback.AddListener(cb);
+            trig.triggers.Add(entry);
+            return trig;
+        }
+
+        /// <summary>四颗的按下态反馈件（`null` = 这一颗没建）。自检用。</summary>
+        public BattleButtonFx PressFxForTest(Btn which)
+        {
+            if (_pressFx == null || (int)which < 0 || (int)which >= _pressFx.Length) return null;
+            return _pressFx[(int)which];
+        }
+
+        /// <summary>自检用：像 uGUI 那样在这颗钮上**按下/松开**（只改外观，⛔ 不触发 `Clicked`）。
+        /// <para>返回 false = 这一颗没有按下态反馈件（图缺 / 件缺）—— ⛔ 别当成「按下去没换图」的通过。</para></summary>
+        public bool PressForTest(Btn which, bool down)
+        {
+            var fx = PressFxForTest(which);
+            if (fx == null) return false;
+            fx.SetPressed(down);
+            return true;
+        }
+
+        /// <summary>四颗的按下态反馈件数组（下标 = `(int)Btn`；`None` 那一格恒 null）。</summary>
+        BattleButtonFx[] _pressFx;
     }
 }

@@ -1913,9 +1913,9 @@ namespace CardPresentation
                 // ② 3D 体溶解出：反向 [0.2167, 0.75] ⇒ `_DissolveAmount` 0 → 1
                 seq.Insert(artOn, DOTween.To(() => card.DissolveAmount, a => card.SetDissolveAmount(a),
                                              1f, bodyGone - artOn).SetEase(Ease.Linear));
-                // ③ 2D 卡面：0.2167 打开、[0.25, 0.5833] 淡回 1（原版那两个字段就是这两个时刻）
-                seq.InsertCallback(artOn, () => card.SetArtAlpha(0f));
-                seq.Insert(artFadeStart, DOTween.To(() => card.ArtAlpha, a => card.SetArtAlpha(a),
+                // ③ 2D 卡面：0.2167 **整组打开**、[0.25, 0.5833] **整组**淡回 1（原版那两个字段就是这两个时刻；`m_IsActive` 打开的是整棵 `2DCard`；🆕 `B118-W14`：原来是只淡 `_art` ⇒ 露出无框矩形）
+                seq.InsertCallback(artOn, () => { card.BuildHandTextLayersNow(); card.SetFaceGroupVisible(true); card.SetAlpha2D(0f); card.SetArtAlpha(1f); });   // 🔴 B118-W15 第二轮：**先建文字层**（原版 `2DCard` 是一个 CanvasGroup ⇒ 框/字/图同刻一起淡）；⛔ 排在 `SetFaceGroupVisible` 之前的理由 = 那一步要 `Show` 的正是这几层
+                seq.Insert(artFadeStart, DOTween.To(() => card.Alpha2D, a => card.SetAlpha2D(a),
                                                     1f, artFadeEnd - artFadeStart).SetEase(Ease.Linear));
             }
             else
@@ -1925,8 +1925,8 @@ namespace CardPresentation
                 //   2D 卡面照**同一条原版时间轴**打开/淡入（与上面 `canDissolve` 那一支逐时刻相同）。
                 //   判据 → `资料/普查产出_1023/D3_F1判据与方案.md` §③ C4；
                 //   旁证 = 原版阵亡正路 `DeathExplosion` 也是 `SetBody3DVisible(false)`（不淡）。
-                seq.InsertCallback(artOn, () => { card.SetBody3DVisible(false); card.SetArtAlpha(0f); });
-                seq.Insert(artFadeStart, DOTween.To(() => card.ArtAlpha, a => card.SetArtAlpha(a),
+                seq.InsertCallback(artOn, () => { card.BuildHandTextLayersNow(); card.SetBody3DVisible(false); card.SetFaceGroupVisible(true); card.SetAlpha2D(0f); card.SetArtAlpha(1f); });   // 🔴 B118-W15 第二轮：同上面 `canDissolve` 那一支（两支逐时刻一致）
+                seq.Insert(artFadeStart, DOTween.To(() => card.Alpha2D, a => card.SetAlpha2D(a),
                                                     1f, artFadeEnd - artFadeStart).SetEase(Ease.Linear));
             }
 
@@ -1945,7 +1945,7 @@ namespace CardPresentation
             });
             // `OnKill` 在「正常播完」时也会跟着触发一次 ⇒ `EndDissolve` 会被叫两次；
             // `CardView.EndDissolve` 自 2026-10-23（`D5`）起幂等（无体 / 无材质直接返回），所以安全。
-            if (canDissolve) t.OnKill(() => card.EndDissolve());
+            t.OnKill(() => { if (card == null) return; card.EndDissolve(); card.SetAlpha2D(1f); card.SetArtAlpha(1f); if (card.Face == CardFace.Board) card.SetFaceGroupVisible(false); });   // 🆕 `B118-W14`：**被打断也要收口**（照 `HandToBoard` 那条的写法）—— 原来只挂 `EndDissolve`，α 一个都不复位 ⇒ 倒放中被打断后这张视图的 2D 组**永久偏淡**且零报错；`SetFaceGroupVisible(false)` **只在仍停在场上形态时**才收（正常跑完那一路 `onDone` 已经 `SetFace(Hand)`，⛔ 别把那几层再关掉）；⚠️ 原来这里带 `if (canDissolve)`，现**无条件**挂 —— `EndDissolve` 幂等（无体/无材质直接返回）
             return t;
         }
 
@@ -3341,7 +3341,7 @@ namespace CardPresentation
             card.SetAlpha(0f);
 
             var seq = DOTween.Sequence();
-            seq.Append(tr.DOMove(to, DealDuration).SetEase(Ease.OutCubic));
+            seq.Append(tr.DOMove(to, DealDuration).SetEase(Ease.OutQuart));   // 🔴 2026-11-02（`B118-W17`）：原版 `CardScript__DrawCard.c:86` 是 `DOMove(...)` + `SetEase(0xc)`；DOTween 枚举 `0xc = 12 = OutQuart`（原来是 `OutCubic`，全池差一档）
             // 🔴 **2026-10-16：这一条从「一路 OutCubic 转到底」换成原版那记翻面**
             //    （`CardScript.TurnCardAround` + `FinishCardDrawRotation`，判据与出处全在
             //     `TurnCardAround` 上面那一段头注里，这里不抄第二份）。
@@ -3352,9 +3352,9 @@ namespace CardPresentation
             //   原来那句 `tr.DOScale(...)` 直写 `transform.localScale` ⇒ 补间跑完 `_baseScale` 仍是旧值，
             //   下一次 `SetPose`（布局 / 切分辨率）会把它弹回去（`T04` 那一族，静默）。
             //   ⚠️ 这里的 `scale` 与 `SetPose` 第三参**同一个口径**（**基础**缩放 —— 落位时布局还会再写一遍）。
-            var sc = ScaleTo(card, tr, scale, DealDuration, Ease.OutCubic);
+            var sc = ScaleTo(card, tr, scale, DealDuration, Ease.OutQuart);   // 同上：原版 `CardScript__DrawCard.c:73` `DOScale(...)` + `SetEase(0xc)` = OutQuart
             if (sc != null) seq.Join(sc);
-            seq.Join(DOTween.To(() => 0f, a => card.SetAlpha(a), 1f, DealDuration * 0.5f));
+            seq.Join(DOTween.To(() => 0f, a => card.SetAlpha(a), 1f, DealDuration * 0.5f));   // 🔶 自己设计（非原版）：抽牌 alpha 淡入 · 原版 `CardScript__DrawCard.c` 全文**没有** `DOFade/SetAlpha`（3D 卡体本来就全不透明）· 调度台 2026-11-02 裁定；⚠️ 它的另一半是必需的：不先置 0，DOTween 第一帧前那一下会整张不透明（自检抓到过）
             // 🆕 2026-10-16：**翻面的前半段看的是卡背**（判据 → `CardView.SetBackVisible` 那段头注）。
             //   两段各占 `DealDuration × TurnCardAroundFrac`（0.25）⇒ 「侧立那一刻」在
             //   `DealDuration × 0.25` 处，**卡宽正好收到 0** ⇒ 在那一刻换回卡面**看不见**。
@@ -3383,13 +3383,13 @@ namespace CardPresentation
             card.SetAlpha(0f);
 
             var seq = DOTween.Sequence();
-            seq.Append(tr.DOMove(to, DealDuration).SetEase(Ease.OutCubic));
-            seq.Join(tr.DORotate(Vector3.zero, DealDuration).SetEase(Ease.OutCubic));
+            seq.Append(tr.DOMove(to, DealDuration).SetEase(Ease.OutQuart));   // 判据同 `DealInPose`：`CardScript__DrawCard.c:86` `SetEase(0xc)` = OutQuart
+            seq.Join(tr.DORotate(Vector3.zero, DealDuration).SetEase(Ease.OutQuad));   // 🔴 2026-11-02（`B118-W17`）：原版的 `DORotate(Vector3.zero)` 只在**敌方那一支**（`DrawCard.c:65-75`）且**没有 `SetEase`** ⇒ 吃 DOTween 默认档 `OutQuad`（`DOTweenSettings.asset:31` `defaultEaseType: 6`）；我们原来写 `OutCubic` = 既不是原版那一支、也不是默认档
             // 🔴 2026-10-23（新账-74）：同 `DealInPose` —— 只经 `CardView.SetBaseScale`（`ScaleTo`），
             //   ⛔ 不再 `tr.DOScale` 直写 `localScale`。目标 1 = **基础**缩放（手牌档的静止值）。
-            var sc = ScaleTo(card, tr, 1f, DealDuration, Ease.OutCubic);
+            var sc = ScaleTo(card, tr, 1f, DealDuration, Ease.OutQuart);   // 同上：原版 `CardScript__DrawCard.c:73` `SetEase(0xc)` = OutQuart
             if (sc != null) seq.Join(sc);
-            seq.Join(DOTween.To(() => 0f, a => card.SetAlpha(a), 1f, DealDuration * 0.5f));
+            seq.Join(DOTween.To(() => 0f, a => card.SetAlpha(a), 1f, DealDuration * 0.5f));   // 🔶 自己设计（非原版）：抽牌 alpha 淡入 · 原版 `CardScript__DrawCard.c` 全文没有 fade（同 `DealInPose` 那一条）· 调度台 2026-11-02 裁定
             var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
             // ⚠️ **被打断时要把 alpha 补回 1**：`HandLayout.Place` 会 `DOKill()` 掉这张卡身上的补间
             //    （重排/让位时），补间死在半路的话卡会**永远半透明**地留在手里。
@@ -3418,7 +3418,7 @@ namespace CardPresentation
             float d = DealDurationFoe;
 
             var seq = DOTween.Sequence();
-            seq.Append(tr.DOMove(to, d).SetEase(Ease.OutCubic));
+            seq.Append(tr.DOMove(to, d).SetEase(Ease.OutQuart));   // 🔴 2026-11-02（`B118-W17`）：原版 `CardScript__DrawCard.c:86` `DOMove(...)` + `SetEase(0xc)` = OutQuart（敌方支同一句，⛔ 别只改我方那条）
             // 🆕 2026-10-22（W64 · `B13` ②）：**敌方那一支的 `DORotate(zero)`**（原来漏了）。
             //   判据 = `decomp_full/CardScript__DrawCard.c:65-75`：`if (isPlayer == 0)` 那一支里
             //   `DORotate(transform, Vector3.zero, 时长)` —— 它**只有敌方走**（我方那一支归
@@ -3428,8 +3428,8 @@ namespace CardPresentation
             //   ⇒ 这里写 `Ease.OutQuad`（审计文里那句「OutCubic＝DOTween 默认」与 .asset 实读不符，
             //   按 .asset）。
             seq.Join(tr.DORotate(Vector3.zero, d).SetEase(Ease.OutQuad));
-            seq.Join(tr.DOScale(Vector3.one, d).SetEase(Ease.OutCubic));
-            seq.Join(DOTween.To(() => 0f, a => q.SetTint(new Color(1f, 1f, 1f, a)), 1f, d * 0.5f));
+            seq.Join(tr.DOScale(Vector3.one, d).SetEase(Ease.OutQuart));   // 同上：原版 `CardScript__DrawCard.c:73` `DOScale` + `SetEase(0xc)` = OutQuart
+            seq.Join(DOTween.To(() => 0f, a => q.SetTint(new Color(1f, 1f, 1f, a)), 1f, d * 0.5f));   // 🔶 自己设计（非原版）：敌方抽牌的卡背 alpha 淡入 · 原版 `CardScript__DrawCard.c` 全文没有 fade（`SetObjectVisibility` 是硬开关）· 调度台 2026-11-02 裁定
             var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
             t.OnKill(() => { if (q != null) q.SetTint(Color.white); });
             return t;

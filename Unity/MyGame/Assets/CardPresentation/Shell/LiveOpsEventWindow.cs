@@ -2148,9 +2148,9 @@ namespace CardPresentation
 
         /// <summary>`Open()` 用哪一套当「当前」：先查**本活动**记的那副（原版 `currentEvent.GetDeck()`）；
         /// 没记过 / 没有 `EventId` / 那副已经不在库里 ⇒ 回落全局当前（= 改前的行为，⛔ 不是新语义）。
-        /// <para>查法：**先按 id**（原版 `defaultDeckId`）；只有「旧档那条记录里没有 id」时才按名回落（并出声）。</para></summary>
+        /// <para>查法：**先按 id**（原版 `defaultDeckId`）；只有「旧档那条记录里没有 id」时才按名回落（并出声）。🆕 2026-11-02（`B118_W5`）：**先读原版那一格**（活动存档 `PlayEventSaveGame.defaultDeckId`，见类尾 `EventDeckSave`），再走下面 `_ours_` 旧键那套。</para></summary>
         int EventDeckIndex()
-        {
+        { int k0 = EventDeckIndexFromEventSave(EventId); if (k0 >= 0) return k0;   // 🆕 B118_W5：原版那一格优先
             if (!string.IsNullOrEmpty(EventId))
             {
                 EventDeckSlotRec rec;
@@ -2191,7 +2191,7 @@ namespace CardPresentation
             if (raw == null || string.IsNullOrEmpty(raw.Name)) return;
             string id = CollectionData.EnsureDeckId(DeckIndex);   // 旧档第一次用到时现发 + 落盘（失败由它自己出声）
             _eventDeckSlot[EventId] = new EventDeckSlotRec { DeckId = id, DeckName = raw.Name };
-            SaveEventDeckSlots();                               // 2026-10-28（B92_N9）：写进 `_ours_` 存档（原版住在活动存档里）
+            RememberEventDeckSave(EventId, id); SaveEventDeckSlots();   // 🆕 B118_W5：先写**原版那一格**（`defaultDeckId`，见类尾）；`_ours_` 旧键保留（B92_N9，降为兼容/回落）
         }
 
         /// <summary>自检口：读某活动记的那副**卡组名**（没记过 ⇒ null）。身份判据看 <see cref="EventDeckSlotIdFor"/>。</summary>
@@ -2249,12 +2249,12 @@ namespace CardPresentation
         //  🆕 2026-10-28（B92_N9）· 每活动卡组槽的**跨进程持久化**（追加在类尾 —— 零行号漂移）
         //
         //  原版：这一格住在**活动存档**里 —— `RankedDeckSelector__Initialize.c` 读接口槽 **9**
-        //        （`IPlayEvent.GetDeck()`）、`RankedDeckSelector__ChangeDeck.c` 的 `FUN_1800121a0(8, …)`
-        //        （= `SetDeck(deck)`）⇒ 关掉游戏再进，**每个活动还记着自己那副**。
+        //        （`IPlayEvent.GetEventDeck()`）、`RankedDeckSelector__ChangeDeck.c:121` 的 `FUN_1800121a0(8, …, deck, 0)`
+        //        （`dump.cs:130038` 槽 **8** = `SetDefaultDeck(deck, upload:false)`；2026-11-02 `B118_W5` 就地订正：原写 `SetDeck`/`GetDeck` = 接口上没这两个名字）⇒ 关掉再进，**每个活动还记着自己那副**。
         //  我们（B90-N3）当时只做了内存字典 + 在账里写明「跨进程会丢」；本笔按 B91-L6 的判定补落盘：
-        //        `SaveKeys.OursPrefix + "EventDeckSlot"` = `_ours_EventDeckSlot`
-        //        （`SaveKeys.IsKnown` 对 `_ours_` 前缀直接放行 ⇒ **不用改键表**；原版没有这个键，
-        //         它是 🔶 我们自定的 —— 原版那格在活动存档里，我们没有活动存档）。
+        //        `SaveKeys.OursPrefix + "EventDeckSlot"` = `_ours_EventDeckSlot`（🔶 我们自定的键；`IsKnown` 对 `_ours_` 放行 ⇒ 不用改键表）
+        //        ⚠️ 2026-11-02（`B118_W5`）订正（铁律 5）：原写「原版那格在活动存档里，**我们没有活动存档**」**不成立** ——
+        //        我们有（`LiveOpsEvent.cs:953` `LiveOpsSaveStore`，键 = `SaveKeys.LiveOps` = 原版 `PlayerDataKey` 第 41 项）⇒ 原版那一格现在写在那儿（类尾 `EventDeckSave`），本键降为兼容回落。
         //  ⚠️ 形状：`JsonUtility` **不能序列化 Dictionary** ⇒ 落成「行数组」。
         //  ⚠️ 读不到 / 坏档 ⇒ 空表 + **出声**（`SaveCenter` 自己会说话）⇒ 退回「回落全局当前」的旧行为，⛔ 不静默造一条记录。
         // ================================================================================================
@@ -2424,6 +2424,81 @@ namespace CardPresentation
             bool isSkirmish = deck.GameMode == (int)RuleEngine.GameMode.Skirmish;
             err = RuleEngine.DeckRules.Validate(deck, CollectionData.Card, isSkirmish);
             return err == RuleEngine.DeckError.None;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-11-02（`B118_W5`）· 每活动卡组槽改走**原版那一格**（`PlayEventSaveGame.defaultDeckId`）
+        //
+        //  判据（🥇 原版，两件现读）：
+        //  ① `d:/2/tools/decomp_full/RankedDeckSelector__ChangeDeck.c:121`
+        //     `FUN_1800121a0(8, DAT_1842ab400, *(long long *)(param_1 + 0x90), param_2, 0)` —— 末两个实参 = 卡组、`0`。
+        //  ② `d:/2/tools/il2cpp_out/dump.cs:130038`：`IPlayEvent` 的 `// Slot: 8` = `SetDefaultDeck(CardDeck deck, bool upload = True)`
+        //     ⇒ ① 就是「玩家在活动里换卡组 ⇒ `SetDefaultDeck(deck, upload:false)`」= 只写本地活动存档那一格。
+        //  ⚠️ 本仓**没有** `IPlayEvent` 实例可直接调（`RankedEventWindow` / `SkirmishEventWindow` 继承的是
+        //     `LiveOpsEventWindow`，不是 `PlayEvent<,>`；`PlayEvent.SetDefaultDeck` 因此 0 生产调用 ——
+        //     不是「原版从不写」，是这条链没接到窗口上，⛔ 别把它当「原版没这功能」）。
+        //     ⇒ 按**同一格**落地：`LocalLiveOpsEvent` 的 `TSave` 已换成 `PlayEventSaveGame`（`LiveOpsHandler.cs:838`），
+        //     这里读 / 写它的 `defaultDeckId`。⛔ 不另造第三份存储；旧键 `_ours_EventDeckSlot` 降为**兼容回落**。
+        // ================================================================================================
+
+        /// <summary>本活动的事件存档（原版 `IPlayEvent.GetBaseSave()`）；没有事件实例 ⇒ 直接读存档层。
+        /// <para>⚠️ 没有实例时 `LiveOpsSaveStore.Load` 按**具体子类**反序列化（与 `Save()` 的运行时类型对称）。</para></summary>
+        static PlayEventSaveGame EventDeckSave(string eventId)
+        {
+            if (string.IsNullOrEmpty(eventId)) return null;
+            var ev = LiveOpsLocalHandler.Default.GetEvent(eventId);
+            if (ev != null)
+            {
+                var s0 = ev.GetBaseSave();
+                var live = s0 as PlayEventSaveGame;
+                if (live != null) return live;
+                Debug.LogWarning("[Event] 活动 `" + eventId + "` 的存档是 `"
+                               + (s0 == null ? "<null>" : s0.GetType().Name)
+                               + "`，不是 `PlayEventSaveGame` ⇒ 每活动卡组槽**读不到 / 写不进**原版那一格（`defaultDeckId`）");
+                return null;
+            }
+            return LiveOpsSaveStore.Load(eventId, typeof(PlayEventSaveGame)) as PlayEventSaveGame;
+        }
+
+        // 🆕 2026-11-02（`B118_W24` · 账 #118）：**原版 `GetEventDeck` 的第 ① 支在窗口侧的等价物**。
+        //   判据 = `decomp_b91/PlayEvent_object__object_.GetEventDeck__1127000.c` 首段：
+        //     `if (!IsNullOrWhiteSpace(save.defaultDeckId)) { deck = GetAsset(id);
+        //         if (deck != null && deck.GameMode == EventPlayMode && ValidateDeck(deck, out _, true)) return deck; }`
+        //   原版 `RankedDeckSelector.Initialize.c:15-22` 拿的就是它（`currentDeck = currentEvent.GetEventDeck()`）⇒
+        //   「上次用过的那副」必须**过模式闸**才算数，⛔ 不能因为「这个活动记过」就把别的模式的卡组画出来。
+        //   ⚠️ **① 的另一半 `ValidateDeck` 故意不落**（如实记的残差）：本仓的等价物 `DeckIsLegal` = `DeckRules.Validate(raw, …, raw.IsSkirmish)`
+        //      正是 `b__26_0`（第 ② 支）谓词那一把尺；而 `FirstDeckInArmy` / `ArmyDeckCount` 已按原版 `OrderByDescending`
+        //      把合法性当**排序键、不是过滤器**（E11 + B90 两次定案）⇒ 在这里再当过滤器会把「本模式但不合法」的那套
+        //      **静默换掉**，与同一扇窗的另外两处口径打架。要补得先把这两处口径统一（⛔ 别单补这一行）。
+        //   ⚠️ 第 ② 支（扫全表 `mode ∧ 可打`）与第 ③ 支（`GameModes.GetActiveEvent<IRankedEvent>()`）在窗口侧**不可达**：
+        //      本仓 13 个本地活动实例是 `LocalLiveOpsEvent`（**不实现** `IPlayEvent`）⇒ 拿不到 `GetEventDeck()`；
+        //      所以「没有活动存档记录」时仍回落 `CollectionData.CurrentIndex()`（= 改前的行为，⛔ 别当成已等价）。
+        /// <summary>`defaultDeckId` → 库内下标；没有 / 已经不在库里 / **不符合本窗模式** ⇒ `−1`（调用方回落全局当前）。</summary>
+        int EventDeckIndexFromEventSave(string eventId)
+        {
+            var s = EventDeckSave(eventId);
+            if (s == null || string.IsNullOrEmpty(s.defaultDeckId)) return -1;
+            int i = CollectionData.IndexOfDeckId(s.defaultDeckId.Trim());
+            if (i >= 0 && DeckFitsMode(CollectionData.Raw(i))) return i;   // ★ 原版 `GetEventDeck` ① 的**模式闸**（`deck.GameMode == EventPlayMode`）；⚠️ ① 的另一半 `ValidateDeck` **故意不落** —— 见类尾 `EventDeckIndexFromEventSave` 上方那段（合法性在本仓只作排序键，⛔ 不能在这里当过滤器）
+            Debug.Log("[Event] 活动 `" + eventId + "` 的 `defaultDeckId`（`" + s.defaultDeckId + "`）不在库里 / 不符合本窗模式 ⇒ 回落全局当前");
+            return -1;
+        }
+
+        /// <summary>= 原版 `IPlayEvent.SetDefaultDeck(deck, upload:false)` 的那一句（`SaveGame.defaultDeckId = deck.deckId`）
+        /// —— 本仓在**真入口**（`RememberEventDeck`，改卡组那 4 条路都经过它）调。
+        /// `upload:false` 与原版调用点一致（`ChangeDeck.c:121` 末实参 = `0`）；原版的上传在 `UploadDefaultDeck`，
+        /// 本地没有服务器 ⇒ 只落本地活动存档（出声，⛔ 不假装上传成功）。</summary>
+        static void RememberEventDeckSave(string eventId, string deckId)
+        {
+            var s = EventDeckSave(eventId);
+            if (s == null) return;                    // 没有事件实例 / 存档不是子类 ⇒ 旧键那份仍然记着（出声在 `EventDeckSave`）
+            if (s.defaultDeckId == deckId) return;    // 值没变就不落盘（零语义差异，省一次写）
+            s.defaultDeckId = deckId;
+            var ev = LiveOpsLocalHandler.Default.GetEvent(eventId);
+            if (ev != null) ev.SaveEventProgress(null, null);
+            else if (!LiveOpsSaveStore.Save(s))
+                Debug.LogWarning("[Event] 活动 `" + eventId + "` 的 `defaultDeckId` **没落盘**：" + LiveOpsSaveStore.LastError
+                               + "（原版这一格随活动存档走服务器）");
         }
     }
 }

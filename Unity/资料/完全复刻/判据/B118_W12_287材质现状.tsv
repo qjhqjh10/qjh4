@@ -1,0 +1,16 @@
+指标	值	说明
+prefab 份数	1029	扫描 `MyGame/Assets/**/*.prefab`
+WFMatDef 块总数	9398	`shader:` 行计数
+替身名块数	0	`WarpforgeVFX/` 开头 = 走不到 UseOriginal 原件
+替身基材质（去重）	0	
+# 历史读数（E8SH 2026-10-26）	43 基材质 / 417 块 / 343 prefab	见 `报告/B9_E8SH_shader硬锁修复.md`
+# 数据侧修复	EffectExporter.cs:3033 写 OriginalNameFor	commit 9f67487f（2026-10-31 第一百零四会话）
+# 复跑	python -I -X utf8 工具/check_surrogate_hardlock.py --scan
+A/B	WarpforgeVFX/FX/Distortion	原名=Everguild/FX/Particle Distortion Affect Transparents · UseOriginal=Y · Replacements兜底=Y · 正常态=原版bundle（白名单）
+A/B	WarpforgeVFX/FX/MultiRay	原名=Everguild/FX/Multi Ray · UseOriginal=Y · Replacements兜底=Y · 正常态=原版bundle（白名单）
+A/B	WarpforgeVFX/FX/TrailShader1	原名=Everguild/FX/TrailShader_1 · UseOriginal=Y · Replacements兜底=Y · 正常态=原版bundle（白名单）
+A/B	WarpforgeVFX/FX/TrailShaderFading	原名=Everguild/FX/TrailShader_Fading · UseOriginal=Y · Replacements兜底=Y · 正常态=原版bundle（白名单）
+A/B	WarpforgeVFX/FX/UnlitUVScroll	原名=Everguild/FX/Unlit UV scroll · UseOriginal=Y · Replacements兜底=Y · 正常态=原版bundle（白名单）
+A/B	WarpforgeVFX/Matcap/Matcap	原名=Everguild/Matcap/Matcap Full Options · UseOriginal=Y · Replacements兜底=Y · 正常态=原版bundle（白名单）
+A/B	WarpforgeVFX/Particles/Extra Color	原名=Mobile/Particles/Additive · UseOriginal=Y · Replacements兜底=Y · 正常态=原版bundle（白名单）
+A/B	WarpforgeVFX/Particles/Extra Color EC	原名=Everguild/FX/Extra Color · UseOriginal=Y · Replacements兜底=Y · 正常态=原版bundle（白名单）

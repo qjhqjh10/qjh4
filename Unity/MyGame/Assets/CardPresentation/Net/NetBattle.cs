@@ -198,9 +198,9 @@ namespace CardPresentation.Net
         /// <para>🔴 **它同时修掉一个两端不一致**：原来两端都判「对面」负 ⇒ 各判自己赢、`ForfeitedBy` 两家各说各的；
         /// 现在本端判 `_me`、对端判 `1-对面_me` ⇒ **两端报的是同一个座位**。</para>
         ///
-        /// <para>🆕 **2026-10-18（A913）**：理由码同 <see cref="NetRemoteResign"/>（今天唯一一档 =
-        /// `Disconnect`(3)，判据见上）。</para></summary>
-        void NetSelfResign(BattleResult reason);
+        /// <para>🆕 **2026-10-18（A913）**：理由码同 <see cref="NetRemoteResign"/>（今天唯一一档 = `Disconnect`(3)，判据见上）。
+        /// 🆕 **2026-11-02（`D118-56`）**：多带 `postBattleRejudge` —— **结算段**那一档要靠它过原版 `shouldLoseIfDisconnectEnd` 的战后放行门（`RuleCore.Forfeit` 第 4 形参）⇒ 它**必须走记账口**（宿主那句 `Forfeit` 一并传下去），⛔ 调用方仍不许自己直调引擎。</para></summary>
+        void NetSelfResign(BattleResult reason, bool postBattleRejudge = false);
         /// <summary>重连：**丢掉本地状态、从种子重建、按序全量重放**。</summary>
         void NetReplayFromNet(MsgStart start, List<MsgAction> actions);
     }
@@ -524,21 +524,21 @@ namespace CardPresentation.Net
         /// 欠的两件（分谁掉 / 战后重判入口）记在交件报告，⛔ 不为对称造一个走不到的后门。</para></summary>
         void HandlePeerLost()
         {
-            // 🔴 结算已出 ⇒ 原版这一档 = 静默（判据见上面 summary）。
+            // 🔴 结算已出 ⇒ 原版按「是谁掉线」分档（判据 = `BattleManager__DisconnectedDuringBattle.c:35-66`）：
+            //   · **对手**掉线 ⇒ 直接 return（静默、不改结果）；
+            //   · **本机**掉线 ⇒ `ShowDisconnectionPopup(true)` + `shouldLoseIfDisconnectEnd(+0x2D8) = true`。
+            //   我们原来两端一律静默 ⇒ 本机在结算段掉线时一声不响（这一档已改，见 `HandlePeerLostAfterBattle`）。
+            //   ⚠️ 「本机掉线」用的仍是**角色代理** `IAmDisconnectedEnd`（原版有真判据，我们没有）。
             if (_d != null && _d.Ctx != null && _d.Ctx.IsOver)
             {
-                Debug.Log("[Net] 对手掉线，但这一局**已经结算完了**（`Ctx.IsOver`）⇒ 按原版**静默**："
-                        + "不报信、不弹窗、不停表、不起倒计时、不判负"
-                        + "（判据 = `BattleManager__DisconnectedDuringBattle.c:35-51` 在 PostBattle(60) 对对手直接 return；"
-                        + "`Everguild.BattleErrorUIManager__ConnectionStatusChanged.c:31-54` 在 stage 60 只 LogWarning）"
-                        + PeerLossCauseNote());
+                HandlePeerLostAfterBattle();
                 return;
             }
             _peerGone = true;
             _peerLossWhy = _s != null ? _s.LastError : null; if (DeferForPeerLastActions()) return;   // 掉线**这一刻**的原因（重连退避会覆盖它，先抓住）；后半句 = 原版 `DisconnectedDuringBattle.c:74-89`
             bool hasCtx = _d != null && _d.Ctx != null;
             StartReconnectCountdown();          // 🔴 A900：先起倒计时（第一拍的数字要进下面那两句文案）
-            ClockPaused = true;                 // 🔴 A901：对局时钟停走（原版 `ClockManager.PauseClock()`）
+            ClockPaused = PausesClockWhileDisconnected(IAmDisconnectedEnd);   // 🔴 原版**只有「对手掉线」那一支**才 `PauseClock()`（`ShowDisconnectionPopup.c:25-34`：`param_2 == 0` = 对手）⇒ 本机自己掉线时表照走
             // 🔴 2026-10-19（W · 结算掉线）：**没有对局状态**时不许再说「N 秒后判他弃权」——
             //   那一支**没有倒计时**（`StartReconnectCountdown` 只报信），说秒数也是一句假话。
             SayPeerGone(hasCtx ? ReconnectHint(IAmDisconnectedEnd, _countdownLeft)
@@ -546,7 +546,7 @@ namespace CardPresentation.Net
                         hasCtx ? ReconnectPopupInitial(IAmDisconnectedEnd)   // 🔴 2026-11-02（G10-26）：开窗那一刻**不带秒**（原版 `ShowDisconnectionPopUp` 只拼表头）
                                : (IAmDisconnectedEnd
                                   ? "本机掉线了 —— 正在重连。\n（这一档只报信：本机没有对局状态，没有结果可判。）"
-                                  : "对手掉线了 —— 正在等他回来。\n（这一档只报信：本机没有对局状态，没有弃权可判。）"));
+                                  : "对手掉线了 —— 正在等他回来。\n（这一档只报信：本机没有对局状态，没有弃权可判。）"), noButton: hasCtx);   // 🆕 2026-11-02（W6）：有对局 ⇒ 走**原版那扇零颗钮的掉线窗**；没有对局 ⇒ 带 OK（那一档没有倒计时会来关它）
         }
 
         /// <summary>🆕 2026-10-19（W · 结算掉线）：**掉线那一刻**的传输层原因（`_s.LastError`）。
@@ -671,14 +671,14 @@ namespace CardPresentation.Net
             return true;
         }
 
-        /// <summary>**出声**那一处（三个口一起说：日志 + 提示行 + 弹窗）。
+        /// <summary>**出声**那一处（三个口一起说：日志 + 提示行 + 弹窗）。🆕 2026-11-02（`B118-W6`）：`noButton` = 走**掉线那一扇**（原版 `ShowDisconnectionPopUp.c:51` 那六个 0 ⇒ **一颗钮都没有**），默认走带 OK 的通用通知口。
         /// 🔴 三个都要：日志给自检和下一个会话看；提示行是原位反馈但**会被后面的消息顶掉**
         /// （同 `Abort` 那条的注）；**弹窗才是「玩家一定看得见」的那个口** —— 原版那一刻弹的也是窗。</summary>
-        void SayPeerGone(string hint, string popup)
+        void SayPeerGone(string hint, string popup, bool noButton = false)
         {
             Debug.Log("[Net] " + hint);
             if (_d != null) _d.NetSay(hint);
-            NetRuntime.Notice(popup);
+            if (noButton) NetRuntime.ShowReconnectPopup(popup); else NetRuntime.Notice(popup);   // 掉线窗 = 原版**零颗钮**那一扇（`ShowDisconnectionPopUp.c:51` 那六个 0）；其余通知照旧带 OK
         }
 
         // ==================================================================
@@ -805,7 +805,7 @@ namespace CardPresentation.Net
         ///   原版那个自增在 `_ForfeitDisconnectedEnemy_d__322__MoveNext.c:63`，而那条协程**只有真去等重连才起**
         ///   ⇒ 已经结算的局**不该**记「对手又掉了一次」（原来那个自增发生在闸之前，是静默的状态污染）。
         ///   ⚠️ 今天 `HandlePeerLost` 已经在 `Ctx.IsOver` 时早退了，这里是**第二道**（防御同族调用点）。</summary>
-        void StartReconnectCountdown()
+        void StartReconnectCountdown(bool afterBattle = false)
         {
             if (_d == null || _d.Ctx == null)
             {
@@ -814,7 +814,7 @@ namespace CardPresentation.Net
                 _countdownOn = false;
                 return;
             }
-            if (_d.Ctx.IsOver)
+            if (_d.Ctx.IsOver && !afterBattle)   // 🆕 2026-11-02（`B118-W6` 第三轮）：结算段**只有「本机掉线」那一档**才起（原版 `DisconnectedDuringBattle.c:52-64` 那一刻就是 `StartCoroutine(AttemptReconnect)`，27 秒 / 地板 10）
             {
                 Debug.Log("[Net] 对手掉线，但这一局**已经打完了** ⇒ 不起倒计时（没什么可判的）");
                 _countdownOn = false;
@@ -927,7 +927,7 @@ namespace CardPresentation.Net
         //      · `ReconnectPopup(sec)` —— 弹窗正文，**带秒数**
         //      · `ReconnectCountdownExpired` 里那两句 `NetSay($"重连没成功（超过 {sec} 秒）—— 这一局判你负")` /
         //        `NetSay($"对手掉线超过 {sec} 秒还没回来 —— 判他弃权，这一局你赢了")` —— 提示行，**带秒数**
-        //      · 「对手回来了 —— 联机已恢复（…）」/「…接着打」 —— 提示行（两档措辞）
+        //      · 「联机已恢复（…）」/「联机已恢复，接着打」 —— 提示行（两档措辞；🆕 2026-11-02 `D118-54`：**无主语**，本机/对手两档都成立）
         //    🆕 **2026-10-19（P6d · A1038）改口的两条**（它们是**走线串**，不在上面那批里）：
         //      · `ReconnectCountdownExpired` 的主机那一支：`_s.Close(true, …)`
         //        —— 原来传的是中文整句「这一局的联机房间已经散了」，现在传**词条键**
@@ -1024,8 +1024,8 @@ namespace CardPresentation.Net
 
             // 🔴 **原版那一道闸**（`:146-161`）：到点那一刻连接状态若已**不是** 70
             //    （waitingOpponentReconnection）⇒ `LogError("Avoid leaving battle because connection status is …")`
-            //    并且**什么都不做**。我们这一道 = 会话已经关了/停了 ⇒ **不判弃权**。
-            if (_s != null && (_s.State == NetState.Closed || _s.State == NetState.Off))
+            //    并且**什么都不做**。我们这一道 = 会话已经关了/停了 ⇒ **不判弃权**（⚠️ 只对**对手**那一支；本机那一支原版不看连接状态，见下面那句的 `!IAmDisconnectedEnd`）。
+            if (_s != null && (_s.State == NetState.Closed || _s.State == NetState.Off) && !IAmDisconnectedEnd)   // 🔴 2026-11-02（`B118-W6` 第四轮 · `D118-55`）：这道闸**只属于「对手掉线」那一支**（原版它在 `ForfeitDisconnectedEnemy` 里）；**本机**那条链（`FailedToReconnectAfterDisconnect`）原版**不看**连接状态 ⇒ 别让它罩住本机
             {
                 Debug.LogWarning("[Net] 对手掉线倒计时到点，但**会话已经关闭** ⇒ 不判他弃权"
                                + "（原版同一道闸：`…_d__322__MoveNext.c:146-161`，状态不是 70 就 "
@@ -1042,7 +1042,7 @@ namespace CardPresentation.Net
                 return;
             }
             if (_d == null || _d.Ctx == null) { ClockPaused = false; return; }
-            if (_d.Ctx.IsOver)
+            if (_d.Ctx.IsOver && !IAmDisconnectedEnd)   // 🆕 2026-11-02（`B118-W6` 第三轮）：结算段**对手**那一端仍静默早退（原版 `.c:49-51`）；**本机**那一端要继续往下 ⇒ 战后重判本机负（原版 `.c:52-64` + `DeadHero.c:109-121` 的放行门）
             {
                 ClockPaused = false;
                 Debug.Log("[Net] 对手掉线倒计时到点，但这一局**已经打完了** ⇒ 不判弃权");
@@ -1138,10 +1138,10 @@ namespace CardPresentation.Net
                 //     （`AddResignAction(param_1, 1)` + `DeadHero(param_1, 1, 3)` —— `isPlayerDying = 1` = **我死**）。
                 //   `NetSelfResign()` 走的是**同一套既有记账口**（`BattleDriver` 那份 = `RecRaw(RecKindForfeit)` +
                 //   `RuleCore.Forfeit(Ctx, _me)` + 刷新）—— ⛔ **不是**这里直接调 `RuleCore.Forfeit`（那会绕过录像口）。
-                if (_d != null && _d.Ctx != null && _d.Ctx.MulliganOpen) { LeaveWithoutResult($"还没开打（换牌阶段）就断线、重连也没成功（{sec} 秒）"); _s.StopReconnecting(); return; }   // 原版 `FailedToReconnectAfterDisconnect.c:54-108`：battleStage==0 ⇒ CancelMatchWithoutResult（**不判结果**）
+                // 🔴 2026-11-02（`B118-W6`）：原版闸是 `battleStage == Undefined(0)`（`FailedToReconnectAfterDisconnect.c:30-53`），**换牌期是 stage 40 ⇒ 判负**；我们原来 `if (Ctx.MulliganOpen) LeaveWithoutResult(...)` 把换牌期当成「还没开打」⇒ 该判负却判了不判结果，**已整条删掉**（`RuleCore.NewBattle` 同一帧就定好 `MulliganOpen` ⇒ 本引擎**没有** stage==0 那个窗口），⛔ 别再用 `MulliganOpen` 顶替
                 Debug.Log($"[Net] 本机掉线超过 {sec} 秒、重连没成功 ⇒ **判本机负**（原版 `FailedToReconnectAfterDisconnect.c:26-27`：`AddResignAction(1)` + `DeadHero(我, 3)`）");
                 if (_d != null) _d.NetSay($"重连没成功（超过 {sec} 秒）—— 这一局判你负");
-                _d.NetSelfResign(BattleResult.Disconnect);   // 🆕 A913：码 3 = 原版那一跳的第三个实参
+                JudgeSelfResignAfterOrDuringBattle();   // 🆕 A913：码 3 = 原版那一跳的第三个实参；🆕 2026-11-02（`B118-W6` 第三轮）：结算段那一档在这里**开门重判**，理由见方法 doc
                 // 停重连 = 原版同一支 `:14` 的 `StopCoroutine(AttemptReconnect)`；
                 // ⛔ 这一端**不**离开房间（原版那一支里没有 `LeaveBattleRoom`）。
                 _s.StopReconnecting();
@@ -1203,7 +1203,7 @@ namespace CardPresentation.Net
             _finishWaitAcc = 0f;
             if (hideWindow) NetRuntime.HideNoticePopup();
             if (wasRunning)
-                Debug.Log("[Net] 对手回来了 ⇒ **倒计时取消 + 对局时钟恢复 + 提示窗收掉**"
+                Debug.Log("[Net] 联机恢复 ⇒ **倒计时取消 + 对局时钟恢复 + 提示窗收掉**（⛔ 别说「对手回来了」：本机掉线那一档也走这一句）"
                         + "（原版 `SuccessfulReconnection.c:27,51` 的 `StopCoroutine` + `UnpauseClock`）");
         }
 
@@ -1484,8 +1484,8 @@ namespace CardPresentation.Net
                 _peerGone = false;
                 CancelReconnectCountdown(hideWindow: true);   // 撤窗 + 恢复时钟 + 取消倒计时
                 bool over = _d != null && _d.Ctx != null && _d.Ctx.IsOver;
-                string back = over ? "对手回来了 —— 联机已恢复（这一局已经打完了）"
-                                   : "对手回来了 —— 联机已恢复，接着打";
+                string back = over ? "联机已恢复（这一局已经打完了）"
+                                   : "联机已恢复，接着打";   // 🔴 2026-11-02（`D118-54`）：**无主语** —— 这句在本机掉线那一档也会走，原来写死「对手回来了」在那档是反的
                 Debug.Log("[Net] " + back);
                 if (_d != null) _d.NetSay(back);
             }
@@ -2169,5 +2169,114 @@ namespace CardPresentation.Net
 
         /// <summary>自检读口：`DeferForPeerLastActions` 那一跳走过没有（原版那两个协程的起停配对）。</summary>
         public bool PeerLastActionsWaitedForTest { get { return _peerLastActionsWaited; } }
+
+        // ==========================================================================================
+        //  🆕 2026-11-02（`B118-W6` · `B117-T13` 七条里的 ③④⑦）—— 三个判据 / 一个分支
+        //  📌 **故意追加在类尾**：本类账落点最深到 `:2081`，插在中间会把下游行号整体推移。
+        // ==========================================================================================
+
+        /// <summary>🆕 **掉线时要不要停对局时钟**（原版 `BattleManager__ShowDisconnectionPopup.c:25-34`，逐句）：
+        /// <code>
+        /// if (param_2 == 0) { ClockManager.PauseClock(...); StopCoroutine(ForfeitDisconnectedEnemy); }
+        /// else              { StopCoroutine(AttemptReconnect); }
+        /// </code>
+        /// `param_2` = `localPlayerDisconnected`（`DisconnectedDuringBattle` 把它原样透传下来，
+        /// `Everguild.BattleErrorUIManager__ShowDisconnectionPopUp.c:19` 也把它写进 `+0x108`）
+        /// ⇒ **只有「对手掉线」那一支调 `PauseClock`**；**本机自己掉线时表照走**（只跑 `AttemptReconnect`）。
+        /// <para>🔴 我们原来是**无条件** `ClockPaused = true`（两端都停表）—— 那一条已按本判据改成走这里。</para>
+        /// <para>⚠️ 本机/对手这一维我们用的是**角色代理** `IAmDisconnectedEnd`（= 客机），不是原版那个真判据
+        /// （原版两端各有 `AttemptReconnect`，我们只有客机有主动重连路）—— 如实记，⛔ 别当复刻。</para></summary>
+        public static bool PausesClockWhileDisconnected(bool iAmDisconnectedEnd) { return !iAmDisconnectedEnd; }
+
+        /// <summary>🆕 **结算段（`battleStage == PostBattle`）掉线要不要静默**（原版
+        /// `BattleManager__DisconnectedDuringBattle.c:35-66`，逐句）：
+        /// <list type="bullet">
+        /// <item>`if (localPlayerDisconnected == 0) return;` —— **对手**掉线 ⇒ **静默**回主菜单那条链
+        ///   （不弹窗、不停表、不改结果；同函数 `:44-48` 只多打一条 `LogWarning`）。</item>
+        /// <item>本机掉线 ⇒ 若 `_currentMatchResult(+0x500) != 0` 且 `+0x1c != 0`（结果已上传）⇒ 静默；
+        ///   否则 **`ShowDisconnectionPopup(true)` + `shouldLoseIfDisconnectEnd(+0x2D8) = true`**（`:52-64`）。</item>
+        /// </list>
+        /// ⇒ 「静默」在这一档**只对对手那一端成立**。我们原来两端一律静默（`return`），已按本判据分档。
+        /// <para>⚠️ 返回假（= 本机那一端）= 原版要**出声 + 记 `shouldLoseIfDisconnectEnd` + 起那条 27 秒的 `AttemptReconnect` 窗口**；
+        /// ✅ **2026-11-02（`B118-W6` 第三轮）三件都做了**（`B118_W11` 的 `postBattleRejudge` 把最后那道门打开了）。</para></summary>
+        public static bool SilentWhenPeerLostAfterBattle(bool iAmDisconnectedEnd) { return !iAmDisconnectedEnd; }
+
+        /// <summary>结算段（`Ctx.IsOver`）掉线那一跳 —— 按原版 `DisconnectedDuringBattle.c:35-66` 分两档。
+        /// 判据全文见 <see cref="SilentWhenPeerLostAfterBattle"/>。
+        /// <para>🔴 **本机那一端要做的三件**（原版 `:52-64`）：① 出声（那扇两行的掉线窗）；
+        /// ② 记 `shouldLoseIfDisconnectEnd(+0x2D8) = true` —— 我们的等价物是**倒计时到点时的那个
+        /// `postBattleRejudge: true`**（见 <see cref="JudgeSelfResignAfterOrDuringBattle"/>）；
+        /// ③ 起 `AttemptReconnect`（27 秒 / 地板 10）⇒ 我们起同一条倒计时（`afterBattle: true`）。</para></summary>
+        void HandlePeerLostAfterBattle()
+        {
+            bool iAmDisconnectedEnd = IAmDisconnectedEnd;      // 判据收口到属性（⛔ 别在这里再写一份）
+            if (SilentWhenPeerLostAfterBattle(iAmDisconnectedEnd))
+            {
+                Debug.Log("[Net] 对手掉线，但这一局**已经结算完了**（`Ctx.IsOver`）⇒ 按原版**静默**："
+                        + "不报信、不弹窗、不停表、不起倒计时、不判负"
+                        + "（判据 = `BattleManager__DisconnectedDuringBattle.c:49-51`：PostBattle 且对手那一端 ⇒ 直接 return；"
+                        + "`Everguild.BattleErrorUIManager__ConnectionStatusChanged.c:31-54` 在 stage 60 只 LogWarning）"
+                        + PeerLossCauseNote());
+                return;
+            }
+            // ======== 本机那一端：原版**不静默 + 记放行门 + 起重连窗口**（`DisconnectedDuringBattle.c:52-64`）========
+            Debug.LogWarning("[Net] **本机**在结算段（`Ctx.IsOver`）掉线 ⇒ 原版这一档**不静默**："
+                           + "`ShowDisconnectionPopup(true)`（两行：`LostConnection` + `PleaseWaitConnection`）"
+                           + " + `shouldLoseIfDisconnectEnd(+0x2D8) = true` + `AttemptReconnect`（判据 `DisconnectedDuringBattle.c:52-64`）"
+                           + PeerLossCauseNote());
+            // ② `_peerGone` 必须置真：`Tick` 那条「回到 `InBattle`」的**边沿**靠它撤窗 / 撤倒计时
+            //    （重连成功 ⇒ 原版 `SuccessfulReconnection` 那几跳；不置的话倒计时会跑到点、把**已经连回来**的局重判成负）。
+            _peerGone = true;
+            // ③ 原版那一刻起的是 `AttemptReconnect` ⇒ 我们起同一条倒计时（`afterBattle: true` 是**这一档唯一的开门处**）。
+            StartReconnectCountdown(afterBattle: true);
+            // ① 那扇窗：**零颗钮**（原版 `ShowDisconnectionPopUp.c:51` 那六个 0）。倒计时到点 / 重连成功都会把它收掉，
+            //    ⛔ 不再用带 OK 的 `Notice`（那条 `🔶 自己设计` 已作废 —— 当时的理由是「没有协程来关它」，现在有了）。
+            NetRuntime.ShowReconnectPopup(ReconnectPopupInitial(true));
+        }
+
+        /// <summary>本机掉线倒计时到点 ⇒ **判本机负**（原版 `FailedToReconnectAfterDisconnect.c:26-27`：
+        /// `AddResignAction(1)` + `DeadHero(我, 3)`）。两档**只差一个标志**，都走**同一个记账口**：
+        /// <list type="bullet">
+        /// <item>**对局中**（`!Ctx.IsOver`）⇒ `NetSelfResign(Disconnect, postBattleRejudge: false)` ——
+        ///   与改前逐字一致（宿主那份 = `RecRaw(RecKindForfeit)` + `RuleCore.Forfeit(Ctx, _me, reason)` + 刷新）。</item>
+        /// <item>**结算段**（`Ctx.IsOver`）⇒ 原版那一跳要先过 `shouldLoseIfDisconnectEnd` 的**战后放行门**
+        ///   （`DeadHero.c:109-121`；`RuleCore.Forfeit` 第 4 形参 `postBattleRejudge` = 那道门，2026-11-02 `B118_W11` 加的）
+        ///   ⇒ `NetSelfResign(Disconnect, postBattleRejudge: true)`。</item>
+        /// </list>
+        /// <para>✅ **2026-11-02（`B118-W6` 第四轮 · `D118-56`）已根治**：`INetBattleHost.NetSelfResign` 现在带
+        /// `bool postBattleRejudge = false`（`BattleDriver.cs` / `Editor/NetBattleTest.cs` 两个实现同批加），
+        /// ⇒ 这一跳**只走记账口**，⛔ 不再直调 `RuleCore.Forfeit`、也不再产生那条「胜负已判过 ⇒ 不生效」的误导日志。</para></summary>
+        void JudgeSelfResignAfterOrDuringBattle()
+        {
+            bool afterBattle = _d != null && _d.Ctx != null && _d.Ctx.IsOver;
+            if (_d != null) _d.NetSelfResign(BattleResult.Disconnect, postBattleRejudge: afterBattle);
+            if (afterBattle)
+                Debug.Log("[Net] 结算段重判本机负：`postBattleRejudge: true` 随**记账口**下去"
+                        + "（= 原版 `shouldLoseIfDisconnectEnd` 放行门，`DeadHero.c:109-121`）"
+                        + " ⇒ `RecRaw` + 刷新 + 结果三样一起做，⛔ 没有绕过录像口");
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-11-02（`B118_W6` 第二轮 · 调度台临时授权改 `BattleDriver`）：**「玩家该不该禁操作」的判据**
+        //  原版那道闸看的是 `ConnectionStatus ∉ {0 Connected, 3 Disconnected}`（`BattleManager__Update.c:104-115`
+        //  ⇒ **整个 `Update` 直接返回**）—— 它是**连接状态**，不是「停表」：
+        //    · 状态 1 `Reconnecting`（**本机**掉线）⇒ 禁操作，但**表照走**（`ShowDisconnectionPopup.c:25-34` 的 else 支）；
+        //    · 状态 2 `WaitingForOtherPlayerToReconnect`（对手掉线）⇒ 禁操作 + 停表。
+        //  ⇒ 「禁操作」与「停表」在两端都**不是同一个量**（同一个值时只是巧合）⇒ 拆成两格，⛔ 别再用 `ClockPaused` 顶。
+        // ==========================================================================================
+
+        /// <summary>本机这条链路的读口：掉了没有（**哪一端掉都算** —— `HandlePeerLost` 判出「链路没了」就置真，
+        /// 回到 `InBattle` 那一边沿 / `Detach` 置假）。
+        /// <para>⚠️ 它在 `DeferForPeerLastActions` 那段 12.5 秒窗口里**也是真**（那一支靠它收尾，见 `OnFinishWaitEnded`）⇒
+        /// 玩家禁操作要的是 <see cref="ConnectionNotReady"/>，⛔ 不是它。</para></summary>
+        public bool PeerGone { get { return _peerGone; } }
+
+        /// <summary>🆕 **玩家该不该禁操作**（原版 `BattleManager__Update.c:104-115` 那道整帧闸的等价物）。
+        /// = 「链路掉了」**且**「不在等对手最后几条动作」。
+        /// <para>为什么后半句：原版 `DisconnectedDuringBattle.c:74-89` 那一支（对手已 `matchFinished` / 队列里还有动作）
+        /// **只是重启 `WaitOpponentLastActions` 然后 return**，**没有改连接状态** ⇒ 那一刻 `Update` 不返回、玩家照常能点；
+        /// 我们这一支的 `_peerGone` 是在它**之前**置的（`OnFinishWaitEnded` 要靠它收尾）⇒ 必须在这里减掉。</para>
+        /// <para>消费者：`BattleDriver.PlayerInputFrozen`（本类 `InBattle` 那种「判据只此一处」的口径）。</para></summary>
+        public bool ConnectionNotReady { get { return _peerGone && !WaitsForPeerLastActions; } }
     }
 }

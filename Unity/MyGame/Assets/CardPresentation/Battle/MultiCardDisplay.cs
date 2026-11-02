@@ -70,8 +70,8 @@
 //      `Content` = `HorizontalLayoutGroup(m_Spacing 500, MiddleCenter)` + `ContentSizeFitter`（宽运行时算）。
 //      ⚠️ **我们这套 HUD 的卡是世界空间 `MeshRenderer`（不是 uGUI），所以「滚动」= 自己记一个横向偏移、逐帧重摆卡的位置**，
 //      视口裁切走 `CardView.SetPose(..., PxRect)`（= `RectMask2D` 的等效物，`Core/CardView.cs` 的「视口裁切」一节）。
-//      ⚠️ **如实标的偏离**：原版是 `Elastic` 档、`m_Elasticity=0.1` 是回弹的 `SmoothDamp` 时间常数 ⇒ **拖出边界会回弹**；
-//      我们**硬夹**在 `[0, MaxScroll]`（不回弹）—— 判据已定、**未做**（改它要连 `Editor/BattleScene.cs` 的 `B-25⑤`「夹回 0」那条既有断言一起改）；滚动条一致。
+//      ✅ **2026-11-02（`B118-W3` · `B117-T05`）已按原版做 `Elastic`**：`m_MovementType=1` + `m_Elasticity=0.1`
+//      ⇒ 拖动时**不夹**、松手后越界量按 `Mathf.SmoothDamp(smoothTime 0.1)` 弹回（`TickScroll`）；⚠️ 旧断言 `Editor/BattleScene.cs` 的 `B-25⑤`「夹回 0」按 `Clamped` 写，待调度台改。
 //   ④ **「继续」文字右对齐**：✅ **2026-10-24（`W64·B-24`）已按原版量真字宽**（原来是「中心点右移 60 px」的近似）。
 //      原版 `Text`（`RT_3020`）框 `287.33 × 44.856`、TMP **`m_HorizontalAlignment = 4 (Right)`** ·
 //      `m_margin = 0` ⇒ **字形右沿 = 框右沿**；框右沿由五元组现算 = 组内 **−223.362**
@@ -305,7 +305,7 @@ namespace CardPresentation
 
         // ---- 🔴 2026-10-24（`W64·B-25`）：横向滚动（原版 `ScrollRect` 的等价物）------------------
         //  判据 = `C1-B05`（`bundle_scenes_scenes_battlearena2/MonoBehaviour/MonoBehaviour_5036.json`）：
-        //    `m_Horizontal=1` · `m_Vertical=0` · `m_MovementType = 1 (Clamped)` · `m_Elasticity = 0.1` ·
+        //    `m_Horizontal=1` · `m_Vertical=0` · `m_MovementType = 1 (Elastic)` · `m_Elasticity = 0.1` ·
         //    `m_Inertia = 1` · `m_DecelerationRate = 0.135` · `m_ScrollSensitivity = 1.0` · 无滚动条。
         /// <summary>松手后速度的衰减率（原版 `m_DecelerationRate` = **0.135**；UGUI 每帧
         /// `velocity *= Mathf.Pow(rate, deltaTime × 60)`）。</summary>
@@ -629,7 +629,7 @@ namespace CardPresentation
             //   挂上 ⇒ **点它关窗**（与背景同一个回调，判据 → 文件头「点击/关闭」那段）。
             //   它的 `Image`：`m_RaycastTarget = 1` · `m_RaycastPadding = (0,−40,0,−40)`
             //   ⇒ **上下各外扩 40 px、横向不动**；两条都在这里照抄（rect 本来就是原版节点 rect 577.5×63.84）。
-            _continueBtn = BattleHudButton.Attach(_bar, RequestCloseByUgui);
+            _continueBtn = BattleHudButton.Attach(_bar, RequestCloseByUgui, WindowSounds.DefaultButtonCue);   // cue 判据：原版 MB 5115 的 `useDefaultAudioClipIfNull = 1` 且 `m_onClickSound` 为空 ⇒ 默认按钮音（`B118-W1` 补）
             if (_continueBtn == null)
             {
                 Debug.LogError("[多卡展示窗] 「继续」条没挂上 uGUI 点击（点它不会关）");
@@ -770,7 +770,7 @@ namespace CardPresentation
             float scale = baseScale;
 
             // 🔴🔴 **2026-10-24（`W64·B-25`）**：这一段原来是「装不下就等比缩到 45% 地板」。
-            //   原版**不缩**：`ScrollRect(horizontal, Clamped)` + `RectMask2D`，卡一直按自然尺寸画、
+            //   原版**不缩**：`ScrollRect(horizontal, Elastic)` + `RectMask2D`，卡一直按自然尺寸画、
             //   装不下就**横向滚**（判据 → 文件头 ③ / `C1-B05`）。⇒ 现在：
             //   · `UsedScale` 恒 = 自然 `baseScale`（`k` 恒 1）；
             //   · 一排的自然总宽照实记进 `ContentWidthPx`（**可能远大于视口**，那是正常的）；
@@ -874,16 +874,16 @@ namespace CardPresentation
         }
 
         // ═══════════════════════════════════════════════════════════════════════════════════════════
-        //  🔴 2026-10-24（`W64·B-25`）：横向滚动 —— 原版 `ScrollRect(horizontal, Clamped)` 的等价物
+        //  🔴 2026-10-24（`W64·B-25`）：横向滚动 —— 原版 `ScrollRect(horizontal, Elastic)` 的等价物
         //
-        //  原版（`C1-B05` 逐字段）：`m_MovementType = 1 (Clamped)` · `m_Inertia = 1` ·
+        //  原版（`C1-B05` 逐字段）：`m_MovementType = 1 (Elastic)` · `m_Inertia = 1` ·
         //    `m_DecelerationRate = 0.135` · `m_ScrollSensitivity = 1.0` · `m_Elasticity = 0.1` · 无滚动条。
         //  我们：卡是世界空间 `MeshRenderer`（不是 uGUI 元素）⇒ **自己记一个横向偏移 `_scrollPx`**，
         //    每帧重摆一次（<see cref="ApplyCardLayout"/>），裁切交给 `CardView.SetPose(..., PxRect)`。
-        //  ⚠️ 如实标的偏离：
-        //    ① **`m_Elasticity` 的越界回弹没做** —— 我们硬夹在 `[0, MaxScroll]`（原版是 `Elastic` 档：
-        //       越界后按 `m_Elasticity = 0.1` 的 `SmoothDamp` 弹回来）。波形参数在 Unity 那套里是确定的
-        //       （`SmoothDamp` + `smoothTime = 0.1`），但**改它会撞既有断言** ⇒ 见文件头 ③ 那条，判据已定、未做。
+        //  ✅ **`m_Elasticity` 的越界回弹已做（2026-11-02 · `B118-W3` · `B117-T05`）**：拖动不夹 ⇒ 松手按
+        //     `Mathf.SmoothDamp(smoothTime = m_Elasticity = 0.1)` 弹回边界（UGUI `ScrollRect.LateUpdate` 的 Elastic 支）。
+        //     ⚠️ 仍在的偏离：`Editor/BattleScene.cs` 的 `B-25⑤`「往右拖到头 ⇒ 夹回 0」按旧 `Clamped` 写
+        //     （那份不在本白名单）⇒ 待调度台改成「按住时允许越界、松手后连喂帧回到 0」。
         //    ② **拖拽阈值 6 px 是我们加的**（<see cref="DragSlopPx"/>）：原版由 `ScrollRect` 自己分派
         //       「点 / 拖」，而我们抬手那一下会被全屏背景关闭件吃掉 ⇒ 必须自己分开两种手势。
         //    ③ 原版 `CardCollider.sendEventsToScrollRect` 把**卡片上的拖拽**转给 `ScrollRect`；
@@ -917,8 +917,8 @@ namespace CardPresentation
             if (_cards.Count == 0) return;
             float totalPx = _cards.Count * _cardWNat + (_cards.Count - 1) * _gapPx;
             bool fits = totalPx <= LayoutSpace.DesignPxW;
-            if (fits) { _scrollPx = 0f; _scrollVelPx = 0f; _maxScrollPx = 0f; }
-            float x0 = fits ? (960f - totalPx * 0.5f + _cardWNat * 0.5f)
+            if (fits) _maxScrollPx = 0f;                     // 🔴 Elastic：⛔ 不再把 `_scrollPx` 归零（越界位移由回弹收）
+            float x0 = fits ? (960f - totalPx * 0.5f + _cardWNat * 0.5f - _scrollPx)   // 装得下 ⇒ 居中 + 弹性位移
                             : (_cardWNat * 0.5f - _scrollPx);
             FirstCardXpx = x0;
             var clip = ViewportClipPx;
@@ -959,8 +959,8 @@ namespace CardPresentation
                     float dxPx = xNow - _dragLastPx;
                     if (Mathf.Abs(dxPx) > 0f)
                     {
-                        // 手指往左 ⇒ 内容往左走 ⇒ `_scrollPx` 增
-                        _scrollPx = Mathf.Clamp(_scrollPx - dxPx, 0f, _maxScrollPx);
+                        // 手指往左 ⇒ 内容往左走 ⇒ `_scrollPx` 增；🔴 原版 `Elastic` 档拖动时**不夹**（`Clamped` 档才夹）
+                        _scrollPx -= dxPx;
                         _dragTravelPx += Mathf.Abs(dxPx);
                         _scrollVelPx = dt > 1e-5f ? (-dxPx / dt) : 0f;   // 松手时的初速（px/s）
                         ApplyCardLayout();
@@ -970,15 +970,15 @@ namespace CardPresentation
                 return;
             }
 
-            // ---- 松手：清拖拽状态；有惯性就滑一段（原版 `m_Inertia = 1`）----
+            // ---- 松手：清拖拽状态；🔴 原版 `m_MovementType = 1 (Elastic)` ⇒ 先回弹，未越界才走惯性（`m_Inertia = 1`）----
             _dragActive = false; _dragLastPx = float.NaN;
+            // 判据：`m_Elasticity = 0.1` 就是 `Mathf.SmoothDamp` 的 `smoothTime`（UGUI `ScrollRect.LateUpdate` 的 Elastic 支）；越界量 ≤0.01 px 视为已回位。
+            float bound = Mathf.Clamp(_scrollPx, 0f, _maxScrollPx);
+            if (dt > 1e-5f && Mathf.Abs(_scrollPx - bound) > 0.01f) { _scrollPx = Mathf.SmoothDamp(_scrollPx, bound, ref _scrollVelPx, ScrollElasticity, Mathf.Infinity, dt); ApplyCardLayout(); return; }
+            if (dt > 1e-5f) _scrollPx = bound;               // 越界量 ≤0.01 px ⇒ 吸附回边界（⛔ 别留一个永远收敛不完的尾巴）
             if (dt <= 1e-5f || _maxScrollPx <= 0f || Mathf.Abs(_scrollVelPx) < 1f) { _scrollVelPx = 0f; return; }
-            float next = _scrollPx + _scrollVelPx * dt;
-            float clamped = Mathf.Clamp(next, 0f, _maxScrollPx);
-            if (!Mathf.Approximately(clamped, next)) _scrollVelPx = 0f;      // 撞到边界 ⇒ 停（原版 Clamped 也是停）
-            _scrollPx = clamped;
-            _scrollVelPx *= Mathf.Pow(ScrollDecelerationRate, dt * 60f);     // UGUI 的衰减式
-            ApplyCardLayout();
+            _scrollPx += _scrollVelPx * dt;                  // 惯性：越界**不夹**（原版 Elastic 档就是溢出后再回弹）
+            _scrollVelPx *= Mathf.Pow(ScrollDecelerationRate, dt * 60f); ApplyCardLayout();   // UGUI 的衰减式
         }
 
         /// <summary>这一次按下**已经是一段拖拽**了吗（抬手时用来**压掉关窗**）。
@@ -1269,5 +1269,12 @@ namespace CardPresentation
         /// `headerText.gameObject.SetActive(!string.IsNullOrEmpty(header))`（空标题 ⇒ 关掉）。
         /// ⚠️ 读**实件**的 `activeSelf`，⛔ 不读 `HeaderShown`（那是我们自己记的字符串，不是显示状态）。</summary>
         public bool HeaderActiveForTest { get { return _header != null && _header.gameObject.activeSelf; } }
+
+        /// <summary>🆕 **2026-11-02（`B118-W3` · `B117-T05`）**：原版 `ScrollRect.m_Elasticity` = **0.1**
+        /// （`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4823.json` 现读；
+        /// `m_MovementType = 1 = Elastic`、`m_Inertia = 1`、`m_DecelerationRate = 0.135`）。
+        /// UGUI 的 Elastic 支把它直接当 `Mathf.SmoothDamp` 的 `smoothTime`（`ScrollRect.LateUpdate`）
+        /// ⇒ 越界量按它回弹。⛔ 别改成我们自己的经验值。</summary>
+        public const float ScrollElasticity = 0.1f;
     }
 }

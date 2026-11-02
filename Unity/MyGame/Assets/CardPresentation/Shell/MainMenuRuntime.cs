@@ -45,7 +45,7 @@ using UnityEngine;
 namespace CardPresentation
 {
     /// <summary>主菜单。挂在 `MainMenu.unity` 的根对象上。</summary>
-    public partial class MainMenuRuntime : MonoBehaviour   // 🔴 2026-10-29（B97_MENU）加 `partial`：账 427/434/438 的容器族落在**文件末尾**的第二个 partial 段（⛔ 不插进类体 —— 本文件按 `文件:行号` 被账引用，插中间会让下游落点整体漂移）
+    public partial class MainMenuRuntime : MonoBehaviour, IInitializationComplete   // 🔴 2026-10-29（B97_MENU）加 `partial`：账 427/434/438 的容器族落在**文件末尾**的第二个 partial 段（⛔ 不插进类体 —— 本文件按 `文件:行号` 被账引用，插中间会让下游落点整体漂移）；🆕 2026-11-02（B118_W21 · #198）加 `IInitializationComplete`：原版 `NavigationPanelController : SingletonBehaviour<…>, IInitializationComplete`（`dump.cs:110267`），实现体追加在文件末尾第四个 partial 段
     {
         public static MainMenuRuntime Instance { get; private set; }
 
@@ -4065,7 +4065,7 @@ namespace CardPresentation
             Debug.Log("[Menu] 事件钮的图标已接：`40k_main_bt_event`（135²，PPU 100，Simple）"
                     + " · 染色照原版插槽 `m_Color` = 0.7358490 灰（比五颗导航钮的白图标暗 26%）"
                     + " —— 判据 = `bundle_liveopsicons_assets_all/Sprite/40k_main_bt_event.json` + "
-                    + "`Event Navigation Button/Image` 的 `MonoBehaviour_-1269977380222428235.json`（现读）。");
+                    + "`Event Navigation Button/Image` 的 `MonoBehaviour_-1269977380222428235.json`（现读）。"); _navEventButtonsReady = true;   // 🆕 B118_W21（#198）：= 原版 `NavigationButtonController.ready`（+0x60）在 `BuildEventButtons` 末尾置真；置在这里 ⇒ 行号零漂移
         }
 
         /// <summary>= 原版 `LiveopMenuContainer.OnInitialize(LiveOpsEvent playEvent)` + `SetText(LiveOpsEvent)` 的
@@ -5624,6 +5624,180 @@ namespace CardPresentation
         {
             _eventNavIds.Clear();
             if (ids != null) _eventNavIds.AddRange(ids);
+        }
+    }
+}
+
+// ============================================================ 🆕 2026-11-02（B118_W21 · 分诊 #198）
+// 原版 `NavigationPanelController`（`dump.cs:110267`
+// = `: SingletonBehaviour<NavigationPanelController>, IInitializationComplete`）的两跳：
+//   · `Awake`（`decomp_full/NavigationPanelController__Awake.c` 全文）：`rectTransform = GetComponent<RectTransform>()`
+//     → `originalAnchorPosition = anchoredPosition` → `anchoredPosition = hiddenPosition` → `SetActive(false)`
+//     → `if (LiveOpsManager.GetHandler<ParentEventHandler>() != null) BuildEventButtons(handler)`。
+//   · `OnInitializationComplete`（`NavigationPanelController__OnInitializationComplete.c` 全文 10 行）：
+//     `if (!ready /* +0x60 */) BuildEventButtons(LiveOpsManager.GetHandler<ParentEventHandler>())`。
+// 🔴 **本批现核（铁律 5，就地订正 J10 的判词）**：J10 原写「左栏也没建活动按钮」—— **不成立**：
+//   活动钮早在 2026-10-23（活动线 `L01`/`L03`）就建了，方法 = `BuildEventNavButtons`（本文件 `:4030`），
+//   调用点 = `BuildNavigationPanel` 里那一句，口径 =「每个在期 Parent 活动一颗；一颗都没有时建一颗兜底
+//   `Event Navigation Button`」。⇒ 真残差只有**接口 + `ready` 这道闸**（本段补的就是它）。
+//   原版那两跳在我们的结构里为什么等价：面板是**运行时建的**（原版是 prefab 出厂就有），所以 `Awake` 那一跳
+//   （先藏、再建钮）由 `BuildNavigationPanel` 一次性完成；`OnInitializationComplete` 在 `Build` 之后到
+//   ⇒ `ready` 已真 ⇒ 早退（与原版同一条闸）。
+// ⛔ 追加在**文件末尾的第四个 partial 段** —— 本文件被账按 `文件:行号` 引用 79 处，插中间会让下游落点整体漂移。
+namespace CardPresentation
+{
+    public partial class MainMenuRuntime
+    {
+        /// <summary>= 原版 `NavigationPanelController.ready`（`+0x60`）：活动钮**已经建过一轮**。
+        /// <para>`BuildEventNavButtons` 收尾置真（= 原版 `BuildEventButtons` 末尾那一句）；重建面板时**不清**它
+        /// —— 原版也不清（`ready` 全类只有这一个写点，只在实例销毁时跟着走）。</para></summary>
+        bool _navEventButtonsReady;
+
+        /// <summary>自检读口：`ready` 是不是真的（= 原版 `+0x60`）。</summary>
+        public bool NavEventButtonsReadyForTest { get { return _navEventButtonsReady; } }
+
+        /// <summary>= 原版 `NavigationPanelController.OnInitializationComplete()`（判据见本节头）。
+        /// <para>⚠️ 我们的面板可能**还没建**（`Build()` 在 `Start` 里跑，`SceneInitializer` 的完成回调
+        /// 不保证在它之后）⇒ 那一档**不建钮**、不置 `ready`，并出声说明由 `Build` 那条路去补
+        /// （原版 `Awake` 就建过一轮，所以它这里永远有现成容器 —— 这是两边的**结构性差异**，如实记）。</para></summary>
+        public void OnInitializationComplete()
+        {
+            if (_navEventButtonsReady) return;                 // = 原版 `if (!ready)` 那一闸
+            if (_navPanel == null)
+            {
+                Debug.Log("[Menu] `OnInitializationComplete`：左栏**还没建**（`BuildNavigationPanel` 未跑）⇒ 活动钮不在这一跳建，"
+                        + "由 `Build()` 那条路补（原版面板是 prefab 出厂就有的，它 Awake 那一拍就能建 —— 结构差异，已记）");
+                return;
+            }
+            var holder = _navPanel.Find("Buttons Container");
+            if (holder == null)
+            {
+                Debug.LogWarning("[Menu] `OnInitializationComplete`：左栏里找不到 `Buttons Container` ⇒ 活动钮这一跳没建（⛔ 不静默）");
+                return;
+            }
+            BuildEventNavButtons(holder);
+            Debug.Log("[Menu] `OnInitializationComplete`：活动钮按原版 `NavigationPanelController.OnInitializationComplete` 补建一轮");
+        }
+    }
+
+    // ============================================================ 🆕 2026-11-02（B118_W21 · 分诊 #197）
+    // 原版 `LiveopUIDrawer_GameModeIcon : LiveopEventUIDrawers`（`dump.cs:109265`）：两个字段
+    // `Image icon`(+0x20) · `IPlayEvent currentPLayEvent`(+0x28)，方法 `Initialize(ILiveOps)` / `OnDestroy`。
+    //
+    // ---- 判据（全部现读）----
+    //  · `decomp_full/LiveopUIDrawer_GameModeIcon__Initialize.c` 全文四跳：
+    //      ① `icon == null || liveopEvent == null` ⇒ return；
+    //      ② `playEvent = liveopEvent as IPlayEvent`（`thunk_FUN_18042e360(param_2, IPlayEvent)`），为 null ⇒ return；
+    //      ③ `currentPLayEvent = playEvent`；
+    //      ④ `icon.sprite = ScriptableObjectsCollectionsUtilities.GetGameModeIcon(playEvent.get_PlayMode())`
+    //         （`…__GetGameModeIcon.c` = 转调 `GameModesIconCollection.GetIcon(Nullable<PlayModes>)`）。
+    //  · `LiveopUIDrawer_GameModeIcon__OnDestroy.c`：`ReleaseGameModeIcon(currentPLayEvent.get_PlayMode())`。
+    //  · `GameModesIconCollection.asset`（`assetripper_out/ExportedProject/Assets/MonoBehaviour/`）实读：
+    //      表里 **2 条** = `playMode 0 → GUID bb56ccdf…`（`40k_gamemode_icon_classic`）·
+    //                    `playMode 13 → GUID 73a53afd…`（`40k_gamemode_icon_skirmish`）；`defaultIcon = 73a53afd…`。
+    //  · 🔴 `GameModesIconCollection__GetIcon.c` 的形状（**这一处必须照抄**）：
+    //      `!HasValue` ⇒ 取 `defaultIcon`；`HasValue` ⇒ 只在表里找，**找不到返回 null**（⛔ 不回 default 顶替）
+    //      ⇒ 「没有模式值」与「模式值不在表里」是**两个不同结果**，别合并成一档。
+    //      （`MenuDraw.GameModeIconFile` 已有 0/13 那张表，且「其它值 ⇒ null」与原版同形 ⇒ 这里**复用它**，⛔ 别抄第二份表。）
+    //  · 实例（`bundle_menus_assets_all` MB `-586979225169605262` / `599990996392249264` / `6598273538844044806`）
+    //    全挂在 `Game Mode Header With Back Button/Header Background/Game Mode Icon`（GO 名逐字 `Game Mode Icon`，
+    //    那 3 颗 GO 的组件表里都能查到这三份 MB）⇒ **消费者 = 带 `WindowHeaderWithBackButton` 的事件窗窗头**，
+    //    **不是**主菜单的模式卡（主菜单 5 张卡上**没有**这个组件；那张卡图来自 `MainMenuContainerBackground`
+    //    资产、走 `MainMenuRuntime.EventContainerArtOf`，与本件无关）。
+    //    ⇒ 🔴 **落点订正（铁律 5）**：J10 把本条的落点记成 `MainMenuRuntime.cs:2855 BuildModeCard` —— 那一跳
+    //      是**卡背景图**，原版是 `LiveopMenuContainer.OnInitialize` 的 `MainMenuContainerBackground`，与
+    //      `LiveopUIDrawer_GameModeIcon` 是两个不同的抽屉；本件的正确落点是**窗头那 3 颗 `Game Mode Icon`**。
+    // ⚠️ 原版是 MonoBehaviour（它是 prefab 上的组件、靠序列化拿 `icon`）；我们的窗头是**运行时建**的，
+    //    `IWindowHeaderUIDrawer` 只要 `Initialize(ILiveOps)` ⇒ 这里做成普通类（🔶 结构等价、行为照原版），
+    //    同时避开「类名 ≠ 文件名 ⇒ Unity 建不出 MonoScript」那条坑（同 `WindowHeaderWithBackButton` 的注）。
+    /// <summary>原版 `LiveopUIDrawer_GameModeIcon`：按事件的 `PlayModes` 给窗头那颗 `Game Mode Icon` 换图。</summary>
+    public sealed class LiveopUIDrawer_GameModeIcon : IWindowHeaderUIDrawer
+    {
+        /// <summary>原版 `Image icon`（`+0x20`）。本仓 = 那颗 `ImageQuad`（`m_PreserveAspect = 0` ⇒ 拉满框）。</summary>
+        public ImageQuad icon;
+        /// <summary>原版 `IPlayEvent currentPLayEvent`（`+0x28`）。</summary>
+        public IPlayEvent CurrentPlayEvent { get; private set; }
+
+        // ---- 自检读口（⛔ 不是原版字段）----
+        /// <summary>最近一次 `Initialize` 之后画上去的图（`null` = 画的是「没有图」那一档）。</summary>
+        public Texture2D LastIconForTest { get; private set; }
+        /// <summary>`Initialize` 被调了几次（= 原版那个方法被调几次）。</summary>
+        public int InitCallsForTest { get; private set; }
+        /// <summary>按 <see cref="IconFileFor"/> 算出来的文件名（`null` = 原版这一档返回 null）。</summary>
+        public string LastIconFileForTest { get; private set; }
+
+        public LiveopUIDrawer_GameModeIcon() { }
+        public LiveopUIDrawer_GameModeIcon(ImageQuad icon) { this.icon = icon; }
+
+        /// <summary>= 原版 `GameModesIconCollection.GetIcon(Nullable&lt;PlayModes&gt;)`（判据见本节头）。
+        /// <para>⚠️ **`null`（没有模式值）与「模式值不在表里」不是同一档**：前者取 `defaultIcon`（= skirmish），
+        /// 后者原版**返回 null**（`Image.sprite` 置空 ⇒ 什么都不画）。</para></summary>
+        public static string IconFileFor(PlayModes? playMode)
+        {
+            if (!playMode.HasValue) return CardArt.DefaultGameModeIconFile;   // 默认图标实读 = `40k_gamemode_icon_skirmish`
+            return MenuDraw.GameModeIconFile((int)playMode.Value);             // 0→classic · 13→skirmish · 其它→null
+        }
+
+        /// <summary>= 原版 `Initialize(ILiveOps liveopEvent)`（四跳见本节头，逐句照抄）。
+        /// <para>⚠️ 原版三处**静默 return**（`icon` 空 / 事件空 / 不是 `IPlayEvent`）；我们照样 return，
+        /// 但**出声**（红线：不许静默）。</para></summary>
+        public void Initialize(ILiveOps liveopEvent)
+        {
+            InitCallsForTest++;
+            if (icon == null)
+            {
+                Debug.LogWarning("[LiveopUIDrawer_GameModeIcon] `icon` 没绑 ⇒ 这一跳什么都不画（原版此处静默 return）");
+                return;
+            }
+            if (liveopEvent == null)
+            {
+                Debug.LogWarning("[LiveopUIDrawer_GameModeIcon] 事件是 null ⇒ 不初始化（原版此处静默 return；"
+                               + "`WindowHeaderWithBackButton.Initialize` 那一档才是原版会 LogError 的地方）");
+                return;
+            }
+            var playEvent = liveopEvent as IPlayEvent;
+            if (playEvent == null)
+            {
+                Debug.Log("[LiveopUIDrawer_GameModeIcon] 这个事件不是 `IPlayEvent` ⇒ 不换图（原版 `as` 之后判空 return，同款）");
+                return;
+            }
+            CurrentPlayEvent = playEvent;
+            string file = IconFileFor(playEvent.EventPlayMode);
+            LastIconFileForTest = file;
+            ApplyIcon(file != null ? CardArt.MenuUi(file) : null);
+        }
+
+        /// <summary>= 原版 `OnDestroy()`：`ReleaseGameModeIcon(currentPLayEvent.get_PlayMode())`。
+        /// <para>`CurrentPlayEvent == null` ⇒ 原版这一跳 NRE；我们出声 + 不做事。</para></summary>
+        public void ReleaseIcon()
+        {
+            if (CurrentPlayEvent == null)
+            {
+                Debug.LogWarning("[LiveopUIDrawer_GameModeIcon] `ReleaseIcon`：还没 `Initialize` 过（原版此处 NRE）");
+                return;
+            }
+            CardArt.ReleaseModeIcon((int)CurrentPlayEvent.EventPlayMode);
+            CurrentPlayEvent = null;
+        }
+
+        /// <summary>换图 = 原版 `Image.sprite = …`（`m_PreserveAspect = 0` ⇒ 拉满整个框；prefab 实读，
+        /// 判据同 `Shell/DraftModeWindow.cs` 那一段 `QuadEventImageTarget`）。
+        /// <para>⚠️ `null` 档（原版 `sprite = null` = uGUI 什么都不画）：我们把这颗 quad **关掉**
+        /// —— 本仓 `ImageQuad.SetTexture(null, …)` 会退回上一张图/缺图占位，留着就是一整块**白块**（可见差）。</para></summary>
+        void ApplyIcon(Texture2D tex)
+        {
+            LastIconForTest = tex;
+            if (icon == null) return;
+            if (tex == null)
+            {
+                icon.SetTexture(null, true);
+                icon.gameObject.SetActive(false);
+                return;
+            }
+            float w = icon.WorldW, h = icon.WorldH;
+            icon.SetTexture(tex, true);                        // 只换图；比例/尺寸由下面两句摆（⛔ 别让它按贴图静默改比例）
+            if (w > 0f && h > 0f) { icon.SetWorldHeight(h); icon.SetAspect(w / h); }
+            icon.gameObject.SetActive(true);
         }
     }
 }

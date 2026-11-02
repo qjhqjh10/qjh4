@@ -1337,7 +1337,7 @@ namespace RuleEngine
         {
             public string Keyword;
             public string Attr;        // attack / ranged / health / armour
-            public int Value;
+            public int Value; public bool Permanent;   // 🔴 2026-11-02（执行写手 `B118_W20` · 账 #58 / `B118_J10` 批 1）：原版 `CardEffect.permanentBuff(+0x74)` —— `RemoveEffect` **第一句**就是 `if (permanentBuff != 0) return;`（`decomp_full/CardScript__RemoveEffect.c:43-45`）⇒ 带这一位的授予**所有撤法都摘不掉**（jam ② · 按来源 `RevertGrantsFrom` · 按施放者 `RevertGrantsCastBy` · 关键词收回 `RevertGrantsOf`）。⚠️ 生产点**今天没有数据可喂**：`permanentBuff` 只长在 `cardAbilities` 的结构化 buff 行上，而本账唯一生产者是**文本 op 路**（`PayloadOp` 不带这一列）⇒ 全池恒 `false`（休眠，铁律 11 照建）
             /// <summary>谁给的（黑暗契约的种类名 / 卡名）。用来「整份收回」——见 <see cref="RevertGrantsFrom"/></summary>
             public string Source; public string Caster; public bool Extrinsic;   // 🆕 2026-10-29（执行代理 `B97_W1` · 账 832 ②）：`Caster` = 原版 `CardEffect.enchantingCard`（`dump.cs:119066`，`+0x18`，Tooltip `Ignore when creating card`）的对应格 = **这条增益的【施放者卡名】**；按它整份撤见 `RevertGrantsCastBy`。`null` = 未知（生产点还没灌，见那条 doc）。⛔ 别与 `Source` 混：`Source` 是**来源标签**（`Auras.GrantTag` / 黑暗契约种类 / 卡名），原版是**两格不同的字段**。🆕 **2026-10-29（执行代理 `B97_W30` · 账 64 / 482 / 636）**：`Extrinsic` = 原版 `CardEffect.extrinsic(+0x30)`；**写点判据 = `decomp_full/AbilityLogic__PlayAbility.c:1197`**（`cVar4 = 1; if (abilityData.whileInPlay == 0) cVar4 = abilityData.whileInPlayVariable; newEffect.+0x30 = cVar4 != 0;`）⇒ **`extrinsic = (ability.trigger ∈ {20 WhileInPlay, 240 WhileInPlayVariable})`**，与 `IsExtrinsicSource` 的 doc 同一条。**只有它为真**，这条账才会被「按来源 / 按施放者撤」（`CardScript__RemoveExtrinsicEffectsFrom.c:32` 的第一条合取）。
             /// <summary>🆕 2026-10-25（Stage 2）：这条账在**修饰表**里对应的那一格（`armour` 为 `null` —— 护甲走关键词）。
@@ -1354,11 +1354,11 @@ namespace RuleEngine
         /// `source` = 给予者（比如黑暗契约的种类名），用来在来源被替换时整份收回。
         /// </summary>
         /// <returns>🆕 2026-10-25（Stage 2）：这条账在修饰表里的那一格（`armour` 返回 `null`）。</returns>
-        public StatMod RecordGrant(string attr, int value, string source = null, string keyword = null, string caster = null, bool extrinsic = false, EffectOrigin origin = default(EffectOrigin))   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：末位可选 `origin` = 归属四元组（缺省 = 判不到；既有调用点逐字不变）
+        public StatMod RecordGrant(string attr, int value, string source = null, string keyword = null, string caster = null, bool extrinsic = false, EffectOrigin origin = default(EffectOrigin), bool permanent = false)   // 🔴 2026-11-02（`B118_W20` · 账 #58）：末位可选 `permanent` = 原版 `CardEffect.permanentBuff(+0x74)`（缺省 `false` ⇒ 既有调用点逐字不变）｜🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：末位可选 `origin` = 归属四元组（缺省 = 判不到；既有调用点逐字不变）
         {
-            var g = new GrantRecord { Keyword = keyword, Attr = attr, Value = value, Source = source, Caster = caster, Extrinsic = extrinsic || IsExtrinsicSource(source) };   // 🆕 2026-10-29（`B97_W1` · 账 832 ②）：`caster` = 原版 `CardEffect.enchantingCard(+0x18)`，见 `GrantRecord.Caster` 的 doc ｜🆕 2026-10-29（`B97_W30` · 账 64）：`extrinsic` 是**新的可选实参**（缺省 false ⇒ 既有调用点逐字不变）；`IsExtrinsicSource(source)` 那一半是原有口径（光环 = whileInPlay），两者**取或** —— 与 `AddStatMod` 那一格同源（下一行）。
+            var g = new GrantRecord { Keyword = keyword, Attr = attr, Value = value, Permanent = permanent, Source = source, Caster = caster, Extrinsic = extrinsic || IsExtrinsicSource(source) };   // 🆕 2026-10-29（`B97_W1` · 账 832 ②）：`caster` = 原版 `CardEffect.enchantingCard(+0x18)`，见 `GrantRecord.Caster` 的 doc ｜🆕 2026-10-29（`B97_W30` · 账 64）：`extrinsic` 是**新的可选实参**（缺省 false ⇒ 既有调用点逐字不变）；`IsExtrinsicSource(source)` 那一半是原有口径（光环 = whileInPlay），两者**取或** —— 与 `AddStatMod` 那一格同源（下一行）。
             _grants.Add(g);
-            g.Mod = AddStatMod(attr, value, source, g.Extrinsic, origin: origin);   // 🆕 2026-10-31（`B107_W19`）：归属四元组跟着这条 grant 落到它那条 `StatMod` 上（此前只到 `RecordGrant` 就断了，展示层拿不到 `(ab,lg)`）｜🔴 2026-10-29（`B97_W30`）：原来就地算 `IsExtrinsicSource(source)` ⇒ 现在与 `GrantRecord.Extrinsic` **共用同一份判据**（否则 grant 说 extrinsic、它连带的那条 StatMod 说不是 ⇒ 两本账打架；`RemoveExtrinsicEffectsFrom` 先按 grant 摘、再扫 `_statMods` 会撞见已摘条目）
+            g.Mod = AddStatMod(attr, value, source, g.Extrinsic, origin: origin, permanent: permanent);   // 🔴 2026-11-02（`B118_W20` · 账 #58）：`permanent` 同步到连带的那条 `StatMod`（两本账一份判据 —— 否则「grant 说摘不掉、它那条数值修饰照旧被 ④ 摘掉」）   // 🆕 2026-10-31（`B107_W19`）：归属四元组跟着这条 grant 落到它那条 `StatMod` 上（此前只到 `RecordGrant` 就断了，展示层拿不到 `(ab,lg)`）｜🔴 2026-10-29（`B97_W30`）：原来就地算 `IsExtrinsicSource(source)` ⇒ 现在与 `GrantRecord.Extrinsic` **共用同一份判据**（否则 grant 说 extrinsic、它连带的那条 StatMod 说不是 ⇒ 两本账打架；`RemoveExtrinsicEffectsFrom` 先按 grant 摘、再扫 `_statMods` 会撞见已摘条目）
             ApplyGrant(g, +1);
             return g.Mod;
         }
@@ -1395,7 +1395,7 @@ namespace RuleEngine
             for (int i = _grants.Count - 1; i >= 0; i--)
             {
                 var g = _grants[i];
-                if (g.Keyword != keyword) continue;
+                if (g.Permanent || g.Keyword != keyword) continue;   // 🔴 2026-11-02（`B118_W20` · 账 #58）：`permanentBuff` 那一档**连关键词收回也摘不掉**（原版只有 `RemoveEffect` 一个摘口，第一句就早退）
                 _grants.RemoveAt(i);
                 ApplyGrant(g, -1);
             }
@@ -1408,7 +1408,7 @@ namespace RuleEngine
             for (int i = _grants.Count - 1; i >= 0; i--)
             {
                 var g = _grants[i];
-                if (g.Source != source || (extrinsicOnly && !g.Extrinsic)) continue;   // 🆕 2026-10-29（`B97_W30` · 账 482/636）：`extrinsicOnly` = 原版 `CardScript__RemoveExtrinsicEffectsFrom.c:32` 的第一条合取（`effect.extrinsic(+0x30) != 0`）。⚠️ **缺省 false ⇒ 既有全部调用点行为逐字不变**（`ClearAuraGrants` 的两处 `RevertGrantsFrom(GrantTag)`、黑暗契约换契约、`RuleEngineTest` 三处直调都不受影响）—— 那道闸**只属于 extrinsic 那一条路**，⛔ 别把它改成无条件（原版只有 `RemoveExtrinsicEffectsFrom` 按 extrinsic 筛，没有「通用按来源撤」这种东西）
+                if (g.Permanent || g.Source != source || (extrinsicOnly && !g.Extrinsic)) continue;   // 🔴 2026-11-02（`B118_W20` · 账 #58）：`permanentBuff(+0x74)` 闸（判据 `CardScript__RemoveEffect.c:43-45`；原版 `.c:56` 那条 `RemoveExtrinsicEffectsFrom` → `RemoveEffect` 同样会撞这一句早退）   // 🆕 2026-10-29（`B97_W30` · 账 482/636）：`extrinsicOnly` = 原版 `CardScript__RemoveExtrinsicEffectsFrom.c:32` 的第一条合取（`effect.extrinsic(+0x30) != 0`）。⚠️ **缺省 false ⇒ 既有全部调用点行为逐字不变**（`ClearAuraGrants` 的两处 `RevertGrantsFrom(GrantTag)`、黑暗契约换契约、`RuleEngineTest` 三处直调都不受影响）—— 那道闸**只属于 extrinsic 那一条路**，⛔ 别把它改成无条件（原版只有 `RemoveExtrinsicEffectsFrom` 按 extrinsic 筛，没有「通用按来源撤」这种东西）
                 _grants.RemoveAt(i);
                 ApplyGrant(g, -1);
             }
@@ -1656,7 +1656,7 @@ namespace RuleEngine
             /// 🆕 2026-10-25（Stage 2）：这条限时增益在**修饰表**里的那一格（关键词那条为 `null`）。
             /// ⚠️ 到期撤销 = **把这一格摘掉**（不是「减回去」）—— 见 <see cref="RevertBuffs"/>。｜🆕 **2026-10-29（执行代理 `B97_W30` · 账 64 / 482 / 636）**：同行的 `Extrinsic` = 原版 `CardEffect.extrinsic(+0x30)`，写点判据 `decomp_full/AbilityLogic__PlayAbility.c:1197`（`= abilityData.whileInPlay || whileInPlayVariable` ⇒ `ability.trigger ∈ {20, 240}`，与 `IsExtrinsicSource` 同一条）；**只有它为真**这条限时增益才会被 `RemoveExtrinsicEffectsFrom` 摘（原版 `.c:32` 第一条合取），`AddTempBuff` 会把它同步到 `Mod` 那一格（两本账一份判据）。⚠️ 生产点 = `EffectResolver.ApplyOneGain` 的 `AddTempBuff(...)` 初值器（`Extrinsic = ctx.ResolvingExtrinsic`，补丁见报告）；今天全 `false` ⇒ 休眠。
             /// </summary>
-            public StatMod Mod; public bool Extrinsic;
+            public StatMod Mod; public bool Extrinsic; public bool Permanent;   // 🔴 2026-11-02（执行写手 `B118_W20` · 账 #58）：`Permanent` = 原版 `CardEffect.permanentBuff(+0x74)` —— `AddTempBuff` 建 `Mod` 时透传，`RemoveTempBuffCore` 见到它就整条不撤（判据 `decomp_full/CardScript__RemoveEffect.c:43-45`）。⚠️ 生产点**今天没有数据可喂**（`TempBuff` 由文本 op 路 `ApplyOneGain` 建，`PayloadOp` 不带 `permanentBuff` 这一列）⇒ 全池恒 `false`（休眠，铁律 11 照建）
             /// <summary>
             /// 🆕 **2026-10-27（B9 · S0-①）**：**限时关键词**在 <see cref="TraitEffects"/> 里的那条记录
             /// （非关键词 / `val == 0` / `AddKeyword` 拒收时为 `null`）。
@@ -1681,7 +1681,7 @@ namespace RuleEngine
         public void AddTempBuff(TempBuff b, EffectOrigin origin = default(EffectOrigin))   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：`origin` = 归属四元组（缺省 = 判不到；只写进它连带的那条 `StatMod`，关键词那条由 `TraitRec` 自带）
         {
             if (b != null && !b.IsKeyword && b.Mod == null)
-                b.Mod = AddStatMod(b.Name, b.Value, null, b.Extrinsic, rowGroup: b.RowGroup, origin: (origin.Owner != null ? origin : b.Origin));   // 🆕 2026-10-31（`B107_W19`）：限时那条也带归属四元组（`origin` 实参优先、否则用 `b.Origin` 那一格；否则「一回合」的属性行取不到原版原文）｜🆕 2026-10-30（执行代理 `B103_W3` · S3-c）：限时那一路也要带组号（否则「带时长的一次 give 多属性」照样各印一行）   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：原来写死 `false` ⇒ 限时增益的那条修饰**永远不会**被「按来源撤」认成 extrinsic。现在跟 `TempBuff.Extrinsic` 走（**同一份判据**，⛔ 别让两本账各说各话）
+                b.Mod = AddStatMod(b.Name, b.Value, null, b.Extrinsic, rowGroup: b.RowGroup, origin: (origin.Owner != null ? origin : b.Origin), permanent: b.Permanent);   // 🔴 2026-11-02（`B118_W20` · 账 #58）：`permanent` 同步进它连带的那条 `StatMod`（两本账一份判据）   // 🆕 2026-10-31（`B107_W19`）：限时那条也带归属四元组（`origin` 实参优先、否则用 `b.Origin` 那一格；否则「一回合」的属性行取不到原版原文）｜🆕 2026-10-30（执行代理 `B103_W3` · S3-c）：限时那一路也要带组号（否则「带时长的一次 give 多属性」照样各印一行）   // 🆕 2026-10-29（`B97_W30` · 账 64/482/636）：原来写死 `false` ⇒ 限时增益的那条修饰**永远不会**被「按来源撤」认成 extrinsic。现在跟 `TempBuff.Extrinsic` 走（**同一份判据**，⛔ 别让两本账各说各话）
             if (b != null && b.Extrinsic && b.Mod != null) b.Mod.Extrinsic = true; if (b != null && b.Seq == 0) b.Seq = NextEffectSeq(); if (b != null && b.Mod != null && (origin.Owner != null || b.Origin.Owner != null) && b.Mod.EffectOwner == null) { var __o = origin.Owner != null ? origin : b.Origin; b.Mod.EffectOwner = __o.Owner; b.Mod.EffectAb = __o.Ab; b.Mod.EffectLg = __o.Lg; b.Mod.EffectIsHand = __o.IsHand; } _buffs.Add(b);   // 🆕 2026-10-31（`B107_W19`）：调用方**自带** `Mod` 的那条路（`ApplyOneGain` 的 `RecordGrant` 支）也补归属四元组（只补空，⛔ 不覆盖已有 —— 首次归属就是原版合并后保留的那条记录）｜🆕 2026-10-29（`B97_W30`）：调用方**自带** `Mod` 的那条路（`ApplyOneGain`）也要标上 —— 否则「账说 extrinsic、修饰说不是」；🆕 2026-10-29（`B97_US2` · S2）：加序戳（同上，登记那一刻取）
         }
 
@@ -2193,7 +2193,7 @@ namespace RuleEngine
             // ② 关键词带出来的属性增益
             for (int i = _grants.Count - 1; i >= 0; i--)
             {
-                var g = _grants[i];
+                var g = _grants[i]; if (g.Permanent) continue;   // 🔴 2026-11-02（`B118_W20` · 账 #58）：`permanentBuff(+0x74)` 挡 jam（原版 jam 第 ① 步逐条 `RemoveEffect`、第一句早退；`decomp_full/CardScript__ReactToUnitJammed.c:61-71`）
                 _grants.RemoveAt(i);
                 ApplyGrant(g, -1);
                 n++;
@@ -2261,7 +2261,7 @@ namespace RuleEngine
             int n = RemoveBuffsFromCard(sourceCardName, extrinsicOnly: true); RevertGrantsFrom(sourceCardName, extrinsicOnly: true); n += RevertGrantsCastBy(sourceCardName, extrinsicOnly: true); n += RevertTraitEffectsFrom(sourceCardName, extrinsicOnly: true);   // 🔴 2026-10-29（`B97_W30` · 账 482/636）：三本账**都走 `extrinsicOnly: true`** —— 原版那条摘法只有一个入口（`CardScript__RemoveExtrinsicEffectsFrom`），它的第一条合取就是 `extrinsic != 0`（`.c:32`）；⚠️ 三处必须**同批**，只开一处 = 另一本账照旧「来源匹配即撤」（多撤）。🔴 2026-10-29（B95_WRS · 账 636 现核补）：原版摘的是 `activeEffects(+0x108)` 里**整条记录**（`CardScript__RemoveExtrinsicEffectsFrom.c:17/22/32/51/56` = 倒序扫、`extrinsic(+0x30)` ∧ `enchantingCard(+0x18) == 参`），我们那几本账要一起过；`_grants` 是**护甲唯一的账**（`ApplyGrant` 的 `armour` 支走 `AddKeyword/RemoveKeyword`、⛔ 不进 `_statMods`）⇒ 漏了它 = 按来源撤时「近战/远程/血撤了、护甲留着」，同一个来源被拆成两种结果。🆕 **2026-10-29（`B97_W1` · 账 832 ②）**：`n += RevertGrantsCastBy(...)` 补上原版那个 `enchantingCard == 参` 的**施放者**键（以前只按 `Source` 撤 ⇒ 「谁给的」摘不到）；⚠️ 它必须跑在下面 `_statMods` 那一圈**之前**（先把 grant 连带的那条 `Mod` 按引用摘掉，否则会撞见已摘的条目）。✅ **2026-10-29（执行代理 `B97_W30` · 账 482/636 ⓐ）就地订正**：原来这里写「三本账没有 `extrinsic` 列 ⇒ 我们做不到原版那个闸」—— **已补**：`GrantRecord.Extrinsic` / `TempBuff.Extrinsic` 两个新列 + `StatMod.Extrinsic`（原有）现在**三本账都过 `Extrinsic != 0` 合取**（见本行三处 `extrinsicOnly: true` 与下面 `_statMods` 那一圈）。残余如实标：① ✅ **2026-10-29（执行代理 `B97_W36` · 账 482 残余 ⓓ）已补**：`_traitEffects`（第四本账）原来**没有「按来源摘一条」的口** ⇒ 本方法覆盖不到 —— 现在类尾第四段新增 `RevertTraitEffectsFrom(key, extrinsicOnly:)` 并接在这一行（`ContainsExtrinsicEffectsFrom` 同批接 `TraitEffectsContainExtrinsicFrom`，查/摘同口径）；② `GrantRecord.Caster` 的生产点仍只有光环那条路之外的空缺（`Aura.ApplyAura` 不传 caster，见报告）。
             for (int i = _statMods.Count - 1; i >= 0; i--)
             {
-                if (_statMods[i].Source != sourceCardName || !_statMods[i].Extrinsic) continue;   // 🆕 2026-10-29（`B97_W30` · 账 482/636）：原版 `CardScript__RemoveExtrinsicEffectsFrom.c:32` 的**第一条合取**（`effect.extrinsic(+0x30) != 0`）—— 没有它，「来源匹配即撤」会**多撤**（同名的非 extrinsic 记录被一起摘）。⚠️ 今天池内 `_statMods.Source` 只有 `Auras.GrantTag`（extrinsic 恒真）与「虫群合并」等标签 ⇒ **零行为变化**
+                if (_statMods[i].Permanent || _statMods[i].Source != sourceCardName || !_statMods[i].Extrinsic) continue;   // 🔴 2026-11-02（`B118_W20` · 账 #58/#482）：`permanentBuff(+0x74)` 早退 —— 原版这条路 `CardScript__RemoveExtrinsicEffectsFrom.c:56` 是**逐条调 `RemoveEffect`**，而它第一句就挡掉永久那档；⛔ 少了这一格 = 「`_grants` 那本挡住了、它连带的 `_statMods` 那条照旧被摘」。⚠️ 缺省数据下（池内 `permanentBuff` 全 0）零行为变化   // 🆕 2026-10-29（`B97_W30` · 账 482/636）：原版 `CardScript__RemoveExtrinsicEffectsFrom.c:32` 的**第一条合取**（`effect.extrinsic(+0x30) != 0`）—— 没有它，「来源匹配即撤」会**多撤**（同名的非 extrinsic 记录被一起摘）。⚠️ 今天池内 `_statMods.Source` 只有 `Auras.GrantTag`（extrinsic 恒真）与「虫群合并」等标签 ⇒ **零行为变化**
                 bool health = _statMods[i].Attr == "health";
                 _statMods.RemoveAt(i);
                 if (health) ClampHealthToMax();
@@ -2873,7 +2873,7 @@ namespace RuleEngine
             /// <summary>`CardEffect.markOfChaosType(+0x78)`（合并键之一）。</summary>
             public int MarkOfChaosType;
             /// <summary>`CardEffect.daemonHostType(+0x7c)`（合并键之一）。</summary>
-            public int DaemonHostType;
+            public int DaemonHostType; public bool Permanent;   // 🔴 2026-11-02（执行写手 `B118_W20` · 账 #58）：`Permanent` = 原版 `CardEffect.permanentBuff(+0x74)`。**只消费在 `RemoveTraitEffect`**（= 原版 `RemoveEffect` 的 `case 3` 那一个口 ⇒ `untilNextAttack` 到期 / 按来源撤 / 按施放者撤都过它）；⛔ 别拿它挡 `ApplyJam` ② 的 `RemoveAll(关键词)` —— 原版那一句是 `CardScript__RemoveTrait`（`ReactToUnitJammed.c:96-113` 的快照遍历），**没有** `permanentBuff` 闸。⚠️ 生产点**今天没有数据可喂**（本账只由文本 op 路 `ApplyOneGain` 生产，`PayloadOp` 不带 `permanentBuff`）⇒ 全池恒 `false`（休眠，铁律 11 照建）
             /// <summary>🔶 自己设计（非原版的数据形状）：原版合并键里的「五个 `until*` 位 + isPlayer」
             /// （`CardEffect__SameTimingAsEffect.c` 逐句比 `+0x32..+0x36` 与 `SameIsPlayerEffect`）
             /// 我们压成**一个位掩码**（语义相同、少 5 个字段）：bit0..4 =
@@ -2944,7 +2944,7 @@ namespace RuleEngine
                                                   int stackType = -1, string source = null,
                                                   bool extrinsic = false, int markOfChaosType = 0,
                                                   int daemonHostType = 0, int timingBits = 0,
-                                                  EffectOrigin origin = default(EffectOrigin))   // 🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（只在**新建记录**那一支写 —— 合并进既有记录时**不换归属**，原版 `AddEffect` 合并同样保留第一条 `CardEffect` 实例的 `effectText`；缺省 = 判不到）
+                                                  EffectOrigin origin = default(EffectOrigin), bool permanent = false)   // 🔴 2026-11-02（`B118_W20` · 账 #58）：末位可选 `permanent` = 原版 `CardEffect.permanentBuff(+0x74)`（缺省 `false` ⇒ 既有调用点逐字不变）｜🆕 2026-10-31（执行代理 `B107_W19` · 账 `特效动画:N20②`）：归属四元组（只在**新建记录**那一支写 —— 合并进既有记录时**不换归属**，原版 `AddEffect` 合并同样保留第一条 `CardEffect` 实例的 `effectText`；缺省 = 判不到）
         {
             if (string.IsNullOrEmpty(trait) || value <= 0) return null;
             int stack = stackType >= 0 ? stackType : TraitStackTypeOf(trait);
@@ -2989,7 +2989,7 @@ namespace RuleEngine
                     Source = source,
                     MarkOfChaosType = markOfChaosType,
                     DaemonHostType = daemonHostType,
-                    TimingBits = timingBits, Seq = NextEffectSeq(), EffectOwner = origin.Owner, EffectAb = origin.Owner != null ? origin.Ab : -1, EffectLg = origin.Owner != null ? origin.Lg : -1, EffectIsHand = origin.IsHand,   // 🆕 2026-10-31（`B107_W19`）：归属四元组（`origin.Owner == null` ⇒ 判不到、两格留 -1）｜🆕 2026-10-29（`B97_US2` · S2）：加序戳（合并进既有记录时**不换戳**，只有新建这一支取新值）
+                    TimingBits = timingBits, Permanent = permanent, Seq = NextEffectSeq(), EffectOwner = origin.Owner, EffectAb = origin.Owner != null ? origin.Ab : -1, EffectLg = origin.Owner != null ? origin.Lg : -1, EffectIsHand = origin.IsHand,   // 🆕 2026-10-31（`B107_W19`）：归属四元组（`origin.Owner == null` ⇒ 判不到、两格留 -1）｜🆕 2026-10-29（`B97_US2` · S2）：加序戳（合并进既有记录时**不换戳**，只有新建这一支取新值）
                 };
                 _traitEffects.Add(rec);
             }
@@ -3030,7 +3030,7 @@ namespace RuleEngine
         /// </summary>
         public bool RemoveTraitEffect(TraitEffectRecord rec)
         {
-            if (rec == null) return false;
+            if (rec == null || rec.Permanent) return false;   // 🔴 2026-11-02（执行写手 `B118_W20` · 账 #58）：`permanentBuff(+0x74)` 早退（判据 `decomp_full/CardScript__RemoveEffect.c:43-45`，位置照原版 = **最前**、在 `activeEffects.Remove` 之前）⇒ `untilNextAttack` 到期 / 按来源撤 / 按施放者撤三路都摘不掉
             if (!_traitEffects.Remove(rec)) return false;
             if (string.IsNullOrEmpty(rec.Trait)) return true;
             if ((Card != null && Card.Has(rec.Trait)) || AnyEffectGrantsTrait(rec.Trait)) return true;   // 印在卡面 / 还有别的记录在给 ⇒ 留着（原版 `HasDefaultTrait` + `HasCurrentTraitActiveEffect` 两道闸，判据 `CardScript__RemoveEffect.c:63-72`）
@@ -3283,7 +3283,7 @@ namespace RuleEngine
         //     ① 原版**入队**（`SendRemoveEffect`）再摘，我们**同步**摘 —— 同一拍内、下一个动作之前结果相同；
         //        差的是「这一拍的可观察中间态」，而我们的引擎没有那条动作队列入口（`ActionQueue` / `ActionPump`）。
         //     ② `permanentBuff(+0x74)` 与 `untilNextAttack(+0x36)` 同时为真的组合：原版 `RemoveEffect`
-        //        第一句就 `return`（摘不掉）。`TraitEffectRecord` **没有 `Permanent` 列** ⇒ 我们表达不了那一格。
+        //        第一句就 `return`（摘不掉）。✅ **2026-11-02（`B118_W20` · 账 #58）已补**：`TraitEffectRecord.Permanent` 列 + `RemoveTraitEffect` 开头早退（原来这里写「**没有 `Permanent` 列** ⇒ 我们表达不了那一格」，已过期）。
         //        等价性论证：每一条 `TraitEffectRecord` 都来自 `ApplyTraitEffect`，而它**没有** `Permanent`
         //        形参 ⇒ 全为 false ⇒ **今天等价**（判据不全就先如实标，⛔ 别加一个猜的默认值）。
         // ================================================================================================
@@ -3392,7 +3392,7 @@ namespace RuleEngine
         /// </summary>
         bool RemoveTempBuffCore(TempBuff b)
         {
-            if (!DetachTempBuff(b)) return false;
+            if (b == null || b.Permanent || !DetachTempBuff(b)) return false;   // 🔴 2026-11-02（执行写手 `B118_W20` · 账 #58）：`permanentBuff(+0x74)` 那一档**整条不撤** —— 原版 `CardScript__RemoveEffect.c:43-45` 第一句 `if (permanentBuff != 0) return;`。⚠️ 闸放**内核**（不是只放 jam ①）的理由：原版 `RemoveEffect` 是**唯一**摘口，到期撤（`ClearEndOfTurnEffects` → `SendRemoveEffect`）、按来源撤（`RemoveExtrinsicEffectsFrom.c:56`）全都经它 ⇒ 只有一份判据（铁律 6）
             ApplyTempBuffRemoval(b);
             return true;
         }
@@ -3675,7 +3675,7 @@ namespace RuleEngine
             for (int i = _grants.Count - 1; i >= 0; i--)
             {
                 var g = _grants[i];
-                if (g == null || g.Caster != casterCardName || (extrinsicOnly && !g.Extrinsic)) continue;   // 🆕 2026-10-29（`B97_W30` · 账 482/636）：`extrinsicOnly` = `CardScript__RemoveExtrinsicEffectsFrom.c:32` 的第一条合取。⚠️ 缺省 false ⇒ `B97_W1` 那种「直接调本方法」的既有读者行为不变（原版该合取只属于 `RemoveExtrinsicEffectsFrom` 那一条路）
+                if (g == null || g.Permanent || g.Caster != casterCardName || (extrinsicOnly && !g.Extrinsic)) continue;   // 🔴 2026-11-02（`B118_W20` · 账 #58）：`permanentBuff` 闸（同 `.c:43-45`；原版 `.c:56` 一路经 `RemoveEffect` ⇒ 也会早退）   // 🆕 2026-10-29（`B97_W30` · 账 482/636）：`extrinsicOnly` = `CardScript__RemoveExtrinsicEffectsFrom.c:32` 的第一条合取。⚠️ 缺省 false ⇒ `B97_W1` 那种「直接调本方法」的既有读者行为不变（原版该合取只属于 `RemoveExtrinsicEffectsFrom` 那一条路）
                 _grants.RemoveAt(i);        // 倒序走 ⇒ `RemoveAt` 不影响未扫到的下标
                 ApplyGrant(g, -1);
                 n++;
@@ -4027,7 +4027,7 @@ namespace RuleEngine
     //    ② `TraitEffectRecord` **没有 `Caster` 列** ⇒ 只能用 `Source`（生产点 = `EffectResolver.ApplyOneGain`
     //       的 `source: by`，`by` = 施放卡名 `source.Name`，见 `EffectResolver.cs` 的 `by = source != null ? source.Name : "战术卡"`）
     //       ≈ 原版 `enchantingCard(+0x18)`；
-    //    ③ `TraitEffectRecord` **没有 `Permanent` 列** ⇒ 原版 `permanentBuff != 0 ⇒ return`（`.c:35-38`）这条摘不到
+    //    ③ ✅ 2026-11-02（`B118_W20` · 账 #58）**已补**：`TraitEffectRecord.Permanent` + `RemoveTraitEffect` 首句早退（原来这里写「**没有 `Permanent` 列** ⇒ 这条摘不到」，已过期）
     //       （每一条都来自 `ApplyTraitEffect`，它没有 permanent 形参 ⇒ 那一格今天在原版侧也恒假）。
     //  📌 今天恒 0（休眠，铁律 11 照建）：`extrinsic` 的生产点 = `ctx.ResolvingExtrinsic`，而
     //     `HandEffect.Extrinsic` 全池**没有生产者**（`RuleCore.ResolveHandBuffOps` 的 doc）⇒ 全 `false`。

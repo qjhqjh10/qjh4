@@ -174,6 +174,7 @@ namespace CardPresentation
             }
 
             // ---- ② 播放态：淡到全黑 → 切场景 → `sceneLoaded` 到了再淡回 ----
+            var _ta = WindowsManager.BeginTransitionAnchor();   // 🆕 2026-11-02（`B118-W21` · `#203`）：过渡期间开的窗挂到过渡锚点（= 原版 `TransitionUIAnchor.EnableAnchor()`）
             loading.LoadingFade(true, () =>
             {
                 if (_pendingFadeBack != null)
@@ -194,8 +195,8 @@ namespace CardPresentation
                     //    而 `LoadScene` 又在我们这次 `LoadingFade(true)` 的 **`Complete()` 回调里** ——
                     //    直接在这里再进 `LoadingFade` 会与 `Complete()` 的收尾（它读 `_show`）**重入**。
                     //    一帧之后那边已彻底返回；黑场此时是 α=1，画面看不出这一帧。
-                    if (rt != null) rt.StartCoroutine(CoFadeBackAfterLoad(loading));
-                    else loading.LoadingFade(false);
+                    if (rt != null) rt.StartCoroutine(CoFadeBackAfterLoad(loading, _ta));
+                    else { if (_ta != null) WindowsManager.EndTransitionAnchor(_ta); loading.LoadingFade(false); }
                 };
                 _pendingFadeBack = cb;
                 UnityEngine.SceneManagement.SceneManager.sceneLoaded += cb;
@@ -216,7 +217,7 @@ namespace CardPresentation
                     // 兜底：`sceneLoaded` 永远不会来（场景不在 Build Settings / name 打错…）⇒ 不能永久黑屏
                     UnityEngine.SceneManagement.SceneManager.sceneLoaded -= cb;
                     if (_pendingFadeBack == cb) _pendingFadeBack = null;
-                    loading.LoadingFade(false); BattleDriver.TakePendingPlayMode();   // 🔴 2026-11-01（B111_R3W · 账 N122）：切场失败 ⇒ 丢弃 `_pendingPlayMode`，下一局开战不继承这条残留通道
+                    if (_ta != null) WindowsManager.EndTransitionAnchor(_ta); loading.LoadingFade(false); BattleDriver.TakePendingPlayMode();   // 🔴 2026-11-01（B111_R3W · 账 N122）：切场失败 ⇒ 丢弃 `_pendingPlayMode`，下一局开战不继承这条残留通道　｜🆕 2026-11-02（`B118-W21` · `#203`）：兜底淡回前也要把过渡锚点归位
                     Debug.LogError("[Shell] 切场景 `" + scene + "` 失败：" + e.Message +
                                    " —— **黑场已淡回**（不会永久黑屏）；异常不再向上抛，免得打断 `Update`。");
                 }
@@ -224,9 +225,10 @@ namespace CardPresentation
         }
 
         /// <summary>`sceneLoaded` 之后**隔一帧**再淡回（重入的理由 → `LoadSceneWithFade` 里那一句）。</summary>
-        static IEnumerator CoFadeBackAfterLoad(LoadingMenu loading)
+        static IEnumerator CoFadeBackAfterLoad(LoadingMenu loading, UnityEngine.Transform ta)
         {
             yield return null;
+            if (ta != null) WindowsManager.EndTransitionAnchor(ta);   // 🆕 2026-11-02（`B118-W21` · `#203`）：淡回前把过渡期间挂上去的窗归位
             if (loading != null) loading.LoadingFade(false);
         }
 

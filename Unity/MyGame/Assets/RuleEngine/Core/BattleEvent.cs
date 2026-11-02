@@ -489,7 +489,7 @@ namespace RuleEngine
         /// ⚠️ 纯表现信号：走 `ctx.Signals.Add`（与 <see cref="GainQuest"/> 同一条路）、**不进 `ctx.Events`**
         /// ⇒ **不动 `NetProtocol.Fingerprint`**、不进动作流、不影响本地录像 / 联机。</para>
         /// </summary>
-        QuestSpent,
+        QuestSpent, Fatigue,   // 🆕 2026-11-02（执行写手 `B118_W11` · 活状态表 `D118-41`）：**疲劳（牌库抽空）** —— 一方的牌库被抽空、督军吃了一次疲劳伤害。**字段**：`Player` = 牌库空那一方 · `Slot` = `BoardSpec.WarlordSlot`（恒 4）· `CardId` = 该方督军卡名 · `Amount` = **本次疲劳伤害**（= 自增后的 `PlayerState.Fatigue`，与紧随其后那条 `Hit` 同量）。**判据**（第一权威，逐句）= 原版 `BattleManager._ResolveFatigue_d__587__MoveNext.c`：`UIMessageController.ShowError(文案)` → `DealMultiDamage(量 = 疲劳值, 类型 = 2)` → `yield return new WaitForSeconds(0.5f)`；原版**没有**「疲劳事件」这种东西（那条协程天然知道），我们引擎同步、表现层只拿得到事件流 ⇒ 必须专开一条才不用猜。🔴 **发出点只此一处** = `RuleCore.MoveDeckTopToHand` 的牌库空分支、**排在 `EmitHit` 之前**（原版次序 = 横幅 → 伤害）。⚠️ 零时长（登记在 `EventTiming.ZeroDurationKinds`）：它与紧随的 `Hit` 同一拍，多占时长会拖长节奏。⚠️ **同一物理行追加 = 刻意零行数变化**（本文件 `:874` 有账落点，铁律 18·b）
     }
 
     /// <summary>

@@ -307,5 +307,11 @@ namespace CardPresentation
             //   ⇒ 加完之后**如果变成可领**，就刷一次锻造红点。我们的 `HasToCollect` = `GetRewardsToCollect().Any()`。
             if (HasToCollect(army)) UiBadgeNotificationManager.Refresh(typeof(ForgeBadge));
         }
+        // 🆕 2026-11-02（`B118_W24` · 账 #211/#212）：**调用链已探到底，确认 D 无误** —— `ForgeHandler.CollectPoints` 的
+        //   唯一上游是 `Points<ForgeHandler>.Collect`（`decomp_generic_trial/out/Points_object___Collect__112cd30.c`：先
+        //   `LiveOpsManager.GetHandler<T>()` 再接口分派），而 `Points.Collect` 只被 `RewardService.Collect` 的
+        //   `typeof(Points)` 支调用（`RewardService.cs:681-694`）；`ForgePoints` 全库只在**服务端奖励表**出现
+        //   （`CSVReader.cs:202` 的 `== "ForgePoints"`）+ 一个 Debug 钮（`ForgeWindowTab.GiveForgePointsButtonOnClick` → 云脚本
+        //   `CloudHandle.GiveForgePointsTest = 881`）⇒ **客户端没有「打赢给锻造点」这条路**，⛔ 别在结算里自造。
     }
 }

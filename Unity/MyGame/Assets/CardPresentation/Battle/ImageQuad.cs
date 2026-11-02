@@ -216,7 +216,7 @@ namespace CardPresentation
             var prev = _tex;
             bool sizeChanged = !SameTexSize(prev, t);
             _tex = t;
-            if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.mainTexture = t;
+            if (_mr != null && _mr.sharedMaterial != null) _mr.sharedMaterial.mainTexture = t != null ? t : (prev != null ? prev : MissingQuadTexture(gameObject.name));   // 🆕 `B118-W14`：运行期换图这一口原来**没有判空** ⇒ 绑 null 时 Unity 用内置白图 = 一块不透明白块（`Create` 那一档有判空、`MenuDraw.Rect` 也有，只有这里漏）
             // 🆕 **2026-10-11（A286）：先把图转给登记过的软边子块** —— 照 `SetTint` 的既有形状
             //   （子块是**独立 quad**，不跟着刷就会停在旧图上：**静默**，只有边带那一条不对）。
             //   🔴 **必须走 `SetTextureOnly`（只换图、⛔ 不动 `_aspect`）** —— 子块是**细条**，
@@ -1074,6 +1074,51 @@ namespace CardPresentation
             var one = new Vector4(xMin, yMin, xMax, yMax);
             for (int i = 0; i < n; i++) v4.Add(one);
             mesh.SetUVs(1, v4);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B118-W14` · 判据 `判据/B118_J6_卡牌表示层矩阵.md` §3）
+        //     **`SetTexture(null)` 不许静默变白** —— 这是运行期换图那口唯一的兜底
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  规则（两条，按「有没有上一张图」分）：
+        //   · **有上一张**（`prev != null`）⇒ **留着上一张**。壳侧的「清空」调用点
+        //     （`Shell/EventBadge.SetNotificationData` · `Shell/DraftModeWindow`）都是
+        //     `SetTexture(null)` **紧跟一句 `SetActive(false)`** ⇒ 保留旧图既不画白、也不会有残影；
+        //     而 `_tex` 仍写 null（`Texture` 读口如实反映「已清空」）。
+        //   · **一张都没有**（`prev == null`）⇒ 出声一次 + 一块紫灰占位图（`MissingQuadTexture`）。
+        //  🔶 自己设计（非原版）：缺图时的占位色 · 为什么必须自定：原版是 uGUI `Image.sprite = null`
+        //     （**不画任何像素**，不会变白）；我们世界空间 quad 绑 null 时 Unity 给的是**内置白图**
+        //     ⇒ 语义不同，必须自己补一档。调度台 2026-11-02 裁定。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        static readonly Dictionary<string, Texture2D> _missingQuadTex = new Dictionary<string, Texture2D>();
+        static readonly HashSet<string> _missingQuadWarned = new HashSet<string>();
+
+        /// <summary>自检用：清掉「缺件记账 + 占位图缓存」⇒ 让「第一次出声」可复现。⚠️ 只给 Editor 自检。</summary>
+        public static void ResetMissingDiagnosticsForTest()
+        {
+            _missingQuadWarned.Clear(); _missingQuadTex.Clear();
+        }
+
+        /// <summary>「这张 quad 一张图都没有」时的占位图（按 quad 名缓存 + 出声一次）。</summary>
+        public static Texture2D MissingQuadTexture(string quadName)
+        {
+            string key = string.IsNullOrEmpty(quadName) ? "<unnamed>" : quadName;
+            Texture2D t;
+            if (_missingQuadTex.TryGetValue(key, out t) && t != null) return t;
+            const int n = 4;
+            t = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            t.name = "ImageQuadMISSING_" + key;
+            t.wrapMode = TextureWrapMode.Clamp;
+            var px = new Color[n * n];
+            for (int i = 0; i < px.Length; i++) px[i] = new Color(0.55f, 0.15f, 0.45f, 1f);   // 紫灰：明显不是白
+            t.SetPixels(px); t.Apply(false, false);
+            _missingQuadTex[key] = t;
+            if (_missingQuadWarned.Add(key))
+                Debug.LogWarning($"[ImageQuad] `{key}` 被 `SetTexture(null)` 且**没有上一张图**可留 ⇒ 用占位色顶替"
+                               + "（Unity 对 null 贴图会绑内置白图 = 一块**不透明白块**；判据 → "
+                               + "`判据/B118_J6_卡牌表示层矩阵.md` §3）");
+            return t;
         }
     }
 }

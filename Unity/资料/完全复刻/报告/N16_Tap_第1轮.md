@@ -18,12 +18,12 @@
 | **Unity 建场** | ⏸ **留给调度台** | 命令清单见 §⑥（**一场一场**跑，⛔ 不许 `--all`） |
 
 **一句最该先知道的事（会直接影响验收口径）**：
-> **原版点「棋盘空地」其实也不触发。** 每场那颗 `CardLowBoardLimit` 在原版是 **layer 11（`BoardCardLimit`）**，
-> 而射线掩码是 `0x40000001`（= layer 0 + layer 30）⇒ **它不在掩码里**。判据 §2.2 那句
-> 「玩家点棋盘空地最常撞到的就是它」**与硬数据冲突**（见 §⑤-1，附复现命令）。
-> ⇒ 真机上**能看见反馈的是那些道具**（木桶 / 栅栏 / 发电机 / 隐形 `Collision` 盒），不是棋盘。
-> 另外 `battlearenaemperorschildren` / `battlearenaspacewolves` 两场**全部 tapHits 都不在掩码内**（各只有棋盘那 1 条）
-> ⇒ 这两场**原版也不会有任何地面点击反馈**（照原版＝我们也没有）。
+> 🔴 **2026-11-02（`B118-W9` · 铁律 5 就地钉正）：下面这条结论原来是错的 —— 原版点棋盘空地**有**反馈。** 每场那颗 `CardLowBoardLimit` 在原版是 **layer 11（`BoardCardLimit`）**，
+> 而射线掩码**真身是 `0x40000C01`**（= layer 0 / 10 / **11** / 30；十进制 `1073744897` ⇒ 原先把十进制算成了 `0x40000001`）⇒ **它就在掩码里**。判据 §2.2 那句
+> 「玩家点棋盘空地最常撞到的就是它」**与硬数据一致**（见 §⑤-1，附复现命令）。
+> ⇒ 真机上**棋盘空地也有反馈**（`Default Tap Floor` / `Tap Hit General`），道具另有一套（木桶 / 栅栏 / 发电机 / 隐形 `Collision` 盒）。
+> 另外 `battlearenaemperorschildren` / `battlearenaspacewolves` 两场**只有棋盘那 1 条 tapHit**（没有道具）
+> ⇒ 这两场原版**只有棋盘空地的反馈**、点道具没有（照原版＝我们同）。
 
 ---
 
@@ -39,7 +39,7 @@
 | 死字段两个 | `useTargetAnchor`（全量 ilspy 只有声明）、`instancedParticle`（`PlayParticle.c` 里 `param_1+0x20` 零出现）⇒ **都没补逻辑**，`useTargetAnchor` 只照抄序列化值 |
 | 教程局整件关 | `DEC/TapParticleController__Initialize.c`：`set_enabled(iVar1 != 100)`；`MatchType.Tutorial = 100` |
 | 3D 碰撞体**四种**都要（不止 Box/Mesh） | 13 场实测（按 dump 文件数，含 `X.json`+`X_X.json` 重复）：`BoxCollider` 114 · `MeshCollider` 206（其中 **convex 154**；**去重后 103 条 / convex 77**）· `SphereCollider` 8 · `CapsuleCollider` 2 |
-| **layer 11 不在掩码** | 原版 `globalgamemanagers/TagManager/TagManager_3.json` 的 `layers[]`：0=`Default` · 11=`BoardCardLimit` · 12=`ParticleTapCollider` · 30=`GroundCollider`；掩码 `0x40000001` = bit0 + bit30 |
+| **layer 10/11 都在掩码** | 原版 `globalgamemanagers/TagManager/TagManager_3.json` 的 `layers[]`：0=`Default` · 10=`BoardElements` · 11=`BoardCardLimit` · 12=`ParticleTapCollider` · 30=`GroundCollider`；掩码 `0x40000C01`(`1073744897`) = bit0 + **bit10** + **bit11** + bit30（2026-11-02 钉正；原写「0x40000001 = bit0+bit30、11 不在掩码」是十进制算错） |
 | 每场只有 1 颗控制器 | `assets_full` 里 13 个场景各 1 件（判据 §1.1）；本实现由 `ArenaBuilder` 每场建 1 颗 |
 | 无碰撞体那条（arena3 场根） | `07_场景/battlearena3` 的 `Battle Arena 3 Baked` 有定义但**没有 3D 碰撞体** ⇒ 原版永不触发；清单里 `collider=null`，建场侧**跳过** |
 | 共享 prefab 的 45 条**不是缺口** | `battlesharedresources` 45 条是**prefab 资产自己的对象**；每场场景里有各自的副本（例：leviathan 场景自带 `Bunker_wall` / `Prop_front_3` / `Toxic_pool_wall`）⇒ 逐场抽取已覆盖 |
@@ -50,7 +50,7 @@
 
 | 文件 | 动作 | 说明 |
 |---|---|---|
-| `MyGame/Assets/CardPresentation/Battle/TapParticleController.cs` | **新建** | 独立 `MonoBehaviour`；`CollisionMask=0x40000001`、`MaxHits=3`、`NormalOffset=0.1f`；八道闸；`debugCollisions` 与原版同文案；`Initialize()` 公开（教程局关）；拿不到 `BattleDriver` 10 s 后出声并永久关 |
+| `MyGame/Assets/CardPresentation/Battle/TapParticleController.cs` | **新建** | 独立 `MonoBehaviour`；`CollisionMask=0x40000C01`（🔶 本工程另加 bit8）、`MaxHits=3`、`NormalOffset=0.1f`；八道闸；`debugCollisions` 与原版同文案；`Initialize()` 公开（教程局关）；拿不到 `BattleDriver` 10 s 后出声并永久关 |
 | `MyGame/Assets/CardPresentation/Battle/TapHitMaterialDefinition.cs` | **新建** | 原版字段名逐字（`particleDefinition{particles,audio}` / `delayTimeToPlayAgain` / `useTargetAnchor` / `targetAnchor` / `remainingNotPlayTime`）；`PlayParticle` 照 149 行；粒子按 prefab 缓存；cue 冷却按 cue 静态；`Awake` 关自己、`Update` 减冷却 |
 | `Unity/工具/scripts快照/gen_unity_arena_manifest.py` | 改 | 新增 `TAP_SCRIPT_PID` / `TAP_ASSET_NAMES`（30 个 GUID→名）/ `TAP_HITS_EXPECT`；`read_tap_hits()` 读 def + 四种 3D 碰撞体（含 `MeshCollider.m_Mesh` 名字）+ 锚点 + 世界 TRS；manifest 新增 `tapHits[]`；控制台新增读数与告警。**顺手修了一个既有缺口**：粒子 `matShader` 在 `shader_info()` 解不出时，按材质 `m_Shader` 的 PathID 到 `assets_full/*/Shader/Shader_<pid>.json` 兜底（**只填空值**，见 §⑤-8） |
 | `13 份 arenas/*_manifest.json` | 重跑生成器 | 每份只**新增** `tapHits[]` 段（无删改）；13 场全部用**最终版生成器**跑过 |
@@ -103,8 +103,8 @@
 
 ## ⑤ 没查清 / 已知偏差
 
-1. 🔴 **判据 §2.2 的「棋盘地面最常撞到」与硬数据冲突**（本批发现的**判据错误**，不改判据文件，报给调度台）：
-   `CardLowBoardLimit` 在原版是 **layer 11 = `BoardCardLimit`**，掩码 `0x40000001` **不含 bit11**。
+1. ✅ **（2026-11-02 `B118-W9` 钉正）判据 §2.2 的「棋盘地面最常撞到」是对的** —— 本条原来判它「冲突」是把十进制算错了：
+   `CardLowBoardLimit` 在原版是 **layer 11 = `BoardCardLimit`**，掩码真身 `0x40000C01`（`1073744897`）**含 bit11** ⇒ 它在掩码里。
    复现：`python -I -X utf8 工具/_guid_resolve_probe.py g …` 无关；直接读
    `d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/GameObject/CardLowBoardLimit.json` 的 `m_Layer`（=11）
    + `globalgamemanagers/TagManager/TagManager_3.json` 的 `layers[11]`。**我没有改层**（照原版设 11）。

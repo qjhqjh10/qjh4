@@ -670,9 +670,9 @@ namespace WarpforgeVFX
 //       ⚠️ **为什么必须是这两步**：501 只是「再画一遍」；它**不会**把物体从 URP 默认透明 pass 里拿走。
 //          不先做 (a)(b) ⇒ 同一帧画两遍（`Blend SrcAlpha OneMinusSrcAlpha` ⇒ 扭曲叠两遍、明显更重）。
 //       ⚠️ **顺序**：先 (b) 再开 `redrawAt501`。反过来会有一帧「两边都不画」的空窗（无害，但会让人以为坏了）。
-//       📌 原版自己的 `LayerMask` 取的是哪一层：**查不到** —— 原版的 `UniversalRendererData` 资产
-//          本地没解出来（`assets_full` 里没有带 `m_TransparentLayerMask` 的对象），所以层号由我们自己挑
-//          （自动档取 **9**：全仓资产只用过 0/1/5/6/8/10/20 层，9 空着；⛔ 不用 31 —— `1<<31` 是负数）。
+//       📌 原版自己的 `LayerMask` = **层 6（原版层名 `AfterTransparents`）** —— ✅ 2026-11-02（`B118-W8`）就地订正：
+//          **不是查不到**，判据 = `d:/2/tools/assetripper_out/ExportedProject/Assets/MonoBehaviour/GrabScreenFeatureU6.asset`
+//          的 `settings.LayerMask.m_Bits: 64`（另：原版 renderer `m_TransparentLayerMask = 1207963447`，bit6=0，互相自洽）。
 //
 //  ③ 批处理 / 无帧循环：本 Feature 用的是标准 `ScriptableRenderPass`（**不挂
 //     `RenderPipelineManager` 回调**），没有帧循环时它就是不被调用 —— 不会崩、也不会挂全局状态。

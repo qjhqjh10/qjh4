@@ -415,9 +415,9 @@ namespace CardPresentation
                 //    （原版那个 `WaitForSeconds` 等的正是同一个字段，我们这里已经把它算进动画时长了，
                 //     再加同样的数会**重复计一次**）。
                 // 🔴 **2026-10-23（P1 · 演出时序 ②）**：`DurationOf(Death)` 已从 0.2 改成 **0.7**
-                //    （= `CardFeel.DeathTotal`，整条阵亡协程的寿命）⇒ 「两条 `Death` 的间隔」现在是
-                //    `0.7 + DeathHold 0.1 = 0.8 s` ≥ 每条演出自己的 0.7 s ⇒ **两条阵亡不再重叠**（原版就是串行）。
-                //    ⚠️ `DeathHold` 本身**不动** —— 它是「Hit 那一拍收尾之后到阵亡开场」的间隔，另一件事。
+                //    （= `CardFeel.DeathTotal`，整条阵亡协程的寿命）⇒ 「两条 `Death` 的间隔」= 0.7 + `DeathHold`
+                //    = **0.7 s**（🔴 2026-11-02 `B118_W4` · `B117-41`：`DeathHold` 已归零）≥ 每条演出自己的 0.7 s ⇒ **两条阵亡不重叠**（原版串行）。
+                //    ⚠️ 原来那句「`DeathHold` 0.1 是我们挑的、别动」**已作废** —— 原版协程收尾即放行，那 0.1 是无主节拍。
                 case EvtKind.Death: return DeathHold;
 
                 // 触发：**前置 0**（🔴 2026-11-03 `B117-39`：原版那条协程只有 `WaitForSeconds(0.2)`，无前置 —— `_ResolveTriggerTraitAnim_d__476.c:11-14`；原来排的 `TriggerHold` 0.3 是**通用节拍**、不是 Trigger 专用 ⇒ N 次白等 0.3N s）
@@ -491,7 +491,7 @@ namespace CardPresentation
             //   **没有任何「演多久」的判据**（原版就是 fire-and-forget）。同理 ⛔ 别写成
             //   「按 `Quest UI Trigger` 的时长排」：那会把下一条事件推后一段原版不存在的等待。
             EvtKind.QuestSpent,
-            EvtKind.CollectWaystone,// 收集粒子是**并行**的一发（原版 `CollectWaystoneEffect` 不 `yield`）
+            EvtKind.CollectWaystone, EvtKind.Fatigue,// 收集粒子是**并行**的一发（原版 `CollectWaystoneEffect` 不 `yield`）。｜🆕 2026-11-02（执行写手 `B118_W11` · `D118-41`）：`EvtKind.Fatigue` = **疲劳专用信号**，与紧随其后的 `EvtKind.Hit` **同一拍**（原版 `_ResolveFatigue_d__587__MoveNext.c` 里横幅那一下不占时长，0.5 s 那一段挂在**伤害之后**、由 `B117-T08` 的横幅收尾承担）⇒ 登记成 0，⛔ 别让它掉进「未登记」（那会每抽空一次打一条 LogError）。⚠️ 写在同一物理行 = **刻意零行数变化**（本文件 `:1014` 有账落点，铁律 18·b）
             EvtKind.AmbushExit,     // 原版 `SetAmbush(card,false)` 是普通方法、不阻塞（见 `SourceOf`）
             EvtKind.SecretOrder,    // 日志/揭密那一拍；我们没有它的演出（`RuleCore` 无发出点）
             EvtKind.ShowCardsWindow,// 🆕 原版**非阻塞**（`FinishResolvingAction` 紧跟、无 `yield`）
@@ -943,11 +943,11 @@ namespace CardPresentation
         }
 
 
-        /// <summary>命中和阵亡之间那一下的间隔。**这条是我们挑的**（0.1 = 引擎节拍 `minDelay`）。
+        /// <summary>命中和阵亡之间那一下的间隔。🔴 **2026-11-02（`B118_W4` · `B117-41`）归零 = 0** —— 原版阵亡协程收尾即放行。
         /// ⚠️ 原文写「`VarsGlobal` 资产缺失、查不到」—— **那句过期了**：整表 2026-09-17 已解出，
         /// 但**那个字段（原版等的是 `deathTimeMinionDuration`）我们算在阵亡动画时长里了**
-        /// ⇒ 这里再加同样的数会重复计一次。见上面 `DelayBetween` 里 `EvtKind.Death` 那段注释。</summary>
-        public const float DeathHold = 0.1f;
+        /// ⇒ 再加同样的数会重复计一次；原来那 0.1 是「我们挑的」引擎节拍 `minDelay`（每具尸体白多 0.1 s），已删。</summary>
+        public const float DeathHold = 0f;
 
         /// <summary>
         /// 🔴 **死值 · 无任何生产消费者**（2026-11-02 `B117-39`）：`DelayBetween(next: Trigger)` 已改 0（原版那条协程无前置），全仓只剩本定义与注释引用。⛔ 别拿它当「Trigger 前置」。
@@ -1050,14 +1050,14 @@ namespace CardPresentation
         /// 这一档用到的**每一个数**都**有原版出处**吗（`DurationOf` 与 `DelayBetween` 里属于它的那几格）。
         ///
         /// <para>🔴 **2026-10-23（R17）就地重写（铁律 5）—— 原来是 `{ return true; }`，等于一条自证断言**
-        /// （断言永远绿，问不出任何东西）。现在**逐档查表**，返回 `false` 的两档各有明确原因
+        /// （断言永远绿，问不出任何东西）。现在**逐档查表**，返回 `false` 的档（2026-11-02 起 = `Ability` · 未登记）各有明确原因
         /// （带 `out string` 的那个重载会说给人听）：</para>
         /// <list type="bullet">
-        /// <item><b>`Death`</b> —— 时长 **0.7** 有出处（`CardFeel.DeathTotal` = 整条阵亡协程，
+        /// <item><b>`Death`</b> —— ✅ **2026-11-02 起全有出处**（`B117-41`）：时长 **0.7** 有出处
+        ///   （`CardFeel.DeathTotal` = 整条阵亡协程，
         ///   `BattleManager._ResolveMinionDeath_d__454:113-121` 对 `UnitDeath` 是 `yield return`），
-        ///   但「命中和阵亡之间那一拍」= <see cref="DeathHold"/> **0.1 是我们挑的**
-        ///   （引擎节拍 `minDelay`，见那个常量的注释：「原版那个 `WaitForSeconds` 等的正是
-        ///   `deathTimeMinionDuration`，我们已经把它算进动画时长，再加同样的数会重复计」）。
+        ///   间隔 <see cref="DeathHold"/> **已归零** —— 原版阵亡协程收尾即放行（那个 `WaitForSeconds` 等的
+        ///   `deathTimeMinionDuration` 已算进动画时长，⛔ 不能重复计）；原来那 0.1「我们挑的」已删。
         ///   ⚠️ 2026-10-23 前这里写的时长是 0.2（只算了消散那一段）—— 那一条**已作废**。</item>
         /// <item><b>`Ability`</b> —— 逐卡真值有出处（`AbilityAnimDurations`），
         ///   但**整张表载不到时**退回的 <see cref="AbilityLoadFailSeconds"/> **不是原版值**
@@ -1069,9 +1069,9 @@ namespace CardPresentation
         /// （⛔ 别把它当「这些事件也有出处」来引用）。</para>
         ///
         /// <para>🆕 **2026-10-24（`E2` · `DG2` 红 #1~#3）**：`TimedKinds` 里那 9 档（`Deploy`/`Attack`/`Hit`/
-        /// `Trigger`/`Draw`/`Heal`/`Retaliation` + 上面显式回 `false` 的 `Death`/`Ability`）**也已登记** ⇒
-        /// 除 `Death`/`Ability` 外一律回 `true`。判据 = <see cref="IsRegisteredEventKind"/>（两张表任一登记）。
-        /// `false` 只剩**三种**：`Death` · `Ability` · **未登记**（后者出声）。
+        /// `Trigger`/`Draw`/`Heal`/`Retaliation` + 上面显式回 `false` 的 `Ability`）**也已登记** ⇒
+        /// 除 `Ability` 外一律回 `true`。判据 = <see cref="IsRegisteredEventKind"/>（两张表任一登记）。
+        /// `false` 只剩**两种**：`Ability` · **未登记**（后者出声）；`Death` 自 2026-11-02 起回 `true`。
         /// 🆕 **2026-10-25（`AU1`）**：`Return` 也进了 `TimedKinds`（回手 0.75 / teleport 1.30，判据 →
         /// <see cref="ReturnHoldOf"/>），它有出处 ⇒ 照旧回 `true`。</para>
         /// </summary>
@@ -1089,11 +1089,11 @@ namespace CardPresentation
             switch (kind)
             {
                 case EvtKind.Death:
-                    unsourcedPart = $"`DelayBetween(Death)` = `DeathHold` {DeathHold:F2}s —— **我们挑的**"
-                                  + "（引擎节拍 `minDelay`；原版那个 `WaitForSeconds` 等的是 "
-                                  + "`deathTimeMinionDuration`，已算进阵亡动画时长，⛔ 不能重复计）"
-                                  + $"；时长 {CardFeel.DeathTotal(false):F2}s 本身有出处（`CardFeel.DeathTotal`）";
-                    return false;
+                    // 🔴 2026-11-02（`B118_W4` · `B117-41`）：`DeathHold` 已归零 ⇒ 这一档**全部有出处**
+                    //    （原版阵亡协程收尾即放行，不再白多 0.1 s）。时长 0.7 的判据 = `CardFeel.DeathTotal`；
+                    //    间隔 0 = 原版无额外 `WaitForSeconds`（那个 `deathTimeMinionDuration` 已算进协程寿命）。
+                    //    ⚠️ 这一支**不再写 `unsourcedPart`、不再回 `false`** —— 与「已登记档一律回 `true`」同口径。
+                    return true;
                 case EvtKind.Ability:
                     unsourcedPart = $"整张表载不到时退回的 `AbilityLoadFailSeconds` {AbilityLoadFailSeconds:F2}s "
                                   + "**不是原版值**（保守档 = 真值表的中位数，恰好等于旧常数；表里没有这张卡时是 0 s，有出处）";

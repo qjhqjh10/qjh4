@@ -212,7 +212,7 @@ namespace CardPresentation
             if (at == null) return false;
             var name = PrefabFor(trait, ArmyOf(armyFrom));   // 🆕 原版这一档也按卡阵营取 override
             if (string.IsNullOrEmpty(name)) return false;
-            var p = WarpforgeEffectPlayer.Play(name, SpawnAnchor(at), Vector3.zero, 1f);
+            var p = WarpforgeEffectPlayer.Play(name, SpawnAnchor(at), Vector3.zero, 1f); StampToOwnerCard(at, p != null ? p.transform : null);
             if (p == null)
             {
                 Debug.LogWarning($"[TraitParticles] 效果库里没有 `{name}`（trait `{Norm(trait)}` 的 FromCode 粒子）"
@@ -316,5 +316,44 @@ namespace CardPresentation
             var cv = at.GetComponent<CardView>();       // ⚠️ **只认「这一层就是卡」**，⛔ 不用 GetComponentInParent
             return cv != null ? cv.EffectAnchor(true) : at;   // （否则会把已经传对的锚再包一层）
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B118-W14`）**这颗粒子也要进所属那张卡的排序段**
+        // ══════════════════════════════════════════════════════════════════════════════
+        //  缺陷（只读诊断 `判据/B118_J6_卡牌表示层矩阵.md` §5-②）：本类原来**直接**调
+        //  `WarpforgeEffectPlayer.Play`，**从不登记 `_effectRoots`** ⇒ 实例停在 prefab 默认队列
+        //  **3000**；而场上卡整段是 **2962–2979**（`Board/BoardLayout.cs`）。按本仓自己的口径
+        //  「停在 3000 的透明件**恒画在所有场上卡之上**」（`CardView.cs` 那段「卡上特效跟着这张卡排队」）
+        //  ⇒ 关键词粒子会**穿过**前排其它卡。
+        //  对照：`CardEffects.Fire` 那条链会调 `CardView.StampEffectRoot`（`CardEffects.cs:FireOne`
+        //  的 `StampNewChildren`）—— **本类是漏掉的那一条**，不是另立一套。
+        //  判据：原版 `ResolveTraitAnim` 把实例挂在 `actingCard` 的 `effectsAnchor` 下
+        //  （`d:/2/tools/decomp_full/BattleManager._ResolveTraitAnim_d__465__MoveNext.c:112-118`，
+        //   全文见 `SpawnAnchor` 上面那段）⇒ 它**就是**「这张卡身上的特效」，该跟着这张卡排。
+        //  ⚠️ 「登记之后」的两条路都有现成的实现，⛔ 不要在本类再写第二份：
+        //    · **卡换段** ⇒ `CardView.SetQueue` 会遍历 `_effectRoots` 调 `StampEffectRootNow`（跟着换）；
+        //    · **收起/自毁** ⇒ 同一趟里 `fx == null` 的条目被摘掉（特效播完会自毁）。
+        // ══════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>把刚播出来的实例登记到 `at` **所属那张卡**的排序段（从 `at` 向上找 `CardView`）。
+        /// <para>返回 <c>false</c> = 找不到所属卡（世界 / 棋盘特效、或 `at` 不在任何卡下）⇒
+        /// **保持原行为**（不盖章）并**出声一次**（同一挂点名只报一次）。⚠️ 那种件停在 3000 是
+        /// 它自己那笔账，⛔ 不是这里能替它决定的。</para>
+        /// <para>⚠️ `fxRoot == null`（`Play` 没建出实例）⇒ 静默返回 false —— 失败已经在 `Play` 那侧出过声。</para></summary>
+        public static bool StampToOwnerCard(Transform at, Transform fxRoot)
+        {
+            if (fxRoot == null) return false;
+            var cv = at != null ? at.GetComponentInParent<CardView>() : null;
+            if (cv != null) { cv.StampEffectRoot(fxRoot); return true; }
+            string key = at != null ? at.name : "<null>";
+            if (_noCardOwnerWarned.Add(key))
+                Debug.LogWarning($"[TraitParticles] FromCode 粒子的挂点 `{key}` 不在任何 `CardView` 下"
+                               + " ⇒ 不登记排序段（它会停在默认队列 3000 = 恒画在所有场上卡之上；"
+                               + "原版这一档的实例一定挂在某张卡的 `effectsAnchor` 下）");
+            return false;
+        }
+
+        /// <summary>「这个挂点找不到所属卡」只出声一次（同一挂点名）。</summary>
+        static readonly HashSet<string> _noCardOwnerWarned = new HashSet<string>();
     }
 }

@@ -134,7 +134,7 @@ namespace CardPresentation
         public bool Applied { get; private set; }
 
         /// <summary>应用一条环境。`instant` = 直接到位（原版 `EnableEnvironment(instant)`）。
-        /// 同一条 SO **不重播**（原版那条判据）。传 null / 空 SO = **撤掉当前环境**（回默认态）。</summary>
+        /// 同一条 SO **不重播**（原版那条判据）。传 null / 空 SO = **撤掉当前环境**（回默认态）。🔶 自己设计（非原版）：`Apply(null)` 这条「撤环境 + 把混合量收回 `_fog0/_amb0` 并置 `_blend = 0`」原版**没有**（原版 `ScenarioEnvironmentConditionsManager.ApplyEnvironment` 对 null 是 `CustomDebug.LogError` 后 no-op）· 为什么必须自定：生产 0 调用点、只有自检 `Editor/BattleScene.cs` 用这条回默认态，原版也没有别的回滚口 · 调度台 2026-11-02 裁定。</summary>
         public EnvironmentApplier Apply(EnvironmentConditions.Item it, bool instant)
         {
             string want = it != null ? it.so : "";
@@ -252,7 +252,7 @@ namespace CardPresentation
                         if (f.mine[k] != null) f.mine[k].Advance(dt);
                 AdvanceSpawners(f.spawners, f.controllers, dt);            // 🆕 A137
                 // 原版靠**每个 blendable 的 OnComplete** 计数归零才 Destroy；
-                // 🔶 自己设计（非原版）：`blendTime + 1s` 的兜底超时 · 原版靠每个 blendable 的 OnComplete 计数，我们加一道防永远不回调（原版判据拿不到） · TODO(谁定的)｜原注：这里再加一道**兜底超时**（`blendTime + 1s`）—— 有组件永远不回调时**出声**，不静默挂着。
+                // 🔶 自己设计（非原版）：`blendTime + 1s` 的兜底超时 · 原版靠每个 blendable 的 OnComplete 计数，我们加一道防永远不回调（原版判据拿不到） · 调度台 2026-11-02 裁定（`B118-W8` 补全）｜原注：这里再加一道**兜底超时**（`blendTime + 1s`）—— 有组件永远不回调时**出声**，不静默挂着。
                 if (f.pending <= 0) { FinishFadeOut(f, false); _fading.RemoveAt(i); }
                 else if (f.left > Mathf.Max(1f, f.timeout)) { FinishFadeOut(f, true); _fading.RemoveAt(i); }
             }

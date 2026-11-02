@@ -277,11 +277,11 @@ namespace CardPresentation
 
         // 🆕 2026-10-29（`B95_MISC` · 本批①）：头像立绘 `Avatar Item Small/Image Container/Image` 的**视觉框**。
         //   判据 = `python 工具/menu_dump.py bundle_scenes_scenes_battlearena1 "Alliance Panel" --depth 6 --no-sprite` 现读：
-        //   `Image Container` = `10.0,63.6 → 180.0,182.8`（170.0×119.2 · `localScale 0.8`）；`Image` 是它的 stretch 子件、`apos.y = 2.7` ⇒ 布局框 = 同尺寸**上移 2.7**（中心 `(95.0,120.5)`）。
+        //   `Image Container` = `10.0,63.6 → 180.0,182.8`（170.0×119.2 · `localScale 0.8`）；`Image` 是它的 stretch 子件、`apos.y = 2.7` ⇒ 布局框 = 同尺寸**上移 2.7**（中心 `(95.0,120.5)`）。🔴 2026-11-02（`B118-W3` · `B117-T03` · 铁律 5）：`apos.y = 2.7` 是**局域单位**，屏幕位移 = `2.7 × 0.8 = 2.16` ⇒ 布局框 `(9.97,61.39)-(179.99,180.61)`、中心 **(94.98, 121.00)**（旧值 120.50 少乘了父链 0.8）。
         //   🔴 **2026-10-30（`B101_W3` · 铁律 5 就地订正）**：原来这里写「视觉框 ×2 是 `EverguildButtonMaterialModifier` 的**运行时**视觉缩放、本窗不复制」——**不成立**：① ×2 是 `RectTransform.m_LocalScale` **序列化在 prefab 里**的（`报告/B101_P1_prefab视觉参数普查.md` §2·1，9/9 实例同值，不需要运行期）；
         //   ② 那个类全文 `localScale` **0 命中**（只有 `GetModifiedMaterial`/`ChangeCanvasColor`/`ToogleGreyScale`/`SetMaterialDirty`）⇒ 本窗**按 ×2 复刻**。
         //   ⇒ 视觉 340.0×238.4（原版普查 340.05×238.43，差 0.05 = 容器宽 170.0 vs 170.02）；⚠️ 它会**戳出头像框**（原版就是这样）。贴图 `preserveAspect` 内接。
-        public static readonly PxRect AvatarImageR = AvatarTab.ScaleAboutCenter(new PxRect(10.0f, 60.9f, 180.0f, 180.1f), AvatarTab.ScaleImage);
+        public static readonly PxRect AvatarImageR = AvatarTab.ScaleAboutCenter(new PxRect(9.97f, 61.39f, 179.99f, 180.61f), AvatarTab.ScaleImage);
 
         // `Name:` / 名字（`NameHolder` = VLG 第 0 格，高 42.573 ⇒ y[62.498, 105.071]）
         static readonly PxRect NameRowR = new PxRect(180.000f, 62.498f, 556.959f, 105.071f);

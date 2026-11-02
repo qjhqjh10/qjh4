@@ -388,7 +388,7 @@ namespace CardPresentation
             ClearDropIndicator();
             if (card != null)
             {
-                card.SetHighlight(CardHighlightState.Normal);
+                card.SetHighlight(CardHighlightState.Normal); card.SetOutline(CardHighlight.OutlineOf(null, canBePlayed: true));   // 🔴 2026-11-02（`B118-W18`）：拖拽被打断 ⇒ **描边必须回到「手牌可打出」那一档**（#1C7101），⛔ 不许把「打出」那一刻写下的 select 色（#003765 / 传说 #FF6203）留在手上。原版手牌里的 `_Outline` 恒为 `cardPlayableColor`，只有 `CardScript__MoveIntoFieldFromHand.c:42` 那一下才换成 select 色。⚠️ 这里用 `OutlineOf(null, true)` = `OutlinePlayable`：本层拿不到引擎的「手牌可打出」判据（费用/能量在引擎侧），下一次 `RefreshHandPlayable` 会按真值重刷 —— 这一句只负责「别把蓝留在手上」。
                 Debug.Log("[CardPresentation] 拖拽被中止（" + why + "）⇒ " + card.name
                         + " 收回手牌（原版 `MoveBackToHand` 同一结局，⛔ 不结算、不播 cantdo）");
             }
@@ -904,7 +904,7 @@ namespace CardPresentation
             _insertIndex = Mathf.Clamp(_cards.IndexOf(card), 0, Mathf.Max(0, _cards.Count - 1));
             SetHovered(-1);
 
-            card.SetHighlight(CardHighlightState.Selected);
+            // 🔴 **2026-11-02（`B118-W18`）整句已删** —— 原句是 `card.SetHighlight(CardHighlightState.Selected);`（起拖给那张手牌挂一个**白状态环**，我们自加）。判据：原版起拖那一路**不动高亮** —— `CardScript__StartMovingFromHand.c` 全文五句（`cardState=9` / `Play2D(MoveCardIntoBattle)` / `BattleManager.StartMovingCardInHand` / `DOScale` / `DisplayCreatedByText`）**没有** `ChangeState`；`CardScript__OnTouchDown.c` 里唯一那句 `CardHighlight__ChangeState(2)` 在 **`cardState == 2 (inPlay)`** 那一支（= 棋盘单位），而 **`cardState == 1 (inHand)`** 那一支是 `if (isPlayer) return;`（自己手牌**直接返回、什么都不做**）⇒ 手牌按下/拖拽期间状态环**必须 α=0**。⇒ 白环同属自加，⛔ 别写回来。
             // 🔴 2026-10-24（`A26`）：ease 这一档的口径 —— **单补间传 `OutQuad`，Sequence 才传 `Linear`**。
             //   判据 = 原版 `CardScript.StartMovingFromHand`
             //   （`d:/2/tools/decomp_full/CardScript__StartMovingFromHand.c`，亲读）：拿起手牌只开**一条**
@@ -1082,7 +1082,7 @@ namespace CardPresentation
             int boardSlot;
             BoardLayout which;
             bool ok = ResolveDrop(world, _dragging, out boardSlot, out which);
-            _dragging.SetHighlight(ok ? CardHighlightState.ValidTarget : CardHighlightState.Selected);
+            // 🔴 **2026-11-02（`B118-W18`）整句已删** —— 原句是 `_dragging.SetHighlight(ok ? CardHighlightState.ValidTarget : CardHighlightState.Selected);`。判据（`B118_J8` §4 + 反编译）：原版**被拖的那张手牌从头不进状态环** —— 绿环 `potentialTargetInBoard` 只点**棋盘上的候选单位**（`BattleManager.ShowPotentialTargets` 只遍历 `unitsInPlay`），`BattleManager__Update` 的拖拽全程**不碰** `_Outline`、**不碰**状态环；`CardScript__StartMovingFromHand.c` 五句里也没有 `ChangeState`。⇒ 「合法落点 = 绿环」是我们自加的，⛔ 别再写回来。⚠️ 上面 `:1072` 那行小节标题「落点是否合法 → 实时反映在卡的着色上」随之**作废**（着色那条路整条不做了；落点反馈只走**底片** `ShowDropIndicator`，判据在原版 `SetCardShadow` 那一条）。
 
             // 🆕 2026-10-01（§〇 第 14 条 (b)）：**落点指示** —— 只点亮**它会去的那一格**。
             //   判据 = 原版 `MinionManager.ReassembleMinionsWhilePlayingUnit` 里那句
@@ -1445,7 +1445,7 @@ namespace CardPresentation
                 if (!tactic) _placed[land] = card;
                 // 从手牌里拿掉：之后的手牌重排不该再算它
                 _cards.Remove(card);
-                card.SetHighlight(CardHighlightState.Normal);
+                card.SetHighlight(CardHighlightState.Normal); card.SetOutline(CardHighlight.OutlineSelectOf(card.Data.rarity)); _deployingView = card;   // 🔴 2026-11-02（`B118-W18`）：**松手打出的这一刻**把 SDF `_Outline` 换成 select 色 —— 原版 `CardScript__MoveIntoFieldFromHand.c:42`（`isPlayer != 0` 那一支）→ `BattleCardUI__ChangeHighlightToSelectColor.c:6-24`：`cardSelectedColor` **#003765**（0,55,101），`rarity == legendary` 走 HDR 橙 **#FF6203**（原值 r = 1.3041 > 1）。这就是玩家说的「淡蓝卡框边缘光」。`_deployingView` = 「已进入打出链」的闸，给 `RefreshHandPlayable` 跳过用（见 `IsDeployFlowing` 的 doc）。
                 // 🔴 **2026-10-11（A337）补间的【终点】必须用 `which.DropTargetWorld(land)`，不是 `SlotPosition`。**
                 //    3D 战场下 `SlotPosition` 是**2D 行线**上那个点（屏上 708 px），而落位交接时
                 //    `SyncBoard` 把这张卡摆到 `ArenaSlots.RootPosition`（屏上 631~657 px，**逐格不同**）
@@ -1482,7 +1482,7 @@ namespace CardPresentation
                                              which.DropTargetWorld(land),
                                              which.placedScale * LayoutSpace.Scale,
                                              handoff,
-                                             () => { if (OnDeployed != null) OnDeployed(card, slot); });
+                                             () => { if (ReferenceEquals(_deployingView, card)) _deployingView = null; if (OnDeployed != null) OnDeployed(card, slot); });   // 🔴 2026-11-02（`B118-W18`）：飞完（= 落位 / 战术卡 inline 立即）才摘掉「打出链」闸 —— 那之前 `RefreshHandPlayable` 不许把这张的描边刷回绿（见 `IsDeployFlowing`）。
                 tw.SetUpdate(CardTween.Mode);
                 // 🔴 **出牌那个特效不在这里播**（2026-09-15 修）—— 驱动层收引擎的 `EvtKind.Play`
                 //    事件时已经在**格位**上播了同一个 `VfxMap.PlayCard`，这里再播一次等于**打一张牌
@@ -2246,5 +2246,30 @@ namespace CardPresentation
         /// <summary>自检口（`B117F11_Assert` 用；⛔ 生产别调）：直接走**生产那条起拖路径** `PickUp`
         /// —— 用来钉住「拾起那一刻就响 `moveCardIntoBattle`」（`B117-33`）。</summary>
         public void PickUpForTest(CardView card, Vector3 world) { PickUp(card, world); }
+
+        // ==================================================================
+        //  🆕 2026-11-02（`B118-W18`）· 「已进入打出链」的那一张
+        // ==================================================================
+        //  为什么需要它：`Release` 的合法支必须把 SDF `_Outline` 写成 select 色
+        //    （原版 `CardScript__MoveIntoFieldFromHand.c:42` → `ChangeHighlightToSelectColor`），
+        //    而**同一张卡此时还在引擎手牌里** —— `BattleDriver.OnCardDeployed → DoPlay` 要等
+        //    `DeploySequence` 飞完（0.65 s）才跑，`_handViews.Remove(card)` 也在那之后
+        //    （`BattleDriver.cs:14126`）。这 0.65 s 里只要 `SyncAll()` 跑一次
+        //    （`BattleDriver.cs:19442`）就会 `SyncHand() → RefreshHandPlayable()`
+        //    （`BattleDriver.cs:28152-28176`：`_handViews` 与 `p.Hand` **都还含这张**）
+        //    ⇒ 描边被刷回绿、玩家看到的「淡蓝」只闪一帧。
+        //  ⇒ 本类记住这张卡，驱动层在 `RefreshHandPlayable` 里用 `IsDeployFlowing` **跳过它**。
+        //  ⚠️ 摘除点只有一处：`DeploySequence.Play` 的 `onDone`（上面那段 lambda）。
+        //  ⚠️ 视图被销毁后 `ReferenceEquals` 自然失配（Unity 的假 null 会先让 `v != null` 为假）
+        //     ⇒ 残留标志不会永久压住别的卡；`PickUp` 也会在拿起新一张时覆盖它。
+        CardView _deployingView;
+
+        /// <summary>这张视图**是不是正走在「打出链」上**（松手合法 → 飞出 → `DoPlay`）。
+        /// 专门给 `BattleDriver.RefreshHandPlayable` 用：**是则不许重设它的 `_Outline`**
+        /// （否则蓝光会被下一帧刷回绿）。判据见 `_deployingView` 那段。</summary>
+        public bool IsDeployFlowing(CardView v) { return v != null && ReferenceEquals(v, _deployingView); }
+
+        /// <summary>自检读口：正走「打出链」的那一张（没有 ⇒ null）。⛔ 生产别用。</summary>
+        public CardView DeployingViewForTest { get { return _deployingView; } }
     }
 }

@@ -114,7 +114,7 @@ using UnityEngine.UI;
 
 namespace CardPresentation
 {
-    public class UnitChatPanel : MonoBehaviour
+    public partial class UnitChatPanel : MonoBehaviour
     {
         // ---- 原版实测（1920×1080，y 从上算）----
         // 🔴 **2026-10-16（`G5` 收口波 · 消重）**：这里原来有一对 `const float RefW = 1920f, RefH = 1080f;`
@@ -649,8 +649,8 @@ namespace CardPresentation
 
             b.bg = Quad(at, b.left + BubbleW * 0.5f, topPx + BubbleH * 0.5f, radio, BubbleH, "chat_bg_" + name, ZBg);
             // 卡图先拿一张**占位**建起来（原版是运行时 `set` sprite）—— 说话时再 `SetTexture` 换成那张卡的立绘
-            b.portrait = Quad(at, b.left + PortraitCx, topPx + PortraitCy, CardArt.Solid(), PortraitH,
-                              "chat_card_" + name, ZPortrait);
+            // 🔴 2026-11-02（`B118-W3` · `B117-T09`）：uGUI 档改成**原版结构** —— `RectMask2D` 遮罩 144.457×157.465 + 子图 **176×176**（画大再裁）
+            b.portrait = MakePortrait(at, b.left + PortraitCx, topPx + PortraitCy, "chat_card_" + name, ZPortrait);
             // 🔴 **2026-10-21（第六十会话 · 真机缺陷：头像被底板挡住）**：立绘 PNG 的 alpha 是
             //    **角色抠图**（`art_*.png` 81% 透明），按默认 UI 材质画会把 81% 透出底板 ⇒ 看着像「头像被挡」。
             //    原版这一格挂 `Card Image Overflow` 材质（完整插图）；我们用等价的 `ArtOpaque`
@@ -687,7 +687,7 @@ namespace CardPresentation
             //   幂等；世界档照旧由 `Place` 在每次 `RefreshLayout` 时写（值相同、逐位不变）。
             //   ⛔ 别改成撤掉 `RefreshLayout` 的早退 —— C3 的「幂等空转」两条断言（⑤⑥）要它不写几何。
             if (b.bg != null) b.bg.SetAspect(BubbleW / BubbleH);
-            if (b.portrait != null) b.portrait.SetAspect(PortraitW / PortraitH);
+            if (b.portrait != null && !HasPortraitMask(b)) b.portrait.SetAspect(PortraitW / PortraitH);   // 🔴 T09：有遮罩时子图恒 176×176（原版 `m_PreserveAspect = 0`），⛔ 别拽回 144.46×157.46
             if (b.wave != null) b.wave.SetAspect(WaveW / WaveH);
 
             // 文本区原版是 anchor(0.29062,0.25823)-(0.97362,0.60365) 的**拉伸矩形**、
@@ -892,8 +892,8 @@ namespace CardPresentation
             float left = at.left, topPx = at.top;
             Move(b.bg, left + bubbleW * 0.5f, topPx + BubbleH * 0.5f, ZBg, at.ax, at.ay);
             if (b.bg != null) b.bg.SetAspect(BubbleW / BubbleH);        // 原版 `m_Type=0` 纯拉伸
-            Move(b.portrait, left + PortraitCx, topPx + PortraitCy, ZPortrait, at.ax, at.ay);
-            if (b.portrait != null) b.portrait.SetAspect(pw / ph);
+            MovePortrait(b, left + PortraitCx, topPx + PortraitCy, ZPortrait, at.ax, at.ay);
+            if (b.portrait != null && !HasPortraitMask(b)) b.portrait.SetAspect(pw / ph);   // 🔴 T09：遮罩档子图恒 176²（原版 `m_PreserveAspect = 0`）
             Move(b.wave, left + WaveCx, topPx + WaveCy, ZWave, at.ax, at.ay);
             if (b.wave != null) b.wave.SetAspect(WaveW / WaveH);        // 图是 708×96 ⇒ 这里就是原版那次非等比拉伸
             Move(b.text, left + TextLeft, topPx + TextCy, ZText, at.ax, at.ay);
@@ -1080,7 +1080,7 @@ namespace CardPresentation
                 if (tex != null)
                 {
                     b.portrait.SetTexture(tex);
-                    b.portrait.SetAspect(PortraitW / PortraitH);   // 换图会带进贴图比例，拽回原版矩形
+                    if (!HasPortraitMask(b)) b.portrait.SetAspect(PortraitW / PortraitH);   // 🔴 T09：遮罩档子图恒 176²（原版 `m_PreserveAspect = 0`，压满会把「画大再裁」又改回「压满遮罩」）
                 }
             }
             // 🔴 **先亮起来，再量尺寸** —— TMP 在**非激活**对象上量不出尺寸（`textBounds` 是垃圾值），

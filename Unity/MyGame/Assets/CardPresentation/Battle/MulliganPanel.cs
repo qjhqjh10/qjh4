@@ -1555,7 +1555,7 @@ namespace CardPresentation
             if (!_contentHidden && HitDone(world))
             {
                 var marks = Marked;
-                if (OnDone != null) OnDone(marks);
+                if (OnDone != null) OnDone(marks); PlayButtonCue("MulliganContinueButton");   // 原版 `EverguildButton.OnPointerClick`：**先动作、后音**
                 return true;
             }
             if (HitEye(world))
@@ -1567,7 +1567,7 @@ namespace CardPresentation
                 //   `mulliganButton`（完成钮）· `ShowMulliganCards`（**卡体本身** + 每份 `MulliganFrame` = 钮/字/红标记）·
                 //   `Shade`。⇒ 提示行、完成钮、卡体、红标记**原来都还留在屏幕上**（玩家按眼睛就是为了看战场）。
                 //   收/放的名单与判据全文 → `SetContentHidden` 那条 doc（⛔ 别在这儿抄第二份）。
-                SetContentHidden(!_contentHidden);
+                SetContentHidden(!_contentHidden); PlayButtonCue("HideMulliganButton");   // 先动作、后音（同上）
                 return true;
             }
             // 内容被眼睛收起来了 ⇒ 原版那几件全是 `inactive`、收不到射线 ⇒ 其它一律**吃掉但不动作**。
@@ -1977,7 +1977,30 @@ namespace CardPresentation
             if (!_contentHidden) return;
             _contentHidden = false;
             for (int i = 0; i < _cards.Count; i++)
-                if (_cards[i] != null) _cards[i].gameObject.SetActive(true);
+                if (_cards[i] != null) { _cards[i].gameObject.SetActive(true); _cards[i].RestampQueuesAfterEnable(); }   // 🔴 2026-11-02（`B118-W2` · `B117-R73`）：这里是**第二条**「收起再放开」路径（`Close()` 用它把被眼睛收起的卡放回来）—— 原来只设 `activeSelf`、不重盖队列 ⇒ 子网格材质在延迟一拍的重建里退回 3000。判据/机制 → `CardView.RestampQueuesAfterEnable` 与类尾 `_enableRestampPending` 的 doc；`CardView` 侧另有「下一帧自动重盖」（批处理没有帧循环 ⇒ 这一句必须留着）
+        }
+
+        // ==================================================================
+        //  点击音（`B118-W1` · 2026-11-02 · 追加在类尾）
+        // ==================================================================
+        /// <summary>换牌面板两颗钮的**点击音**（原版 `EverguildButton.PlayButtonSound`）。
+        ///
+        /// <para>🔴 **判据（`battlearena1` 逐颗现读）**：
+        /// `Mulligan/ButtonsGroup/HideMulliganButton`（MB 4464）与
+        /// `Mulligan/ButtonsGroup/MulliganContinueButton/Button`（MB 4025）都是 `EverguildButton`，
+        /// **`useDefaultAudioClipIfNull = 1` 且 `m_onClickSound` 为空** ⇒ 点它们都响
+        /// `SoundManager.defaultButtonSound` = 我们的 <see cref="WindowSounds.DefaultButtonCue"/>。</para>
+        ///
+        /// <para>🔴 **为什么走手搓路而不是补 `BattleHudButton`**：这两颗在本面板里是**手搓矩形命中**
+        /// （`HitDone` / `HitEye`，见 `HandleClick`），全文件 0 处 `BattleHudButton`
+        /// （2026-11-02 现核）⇒ 补 uGUI 适配器等于把整条命中链换掉，那是另一件事（`T09` A4 的活）。
+        /// 这里只把**缺的那一声**补上：动作照旧由 `HandleClick` 派，音在动作之后放
+        /// （原版 `EverguildButton.OnPointerClick` 的次序：**先 `base.OnPointerClick`、再 `PlayButtonSound`**）。</para>
+        ///
+        /// <para>⚠️ 只报一次的那条「cue 表里查不到」在 <see cref="WindowSounds.PlayFx"/> 内部（⛔ 别在这里再写一份）。</para></summary>
+        static void PlayButtonCue(string node)
+        {
+            WindowSounds.PlayFx(WindowSounds.DefaultButtonCue, "换牌面板 `" + node + "`");
         }
     }
 }

@@ -115,7 +115,7 @@ public static class B117_G10_06_Assert
             layout.Refresh(made, 0, 0);
 
             Vector3 wantHover = layout.SlotPosition(1, 4);        // hole ⇒ slots = 4，index 0 排到 slot 1
-            wantHover.y += layout.hoverLift;
+            wantHover.y = (layout.areaOffsetY - 0.5f) * LayoutSpace.VisibleHeight + layout.hoverLift;   // 🔴 2026-11-02（`B118-W2` · `B117-R64`）：悬停是**绝对 y** = 手牌区底边 + `hoverLift`
             wantHover.z += -layout.frontZ;
             Check(Vector3.Distance(made[0].transform.localPosition, wantHover) < 1e-3f,
                   $"A1 悬停那张**当场**抬到抬起位（回归 `B117-32`；期望 {wantHover}，实得 {made[0].transform.localPosition}）");

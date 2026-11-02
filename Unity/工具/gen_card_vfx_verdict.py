@@ -1,17 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""gen_card_vfx_verdict.py —— 生成 `资料/完全复刻/判据/全卡核验_判定.tsv`（一行 = 一张卡 × 四维）。
+"""gen_card_vfx_verdict.py —— 🔴 **已被 `gen_全卡核验_判定.py` 取代，⛔ 别用它生成产物**。
+
+    🔴🔴 2026-11-02（`B118_W5`）· 本条是**唯一现行口径**：
+        产物 `资料/完全复刻/判据/全卡核验_判定.tsv` 现在**只由** `工具/gen_全卡核验_判定.py` 生成
+        （`--check` / `--write`）。那边多了两条本脚本**没有**的判定档，跑本脚本会把它们打回去：
+          ① `activeAbility` 行而 `hasActiveAbility`≠1 ⇒ **原版自己也不消费**（不参与判定）；
+          ② 无效果树（`triggerAbilityIndices=[]` ∧ 无 ability 行）⇒ **`免测`**，⛔ 不是「未验到」。
+        两个脚本写的是**同一个路径** ⇒ 留着两套 = `两处写同一条规则，迟早不一致`（CLAUDE.md 那条）。
+        ⇒ 本脚本**只保留一个用途**：`--rules legacy` 的**回归自证**（逐字复刻 B107_W25 口径，
+          与 2026-10-31 14:39 那份旧表逐格对比）。**它不再能写那个共享产物**。
 
 判据/规格：`资料/完全复刻/判据/B9_全卡端到端核验_规格.md` §三 S2 / §四·2。
 本脚本 = 把 **B107_W25** 那次「会话临时目录里的 join」重建并落盘（W25 报告 §七 明说脚本没进仓库）。
 
-⛔ 无参 = 只打用法并退出，**不写盘**；显式 `--write` 才写。
+⛔ **无参 = 打印用法 + `rc=2`，一个字节都不写**（新纪律，见 `gen_prebuilt_decks.py`）。
+⛔ `--write` **默认拒绝**（rc=2）：只允许 `--rules legacy --out <别的路径>`（回归自证），不许覆盖共享产物。
 
 用法
 ----
-    python -I -X utf8 d:/4/Unity/工具/gen_card_vfx_verdict.py                # 打用法 + 只读统计
-    python -I -X utf8 d:/4/Unity/工具/gen_card_vfx_verdict.py --dry          # 只读：判一遍、打印分布
-    python -I -X utf8 d:/4/Unity/工具/gen_card_vfx_verdict.py --write        # 真写判据/全卡核验_判定.tsv
+    python -I -X utf8 d:/4/Unity/工具/gen_全卡核验_判定.py --check   # ★ 现行：用这个（含「不适用/免测」档）
+    python -I -X utf8 d:/4/Unity/工具/gen_card_vfx_verdict.py                # 打用法 + rc=2（不写盘）
+    python -I -X utf8 d:/4/Unity/工具/gen_card_vfx_verdict.py --dry          # 只读：判一遍、打印分布（legacy 回归可比）
+    python -I -X utf8 d:/4/Unity/工具/gen_card_vfx_verdict.py --write --rules legacy --out <临时路径>   # 回归自证专用
     python -I -X utf8 d:/4/Unity/工具/gen_card_vfx_verdict.py --write --out <path> --rules legacy
 
 输入（全部现读，⛔ 不缓存）
@@ -384,10 +395,24 @@ def build(D, rules):
     return rows, noemit
 
 
+SUPERSEDED = (
+    "\n🔴🔴 本脚本**已被 `工具/gen_全卡核验_判定.py` 取代** —— 产物 `判据/全卡核验_判定.tsv` 只由那边生成。\n"
+    "   那边多了两条本脚本没有的判定档（`activeAbility`+`hasActiveAbility`≠1 ⇒ 原版不消费；无效果树 ⇒ `免测`），\n"
+    "   跑本脚本会把它们打回「未验到」。⇒ 现行命令：\n"
+    "       python -I -X utf8 d:/4/Unity/工具/gen_全卡核验_判定.py --check\n"
+    "   本脚本只留 `--rules legacy` 回归自证：`--write` 必须同时给 `--rules legacy` 与**别的** `--out`。\n\n"
+)
+
+
 def main(argv):
     if "--help" in argv or "-h" in argv:
         sys.stdout.write(USAGE)
         return 0
+    if not argv:
+        # 🔴 2026-11-02（B118_W5）：无参 = 打用法 + rc=2，**一个字节都不写**（照 gen_prebuilt_decks.py 的纪律）
+        sys.stderr.write(SUPERSEDED)
+        sys.stdout.write(USAGE)
+        return 2
     write = "--write" in argv
     rules = "current"
     if "--rules" in argv:
@@ -397,6 +422,12 @@ def main(argv):
     out = P_OUT
     if "--out" in argv:
         out = argv[argv.index("--out") + 1]
+    if write and (rules != "legacy" or os.path.abspath(out) == os.path.abspath(P_OUT)):
+        # 只准拿它做 legacy 回归自证，⛔ 不许覆盖共享产物（那份归 gen_全卡核验_判定.py）
+        sys.stderr.write(SUPERSEDED)
+        sys.stderr.write("🔴 `--write` 被拒绝：本脚本只做 `--rules legacy` 回归自证，"
+                         "且必须 `--out` 指到**别的**路径（现在 rules=%s · out=%s）\n" % (rules, out))
+        return 2
     if not write:
         sys.stdout.write(USAGE)
         sys.stdout.write("\n[只读模式] 没带 `--write` ⇒ 不写盘。下面只打统计。\n\n")

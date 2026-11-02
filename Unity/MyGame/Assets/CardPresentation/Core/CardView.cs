@@ -1501,8 +1501,8 @@ namespace CardPresentation
         MeshRenderer _gem;       // 卡面底部那颗稀有度宝石（原版 `Rarity`）
         MeshRenderer _costBg;    // 费用底板（原版 `Cost Container/Cost Background`，图 `Card_Frame_Cost_Icon`）
         /// <summary>🆕 2026-10-18（`A1549` 尾巴）**费用格建出来时用的是哪一档**：`0` = 普通、`1` = 大号、
-        /// `-1` = 这张卡**没有**费用格（场上形态 / 督军 / 无底图）。运行时切 `SmallScreenUI` 之后
-        /// 靠它判「已建好的卡要不要重做网格」。见 <see cref="RefreshCostTier"/>。</summary>
+        /// `-1` = 这张卡**没有**费用格（督军 / 无底图）。运行时切 `SmallScreenUI` 之后
+        /// 靠它判「已建好的卡要不要重做网格」。见 <see cref="RefreshCostTier"/>。⚠️ 2026-11-02（`B118-W15`）：**场上形态也建这一层**（初始隐藏）⇒ 不再是 `-1`。</summary>
         int _costTierBuilt = -1;
         MeshRenderer _armourIcon;// 护甲盾牌底（原版 `Armour Container/Image`，图 `pedestal_icon_armor`）
         MeshRenderer _info;      // 数值层
@@ -2347,7 +2347,7 @@ namespace CardPresentation
             //    族差是**烘进顶点**的（`ArtExtent` 的 `acy`）⇒ 跨族换形态必须重烘，否则网格停在旧族
             //    （静默：只差 0.021 卡单位 ≈ 263 px 高的手牌上 1.7 px，截图看不出来）。
             bool wasFightFamily = ArtUsesFightFamily;
-            _faceMode = f;
+            _faceMode = f; ResetFaceAlphaOnSwitch();   // 🆕 `B118-W14`：换形态 = 两档 2D α 回初值（≤1 的残留只可能来自被打断的补间）；⚠️ 排在早退之后 ⇒ 同形态重调**不做**这件事（见方法注释）
             if (wasFightFamily != ArtUsesFightFamily) RebakeArtFamilyMeshes();
             bool board = f == CardFace.Board;
 
@@ -2553,7 +2553,7 @@ namespace CardPresentation
         public static bool ShowsCost(CardData d) { return d.cost >= 0 && d.type != "hero"; }
 
         static void Show(MeshRenderer r, bool on) { if (r != null) r.gameObject.SetActive(on); }
-        static void Show(TextMeshPro t, bool on) { if (t != null) t.gameObject.SetActive(on); }
+        void Show(TextMeshPro t, bool on) { if (t == null) return; if (on && !t.gameObject.activeSelf) { _enableRestampPending = true; _enableRestampFrame = Time.frameCount; } t.gameObject.SetActive(on); }   // 🆕 2026-11-02（`B118-W2` · `B117-R73`）：**文字层「收起→放开」也走同一套「下一帧重盖」**（`SetActive(true)` 会让 TMP 走 `OnEnable → SetAllDirty` ⇒ 延迟一拍的重建把子网格材质退回 3000）；只在**真从关到开**时挂起（`on && !activeSelf`），⛔ 不逐帧
 
         // ==================================================================
         //  残骸体（`RemnantBody3D <阵营>`）—— 引擎里「这一格是残骸」的画法
@@ -2806,7 +2806,7 @@ namespace CardPresentation
             // 🆕 X17（2026-10-25）：激活那一刻没量到（TMP 还没 `Awake`、或版面还停在半成品）⇒
             //   再试几帧。真 Play 有帧循环 ⇒ 一定会收敛；**批处理没有帧循环** ⇒ 这一段跑不到，
             //   自检里就按「量不出来」直接红（⛔ 不假绿 —— 见 `RefitTextForTest`）。
-            if (_textNeedsRefit && _refitTries < 3) { _refitTries++; RefitTextLayers(); }
+            if (_textNeedsRefit && _refitTries < 3) { _refitTries++; RefitTextLayers(); } if (_enableRestampPending && Time.frameCount > _enableRestampFrame) RestampQueuesAfterEnable();   // 🆕 2026-11-02（`B118-W2` · `B117-R73`）：「收起再放开」之后的重盖放在**这一帧**做 —— 判据与「为什么不在 `OnEnable` 里当场做」全在类尾 `_enableRestampPending` 的 doc（父件 `OnEnable` 先于子件 TMP，子件之后才 `SetAllDirty`，真正的重建还要拖到 `Canvas.willRenderCanvases`）；`>` 是必须的：同一帧内跑仍早于那次重建。⚠️ 不是逐帧开销 —— 只有真发生过激活/文字层重启才为真
         }
 
         /// <summary>立刻藏掉残骸体并恢复原卡卡身（原版 `Toggle(0, 0, 0)` 那一支 / 动画事件到点后的收尾）。
@@ -4393,9 +4393,9 @@ namespace CardPresentation
                 bool cut = d.artOverride != null
                            ? CardArt.AltArtHasCutout(d.artId)      // 异画走它自己那份清单（见 `CardData.artOverride`）
                            : CardArt.HasCutout(d.artId);           // ⚠️ 立绘按 **id** 取名，不是卡名（见 `CardData.artId`）
-                // 🔴 **场上（`Board`）：整张 `2DCard` 都不画** —— 见 `CardFace` 的注释。
-                //    原版在 inPlay 类状态调 `Card2DController.Toggle(false)`，插图/框/费用/宝石/
-                //    卡名/阵营行/兵种行/效果底板/效果文字**一起没有**，只剩攻/血/甲 + 徽标。
+                // 🔴 **场上（`Board`）：整张 `2DCard` 都**不显示**（⛔ 但**要建** —— 见 `CardFace` 的注释）。
+                //    原版在 inPlay 类状态调 `Card2DController.Toggle(false)`：插图/框/费用/宝石/文字**一起关**，只剩攻/血/甲 + 徽标；
+                //    🆕 2026-11-02（`B118-W15`）：我们照原版**照建不误、只是 `Show(false)`**（回手倒放要那一整棵；`D118-56`）。
                 bool board = _faceMode == CardFace.Board;
                 // ---- 最底层：软光/影（原版 `Card Highlight And Shadow`，4.4281² @ y −0.0126）----
                 // 「落地感」全靠它；原版 shader + 原版 SDF 贴图，取不到就整层不画（见上面那一节注释）。
@@ -4469,7 +4469,7 @@ namespace CardPresentation
                     //    小图档 = `clipWindow: !d.isUnit` + 小图档硬矩形）—— 原来这里那个三元就是它的两支，
                     //    收进函数后「建出来」与「状态轴变了重烘」走的是**同一个判据**（⛔ 别再在这儿拼一遍）。
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artFrontMesh);
-                if (!board) { _frame = AddLayer("frame", frameTex, 0f, null); ApplyFrameMaskFade(bigState ? 1f : 0f); }   // ← 出生即按状态记账（类尾 ApplyFrameMaskFade；2026-11-02 起不淡出）
+                _frame = AddLayer("frame", frameTex, 0f, null); ApplyFrameMaskFade(bigState ? 1f : 0f); if (board) Show(_frame, false);   // ← 出生即按状态记账（类尾 ApplyFrameMaskFade；2026-11-02 起不淡出）。🆕 **2026-11-02（`B118-W15` · 账 `D118-56`）：场上也建、**初始隐藏**** —— 原版 `CardPrefab` 里 `2DCard` 与 `Card 3D` 两套**都在**，靠 `BattleCardUI__ShowBoardObjects.c:13-25` 的 `Card2DController.Toggle` 切显隐（⛔ 不是「不建」）；不建的话「出生就在场上」的视图（AI 单位 / 督军）回手时没有卡框可开
                 // 🆕 2026-10-24（`E5`）：**出生这一趟把状态记账**（原版 `CardImageController.currentState`）。
                 //   两条 overDraw 轴现在可以经 `Create(..., artOverdraw:, useOverDraw:)` 在建卡**之前**给定，
                 //   所以这里记下的就是 `Build` 真正烘进网格的那一档；之后 setter 拿它判「状态变没变」
@@ -4481,12 +4481,11 @@ namespace CardPresentation
                 // ⚠️ 取不到图就**整块不画**（不静默失败：文字照旧、只是少了黑底）——
                 //    和 `CardArt` 的其它层一个路子，删掉 `Resources/Art/` 游戏照样跑。
                 var textBgTex = CardArt.DeckUi("Card_Text_smooth_background");
-                if (board)
+                if (textBgTex != null)
                 {
-                    // 场上不画底线（原版整张 `2DCard` 关掉）—— 什么都不做，**不是**静默失败
-                }
-                else if (textBgTex != null)
-                {
+                    // 🆕 **2026-11-02（`B118-W15` · 账 `D118-56`）：场上也建这一层** —— 原版 `2DCard` 永远是
+                    //   一整棵（`CardPrefab.prefab` 的 `Front/Textbackgrounds`），靠 `Card2DController.Toggle`
+                    //   切显隐（`BattleCardUI__ShowBoardObjects.c:13-25`），⛔ 不是「不建」；初始隐藏、回手由 `SetFace(Hand)` 打开。
                     bool hasDesc = !string.IsNullOrEmpty(d.keywords);
                     // 🔴 **2026-10-14（`A1933`）：网格由 `SpriteQuad`（整张拉伸、4 顶点）换成
                     //    `TextBgQuad`（原版 `m_Type = 1` 的 **Sliced 九宫格**、6 块 = 24 顶点）** ——
@@ -4497,8 +4496,9 @@ namespace CardPresentation
                                                : TextBgQuad("textBgSmall", TextBgSmallAt,
                                                             TextBgSmallW, TextBgSmallH));
                     _textBg.sharedMaterial.color = new Color(0f, 0f, 0f, TextBgAlpha); ApplyFrameMaskFade(bigState ? 1f : 0f);   // ← 同上（文字底板也在原版那条 `textBackground.material = maskMaterial` 里）
+                    if (board) Show(_textBg, false);   // ← 出生就在场上 ⇒ **只建不开**（回手走 `SetFace(Hand)`；⛔ 别让它一出生就盖在 3D 体上）
                 }
-                else
+                else if (!board)   // 场上没这层也**不报**（原版 2DCard 本就关着）⇒ 保持改前的告警面
                 {
                     // 不许静默失败：少一层黑底要说出来（文字仍有描边，不至于读不出来）
                     Debug.LogWarning("[CardView] 文字底板图 `Card_Text_smooth_background` 取不到 —— " +
@@ -4522,7 +4522,7 @@ namespace CardPresentation
                 //    ⚠️ 这一条是**出生入口**、`SetFace` 是**换形态入口**（铁律 10 第 5 条）：
                 //      出生就在手牌/池子里的卡**从不走 `SetFace`**（它开头 `if (_faceMode == f) return;` 直接返回）
                 //      ⇒ 只在 `SetFace` 里关**等于没关**（这正是 `A2006` 说的「卡组池 / 收藏 / 详情里督军会印出费用」）。
-                if (!board && costTex != null && ShowsCost(d))
+                if (costTex != null && ShowsCost(d))   // 🆕 `B118-W15`：去掉 `!board` —— 场上也建（初始隐藏），见下面那句 `Show`；原版 `2DCard/Cost Container` 一直都在
                 {
                     // 🔴 2026-10-18（W15）：位置**跟着这张卡框上的阵营徽记走**（`FaceCostAt01`）。
                     //    ⚠️ `SpriteQuad` 把位置烘进**网格**（不是 transform）⇒ 每种卡框要一份自己的网格
@@ -4537,7 +4537,7 @@ namespace CardPresentation
                                                   CostAt01(frameTex), CostBgW * CostScale, CostBgH * CostScale));
                     // 🆕 `A1549` 尾巴：记下**建出来时的档位** —— 运行时切 `SmallScreenUI` 后
                     //    `RefreshCostTier()` 靠它判「要不要重做」（见那里的注释）。
-                    _costTierBuilt = CostBig ? 1 : 0;
+                    _costTierBuilt = CostBig ? 1 : 0; if (board) Show(_costBg, false);   // 🆕 `B118-W15`：出生就在场上 ⇒ **只建不开**（回手由 `SetFace(Hand)` / `SetFaceGroupVisible(true)` 打开）
                 }
                 // ⚠️ 只有**单位卡且有护甲**才画那面盾：战术卡的卡面上没有数值格
                 //    （对照 `D:/2/Warpforge部队卡片/…/4计策/*.png` —— 战术卡只有费用和稀有度）
@@ -4583,7 +4583,7 @@ namespace CardPresentation
                 // 卡框分档改的是框的形制，**光靠它看不出稀有度** —— 颜色在这颗宝石上。
                 // 图取不到就不画（不静默失败：卡框和数值照常）。
                 var gemTex = RarityGem(d.rarity);
-                if (!board && gemTex != null) _gem = AddLayer("gem", gemTex, -0.01f, gemTex, GemMesh(frameTex));
+                if (gemTex != null) { _gem = AddLayer("gem", gemTex, -0.01f, gemTex, GemMesh(frameTex)); if (board) Show(_gem, false); }   // 🆕 `B118-W15`：场上也建、初始隐藏（原版 `2DCard/Front/Rarity` 一直都在）
 
                 // ---- 🆕 「临时卡」角标（默认关掉，由 `ShowEphemeral` 打开）----
                 // z 取 −0.03：**在数值层(−0.02)前面**（更靠近相机）—— 它在左上角，
@@ -4735,7 +4735,7 @@ namespace CardPresentation
         {
             // ⚠️ `Create` 里 `AddComponent` 那一刻（对象本来就活跃）会先来一发 `OnEnable` ——
             //    那时 `_built == false`（`Build` 还没跑）⇒ 必须早退，否则会对 `default(CardData)` 建层。
-            if (!_built) return;
+            if (!_built) return; _enableRestampPending = true; _enableRestampFrame = Time.frameCount;   // 🆕 2026-11-02（`B118-W2` · `B117-R73`）：**整张卡「收起再放开」⇒ 下一帧重盖队列**（子网格材质会在延迟一拍的重建里退回 3000；为什么不在这一帧直接盖 → 类尾 `_enableRestampPending` 的 doc）
             if (!_textNeedsRefit && !_builtWhileInactive) return;
             // 🔴 **2026-10-25（`X17` 第二轮）**：**出声记一笔**。真机/自检里「这一刀到底有没有被调用」
             //    此前只能靠间接推断（`TextRefitCount` 停在 0 时，分不清「`OnEnable` 没来」还是
@@ -4903,7 +4903,7 @@ namespace CardPresentation
             // 🔴 **量之前必须先激活**：TMP 在**未激活**对象上 `ForceMeshUpdate` 量不出尺寸
             //   （本仓已知坑，见 `CLAUDE.md` 第三节「面板画出来了、字不在」的三条）
             //   ⇒ 上一轮若把它关掉了，这一轮的 `FitToBox` 会量到垃圾、把字号顶到上限。
-            if (_createdBy != null) _createdBy.gameObject.SetActive(true);
+            if (_createdBy != null) { _createdBy.gameObject.SetActive(true); _enableRestampPending = true; _enableRestampFrame = Time.frameCount; }   // 🆕 2026-11-02（`B118-W2` · `B117-R73`）：这一句是**直接**把「由谁创建」那层点亮（⛔ 不走 `Show(TextMeshPro, bool)`，所以挂起位要在这里补一次）—— TMP 重新启用 ⇒ 延迟一拍重建 ⇒ 子网格材质退回 3000；后面那句 `Show(_createdBy, CreatedByVisible)` 在「本来就该显示」时不改变激活态、挂不上位
             float k = Width / CardUnitW;                  // 卡单位 → 世界（当前 = 1）
             _createdBy = Fill(_createdBy, "createdBy", CreatedByLine(_createdByName),
                               CreatedByAt01, CreatedByBoxW * k, CreatedByFontSize,
@@ -4933,7 +4933,7 @@ namespace CardPresentation
         /// 拿不到字体资产（`TmpFont.Available == false`）就**不挂**，
         /// 由 `InfoTexture` 里那两条 `if` 用点阵字库顶上（只画得出 ASCII）。
         /// </summary>
-        void BuildTextLayers(CardData d)
+        void BuildTextLayers(CardData d, CardFace? face = null)   // 🆕 2026-11-02（B118-W15 第二轮）：`face` = **按哪一档建**（缺省 = 当前形态）；唯一传参的调用点 = 类尾 `BuildHandTextLayersNow`
         {
             if (!TmpFont.Available) return;
             _textNeedsRefit = false;      // 🆕 X17：本趟结束时由 `Fill` 按「量到没有」重新置位
@@ -4943,8 +4943,8 @@ namespace CardPresentation
             //   档位由全局 `GameStaticData.cardsTextInHandFormat`（`+0x140`）决定落到 5–8 中的哪一个。
             //   ⇒ 本函数是**唯一入口**：初始态走下面原来的那套（一个字节没改），简化态走
             //   `BuildSimplifiedTextLayers`（只显示一件 + Big 字号/版面）。
-            _textState = ComputeTextState(d);
-            if (IsSimplifiedTextState(TextState))
+            _textState = ComputeTextState(d, face);     // 🔴 B118-W15：两处原来一次算两遍（`TextState` 属性又算一遍）；现在统一用刚算的 `_textState` ⇒ `face` 覆盖才真的生效
+            if (IsSimplifiedTextState(_textState))
             {
                 BuildSimplifiedTextLayers(d);
                 return;
@@ -5044,7 +5044,7 @@ namespace CardPresentation
             //   手牌 / 场上不印那一行 ⇒ **可用高度恢复成原版矩形**（判据见三参重载的 doc）。
             //   ⚠️ 这是**可见变化**：手牌/场上（战术/防御卡）的效果文字会变大。钉它的断言在
             //   `Editor/B99G1_Assert.cs`（`G1-B1` / `G1-B2`）。
-            FaceDescBand01ForFace(unit, hasRace, _faceMode, out descCenter01, out descBudget01);
+            FaceDescBand01ForFace(unit, hasRace, face ?? _faceMode, out descCenter01, out descBudget01);
             //    拟合预算（世界单位）= 对称预算 × 卡高；`Mathf.Max(0.2f, …)` 只是「门挨太近」时的兜底。
             float descH = Mathf.Max(0.2f, descBudget01 * Height);
             var descAt01 = new Vector2(descAt.x, descCenter01);
@@ -5113,7 +5113,7 @@ namespace CardPresentation
                          // 原版 `ArmyTextUnit` = 1/15（档位照抄；⚠️ 这一层**没有框高** ⇒ 目前不跑 `FitToBox`）
                          bandMin: ArmyBandMin, bandMax: ArmyBandMaxForUse(unit));
                          // 原版 `ArmyText*` = Pragati（§2·5）；描边在拟合之前贴（同 `Fill` 里那段）
-            Show(_army, FaceShowsArmy(_faceMode));
+            Show(_army, FaceShowsArmy(face ?? _faceMode));
 
             // 🔴🔴 **2026-10-25（`E` · P0 · 用户/调度台并排比抓到的真缺陷）**：
             //    **态 4（战术卡 + 兵种行）的效果文字会压到阵营行身上。**
@@ -5235,7 +5235,7 @@ namespace CardPresentation
         }
 
         /// <summary>原版那套映射（逐句见本节开头）。**判据只此一处**。</summary>
-        CardTextState ComputeTextState(CardData d)
+        CardTextState ComputeTextState(CardData d, CardFace? face = null)   // 🆕 2026-11-02（B118-W15 第二轮）：`face` = **按哪一档算文字态**（缺省 = 当前形态）；回手倒放要在 `_faceMode` 还是 Board 时先按 Hand 建文字层
         {
             bool unit = d.isUnit;
             bool hasDesc = !string.IsNullOrEmpty(d.keywords);          // 我们的 `keywords` 就是效果文字（desc）
@@ -5249,7 +5249,7 @@ namespace CardPresentation
             var init = unit
                 ? (hasDesc ? CardTextState.MinionWithDescription : CardTextState.MinionWithoutDescription)
                 : (hasRace ? CardTextState.TacticWithRace : CardTextState.Tactic);
-            if (_faceMode != CardFace.Hand) return init;               // 非手牌 = 初始态（原版 `on = 0`）
+            if ((face ?? _faceMode) != CardFace.Hand) return init;     // 非手牌 = 初始态（原版 `on = 0`）；🆕 B118-W15：`face` 缺省 = `_faceMode`
             int opt = HandTextFormat;
             if (opt == 0) return init;                                 // 原版 option 0 ⇒ **不改**
             if (unit)
@@ -5293,9 +5293,9 @@ namespace CardPresentation
         /// <summary>简化态（5–8）的文字层：**只显示一件**，字号/版面按上表那四个 Big 变体。</summary>
         void BuildSimplifiedTextLayers(CardData d)
         {
-            bool tactic = TextState == CardTextState.TacticOnlyName || TextState == CardTextState.TacticOnlyDescription;
-            bool nameOnly = TextState == CardTextState.MinionWithoutDescriptionSimplifiedView
-                         || TextState == CardTextState.TacticOnlyName;
+            bool tactic = _textState == CardTextState.TacticOnlyName || _textState == CardTextState.TacticOnlyDescription;   // 🔴 B118-W15：读**刚算好的** `_textState`（原来读 `TextState` 属性会**再按 `_faceMode` 算一遍** ⇒ `BuildTextLayers(…, face)` 的覆盖失效）
+            bool nameOnly = _textState == CardTextState.MinionWithoutDescriptionSimplifiedView
+                         || _textState == CardTextState.TacticOnlyName;
 
             if (nameOnly)
             {
@@ -5342,7 +5342,7 @@ namespace CardPresentation
             Show(_army, false);
             Show(_race, false);
             Show(_createdBy, CreatedByVisible);   // 这一行不归 `CardTextsController` 管（`SetCreatedBy` 自己维护）
-            ApplyTextBgForState(TextState);
+            ApplyTextBgForState(_textState);
         }
 
         /// <summary>文字底板**按态取** —— 判据只此一处（初始态与简化态共用）。
@@ -6318,7 +6318,7 @@ namespace CardPresentation
             // ⚠️ 每层一份**新材质**：直接用共享材质再改 mainTexture 会让所有卡共用同一张贴图（踩过）
             var m = mat != null ? new Material(mat)
                                 : new Material(opaque ? OpaqueMaterial() : BaseMaterial());
-            m.mainTexture = tex != null ? tex : basis;
+            m.mainTexture = tex != null ? tex : (basis != null ? basis : MissingLayerTexture(name));   // 🆕 `B118-W14`：两参都 null ⇒ 出声一次 + 占位图（原来是 Unity 绑内置白图 = 不透明白块）
             mr.sharedMaterial = m;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mr.receiveShadows = false;
@@ -7939,7 +7939,7 @@ namespace CardPresentation
             go.transform.localPosition = new Vector3(0f, -Height * 0.5f, 0f);
             go.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);   // 原版 `Card 3D` 的 localRotation
             go.transform.localScale = Vector3.one * Body3DScale;           // 原版 `Card 3D` 的 localScale
-            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshFilter>().sharedMesh = mesh; EnsureTapBlockCollider(go);
 
             var mr = go.AddComponent<MeshRenderer>();
             // 🔴 **2026-10-23（D2 · 铁律 5 订正）：阴影开关照原版打开。**
@@ -7952,15 +7952,15 @@ namespace CardPresentation
             mr.receiveShadows = true;
             var m = new Material(sh) { name = "Card3D" };
             // 材质属性值 = 原版 `Card 3d Lvl1`（`资料/3DBody_原版场上卡体规格.md` §一 那一行）
-            m.SetTexture("_BaseMap", CardArt.Card3DBase());
+            m.SetTexture("_BaseMap", Card3DTex("_BaseMap", CardArt.Card3DBase()));   // 🆕 `B118-W14`：缺件 ⇒ 出声一次 + 占位图（⛔ 不再让 shader 的 `"white"` 默认值静默顶替）
             // 🔴 **2026-10-25（`E` · 代理 D 查实）：matcap 按【卡档位】取，不再写死 tier1。**
             //   判据 = 原版 `CardMaterialHelper.matcapTexturesByCardTier[CardTier]`
             //   （`CardMaterialHelper__GetCardMatCapByCardTier.c`）—— 四个档位贴图**本地全在**
             //   （`CardArt.Card3DMatcap` 的 doc 有 PathID 对位：`MatCap Card Level 1` / `Matcap Bronze` /
             //    `Matcap Silver` / `Matcap Gold`）。档位口径**与卡框同一处**：`CardTierFor(Data)`
             //   （原版也是同源：`SetCardImageTo3DBase` 与 `CardTierUIController.SetTier` 都吃 `CardTier`）。
-            m.SetTexture("_MatCap", CardArt.Card3DMatcap(CardTierFor(Data)));
-            m.SetTexture("_CardImage", artTex != null ? artTex : Texture2D.whiteTexture);
+            m.SetTexture("_MatCap", Card3DTex("_MatCap", CardArt.Card3DMatcap(CardTierFor(Data))));   // 🆕 `B118-W14`：缺 matcap ⇒ 占位的中性灰（`pow(0.5917·1.69,1.24) ≈ 1`），⛔ 不再被白图乘成 `≈1.9` 烧白
+            m.SetTexture("_CardImage", Card3DTex("_CardImage", artTex));                              // 🆕 `B118-W14`：缺立绘 ⇒ 出声一次 + 占位色，⛔ 不再静默画纯白
             // 🆕 2026-10-25（B2）：立绘 UV 窗（sprite 裁块 / 整页方图两支）—— 算式只写在 `CardArt.ArtUvRect`
             ApplyArtUvRect(m, artTex != null ? artTex : Texture2D.whiteTexture);
             if (m.HasProperty("_MatCap_Intensity"))   m.SetFloat("_MatCap_Intensity", 1.69f);
@@ -8171,14 +8171,14 @@ namespace CardPresentation
             if (_blobShadow != null) _blobShadow.SetCardAlpha(_alpha);
 
             // 🔴 2026-10-19（`A2139`）：TMP 的字**不吃材质 `_GreyScale`**（走顶点色）⇒ 在这里按同一个
-            //     `_grey` 去饱和（`Greyed`）。放在最后：整卡状态色 × 淡出算完之后再降饱和，两张口径不打架。
-            if (_title != null) _title.color = Greyed((Color)InkName * c);
-            if (_keywords != null) _keywords.color = Greyed((Color)InkDesc * c);
-            if (_army != null) _army.color = Greyed((Color)InkArmy * c);
-            if (_race != null) _race.color = Greyed((Color)InkArmy * c);
+            //     `_grey` 去饱和（`Greyed`）。放在最后：整卡状态色 × 淡出算完之后再降饱和，两张口径不打架。🆕 2026-11-02（`B118-W14`）：再走 `WithAlpha2D(...)` —— 原版 `2DCard` 是 **CanvasGroup**，卡名/关键词/阵营/兵种/「由谁造出」这几件 TMP **也在那一组里** ⇒ 整组淡出/淡入时字必须跟着（否则回手倒放那 0.6 s 里框和图在淡、字是**实**的，一眼假）。
+            if (_title != null) _title.color = Greyed((Color)InkName * WithAlpha2D(c));
+            if (_keywords != null) _keywords.color = Greyed((Color)InkDesc * WithAlpha2D(c));
+            if (_army != null) _army.color = Greyed((Color)InkArmy * WithAlpha2D(c));
+            if (_race != null) _race.color = Greyed((Color)InkArmy * WithAlpha2D(c));
             // 🆕 2026-10-18（`A985④`）：「由谁造出来的」也一样跟整卡状态色 × 淡出走
             // （它不在 `_layers` 里，上面那个 foreach 刷不到它 —— 同 `_title` 那一族）。
-            if (_createdBy != null) _createdBy.color = Greyed((Color)CreatedByInk * c);
+            if (_createdBy != null) _createdBy.color = Greyed((Color)CreatedByInk * WithAlpha2D(c));
             // 🆕 2026-10-25（`CF-3`）：2D 卡面那四个**数值 TMP** 也一样走顶点色（原版 `m_fontColor` = 白）
             // —— 它们不在 `_layers` 里（TMP 没有 `_Color` 材质属性可刷），同 `_title` 那一族。
             // 🔴 **2026-10-25（`K4`）**：颜色口径收进 `FaceStatInk`（状态色 × 淡出 × 灰化 × **涨落色**）——
@@ -9658,7 +9658,7 @@ namespace CardPresentation
         //    而卡面的 `AutoCardRotation` 是 **X/Y 两轴 ±10° 的 3D 倾摆**（`Core/AutoCardRotation.cs`）
         //    ⇒ 倾摆起来时 collider **不跟**（`Contains` 跟）。实测差最大 ~2.6% 卡高。
         //    原版的卡也挂在 `2DCard` 上、同样的限制 ⇒ 这是「照原版」；断言要在 0° / ±10° 两档各测一次
-        //    并**把差异记下来**（⛔ 别试图用 3D collider —— 原版没有，且会引入 z 排序）。
+        //    并**把差异记下来**（⛔ 别拿 3D collider 顶替**这条命中判据** —— 会引入 z 排序、与 `Contains` 分家）。🔴 2026-11-02（`B118-T11` 现核 · 铁律 5 订正）：原文「原版没有 3D collider」**错** —— 原版 `CardPrefab/Board Elements/3DBody/Card 3D` 有 3D `BoxCollider`（layer 10 `BoardElements` · size 1.827034×3.01×0.5 · center (0.013507843,1.55,−0.016031265)），**但它不参与命中判定**，只挡 `TapParticleController` 的地面点击射线（见 `EnsureTapBlockCollider`）。
         // ⚠️ `Physics2D` **没有 z**：`OverlapPoint` 会同时命中前后叠着的所有卡
         //    ⇒ 「谁最上面」必须由调用方按 z 取最前（`Hand/CardInteraction.Frontmost` 那一侧，W2 的活）。
         //    ⛔ 别指望查询顺序 —— 它是物理世界的内部顺序，不是渲染顺序。
@@ -13455,7 +13455,7 @@ namespace CardPresentation
                 // 多出来的那次 `Toggle(false)`（**整格关掉**，连 `?` 都不印）；其余三格照印 `?`（见下面 `txt`）。
                 bool on = face && StatShownFor(s, Data) && !(s == StatArmour && _statsHiddenArmourCell);
                 bool wasOn = cgo.activeSelf;
-                if (wasOn != on) cgo.SetActive(on);
+                if (wasOn != on) { cgo.SetActive(on); if (on) { _enableRestampPending = true; _enableRestampFrame = Time.frameCount; } }   // 🆕 2026-11-02（`B118-W2` · `B117-R73`）：数值层是**容器 → TMP 子件**（⛔ 不走 `Show(TextMeshPro, bool)`）⇒ 点亮时补挂一次「下一帧重盖」（判据 → 类尾 `_enableRestampPending` 的 doc）
                 if (!on) continue;
                 string txt = StatsHiddenFor(s) ? HiddenStatText : v.ToString();
                 bool changed = t.text != txt;
@@ -13553,7 +13553,7 @@ namespace CardPresentation
             bool on = _faceMode != CardFace.Board && ShowsCost(Data);
             var cgo = _faceCostContainer;
             bool wasOn = cgo != null && cgo.activeSelf;
-            if (cgo != null && wasOn != on) cgo.SetActive(on);
+            if (cgo != null && wasOn != on) { cgo.SetActive(on); if (on) { _enableRestampPending = true; _enableRestampFrame = Time.frameCount; } }   // 🆕 2026-11-02（`B118-W2` · `B117-R73`）：费用层同数值层（容器 → TMP 子件）⇒ 点亮时补挂「下一帧重盖」，判据 → 类尾 `_enableRestampPending` 的 doc
             if (!on) return;
             string txt = Data.cost.ToString();
             bool changed = _faceCostText.text != txt;
@@ -16028,7 +16028,238 @@ namespace CardPresentation
             foreach (var t in GetComponentsInChildren<TextMeshPro>(true))
                 if (t != null && t.gameObject.activeInHierarchy && t.textInfo != null && t.textInfo.materialCount > 1)
                     t.ForceMeshUpdate();
-            SetQueue(_queue);
+            SetQueue(_queue); _enableRestampPending = false;   // 🆕 2026-11-02（`B118-W2`）：盖完就清挂起位（⛔ 别让下一帧白跑一遍）
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-02（`B118-W2` · `B117-R73`）「重新启用后自动重盖」的挂起位
+        //  （追加在类尾：`CardView.cs` 在账里有 A 行落点，最深 `:15640` ⇒ 这里之后没有落点）
+        // ==================================================================
+        /// <summary>「这张卡上刚发生过一次 `SetActive(false) → (true)`，下一帧要重盖队列」。
+        /// <para>🔴 **为什么不在 `OnEnable` / `SetActive(true)` 那一刻当场盖**：卡片激活时**父件的 `OnEnable`
+        /// 先于子件 TMP 的**（同一族证据：`X17` 的 `_textNeedsRefit` 也是「激活那一刻量不到、要等下一帧」，
+        /// 见 <see cref="RefitTextLayers"/>）；子件 TMP 的 `OnEnable` 之后才 `SetAllDirty()`
+        /// （`TextMeshPro.cs:630-668`），真正的文本重建又要等到 `Canvas.willRenderCanvases →
+        /// TMP_UpdateManager.DoRebuilds`（`TMP_UpdateManager.cs:52`）。当场 `ForceMeshUpdate` 会被**后面那次**
+        /// 重建覆盖掉 ⇒ 子网格材质照样退回 3000（`SetArraySizes`，`TextMeshPro.cs:1947`）。
+        /// ⇒ 挂起到**下一帧的 `Update`**（那时重建已经跑完），再走 <see cref="RestampQueuesAfterEnable"/>。</para>
+        /// <para>⚠️ **不会递归**：`RestampQueuesAfterEnable → SetQueue(_queue)` 只写 `Renderer.sharedMaterial`
+        /// 与 `TMP_Text.fontSharedMaterial`，两者都不触发任何 `SetActive` / `OnEnable`；`ForceMeshUpdate`
+        /// 也不改激活态。⚠️ **不会覆盖别人**：`SetQueue` 重放的是**这张卡自己的** `_queue`（全工程「每张卡一段
+        /// 队列」的唯一实现，见 `SetQueue` 的 doc）—— 卡外写队列的两处（`ImageQuad` / `Label` / `BoardLayout`
+        /// 标记）都不写卡的渲染器。⛔ 别在这里加「按名字猜队列」之类的逻辑。</para></summary>
+        bool _enableRestampPending;
+        /// <summary>挂起那一刻的 `Time.frameCount` —— `Update` 只在**严格更晚**的帧才跑（同一帧仍早于那次重建）。</summary>
+        int _enableRestampFrame = -1;
+
+        /// <summary>自检读口（`B118-W2`）：这次「收起再放开」有没有把「下一帧重盖」挂起来。
+        /// 🧨 删掉 `OnEnable` / `Show(TextMeshPro, bool)` 里那两句挂起 ⇒ 恒 `false` ⇒ 断言红。</summary>
+        public bool EnableRestampPendingForTest { get { return _enableRestampPending; } }
+
+        // ==================================================================
+        //  🆕 2026-11-02（`B118-W9` · `B118-T11`）场上卡的 **3D 挡板 collider**
+        //  （追加在类尾：`CardView.cs` 在账里有 A 行落点，最深 `:15640` ⇒ 这里之后没有落点）
+        // ==================================================================
+        /// <summary>原版 `CardPrefab/Board Elements/3DBody/Card 3D` 上那颗 **3D `BoxCollider`**。
+        /// <para>用途 = **挡 `TapParticleController` 的地面点击射线**（原版那条 3D 射线的 mask `0x40000C01` 含 layer 10
+        /// `BoardElements`；这颗身上没有 `TapHitMaterialDefinition` ⇒ 命中即走闸⑬ `return`，整帧不播地面反馈）。</para>
+        /// <para>判据（逐值实读）：`CardPrefab.prefab` `--- !u!65 &65948132087033897` = `m_Size (1.827034, 3.01, 0.5)` ·
+        /// `m_Center (0.013507843, 1.55, -0.016031265)` · `m_IsTrigger: 0` · `m_Enabled: 1`；节点 `Card 3D` `m_Layer: 10`、
+        /// `localScale 0.88586`（= 本类 `Body3DScale`）。13 场场景里同形的 `Cache Stealth` 那颗与它逐值相同。
+        /// 判定过程 → `资料/完全复刻/判据/B118_T11_碰撞层裁定.md`。</para>
+        /// <para>⛔ **这颗不是命中判据**：`Contains` / `HitByCollider` 仍走 `EnsureHitCollider` 那颗 2D `BoxCollider2D`
+        /// （见 `:9661` 那条注释）—— 换成 3D 会让两条判据分家、还引入 z 排序。⛔ 也别加 `Rigidbody`（静态无刚体 collider
+        /// 不参与任何模拟，与原版同形）。</para></summary>
+        void EnsureTapBlockCollider(GameObject body)
+        {
+            if (body == null) return;
+            if (body.GetComponent<BoxCollider>() != null) return;      // 幂等：`Build` 可能重入
+            var c = body.AddComponent<BoxCollider>();
+            c.size = new Vector3(1.827034f, 3.01f, 0.5f);
+            c.center = new Vector3(0.013507843f, 1.55f, -0.016031265f);
+            c.isTrigger = false;
+            c.enabled = true;
+            body.layer = gameObject.layer;   // 场上 = `ArenaSlots.ArenaLayer`(8) ⇒ 落在 `TapParticleController.CollisionMask` 的 bit8；换层由 `SetLayer` 递归跟进
+            _bodyCollider3D = c;
+        }
+
+        /// <summary>那颗 3D 挡板（挂在 `body3D` 上；`body3D` 没建 ⇒ `null`）。唯一写点 = <see cref="EnsureTapBlockCollider"/>。</summary>
+        BoxCollider _bodyCollider3D;
+
+        /// <summary>自检读口（`B118-T11`）：挡地面点击射线的那颗 3D collider（生产零调用）。</summary>
+        public BoxCollider TapBlockColliderForTest { get { return _bodyCollider3D; } }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（执行代理 `B118-W14` · 判据 `判据/B118_J6_卡牌表示层矩阵.md` §4-③④⑤）
+        //     回手倒放：「整张 2D 卡」当作一个组一起淡 —— 原版 `2DCard` 就是一颗 CanvasGroup
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  【原版】`Card Hand To Board` 的 `2DCard.m_Alpha` 是 **CanvasGroup**（`CardFeel.HandToBoard`
+        //    正向已经在用 `SetAlpha2D` 复现它）⇒ 倒放（`CardFeel.ReturnToHand`）时
+        //    `m_IsActive` 0→1（0.2167）打开的是**整棵 `2DCard`**，随后 [0.25, 0.5833] 整组淡回 1
+        //    —— **框 / 文字底板 / 卡名 / 关键词 / 立绘 一起**。
+        //  【我们原来的缺陷】`ReturnToHand` 只喂 `SetArtAlpha(0→1)`（只动 `_art` 那一层），
+        //    而 `SetFace(Board)` 早把 `_frame/_textBg/_title/_keywords` 关掉了 ⇒ 那 0.6 s 里
+        //    观众看到的是**一块没有卡框的矩形画框**（`_art` 的网格是 2.7484² 方图、比卡体一圈都大；
+        //    判据 → 上面 `_art` 的 `opaque: true` 建层那一段）。
+        //  【本笔】`SetFaceGroupVisible(true/false)` = 原版那个 `m_IsActive` 的等价开关；
+        //    α 一律走 **`_alpha2D`**（`ApplyTint` 里它已经乘进 `_layers` 的每一层、`_art`、`_textBg`
+        //    与 `_frame`；本笔把 `_title/_keywords/_army/_race/_createdBy` 也补进去，见 `WithAlpha2D`）。
+        //    ⛔ **没有**改用「把 `_art` 的材质临时换成可 alpha 的那一档」：那会连立绘的**抠图 alpha**
+        //    一起打开（角色轮廓外的背景变透明、拱窗里露出 3D 体），与「整组淡出」不是一件事。
+        //    ✅ **2026-11-02（`B118-W15` · 账 `D118-56`）起建层缺口已补**：`Build` 对 `CardFace.Board` **也建**
+        //    `_frame/_textBg/_costBg/_gem`（只是初始 `Show(false)`；判据 = 原版 `2DCard` 与 `Card 3D` 两套都在、
+        //    靠 `BattleCardUI__ShowBoardObjects.c:13-25` 切显隐）⇒ 出生就在场上的视图（AI/督军）回手时**有整张 2D 卡可开**。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>把「2DCard 那一整套」当一个组开/关（= 原版 `2DCard.m_IsActive`）。**只**给回手倒放用。
+        /// <para>⚠️ 只碰**手牌/详情档才有**的那几层；`_info`（场上那张全透明底）与 `_artFront`（大图档前景）
+        /// 不在里面 —— 前者场上恒开、后者只在非场上档存在且由 `ArtFrontVisible` 管。</para>
+        /// <para>⚠️ 形态门（费用六边形 / 阵营行）与 `SetFace(Hand)` 那两处**同一个判据**
+        /// （`ShowsCost` / `FaceShowsArmy(CardFace.Hand)`，铁律 10 第 5 条）—— 两处各写一遍迟早不一致。</para></summary>
+        public void SetFaceGroupVisible(bool on)
+        {
+            Show(_frame, on);
+            Show(_textBg, on);
+            Show(_costBg, on && ShowsCost(Data));
+            Show(_gem, on);
+            Show(_title, on);
+            Show(_keywords, on);
+            Show(_race, on);
+            Show(_army, on && FaceShowsArmy(CardFace.Hand));
+            Show(_art, on);
+        }
+
+        /// <summary>**换形态时**两档 2D α 回初值（`1`）。调用点 = `SetFace` 里 `_faceMode = f;` 那一句
+        /// （同形追加，**行数不变** —— 本文件按行号被账引用 224 处）。
+        /// <para>🔴 为什么必须有：`_artAlpha` / `_alpha2D` 都是**补间驱动的中间量**，补间被打断
+        /// （Kill / 换局 / 视图换形态）时会停在 0..1 之间，而原来**没有任何地方**把它们拉回 1
+        /// （`HandToBoard` 的 `OnKill` 只复位了 `_alpha2D` 与计数器，`ReturnToHand` 一个都没有）
+        /// ⇒ 同一张视图之后**永久偏淡**，且**零报错**（静默）。</para>
+        /// <para>⚠️ **排在 `if (_faceMode == f) return;` 之后** —— 同形态重调**不做**复位：
+        /// `CardFeel.ReturnToHand` 全程 `Face == Board`，这期间任何一次 `SetFace(Board)`
+        /// （例如 `SyncBoard` 那条链）都不能把正在淡的那一档拍回 1。这条有断言盯着。</para></summary>
+        void ResetFaceAlphaOnSwitch()
+        {
+            _artAlpha = 1f;
+            _alpha2D = 1f;
+            ApplyTint();     // 复位是**数值**复位，颜色得重写一遍（否则材质/顶点色停在旧 α）
+        }
+
+        /// <summary>只把 `_alpha2D` 乘进一个颜色的 **alpha**（RGB 不动 —— 乘 RGB 会变「压暗」而不是「淡出」）。
+        /// 给 TMP 那几件走顶点色的层用（它们不在 `_layers` 里，`ApplyTint` 的材质循环刷不到）。</summary>
+        Color WithAlpha2D(Color c) { return new Color(c.r, c.g, c.b, c.a * _alpha2D); }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B118-W14`）**「白」源的兜底：缺件 ⇒ 出声一次 + 占位图**
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🔶 自己设计（非原版）：缺件时的占位色 / 占位图 · 为什么必须自定：**原版不会缺件**
+        //     （贴图都是随包的 Addressable），而本地是「按需导入 `Resources/Art/`」的，缺了就是缺了
+        //     —— 那时原版行为无从查起，只能自己定「看得见地错」而不是「静默地白」。调度台 2026-11-02 裁定。
+        //  判据（为什么非要出声）→ `判据/B118_J6_卡牌表示层矩阵.md` §3 那张表：
+        //     · `Card3D.shader` 三个贴图属性默认 `"white"`（`:28-30`）⇒ 缺 `_MatCap` 时正面被
+        //       `pow(白×1.69, 1.24) ≈ 1.9` 乘**烧白**；缺 `_CardImage` 时正面**纯白**。
+        //     · `AddLayer` 的 `tex` 与 `basis` **都** null ⇒ Unity 绑内置白图 ⇒ **不透明白块**。
+        //  ⚠️ 「同一个缺件只报一次」= 按 **槽名 / 层名** 去重（不是按帧），见各自的 `HashSet`。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>3D 卡体的贴图兜底（`_BaseMap` / `_MatCap` / `_CardImage`）。`t != null` ⇒ 原样返回（**零改动**）。
+        /// 缺件 ⇒ 每种槽一份**占位色**（不是白）+ 出声一次。
+        /// <para>⚠️ `_MatCap` 的占位灰取 **0.5917**：shader 里是 `pow(sample × _MatCap_Intensity(1.69), 1.24)`
+        /// ⇒ 0.5917 × 1.69 ≈ 1 ⇒ 占位值让正面**中性**（不烧白、也不压黑）。这个数是照 shader 的算式反解的，
+        /// 不是随便挑的。</para></summary>
+        public static Texture2D Card3DTex(string slot, Texture2D t)
+        {
+            if (t != null) return t;
+            string key = string.IsNullOrEmpty(slot) ? "<null>" : slot;
+            Texture2D ph;
+            if (_card3dPlaceholder.TryGetValue(key, out ph) && ph != null) return ph;
+            Color c;
+            switch (key)
+            {
+                case "_MatCap":   c = new Color(0.5917f, 0.5917f, 0.5917f, 1f); break;
+                case "_BaseMap":  c = new Color(0.35f, 0.35f, 0.35f, 1f); break;
+                default:          c = new Color(0.55f, 0.15f, 0.45f, 1f); break;   // `_CardImage` / 未知槽
+            }
+            ph = SolidTex(c, "Card3D_MISSING_" + key);
+            _card3dPlaceholder[key] = ph;
+            if (_card3dWarned.Add(key))
+                Debug.LogWarning($"[CardView] 3D 卡体的贴图 `{key}` **取不到**（`CardArt` 返回 null）"
+                               + " ⇒ 用占位色顶替（⛔ 不再让 shader 的 `\"white\"` 默认值把正面烧白）。"
+                               + "补资源：`python 工具/import_original_3dcard.py`；判据 → "
+                               + "`判据/B118_J6_卡牌表示层矩阵.md` §3");
+            return ph;
+        }
+        static readonly Dictionary<string, Texture2D> _card3dPlaceholder = new Dictionary<string, Texture2D>();
+        static readonly HashSet<string> _card3dWarned = new HashSet<string>();
+
+        /// <summary>卡面某一层**完全没有贴图**时的兜底（`AddLayer` 的 `tex` 与 `basis` 都是 null）。
+        /// 出声一次（按层名）+ 一块**紫灰**占位图 —— 在画面上是「明显不对」，不是「像卡的白块」。</summary>
+        public static Texture2D MissingLayerTexture(string layerName)
+        {
+            string key = string.IsNullOrEmpty(layerName) ? "<unnamed>" : layerName;
+            Texture2D ph;
+            if (_layerPlaceholder.TryGetValue(key, out ph) && ph != null) return ph;
+            ph = SolidTex(new Color(0.55f, 0.15f, 0.45f, 1f), "LayerMISSING_" + key);
+            _layerPlaceholder[key] = ph;
+            if (_layerWarned.Add(key))
+                Debug.LogWarning($"[CardView] 卡面层 `{key}` 的贴图 `tex` 与 `basis` **都是 null** ⇒ 用占位色顶替"
+                               + "（原来 Unity 会绑内置白图 = 一块**不透明白块**；判据 → "
+                               + "`判据/B118_J6_卡牌表示层矩阵.md` §3）");
+            return ph;
+        }
+        static readonly Dictionary<string, Texture2D> _layerPlaceholder = new Dictionary<string, Texture2D>();
+        static readonly HashSet<string> _layerWarned = new HashSet<string>();
+
+        /// <summary>自检用：清掉「缺件记账 + 占位图缓存」⇒ 让「第一次出声」可复现。
+        /// ⚠️ 只给 Editor 自检（生产路径别调）；已建出来的材质仍指着旧占位图，不会变白。</summary>
+        public static void ResetMissingDiagnosticsForTest()
+        {
+            _card3dWarned.Clear(); _card3dPlaceholder.Clear();
+            _layerWarned.Clear(); _layerPlaceholder.Clear();
+        }
+
+        /// <summary>造一块 `n×n` 纯色可读贴图（占位用）。⚠️ 保持**可读**（`GetPixel` 要给自检读）。</summary>
+        public static Texture2D SolidTex(Color c, string name)
+        {
+            const int n = 4;
+            var t = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            t.name = name;
+            t.wrapMode = TextureWrapMode.Clamp;
+            t.filterMode = FilterMode.Bilinear;
+            var px = new Color[n * n];
+            for (int i = 0; i < px.Length; i++) px[i] = c;
+            t.SetPixels(px);
+            t.Apply(false, false);
+            return t;
+        }
+
+        // ============================================================================================
+        //  🆕 **2026-11-02（`B118-W15` · 第二轮 · 调度台裁定）**：**按「手牌形态」把 2D 卡面的文字层建出来**
+        // ============================================================================================
+        //  【为什么要有】`Build` 对 `CardFace.Board` **不建** `_title/_keywords/_race/_army/_createdBy`
+        //    （`Build` 里那条 `if (_faceMode != CardFace.Board) BuildTextLayers(d);`）。而回手倒放从
+        //    `artOn`（0.2167 s）就把整棵 `2DCard` 打开、`[0.25, 0.5833]` 整组淡回 1 ⇒ 不在这儿补建的话，
+        //    那 0.6 s 是「**有卡框有立绘、没有字**」。原版 `2DCard` 是**一个 CanvasGroup**
+        //    （`BattleCardUI__ShowBoardObjects.c:13-25` 只是切整组显隐）⇒ 框/字/图**同一时刻一起淡**，
+        //    ⛔ 不存在「先出框、后出字」。
+        //  【为什么**不**预建（= 不走 `Build`）】`BuildTextLayers` 的版面/态都按形态算，场上建出来的是
+        //    「场上态」；而 `SetFace(Hand)` 尾部本来就会按新形态**再建一次** ⇒ 预建那 5 颗 TMP 立刻被丢掉
+        //    （白建 + 每张场上卡多 5 个 TMP 的建卡开销）。
+        //  【为什么**不**直接调 `SetFace(Hand)`】那会整体换形态（`SyncHitCollider` / `PlaceRim` / `Show(_body3D,…)` /
+        //    `BuildFaceStatTexts` / `ApplyCanAct` / `SetBadges(null)` …），而这一刻形态**仍然是 `Board`**
+        //    （调用方 `BattleDriver.MoveBackToHand` 演完才 `SetFace(Hand)`）⇒ 提前切会让收尾那次 `SetFace`
+        //    因 `if (_faceMode == f) return;` **早退**，把「换形态复位两档 α」那一步整段漏掉。
+        //  ⚠️ `_faceMode` 此刻仍是 `Board` ⇒ 必须把 `CardFace.Hand` **显式传给** `BuildTextLayers`
+        //    （它内部把 `face` 透给 `ComputeTextState` / `FaceDescBand01ForFace` / `FaceShowsArmy`）。
+        //  ⚠️ 只**建层**、**不碰 α**：α 由调用方那一句 `SetAlpha2D(0f)` 统一给（`ApplyTint` 的
+        //    `WithAlpha2D` 会把 `_title/_keywords/_army/_race/_createdBy` 一起乘进去）。
+        //  ⚠️ 幂等：已经建过就原地重填（`Fill` 复用同一批 TMP 对象，不销毁重建）。
+        // ============================================================================================
+        public void BuildHandTextLayersNow()
+        {
+            if (!TmpFont.Available) return;
+            BuildTextLayers(Data, CardFace.Hand);
+            ApplyTint();      // 新层的颜色/α 走同一份整卡着色（⛔ 别在这里另写一套 α）
         }
     }
 }

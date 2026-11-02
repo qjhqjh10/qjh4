@@ -229,8 +229,9 @@ public static class EngineClosedDeckAssert
                $"★ B3 `{k}` **`SourceOf` 也有它的 `case`**（出处「{(src != null && src.Length > 40 ? src.Substring(0, 40) + "…" : src)}」）"
              + " —— 🧨 删掉 `SourceOf` 的 `case` ⇒ 本条红");
 
-            // B4 · 出处口径：`Death` / `Ability` 是「值里有我们挑的那一半」⇒ 显式 false + 带原因
-            bool wantSourced = !(k == EvtKind.Death || k == EvtKind.Ability);
+            // B4 · 出处口径：只剩 `Ability`（兜底 1.0 不是原版值）⇒ 显式 false + 带原因
+            // 🔴 2026-11-02（`B118-W4` · `B117-41`）：`Death` 的 `DeathHold` 已归零 ⇒ 它不再是「我们挑的那一半」
+            bool wantSourced = !(k == EvtKind.Ability);
             string why;
             bool sourced = EventTiming.IsSourced(k, out why);
             Ok(sourced == wantSourced && (wantSourced ? why == null : !string.IsNullOrEmpty(why)),

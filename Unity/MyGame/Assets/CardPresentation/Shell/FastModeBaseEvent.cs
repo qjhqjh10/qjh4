@@ -394,7 +394,7 @@ namespace CardPresentation
         /// </code>
         /// 🔴 **判据的两条闸**：`milestone &gt; CurrentScore` 才算「还没到」；`pending &gt; collectedRewards` 才算「有新可领」。
         /// ⚠️ 本地等价：没有服务器 ⇒ 直接把 `collectedRewards` 推到 `pending` 并把「本次可领」的奖励 id 交出去
-        /// （<see cref="OnRewardsCollected"/>），成功回调立刻走（**没有重试、没有防重复提交**）。
+        /// （<see cref="OnRewardsCollected"/>），成功回调立刻走（**没有重试、没有防重复提交**）。🆕 2026-11-02（`B118_W24`）补失败支：本地那一路的「失败」= 活动存档**没落盘**（`SaveEventProgress` 的 `onFail` 回调）⇒ 回滚 `collectedRewards` + `ErrorPopupWindowController.ShowErrorMessage(GenericConnectionError)` + **不调** `onComplete`（判据 = `_003CTryCollect_003Eb__20_1`：原版失败支只弹错误）。
         /// </summary>
         public void TryCollect(Action onComplete = null)
         {
@@ -445,8 +445,8 @@ namespace CardPresentation
                 if (seen > SaveGame.collectedRewards && r.rewardIds != null)
                     for (int k = 0; k < r.rewardIds.Length; k++) newly.Add(r.rewardIds[k]);
             }
-            SaveGame.collectedRewards = pending;
-            SaveEventProgress(null, null);
+            int prevCollected = SaveGame.collectedRewards; bool saveFailed = false; SaveGame.collectedRewards = pending;
+            SaveEventProgress(null, () => saveFailed = true); if (saveFailed) { SaveGame.collectedRewards = prevCollected; ErrorPopupWindowController.ShowErrorMessage(CustomError.GenericConnectionError); return; }   // ★ 原版失败支 = `_003CTryCollect_003Eb__20_1`（只弹 `GenericConnectionError`、**不**调 onComplete）；本地那一路 = 活动存档**没落盘**（回滚内存 ⇒ 别把「没写进去」当真成功）
             var collect = new CollectFastModeRewardsResult
             {
                 rewardIds = newly.ToArray(),

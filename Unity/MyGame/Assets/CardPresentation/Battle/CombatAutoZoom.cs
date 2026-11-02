@@ -733,9 +733,9 @@ namespace CardPresentation
         /// `playerHand.m_PathID` → 那件 `PlayerHand`），其 `smallScreenSizeMultiplier` **13/13 = 1.365**（敌方那件 1.2，但 `+0x60` 从不指它）；
         /// `PlayerHand.Initialize` 只**读**该字段、全反编译**写点 = 0** ⇒ 运行期恒 1.365 ⇒ 两个分支照原版取 `smallScreenUI ? 1.365 : 1.0`
         /// （原版那一位把 `playerCardAreaSizeHelper.sizeDelta.y` 设成 `Original.rect.height × M` ⇒ 手牌区上沿抬高 M 倍）。</para>
-        /// <para>⚠️ **仍然如实记的第二条**：我们自己的战斗 HUD **没有**「手牌区放大 1.365 倍」那一档（`TransformScalerBySmallScreenUI`
-        /// 的 `AddComponent` 生产调用点只在菜单窗口那两处）⇒ 开着 Small Screen UI 时「取景按原版大手牌算、画面按我们小手牌画」。
-        /// 公式**照抄原版**（铁律 11）；这是**另一条**待办（HUD 侧），⛔ 不许为掩盖它把这里的 M 改回 1.0。</para></summary>
+        /// <para>✅ **2026-11-02 就地订正（铁律 5 · `B118-W1` 已落）**：原文写「我们自己的战斗 HUD **没有**『手牌区放大 1.365 倍』那一档」—— **已过期**。
+        /// `BattleDriver.ApplySmallScreenHandScale()`（`:4980` 调用点 · 实现在类尾 `:41045-41070`）已把 `HandLayout` 的 **卡尺度 / 基线高度 / 悬停抬起量 / 小屏档横向跨度上限** 四格一起 ×1.365，且基值只抓一次（幂等）、只在 `SmallScreenUI.Enabled` 时生效（出厂 false ⇒ 既有自检逐位不变）。
+        /// 公式仍**照抄原版**（铁律 11），⛔ 不许把这里的 M 改回 1.0。</para></summary>
         public static float CurrentSizeMultiplier { get { return SmallScreenUI.Enabled ? PlayerHandSmallScreenSizeMultiplier : 1f; } }
 
         /// <summary>最近一次量到的「世界系高差」（自检用）。</summary>

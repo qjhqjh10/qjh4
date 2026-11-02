@@ -34,9 +34,9 @@
 //       `Unstable(81) → unstable` · `ThisUnitDeath(80) → backlash` · `ThisCardPlayed(0) → rally`；
 //       `default`: `Enum.TryParse<DefinedTrait>(lowerFirst(abilityTrigger.ToString()))`，失败 ⇒ `none`。
 //       ⇒ **名字对名字**（`AbilityTrigger.PascalCase` → `DefinedTrait.camelCase`），不是数值表。
-//       ⚠️ 我们这边**没有 `DefinedTrait` 这个 C# 枚举**（它在 `d:/2` 的桩里）⇒ 用「
-//       `TraitFrames` 的绑定表里有没有这一位」当同一条判据（表 = 原版 `CardTrait` SO 的转写，
-//       `Resources/trait_effect_bindings.json`）。表里没有 ⇒ 与原版 `none` 等价（**出声一次**，不静默）。
+//       ⚠️ 原来说「我们这边没有 `DefinedTrait` 枚举 ⇒ 用 `TraitFrames` 绑定表当代理」—— **已过期**
+//       （🔴 2026-11-02 `B118_W23` · 账 `战斗逻辑驱动:994` 的 F5 残余）：Core 已把 134 条枚举表逐条转写进
+//       `RuleEngine/Core/CardDefPartial_B94B16.cs:142 GetTraitFromAbilityTrigger` ⇒ 本文件**直接转发它**。
 //
 // 🔴🔴 **原版这两条在本 build 上是【死路】—— 照抄形状，不发明调用方**（2026-10-26 现查，两棵树都查过）：
 //   · `PlayIconAnim` 在 **`decomp_full/*.c` 与 `out_cpp2il_dev_ilspy/*.cs` 里都【零调用点】**
@@ -95,34 +95,34 @@ namespace CardPresentation
         /// `triggerName` 传 null/空 ⇒ `null`（⛔ 不猜）。</para></summary>
         public static string TraitOfTrigger(string triggerName)
         {
-            if (string.IsNullOrEmpty(triggerName)) return null;
-            switch (triggerName)
-            {
-                case "ThisCardPlayed": return "rally";       // 原版 switch 第 3 支（DefinedTrait.rally = 10）
-                case "ThisUnitDeath":  return "backlash";    // 第 2 支（backlash = 120）
-                case "Unstable":       return "unstable";    // 第 1 支（unstable = 1010）
-            }
-            char c = triggerName[0];
-            string camel = char.ToLowerInvariant(c) + triggerName.Substring(1);
-            // 原版这里 `Enum.TryParse<DefinedTrait>(camel)`：**命中才是 trait**。
-            // 我们手上没有那张枚举 ⇒ 用「绑定表里有没有这一位」当同一件事的判据。
+            // 🔴 2026-11-02（`B118_W23` · 账 `战斗逻辑驱动:994` 的 F5 残余）：**改成本函数的转发**。
+            //   原来这里以 `TraitFrames` 绑定表当 `Enum.IsDefined` 的代理 ⇒ 覆盖**窄于**原版 134 个成员
+            //   （`requiem` / `landing` / `codex` … 原版都折得出；图标表缺项只是**不演**，不是折不出）。
+            //   判据只此一处 = `RuleEngine/Core/CardDefPartial_B94B16.cs:159`（原版
+            //   `CardTraitCollection__GetTraitFromAbilityTrigger.c:1-58`：三个硬编码 + 134 条同名解析）。
+            //   三个硬编码（`ThisCardPlayed→rally 10` / `ThisUnitDeath→backlash 120` /
+            //   `Unstable→unstable 1010`）在 Core 那侧**排在名字解析之前**，⛔ 这里不再复述一遍
+            //   （两处写同一条规则，迟早不一致 —— 这也是本轮删掉下面那段 switch 的全部理由）。
+            int traitValue = RuleEngine.CardDef.GetTraitFromAbilityTrigger(triggerName);
+            // `0` = `DefinedTrait.none`（原版解析失败也回 0）⇒ 返 null，让上层「解不出」的日志仍可区分；
+            // `DefinedTraitName` 反查不出（数值不在枚举里）也返 null（原版那一跳同样匹配不到任何图标位）。
             // ⚠️ 认不出**不是错**：原版对绝大多数 trigger（`TurnStart` / `WhileInPlay` …）也返回 `none`。
-            return TraitExists(camel) ? camel : null;
+            return traitValue == 0 ? null : RuleEngine.CardDef.DefinedTraitName(traitValue);
         }
 
-        /// <summary>数值版：数值 → 名字要靠 `triggerNameOf`（引擎侧 = `CardDef` 的 trigger 名表；
-        /// 本类**不另抄一份**，见 `CLAUDE.md` 铁律「两处写同一条规则」）。
-        /// 认不出名字（`null`）⇒ 直接按 <see cref="LandingTrigger"/> 的数值兜底判断 Landing。</summary>
+        /// <summary>数值版：数值 → 名字**不再经过 `triggerNameOf`**（见下），保留形参只为不动调用签名。
+        /// 判据同名字版 = `CardDef.GetTraitFromAbilityTrigger(int)`（原版**同一个函数**的两个重载）。
+        /// `triggerNameOf` 传 null / 非 null 都不影响结果（⛔ 它已不参与折算，别再加回一条旁路）。</summary>
         public static string TraitOfTrigger(int trigger, System.Func<int, string> triggerNameOf)
         {
-            string name = triggerNameOf != null ? triggerNameOf(trigger) : null;
-            if (string.IsNullOrEmpty(name))
-                return trigger == LandingTrigger ? TraitOfTrigger(LandingTriggerName) : null;
-            return TraitOfTrigger(name);
+            // 数值版同样转发 Core（原版吃的就是枚举数值）：`AbilityTriggerNumberOfName` 的反向视图在 Core。
+            // ⚠️ 原来这里用 `triggerNameOf` 把数值折成名字再走名字版 —— 多一跳、还多一处可错的口。
+            int traitValue = RuleEngine.CardDef.GetTraitFromAbilityTrigger(trigger);
+            return traitValue == 0 ? null : RuleEngine.CardDef.DefinedTraitName(traitValue);
         }
 
-        /// <summary>trait 在<b>绑定表</b>里有没有这一位（三本表任一命中即算）。
-        /// ⚠️ 这是原版 `Enum.IsDefined(typeof(DefinedTrait), …)` 的**代理判据**（理由见文件头 ④）。</summary>
+        /// <summary>trait 在<b>绑定表</b>里有没有这一位。🔴 2026-11-02（`B118_W23`）：`TraitOfTrigger` 转发 Core
+        /// 之后本方法**已无调用者**；保留只因本文件被账按行号引用（`:148`/`:160`/`:171`/`:363`），删之即漂。</summary>
         static bool TraitExists(string camel)
         {
             if (string.IsNullOrEmpty(camel)) return false;

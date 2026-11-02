@@ -591,7 +591,7 @@ namespace CardPresentation
             _btnDoneParent = AttachChoiceButton(_doneParentHit, "Continue Button", OnUguiDone);
             _btnBar = AttachChoiceButton(_bar, "BG", OnUguiDone);
             _btnPlay = AttachChoiceButton(_play, "ContinueButton", OnUguiDone);
-            _btnEye = AttachChoiceButton(_eye, "HideChooseButton", OnUguiEye);
+            _btnEye = AttachChoiceButton(_eye, "HideChooseButton", OnUguiEye, WindowSounds.DefaultButtonCue);   // 原版 `ChooseCardMenu/ButtonsGroup/HideChooseButton`（EverguildButton MB 4387）无自带 cue、useDefaultAudioClipIfNull=1 ⇒ 默认按钮音；同组另外三件（Continue Button / BG / ContinueButton）是**静音**档（MB 4897 useDefaultAudioClipIfNull=0 的透明命中面 + 它的两个子图，原版均不是独立按钮）
         }
 
         /// <summary>把一件 uGUI 图挂成 `BattleHudButton`，并把 `raycastPadding` 写成**原版那个值**（全 0）。
@@ -599,14 +599,14 @@ namespace CardPresentation
         /// <para>⚠️ `m_RaycastPadding = (0,0,0,0)` 是**原版四个可射线件共同的实测值**
         /// （`MB_4413` 父 Continue Button · `MB_5075` BG · `MB_4921` 眼睛）；这里显式写一遍
         /// 是为了让「命中区 = 件 rect + 各自 padding」这条口径**在代码里看得见**（默认值也是 0）。</para></summary>
-        BattleHudButton AttachChoiceButton(HudPiece piece, string originalNode, Action act)
+        BattleHudButton AttachChoiceButton(HudPiece piece, string originalNode, Action act, string cue = null)
         {
             if (piece == null)
             {
                 Debug.LogError("[选卡面板] `" + originalNode + "` 那一件没建出来 ⇒ **它不参与 uGUI 命中**");
                 return null;
             }
-            var b = BattleHudButton.Attach(piece, act);
+            var b = BattleHudButton.Attach(piece, act, cue);
             if (b == null)
             {
                 Debug.LogError("[选卡面板] `" + originalNode + "` 挂不上点击适配器"

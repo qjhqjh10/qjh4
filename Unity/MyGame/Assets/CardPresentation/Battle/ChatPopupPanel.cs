@@ -538,8 +538,8 @@ namespace CardPresentation
                                  + "（`HudCanvas.MakeImageInParent` 返回 null）⇒ **这颗钮在 uGUI 上点不动**");
                     continue;
                 }
-                _btns[i].hit = hit;
-                var btn = BattleHudButton.Attach(hit, () => OnUguiButtonClicked(idx));
+                _btns[i].hit = hit;   // cue 判据：原版 `ChatButtons/Buttons/ChatButton (0..5)` 六颗都是 `EverguildButton` `useDefaultAudioClipIfNull=1` 且 `m_onClickSound` 空（MB 4585/4652/5103/4985/4669/4981）⇒ 默认按钮音（⛔ 别与设置面板那颗自带 `Select Toggle` 的 `ChatToggle` 混）
+                var btn = BattleHudButton.Attach(hit, () => OnUguiButtonClicked(idx), WindowSounds.DefaultButtonCue);
                 if (btn == null)
                 {
                     Debug.LogError("[ChatPopup] 第 " + (i + 1) + " 颗钮的**点击适配器**挂不上"

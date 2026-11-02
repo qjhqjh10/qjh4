@@ -151,12 +151,13 @@ namespace CardPresentation
             _ended = false;
             _checkAcc = 0f; _level = LevelSilent;
             var mute = WarpforgeAudio.GetSnapshot(WarpforgeAudio.SnapshotsType.MusicBattleMusicNoMusic); if (mute != null) mute.TransitionTo(0f);   // 原版：进场先**瞬时静音**
-            StartFade(LevelLow, FadeInLowSeconds);
+            WarpforgeAudio.ToggleSFX(false, true); _openBeatPending = true;   // 第 0 拍：FX 总线瞬时压到 −80 dB（原版 `_Start_d__13` state 0 的 `ToggleSFX(false, instant:true)`）；第 1 拍留给下一帧 `Tick`（state 1）
         }
 
         /// <summary>每帧推进（⚠️ **必须挂在 `BattleDriver.AdvanceTimeline` 那个泵上** —— 批处理没有帧循环）。</summary>
         public void Tick(float dt, float heroMinHealth)
         {
+            if (_openBeatPending) { _openBeatPending = false; WarpforgeAudio.ToggleSFX(true); StartFade(LevelLow, FadeInLowSeconds); }   // 第 1 拍 = 原版 `_Start_d__13` state 1：FX **2 s 淡回**（`instant=false`）+ Low **3 s 淡入**。⚠️ 必须在下面 `_row == null` 早退**之前** —— 否则 BGM 表缺失时 FX 会永久压在 −80 dB
             if (_row == null) return;
             StepFade(dt);
             if (_ended || _row.useMultipleTracks == 0) return;   // 判据 ⑤：单曲场永不切档
@@ -261,6 +262,7 @@ namespace CardPresentation
 
         public void OnDestroy()
         {
+            if (_openBeatPending) { _openBeatPending = false; WarpforgeAudio.ToggleSFX(true); }   // 安全网：⛔ 绝不把整条 FX 总线留在 −80 dB（第 1 拍还没解就销毁 ⇒ 这里兜底；原版没有这个口，因为它的协程绑在不会被提前销毁的场景组件上）
             for (int i = 0; i < 3; i++) _src[i] = null;
         }
 
@@ -273,5 +275,15 @@ namespace CardPresentation
             if (level == LevelHigh) return WarpforgeAudio.SnapshotsType.MusicBattleMusicHigh;
             return WarpforgeAudio.SnapshotsType.MusicBattleMusicLow;
         }
+
+        // ---- 类尾追加（⛔ 别插进上面任何成员之间：`账/音频_语音.tsv` 有 4 行按行号引用本文件）----
+
+        /// <summary>开场两拍的第 2 拍还没解（`BeginBattle` 置真、下一次 `Tick` / `OnDestroy` 清）。
+        /// 判据 = 原版 `BattleMusicManager._Start_d__13.MoveNext`：state 0 结尾 `yield WaitForEndOfFrame`，
+        /// state 1 才 `ToggleSFX(true)`（2 s 淡回）+ `battleLow.TransitionTo(3f)`（`decomp_full/..._MoveNext.c:34,37-38,85,88`）。</summary>
+        bool _openBeatPending;
+
+        /// <summary>自检读：第 1 拍还欠着吗（`true` = FX 总线当前被压在 `NoVolume`、BGM 还在静音）。</summary>
+        public bool OpenBeatPendingForTest { get { return _openBeatPending; } }
     }
 }

@@ -1062,7 +1062,7 @@ namespace CardPresentation
             Texture2D t;
             if (_cache.TryGetValue(path, out t)) return t;
             t = Resources.Load<Texture2D>(path);
-            _cache[path] = t;                 // null 也缓存：找不到就别每次都去 IO
+            _cache[path] = t; if (t == null) NoteMissing(path);   // null 也缓存：找不到就别每次都去 IO（🆕 `B118-W14`：缺件要**出声一次** —— 静默的负缓存会让「图没导进来」表现成一堆白块而没人知道为什么）
             if (t != null) _pathOf[t] = path; // 反查表（类尾 `Release` / `PathOf` 用）
             return t;
         }
@@ -1383,5 +1383,41 @@ namespace CardPresentation
         /// 两张图**都是 128²**、还在同一个 bundle 里 ⇒ 只能按 pathID / 材质名分，⛔ 别按尺寸或名字里的 "noise" 认（2026-11-01 `B111_F1B` 清掉的正是这个错）。
         /// 导入设置照原版 `.meta`：`enableMipMap 1` · `sRGBTexture 1` · `wrap 0/0/0`（Repeat —— shader 里按 `_NoiseScaleAndSpeed.xy = 10×18.05` 平铺采样）。</summary>
         public static Texture2D GlitchScanLinesNoise() { return Get(Root + "vfx/ScanLines"); }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B118-W14` · 判据 `判据/B118_J6_卡牌表示层矩阵.md` §3 最后一行）
+        //     **负缓存要出声** —— 它不是「什么都没有」，它是「以后永远取不到」
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  原缺陷：`Get` 把 `null` 也写进 `_cache`（这是对的，避免每帧 IO），但**一声不响** ⇒
+        //    · 调用方拿到 null 各自退回占位/白块（`CardView.BuildBody3D` 原来退 `whiteTexture`）；
+        //    · 而这张图**本次运行内再也不会重试**（`Release` 明确拒绝负缓存条目，见 `Release` 的 doc）。
+        //  ⇒ 本笔只加**出声一次**（按路径去重 + 前 `MissingWarnCap` 条），不改缓存语义
+        //    （改成不缓存 = 每帧 IO，那是另一个方向的错）。
+        //  🔶 自己设计（非原版）：出声 + 上限 · 为什么必须自定：原版走 Addressables、缺件会在
+        //    **加载期**就报错，不存在「Resources 里没有」这一档。调度台 2026-11-02 裁定。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>逐条出声的上限（缺整个 `Resources/Art/cards/` 时别把日志刷爆）。</summary>
+        const int MissingWarnCap = 24;
+
+        static readonly HashSet<string> _missingWarned = new HashSet<string>();
+
+        static void NoteMissing(string path)
+        {
+            if (!_missingWarned.Add(path)) return;             // 同一个缺件只报一次
+            if (_missingWarned.Count > MissingWarnCap) return; // 超过上限静音（见 `MissingWarnCap`）
+            Debug.LogWarning($"[CardArt] 取不到 `Resources/{path}`（**负缓存**：本次运行内不会再重试 —— "
+                           + "补了图要重启编辑器）。调用方会退回占位 / 报自己的缺失（判据 → "
+                           + "`判据/B118_J6_卡牌表示层矩阵.md` §3）");
+            if (_missingWarned.Count == MissingWarnCap)
+                Debug.LogWarning($"[CardArt] 缺件告警已达上限 {MissingWarnCap} 条 ⇒ 之后**只计数不再逐条出声**"
+                               + "（`CardArt.MissingCount` 仍会涨）");
+        }
+
+        /// <summary>本次运行内**记到过的缺件路径条数**（去重后）—— 自检/诊断读口（判据见上面那一段）。</summary>
+        public static int MissingCount { get { return _missingWarned.Count; } }
+
+        /// <summary>清掉缺件记账（**只**给 Editor 自检用；不清 `_cache` 的负缓存条目 —— 那是另一件事）。</summary>
+        public static void ResetMissingDiagnosticsForTest() { _missingWarned.Clear(); }
     }
 }

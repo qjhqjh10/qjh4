@@ -42,6 +42,11 @@
     <Compile Include="EffectsProbe.cs" />
     <!-- 🆕 `nonkw`（`A1462`）—— `non <关键词>` 的目标筛选专用探针，见 `NonKwProbe.cs` 头注 -->
     <Compile Include="NonKwProbe.cs" />
+    <!-- 🆕 `death`（`D118-28`，2026-11-02 · 写手 `B118-W12`）：**死亡路径的仓库外夹具**。
+         判据 → `报告/B101_K3_特效音效联机自检线核销.md:87`（A4）+ `调度台日志.md` §12·105 末句
+         + `判据/S3未验到_分族与夹具.md` §3.2。⚠️ 本 csproj 关了 `EnableDefaultCompileItems`，
+         漏了这行 = 构建期 `CS0103 名称"DeathProbe"`。 -->
+    <Compile Include="DeathProbe.cs" />
     <Compile Include="Program.cs" />
     <!-- 🆕 `dbparse`（`E12`，2026-10-19 · 第五十七会话）：**`CardDatabase.Parse` 的形状 + 耗时**。
          🔴 为此**必须**把 `Data/CardDatabase.cs` 也编进来 —— 本 csproj 关了

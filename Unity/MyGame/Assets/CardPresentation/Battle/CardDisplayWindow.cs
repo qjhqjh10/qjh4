@@ -616,7 +616,7 @@ namespace CardPresentation
             else
             {
                 HudCanvas.FillParent(_backdrop.Rect);          // 铺满 = 全屏（⛔ 不写死尺寸）
-                _backdropBtn = BattleHudButton.Attach(_backdrop, RequestCloseByUgui);
+                _backdropBtn = BattleHudButton.Attach(_backdrop, RequestCloseByUgui);   // cue 留空 = 静音：原版 `cdw_background_close` 是**纯 MonoBehaviour 命中面**（`BackgroundCloseButton`），不在 39 颗 `EverguildButton` 里 ⇒ 原版点它**没有声**
                 if (_backdropBtn == null)
                     Debug.LogError("[展示窗] 背景关闭区没挂上 uGUI 点击 ⇒ **点空白不会关窗**（不静默）");
             }
@@ -677,7 +677,7 @@ namespace CardPresentation
                     Debug.LogError("[展示窗] 语音钮的节点 rect 没写进去（不静默）");
                 if (!_voiceBtn.SetRaycastPadding(0f, 0f, 0f, 0f))
                     Debug.LogError("[展示窗] 语音钮的 `raycastPadding` 没写进去（不静默）");
-                _voiceBtnClick = BattleHudButton.Attach(_voiceBtn, ClickVoiceButton);
+                _voiceBtnClick = BattleHudButton.Attach(_voiceBtn, ClickVoiceButton);   // cue 留空 = 静音：原版 `Card Display/LowerSection/Voice Over Button`（EverguildButton MB 4852）**`useDefaultAudioClipIfNull = 0` 且无自带 cue** ⇒ 原版点它无声（39 颗里 2 颗静音档之一）
                 if (_voiceBtnClick == null)
                     Debug.LogError("[展示窗] 语音钮没挂上 uGUI 点击 ⇒ **这颗钮点不动**（不静默）");
             }

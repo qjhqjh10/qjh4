@@ -4247,18 +4247,18 @@ namespace CardPresentation
         public Transform DropdownBlockerNode { get { return _ddBlocker; } }
 
 
-        /// <summary>点「Redeem Code」。原版 = 弹一个兑换码输入框（`PromptContext`）→ `TryRedeemCode` →
-        /// **发给服务器**。我们**没有任何服务器** ⇒ 照建、点了**如实出声**（用户 2026-09-28 口径：
-        /// 「一些与联网服务器有关的，**点击没有作用就没有作用**」，但**不许静默**）。</summary>
+        /// <summary>点「Redeem Code」。原版 = 弹一个兑换码输入框（`PromptContext`）→ `TryRedeemCode` → **发给服务器**。
+        /// 输入窗**照原版建**（`#200`，2026-11-02 接上）；只有「提交之后发给服务器」那一跳本仓没有（关服）⇒
+        /// 如实出声（用户 2026-09-28 口径「点了没作用就没作用，但不许静默」）。</summary>
         void RedeemCode()
         {
-            // 🆕 2026-10-18（双语③ 波 1b · P2b）：整句改走语言表（键 = `Settings/General/RedeemCodeUnavailable`，
-            //   值**逐字 = 原来那句** ⇒ 中文档零变化）。
-            string msg = Loc.T(lkRedeemUnavailable);
-            Debug.LogWarning("[Settings] " + msg);
+            // = 原版 `GeneralTab.RedeemCode()`（`decomp_full/GeneralTab__RedeemCode.c` 全文 + ILSpy 回读，2026-11-02 B118_W21 现核）：
+            //   组一个 `PromptContext`（Title = `Settings/General/RedeemCodePrompt` · Localize = 1 ·
+            //   Inputs = [InputData{Name="Code" · Label=`Settings/General/RedeemCodePlaceholder` · ContentType=Standard ·
+            //   DefaultValue=null}]）→ `OpenWindow<PromptPopup>(ctx)`；我们 = `PromptPopup.Create(...)` 带同样 `InputData` 再开（类尾 `RedeemCodeInput`）。
             var wm = WindowsManager.Instance;
-            if (wm != null) wm.ShowPopUp(msg, Loc.T(lkOk), null);
-            _flash = msg;
+            if (wm == null) { RedeemCodeUnavailable(); return; }   // 场上没有 `WindowsManager` ⇒ 退回「如实出声」那条（⛔ 不静默）
+            RedeemCodeInput(wm); _flash = Loc.T(lkRedeemUnavailable);
         }
 
         /// <summary>点「退出游戏」。= 原版 `SettingsMenu.ExitGamePopup()`（`SettingsMenu__ExitGamePopup.c` 实读）：
@@ -7254,6 +7254,88 @@ namespace CardPresentation
                 Debug.Log("[Settings] 钮 `" + tag + "` 的命中区**这一刻判不了**（它不在激活链上：整页/整块现在是关着的）—— " + why);
             else
                 Debug.LogError("[Settings] 钮 `" + tag + "` **点不到**（2026-11-01 B115_W15 重写探针；⛔ 不许静默）：" + why);
+        }
+    }
+
+    // ============================================================ 🆕 2026-11-02（B118_W21 · 分诊 #200）
+    // **`PromptPopup.InstantiateInput` 的第一处生产接线点** —— 原版「兑换码」那一扇。
+    // 判据（全文现读）：
+    //   · `decomp_full/GeneralTab__RedeemCode.c`：组 `PromptContext`（Title = `Settings/General/RedeemCodePrompt` ·
+    //     `Localize = 1` · `OnSubmit = TryRedeemCode` · `Inputs = [InputData{ Label = `…/RedeemCodePlaceholder` ·
+    //     Name = "Code" · ContentType = Standard · DefaultValue = null }]`）→ `OpenWindow<PromptPopup>(ctx)`。
+    //     ILSpy 回读（`out_cpp2il_dev_ilspy/GeneralTab.cs:169-232`）逐字一致：`action = TryRedeemCode` ·
+    //     `obj = "Settings/General/RedeemCodePlaceholder"`（+24 = `Label`）· `obj2 = "Code"`（+16 = `Name`）·
+    //     `num = 0`（+32 = `DefaultValue`）· `promptContext.Localize__BackingField = true` ·
+    //     `obj6 = "Settings/General/RedeemCodePrompt"`（+16 = `Title`）。
+    //   · `GeneralTab__TryRedeemCode.c`：取 `result.Data["Code"]` → `WindowsManager.HidePopUp` / `ShowPopUp(加载态)` →
+    //     `PlayfabWrapper.RedeemCode(code, onSuccess, onError)`。成功 = 关提示窗 + 发奖励；失败 =
+    //     `PromptPopup.SetError(<前缀> + err, localize: 1)`。
+    // 🔶 自己设计（非原版）：**提交之后那一跳**。`PlayfabWrapper.RedeemCode` 在服务器侧，关服后判据在远端
+    //    （`§18·0` 允许自设计的那一类）⇒ 我们不伪造「成功/失败」，只把「服务器不可用」如实说出来
+    //    （用户 2026-09-28 口径：联网功能点了没作用就没作用，但**不许静默**）。日期 = 2026-11-02 · B118_W21。
+    // ⛔ 全部追加在**文件末尾的 partial 块**里 —— 本文件被账按行号引用（`6218`/`6329`/`6344`/`6513` 等），
+    //   插进类中间会让下游落点整体漂移。
+    public partial class SettingsWindow
+    {
+        /// <summary>原版 `PromptContext.Title`（官方词条实读：EN `Insert your Promotional Code` / ZH `输入您的促销代码`）。</summary>
+        const string lkRedeemPrompt = "Settings/General/RedeemCodePrompt";
+        /// <summary>原版 `PromptContext.InputData.Label`（官方词条：EN `Promotional Code` / ZH `促销代码`）。</summary>
+        const string lkRedeemPlaceholder = "Settings/General/RedeemCodePlaceholder";
+        /// <summary>原版 `InputData.Name`（`.c` 里那个字面量 `"Code"`；`TryRedeemCode` 就是拿它去 `result.Data["Code"]`）。</summary>
+        const string RedeemCodeFieldName = "Code";
+
+        // ---- 自检读口（⛔ 不是原版字段；只给 `Editor/B118W21_Assert.cs` 用）----
+        /// <summary>最近一次提交出去的兑换码（没提交过 ⇒ `null`）。</summary>
+        public static string LastRedeemCodeForTest { get; private set; }
+        /// <summary>提交过几次（= `TryRedeemCode` 被调了几次）。</summary>
+        public static int RedeemSubmitCount { get; private set; }
+        /// <summary>「服务器不可用」那句弹窗弹过没有（= 点提交之后有没有**如实出声**）。</summary>
+        public static bool LastRedeemPopupShownForTest { get; private set; }
+        /// <summary>上一次开出去的输入窗（没开过 / 已销毁 ⇒ `null`）。</summary>
+        public static PromptPopup LastRedeemPromptForTest { get; private set; }
+
+        /// <summary>自检前归零（重复跑时不串上一次的读数）。</summary>
+        public static void ResetRedeemProbeForTest()
+        {
+            LastRedeemCodeForTest = null; RedeemSubmitCount = 0;
+            LastRedeemPopupShownForTest = false; LastRedeemPromptForTest = null;
+        }
+
+        /// <summary>= 原版 `GeneralTab.RedeemCode()` 开窗那半边（见本节头）。
+        /// <para>⚠️ 原版 `OnCancel` 传的是 `0`（没有取消回调）⇒ 我们 `cancelText` 也传 `null`：
+        /// 那一档 `PromptPopup` **只画 Ok**（原版 `GenericPromptWindow` 只有 2 按钮版，运行时藏 Cancel 静态查不到，
+        /// 判据见 `Shell/PromptPopup.cs` 文件头 ②）。</para></summary>
+        void RedeemCodeInput(WindowsManager wm)
+        {
+            var input = new PromptContext.InputData(RedeemCodeFieldName, lkRedeemPlaceholder,
+                                                    TMPro.TMP_InputField.ContentType.Standard, null);
+            var win = PromptPopup.Create(wm, Loc.T(lkRedeemPrompt), Loc.T(lkOk), null, null, null, input, TryRedeemCode);
+            LastRedeemPromptForTest = win;
+            wm.OpenWindow(win);
+            Debug.Log("[Settings] 兑换码输入窗已开（原版 `GeneralTab.RedeemCode` → `PromptContext{Title=" + lkRedeemPrompt
+                    + ", Inputs=[Code], Localize=1}`）—— 输入行由 `PromptPopup.InstantiateInput` 那条链建（账 541）");
+        }
+
+        /// <summary>= 原版 `GeneralTab.TryRedeemCode(PromptResult)` 的**提交那一跳**。
+        /// <para>原版取 `result.Data["Code"]` 之后交给 `PlayfabWrapper.RedeemCode`；本仓没有服务器
+        /// ⇒ 🔶 只记下提交值 + 把「服务器不可用」如实说出来（见本节头的 §18·0 说明）。</para></summary>
+        void TryRedeemCode(string code)
+        {
+            LastRedeemCodeForTest = code; RedeemSubmitCount++;
+            Debug.LogWarning("[Settings] 兑换码 `" + (string.IsNullOrEmpty(code) ? "<空>" : code) + "` 已提交；"
+                           + "原版这一跳 = `PlayfabWrapper.RedeemCode(code, onSuccess, onError)`（服务器侧），"
+                           + "本仓**没有服务器** ⇒ 不伪造成功/失败，只如实出声（🔶 自己设计 · §18·0 服务器那一类）");
+            RedeemCodeUnavailable();
+        }
+
+        /// <summary>「兑换码服务器不可用」这一声（原来的全部行为，原样收在这里；两处入口共用一份）。</summary>
+        void RedeemCodeUnavailable()
+        {
+            string msg = Loc.T(lkRedeemUnavailable);
+            Debug.LogWarning("[Settings] " + msg);
+            var wm = WindowsManager.Instance;
+            if (wm != null) { wm.ShowPopUp(msg, Loc.T(lkOk), null); LastRedeemPopupShownForTest = true; }
+            _flash = msg;
         }
     }
 }

@@ -344,10 +344,10 @@ namespace CardPresentation
         public bool PointerUsesArrowArt { get { return _pointer != null; } }
         public bool AnnotationsVisible { get { return _annoGo != null && _annoGo.activeSelf; } }
         /// <summary>🆕 **2026-10-17（`N49①`）自检口**：第 `i` 颗教学标注的 `Label`（`0..3` = Melee/Ranged/Health/Energy）。
-        /// 只读；`Build()` 之前 / 下标越界 ⇒ null。断「细黑描边真上到**实例材质**上」用它。</summary>
+        /// 只读；`Build()` 之前 / 下标越界 ⇒ null。⚠️ **2026-11-02（`B118-W3` · `B117-T10`）起恒 `null`** —— 重复的 `TutorialObjs` 树已停建（原版只有 `CardDisplayWindow` 那棵），本口只为源码兼容留着（`Editor/BattleScene.cs` 的 `N49①` 断言还引用，归调度台）。</summary>
         public Label AnnoLabel(int i)
         {
-            return (i >= 0 && i < _annoLabels.Length) ? _annoLabels[i] : null;
+            AnnoGoneLog(); return (i >= 0 && i < _annoLabels.Length) ? _annoLabels[i] : null;
         }
         /// <summary>🆕 **2026-10-17（`A1024`③ 批 2–4）自检口**：提示条两颗字（**只给自检读**）。
         /// `0` = `TipText` · `1` = `ContinueText`；没建出来 / 下标越界 ⇒ `null`。</summary>
@@ -819,8 +819,8 @@ namespace CardPresentation
             // ⚠️ **如实记（`T09` 批 3）**：原版这一支挂 `Card Display/Card Display Window`（HUD 那一支，
             //    全树 `:578`），本件把它**建在 `Tutorial Canvas` 里**（「谁的 canvas 装谁」，
             //    ⛔ 没顺手翻父子层级 —— 那是另一笔账）。
-            _annoGo = UguiMode ? NewNode("TutorialObjs", tipParent, 1920f, 1080f, ZFlat)
-                               : PlainNode("TutorialObjs", tipParent);
+            _annoGo = null;   // 🔴 2026-11-02（`B118-W3` · `B117-T10`）：**重复的 `TutorialObjs` 树已停建** —— 原版只有一棵（`CardDisplayWindow.SetupTutorialObj` 建的 `Card Display/TutorialObjs`，7 道闸）；⛔ 别建回来。
+            // （原 `UguiMode ? NewNode("TutorialObjs", tipParent, 1920f, 1080f, ZFlat) : PlainNode("TutorialObjs", tipParent)` 在此；⛔ 行数守恒 ⇒ 下面整段按 `_annoGo == null` 空转，待调度台改完 `BattleDriver`/`BattleScene` 接线后整段删除）
             string[] names = { "MeleeText", "RangedText", "HealthText", "EnergyText" };
             // 🆕 **2026-10-17（界面线 `T07` · `A1753` #17）**：原版 `…/UnitObjs ▸ {Melee,Ranged,Health,Energy}Text`
             //   挂 `Asar-Regular Light Grey w outline thin`，`_FaceColor = (0.802, 0.802, 0.802)`、顶点白
@@ -830,7 +830,7 @@ namespace CardPresentation
             //   `_OutlineWidth 0.10` · `_OutlineColor (0,0,0,1)` · `_FaceDilate 0.10` · `_OutlineSoftness 0`
             //   ⇒ 见 `ApplyThinOutline`（**实例材质**，照 `Core/CardView.ApplyCreatedByOutline` 的写法）。
             var annoInk = new Color(0.802f, 0.802f, 0.802f, 1f);
-            for (int i = 0; i < 4; i++)
+            if (_annoGo != null) for (int i = 0; i < 4; i++)   // ⛔ 行数守恒：`_annoGo` 恒 null（T10 停建重复树），本段空转；整段可删
             {
                 // 🔴 **2026-10-17（`A1024`③ 批 2–4）**：原版 `TutorialObjs/{Melee,Ranged,Health,Energy}Text`
                 //    **四颗全是 Asar**（现读 `battle1_tmp.tsv`，fs30；上面 2026-10-17 `T07` 的材质判据
@@ -1061,7 +1061,7 @@ namespace CardPresentation
         /// （本地没有）⇒ 我们按卡面语义写死四句中文/英文短语，逐条标在 `BattleDriver.TutorialAnnotations`。</summary>
         public void SetAnnotations(bool on, string[] texts, Vector3[] anchorWorlds)
         {
-            if (_annoGo == null) return;
+            if (_annoGo == null) { AnnoGoneLog(); return; }   // 🔴 T10：重复树已停建 ⇒ 这一支恒走这里（原版那棵在 `CardDisplayWindow.SetupTutorialObj`）
             if (on && texts != null)
             {
                 for (int i = 0; i < 4; i++)
@@ -1699,5 +1699,20 @@ namespace CardPresentation
         /// <summary>高亮层的染色（原版 `Image.m_Color`）；没建出来 ⇒ `clear`。</summary>
         public Color HighlightTintForTest { get { return _hlTint; } }
         Color _hlTint;
+
+        /// <summary>🆕 **2026-11-02（`B118-W3` · `B117-T10`）**：重复的 `TutorialObjs` 树已停建（见 `Build` 里那一行）。
+        /// 原版**只有一棵** —— `Card Display/TutorialObjs ▸ UnitObjs ▸ {Melee,Ranged,Health}Text` + `EnergyText ▸ Arrow`，
+        /// 闸在 `CardDisplayWindow.SetupTutorialObj`（7 道）。我们原来在 `TutorialOverlay.Build()` 又建了第二棵，
+        /// 由 `BattleDriver.cs:18006`（`ActivateHandCards` 档）点亮 ⇒ 教程局里可能**两套字同时出现**。
+        /// 与 `ArrowGoneLog` 同一档：**只出声一次**，⛔ 不每帧刷。</summary>
+        static void AnnoGoneLog()
+        {
+            if (_annoGoneLogged) return;
+            _annoGoneLogged = true;
+            Debug.LogWarning("[Tutorial] **重复的教学标注树已停建**（2026-11-02 `B118-W3` · `B117-T10`）——"
+                           + " 原版只有 `CardDisplayWindow` 那一棵（`Card Display/TutorialObjs`，闸 = `SetupTutorialObj` 7 道）；"
+                           + "本件的 `AnnotationsVisible` 恒 false、`AnnoLabel(i)` 恒 null。");
+        }
+        static bool _annoGoneLogged;
     }
 }

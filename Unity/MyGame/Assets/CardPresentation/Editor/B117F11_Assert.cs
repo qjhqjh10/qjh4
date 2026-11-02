@@ -124,7 +124,7 @@ public static class B117F11_Assert
 
             // ③ 悬停那张：**同一次调用内**就该到位（洞在 0 ⇒ 它排到 slot 1）
             Vector3 want = layout.SlotPosition(1, 5);
-            want.y += layout.hoverLift;
+            want.y = (layout.areaOffsetY - 0.5f) * LayoutSpace.VisibleHeight + layout.hoverLift;   // 🔴 2026-11-02（`B118-W2` · `B117-R64`）：**绝对 y** = 手牌区底边 + 30 px（原版 `ShowCardInHand` 取 `PlayerHand.transform.position.y + cardInHandShownYOffset`，而 `PlayerHand` 挂在 `BottomAnchor/PlayerArea/HandArea` 的底边上）；⛔ 不是「槽位 y + hoverLift」
             want.z += -layout.frontZ;
             Vector3 got = made[0].transform.localPosition;
             Check(Vector3.Distance(got, want) < 1e-3f,
@@ -132,7 +132,7 @@ public static class B117F11_Assert
                 + "｜判据 `CardScript__ShowCardInHand.c:108/135/152` 的三句直写"
                 + "｜🧨 把它也塞进 0.2 s 补间 ⇒ 这一刻它还在它**原来的静止位**上 ⇒ 红");
 
-            float wantScale = layout.cardScale * LayoutSpace.Scale * layout.hoverScale;
+            float wantScale = layout.hoverScale * LayoutSpace.Scale;   // 🔴 2026-11-02（`B118-W2` · `B117-R64`）：原版第三句是 `localScale = Vector3.one × cardInHandShownScale` ⇒ **绝对值 1.3**（⛔ 不是 `cardScale × hoverScale`）；`LayoutSpace.Scale` = 静止档同一个窄屏系数
             CheckClose(made[0].BaseScale, wantScale, 5e-3f,
                        "★ B117-32：悬停那张的**缩放**也当场到位（原版第三句 `set_localScale`）");
 

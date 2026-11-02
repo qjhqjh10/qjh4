@@ -2781,7 +2781,7 @@ public static class NetSelfTest
         /// 本段只验 `Abort` 那条路，它**一次都不碰引擎** ⇒ 空实现（同族的 `NetRemoteResign` 也是空的）。
         /// ⛔ 真实现那一份在 `BattleDriver`（`RuleCore.Forfeit(Ctx, _me, reason)` + 记账口）。
         /// ⚠️ 形参 `reason`（A913）在这里空着是对的 —— 本类一次都不落地那个码（没引擎可落）。</summary>
-        public void NetSelfResign(BattleResult reason) { }
+        public void NetSelfResign(BattleResult reason, bool postBattleRejudge = false) { }   // 🆕 2026-11-02（`D118-56`）：接口多了战后放行门那一格；本类只验 `Abort`、一次都不碰引擎 ⇒ 空实现（同 `NetRemoteResign`）
         public void NetReplayFromNet(MsgStart start, List<MsgAction> actions) { }
     }
 

@@ -95,10 +95,10 @@ public static class NetBattleTest
         /// <summary>🆕 2026-10-18（A914 第四续）：**本机自己**判负（判 `MySeat`）。
         /// 与上面那个**只差一个座位号** —— 这正是要钉的那一格。
         /// 🆕 **A913**：理由码照收照传（观测口见 `LastResignReason` 那一段）。</summary>
-        public void NetSelfResign(BattleResult reason)
+        public void NetSelfResign(BattleResult reason, bool postBattleRejudge = false)
         {
             SelfResignCalls++; LastSelfResignReason = reason; HasSelfReason = true;
-            RuleCore.Forfeit(Ctx, MySeat, reason);
+            RuleCore.Forfeit(Ctx, MySeat, reason, postBattleRejudge);
         }
         /// <summary>重连重放用：按**本自检当初建局的那份输入**重建（真驱动走的是
         /// `BeginFromPendingCore` —— 两边都是「同输入 ⇒ 同状态」）。</summary>
@@ -948,7 +948,7 @@ public static class NetBattleTest
                 //   ③ 主判据只跟**主机**有关：`bye` 到没到主机、主机弹了几条、主机提示行说了什么。
                 NetRuntime.DrainNoticesForTest();
                 hb9.LastSay = null;
-                cs9.Close(true, "对面离开了这一局");     // = 客机那一侧的 `BattleDriver.LeaveNetRoom()`
+                cs9.Close(true, "对面离开了这一局");     // 模拟**对手**带着告别离开（⚠️ 2026-11-02 订正：我们自己的 `BattleDriver.LeaveNetRoom` 已是 `Close(false)`、不捎 bye —— `B118-W6`）
                 Ok(pumpOne(hs9, () => hs9.State == NetState.Closed, 4000),
                    $"（对面离开）主机收到 `bye` ⇒ 会话关上（实际 {hs9.State}）");
                 var n9c = NetRuntime.DrainNoticesForTest();
@@ -1486,7 +1486,7 @@ public static class NetBattleTest
                         NetRuntime.DrainNoticesForTest();          // 本段只认自己那几条
                         f.hb.LastSay = null;
 
-                        f.cs.Close(true, "自检：对面关掉了这一局");   // = B 路（`BattleDriver.OnDestroy` → `LeaveNetRoom`）
+                        f.cs.Close(true, "自检：对面关掉了这一局");   // 模拟对手带告别关闭（⚠️ 2026-11-02 订正：`BattleDriver.OnDestroy` → `LeaveNetRoom` 已是 `Close(false)` —— `B118-W6`）
                         Ok(PumpOne(f.hs, () => f.hs.State == NetState.Closed, 4000),
                            $"（A912①）主机收到 `bye` ⇒ 会话关上（实际 {f.hs.State}）");
                         Ok(f.hb.Ctx.Winner == 1 && f.hb.Ctx.ForfeitedBy == 1,
@@ -1631,7 +1631,7 @@ public static class NetBattleTest
                 f13.hs.Close(false); f13.cs.Close(false);
                 NetConfig.Current.port = savedPort13;
             }
-            // ---- 14) 🆕 2026-10-19（W · 联机线「结算段掉线口径」）：**结算已出 ⇒ 掉线静默** ----
+            // ---- 14) 🆕 2026-10-19（W）：**结算段掉线口径** —— **对手**那端静默 / **本机**那端不静默 + 起 27 秒 + 到点重判（2026-11-02 `B118-W6` 补全）----
             //   原版判据（全量反编译，逐跳）：
             //     · `BattleManager__DisconnectedDuringBattle.c:35-51`：`battleStage == PostBattle(0x3C=60)`
             //       且 **对手**那一端掉线（`param_2 == 0`）⇒ **直接 return**（不弹窗 / 不停表 / 不改结果）；
@@ -1643,7 +1643,10 @@ public static class NetBattleTest
             //     ① 删掉 `HandlePeerLost` 里 `Ctx.IsOver` 那道早退 ⇒ 14①/14② 的「不出声 / 不起倒计时」全红；
             //     ② 把 `StartReconnectCountdown` 的两道闸挪回「自增之后」⇒ 14① 的 `EnemyDisconnects` 那条红；
             //     ③ 删掉客机那一支 `NetSelfResign`（A914 的「本机掉线判负」）⇒ 14③ 红
-            //        （⚠️ 14③ 与 14①/② **互为反例**：结算段静默**不许**把对局中的本机掉线分支一起盖掉）。
+            //        （⚠️ 14③ 与 14① **互为反例**：对手那端的静默**不许**把本机掉线分支一起盖掉）。
+            //     ④ 🆕 2026-11-02（`B118-W6`）：去掉 `StartReconnectCountdown` 的 `afterBattle` 开关
+            //        ⇒ 14② 的「起倒计时 / 秒数 / 不停表」三条红；丢掉 `postBattleRejudge`
+            //        ⇒ 14② 的「到点 `NetSelfResign` 恰一次 / `Winner` 改成本机负」两条红。
             {
                 int savedPort14 = NetConfig.Current.port;
 
@@ -1687,14 +1690,15 @@ public static class NetBattleTest
                     f.hs.Close(false); f.cs.Close(false);
                 }
 
-                // ============ 14② **本机（客机）**在结算段掉线 ⇒ 同样静默（这一档**判不了谁的锅**）============
-                //   原版本机那一半（`DisconnectedDuringBattle.c:52-64`）会起 `AttemptReconnect` +
-                //   `shouldLoseIfDisconnectEnd(+0x2D8)`，重连失败后由 `DeadHero.c:109-121` 放行**重判本机负**。
-                //   我们**分不清「谁掉」**（P2P 里本机断网 / 对面断网在本地 socket 上同形；
-                //   A1267 的原因连 `St/PeerClosed` 都不能当可靠判据 —— 本机 `ClosePeer()` 拆连接时
-                //   本机读线程也会以同族原因失败，`_closing` 只压日志、不压 `_lastError`）⇒ 不判、不猜。
-                //   ⚠️ 这一条钉的是「**不猜**」这个当前口径，**不是**「原版就这样」——原版那一档我们是**缺**的
-                //   （铁律 11 已立账：欠「分谁掉」的判据 + `RuleCore.Forfeit` 的战后重判入口），详见交件报告 §三。
+                // ============ 14② **本机（客机）**在结算段掉线 ⇒ **不静默 + 起 27 秒 + 到点重判本机负** ============
+                //   原版本机那一半（`DisconnectedDuringBattle.c:52-64`）：`ShowDisconnectionPopup(true)` +
+                //   `shouldLoseIfDisconnectEnd(+0x2D8) = true` + `AttemptReconnect`；重连失败后
+                //   `FailedToReconnectAfterDisconnect.c:26-27` 的 `AddResignAction(1)` + `DeadHero(我,3)`，
+                //   由 `DeadHero.c:109-121` 的**战后放行门**重判。
+                //   ✅ 2026-11-02（`B118-W6` 第三/四轮）这条链**已补齐**（`RuleCore.Forfeit` 第 4 形参
+                //   `postBattleRejudge` 由 `B118_W11` 提供）⇒ 下面断的就是原版那一套。
+                //   ⚠️ 「谁掉线」仍是**角色代理** `IAmDisconnectedEnd`（客机）—— P2P 里本机断网 / 对面断网在本地
+                //      socket 上同形（A1267：连 `St/PeerClosed` 都不能当可靠判据）⇒ 这一维如实留着（铁律 11）。
                 {
                     var f = SetupA912(pool, 20261051, "结算掉线·本机");
                     RuleCore.Forfeit(f.cb.Ctx, 1, BattleResult.Forfeit);
@@ -1717,16 +1721,35 @@ public static class NetBattleTest
                     f.cs.StopReconnecting();                    // 夹具止血：别让它在断言期间真去重连（那是 NetSession 自己的事）
                     f.cNB.Tick();
 
-                    Eq(NetRuntime.DrainNoticesForTest().Length, 0,
-                       "★（结算掉线②）**结算段本机侧断线 ⇒ 不弹窗**（原版 stage 60 那一支只 `LogWarning`）");
-                    Ok(f.cb.LastSay == null, "★（结算掉线②）…提示行也不说");
-                    Ok(!f.cNB.ReconnectCountdownRunning && !f.cNB.ClockPaused,
-                       "★（结算掉线②）…不起倒计时、不停表");
-                    Eq(f.cb.SelfResignCalls + f.cb.ResignCalls, 0,
-                       "★（结算掉线②）…**不判任何人负**（判不了「谁掉线」⇒ 不猜）"
-                     + "｜⚠️ 原版这一档（本机掉线重连失败 ⇒ 重判本机负）我们**没有** ——"
-                     + " 缺「分谁掉」判据 + 战后重判入口，如实记在交件报告（铁律 11：在账，⛔ 不是「不做」）");
-                    Eq(f.cb.Ctx.Winner, winnerBefore, "★（结算掉线②）…`Winner` 不变");
+                    // 🆕 2026-11-02（`B118-W6` 第三/四轮 · `B117-T13`④）：**这一档的行为已经补成原版形状** ——
+                    //   原来这里断的是「不弹窗 / 不起倒计时 / 不判任何人负」（= 当时的缺口，如实记着）。
+                    //   现在：`HandlePeerLostAfterBattle` 本机档起 `AttemptReconnect` 那条 27 秒窗口，
+                    //   到点由 `JudgeSelfResignAfterOrDuringBattle` 带 `postBattleRejudge: true` 重判本机负。
+                    //   ⚠️ 「弹窗」在**批处理里验不到**（没有 `WindowsManager`，`ShowReconnectPopup` 只落日志、
+                    //      不进 `Notice` 队列）⇒ 这里改断**纯状态**三格（倒计时 / 秒数 / 表），它们同样能红。
+                    Ok(f.cNB.ReconnectCountdownRunning,
+                       "★★（结算掉线②）**结算段本机侧断线 ⇒ 起那条重连倒计时**"
+                     + "（原版 `.c:52-64` 那一刻就是 `StartCoroutine(AttemptReconnect)`；30 − 3×1 = 27 秒）"
+                     + "｜🧨 去掉 `StartReconnectCountdown` 的 `afterBattle` 开关 ⇒ 红");
+                    Eq(f.cNB.ReconnectCountdownLeft, NetBattle.SelfReconnectSecondsFor(0),
+                       "★（结算掉线②）…秒数按**本机**那条公式（`max(10, 30 − 3×(0+1))` = 27，地板 10）");
+                    Ok(!f.cNB.ClockPaused,
+                       "★（结算掉线②）…而且**不停表**（原版只有「对手掉线」那一支 `PauseClock`，"
+                     + "`ShowDisconnectionPopup.c:25-34`）｜🧨 退回无条件 `ClockPaused = true` ⇒ 红");
+                    // ② 推过 27 秒 ⇒ 战后**真的重判本机负**（`postBattleRejudge: true` 那道放行门）
+                    _clk += 120f;
+                    f.cNB.Tick();
+                    Eq(f.cb.SelfResignCalls, 1,
+                       "★★（结算掉线②·**战后重判**）到点 ⇒ `NetSelfResign`（判**本机**负）恰一次"
+                     + "｜判据 = 原版 `FailedToReconnectAfterDisconnect.c:26-27` 的 `DeadHero(我,3)`"
+                     + "＋`DeadHero.c:109-121` 的战后放行门（`RuleCore.Forfeit` 第 4 形参 `postBattleRejudge`）"
+                     + "｜🧨 把那一个标志丢掉 ⇒ 本行与下一行一起红（`Winner` 改不动）");
+                    Ok(f.cb.LastSelfResignReason == BattleResult.Disconnect,
+                       "★（结算掉线②）…理由码仍是 `Disconnect`(3)（不是投降那一档）");
+                    Eq(f.cb.ResignCalls, 0, "★（结算掉线②）…而且**一次都没判对面**");
+                    Ok(f.cb.Ctx.Winner != winnerBefore && f.cb.Ctx.Winner == (f.cb.MySeat == 0 ? 2 : 1),
+                       "★★（结算掉线②）…`Winner` **从「结算那一刻的值」改成了本机负**"
+                     + $"（改前 {winnerBefore} → 现在 {f.cb.Ctx.Winner}；⚠️ 改前这里断的是「一个字都不改」—— 那条是缺口）");
                     f.hNB.Detach(); f.cNB.Detach();
                     f.hs.Close(false); f.cs.Close(false);
                 }
@@ -1814,9 +1837,10 @@ public static class NetBattleTest
                     }
 
                     // ============ ② `StartReconnectCountdown`：`IsOver` 闸排在自增之前 ============
-                    int iStartM = src15.IndexOf("void StartReconnectCountdown()", StringComparison.Ordinal);
+                    // 🆕 2026-11-02（`B118-W6` 第四轮）：签名多了 `bool afterBattle = false`（结算段本机那一档要起这条窗口）⇒ 认方法头时按**不带右括号**的前缀找
+                    int iStartM = src15.IndexOf("void StartReconnectCountdown(", StringComparison.Ordinal);
                     int iStartEnd = iStartM >= 0 ? MethodBodyEnd(src15, iStartM) : -1;
-                    Ok(iStartEnd > iStartM, "（静态·前提）`StartReconnectCountdown()` 的方法体能配对解析出来");
+                    Ok(iStartEnd > iStartM, "（静态·前提）`StartReconnectCountdown(...)` 的方法体能配对解析出来");
                     if (iStartEnd > iStartM)
                     {
                         string body = src15.Substring(iStartM, iStartEnd - iStartM + 1);
@@ -1838,15 +1862,30 @@ public static class NetBattleTest
                         string body = src15.Substring(iExp, iExpEnd - iExp + 1);
                         // 🔴 用**带实参**的调用串认代码（方法里那段大注释提到过 `_d.NetRemoteResign()`，
                         //    不带实参 ⇒ 会把注释算进去，顺序断言直接假红）。
-                        int iSelf = body.IndexOf("_d.NetSelfResign(BattleResult.Disconnect)", StringComparison.Ordinal);
+                        // 🆕 2026-11-02（`B118-W6` 第四轮）：本机那一支抽成了类尾的
+                        //   `JudgeSelfResignAfterOrDuringBattle()`（它带 `postBattleRejudge`），所以这里认**那个调用名**；
+                        //   真身里那句 `NetSelfResign(BattleResult.Disconnect, postBattleRejudge: ...)` 由下面那条单独钉。
+                        int iSelf = body.IndexOf("JudgeSelfResignAfterOrDuringBattle(", StringComparison.Ordinal);
                         int iRemote = body.IndexOf("_d.NetRemoteResign(BattleResult.Disconnect)", StringComparison.Ordinal);
                         Ok(iSelf >= 0 && iRemote > iSelf,
                            "★★（静态·**本机掉线路径有分支**）`ReconnectCountdownExpired` 里**两个判负口都在**："
-                         + "`_d.NetSelfResign(BattleResult.Disconnect)`（本机是断线那一端 ⇒ 判自己）"
+                         + "`JudgeSelfResignAfterOrDuringBattle()`（本机是断线那一端 ⇒ 判自己）"
                          + " 排在 `_d.NetRemoteResign(BattleResult.Disconnect)`（判对面）之前"
                          + "｜判据 = 原版 `FailedToReconnectAfterDisconnect.c:26-27`（`DeadHero(我,3)`）vs "
                          + "`…_d__322__MoveNext.c:143-144`（`DeadHero(对面,3)`）"
                          + "｜🧨 删掉客机那一支 ⇒ 红（⚠️ 静态只管「分支还在」，运行时行为 = 14③）");
+                        // 🆕 2026-11-02（`D118-56`）：本机那一支**必须**把 `postBattleRejudge` 从宿主口传下去
+                        //   （结算段要靠它过 `shouldLoseIfDisconnectEnd` 放行门），⛔ 也不许绕过记账口直调引擎。
+                        int iHelp = src15.IndexOf("void JudgeSelfResignAfterOrDuringBattle(", StringComparison.Ordinal);
+                        int iHelpEnd = iHelp >= 0 ? MethodBodyEnd(src15, iHelp) : -1;
+                        string helpBody = iHelpEnd > iHelp ? src15.Substring(iHelp, iHelpEnd - iHelp + 1) : "";
+                        Ok(helpBody.IndexOf("NetSelfResign(BattleResult.Disconnect, postBattleRejudge:", StringComparison.Ordinal) >= 0
+                           && helpBody.IndexOf("RuleCore.Forfeit(", StringComparison.Ordinal) < 0,
+                           "★★（静态·本机判负**只走记账口**）`JudgeSelfResignAfterOrDuringBattle` 里是 "
+                         + "`NetSelfResign(BattleResult.Disconnect, postBattleRejudge: …)`，**且没有直调** `RuleCore.Forfeit(`"
+                         + "｜判据 = `INetBattleHost.NetSelfResign` 的 doc（⛔ 调用方直调引擎 = 绕过录像口）"
+                         + "＋原版 `DeadHero.c:109-121`（战后放行门）"
+                         + "｜🧨 把标志丢掉 / 改回直调 `RuleCore.Forfeit` ⇒ 红");
                         Ok(body.IndexOf("Role == NetRole.Client", StringComparison.Ordinal) >= 0,
                            "★★（静态·同上）…而且分端判据**在方法里**（`Role == NetRole.Client`）——"
                          + " ⛔ 不许退回「两端都判对面」（A914 修掉的那个缺陷）");

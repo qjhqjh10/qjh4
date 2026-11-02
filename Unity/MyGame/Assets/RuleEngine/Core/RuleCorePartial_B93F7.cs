@@ -163,10 +163,10 @@ namespace RuleEngine
         /// `waitingToDie(5)`** ⇒ 那一支对「真死」形态**不可达**（`B93_FX1` 因此撤回了 `B93_F7` 挂上去的调用）。
         /// 可达形态只有一个：**仍在场、且是本次 action 的 `targetCard`、但没死**的观察者。</para>
         ///
-        /// <para>⚠️ **`action.targetCard` 我们还没有显式通道**：本版用 `ctx.LastTarget`
-        /// （= 最近一次 `ResolveTargets` 写下的目标）当等价物；`actionTarget` 形参给了就优先用它。
-        /// 池内带 `sacrifice`(trait 470) 的卡 **0 张** ⇒ **今天零可观测**；数据一变就要回来补
-        /// 真正的通道（把 `chosen` 从 `DoDeal` 一路喂进 `CleanupDeaths(actionTarget: …)`）。</para>
+        /// <para>✅ **2026-11-02（`B118_W20` · 账 #63）显式通道已接**：`Hurt` / `HurtCore` / `RemoveIfDead` 各带一个可选
+        /// `actionTarget`，攻击那四拍（主伤害 / Blast / Stomp / 反击）已传「本次 action 的 targetCard」；`EffectResolver` 那两跳见报告。
+        /// 缺省时仍回落 `ctx.LastTarget`（= 最近一次 `ResolveTargets` 写下的目标，旧口径，⛔ 别当成原版）。
+        /// 池内带 `sacrifice`(trait 470) 的卡 **0 张** ⇒ **今天零可观测**。</para>
         ///
         /// <para>220（自己的 `sacrifice` 触发）与 225（别人的 `OtherCardSacrifice`）两跳都在
         /// <see cref="TriggerSacrificeOnDeath"/> → `FireTriggerAlways` 里（尾部

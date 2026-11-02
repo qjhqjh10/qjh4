@@ -138,7 +138,7 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(text)) return;
             var wm = WindowsManager.Instance;
             if (wm == null) return;
-            wm.ShowPopUp(text, Loc.T("MainMenu/General/OK"), null);
+            ShowOrUpdateReconnectPopupCore(text);   // 🆕 2026-11-02（`B118-W6`）：改成**就地换字**（见类尾那一族）
         }
 
         /// <summary>🆕 A900：**把还开着的那扇消息弹窗收掉**（对手回来了 / 倒计时到点判了弃权）。
@@ -149,7 +149,7 @@ namespace CardPresentation
         /// ⚠️ 批处理 / 自检里没有窗口系统 ⇒ 只记一笔调用次数，那句日志照打（⛔ 不静默）。</summary>
         public static void HideNoticePopup()
         {
-            HidePopupCallsForTest++;
+            HidePopupCallsForTest++; _reconnectPopup = null;   // 见类尾：还开着的那扇已由下面的 `wm.HidePopUp()` 关掉 ⇒ 引用作废（Unity 的假 null 也能兜，这里显式清）
             var wm = WindowsManager.Instance;
             if (wm == null)
             {
@@ -449,6 +449,70 @@ namespace CardPresentation
                 LossStreak = lossStreak,
                 LobbyKeys = new[] { "C1", "C2", "C3", "C4", "C5" },
             };
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-11-02（`B118-W6` · `B117-T13` 第 ①② 条）：**掉线那扇窗**的两件事
+        //  —— 「开窗」一颗钮都不给、「每秒那一拍」就地换字（⛔ 不销毁重建）。
+        //  📌 **故意追加在类尾**：本文件账落点最深到 `:441`，插在中间会把下游行号整体推移。
+        // ==========================================================================================
+        //
+        //  判据（一手，逐句读过 `d:/2/tools/decomp_full/`）：
+        //   · **开窗** = `Everguild.BattleErrorUIManager__ShowDisconnectionPopUp.c:51`
+        //       `WindowsManager__ShowPopUp(inst, text, 0, 0, 0, 0, 0)` —— 后面六个实参**全是 0**
+        //       （钮文案 / 回调 / `closeOnEsc`）⇒ **原版这扇窗一颗钮都没有、ESC 也关不掉**，
+        //       玩家只能等连接恢复或倒计时到点由程序关掉。
+        //   · **每秒那一拍** = `…__UpdateReconnectWindow.c:44-75`：
+        //       `pop = WindowsManager.popUpWindow(+0x60)`；`pop != null` 且 `pop.gameObject.activeSelf`
+        //       ⇒ 直接对那颗文字组件换串（`SetText`，vtable `+0x558`）**不重建**；
+        //       只有窗不在时才 `ShowPopUp(text, 0,0,0,0,0)` 重开。
+        //
+        //  🔴 我们原来两条都错：`Notice()` 那条（开窗）走 `ShowPopUp(text, OK, …)` ⇒ **多一颗 OK**；
+        //     `UpdateReconnectPopup` 走同一个 `ShowPopUp`，而 `WindowsManager.ShowMessagePopUp` 照原版
+        //     **先 `Close` + `Destroy` 旧的再 `Instantiate`**（`_LoadPopup_d__55__MoveNext.c:20-45`，
+        //     那是**另一条**路：通用消息弹窗确实每次销毁重建）⇒ 掉线窗**每秒被销毁重建一次**（真 Play 会闪）。
+        //     ⛔ 别去改 `ShowMessagePopUp` 那条通用路（原版它就该重建）—— 掉线窗单开一条「就地换字」的口。
+
+        /// <summary>掉线那扇窗（原版 `BattleErrorUIManager` 开的那一扇）。
+        /// 🔴 只由本文件下面三个方法读写；被别的弹窗顶掉时 Unity 的假 null 会让它自动失效。</summary>
+        static PopUpGameWindow _reconnectPopup;
+
+        /// <summary>自检读口：掉线那扇窗（没有窗口系统时恒 null）。⛔ 生产别读。</summary>
+        public static PopUpGameWindow ReconnectPopupForTest { get { return _reconnectPopup; } }
+
+        /// <summary>**开窗那一刻** —— 弹出掉线窗（= 原版 `ShowDisconnectionPopUp`，**零颗钮、`closeOnEsc = 0`**）。
+        /// <para>⚠️ 与 <see cref="Notice"/> 分开（那条是**全部**联机通知共用的，别处要那颗 OK 钮）。
+        /// ⛔ 别在这里用 `Notice` 的队列语义 —— 那是「新弹一条」，掉线只该有一扇窗。</para>
+        /// <para>没有窗口系统（批处理 / 自检）⇒ **什么都不做**（同 <see cref="UpdateReconnectPopup"/> 的口径）。</para></summary>
+        public static void ShowReconnectPopup(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            var wm = WindowsManager.Instance;
+            if (wm == null)
+            {
+                Debug.Log("[Net] 掉线窗：本轮**没有窗口系统**（批处理 / 自检）⇒ 不真开（生产路径那一刻开的是它）");
+                return;
+            }
+            _reconnectPopup = wm.ShowMessagePopUp(text, null, null, null, null, false);   // 0 颗钮 = 原版那六个 0
+            Debug.Log("[Net] 掉线窗已开（**零颗钮**，= 原版 `ShowDisconnectionPopUp.c:51` 那六个 0 实参）");
+        }
+
+        /// <summary>**每秒那一拍**的实体（<see cref="UpdateReconnectPopup"/> 转调这里）—— 原版
+        /// `UpdateReconnectWindow.c:44-75` 的两支：**窗还开着 ⇒ 就地换字**；不在 ⇒ 重开一扇。
+        /// <para>🔴 「就地换字」= `PopUpGameWindow.Configure(...)`（它只写活着的 `Label` 与 `onClick`，
+        /// **一个对象都不重建**）—— 这就是原版那个 `SetText` 的等价物，也是「不闪」的原因。
+        /// ⛔ 别改回 `ShowMessagePopUp` / `ShowPopUp`（那两条都会 `Destroy` + `Instantiate`）。</para></summary>
+        static void ShowOrUpdateReconnectPopupCore(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            var wm = WindowsManager.Instance;
+            if (wm == null) return;
+            if (_reconnectPopup != null && _reconnectPopup.gameObject.activeSelf)
+            {
+                _reconnectPopup.Configure(text, null, null);    // = 原版 `SetText`：改同一个窗里的字，不重建
+                return;
+            }
+            _reconnectPopup = wm.ShowMessagePopUp(text, null, null, null, null, false);   // 窗不在 ⇒ 重开（原版同一支）
         }
     }
 }

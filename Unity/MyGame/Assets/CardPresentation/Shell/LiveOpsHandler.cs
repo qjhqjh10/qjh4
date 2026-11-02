@@ -825,7 +825,7 @@ namespace CardPresentation
 
     // ============================================================ 我们的具体事件实例（本地目录 13 份 SO）
     /// <summary>把一个 `LiveOpsLocalEvent`（离线活动数据）包成**真事件实例**：
-    /// `TSave = LiveOpsSave`、`TData = LiveOpsEventData`（字段从离线数据映射过来）。
+    /// `TSave = PlayEventSaveGame`、`TData = LiveOpsEventData`（字段从离线数据映射过来）。🔴 2026-11-02（`B118_W5`）改：原为 `LiveOpsSave` ⇒ 原版 `PlayEventSaveGame` 那一格的字段（`defaultDeckId` / `joinState` / `matchStarted` / 战绩…）**没有地方落**（`LiveOpsEvent.cs:975` 按基类反序列化必丢）；换成具体子类后 `SaveType` = `typeof(PlayEventSaveGame)`，与 `LoadFromCatalog` 的反序列化口径一致（判据 = 原版 `IPlayEvent.SaveType`，见 `LiveOpsEventFactory.CreateEventFromRaw` 那条「先建实例拿 `SaveType` 再反序列化」）。
     /// <para>⚠️ 映射只搬**已经解出来**的字段（eventId / enabled / uploadToLive / 起止 / expirable / expireDate /
     /// priority / showInMainMenu / location.type）。
     /// 🆕 **2026-10-25（R14）**：`priority` / `showInMainMenu` / `location` 三格已从 SO 补抄进
@@ -835,7 +835,7 @@ namespace CardPresentation
     /// parent 那半在 `EventLocation.parent` 上 —— 我们**没有** `EventLocation` 类，见 §五）。
     /// `drawData`（`EventElements`）同样**没有等价类** ⇒ 那 4 个 bool 暂存 `LiveOpsLocalEvent`
     /// （`ForceRun` / `ShowWindowOnTrigger` / `ShowWindowOnExpire` / `HideContainer`），留给 C1-W2 接弹窗。</para></summary>
-    public sealed class LocalLiveOpsEvent : LiveOpsEvent<LiveOpsSave, LiveOpsEventData>
+    public sealed class LocalLiveOpsEvent : LiveOpsEvent<PlayEventSaveGame, LiveOpsEventData>
     {
         /// <summary>离线数据本体（窗口取词条/图片还要用它；C1-W3 接资产时从它转）。</summary>
         public LiveOpsLocalEvent Local { get; private set; }
@@ -922,7 +922,7 @@ namespace CardPresentation
         {
             var ev = new LocalLiveOpsEvent(local);
             var data = MapData(local);
-            LiveOpsEventData fd; LiveOpsSave fs;
+            LiveOpsEventData fd; PlayEventSaveGame fs;   // 2026-11-02（B118_W5）：`TSave` 换成 `PlayEventSaveGame` 后 `out` 实参也跟着换（见类声明那行）
             if (!ev.ValidateEventData(data, save, out fd, out fs))
             {
                 Debug.LogError("[LiveOps] 本地事件 '" + (local == null ? "<null>" : local.EventId) + "' 的 data 校验失败（不该发生）");
@@ -970,7 +970,7 @@ namespace CardPresentation
             {
                 var local = table[i];
                 if (local == null || !LiveOpsLocalBoot.ShouldLoadEvent(local, utc)) continue;   // 🔶 自己设计（非原版）：原版由服务端下发「当前有效活动」集合，本地用 `GetState` 过滤替代 · 判据 = `LiveOpsEventData.GetState`/`IsActive` + `ScheduleEventPopups` 不查日期 · 调度台 2026-10-27 裁定
-                var save = LiveOpsSaveStore.Load(local.EventId, typeof(LiveOpsSave)) as LiveOpsSave;
+                var save = LiveOpsSaveStore.Load(local.EventId, typeof(PlayEventSaveGame)) as LiveOpsSave;   // 🔴 2026-11-02（`B118_W5`）：原写 `typeof(LiveOpsSave)`（基类）⇒ 存档里的子类字段（`defaultDeckId` 等）反序列化时**必丢**（`LiveOpsEvent.cs:975` 的 `FromJson(e.json, saveType)`）。改成具体子类 = 原版 `IPlayEvent.SaveType` 的口径（`LiveOpsEvent<T,T>.SaveType = typeof(TSave)`，见 `LocalLiveOpsEvent` 的 `TSave`）。⛔ 别再退回基类：那与 `Save()` 的 `JsonUtility.ToJson(save)`（按**运行时类型**写）不对称。
                 var ev = LocalLiveOpsEvent.Create(local, save, this);
                 if (ev != null) ops.Add(ev);
             }

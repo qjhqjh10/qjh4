@@ -492,12 +492,12 @@ namespace RuleEngine
             //   （`_FinishMulliganFinalPhase_d__351__MoveNext.c` 的 case 3 才洗，那时双方补牌都已完成）。
             //   镜像换算：我们 `Count-1` = 牌堆顶（`MoveDeckTopToHand`）⇒ 原版「表尾」= **`Insert(0, …)`**；
             //   原版「表头取」= 我们 `Draw`（取 `Count-1`）✓。⛔ 别写 `Deck.Add`（= 加到牌堆顶 ⇒ 当次就抽回来）。
-            var moved = new List<CardInstance>(idx.Count);
-            for (int i = 0; i < idx.Count; i++) moved.Add(ps.Hand[idx[i]]);      // 升序 = 原版扫描序
-            for (int i = idx.Count - 1; i >= 0; i--) ps.Hand.RemoveAt(idx[i]);
-            for (int i = 0; i < moved.Count; i++) ps.Deck.Insert(0, moved[i]);   // ← 原版 `List.Add` 的镜像
-            // 补抽同样张数（原版从表头取 ⇒ 我们 `Draw` 取 `Count-1`；洗牌挪去 `EndMulligan`，见那儿）
-            for (int i = 0; i < idx.Count; i++) Draw(ctx, player);
+            for (int i = 0; i < idx.Count; i++)   // 🔴 逐张（升序 = 原版扫描序）：摘 → 回库表尾 → 补一张 → **原位**放回；⛔ 别整批换完再一次性补抽
+            {
+                int at = idx[i]; var old = ps.Hand[at]; ps.Hand.RemoveAt(at); ps.Deck.Insert(0, old);   // 原版 `PlayerHand__ReplaceMulliganCard.c` = 改挂到牌堆父件 + `List.Add`（表尾）；镜像 = `Insert(0, …)`。⛔ 别写 `Deck.Add`（= 加到牌堆顶 ⇒ 当次就抽回来）
+                int before = ps.Hand.Count; Draw(ctx, player, asDraw: false);   // 原版 `BattleManager__GetMulliganCard.c` = 表头 `GetItem(0)` + `RemoveAt(0)`（我们 `Draw` 取 `Count-1`）；⛔ 换牌期一次都不洗（洗牌在 `EndMulligan`）。🆕 `B118-W15`：**`asDraw: false`** —— 原版这条路**不发 `BroadcastCardDrawn`、不 `SetCardTurnDrawn`**（`_ResolveDrawCard…:283-295` 三件同闸，而换牌期 `IsDuringMulligan` 为真）
+                if (ps.Hand.Count == before + 1) { var got = ps.Hand[ps.Hand.Count - 1]; ps.Hand.RemoveAt(ps.Hand.Count - 1); ps.Hand.Insert(at, got); }   // 原版 `MoveCardToMulliganPos(newCard, **同一个下标**, total)` ⇒ 补到的那张**原位替换**。⛔ 别追加到末尾（那会改手牌序；原版逐张原位替换 ⇒ 手牌序保持不变）
+            }
 
             ctx.Log($"{ps.Name} 换牌 {idx.Count} 张（弃回牌库表尾 → 补抽表头；洗牌在 EndMulligan）");
             return idx.Count;
@@ -3057,7 +3057,7 @@ namespace RuleEngine
         /// 抽 1 张。牌库空 → 疲劳 +1 并让督军挨这么多伤害。（rule_core._draw）
         /// ⚠️ 疲劳能打死督军，所以这里必须复查胜负。
         /// </summary>
-        public static void Draw(BattleContext ctx, int p)
+        public static void Draw(BattleContext ctx, int p, bool asDraw = true)   // 🆕 2026-11-02（`B118-W15` · 账 `D118-51`）：`asDraw = false` = **只把牌挪进手牌**（不发 `WhenEventKind.Draw` 广播、不置 `DrawnThisTurn`）= 原版 `BattleManager__GetMulliganCard.c` 的等价物，唯一调用点 = 换牌补抽；缺省 `true` ⇒ 其余 30+ 个 `Draw(...)` 调用点**逐字不变**。判据（原版那道闸）= `BattleManager._ResolveDrawCard_d__432__MoveNext.c:283-295` 三件同闸（`IsDuringMulligan == 0`）
         {
             if (ctx == null) return;
             // 🔴 **2026-10-22（`W62` · R3）：指代槽的作用域必须盖住【泵点】。**
@@ -3075,12 +3075,12 @@ namespace RuleEngine
             using (DrawReferentScope.Seed(ctx, inst))
             using (BeginAction(ctx))
             {
-                DrawCore(ctx, p, inst);
+                DrawCore(ctx, p, inst, asDraw);
             }
         }
 
         /// <summary><see cref="RuleCore.BeginAction"/> 包住的原文（2026-10-21 `T03·c` 批 B 接线）。</summary>
-        static void DrawCore(BattleContext ctx, int p, CardInstance inst)
+        static void DrawCore(BattleContext ctx, int p, CardInstance inst, bool asDraw)
         {
             var card = inst.Card;
             // 🆕 `When you draw a card, …`（2026-09-13 第三十三轮）。
@@ -3115,7 +3115,7 @@ namespace RuleEngine
             //    种子/还原的判据、为什么必须套在广播**外面**、以及窗口放宽的连带，
             //    全写在 `EffectResolver.DrawReferentScope` 的头注释里（⛔ 别在这儿再抄一份）。
             // ⚠️ 指代槽不在这里种 —— 它的 `using` 在 `Draw` 那一层（要盖住**泵点**，见那边的注释）。
-            BroadcastWhen(ctx, WhenEventKind.Draw, p, card, null);
+            if (asDraw) BroadcastWhen(ctx, WhenEventKind.Draw, p, card, null);   // 🆕 B118-W15：换牌补抽走 `asDraw:false` ⇒ **不发**（原版 `GetMulliganCard` 不广播；闸 = `_ResolveDrawCard…:283-295` 的 `IsDuringMulligan`）
             // 🆕 **「这一份是这回合从牌库抽到的」** 记账（2026-09-13 A2，2026-09-18 第 3 步搬到实例上）——
             // 传送（`Teleport`）判的就是它：规则书 `:219`「**当回合从牌库抽到即打出时**触发能力」。
             // 🔴 现在是**一份一个布尔**（`CardInstance.DrawnThisTurn`）：同名两张里
@@ -3154,8 +3154,8 @@ namespace RuleEngine
             //      `Signals` / `ActionLog` 里塞一条 `BattleEvent`，而 `NetProtocol.Fingerprint`
             //      读的是 `ctx.Events`（**字符串**日志）。⛔ 所以这里**不许补 `ctx.Log(...)`** ——
             //      那会改 `ctx.Events.Count` ⇒ 动到 `Fingerprint`。
-            if (!ctx.MulliganOpen) ctx.Emit(EvtKind.Draw, p, -1, card.Name);
-            inst.DrawnThisTurn = true;
+            if (asDraw && !ctx.MulliganOpen) ctx.Emit(EvtKind.Draw, p, -1, card.Name);   // 🆕 B118-W15：`asDraw:false` 也不发（三件同闸）
+            if (asDraw) inst.DrawnThisTurn = true;   // 🆕 B118-W15：原版 `SetCardTurnDrawn` 同在那道闸里 ⇒ 换牌补抽**不记**「本回合抽到的」（否则那张补回来的牌会亮「刚抽到」高亮；`BeginTurn` 只清当前行动方的，非先手那半边看得见）
         }
 
         /// <summary>
@@ -3209,7 +3209,7 @@ namespace RuleEngine
                 //   既次序反了，又**根本没发 `damaged` 广播**（`When … receives damage` 监听器
                 //   在疲劳这一路上一次都不响）。⇒ 改走 `EmitHit`（它 = `EvtKind.Hit` ＋ `damaged`
                 //   广播，判据收在一处），并排在扣血之前。
-                EmitHit(ctx, ps.Warlord, ps.Fatigue);   // ← 原版 `.c:141`：广播用的是【减甲前】的量（`CardScript__GetAdjustedDamage` 不减甲，减甲在 `ReceiveDamage` 里）
+                ctx.Emit(EvtKind.Fatigue, p, BoardSpec.WarlordSlot, ps.Warlord.Name, amount: ps.Fatigue); EmitHit(ctx, ps.Warlord, ps.Fatigue);   // 🆕 2026-11-02（`B118_W11` · `D118-41`）：**疲劳专用信号**排在 `Hit` **之前** —— 原版 `_ResolveFatigue_d__587__MoveNext.c` 的次序是 `ShowError(横幅)` → `DealMultiDamage(伤害)` ⇒ 横幅那一拍先到。判据/字段 → `EvtKind.Fatigue` 的 doc。⚠️ 同一物理行追加 = **零行数变化**（本文件 500+ 处账按行号引用，铁律 18·b）｜← 原版 `.c:141`：广播用的是【减甲前】的量（`CardScript__GetAdjustedDamage` 不减甲，减甲在 `ReceiveDamage` 里）
                 ApplyFatigueDamage(ctx, ps.Warlord, ps.Fatigue);   // 2026-10-28（批次 91 · `W1` · 账 L516）：疲劳那一发的**结算体**（护甲 `max(1,x−Armor)` + 易伤那一份 + **盾族挡伤/消耗**）全在类尾 `ApplyFatigueDamage`，判据与 doc 只在那儿一份 —— 早期版本这一句是「直接 `Health -= 疲劳`」（三项都没做）
                 // 🔴 2026-10-26（批次 9 · `E9ER`）：疲劳是**督军掉血的第二个真实写点** ⇒ 同一个骷髅阈值检查
                 //   （判据 `CardScript__CheckForSkullEarned.c:1-69`，见 `NoteWarlordHealthForSkulls` 头注）。
@@ -7178,8 +7178,8 @@ namespace RuleEngine
                     //    「星镖—主攻击—标记光/易伤」）。
                     // 🆕 2026-10-25（`X2`）：主攻击**按本次打法**分类（成就 `Ach_2` 近战 / `Ach_3` 远程）——
                     //   `ranged` 就在本函数作用域里（同 `RangedAttacksDeclared` 那一格用的同一个 `ranged`，⛔ 别另算）。
-                    dealt = Hurt(ctx, target, atk, attacker.Name, p, actingCard: attacker,
-                                 kind: ranged ? DamageKind.Ranged : DamageKind.Melee);
+                    dealt = Hurt(ctx, target, atk, attacker.Name, p, actingCard: attacker, actionTarget: target,
+                                 kind: ranged ? DamageKind.Ranged : DamageKind.Melee);   // 🔴 2026-11-02（`B118_W20` · 账 #63）：本次 `BattleAction` 的 `targetCard` = 被攻击方（原版 `_ResolveAttack…` 那条 action 的目标）
                 }
                 ctx.Log($"{attacker.Name} {(ranged ? "远程" : "近战")}攻击 {target.Name}："
                       + $"{atk} 攻 → 实际 {dealt} 伤（{target.Name} 剩 {target.Health}）");
@@ -7228,7 +7228,7 @@ namespace RuleEngine
                     {
                         var au = ctx.Players[tgtP].Board[adj];
                         if (au == null) continue;             // 只跳过空槽（原版那张表里本来就没有空格）
-                        int bd = Hurt(ctx, au, blast, attacker.Name + " 的 Blast", p, actingCard: attacker,
+                        int bd = Hurt(ctx, au, blast, attacker.Name + " 的 Blast", p, actingCard: attacker, actionTarget: target,
                                       // 🆕 2026-10-25（`X2`）：爆裂单列一类（今天没有成就用它，照样打标）。
                                       kind: DamageKind.Blast);
                         // 🔴 `W58-SLAYFIX`（D2 记账）：`actingCard` 就是**这一下是攻方的单位打的**。
@@ -7265,7 +7265,7 @@ namespace RuleEngine
                     if (au != null)
                     {
                         int excess = dealt - hpBefore;
-                        int sd = Hurt(ctx, au, excess, attacker.Name + " 的 Stomp", p, actingCard: attacker,
+                        int sd = Hurt(ctx, au, excess, attacker.Name + " 的 Stomp", p, actingCard: attacker, actionTarget: target,
                                       // 🆕 2026-10-25（`X2`）：践踏单列一类（成就 `Ach_86` = `Deal stopm damage`，
                                       //   原版 `DamageType.Stomp = 11`）。
                                       kind: DamageKind.Stomp);
@@ -7329,7 +7329,7 @@ namespace RuleEngine
                     //    ⚠️ 攻击**防御方**那一支是 `combatDefender(15)`，**不发任何事件**（白名单外）
                     //      ⇒ 这里只给反击这一处打 10，⛔ 别无脑往别的伤害上贴。
                     int back = Hurt(ctx, attacker, counterAtk, target.Name, ignoreBastion: true,
-                                    deathType: UnitDeathType.CombatAttacker, actingCard: target, kind: ranged ? DamageKind.Ranged : DamageKind.Melee); ApplyConcussionOnAttackDamage(ctx, target, p, atkSlot, attacker, !attacker.IsAlive);   // 🔴 2026-10-29（`B97_W1` · 账 870）：**补齐反击那一枪的 `actingCard` / `kind` 透传** —— 原版反击那一下也走 `ResolveAttackDamage`（`_ResolveAttack_d__438__MoveNext.c:1137`）⇒ `DamageInfo.damageType = 4 (DamageType.Attack)`、`actingCard` = **反击方**（= 我们的 `target`）。不传时：① `ResolveDamageDealtHook` 拿不到施害卡（syphon/poisonous 恒不响）② 反击方的 **concussive 不触发**。⚠️ `kind` 只能传 `Melee/Ranged`（`ResolveDamageDealtHook` 的闸就是 `kind ∈ {Melee,Ranged}` = 原版 `damageType == 4`）；副作用面 = 成就 `Ach_2/Ach_3` 从今天起也会数反击伤害（原版本来就数）
+                                    deathType: UnitDeathType.CombatAttacker, actingCard: target, kind: ranged ? DamageKind.Ranged : DamageKind.Melee, actionTarget: target); ApplyConcussionOnAttackDamage(ctx, target, p, atkSlot, attacker, !attacker.IsAlive);   // 🔴 2026-10-29（`B97_W1` · 账 870）：**补齐反击那一枪的 `actingCard` / `kind` 透传** —— 原版反击那一下也走 `ResolveAttackDamage`（`_ResolveAttack_d__438__MoveNext.c:1137`）⇒ `DamageInfo.damageType = 4 (DamageType.Attack)`、`actingCard` = **反击方**（= 我们的 `target`）。不传时：① `ResolveDamageDealtHook` 拿不到施害卡（syphon/poisonous 恒不响）② 反击方的 **concussive 不触发**。⚠️ `kind` 只能传 `Melee/Ranged`（`ResolveDamageDealtHook` 的闸就是 `kind ∈ {Melee,Ranged}` = 原版 `damageType == 4`）；副作用面 = 成就 `Ach_2/Ach_3` 从今天起也会数反击伤害（原版本来就数）
                     ctx.Log($"{target.Name} 反击 {attacker.Name}："
                           + $"{counterAtk} 攻 → 实际 {back} 伤（{attacker.Name} 剩 {attacker.Health}）");
                 }
@@ -9191,7 +9191,7 @@ namespace RuleEngine
                         // 🆕 2026-10-25（执行代理 `X2`）：「这一下算哪一类伤害」（成就计数用）。
                         //   缺省 `Unknown` = **不计** ⇒ 所有老调用点行为逐字不变；8 个打标点
                         //   在攻击结算那一段各传一个（判据 → `资料/待办判据_成就计数器_1025b.md` §B-3 #1）。
-                        DamageKind kind = DamageKind.Unknown)
+                        DamageKind kind = DamageKind.Unknown, UnitState actionTarget = null)   // 🔴 2026-11-02（执行写手 `B118_W20` · 账 #63）：`actionTarget` = 原版 `BattleAction.targetCard`（`BattleManagerSupport__BroadcastDeadUnit` 逐观察者调 `ResolveDeadCard` 时带下来的那一格，`CardScript__ResolveDeadCard.c:242` 拿它跟观察者比）⇒ 一路喂到 `CleanupDeaths(actionTarget:)`；缺省 `null` ⇒ 既有调用点逐字不变（`CleanupTargetSacrificeFor` 仍回落 `ctx.LastTarget`）
         {
             // 🔴 **2026-10-22（`W62` · R1）：`Hurt` 也是「拥有死亡/广播路径的入口」⇒ 必须自带 `ActionScope`。**
             //   触发改「只入队」之后，本函数里那几拍（Penitence / Ecstasy / Cruelty → `FireTriggerAt`，
@@ -9203,13 +9203,13 @@ namespace RuleEngine
             //   ⚠️ 嵌套安全：已经在一条动作里 ⇒ 内层空转（`ActionPump.cs` 的设计口径 ②）。
             //   ⚠️ **别删 `ApplyDamage` 的那个作用域**（它自己也可能被单独调用，嵌套无害）。
             using (BeginAction(ctx))
-                return HurtCore(ctx, u, amount, source, killer, ignoreBastion, actingCard, deathType, kind);
+                return HurtCore(ctx, u, amount, source, killer, ignoreBastion, actingCard, deathType, kind, actionTarget);   // 🔴 2026-11-02（`B118_W20` · 账 #63）：`actionTarget` 透传到 `CleanupDeaths`
         }
 
         /// <summary><see cref="Hurt"/> 的原文（2026-10-22 `W62` · R1 抽出，逐字搬下来）。</summary>
         static int HurtCore(BattleContext ctx, UnitState u, int amount, string source, int killer,
                             bool ignoreBastion, UnitState actingCard, int deathType,
-                            DamageKind kind = DamageKind.Unknown)
+                            DamageKind kind = DamageKind.Unknown, UnitState actionTarget = null)
         {
             // 已经死了的不再挨第二遍。
             // 什么时候会走到这：攻击者先被对方的**忏悔**打死了，回来还要结算反击 ——
@@ -9323,7 +9323,7 @@ namespace RuleEngine
                     FireTriggerOnSide(ctx, ctx.Active, KeywordTable.Cruelty);
             }
 
-            RemoveIfDead(ctx, u, killer, actingCard, (vulnKilled && DamageTypeOfKind(kind) == 4) ? VulnerableCombatDeathType(ctx, actingCard) : deathType);   // 账 346：只改「战斗中死在易伤第二拍」那一档（原版 `GetDeathType.c:366-373`），其余路径**逐字不动**
+            RemoveIfDead(ctx, u, killer, actingCard, (vulnKilled && DamageTypeOfKind(kind) == 4) ? VulnerableCombatDeathType(ctx, actingCard) : deathType, actionTarget);   // 🔴 2026-11-02（`B118_W20` · 账 #63）：`actionTarget` 继续下传（`RemoveIfDead` → `CleanupDeaths(actionTarget:)`）   // 账 346：只改「战斗中死在易伤第二拍」那一档（原版 `GetDeathType.c:366-373`），其余路径**逐字不动**
             return dealt;
         }
 
@@ -9337,15 +9337,15 @@ namespace RuleEngine
                                                 int deathType = UnitDeathType.Unknown,
                                                 // 🆕 2026-10-25（`X2`）：自检要能**喂「近战 / 远程」那一路**的伤害
                                                 //   （成就 `Ach_2/3` 的计数源）⇒ 这个口也带类别（缺省 = 不计）。
-                                                DamageKind kind = DamageKind.Unknown)
+                                                DamageKind kind = DamageKind.Unknown, UnitState actionTarget = null)   // 🔴 2026-11-02（`B118_W20` · 账 #63）：只为自检开门 —— 让断言能喂「本次 action 的 targetCard」，验 `CleanupTargetSacrificeFor` 的显式通道（缺省 `null` ⇒ 与改前逐字相同）
         {
             return Hurt(ctx, u, amount, source, killer: killer, actingCard: actingCard,
-                        deathType: deathType, kind: kind);
+                        deathType: deathType, kind: kind, actionTarget: actionTarget);
         }
 
         /// <summary>死了就从棋盘上拿掉（督军除外 —— 它留在槽 4，胜负交给 <see cref="CheckWinner"/>）</summary>
         static void RemoveIfDead(BattleContext ctx, UnitState u, int killer = -1, UnitState actingCard = null,
-                                 int deathType = UnitDeathType.Unknown)
+                                 int deathType = UnitDeathType.Unknown, UnitState actionTarget = null)   // 🔴 2026-11-02（`B118_W20` · 账 #63）：`actionTarget` = 原版 `BattleAction.targetCard`（缺省 `null` ⇒ 既有调用点不变）
         {
             int owner, slot;
             if (!FindUnit(ctx, u, out owner, out slot)) return;
@@ -9353,7 +9353,7 @@ namespace RuleEngine
             //   ⇒ 正是原版 `survivor` 挂着的那个入口（`CheckIfDead`，见 `CleanupDeaths` 的形参注释）。
             //   ⛔ 别的调用点（`DoDestroy` / `DestroyRemnants` / 收走灵魂石）**一律不要传**。
             CleanupDeaths(ctx, owner, slot, killer, maySurvive: true, actingCard: actingCard,
-                          deathType: deathType);
+                          deathType: deathType, actionTarget: actionTarget);
         }
 
         /// <summary>
@@ -10269,7 +10269,7 @@ namespace RuleEngine
             //  ⚠️ 只在**真离场**（`leftPlay`）时跑：变成残骸那一支死者**还在场上**
             //    （`IsInPlay` 仍真 ⇒ 原版那条 extrinsic 撤除不成立）；那一档的判据没闭合，
             //    如实标着（见 `资料/完全复刻/报告/B9_W69ENG4_第三批三条.md` §没查清）。
-            if (leftPlay) { SweepExtrinsicEffectsOnSourceDeath(ctx, u); } if (leftPlay) FireObserverRequiemOnDeath(ctx, p, slot, u, actingCard); CleanupTargetSacrificeFor(ctx, actionTarget);   // 🔴 2026-10-28（`B93_FX1` · 就地撤回 `B93_F7` 加在这里的那半句 · 账 559/634）：原版 `CardScript__ResolveDeadCard.c:242`（`targetCard == this` 才进那一支）+ `:286-292`（`HasCurrentTrait(sacrifice=0x1d6)` ∧ `IsPlayerTurn == card.isPlayer` → `TriggerSacrifice`）的宿主**必须过入口闸**：`BattleManagerSupport__BroadcastDeadUnit.c:82-90` 只遍历 `unitsInPlay` 且每张先过 `CardScript__IsInPlay`（只认状态 2/15/3/17），而**真死那张是 `waitingToDie = 5`**（`CardStateOptions.cs` · `CardScript__CheckIfDead.c:124`）⇒ 那一支对「真死」**不可达**，唯一可达形态是「**仍在场、且是本次 action 的 `targetCard`（没死）**」的观察者；我们 `CleanupDeaths` **没有 `action.targetCard` 这一路输入** ⇒ 撤回调用（方法本体与判据留在 `RuleCorePartial_B93F7.cs`，那里写着「口已建、当前没有正确调用点」）。⚠️ **零行数变化**（铁律 18·b）：本文件有 365+ 处账落点，⛔ 别把这句拆成两行。
+            if (leftPlay) { SweepExtrinsicEffectsOnSourceDeath(ctx, u); } if (leftPlay) FireObserverRequiemOnDeath(ctx, p, slot, u, actingCard); CleanupTargetSacrificeFor(ctx, actionTarget);   // 🔴 2026-10-28（`B93_FX1` · 就地撤回 `B93_F7` 加在这里的那半句 · 账 559/634）：原版 `CardScript__ResolveDeadCard.c:242`（`targetCard == this` 才进那一支）+ `:286-292`（`HasCurrentTrait(sacrifice=0x1d6)` ∧ `IsPlayerTurn == card.isPlayer` → `TriggerSacrifice`）的宿主**必须过入口闸**：`BattleManagerSupport__BroadcastDeadUnit.c:82-90` 只遍历 `unitsInPlay` 且每张先过 `CardScript__IsInPlay`（只认状态 2/15/3/17），而**真死那张是 `waitingToDie = 5`**（`CardStateOptions.cs` · `CardScript__CheckIfDead.c:124`）⇒ 那一支对「真死」**不可达**，唯一可达形态是「**仍在场、且是本次 action 的 `targetCard`（没死）**」的观察者；我们 `CleanupDeaths` **没有 `action.targetCard` 这一路输入** ⇒ 撤回调用（方法本体与判据留在 `RuleCorePartial_B93F7.cs`）。✅ **2026-11-02（`B118_W20` · 账 #63）已补这条输入**：`CleanupDeaths` 的 `actionTarget` 形参现在由 `Hurt` / `RemoveIfDead` 一路带下来，攻击那几拍已传本次 action 的 targetCard。⚠️ **零行数变化**（铁律 18·b）：本文件有 365+ 处账落点，⛔ 别把这句拆成两行。
 
             // 🆕 2026-09-16 「它本回合内死了就把这条效果转给另一个」（`BL74 Spreading Corruption`）——
             //    登记在 `EffectResolver.DoGive`，这里消费。**排在死亡广播之后**：
@@ -12773,9 +12773,9 @@ namespace RuleEngine
             // 效果成不成立（比如对面场上没人可打）是另一回事
             // 🆕 **2026-10-22（`W63` #3）**：这一句做成**闭包** —— `deferSignal` 那一档要把它
             //   挪进队列体（见下面 `body` 那一段）。**构造只此一处**（判据不复制）。
-            System.Action emitSignal = () => ctx.Emit(EvtKind.Trigger, owner, slot, u.Name,
+            System.Action emitSignal = () => { ctx.Emit(EvtKind.Trigger, owner, slot, u.Name,
                      keyword: keyword, effect: what, amount: ops != null ? 0 : (spec != null ? spec.Amount : 0),
-                     instanceId: u.InstanceId);
+                     instanceId: u.InstanceId); AttachTriggerAbilityTargets(ctx, owner, u, spec, chosen, only != null ? only.Card : (u != null ? u.Card : null), TriggerNameOfKeyword(keyword)); };   // 🆕 2026-11-02（`B118_W11` · `D118-09`/`E13`）：`AttachAbilityTargets` 现在**触发路也调**（判据/取舍 → 类尾 `TriggerAbilityTargetCriteria` 的注释块）。⚠️ 必须在**同一条 lambda 内**追加 —— `AttachAbilityTargets` 只认 `ctx.Signals` 的**最后一条**，而 `ctx.Log` 下面那句不进 Signals ⇒ 但 `deferSignal` 那一档整条 lambda 是被延到队列体里跑的，移到外面会挂错事件
             if (!deferSignal) emitSignal();
             ctx.Log(only != null
                     ? $"{u.Name} 身上的附魔「{only.Card.Name}」触发 {keyword.ToUpperInvariant()}：「{what}」"
@@ -13961,9 +13961,9 @@ namespace RuleEngine
         ///   日志里会写明「未指定」，自检也认得出（拿 2 顶替 = 静默说错一句话，红线）。</para>
         ///   <para>🔴 码**只进 `ctx.Events` 那条日志**（`ctx.Log`，我们自己的诊断通道，不是
         ///   `ctx.ActionLog` 那本给玩家看的战斗日志），**不进 `ctx` 的任何状态** ——
-        ///   原因见 <see cref="BattleResult"/>（指纹/回放零风险）。</para>
+        ///   原因见 <see cref="BattleResult"/>（指纹/回放零风险）。🆕 **`postBattleRejudge`（2026-11-02 `B118_W11` · `B117-T13`④）= 原版 `shouldLoseIfDisconnectEnd(+0x2D8)` 那道放行门**：默认 `false` ⇒ 战后重入**照样挡**（= 改前行为，一个字节不变）；只有「本机在结算段掉线、重连又失败」那一支传 `true`，才允许把已经判过的胜负**重判为负**（判据 `BattleManager__DeadHero.c:109-121`，见方法体里的闸）。</para>
         /// </param>
-        public static int Forfeit(BattleContext ctx, int player, BattleResult reason = BattleResult.Forfeit)
+        public static int Forfeit(BattleContext ctx, int player, BattleResult reason = BattleResult.Forfeit, bool postBattleRejudge = false)
         {
             // 🆕 2026-10-19（T07 · 战后重入闸）：**已经判过胜负 ⇒ 不再改**，但**必须出声**。
             //   原版那一格（`BattleManager__DeadHero.c:71-79`，逐句）：
@@ -13972,18 +13972,18 @@ namespace RuleEngine
             //   —— 即「战后重入 `DeadHero`」**默认被挡下并打一条 warning**，唯一放行的是
             //   `DisconnectedDuringBattle` 在 stage==60 那一支把 `shouldLoseIfDisconnectEnd` 置真之后
             //   （`…__DisconnectedDuringBattle.c:58-66`）。
-            //   🔴 **我们的口径**：`Winner != 0` = 已结算 ⇒ 直接挡（比原版**严**：原版那一条
-            //   「结算段本机掉线 → 重判为负」的放行门**我们没有对应触发源** —— 我们的联机层在
-            //   `Ctx.IsOver` 时不起重连倒计时，见 `NetBattle.StartReconnectCountdown`；⛔ 不为了对称
-            //   造一个永远走不到的后门，如实留在报告里）。
-            if (ctx.Winner != 0)
+            //   ✅ **2026-11-02（`B118_W11` · `B117-T13`④）就地订正（铁律 5）**：原来这里写「我们直接挡、不放行」——
+            //   现在**开了门**：`postBattleRejudge: true` = 原版 `shouldLoseIfDisconnectEnd` 为真之后的重判
+            //   （`BattleManager__DeadHero.c:109-121`）。⚠️ **触发源那一半仍未接**：`NetBattle.HandlePeerLost`
+            //   在 `Ctx.IsOver` 时还是两端同待遇静默（补丁见 `报告/B118_W11_引擎五件.md` §待调度台接线）。
+            if (ctx.Winner != 0 && !postBattleRejudge)   // 🔴 `postBattleRejudge` = 原版 `shouldLoseIfDisconnectEnd(+0x2D8)` 那格放行门（判据 `DeadHero.c:109-121`）
             {
                 ctx.Log($"⚠️ 这一局的胜负**已经判过了**（Winner={ctx.Winner}）⇒ 这次"
                       + $" `{BattleResultWord(reason)}` 不生效（原版战后重入闸："
                       + $"`battleStage == PostBattle(60) && !shouldLoseIfDisconnectEnd` ⇒ `LogWarning` + return，"
                       + $"`BattleManager__DeadHero.c:71-79`）");
                 return ctx.Winner;
-            }
+            } if (ctx.Winner != 0) ctx.Log($"🆕 战后**重判**（`shouldLoseIfDisconnectEnd` 为真）：Winner {ctx.Winner} → 按 `{BattleResultWord(reason)}` 重算（原版 `BattleManager__DeadHero.c:109-121`）");
             if (player != 0 && player != 1) return 0;        // 越界就什么都不做（调用方的问题）
             // 🆕 2026-10-17（B29）：**教程关可以禁止投降**（`TutorialStage.preventPlayerResign`）。
             //   原版出处：`TutorialStage` 字段 `preventPlayerResign`（`dump.cs:42080`，偏移 `+0xB9`）
@@ -18306,7 +18306,7 @@ namespace RuleEngine
         /// <para>转出的是 <see cref="AbilityTargetListFromCriteria"/> —— 「一条 ability 行的
         /// `targetCriteria` 会落到哪些牌」。**为什么需要这个口**：`ta = 150` 的**手牌半**
         /// （`Slot = -1` 的四元组、`publishTable` 只收棋盘项）今天**没有别的可观测入口** ——
-        /// 战术卡正文与触发路都还没调 `AttachAbilityTargets`（判据 → `报告/B115_W23` §5·E13），
+        /// 战术卡正文与触发路**已接**（🆕 2026-11-02 `B118_W11` · `D118-09`：见类尾 `AttachTriggerAbilityTargets`；只接多目标不截断档 ⇒ 这个口仍是任意 criteria 的直喂门），
         /// 而 `AbilityTargetListFromCriteria` 是 `static` 私有。⛔ 产品路径别调。</para></summary>
         public static System.Collections.Generic.List<BattleEventTarget> AbilityTargetListFromCriteriaForTest(
             BattleContext ctx, int owner, CardDef.CountSetSpec criteria, UnitState source, UnitState chosen, bool publishTable = false)
@@ -18401,6 +18401,87 @@ namespace RuleEngine
         {
             if (u == null || u.Card == null) return false;
             return u.HasCurrentTrait("oathdouble");   // 原版 `EntityScript__HasCurrentTrait(card, 0x4fd)`
+        }
+
+        // ================================================================================================
+        //  🆕 2026-11-02（执行写手 `B118_W11` · 活状态表 `D118-09` · `E13` 遗留）：**战术正文 / 触发路**
+        //  也把「这条 ability 实际会落到哪些牌」挂到它自己那条事件上（= 原版 `AbilityLogic.PlayAbility.c:262`
+        //  的 `abilityTargets = GetTargets(...)`，**每个 trigger 都算**，不只主动能力）。
+        //
+        //  ⚠️ 追加在**类尾**（本文件有 500+ 处账按 `RuleEngine/Core/RuleCore.cs:行号` 引用）。
+        //
+        //  🔴 **只接「多目标档」（`ta ∈ {10,110,140,150}`）且**不截断**（`MaxTargets < 1`）的行** —— 三个理由：
+        //   ① 单目标档（`20 self` / `30 target`）由事件自带的 `TargetPlayer/TargetSlot` 已经表达清楚，
+        //      再调一次 `AbilityTargetsFor` 会走 `ResolveTarget`（`random` 目标那档会消费 `ctx.GetRandomInt`）
+        //      ⇒ **改全池随机序列**，而那一路今天没有任何消费者（`BattleDriver.ExpandAbilityBeats` 只展开
+        //      `EvtKind.Ability`）⇒ 纯亏。
+        //   ② 截断档（`MaxTargets >= 1` + `targetSelectMethod ∈ {0 random, 4 cardTarget}`）在
+        //      `AbilityTargetListFromCriteria` 里会**推进一格 `ctx.GetRandomInt`**（`AbilityTargetListFromCriteria`
+        //      的 doc）。主动能力那条路本来就要那一抽（效果层吃那张表），而**触发/战术正文走的是文本 op 管线、
+        //      不吃这张表** ⇒ 在这里补抽 = **凭空多烧一个随机数**，把后续所有结算错位。
+        //      ⇒ 截断档本口**不接**（如实记：「有表但没算」比「算了但错了」好；见报告 §没做）。
+        //   ③ 剩下的那一档（`ta = 10 allFiltered` / `110 相邻` / `140/150 上一条目标的表`，且不限张数）
+        //      整条路径**纯函数**：`AddSide` + `TargetCriteriaEval.Matches` 都不消费随机数（现读该文件 0 处
+        //      `GetRandomInt`）⇒ **接上去指纹逐字节不变**，只是把表填上。
+        // ================================================================================================
+
+        /// <summary>一条 trigger 行（`cardAbilities[i].abilityLogic[j]`）的 `targetCriteria`，**只要多目标档、只要不截断**
+        /// （取舍与判据见类尾那段）。`null` = 这一条触发没有可挂的多目标行 ⇒ 调用方**什么都不做**（⛔ 不要退回
+        /// 单目标那条 `AbilityTargetsFor` —— 那会消费随机数）。</summary>
+        internal static CardDef.CountSetSpec TriggerAbilityTargetCriteria(CardDef card, string triggerName)
+        {
+            if (card == null || string.IsNullOrEmpty(triggerName)) return null;
+            int n = CardDef.AbilityTriggerNumber(triggerName);
+            if (n < 0) return null;
+            return TriggerAbilityTargetCriteriaByNumber(card, n);
+        }
+
+        /// <summary><see cref="TriggerAbilityTargetCriteria"/> 的**按 trigger 数字**那一层（自检也要用 ⇒
+        /// 一并开门；⛔ 卡表没有 `数字 → 名字` 的反查表，按名字测就得多造一份映射 = 第二份判据）。</summary>
+        internal static CardDef.CountSetSpec TriggerAbilityTargetCriteriaByNumber(CardDef card, int triggerNumber)
+        {
+            if (card == null || triggerNumber < 0) return null;
+            var rows = card.TriggerAbilityRowsOf(triggerNumber);
+            if (rows == null || rows.Length == 0) return null;      // 三态：`null` 列未知 / `[]` 明确没有 ⇒ 都不接
+            for (int i = 0; i < rows.Length; i++)
+            {
+                var r = rows[i];
+                if (r == null || r.Ab < 0 || r.Lg < 0) continue;    // `Lg == -1` = 这条 ability 没有 logic 行
+                var set = card.AbilityTargetCriteriaAt(r.Ab, r.Lg);
+                if (set == null) continue;                          // 该行没落 36 格数据
+                int ta = set.TargetsAffected;
+                if (ta != 10 && ta != 110 && ta != 140 && ta != 150) continue;   // ① + ②（见类尾）
+                if (set.MaxTargets >= 1) continue;                  // ② 截断档会烧随机数
+                return set;
+            }
+            return null;
+        }
+
+        /// <summary>把 <see cref="TriggerAbilityTargetCriteria"/> 算出来的表挂到 `ctx.Signals` 的**最后一条**上
+        /// （= 调用方刚发的那条事件；`AttachAbilityTargets` 的唯一约定）。`criteria == null` ⇒ **原样不动**
+        /// （事件里的 `AbilityTargetList` 保持 `null`，消费端按改前的 0/1 口径走）。
+        /// <para>发出点两处：`FireTriggerAt` 的 `emitSignal`（触发路 · `EvtKind.Trigger`）与
+        /// `EffectResolver.PlayTactic` 的 `EvtKind.Play`（战术正文路）。</para></summary>
+        internal static void AttachTriggerAbilityTargets(BattleContext ctx, int owner, UnitState source,
+                                                         EffectSpec spec, UnitState chosen, CardDef card, string triggerName)
+        {
+            var criteria = TriggerAbilityTargetCriteria(card, triggerName);
+            if (criteria == null) return;
+            AttachAbilityTargets(ctx, owner, source, spec, chosen, criteria);
+        }
+
+        /// <summary>自检门：<see cref="TriggerAbilityTargetCriteria"/>（**只读**，纪律同
+        /// `AbilityTargetListFromCriteriaForTest`）。⛔ 产品路径别调。</summary>
+        public static CardDef.CountSetSpec TriggerAbilityTargetCriteriaForTest(CardDef card, string triggerName)
+        {
+            return TriggerAbilityTargetCriteria(card, triggerName);
+        }
+
+        /// <summary>自检门：<see cref="TriggerAbilityTargetCriteriaByNumber"/>（**只读**；卡表没有
+        /// `数字 → 名字` 的反查表 ⇒ 按 trigger 数字测）。⛔ 产品路径别调。</summary>
+        public static CardDef.CountSetSpec TriggerAbilityTargetCriteriaByNumberForTest(CardDef card, int triggerNumber)
+        {
+            return TriggerAbilityTargetCriteriaByNumber(card, triggerNumber);
         }
     }
 }

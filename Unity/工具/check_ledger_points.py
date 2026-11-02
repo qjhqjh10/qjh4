@@ -171,7 +171,11 @@ DEFAULT_ROOTS = [
     r"D:/4/Unity",
 ]
 NL = chr(10)
-REF = re.compile(r"([\w\-./\\]+\.(?:cs|json|tsv|asset)):(\d+)")
+# 🔴 2026-11-02（`B118`）：`py` 也认 —— 账里现在有「我们自己的工具」行（`.py` 实现），
+#   原正则不认 `.py` ⇒ 那条一加进来就是「落点里没有 `文件:行`」失败（闸的盲区，不是账的错）。
+#   ⚠️ `.py` 走**非 C#** 那条路（只要求行号在范围内、那一行非空；不做声明名核对）——
+#   与 `.json/.tsv/.asset` 同档，⛔ 没有放宽任何 C# 侧的判据。
+REF = re.compile(r"([\w\-./\\]+\.(?:cs|json|tsv|asset|py)):(\d+)")
 DECL_TAIL = re.compile(r"\)\s*(?:\{|=>|//|where\b|:|$)")
 MODS = ("public", "private", "protected", "internal")
 STMT = ("return ", "var ", "new ", "if ", "while ", "for ", "foreach ", "switch ", "case ",

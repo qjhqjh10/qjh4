@@ -18,11 +18,11 @@ namespace CardPresentation
     ///     返回的 tween 被丢掉 ⇒ **不回调 `OnComplete`、不理 `onComplete`**。
     ///   · `Initialize()` ⇒ `ScenarioEnvironmentConditionsManager.Register(this)`（= 场景侧那批；我们由执行器建一次）。
     ///   · `OnValidate()` ⇒ 没填就 `GetComponent&lt;LensFlareComponentSRP>()`。
-    /// ⚠️ **两处有意偏离**（都写在这儿，别当成原版）：
-    ///   ① 原版用 **DOTween**（`DOTween.To`，**没调 `SetEase`** ⇒ 用的是 DOTween 全局默认缓动
-    ///      `Ease.OutQuad`）；本仓口径是**手推 `Advance(dt)` + 线性**（批处理下没有帧循环 ⇒ 必须能手动推，
-    ///      见 `EnvironmentApplier` 头注释 ①）。**缓动曲线因此与原版不同**（线性 vs OutQuad）。
-    ///   ② `lensFlare` 放成 `public`（与本文件其它类同一套：运行时由旁挂灌值、自检读回来核）。</summary>
+    /// ⚠️ **一条已按原版对齐 + 一处如实标注**（都写在这儿，别当成原版）：
+    ///   ① 原版用 **DOTween**（`DOTween.To`，**没调 `SetEase`** ⇒ 走 DOTween 全局默认缓动
+    ///      `Ease.OutQuad` = `2x−x²`）；本仓口径是**手推 `Advance(dt)`**（批处理下没有帧循环 ⇒ 必须能手动推，
+    ///      见 `EnvironmentApplier` 头注释 ①），**缓动已按原版**走 `EnvironmentApplier.OutQuad(t)` —— 2026-11-02
+    ///      `B118-W8` 就地订正（原写「线性」= 与原版不同，现已对齐）。② `lensFlare` 放成 `public`（与其它类同一套：运行时由旁挂灌值、自检读回）。</summary>
     public class FlareScenarioToggler : ScenarioBlendable
     {
         public LensFlareComponentSRP lensFlare;
@@ -54,7 +54,7 @@ namespace CardPresentation
             if (!_busy) return;
             _left -= dt;
             float t = Mathf.Clamp01(1f - _left / Mathf.Max(1e-6f, _opts.duration));
-            if (lensFlare != null) lensFlare.intensity = Mathf.Lerp(_from, _to, t);
+            if (lensFlare != null) lensFlare.intensity = Mathf.Lerp(_from, _to, EnvironmentApplier.OutQuad(t));   // 原版 `DOTween.To` 没设 `SetEase` ⇒ `DOTweenSettings.defaultEaseType: 6 = OutQuad`（判据 → `BattlePostFx`/2a 的 D4）；⛔ 别改回线性
             if (_left <= 0f) { if (lensFlare != null) lensFlare.intensity = _to; _busy = false; }
         }
     }

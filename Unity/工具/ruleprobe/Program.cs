@@ -405,7 +405,7 @@ class Program
                               + "willrun [dump <out>] | faith [dump <out>] | play <id|卡名> | play all [dump <out>] [pf <out>] | "
                               + "play check [<pf.txt>] | nonkw | jackal | emergency | suppressor | played | b19test | "
                               + "dbparse | ai <卡id|卡名> | traits [<id|卡名>|q=<trait,…>|cond=<n,…>] | "
-                              + "tutorial <list|run [S]|g3 [行号]|pred <行号>>");
+                              + "tutorial <list|run [S]|g3 [行号]|pred <行号>> | death [dead|ext|unstable]");
             Environment.Exit(1);
         }
         if (args[0] == "scan")
@@ -473,6 +473,15 @@ class Program
         if (args[0] == "traits")
         {
             Environment.Exit(TraitsProbe.Run(args.Length > 1 ? args[1] : ""));
+        }
+        // 🆕 **`death [dead|ext|unstable]`**（`D118-28`，2026-11-02 · 写手 `B118-W12`）：
+        //   **死亡路径的仓库外夹具**（`play` / `play all dump` 结构上看不见死亡 ⇒ 这条活的验收口
+        //   必须写成仓库外夹具或 Unity 自检）。三组：① 死亡本身可观察 ② 死亡时摘「来源 = 死者」的
+        //   外来效果（`G22②`，三本账各一条 + 来源活着的负例）③ `Unstable`(81) 自爆 1–3 伤害。
+        //   ⚠️ 退出码可信：有红 ⇒ rc=1（与 `b19test` / `faith` 同口径）。⛔ 不碰卡池 / 三个指纹。
+        if (args[0] == "death")
+        {
+            Environment.Exit(DeathProbe.Run(args.Length > 1 ? args[1] : ""));
         }
         // 🆕 **`triggerops [<id|卡名>] [scan]`**（`W-22`，2026-11-01 · 活状态表 `B-251` 的未尽读数）：
         //   **「触发数值 → 正文 op」逐条表**（`Verb` / `Tail` / `AbilityIndex` / `LogicIndex`）+ 条数

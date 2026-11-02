@@ -2717,7 +2717,7 @@ namespace RuleEngine
                 TargetSlot   = targeted ? targetSlot : -1,
                 TargetCardId = targeted ? chosen.Name : null,
                 PlayAmbush   = PlaysFaceDown(card),
-            });
+            }); AttachTriggerAbilityTargets(ctx, p, null, null, chosen, card, "ThisCardPlayed");   // 🆕 2026-11-02（`B118_W11` · `D118-09`/`E13`）：**战术正文路**也把「这张战术 `trigger 0` 那条 ability 实际会落到哪些牌」挂到这条 `EvtKind.Play` 上（判据/取舍 → `RuleCore.TriggerAbilityTargetCriteria` 类尾注释块）。⚠️ **必须紧跟 `Emit`**（`AttachAbilityTargets` 只认 `ctx.Signals` 最后一条）；下一句 `BroadcastWhen` 就会发自己的事件。⚠️ 行内追加 = 本文件零行数变化（账落点密）
             // 🆕 `When you play a Stratagem, …` / `When your opponent plays a Stratagem, …`
             // （2026-09-13 第三十三轮）。**排在 `Emit` 之后、结算之前** ——
             // 「打出了」这个事实发生在效果结算之前；监听方看到的就是「对面刚打了一张计策」。
@@ -3148,7 +3148,7 @@ namespace RuleEngine
                               deathType: RuleCore.DeathTypeOfSource(ctx),
                               // 🆕 2026-10-25（`X2`）：效果伤害 = **计谋**那一类（原版 `AttackTypes.Spell = 3`，
                               //   成就 `Ach_4` = `Stratagem Damage`）。判据 §六 问题 2 第一个打标点。
-                              kind: DamageKind.Spell);
+                              kind: DamageKind.Spell, actionTarget: chosen);   // 🆕 2026-11-02（`B118-W20` · `#63`）：显式 action 目标（原版 `ResolveTriggerSacrifice` 用当次 action 的 target，⛔ 别回落到 `LastTarget`）
                 if (!ctx.DeathsDeferred)
                     RuleCore.TryCreditKill(ctx, ctx.ActingUnit, vOwner, t);
             }
@@ -4355,7 +4355,7 @@ namespace RuleEngine
                                   // 🔴 2026-10-24（`C1` §3）：`Destroy` 效果的死因同 `DoDeal` ——
                                   //   按**来源卡种**取 `ability(20)` / `tactic(30)`
                                   //   （判据 → `RuleCore.DeathTypeOfSource`）。
-                                  deathType: RuleCore.DeathTypeOfSource(ctx));
+                                  deathType: RuleCore.DeathTypeOfSource(ctx), actionTarget: chosen);   // 🆕 2026-11-02（`B118-W20` · `#63`）：显式 action 目标
                     // 🔴 **2026-10-10（`A1250`）**：**「摧毁」也是击杀的一条** —— 判据 = 原版那条闸
                     // 允许 `local_28 == 0x14 /* ability(20) */`（`CardScript__ResolveDeadCard.c:252`）。
                     // ⚠️ 阵营 (`o2`) 现成（就在上一行），不用像 `DoDeal` 那样先存 —— 但那一份是
@@ -15481,13 +15481,13 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// `Reload the Duty abilities …` —— 把带 `Duty` 的单位的「本局用过」复位（2026-09-13 A4）。
+        /// `Reload the Duty abilities …` —— 把目标的「本局用过」复位（2026-09-13 A4；🔴 2026-11-02 `B118_W4` 改判）。
         /// 规则书 `:181`「职责：一次性能力，**可被「装填」再次使用**」；
-        /// 语义照 `rule_core.gd:2912-2931`（一字不差，⚠️ **我们上一版 Godot 复刻、旁证、非权威**；
-        /// 🔴 `D26` 2026-10-19：**判据查不到** —— `Reload the Duty abilities` 这一句是**卡面文本**，
-        /// 原版把它编码成 ability 数据；`DutyUsed` 在原版对应的那个「本局用过」位（`+0x50` 一带）
-        /// **没有**能一次指全的方法可引 ⇒ 只剩卡面原文可核）：`all your …` → 己方所有带 duty 的单位；
-        /// 否则指代**前一句那个目标**（`ctx.LastTarget`）。
+        /// 🔴 **判据（`B117-46` · `F13` 回源，⛔ 别再质疑）**：目标 = 卡自己的**目标表**（`AbilityLogic__PlayAbility.c:1934` `case 0x1db`
+        ///   遍历 `+0x78` 逐个调）；`BattleManager__AddResetDuty.c:34/98` 只组一条 `BattleAction(0x57)` 入队、**无 trait 判断**；
+        ///   `BattleManager__ResolveResetDuty.c:5-9` 对传进来的那张**无条件**清 `+0x4c`（`usedActiveAbility`）。
+        ///   ⇒ **不按 `duty` 筛**（池内 `ca==475` 三张卡的 `traitsFilter`/`keywordFilter` 全 = 0）：`all your …` → 己方场上**全部单位（含督军）**；
+        ///   否则只清**前一句那个目标**（`ctx.LastTarget`）。⚠️ 原版**没有**「没找到可装填单位 ⇒ 这条没生效」这个失败档。
         /// </summary>
         static bool DoReloadDuty(BattleContext ctx, int owner, string by, EffectOp op, List<string> unresolved)
         {
@@ -15498,23 +15498,23 @@ namespace RuleEngine
                 for (int s = 0; s < BoardSpec.Size; s++)
                 {
                     var u = ctx.Players[owner].Board[s];
-                    if (u != null && u.IsAlive && u.Has(KeywordTable.Duty)) targets.Add(u);
+                    if (u != null && u.IsAlive) targets.Add(u);   // 🔴 2026-11-02（`B118_W4` · `B117-46`）：**不再按 `duty` 筛** —— 原版 `BattleManager__ResolveResetDuty.c:5-9` 对目标表里传进来的那张**无条件**清 `+0x4c`（不看 trait），`AddResetDuty.c:34/98` 也无 trait 判断；池内 `ca==475` 三张卡的 `traitsFilter`/`keywordFilter` 全 = 0。⛔ 别把 `Has(KeywordTable.Duty)` 加回来。
                 }
             }
             else
             {
                 var t = ctx.LastTarget;
-                if (t != null && t.IsAlive && t.Has(KeywordTable.Duty)) targets.Add(t);
+                if (t != null && t.IsAlive) targets.Add(t);   // 🔴 2026-11-02（`B118_W4` · `B117-46`）：单目标档同样**不按 `duty` 筛** —— 原版 `ResolveResetDuty.c:5-9` 只看「传进来的是不是一个卡」，不看它的 trait（池内 `Lead by Example` 的 `traitsFilter = 0`）。
             }
 
             if (targets.Count == 0)
             {
-                // ⚠️ **如实报**：找不到带 duty 的单位不是「成功但没效果」，是这条没生效
-                ctx.Log($"{by}：「{op.Source}」要装填职责，但没有可供装填的单位"
-                      + (all ? "（你场上没有带 Duty 的单位）" : "（前一句没指到一个带 Duty 的单位）")
-                      + " —— **这条没生效**");
-                unresolved.Add(op.Source + "（没有带 Duty 的可装填单位）");
-                return false;
+                // 🔴 2026-11-02（`B118_W4` · `B117-46`）：**原版没有这个失败档** —— `BattleManager__AddResetDuty.c:34/98` 只组一条
+                //   `BattleAction(0x57)` 入队（无 trait 判断），`BattleManager__ResolveResetDuty.c:5-9` 对传进来的那张**无条件**清 `+0x4c`
+                //   ⇒ 目标表为空时原版就是「什么都没发生」，**不是「这条没生效」**。⇒ 这里**不计 `unresolved`、不 `return false`**，
+                //   只留一行说明（判据 → `报告/B117_F13_阻塞断言与剩余trait.md` §三 · `判据/B118_对账_B_真缺口6条.md` 的 `B117-46` 行）。
+                ctx.Log($"{by}：「{op.Source}」要装填职责，但目标表为空（场上无目标 / 前一句没指到）"
+                      + " —— 无事可做，**不算失败**");
             }
 
             int n = 0;
