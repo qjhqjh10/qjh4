@@ -151,7 +151,7 @@ public static class B120_W24_Assert
         return f;
     }
 
-    /// <summary>「指针甩在棋盘上方空白处」那一点 —— 归一化 x = 0.95，离最近格（槽 8 的 0.8112）差 **0.1388** ≫ `snapTolerance` 0.036。</summary>
+    /// <summary>「指针甩在棋盘上方空白处」那一点 —— 归一化 x = 0.95，离最近格（槽 8 的 0.8112）差 **0.1388**（2026-11-03 `B121-WB` 已删自定容差 `snapTolerance`；2D 档按原版 = 候选集 + 2D 欧氏 + **无容差**）。</summary>
     static Vector3 BlankAboveBoard(float lineY) { return LayoutSpace.ToWorld(0.95f, lineY); }
 
     // ==================================================================

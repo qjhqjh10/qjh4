@@ -206,8 +206,8 @@ namespace CardPresentation
                 EndText(false); return;
             }
             if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame) { EndText(true); return; }
-            if (kb.backspaceKey.wasPressedThisFrame) Backspace();
-            for (int i = 0; i < _typed.Count; i++) TypeChar(_typed[i]);
+            // 🆕 2026-11-03（B121-COLL-01）：Ctrl+V 粘贴 —— 判据与「为什么 TypeChar 仍拒 `\n`」见类尾 `InsertText` 的 doc
+            if (kb.backspaceKey.wasPressedThisFrame) Backspace(); if (kb.ctrlKey.isPressed && kb.vKey.wasPressedThisFrame) InsertText(GUIUtility.systemCopyBuffer); for (int i = 0; i < _typed.Count; i++) TypeChar(_typed[i]);
             _typed.Clear();
         }
 
@@ -1974,6 +1974,27 @@ namespace CardPresentation
             float lx = dx * ax.x + dy * ax.y;                           // 投到 quad 自己的局部 +x
             float ly = dx * ay.x + dy * ay.y;                           // 投到 quad 自己的局部 +y
             return Mathf.Abs(lx) <= half.x / kx && Mathf.Abs(ly) <= half.y / ky;
+        }
+
+        /// <summary>🆕 **2026-11-03（`B121-COLL-01`）**：整段插入（**允许 `\n`**）—— 只服务 Ctrl+V 粘贴
+        /// （追加在类尾，本文件 38 条账按行号引用，别插进既有成员之间）。
+        /// <para>判据（原版）：`Import Deck Popup.prefab ▸ … ▸ Text` 是 `TMP_InputField`，
+        /// `m_LineType = 1`（`MultiLineSubmit`）· `m_CharacterLimit = 0`（无限）—— 玩家靠平台粘贴喂一整串
+        /// base64（调用侧 `ImportDeckPopup` 的 `BeginText(_text, 4096, …)` 给的是 4096 上限）。</para>
+        /// <para>⚠️ **`TypeChar` 仍然拒控制字符**（那条不动）：`HandleTyping` 里回车已经被判成「提交」，
+        /// 若 `\n` 也进 `TypeChar`，两条路会互相打架 ⇒ **换行只从粘贴这条口进来**。</para>
+        /// <para>⚠️ 超长按 `_maxLen` 截断（与原版 `m_CharacterLimit` 同义：截断、不报错）。</para></summary>
+        public void InsertText(string s)
+        {
+            if (!_editing || string.IsNullOrEmpty(s)) return;
+            for (int i = 0; i < s.Length && _buf.Length < _maxLen; i++)
+            {
+                char c = s[i];
+                if (c == '\r') continue;                        // CRLF → LF（Windows 剪贴板）
+                if (char.IsControl(c) && c != '\n') continue;   // 其它控制字符照旧丢
+                _buf += c;
+            }
+            if (_onChangedText != null) _onChangedText(_buf);
         }
     }
 }

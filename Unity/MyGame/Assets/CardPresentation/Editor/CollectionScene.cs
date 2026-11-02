@@ -5275,28 +5275,31 @@ public static class CollectionScene
                     //   `Loc.T("MenuDeck/Error/ImportBadString")`，见 `Core/Loc.cs` 的 `ImportBadString`）。
                     //   原来写死的那两句中文**只是中文列的副本** ⇒ 宿主一切英文档这两条必红（**单语档断言**）。
                     //   期望值改成 `Loc.T(键)` ⇒ 两语档都成立（中文档下取到的字与改前**逐字相同**，值不变）。
-                    CheckTrue(Loc.HasAnyTerm("MenuDeck/Error/ImportEmpty")
-                              && Loc.HasAnyTerm("MenuDeck/Error/ImportBadString"),
-                              "（前提）词条 `MenuDeck/Error/Import{Empty,BadString}` 都在表里"
-                            + "（⛔ 不在 ⇒ 下面两条两边一起退化成**键名** = 假绿）");
-                    // ① 空串
+                    CheckTrue(Loc.HasAnyTerm("MenuDeck/Share/InvalidDeckString"),
+                              "（前提）官方单键 `MenuDeck/Share/InvalidDeckString` 在表里"
+                            + "（⛔ 不在 ⇒ 下面那条退化成**键名** = 假绿）");
+                    // ① 空串：原版**没有**空串守卫，但 Confirm 出厂不可点（非空才亮）⇒ 点不动、窗不关
+                    //   🔴 2026-11-03（`B121-C2` · 收藏审计）：原断言「空串 ⇒ ImportEmpty」已作废 ——
+                    //   现在是原版行为：空串造畸形卡组 + 开信息窗；UI 侧靠 Confirm 禁用挡在门外。
+                    CheckTrue(okBtn != null && !okBtn.Interactable,
+                              "空串 ⇒ `Confirm` **不可点**（原版 `interactable=false`，`onValueChanged` 非空才亮）");
                     if (okBtn != null) okBtn.Click();
-                    CheckText(imp.ErrorText, Loc.T("MenuDeck/Error/ImportEmpty"),
-                              "空串 ⇒ 给**人话**（**与卡组编辑那边逐字一致** —— 判据只有 `CollectionData.ImportDeck` 一份；"
-                            + "期望值随语档 = `Loc.T(\"MenuDeck/Error/ImportEmpty\")`）");
-                    Check(imp.CurrentState, WindowState.Open, "失败**不关窗**");
-                    // ② 乱串
+                    Check(imp.CurrentState, WindowState.Open, "空串点不动 ⇒ 窗不关、不报错");
+                    // ② 乱串：原版只用一条官方键
                     imp.SetTextForTest("这不是一条卡组串");
                     if (okBtn != null) okBtn.Click();
-                    CheckText(imp.ErrorText, Loc.T("MenuDeck/Error/ImportBadString"),
-                              "乱串 ⇒ 另一句人话（期望值随语档 = `Loc.T(\"MenuDeck/Error/ImportBadString\")`）");
-                    // ③ 真串（拿卡组 1 导出的串再导回来）
+                    CheckText(imp.ErrorText, Loc.T("MenuDeck/Share/InvalidDeckString"),
+                              "乱串 ⇒ 官方单键 `MenuDeck/Share/InvalidDeckString`（期望值随语档）");
+                    Check(imp.CurrentState, WindowState.Open, "失败**不关窗**");
+                    // ③ 真串：原版两站 —— 解析成功先开 `DeckInfoPopup(State=Import)`、**不落库**
                     int n0 = CollectionData.DeckCount();
                     var src = DeckLibrary.ExportString(DeckLibrary.Load().Decks[0]);
                     imp.SetTextForTest(src);
                     if (okBtn != null) okBtn.Click();
-                    Check(CollectionData.DeckCount(), n0 + 1, "合法串 ⇒ 卡组数 +1（**导入真的接上了**）");
-                    Check(imp.CurrentState, WindowState.Closed, "成功 ⇒ 窗关上");
+                    Check(CollectionData.DeckCount(), n0, "合法串 ⇒ **卡组数不变**（原版先进信息窗，信息窗里点 Import 才保存）");
+                    Check(imp.CurrentState, WindowState.Closed, "解析成功 ⇒ 导入窗关上");
+                    CheckTrue(UnityEngine.Object.FindObjectOfType<DeckInfoPopup>() != null,
+                              "解析成功 ⇒ 打开 `DeckInfoPopup(State=Import)`（两站式第一站）");
                     // ④ 点背景也关（原版 `backgroundCloseButton`）
                     var imp2 = win.OpenImportPopup();
                     var shade = imp2 != null && imp2.ShadeHit != null ? imp2.ShadeHit.GetComponent<WindowButton>() : null;
@@ -13280,7 +13283,7 @@ public static class CollectionScene
             }
 
             B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B107_W14_Assert.RunCollection(win); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B108A4_Assert.Run(); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; CheckUI21Measure(win); CheckB326Uv1(win); B117_WCOLL_Assert.Run(); _sink.Pass += B117_WCOLL_Assert.Pass; _sink.Fail += B117_WCOLL_Assert.Fail; B108A4_Assert.RunCollectionCloseScrolls(win); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; B117F14_Assert.Run(); _sink.Pass += B117F14_Assert.Pass; _sink.Fail += B117F14_Assert.Fail; B117_WPOPUP_Assert.Run(); _sink.Pass += B117_WPOPUP_Assert.Pass; _sink.Fail += B117_WPOPUP_Assert.Fail; B117_WCARD_Assert.Run(); _sink.Pass += B117_WCARD_Assert.Pass; _sink.Fail += B117_WCARD_Assert.Fail;   // 🆕 2026-11-02（调度台代接线 · B117-WWIREB）：收藏窗卡格几何 `B117_WCOLL`（**接在 `B108A4_Assert.RunCollectionCloseScrolls(win)` 之前** —— 那样 D 组才可能量到活窗；A/B/C 是纯几何、随时可跑，D 组无活窗 / 卡池没画时印「未验」并计入 `Unverified`，不静默）· 菜单详情窗卡档 `B117_WPOPUP` · 卡面字号/阴影/命中 `B117_WCARD`（**`B117_WCARD` 放最后** —— 它会临时 `Loc.PersistOverride = true` + `SetLanguage(Chinese)`，`finally` 还原）。同一物理行追加 ⇒ 行数零变化   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md ｜ 🆕 2026-10-31（B107_W27）：同一物理行再追加 `B107_W14_Assert.RunCollection(win)`（N84 关窗重开回初值；**必须排在所有筛选断言之后** —— 它会复位三份 static 筛选；判据 → 报告/B107_W14.md §四·1）
-            Q2_Assert.Run(); _sink.Pass += Q2_Assert.Pass; _sink.Fail += Q2_Assert.Fail; B110_F1_Assert.Run(); _sink.Pass += B110_F1_Assert.Pass; _sink.Fail += B110_F1_Assert.Fail; B110_F2_Assert.Run(); _sink.Pass += B110_F2_Assert.Pass; _sink.Fail += B110_F2_Assert.Fail; B111_S2_Assert.Run(); _sink.Pass += B111_S2_Assert.Pass; _sink.Fail += B111_S2_Assert.Fail; B112_G_Assert.Run(); _sink.Pass += B112_G_Assert.Pass; _sink.Fail += B112_G_Assert.Fail; B113_G3_Assert.Run(); _sink.Pass += B113_G3_Assert.Pass; _sink.Fail += B113_G3_Assert.Fail; int total = _sink.Pass + _sink.Fail;
+            Q2_Assert.Run(); _sink.Pass += Q2_Assert.Pass; _sink.Fail += Q2_Assert.Fail; B110_F1_Assert.Run(); _sink.Pass += B110_F1_Assert.Pass; _sink.Fail += B110_F1_Assert.Fail; B110_F2_Assert.Run(); _sink.Pass += B110_F2_Assert.Pass; _sink.Fail += B110_F2_Assert.Fail; B111_S2_Assert.Run(); _sink.Pass += B111_S2_Assert.Pass; _sink.Fail += B111_S2_Assert.Fail; B112_G_Assert.Run(); _sink.Pass += B112_G_Assert.Pass; _sink.Fail += B112_G_Assert.Fail; B113_G3_Assert.Run(); _sink.Pass += B113_G3_Assert.Pass; _sink.Fail += B113_G3_Assert.Fail; B121_C1_Assert.Run(); _sink.Pass += B121_C1_Assert.Pass; _sink.Fail += B121_C1_Assert.Fail; B121_C2_Assert.Run(); _sink.Pass += B121_C2_Assert.Pass; _sink.Fail += B121_C2_Assert.Fail; B121_C3_Assert.Run(); _sink.Pass += B121_C3_Assert.Pass; _sink.Fail += B121_C3_Assert.Fail; B121_COLL16_Assert.Run(); _sink.Pass += B121_COLL16_Assert.Pass; _sink.Fail += B121_COLL16_Assert.Fail; B121_COLLFIX_Assert.Run(); _sink.Pass += B121_COLLFIX_Assert.Pass; _sink.Fail += B121_COLLFIX_Assert.Fail; int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else
             {

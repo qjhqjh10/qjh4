@@ -1281,7 +1281,7 @@ namespace CardPresentation
 
             Root = transform;
             foreach (Transform c in Root) DestroySafe(c.gameObject);
-            _btns.Clear(); _missingArt.Clear(); ClearBuildRegistrations();
+            _btns.Clear(); _missingArt.Clear(); ClearBuildRegistrations(); _hdrChipObjs.Clear(); _hdrChipHits.Clear();   // 🆕 2026-11-03（B121-COLL-22）：页头 chip 的节点/命中登记也归零（子树在上面被整棵销毁）
             // 🆕 A24：界面上一次建的 `WindowButton` 跟着子树一起销毁了 ⇒ 这两份登记也要清
             //（不清的话 `UiHoverAt` 会去 `Enter/Exit` 一颗已经销毁的组件 —— 静默无效）
             // 🆕 2026-10-05（A32②）：抽屉那两份登记同理（`_fltHoverBtns` / `_cosmoHoverBtns`）
@@ -2487,7 +2487,7 @@ namespace CardPresentation
             //   中文那一列 = **原版实拍**（`用户实拍_1017/卡组编辑界面参考.png` 左栏底部那颗金框钮）。
             //   断言 → `Editor/DeckScene.cs` 的 G1 节 ⑭。
             var footDoneTx = Txt("foot_done_t", Loc.T("MenuDeck/MenuButtons/Done"),
-                DoneX, DoneY, DoneW, DoneH, 2, Ink, QText);
+                DoneX, DoneY, DoneW, DoneH, 2, Ink, QText); _footDoneText = footDoneTx;   // 🆕 2026-11-03（`B121_WC` · COLL-05）：挂进字段 ⇒ `RefreshHeader` 按合法性改文案（原版 `UpdateDoneButton` 第 ① 句）。同一物理行追加 ⇒ 行号零漂移
             // 🔴 **2026-10-10（A1212 · 块 1 #46）**：接上 `m_enableAutoSizing`（四格 = **10 / 40 / 12 / 0**）。
             //   判据 = `R6` §2·F #46（`…/Sidebar/Footer/Done/Button Text`）。
             //   ⚠️ 折行 = `0` ⇒ 还原（同 `hdr_back_t`）。
@@ -3393,7 +3393,7 @@ namespace CardPresentation
         //     `Sidebar/Deck Details/Cosmetic Drawer` = **0.25,485.50 → 335.56,885.50**（335.31×400）；
         //     切到本页时 `DeckEditingPanel.ToggleCosmetics` **关掉卡组列表/计数/费用**三个抽屉、只开它。
         const float CosmoX = 330.23f, CosmoY = 155.97f, CosmoW = 1589.78f, CosmoH = 924.06f;
-        public static float CosmoCellW { get { return 250f * (SmallScreenUI.Enabled ? 1.5f : 1f); } } public static float CosmoCellH { get { return 405f * (SmallScreenUI.Enabled ? 1.5f : 1f); } }   // 🔴 2026-10-30 AUD05 S1（`B103_R2`）：与卡池同一条，`smallScreenUI` 时 ×1.5（桌面 250×405 不变）。
+        public static float CosmoCellW { get { return 250f * (SmallScreenUI.Enabled ? 1.2f : 1f); } } public static float CosmoCellH { get { return 405f * (SmallScreenUI.Enabled ? 1.2f : 1f); } }   // 🔴 2026-10-30 AUD05 S1（`B103_R2`）：与卡池同一条，`smallScreenUI` 时放大（桌面 250×405 不变）。🔴 **2026-11-03 就地订正（`B121_WC` · COLL-02 · 铁律 5）**：原来这里乘 **1.5**（⇒ 375×607.5 · 4 列）—— **原版是 `_mobileSizeScale = 1.2`**（⇒ 300×486 · `floor(1589.78/300)` = **5 列**；判据 = `MonoBehaviour_-1923093106525475036.json` 的 `_mobileSizeScale`，同 `RecyclableScrollRect.cs:134-141`；收藏窗那一份 `Shell/CollectionWindow.cs:1793` 早就是对值）。⚠️ 桌面档一个字没变。
         /// <summary>列数 = `floor(视口宽 ÷ 格宽)`（**算出来的，不是 `_segments`**）。</summary>
         public static int CosmoCols { get { return Mathf.Max(1, Mathf.FloorToInt(CosmoW / CosmoCellW)); } }   // 🔴 2026-10-30 AUD05 S1：桌面 floor(1589.78/250)=6 · 小屏 floor(1589.78/375)=4
         /// <summary>内容**整体居中**的左边距（= (视口宽 − 列数×格宽) ÷ 2 = 44.89）。</summary>
@@ -4805,7 +4805,7 @@ namespace CardPresentation
             //   · 🔴 **命中闸必须跟着走**（`KeyLive` 里那一支）：藏起来却还能点到 = 静默失败（本仓红线）。
             bool clearFiltersOn = !State.Filter.IsEmpty;
             SetOn(_hdrClear, clearFiltersOn);
-            SetOn(_hdrClearTx, clearFiltersOn);
+            SetOn(_hdrClearTx, clearFiltersOn); RefreshHeaderChips();   // 🆕 2026-11-03（B121-COLL-22）：页头 chip + `Clear filters` 的位移（原版 `filterIconHolder` 容器 CSF 撑宽 ⇒ 钮跟着右移）
 
             // 🔴 2026-10-04（A24）**侧栏三页签的选中态**：原版走 UGUI `Toggle.PlayEffect` ——
             //   `graphic.CrossFadeAlpha(m_IsOn ? 1 : 0, 0.1s)`，而这三颗的 `graphic` 实测 = **子件 `Highlight`**
@@ -4866,7 +4866,7 @@ namespace CardPresentation
             // 🔴 **A330（2026-10-11）**：这一句与 `SaveAndSay()` 那道**保存闸**用的是**同一条判据**
             //   （原版 `__UpdateDoneButton.c:24` 与 `__TrySaveDeck.c:80` 是逐参数相同的同一个
             //   `DeckUtility.ValidateDeck(deck, out err, 1, 0)`）⇒ **灯亮 ⟺ Done/ESC 会真的存下去**。
-            ToggleDoneHighlight(err == DeckError.None);     // 原版 `Done Highlight` 就是这个开关（2026-10-27 接线：淡入淡出）
+            ToggleDoneHighlight(err == DeckError.None); SetDoneButtonText(err == DeckError.None); if (err == DeckError.None && !_footDoneValidLast) PunchDoneButton(); _footDoneValidLast = err == DeckError.None;     // 原版 `Done Highlight` 就是这个开关（2026-10-27 接线：淡入淡出）· 🆕 2026-11-03（`B121_WC` · COLL-05/06）：同一条判据再驱动两样 —— 文案（合法 `Done` / 不合法 `Discard`）＋「变合法」那一拍的弹跳。判据/为什么首帧不弹 → `DeckRuntimePartial_B121WC.cs`
             // 同一判据、另一个载体：Done 那颗按钮上的 **Shiny 扫光**（原版 `DeckEditingWindow.UpdateDoneButton`
             // 里 `controller.Toggle(ValidateDeck(...), …)` ⇒ **合法才扫**，而且那颗是 `m_WrapMode 1 (Loop)` 一直扫）。
             FootShine(err == DeckError.None);
@@ -5150,7 +5150,7 @@ namespace CardPresentation
             // Cosmetics 页的卡背格：**右键装备 / 左键记下起点**（原版 `OnCosmeticClick` 只认右键；
             //  左键那一下原版**什么都不做**，我们用它当**拖拽那条路**的起点，见 `HandleCosmeticClick`）
             if (HandleCosmeticClick(px, downR)) return;
-            if (downL && HandleButtons(px)) return;
+            if (downL && (HandleHeaderChipClick(px) || HandleButtons(px))) return;   // 🆕 2026-11-03（B121-COLL-22）：页头 chip 先于普通按钮派发（chip 在 y 78..148 的页头带，不在两条抽屉的矩形里）
         }
 
         /// <summary>卡池：**左键放大 / 右键加牌**（照原版 `DeckEditingWindow__OnCardClick.c:16,42`）。
@@ -6045,8 +6045,8 @@ namespace CardPresentation
         {
             string s = deck != null ? DeckLibrary.ExportString(deck) : "";
             if (string.IsNullOrEmpty(s)) return "";     // 空串 ⇒ 不写剪贴板（⛔ 别把空串塞进用户的剪贴板）
-            GUIUtility.systemCopyBuffer = s;
-            return s;
+            s = DeckShareString(deck, s);               // 🆕 2026-11-03（`B121_WC` · COLL-04）：补原版那种可读头部（名 / 战将 / 每张 `Nx 卡名` / 末行 base64）；判据 → `DeckRuntimePartial_B121WC.cs` 的 `DeckShareString`
+            GUIUtility.systemCopyBuffer = s;            return s;
         }
 
         /// <summary>分享成功那一句提示的**唯一文案**（两个宿主共用 —— 原版只弹一条 `ShowMessage`）。</summary>
@@ -7914,7 +7914,7 @@ namespace CardPresentation
             }
             // else：收起途中（`_tab == 2` + 还在滑）⇒ **留着现成那批**一起滑走（同卡牌那栏）
 
-            ApplyDrawerSlide(_cosmoFltSlide, _cosmoFltSlide.Slide);   // 摆位 / 显隐 / 命中（唯一出处）
+            ApplyDrawerSlide(_cosmoFltSlide, _cosmoFltSlide.Slide); RefreshHeaderChips();   // 摆位 / 显隐 / 命中（唯一出处）｜🆕 2026-11-03（B121-COLL-22）：卡背筛选改了就重刷页头 chip（同物理行追加 ⇒ 行号零漂移）
         }
 
         /// <summary>把卡背抽屉那几个格拆掉（只在「这一栏整个不在了」时调）。</summary>
@@ -9184,10 +9184,10 @@ namespace CardPresentation
         // ⚠️ 只在「落点**在列表矩形内**、且落在**另一行**、且两行都是卡（≥2）」时重排；
         //   其余一律走原来的 `EndDrag`（拖出右缘 = 删除 · 没动 = 开卡窗）。
 
-        /// <summary>松手：先试重排，不成就交给 <see cref="EndDrag"/>（原行为）。</summary>
+        /// <summary>松手：交给 <see cref="EndDrag"/>（原行为）。🔴 2026-11-03（`B121_WC` · COLL-03）：「行内拖动 = 重排」**已关掉**（原版这扇窗全树无 `DragAndDropItem`）—— 闸 = <see cref="RowReorderEnabled"/>，判据与反证写在那个字段的 doc 上。</summary>
         void EndDragAt(float screenX, float screenY)
         {
-            if (_dragging && _dragRow >= 2
+            if (RowReorderEnabled && _dragging && _dragRow >= 2
                 && screenX >= ListX && screenX <= ListX + ListW
                 && screenY >= ListY && screenY <= ListY + ListH)
             {
@@ -10279,6 +10279,108 @@ namespace CardPresentation
             }
             catch (System.Exception) { sb.Append("<na>"); }
             sb.Append('|');
+        }
+    }
+}
+
+// ============================================================ 🆕 2026-11-03（`B121-COLL-22`）· **卡组编辑窗页头筛选 chip**
+//
+// 判据（全文 → `资料/完全复刻/报告/B121_COLL16_页头chip.md` §一 / §五.2）：
+//   · 原版 `Deck Editing Menu` 里两份 `CollectionFilterController`（CardDisplay / CosmeticDisplay）的
+//     `filterIconHolder` **都指向页头那颗 `Filters`**（`…/Content Area/Header/Filters`，左缘 **592.2**；
+//     `GridLayoutGroup 85×70 / spacing 5,0 / FixedRowCount(1) / MiddleLeft` + `ContentSizeFitter(MinSize)`）；
+//     唯一子件 = `Generic Simplified UI Button_updated`（= 我们那颗 `Clear filters`，`IgnoreLayout=1`、锚右 +20）。
+//   · chip 由 `NotifyFilterChange` 从抽屉行里 **`SetParent` 搬**进来（`.c:154`），上限 **5**（跨 filter 累计）；
+//   · 有 chip ⇔ `Clear filters` 显示（同一条 `0 < toggleOptions.Count`），容器被 CSF 撑宽 ⇒ 钮**跟着右移**。
+// ⇒ 本段只做「页头那一半」：抽屉行内那颗已按原版删掉（`Core/FilterPanelModel.Build` 不再调 `AppendChips`）。
+//
+// ⚠️ 为什么追加成独立的 partial 段：本文件被账按 `文件:行号` 引用 120+ 处（最大 `:10085`）
+//   ⇒ 往类体中间插成员会让下游落点整体漂移（CLAUDE.md 铁律 18·b）。同上面「ban 徽标」那一段的先例。
+namespace CardPresentation
+{
+    public partial class DeckRuntime
+    {
+        readonly List<GameObject> _hdrChipObjs = new List<GameObject>();
+        readonly List<Btn> _hdrChipHits = new List<Btn>();
+
+        /// <summary>这一拍页头该有哪几颗 chip —— 卡背页（`_tab == 2`）读 `_cosmoFilter`（只有阵营一条），
+        /// 其余两页读卡牌那套 `State.Filter`。**幂等**，`RefreshHeader` 每一拍都调（同原版 `NotifyFilterChange`）。</summary>
+        void RefreshHeaderChips()
+        {
+            if (Root == null || State == null) return;
+
+            // ① 拆上一批（只拆 chip；`Clear filters` 那三件原地保留、只挪位）
+            for (int i = 0; i < _hdrChipObjs.Count; i++) DestroySafe(_hdrChipObjs[i]);
+            _hdrChipObjs.Clear();
+            _hdrChipHits.Clear();
+            for (int i = 0; i < FilterPanelModel.HdrChipMax; i++) { _named.Remove("hdr_chip_" + i); _named.Remove("hdr_chip_lab_" + i); }
+
+            // ② 取这一页的 chip 表（`armyOnly` = 卡背页：`filters[]` 里只有 `CardArmyFilter` 会出 chip）
+            var cells = new List<FilterPanelModel.Cell>(FilterPanelModel.HdrChipMax);
+            if (_tab == 2) FilterPanelModel.BuildHeaderChips(State.Factions(), _cosmoFilter, cells, armyOnly: true);
+            else FilterPanelModel.BuildHeaderChips(State.Factions(), State.Filter, cells);
+
+            // ③ 建节点 + 登记命中（图取不到 ⇒ 不建、不登记 —— 同抽屉那条「不许看不见却点得动」）
+            for (int i = 0; i < cells.Count; i++)
+            {
+                var c = cells[i];
+                var tex = Ui(c.Icon);
+                if (tex == null) continue;
+                var q = Img("hdr_chip_" + i, tex, c.Bg.x1, c.Bg.y1, c.Bg.W, c.Bg.H, QRow);
+                if (q != null) { q.SetTint(CellTint(c)); _hdrChipObjs.Add(q.gameObject); }
+                if (!string.IsNullOrEmpty(c.Label))
+                {
+                    // 费用那一族：原版 `Label` 是 `Background` 的子件、伸锚铺满（跟着 clone 一起放大到 85×70）
+                    var lb = TxtPx("hdr_chip_lab_" + i, c.Label, c.Lab.x1, c.Lab.y1, c.Lab.W, c.Lab.H, c.LabelPx, Ink, QText);
+                    if (lb != null) _hdrChipObjs.Add(lb.gameObject);
+                }
+                _hdrChipHits.Add(new Btn { Key = c.Key, X = c.R.x1, Y = c.R.y1, W = c.R.W, H = c.R.H });
+            }
+
+            // ④ `Clear filters` 跟着走（原版父容器 CSF MinSize ⇒ 宽 90n−5、钮锚右 +20）
+            //    ⚠️ `n == 0` 保留建时的静态位（`HdrClearX` = 592.2）—— 原版那一档是 CSF 从没跑过的 612.17，
+            //    两说并存见 `HdrClearX` 那一段；本批不动静止态（`Editor/DeckScene.cs` 的 `CheckRect("hdr_clear", 592.2…)` 盯着它）。
+            MoveHdrClear(cells.Count > 0 ? FilterPanelModel.HdrClearX(cells.Count) : HdrClearX);
+        }
+
+        /// <summary>把 `Clear filters` 的图 / 字 / 命中矩形一起挪到 <paramref name="x"/>（左缘）。
+        /// 三件必须**一起**动 —— 只挪图 = 字还停在旧位、只挪命中区 = 看得见点不着（本仓红线）。</summary>
+        void MoveHdrClear(float x)
+        {
+            float cx = x + HdrClearW * 0.5f, cy = HdrClearY + HdrClearH * 0.5f;
+            if (_hdrClear != null) _hdrClear.transform.localPosition = Pos(cx, cy);
+            if (_hdrClearTx != null) _hdrClearTx.transform.localPosition = Pos(cx, cy);
+            for (int i = 0; i < _btns.Count; i++)
+                if (_btns[i].Key == "hdr_clear") { var b = _btns[i]; b.X = x; _btns[i] = b; return; }
+        }
+
+        /// <summary>页头 chip 的点击：卡背页走 `ApplyCosmoFilter`（它认 `$fac:` 单值 toggle），
+        /// 其余两页走 `HandleFilterRow`（`FilterPanelModel.Click` 自己会剥 `$chip:` 前缀 ⇒ 点 chip = `ForceOff`）。</summary>
+        bool HandleHeaderChipClick(Vector2 px)
+        {
+            for (int i = 0; i < _hdrChipHits.Count; i++)
+            {
+                var b = _hdrChipHits[i];
+                if (px.x < b.X || px.x > b.X + b.W || px.y < b.Y || px.y > b.Y + b.H) continue;
+                WindowSounds.PlayFx(WindowSounds.SelectToggleCue, "卡组编辑页头筛选 chip `" + b.Key + "`");
+                var key = b.Key;
+                if (_tab == 2) { if (key != null && key.StartsWith("$chip:")) key = key.Substring(6); ApplyCosmoFilter(key); }
+                else HandleFilterRow(key);
+                return true;
+            }
+            return false;
+        }
+
+        // ---- 自检读数（`Editor/B121_COLLFIX_Assert.cs` 与 `Editor/DeckScene.cs` 用）----
+        /// <summary>页头**现在画着几颗 chip**（= 命中表长度；0 = 无筛选）。</summary>
+        public int UiHeaderChipCount { get { return _hdrChipHits.Count; } }
+        /// <summary>第 <paramref name="i"/> 颗 chip 的 key（`$chip:$fac:…` / `$chip:$rar:…` / `$chip:$cost:…` / `$chip:$type:…`）。</summary>
+        public string UiHeaderChipKey(int i) { return i >= 0 && i < _hdrChipHits.Count ? _hdrChipHits[i].Key : null; }
+        /// <summary>第 <paramref name="i"/> 颗 chip 的**命中矩形**（绝对设计 px）。</summary>
+        public bool UiHeaderChipRect(int i, out float x, out float y, out float w, out float h)
+        {
+            if (i < 0 || i >= _hdrChipHits.Count) { x = y = w = h = 0f; return false; }
+            var b = _hdrChipHits[i]; x = b.X; y = b.Y; w = b.W; h = b.H; return true;
         }
     }
 }

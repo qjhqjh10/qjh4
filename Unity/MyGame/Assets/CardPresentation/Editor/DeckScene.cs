@@ -1397,7 +1397,7 @@ public static class DeckScene
             // 🔴 **2026-11-02（`B-334` · `B116_W36`）**：`Done`/`ESC` **保存成功 ⇒ 关窗**（原版 `TrySaveDeck→UploadDeck→OnSave→Close()`）。
             //   ⚠️ 这一行**必须**是独立的一行（⛔ 别并进下面那条超长聚合行 —— 追加点落在它行尾 `//` 之后就被静默吞掉）。
             B116W36_Assert.Run(); _sink.Pass += B116W36_Assert.Pass; _sink.Fail += B116W36_Assert.Fail; /* 🔴 B-339（B116_W38）：卡组库**跨窗存活** ⇒ 保存失败支也关窗、库内容不丢 */ B116W38_Assert.Run(); _sink.Pass += B116W38_Assert.Pass; _sink.Fail += B116W38_Assert.Fail;
-            B105W4_Assert.Run(); _sink.Pass += B105W4_Assert.Pass; _sink.Fail += B105W4_Assert.Fail;            B106W7_Assert.Run(); _sink.Pass += B106W7_Assert.Pass; _sink.Fail += B106W7_Assert.Fail; B111R1WB_Assert.Run(); _sink.Pass += B111R1WB_Assert.Pass; _sink.Fail += B111R1WB_Assert.Fail;   TestDoneHighlightToggler(); B107_W14_Assert.Reset(); B107_W14_Assert.RunStatic(); B107_W14_Assert.RunDeckScene(_rt); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail;   // 🆕 2026-10-31（调度台接线 · W7）：阵营口径按 `deckArmy` / `CanAddHero` 返 `InvalidArmy` / `DeckLibrary.Create` 已封口
+            B105W4_Assert.Run(); _sink.Pass += B105W4_Assert.Pass; _sink.Fail += B105W4_Assert.Fail;            B106W7_Assert.Run(); _sink.Pass += B106W7_Assert.Pass; _sink.Fail += B106W7_Assert.Fail; B111R1WB_Assert.Run(); _sink.Pass += B111R1WB_Assert.Pass; _sink.Fail += B111R1WB_Assert.Fail;   TestDoneHighlightToggler(); B107_W14_Assert.Reset(); B107_W14_Assert.RunStatic(); B107_W14_Assert.RunDeckScene(_rt); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B121_WC_Assert.Run(); _sink.Pass += B121_WC_Assert.Pass; _sink.Fail += B121_WC_Assert.Fail;   // 🆕 2026-10-31（调度台接线 · W7）：阵营口径按 `deckArmy` / `CanAddHero` 返 `InvalidArmy` / `DeckLibrary.Create` 已封口
 
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
@@ -2051,50 +2051,50 @@ public static class DeckScene
                 s.SetFilter(DeckFilter.None);
             }
 
-            // ============================================================ 🆕 2026-10-25（`C` 域 · chip 行）
-            //   判据 = `bundle_menus_assets_all ▸ CardsTab ▸ Card Filters ▸ Filters ▸ {Army,Rarity,Cost,Type} FIlter/Content`
-            //   的组件表（`menu_dump.py … --depth 9 --no-layout` 现读）：
-            //     · **Army/Content 有 `ContentSizeFitter(MinSize)`** ⇒ chip 会把行**撑高**；
-            //     · **Rarity / Cost / Type 三行没有 CSF** ⇒ chip **落在行框之外**、压到下一行标题上 ——
-            //       **这是原版长相，⛔ 别「顺手」修好**（本轮就是照抄它）。
-            //   🧨 改坏法：把 Rarity/Cost/Type 也按 CSF 撑高 ⇒ 第二条红；把 `armySel` 从 `ComputeLayout` 的实参里去掉 ⇒ 第一条红。
-            Section("chip 行：Army 行长高（有 CSF）· Rarity/Cost/Type 溢出照算（无 CSF）");
+            // ============================================================ 🔴 2026-11-03（`B121-COLL-21`）· chip 行：已按原版搬走
+            //   原版 `CollectionFilterController.NotifyFilterChange` 在 `FillToggleList` 把副本 Instantiate 到抽屉行后
+            //   **立刻 `SetParent(filterIconHolder)` 搬进页头**（`…__NotifyFilterChange__15f01a0.c:154`）
+            //   ⇒ **抽屉行里一颗 chip 都不留**、Army 行也**不因选择而长高**（判据全文 → `报告/B121_COLL16_页头chip.md` §五.1）。
+            //   🧨 改坏法：① `FilterPanelModel.Build` 里把任一 `AppendChips(...)` 写回来 ⇒ 下面第一条红；
+            //              ② 把 `ComputeLayout(facs.Count)` 改回 `facs.Count + armySel` ⇒ 第二条红。
+            //   ⚠️ 旧注那两条（Army 行被 CSF 撑高 / 另三行溢出）说的都是**行内 chip** ⇒ 行内没了、两条判据一起退场。
+            Section("chip 行：原版是【搬】进页头 ⇒ 抽屉行内 0 颗、Army 行车位不随选择变");
             {
                 var facsAll = s.Factions();
                 int nFac = facsAll.Count;
-                var L0 = FilterPanelModel.ComputeLayout(nFac);
                 var fSel = DeckFilter.None;
                 fSel.Factions = new HashSet<string>();
                 for (int i = 0; i < facsAll.Count && i < 4; i++) fSel.Factions.Add(facsAll[i]);
-                // 4 个 chip ⇒ 槽位 13+4 = 17 ⇒ ceil(17/3) = 6 行 vs ceil(13/3) = 5 行 ⇒ **多一行**
-                var L1 = FilterPanelModel.ComputeLayout(nFac + 4);
-                CheckNear(L1.RarityTop - L0.RarityTop, FilterPanelModel.ArmyCell, 0.5f,
-                          $"★ **Army 行长高**：多选 4 个 ⇒ 行数 5→6 ⇒ 下面三行整体下移 **{FilterPanelModel.ArmyCell}px**"
-                        + "（判据 = `Army Filter/Content` 挂着 `ContentSizeFitter(MinSize)`）");
-                CheckTrue(L1.RarityTop > L0.RarityTop, "…而且方向是**往下**（挡「算反了/没变」）");
-
-                // 费用两档 ⇒ 8 格已占 2 行（4/行）⇒ chip 落到第 **3** 行 ⇒ **超出**该行内容高（165）
+                s.SetFilter(fSel);
+                var cellsSel = new List<FilterPanelModel.Cell>();
+                FilterPanelModel.Build(s, CollectionWindow.FltW, cellsSel);
+                int chipInRow = 0;
+                for (int i = 0; i < cellsSel.Count; i++)
+                    if (cellsSel[i].Key != null && cellsSel[i].Key.StartsWith("$chip:")) chipInRow++;
+                Check(chipInRow, 0, "★ 选 4 个阵营后，抽屉行内的 `$chip:` 格 = **0 颗**（原版 `SetParent` 搬走；实得 " + chipInRow + "）");
+                // Army 行的车位：**只看阵营格数**（chip 搬走后不再参与）—— 这一条同时钉住「公式 + 调用点」两半。
+                var LNo = FilterPanelModel.ComputeLayout(nFac);
+                var LSel = FilterPanelModel.ComputeLayout(nFac + 4);
+                CheckNear(LSel.RarityTop - LNo.RarityTop, 0f, 0.001f,
+                          "（判据）多选 4 个 ⇒ 若还按旧写法把 chip 算进格数，Rarity 行顶会往下挪 100px"
+                        + " —— 现在必须**一动不动**");
+                FilterPanelModel.Build(s, CollectionWindow.FltW, cellsSel);   // 同一份筛选再 Build 一次：车位取自 `ComputeLayout(facs.Count)`
+                float rarityTopSel = float.MaxValue;
+                for (int i = 0; i < cellsSel.Count; i++)
+                    if (cellsSel[i].Key == "$rar:common" && cellsSel[i].R.y1 < rarityTopSel) rarityTopSel = cellsSel[i].R.y1;
+                CheckNear(rarityTopSel - (LNo.RarityTop + FilterPanelModel.RarityContentTop), 0f, 0.001f,
+                          "★ **Army 行不再被 chip 撑高**：多选 4 个 ⇒ 稀有度第一格的 y 与不选时逐位相同"
+                        + "（挡「`ComputeLayout` 对、`Build` 还是传 `+armySel`」）");
+                // 费用档：原来那条「8 档已占 2 行 + chip 溢出压到 Type 标题」的判据**没有对象了**。
                 var fCost = DeckFilter.None;
                 fCost.Costs = new HashSet<int> { 1, 8 };
                 s.SetFilter(fCost);
                 var cellsC = new List<FilterPanelModel.Cell>();
                 FilterPanelModel.Build(s, CollectionWindow.FltW, cellsC);
-                // ⚠️ `Cell` 是 **struct** ⇒ 用「找到了没有」这个标志位，别拿 null 判
-                FilterPanelModel.Cell chipC = default(FilterPanelModel.Cell);
-                bool hasChipC = false;
+                int costChips = 0;
                 for (int i = 0; i < cellsC.Count; i++)
-                    if (cellsC[i].Key != null && cellsC[i].Key.StartsWith("$chip:$cost:")) { chipC = cellsC[i]; hasChipC = true; break; }
-                CheckTrue(hasChipC, "（前提）费用行**真的生出 chip 格**（原版 `FillToggleList` 的等价物）");
-                if (hasChipC)
-                {
-                    var LC = FilterPanelModel.ComputeLayout(nFac);
-                    float costTop = LC.CostTop + FilterPanelModel.CostContentTop;
-                    CheckTrue(chipC.R.y1 >= costTop + 165f - 0.5f,
-                              $"★ 费用 chip 落在**行框之外**（y={chipC.R.y1:F1} ≥ 行内容底 {costTop + 165f:F1}）"
-                            + " —— 该行**无 CSF** ⇒ **溢出照抄**，⛔ 不许「修好」");
-                    CheckTrue(chipC.R.y1 < LC.TypeTop + FilterPanelModel.TypeContentTop + FilterPanelModel.TypeCellH,
-                              "…而且它压在 Type 那一行上（同一个屏幕区域）—— 原版就这样");
-                }
+                    if (cellsC[i].Key != null && cellsC[i].Key.StartsWith("$chip:$cost:")) costChips++;
+                Check(costChips, 0, "费用选 2 档：行内同样 **0 颗** chip（旧「溢出压到 Type 标题」那条已无对象）");
                 s.SetFilter(DeckFilter.None);
                 Debug.Log(P + "（收尾：清空筛选）—— 本句是登记，不计入通过数");
             }

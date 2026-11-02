@@ -931,7 +931,7 @@ namespace CardPresentation
             //     🔴 **本窗永远不会有这种格子**：`DeckSelectionTabController.ShowOwnDecks/ShowPrebuiltDecks`
             //     传进来的都是 `InventoryManager.GetInventory<…>().Where(筛选).ToArray()` / 预组数组，
             //     **没有一处塞 `null`**（`DeckSelectionPopup.Initialize(IEnumerable<CardDeck>)` 的形参也是卡组序列）。
-            //     ⇒ 这一态在原版的**这扇窗**里本来就出不来 ⇒ **不建**（同 §八「New/Ban 都不印」）。
+            //     ⇒ 这一态在原版的**这扇窗**里本来就出不来 ⇒ **不建**（`Ban` 那一档已由共用件 `MenuDraw.DeckCell` 补齐，见下一条）。
             //   · **`Ban Icon`（`bannedImage`）**：`Config` 末尾 `SetActive(0x90, cVar4)`，其中
             //     `cVar4 = Enumerable.Any(deck.GetLibraryInFull(), c => deck.CustomGameModeEvent.IsCardBanned(c))`
             //     （谓词 = `CollectionDeck.__c__DisplayClass16_0.<Config>b__0` → `PlayEventData.IsCardBanned`）
@@ -939,12 +939,12 @@ namespace CardPresentation
             //     命中时同时 `greyscaleController.ToggleGreyScale(true)`（4 张图转灰）+
             //     `DeckName` 色改成 `(1, 0.3, 0.3, 1)`（常量 `0x1834b2e50…` vs `0x1834b3210…`，读法见
             //     `资料/普查产出_0923/A2_Deck页.md` §2·3「被 Ban」那行）。
-            //     🔴 **本 build 判据是空的**：禁卡表来自 LiveOps 活动数据（`PlayEventData` / 远端 CCD），
-            //     **本地没有**（用户 2026-09-17 边界「过期的活动不做」）⇒ **永不触发** ⇒ **不建**（⛔ 不编一个禁用卡表）。
+            //     🔴 **2026-11-03（B121-C3）就地订正（铁律 5）**：这里原来写「本 build 判据是空的 ⇒ 永不触发 ⇒ 不建」—— **已过期**：
+            //     `Ban` 档已在**共用件** `Shell/MenuDraw.cs` 的 `DeckCell` 里补齐（有活动且卡被禁 ⇒ Ban Icon + 卡名红 + 四张图灰度 0.25；本地 0 事件 ⇒ 恒 false 空转）。
             //   · 两态的画法 / 触发条件**全表也已在** `资料/普查产出_0923/A2_Deck页.md` §2·2（逐子件 sprite / 字体 / 出厂 act）
             //     与 §2·3（六种状态 × 多显少显）—— 将来真要建，照那两张表，⛔ 别重新猜。
             //   ⚠️ 顺带记：格子几何**不归本文件**（走 `MenuDraw.DeckCell`，与收藏窗 Deck 页共用一份）⇒
-            //     这两态真要补，落点在 `Shell/MenuDraw.cs`（**本批白名单外**）。
+            //     `Ban` 那一档的落点也**不在本文件**（在 `Shell/MenuDraw.cs` 的 `DeckCell` 里）；本窗只负责把**库下标**传进去（见下面那行 `deckIndex:`）。
             for (int k = 0; k < shown.Count; k++)
             {
                 var r = Scroll.Shift(CellRect(k));
@@ -974,7 +974,12 @@ namespace CardPresentation
                                             () => UpdateInfo(pick),
                                             pre ? (int?)pick.PrebuiltDeck.gameMode : null,
                                             pre ? (int?)pick.PrebuiltDeck.difficulty : null,
-                                            showDifficulty: !OwnDecks));
+                                            showDifficulty: !OwnDecks,
+                                            // 🆕 **2026-11-03（B121-C2 转 B121-C3 的接线请求）**：`DeckCell` 的 `deckIndex`
+                                            //   尾巴参（缺省 −1 ⇒ 按卡组名回查）—— 自己那一档手上**就有**库下标，
+                                            //   显式传 ⇒ Ban 档判「这副卡组里有没有被禁的卡」时按**对象**取、不再按名猜
+                                            //   （同名卡组会取错）。预组没有库下标（`OwnIndex` 只在 `Prebuilt == false` 时有效）⇒ −1。
+                                            deckIndex: pick.Prebuilt ? -1 : pick.OwnIndex));
             }
             RefreshEmptyNote();
         }
@@ -1003,7 +1008,13 @@ namespace CardPresentation
                 // 空态那句话走词条（键 `MenuCollection/NoDecksFound`；施工单 §附_Shell #31）。
                 // ⚠️ **如实记**：表里中文列是「在您选择的过滤器中，您的收藏里没有卡组」（2026-10-14 官方 zh-CN 表；原「没有符合当前筛选的卡组」）—— 本窗没有筛选器（搜索框已按原版去掉）
                 //    ⇒ 中文档下这句比改前那句**多提了「筛选」**，语义略有出入；施工单判「最近邻 ⇒ 复用」，照做。
-                _empty = Loc.T("MenuCollection/NoDecksFound");   // ⚠️ 原来这里会说「搜索串：…」—— 搜索框已按原版去掉（见 `Search` 那段注释）
+                // 🔴 **2026-11-03（B121-C2）就地改回原版硬编码英文**（原版怪处，照抄，⛔ 别修）：
+                //   判据 = `Deck Selection Popup ▸ Deck Scroll View ▸ Empty Collection Warning ▸ Warning`
+                //   那颗 TMP **一个 `Localize` 组件都没有**（`bundle_menus_assets_all` 逐字段实读），
+                //   `m_text` 就是下面这句**写死的英文**（原文没有 `s`、也没有 `or game mode`，还是 `no deck` 单数）。
+                //   改前我们用官方键 `MenuCollection/NoDecksFound`（EN 多 `s` + `or game mode`、而且**会随语言变**）
+                //   ⇒ 与「原版无论什么语档都印这句英文」不符。**照抄原版这一处怪处**（CLAUDE.md §18·0）。
+                _empty = EmptyWarningText;   // ⚠️ 原来这里会说「搜索串：…」—— 搜索框已按原版去掉（见 `Search` 那段注释）
         }
 
         /// <summary>
@@ -1110,5 +1121,18 @@ namespace CardPresentation
             int? want = CurrentDeckMode.HasValue ? CurrentDeckMode : ModeFilter;
             return !want.HasValue || d.GameMode == want.Value;
         }
+
+        // ============================================================ 🆕 2026-11-03（B121-C2）· 追加在类尾
+        //   （本文件被账按 `文件:行号` 引用 131 处，最深 `:937` ⇒ 类尾新增**零漂移**）
+
+        /// <summary>空态那句话 —— **原版是硬编码英文，不走 `Localize`**。
+        /// <para>判据（逐字段实读）= `bundle_menus_assets_all` 的 `Deck Selection Popup ▸ Deck Scroll View ▸
+        /// Empty Collection Warning ▸ Warning`：那颗 TMP 上**一个 `Localize` 组件都没有**，`m_text` 逐字就是
+        /// 下面这句 —— 注意原文是 **`no deck`（单数、没有 `s`）**、而且**没有** `or game mode`。</para>
+        /// <para>🔴 **2026-11-03（B121-C2）**：改前我们走官方键 `MenuCollection/NoDecksFound`
+        /// （EN 是 `There are no decks … or game mode`，多一个 `s` + 多半句，而且**会随语言变**）⇒
+        /// 与「原版无论什么语档都印这句英文」不符。**这是原版的怪处，照抄**（CLAUDE.md §18·0：默认复刻原版，含原版自己的怪处）
+        /// —— ⛔ 别拿官方键「修正」回来。</para></summary>
+        public const string EmptyWarningText = "There are no deck in your collection for the selected filters";
     }
 }

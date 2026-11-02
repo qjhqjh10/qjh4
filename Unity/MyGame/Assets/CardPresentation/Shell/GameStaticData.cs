@@ -24,7 +24,7 @@
 //  原版这 13 格是**全局静态**，本工程对应的消费者各自已有**唯一一份**单源 ⇒ 本类**只持有原版
 //  的默认值快照**（`LoadSharedDefaultValues` 写的就是这个），**⛔ 不当消费源**：
 //    · 三个音量 → `Core/WarpforgeAudio.cs` 的 `Music` / `SoundFx` / `VoiceOver`
-//      （`PlayerPrefs["MusicVolume"]` 落盘；出厂 1f，与原版默认一致）。
+//      （`PlayerPrefs["MusicVolume"]` 落盘；出厂 1f，与原版默认一致。🆕 2026-11-03 `B121-WA`（`B120-F23`）：本类的三格音量现在是**活镜像** —— 写入点 = `Shell/LocalPlayerData.cs:241-243`（读档/Apply）＋ `Core/WarpforgeAudio.cs:193/203/212`（三个 setter，滑块每一拍同步），⛔ 别以为它只在读档时变）。
 //    · `smallScreenUI` → **唯一来源 = `CardPresentation.SmallScreenUI.Enabled`**（见下 `SmallScreenUI` 属性）。
 //    · `useCombatAutoZoom` → `Shell/SettingsWindow.cs` 的 `AutoZoom.Enabled`（`PlayerPrefs["AutoZoom"]`）。
 //    · `touchInput` → `Shell/SettingsWindow.cs` 的 `GeneralFlags.TouchInput`（`PlayerPrefs["TouchInput"]`）。

@@ -97,14 +97,14 @@ namespace CardPresentation
         [Tooltip("敌方那一行：只表示「这是敌方的棋盘」（行分层 / 取敌我参数）。⚠️ **不再左右翻槽号** —— 原版不镜像，见 ArenaSlots.Position")]
         public bool mirror = false;
 
-        [Tooltip("🔶 自己设计（非原版）：2D 兜底档的落位吸附容差（归一化**宽度**）—— 松手点离格位多近算落上。3D 产品路径**已无容差**（原版 `GetClosestAvailableSlot` 没有），本值只服务没有 3D 战场的批处理 / 自检夹具。"
-               + "必须 < 半间距（0.0778/2），否则相邻两格的判定区会互相咬")]
-        public float snapTolerance = 0.036f;
-
-        [Tooltip("🔶 自己设计（非原版）：2D 兜底档的纵向容差（归一化**高度**）—— 和上面那个不是同一个物理尺度（可见宽 17.78 / 高 10），"
-               + "所以单独给。要小于「相邻两行之间的距离」和「手牌最上沿到本行」两处，"
-               + "否则会把牌吸到别的行上")]
-        public float snapToleranceY = 0.09f;
+        // 🔴 **2026-11-03（执行写手 `B121-WB` · 账 `B120-Q04c3`）：这里原有的两个自定容差
+        //    `snapTolerance = 0.036f`（2D 兜底档的横向吸附）与 `snapToleranceY = 0.09f`（纵向带）**已彻底删除**。
+        //    判据：原版 `MinionManager.GetClosestAvailableSlot` **没有任何容差**
+        //    （`cpp2il/out_il2csharp/Assembly-CSharp/MinionManager.cs:321-390` /
+        //     `decomp_full/MinionManager__GetClosestAvailableSlot.c:35-145`）——
+        //    候选集 + 2D 欧氏 + 「一个候选都没有才返回无格」。⛔ 别把这两个字段（或任何等价阈值）写回来：
+        //    `CardPresentation/Editor/B121_WB_Assert.cs` 的 A 段用反射钉住「这两个字段不存在」。
+        //    （删掉之后 `ExplainDrop` / `DropRejectKindForTest` 的「命中不了格位」只会在**候选集为空**时出现。）
 
         [Tooltip("落上去的卡缩放 —— 原版实测场卡 137.2 px / 卡设计宽 1.45×108")]
         public float placedScale = DefaultPlacedScale;
@@ -516,28 +516,28 @@ namespace CardPresentation
             }
 
             // ══════════════════════════════════════════════════════════════════════════════
-            //  ⚠️ **下面是 2D 兜底档（没有 3D 战场时）—— 它仍然是我们自己的阈值判据。**
-            //  🔶 自己设计（非原版）：`snapTolerance`（半格宽 0.036）与 `snapToleranceY`（0.09）是**我们挑的**，
-            //     原版没有这两个阈值（`GetClosestAvailableSlot` 无容差）。3D 产品路径已按原版改（上面那一支），
-            //     2D 这一支**默认档（`allowNearest:false`）保留原样**（只在批处理 / 自检夹具里跑，改它会连带改掉那批夹具的判据）；🆕 2026-11-02（`B120-W24` · `A15`）**提交路径**显式传 `allowNearest:true` ⇒ 那一档按原版走（无容差 + 候选集收窄）。
-            //     ⇒ 记账状态见 `B8_AR`（该条仍记为 B，未核销）。· 2026-11-02 `B120-W21`
+            //  2D 兜底档（没有 3D 战场时）—— 判据与原版**同形**：候选集 + 2D 欧氏 + **无容差**。
+            //  判据（🥇 亲读）：`cpp2il/out_il2csharp/Assembly-CSharp/MinionManager.cs:321-390` = 原版
+            //    `GetClosestAvailableSlot`：候选 = 每侧「最内空格 + 内圈已占格」（满侧整条剔除、不含督军位）·
+            //    距离 = 屏幕两点**欧氏** · `bestIdx < 0` 只在「一个候选都没有」时出现 ⇒ **没有任何容差**
+            //    （互验 `decomp_full/MinionManager__GetClosestAvailableSlot.c:35-145`）。
+            //  🔴 **2026-11-03（执行写手 `B121-WB` · 账 `B120-Q04c3`）**：本档原有的两个自定容差
+            //    `snapTolerance`（0.036）/ `snapToleranceY`（0.09）**已彻底删除** —— 它们只服务
+            //    `ExplainDrop` / `DropRejectKindForTest` / `CardBaseDemo` 那批探针与夹具；产品路径
+            //    （`Release` / `UpdateDrag`）走 `allowNearest:true`，本来就已经无容差。
+            //    ⇒ `allowNearest` 形参**从此不再分支**（两取同解），保留只为调用点签名兼容 ——
+            //      ⛔ 别把容差写回来（`CardPresentation/Editor/B121_WB_Assert.cs` A 段盯着这一点）。
             // ══════════════════════════════════════════════════════════════════════════════
-            var nn = LayoutSpace.ToNormalized(worldPos);
-            slot = -1;
-
-            // ⚠️ **纵向必须先判**。只比 x 的话，「拖到战场上方的空白处」只要 x 恰好落在某格附近
-            //    就会被算成合法落点 —— 实测踩到过：非法落点用例丢在 (0.12, 0.88)，
-            //    而槽 0 的 nx 是 0.148，|0.12-0.148|=0.028 < 0.055 就判合法了，
-            //    牌直接落到战场上（本该回弹）。7 格时槽 0 在 0.236 恰好躲过，改成 9 格才暴露。
-            if (!allowNearest && Mathf.Abs(nn.y - lineY) > snapToleranceY) return false;   // 🆕 2026-11-02（`B120-W24` · `A15`）：`allowNearest` = 原版「提交时不要求指针压在某一格上」（`GetClosestAvailableSlot` 没有 y 带）⇒ 那一档跳过本行（它只用于 2D 兜底档与自检夹具）
-
+            var nn = LayoutSpace.ToNormalized(worldPos); slot = -1;
             float best = float.MaxValue;
             for (int i = 0; i < SlotCount; i++)
             {
-                float d = (allowNearest && !ArenaSlots.IsCandidate(i, occupiedLeft, occupiedRight)) ? float.MaxValue : Mathf.Abs(nn.x - NxOf(i));   // 🆕 `A15`：`allowNearest` 时按原版候选集收窄（每侧最内空格 + 内圈已占格、满侧整条剔除、不含督军位）—— 与 3D 那条同一份 `ArenaSlots.IsCandidate`；2D 九格同在 `lineY` 一行 ⇒ 只比 |dx| 就是 2D 欧氏最近
-                if (d < best) { best = d; slot = i; }
+                if (!ArenaSlots.IsCandidate(i, occupiedLeft, occupiedRight)) continue;   // 候选集 = 原版那一条（唯一判据 = `ArenaSlots.IsCandidate`，⛔ 别在这里另写一份）
+                float dx = nn.x - NxOf(i), dy = nn.y - lineY;                         // 九格同在 `lineY` ⇒ dy 对每格相同；仍按 2D 欧氏算 = 与 3D 那条同一个度量
+                float d = Mathf.Sqrt(dx * dx + dy * dy);
+                if (d < best) { best = d; slot = i; }                                 // 严格 `<`（平手 ⇒ 留更早下标，与原版 `if (real1 > real5)` 同序）
             }
-            return allowNearest ? slot >= 0 : best <= snapTolerance;   // 🆕 `A15`：候选集为空（两侧都满）⇒ **false**，⛔ 不当成可出牌
+            return slot >= 0;                                                        // 候选集为空（两侧都满）⇒ **false**（原版 `return 0` = 无格；⛔ 不当成可出牌）
         }
 
         /// <summary>**真 3D 那条路要用**：这一格的卡**现在画在屏幕上的哪一点**（返回**本物体局部坐标**，
@@ -672,9 +672,9 @@ namespace CardPresentation
         //   两道**我们自己的**容差 ⇒ 指针抬到棋盘上方空白处（真机很常见：往中间一甩）根本解不出格
         //   ⇒ `DropReject` 判 `MissedSlot` ⇒ 既不提交也不亮落点指示（原版这两件都会发生）。
         //   3D 产品路径（`ArenaSlots.TryResolveSlot`）在 `B120-W21` 之后**本来就是最近格、无容差** ⇒ 不受影响。
-        // 【现在】`allowNearest == true` 时：跳过 y 带、按 `ArenaSlots.IsCandidate` 收窄候选、取最近、**无容差**；
-        //   `allowNearest == false`（默认）逐位保持旧行为 ⇒ `ExplainDrop` / `DropRejectKindForTest` /
-        //   `CardBaseDemo` 那批既有判据一个字都不动。
+        // 【现在（2026-11-03 `B121-WB` 起）】两档**同一份判据**：`ArenaSlots.IsCandidate` 收窄候选 + 2D 欧氏 + **无容差**
+        //   ⇒ `allowNearest` 只是签名兼容的遗留形参（两取同解），⛔ 别让它再分支；`ExplainDrop` /
+        //   `DropRejectKindForTest` / `CardBaseDemo` 里「命中不了格位」从此只在**候选集为空**时出现。
         //   唯一的消费方 = `CardInteraction.ResolveDrop(..., true)` / `Release` 里那一问（提交路径），
         //   而且它**永远还要再过 `PlayCommitGate`** ⇒ 指针留在手牌带里时依旧「正常取消、牌回手」。
         //   两侧都满 ⇒ 候选集为空 ⇒ 返回 false（⛔ 不当成可出牌 —— 那一档原版是 `NotEnoughRoom`）。

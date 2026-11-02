@@ -110,17 +110,17 @@ namespace CardPresentation
 
         public static DeckInfo DeckAt(int i)
         {
-            var info = new DeckInfo();
-            var d = Raw(i);
-            if (d == null) return info;
-            info.Name = d.Name ?? "";
-            info.WarlordId = d.WarlordId;
-            info.Count = d.CardIds != null ? d.CardIds.Count : 0;
-            info.CardbackId = d.CardbackId;
-            info.GameMode = d.GameMode;
-            var hero = string.IsNullOrEmpty(d.WarlordId) ? null : Lookup.Find(d.WarlordId);
-            info.Faction = hero != null ? hero.Faction : "";
-            return info;
+            // 🔴 **2026-11-03（B121-C2）**：规约**只留一份** —— 唯一实现在类尾 <see cref="InfoOf"/>。
+            //   本口只剩「按下标取」：`Raw(i)` 越界 ⇒ `null` ⇒ `InfoOf` 回一个字段全默认的 `DeckInfo`
+            //   （与改前那句 `if (d == null) return info;` **逐位相同**）。
+            //   ⚠️ **为什么不删掉本方法、让调用点都改走 `InfoOf(PlayerDeck)`**：本文件被账按 `文件:行号`
+            //   引用 29 处，而 `DeckAt` 的调用点散在 `Shell/CollectionWindow.cs` · `Shell/MenuDraw.DeckCell`
+            //   与各 `Editor/*` 自检里（大半**不在本笔白名单**）⇒ 换签名会牵动一大片别人的文件。
+            //   ⚠️ 为什么另一头要新开 `InfoOf`：原版那条链（`ImportDeckPopup.TryImport` → 信息窗）拿到的是
+            //   **一个还没入库的 `CardDeck` 对象**（库里没有它的下标）⇒ 必须能「按对象」算这套显示信息。
+            //   ⚠️ 这 14 行**刻意与原实现等长** —— 少一行就是往下那 24 条账的行号漂移（⛔ 别「顺手瘦身」）。
+            //   📌 对应断言 = `Editor/B121_C2_Assert.cs` 的 `C2-01`：逐下标比 `DeckAt(i)` 与 `InfoOf(Raw(i))` 六个字段全等。
+            return InfoOf(Raw(i));
         }
 
         /// <summary>上一次「选中卡组」**失败的人话**（成功时是空串）。**两种原因分开**：
@@ -268,35 +268,35 @@ namespace CardPresentation
             return d.Name;
         }
 
-        /// <summary>导入一条卡组串（原版 `MenuDeck/Share/*` 那套）。成功返回新卡组名；失败返回空串并给**人话**原因
-        /// （三种：空串 / 不是合法卡组串 / **写不进存档** —— 第三种是 🆕 2026-10-13（A503）补的）。
-        /// 🔴 **判据与错误文案与卡组编辑那边逐字一致**（`DeckRuntime.TryImport` 的那两句一字不动）——
-        /// 两处各写一套迟早不一致（CLAUDE.md §三）。</summary>
+        /// <summary>导入一条卡组串（原版 `MenuDeck/Share/*` 那套）**并入库落盘** —— 旧口径的唯一入口，今天只剩 `Editor/*` 自检在调。
+        /// <para>🔴 **2026-11-03（B121-C2）**：解析那半边已抽成 <see cref="ParseDeck"/>（**不落库**）。原版
+        /// `decomp_full/ImportDeckPopup__TryImport.c:20-40` 解析成功**只开 `DeckInfoPopup(State=Import)`** 再关自己，
+        /// 保存要等玩家在信息窗点 `Import Deck`（= `Edit Deck` 那颗）→ 编辑器 `Done` ⇒ 生产链改成**两站**。
+        /// 本口 = `ParseDeck` + 入库 + 落盘（⛔ 别把生产链再指回本口）。</para>
+        /// <para>⚠️ **返回值约定**：成功回卡组名，失败回空串。空串有两种来历 —— ① 解析不了（`why` 有话说）；
+        /// ② **解析出的卡组本来就没有名字**（原版空串导入那一档，`why` 是空串）。调用点判「成没成」要看 `why`，
+        /// ⛔ 别只看名字的长度（`Editor/CollectionScene.cs` 的 A503 那几条就是这么写的，本轮白名单外 ⇒ 见报告）。
+        /// 🔴 **与 `Deck/DeckRuntime.cs` 的关系**：那边**没有**对应的导入口（它只画编辑器），所以不存在「两处文案」的问题了 ——
+        /// 改前这里注释写着「与 `DeckRuntime.TryImport` 逐字一致」，那条约束随本批一起消失。</para>
+        /// <para>失败文案**只剩一条官方键** `MenuDeck/Share/InvalidDeckString`（判据 → <see cref="TermInvalidDeckString"/>）。</para></summary>
         public static string ImportDeck(string s, out string why)
         {
-            why = "";
-            // 🔴 **2026-10-18（波 1b）**：三句全部走词条 —— 键名由调度台在波 0b 一次定死
-            //   （`MenuDeck/Error/Import{Empty,BadString,NotPersisted}`，表里有），
-            //   **与 P1 的 `Deck/DeckRuntime.cs` 共用同一批键**（施工单 §③ 要求逐字一致）。
-            //   ⚠️ 前两句 ZH 与改前写死串**逐字相同** ⇒ 中文档零变化。
-            if (string.IsNullOrWhiteSpace(s)) { why = Loc.T("MenuDeck/Error/ImportEmpty"); return ""; }
-            var deck = DeckLibrary.ImportString(s, Card);
-            if (deck == null) { why = Loc.T("MenuDeck/Error/ImportBadString"); return ""; }
+            var deck = ParseDeck(s, out why);   // 空串/空白 ⇒ 原版那个「无名无卡」的畸形卡组（见 `ParseDeck`）
+            if (deck == null) return "";        // 解析不了 ⇒ `why` 已是官方那条
             Lib.Add(deck);                     // ⛔ 别在后面再加一次 `Lib.Save()`（A398 起它自己 `SaveOrWarn`）
             if (Lib.LastError != null)
             {
-                // 🔴 卡组串**读出来了**，但没落盘 —— 原来这里照样回名字 ⇒ 玩家看到「导入成功」而盘上没变（下次开游戏就没了）。
-                // 🔴 **第三句有意对齐到 `DeckRuntime` 那一版**（波 0b 判据 = 取 `Deck/DeckRuntime` 的措辞，
-                //   见那三条键）：加了「导入失败：」前缀、分隔符 `：`→`——`、尾加「（重启就没了）」
-                //   ⇒ 中文档下这句**比改前长**（这是裁定的目的：两处**逐字一致**，不是保持原样）。
-                // ⚠️ 用 `Replace` 不用 `string.Format`（文案里有 `**`；先例 `Battle/HUD/CreatedBy`）。
-                why = Loc.T("MenuDeck/Error/ImportNotPersisted").Replace("{0}", SaveFailReason());
-                // ⚠️ 这句是开发者日志（②，不上屏）：原来它自己在尾巴上拼「（重启就没了）」，
-                //    现在 `why` 里已经有了 ⇒ **去掉重复的尾巴**，免得一条日志念两遍。
-                Debug.LogWarning("[CollectionData] 导入卡组「" + deck.Name + "」：" + why);
+                // 卡组串**读出来了**，但没落盘 —— 原来这里照样回名字 ⇒ 玩家看到「导入成功」而盘上没变（下次开游戏就没了）。
+                // 🔴 文案仍走**同一条官方键**：原版导入全链只有 `InvalidDeckString` 一句；我们原来那三条
+                //    （`MenuDeck/Error/Import{Empty,BadString,NotPersisted}`）是**自拟**的（官方 13 语言表 0 命中）
+                //    ⇒ 2026-11-03（B121-C2）按「原版只有一句」收成一条。
+                // ⚠️ 本支**不是**原版行为（原版解析成功就直接开信息窗、不落库 ⇒ 没有「没写进存档」这一档）——
+                //    它只服务 `Editor/*` 自检里「坏存档路径」那个夹具（A503）。⛔ 别据此以为生产链会走到这里。
+                why = Loc.T(TermInvalidDeckString);
+                Debug.LogWarning("[CollectionData] 导入卡组「" + deck.Name + "」没写进存档：" + SaveFailReason());
                 return "";
             }
-            return deck.Name;
+            return deck.Name;                  // ⚠️ 空串导入时这一格是**空名字**（原版那个畸形卡组本来就没名）
         }
 
         /// <summary>新建一套卡组（原版走 `SelectDecksTab.CreateDeck`：**造一副空卡组 → 直接开编辑窗**）。
@@ -597,5 +597,78 @@ namespace CardPresentation
         /// `PracticeModePopup.StartBotBattle`）。⛔ 别改成再调一次 <see cref="Select"/> —— 那会**再试一次写盘**。
         /// ⚠️ 与 `Select` 的分工：`Select` 失败时**内存已改**（A600 的既有断言钉着这条语义），本口是调用点自己回滚。</para></summary>
         public static void RestoreSelection(int index) { Lib.RestoreSelection(index); }
+
+        // ================================================================================================
+        //  🆕 2026-11-03（B121-C2）· 导入链拆成两站（原版就是这么走的）—— 追加在类尾
+        //
+        //  原版 `ImportDeckPopup.TryImport`（`decomp_full/ImportDeckPopup__TryImport.c:20-40`）：
+        //    解析成功 ⇒ 构造 `DeckInfoContext{Deck, State=Import(1), SelectButton=null, CheckOwnership=true,
+        //    EditButtonAction=null}` → `OpenWindow<DeckInfoPopup>` → `Close()` 自己。**全程不落库**；
+        //    玩家在信息窗点 `Import Deck`（= `Edit Deck` 那颗）才 `OpenWindow<DeckEditingWindow>(deck)`，
+        //    保存 = 编辑器 `Done`（= 原版 `UploadDeck`）。
+        //  ⇒ 所以「解析」与「入库」必须拆开：`ParseDeck` **只解析**，`ImportDeck` = `ParseDeck` + 入库。
+        // ================================================================================================
+
+        /// <summary>导入失败**唯一**那条文案的官方键（原版 `ImportDeckPopup` 全类只用这一句）。
+        /// <para>判据 = `ImportDeckPopup__TryImport.c` 的失败支：错误行那颗 TMP 吃的是同一个
+        /// `LocalizedString`（官方值 EN `Invalid deck string`）；`failedSaveError` / `invalidDeckError`
+        /// 那两个字段在本类**没有消费点**。`Resources/official_loc_13lang.json` 现读该键**在表里**。</para>
+        /// <para>🔴 我们原来那三条 `MenuDeck/Error/Import{Empty,BadString,NotPersisted}` 是**自拟**的
+        /// （官方表 0 命中）⇒ 2026-11-03（B121-C2）按「原版只有一句」收成一条。</para></summary>
+        public const string TermInvalidDeckString = "MenuDeck/Share/InvalidDeckString";
+
+        /// <summary>**只解析、不落库**（= 原版 `CardDeck.DeserializeDeckString` 那一步）。
+        /// 返回解析出来的卡组；不是合法串 ⇒ `null`（此时 <paramref name="why"/> = 官方那句
+        /// <see cref="TermInvalidDeckString"/>）。
+        ///
+        /// <para>🔴🔴 **空串 / 空白 ⇒ 造一个「无名、无卡、无督军」的畸形卡组，<b>不是</b>报错** ——
+        /// **原版就这样，⛔ 别修**（CLAUDE.md §18·0「默认照抄原版，含原版自己的怪处」）。
+        /// 判据：`CardDeck__DeserializeDeckString.c` **没有空串守卫** —— `Convert.FromBase64String("")`
+        /// 是合法的（回空字节）⇒ `Split(';')` 得到长度 1 的数组 ⇒ `gameMode = 0`（`:48-52` 那条 `1 &lt; count`
+        /// 不成立）⇒ `Split(':')` 的 `[0]` 也是空串 ⇒ 名字空、卡表空 ⇒ 照样 `DeckBasicSetup` + 返回一个
+        /// `CardDeck`（`:120-140`）。而 `ImportDeckPopup__TryImport.c:20-40` 只判 `deck != null` ⇒
+        /// **空串会一路开进信息窗**。⚠️ 我们改前在这里报 `MenuDeck/Error/ImportEmpty`（自拟键）是**有意偏离**，
+        /// 2026-11-03（B121-C2）按 §18·0 改回原版行为。</para>
+        ///
+        /// <para>⚠️ 名字那一格我们**仍与纯原版有一处差别**：`DeckLibrary.ImportString` 对「空名字」会补
+        /// 「导入的卡组」（那是它的既有口径，`RuleEngine/Data/DeckLibrary.cs` 不在本笔白名单）；
+        /// 本方法**绕开**了它那条兜底（空串直接在这里造），所以空串导入出来的是**真空名** —— 与原版一致。
+        /// 非空串仍走 `ImportString`（它会补名，这是**已知的第二处偏离**，如实记）。</para></summary>
+        public static PlayerDeck ParseDeck(string s, out string why)
+        {
+            why = "";
+            if (string.IsNullOrWhiteSpace(s))
+            {
+                // ⛔ **别在这里加空串守卫**（见方法头：原版没有，空串会造出一份畸形卡组并开信息窗）。
+                var broken = new PlayerDeck("", null, null, new List<string>(), 0);
+                broken.SetDeckArmyNeutral();           // 没有督军 ⇒ 原版 `DeckBasicSetup` 那一档 = Neutral
+                Debug.LogWarning("[CollectionData] 导入串是空的 ⇒ 照原版造出**空中队卡组**（无名 / 无卡 / 无督军）"
+                                 + "并开信息窗 —— 原版没有空串守卫（`CardDeck__DeserializeDeckString.c`），这是原版行为，⛔ 别修");
+                return broken;
+            }
+            var deck = DeckLibrary.ImportString(s, Card);
+            if (deck == null) { why = Loc.T(TermInvalidDeckString); return null; }
+            return deck;
+        }
+
+        /// <summary>「一副 `PlayerDeck`（可能还没入库）」→ 一格显示信息（名 / 督军 / 阵营 / 张数 / 卡背 / 模式）。
+        /// <para>这是这套规约的**唯一实现**；<see cref="DeckAt"/> 只是「按下标取」的那层包装
+        /// （`DeckAt(i)` ≡ `InfoOf(Raw(i))` —— 由 `Editor/B121_C2_Assert.cs` 的 `C2-01` 逐下标盯着）。</para>
+        /// <para>🔴 **为什么需要它**：原版导入成功后开的信息窗拿的是**一个还没入库的对象**
+        /// （`ImportDeckPopup__TryImport.c:20-40`：`context.Deck` = 刚解析出来的 `CardDeck`，库里没有它的下标）
+        /// ⇒ 必须能「按对象」算这套显示信息，⛔ 不能只留「按下标」那一条。</para></summary>
+        public static DeckInfo InfoOf(PlayerDeck d)
+        {
+            var info = new DeckInfo();
+            if (d == null) return info;
+            info.Name = d.Name ?? "";
+            info.WarlordId = d.WarlordId;
+            info.Count = d.CardIds != null ? d.CardIds.Count : 0;
+            info.CardbackId = d.CardbackId;
+            info.GameMode = d.GameMode;
+            var hero = string.IsNullOrEmpty(d.WarlordId) ? null : Lookup.Find(d.WarlordId);
+            info.Faction = hero != null ? hero.Faction : "";
+            return info;
+        }
     }
 }

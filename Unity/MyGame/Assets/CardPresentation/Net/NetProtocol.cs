@@ -163,7 +163,7 @@ namespace CardPresentation.Net
         /// 走**现成的动作流**（`Action`/`Applied` 那两条），所以顺带就带上了主机定序、重连重放、录像
         /// —— 不另开一路（`CLAUDE.md` §三：新增会改引擎状态的动作路径，必须走记账口）。
         /// 判据全在 `RuleCore.EmitBloodThirst` 那个文件邻居 `RuleCore.ChooseOffensiveCard` 上。</summary>
-        public const int OffensivePick = 102;   // 🔶 自己设计（非原版）：后手方选进攻/防御卡的同步包（`OffensivePick = 102` / `DefensivePick = 103`） · 原版两台各弹各的面板、没有这条同步包，判据为空 · TODO(谁定的)
+        public const int OffensivePick = 102;   // 🔶 自己设计（非原版）：后手方选进攻/防御卡的同步包（`OffensivePick = 102` / `DefensivePick = 103`） · 原版两台各弹各的面板、没有这条同步包，判据为空 · 调度台 2026-09-30 设计（本段 `:160-165` 原注 + `资料/普查产出_0930/进攻防御卡_面板语义.md` §八）；执行代理 G4 2026-10-26 打标
         /// <summary>🆕 2026-09-30：**后手方选防御卡**（同上一族，我们自己设计的同步）。
         /// 它改的是**后手方手牌**（换进一张）⇒ 不同步的话两端手牌会不同、指纹迟早不一致。</summary>
         public const int DefensivePick = 103;

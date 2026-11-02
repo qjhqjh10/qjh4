@@ -265,10 +265,14 @@ public static class B104_MT_Assert
             var src = Put(ctx, 0, 3, PlainUnit("B104MT_src"));
             Tr(RuleCore.AbilityTargetListFromCriteriaForTest(ctx, 0, Set(65, 1, 0, 0, 1, 0), src, null) == null,
               "A9-a **`ta=65 inDeckFiltered` 本批没接 ⇒ `null`**（⛔ 不拿空表冒充「原版也没有目标」）");
-            Tr(RuleCore.AbilityTargetListFromCriteriaForTest(ctx, 0, Set(0, 1, 1, 1, 1, 0), src, null) == null,
-              "A9-b **`ta=0 any` 保持休眠 ⇒ `null`**"
-            + "｜裁定 ④ 2026-10-31（池内 0 张、原版休眠；铁律 11 例外①）"
-            + "｜🧨 顺手把它接上 ⇒ 这条红（那会凭「场上全部单位」造出原版休眠档的行为）");
+            var anyList = RuleCore.AbilityTargetListFromCriteriaForTest(ctx, 0, Set(0, 1, 1, 1, 1, 0), src, null);
+            Tr(anyList != null && anyList.Count == 6,
+              "A9-b **`ta=0 any` ⇒ 双方全场 6 张**（我方 2/3/4/5 ＋ 敌方 4/6）"
+            + "｜🔴 2026-11-03 就地订正（`B121_D3` · 账 `b121-d3-ta0`）：本条原来断言「保持休眠 ⇒ `null`」，"
+            + "理由是「裁定 ④ 2026-10-31：池内 0 张、原版休眠；铁律 11 例外①」——**前提不成立**："
+            + "现读 `cards_engine.json` 有 **224 行 / 209 张** `abilityTargets[].ta == [0]`，"
+            + "原版 `AbilityLogic__GetTargets.c:884-891` 是一支**实分支**（`GetUnitsInPlayList` = 双方全场）"
+            + "｜判据与三条新断言 → `B121_D3_Assert`（🧨 把 `ta=0` 改回 `null` ⇒ 这条红）");
             var unknownFlags = Set(10, 1, 0, 1, 1, 1); unknownFlags.FriendlyUnits = CardDef.CountSetSpec.Unknown;
             Tr(RuleCore.AbilityTargetListFromCriteriaForTest(ctx, 0, unknownFlags, src, null) == null,
               "A9-c **`ta=10` 但 `friendlyUnits` 没落 ⇒ `null`（判不了，⛔ 不猜己方/敌方）**");

@@ -435,7 +435,7 @@ namespace CardPresentation
         public static Texture2D Portrait(string artKey)
         {
             if (string.IsNullOrEmpty(artKey)) return null;
-            return Get(Root + "cards/art_" + Slug(artKey));
+            return Get(Root + "cards/art_" + Slug(PortraitKeyAlias(artKey)));   // 2026-11-03（`B121-FIX`）：13 张变身战术卡借用同阵营插图，见类尾 `PortraitKeyAlias`
         }
 
         // ==================================================================
@@ -1419,5 +1419,53 @@ namespace CardPresentation
 
         /// <summary>清掉缺件记账（**只**给 Editor 自检用；不清 `_cache` 的负缓存条目 —— 那是另一件事）。</summary>
         public static void ResetMissingDiagnosticsForTest() { _missingWarned.Clear(); }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🔶 自己设计（非原版）· 用户 2026-11-03 裁定：**13 张变身战术卡的立绘别名**
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  这是什么：`TRANSFORM_<阵营>`（`工具/gen_cards_engine.py` 的 `TRANSFORM_CARDS`；引擎里由
+        //    `RuleCore.HasWarlordTransformAbility` 单独认）是**我们自造的卡**，原版没有这张卡、
+        //    **也没有自己的插图** ⇒ 本地 `art_<id>.png` **0 张**（39 张进攻/谋略卡都是这个情况）
+        //    ⇒ 不映射的话卡面走程序生成的**占位图**。
+        //  为什么必须自定：⛔ **不造贴图**（用户 2026-11-03 口径 = 借用同阵营已有的原版插图）。
+        //    ⇒ 把它的立绘键映射到**同阵营一张有画的原版卡 id**（见下表）。键带 `TRANSFORM_` 前缀，
+        //      不会与任何真卡 id 撞。
+        //  🔴 **只作用于 `Portrait()` 这一个入口，⛔ 不改 `artId` 本身**：`CardData.artId` 还兼着
+        //    `CardProgress.Level(artId)`（卡框升级档）与 `CardButtons.VoiceKey`（语音键）——
+        //    若把别名写进 `artId`，变身卡会拿到**别人那张卡**的升级档与语音。
+        //    `HasCutout` 同理**不**映射（这 13 张的源图本身也没有角色抠图，硬映射会让卡面多一层前景）。
+        //  可复现性：纯查表、无随机、无运行时探测；表外的键**原样返回**（所有真卡走这条，行为零变化）。
+        //  📌 想让数据侧接管：`cards_engine.json` 目前**没有「插图文件名」列**（现读全卡 78 个键，
+        //    与插图有关的只有 `alternateArts`（异画列表）/ `eventSpriteName` /
+        //    `fullHeroSpriteReference`，都不是「立绘文件键」）⇒ 代码侧这张表就是**唯一落点**；
+        //    将来生成器加了 art 列，这个口改成优先读数据列即可（⛔ 别两处并存）。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        static readonly Dictionary<string, string> _portraitAlias =
+            new Dictionary<string, string>(System.StringComparer.Ordinal)
+        {
+            { "TRANSFORM_AstraMilitarum",   "AM76"  },   // Astra Militarum
+            { "TRANSFORM_BlackLegion",      "BL37"  },   // Black Legion
+            { "TRANSFORM_DarkAngels",       "DA39"  },   // Dark Angels
+            { "TRANSFORM_EmperorsChildren", "EC42"  },   // Emperor's Children
+            { "TRANSFORM_Genestealers",     "GSC56" },   // Genestealer Cults
+            { "TRANSFORM_Goff",             "GOF100"},   // Orks (Goff)
+            { "TRANSFORM_Leviathan",        "TL33"  },   // Tyranids (Leviathan)
+            { "TRANSFORM_SaimHann",         "ASH46" },   // Aeldari (Saim-Hann)
+            { "TRANSFORM_Sautekh",          "SAU75" },   // Necrons (Sautekh)
+            { "TRANSFORM_Sororitas",        "SOR56" },   // Adepta Sororitas
+            { "TRANSFORM_SpaceWolves",      "SW43"  },   // Space Wolves
+            { "TRANSFORM_TauEmpire",        "TAU57" },   // T'au Empire
+            { "TRANSFORM_Ultramarines",     "UM109" },   // Ultramarines
+        };
+
+        /// <summary>立绘别名 —— `TRANSFORM_&lt;阵营&gt;` → 同阵营一张**有插图**的原版卡 id（表见上）。
+        /// <para>没在表里 ⇒ **原样返回**（所有真卡与自造卡都走这条 ⇒ 行为零变化）。</para>
+        /// <para>⛔ 别在别处再写第二份映射；也⛔ 别把它接进 `artId` / `HasCutout`（理由见上表头）。</para></summary>
+        public static string PortraitKeyAlias(string artKey)
+        {
+            if (string.IsNullOrEmpty(artKey)) return artKey;
+            string alias;
+            return _portraitAlias.TryGetValue(artKey, out alias) ? alias : artKey;
+        }
     }
 }

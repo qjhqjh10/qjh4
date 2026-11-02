@@ -3138,7 +3138,7 @@ public static class ArenaBuilder
         ApplyLightAndAmbient(root.transform, mf);
         // 🆕 2026-10-11（A191）：**原版的【分组节点】+ 子树归属** —— 必须在「网格 / 粒子 / 灯」都建完之后，
         //    因为它要按「名字 + 最近位置」把**已经建出来的对象**改挂回去（见那个方法的头注）。
-        ApplyGroupNodes(mf, root);
+        ApplyGroupNodes(mf, root); ApplyArenaTimelines(mf, root);   // 🆕 2026-11-03（T09·Timeline）：必须在改挂之后（绑定用的是原版树路径）；定义见类尾
         // 🆕 2026-10-25（Tap 族）：点地面反馈 —— 碰撞体 + `TapHitMaterialDefinition` + 控制器。
         //    ⚠️ **必须排在 `ApplyGroupNodes` 之后**：那一步会按原版父链**改挂**已建对象（世界位姿不变），
         //    所以这里按「名字 + 世界坐标」在**整棵树**里找宿主，而不是记旧引用。
@@ -6444,4 +6444,85 @@ public static class ArenaBuilder
              ? $"**{defGo.Count} 颗宿主全部 {nOk}/{defGo.Count} 在掩码内且层 = {arenaLayer} ✅**"
              : $"**🔴 {nOut + nGone} 条不合格**（在掩码内且层对的 {nOk}/{defGo.Count}；掩码 `0x{mask:X8}`、要求层 {arenaLayer}）";
     }
+
+    /// <summary>🆕 2026-11-03（战场线 `T09 · Timeline 地堡门`）：把**原版的 PlayableDirector**
+    /// 按 `Resources/arena_timelines.json` 建进产物（prefab 与场景两条路都走这里）。
+    ///
+    /// <para>**判据（为什么原版会播）**：`battlesharedresources` 的 `Bunker Door Parent` 上挂着
+    ///   `PlayableDirector 7845524703085758649`（`m_InitialState 1` Playing · `m_WrapMode 1` Loop ·
+    ///   `m_DirectorUpdateMode 1` GameTime · `m_InitialTime 15.0`），
+    ///   `PlayableAsset = Leviathan Bunker Door Animation`（5 track / 7 个 Control clip），
+    ///   Animation Track 的 `m_InfiniteClip` 就是 muscle clip `Recorded`（17.133 s）。
+    ///   旧口径「`Recorded` 原版 0 消费者」只查了 `Animation.m_Animation`、**漏了 Timeline**（`B105_R14` 推翻）。
+    ///   判据全文 → `判据/R2_R3_现状与判据.md` §4 · `报告/B105_R14.md` §四·1。</para>
+    ///
+    /// <para>**这里只建「壳」**（`PlayableDirector` 的四个状态字段照原版 + `Animator` 照原版补上 +
+    ///   挂 `ArenaTimelinePlayer`）；`TimelineAsset` 与 clip **必须运行时建** ——
+    ///   `Recorded` 是 muscle clip，落成工程 `.anim` 是空壳（`WarpforgeAnimatorBridge` 头注有判据）。</para>
+    ///
+    /// <para>⛔ 13 场里目前**只有 leviathan** 有 Timeline；没有条目的场**什么都不做**（不是静默失败：
+    ///   数据里本来就没有）。产物自检看 `[Arena] Timeline：…` 那一行日志。</para></summary>
+    static void ApplyArenaTimelines(Manifest mf, GameObject root)
+    {
+        if (mf == null || root == null) return;
+        var doc = WarpforgeVFX.ArenaTimelinePlayer.Doc();
+        if (doc == null || doc.arenas == null) return;
+
+        WarpforgeVFX.ArenaTimelineArena arena = null;
+        foreach (var a in doc.arenas)
+            if (a != null && a.key == mf.scene) { arena = a; break; }
+        if (arena == null || arena.directors == null || arena.directors.Length == 0) return;
+
+        int nDir = 0, nAnim = 0;
+        foreach (var d in arena.directors)
+        {
+            if (d == null || string.IsNullOrEmpty(d.path)) continue;
+            var t = root.transform.Find(d.path);
+            if (t == null)
+            {
+                Debug.LogWarning($"[Arena] Timeline：`{mf.scene}` 的 `{d.path}` 在树里找不到 ⇒ 这一条没建（⛔ 不是静默跳过）");
+                continue;
+            }
+
+            var pd = t.GetComponent<UnityEngine.Playables.PlayableDirector>();
+            if (pd == null) pd = t.gameObject.AddComponent<UnityEngine.Playables.PlayableDirector>();
+            pd.playOnAwake = d.initialState == 1;                                            // 原版 m_InitialState = 1 (Playing)
+            pd.initialTime = d.initialTime;                                                  // 原版 m_InitialTime = 15.0
+            pd.extrapolationMode = (UnityEngine.Playables.DirectorWrapMode)d.wrapMode;       // 原版 m_WrapMode = 1 (Loop)
+            pd.timeUpdateMode = (UnityEngine.Playables.DirectorUpdateMode)d.updateMode;      // 原版 m_DirectorUpdateMode = 1 (GameTime)
+            // ⚠️ `m_PlayableAsset` 此处**留空**：它必须运行时建（见上面的头注），由 `ArenaTimelinePlayer` 填。
+
+            // 原版 `Bunker_door` 有 `Animator`（`m_Controller` 为空、`m_CullingMode 0`）—— 补齐，
+            // 否则 Animation Track 没有 `AnimationPlayableOutput` 的宿主（Timeline 播不动）。
+            if (d.tracks != null)
+            {
+                foreach (var tr in d.tracks)
+                {
+                    if (tr == null || tr.kind != "animation" || string.IsNullOrEmpty(tr.animatorPath)) continue;
+                    var at = root.transform.Find(tr.animatorPath);
+                    if (at == null)
+                    {
+                        Debug.LogWarning($"[Arena] Timeline：`{mf.scene}` 的动画绑定节点 `{tr.animatorPath}` 找不到");
+                        continue;
+                    }
+                    if (at.GetComponent<Animator>() == null)
+                    {
+                        var an = at.gameObject.AddComponent<Animator>();
+                        an.applyRootMotion = false;
+                        an.cullingMode = AnimatorCullingMode.AlwaysAnimate;       // 原版 m_CullingMode = 0
+                        an.enabled = true;
+                        nAnim++;
+                    }
+                }
+            }
+
+            var player = t.GetComponent<WarpforgeVFX.ArenaTimelinePlayer>();
+            if (player == null) player = t.gameObject.AddComponent<WarpforgeVFX.ArenaTimelinePlayer>();
+            player.arenaKey = mf.scene;
+            nDir++;
+        }
+        Debug.Log($"[Arena] Timeline（{mf.scene}）：PlayableDirector {nDir} 个 · 补 `Animator` {nAnim} 个 · "
+                + $"数据 = `Resources/arena_timelines.json`（{arena.directors.Length} 条 director 描述）");
+    }
+
 }

@@ -587,11 +587,11 @@ namespace CardPresentation
         //   ⇒ 收藏窗那两份必须**保持原样**：所以这个开关是**显式形参、缺省 false**
         //     （与 `raritySpX/costSpX/typePadL` 三个「按窗分」的形参同一个做法）。
         //
-        // ⚠️ **同表的另外两条【不要一起改】**（判据：`CardTypeFilter__SetFilterToDeck.c:30-31` /
-        //   `CardArmyFilter__SetFilterToDeck.c:15-28`）：卡类那一格是 `ShowOnlyHero()` / `ShowAll()`
-        //   （没督军时**强制只勾 `Hero` 并隐藏自己**）、阵营那一格是 `ClearArmyFilter()` + 显示 /
-        //   `FilterToArmy(deckArmy)` + **自身隐藏** —— 主对话已裁定「我们现有形状已经等于原版」，
-        //   **本条只动费用这一格**。
+        // 🔴 **2026-11-03 调度台裁定（`B121-C1` · COLL-5②）**：下面那条旧裁定「我们现有形状已经等于原版、本条只动费用这一格」
+        //   **已推翻** —— 按 §18·0「默认照搬原版」，**无督军时「卡类」整行要隐藏**（判据：`CardTypeFilter.cs:20-40`
+        //   `ShowOnlyHero()` + 卡类那一行 `SetActive(false)`）。实现 = 与费用那行**同一个按窗开关**
+        //   （`costRowNeedsWarlord`：卡组编辑 true / 收藏窗 false）⇒ `typeHidden = costRowNeedsWarlord && !HasWarlord(state)`。
+        //   ⚠️ 同时订正旧句里的另一处：**阵营那一格不隐藏**（`CardArmyFilter__SetFilterToDeck.c:15-45` 空卡组支是 `SetActive(true)`）。
 
         /// <summary>这份卡组**现在有没有督军** —— 判据 = 原版 `CardDeck.deckHero != null`
         /// （`CardCostFilter__SetFilterToDeck.c:15` 读的 `deck + 0x40`；`0x40` 与
@@ -655,16 +655,16 @@ namespace CardPresentation
             // 🔴 费用那一行的显隐（判据只此一处 = `CostRowVisible`）—— 只**标记**，兑现（不画 + 不登记点击区）
             //   在宿主 `Deck/DeckRuntime.RefreshFilterCells` 那一拍（同 `ClipCellToBand` 的口径：
             //   **节点照建**，只是不画 ⇒ 自检按 key 仍找得到这一格、能断它的 `activeSelf`）。
-            bool costHidden = !CostRowVisible(state, costRowNeedsWarlord);
+            bool costHidden = !CostRowVisible(state, costRowNeedsWarlord); bool typeHidden = costRowNeedsWarlord && !HasWarlord(state);   // 🔴 2026-11-03（B121-C1 · COLL-5②）：卡类那一行与费用同一套按窗开关（无督军 ⇒ 原版 `SetActive(false)`）；只**标记**、宿主兑现
             // 🔴 **行顶随阵营数变**（Army 行高 = 它自己的内容高）—— 为什么这么算，见 `ArmyRowH` 那段。
-            // 🆕 **2026-10-25（`C` 域 · chip 行）**：**Army 那一行有 `ContentSizeFitter(MinSize)`** ⇒
-            //   多选时 chip 也是「同一批 cell」，把行**撑高**（几行 chip 就多几行格）。
-            //   判据 = `bundle_menus_assets_all` 的 `CardsTab ▸ … ▸ Army Filter/Content`（`GridLayoutGroup + ContentSizeFitter`；
-            //   而 Rarity / Cost / Type 三行的 `Content` **没有 CSF** ⇒ 那三行的 chip **溢出**、压到下一行标题上，
-            //   **这是原版长相**，⛔ 别「顺手」把它修好）。chip 数与选择数一致（一个已选项一个 chip）。
-            int armySel = 0;
-            for (int q = 0; q < facs.Count; q++) if (DeckFilter.FactionSelected(f, facs[q])) armySel++;
-            var L = ComputeLayout(facs.Count + armySel);
+            // 🔴🔴 **2026-11-03（`B121-COLL-21`）就地订正（铁律 5）**：这里原来那段 2026-10-25 的「chip 也是同一批
+            //   cell、把 Army 行撑高」**已作废** —— 原版 `CollectionFilterController.NotifyFilterChange` 在
+            //   `FillToggleList` 建完副本后**立刻 `SetParent(filterIconHolder)` 搬进页头**（`…__NotifyFilterChange__15f01a0.c:154`）
+            //   ⇒ **行内一颗 chip 都不留**、行高也就**不随选择变**（判据全文 → `报告/B121_COLL16_页头chip.md` §五.1）。
+            //   ⇒ 这里只算**阵营格数**；chip 走页头（<see cref="BuildHeaderChips"/> + 各窗的页头层）。
+            //   ⚠️ `Rarity/Cost/Type` 三行 `Content` 没有 CSF 那一半仍然成立（只是行内根本没 chip 可溢出）。
+            //   ⛔ 别把 `ComputeLayout(facs.Count + armySel)` 写回来（`Editor/DeckScene.cs` 咬着「行内 0 颗 chip」）。
+            var L = ComputeLayout(facs.Count);
 
             // ---- ②③ Owned only / Upgradable only（原版两个 `EverguildToggle`，50 高）----
             for (int k = 0; k < 2; k++)
@@ -700,7 +700,7 @@ namespace CardPresentation
             }
 
             // ---- ④ Army：13 档 · 格 100×100 · sp7/0 · pad L14 ⇒ **3 格/行**（行高由它撑出来）----
-            int armyFirst = cells.Count;
+            // （`armyFirst` 那个下标已随行内 chip 一起退场 —— 2026-11-03 `B121-COLL-21`，见下面 ④b）
             for (int i = 0; i < facs.Count; i++)
             {
                 float x = ArmyPadL + (i % 3) * (ArmyCell + ArmySpX);
@@ -714,13 +714,13 @@ namespace CardPresentation
                 });
             }
 
-            // ④b Army 的 chip（原版 `FillToggleList`：只对 `IsOn==true` 的、在**同一个父节点**下再 Instantiate 一份）
-            AppendChips(cells, armyFirst, facs.Count, ArmyPerRow, ArmyPadL, L.ArmyTop + ArmyContentTop,
-                        ArmyCell, ArmySpX, 0f,
-                        i => DeckFilter.FactionSelected(f, facs[i]), i => "$chip:$fac:" + facs[i]);
+            // ④b Army 的 chip —— 🔴 **2026-11-03（`B121-COLL-21`）：行内不再建**。原版 `FillToggleList` 在行内
+            //   Instantiate 完，`NotifyFilterChange` **立刻 `SetParent(filterIconHolder)` 搬进页头**（`.c:154`）
+            //   ⇒ 行里一颗都不留；页头那一份由 <see cref="BuildHeaderChips"/> 出（各窗的页头层负责建节点）。
+            //   ⚠️ `AppendChips` 保留（= 账里 8 行 `FillToggleList` 的等价实现落点：那一步「克隆到格位」本身没变）。
 
             // ---- ⑤ Rarity：5 档 · 格 100×100、图 50×50 居中、标签在格底 100×22 ----
-            int rarFirst = cells.Count;
+            // （`rarFirst` 已随行内 chip 一起退场 —— 2026-11-03 `B121-COLL-21`，见下面 ⑤b）
             for (int i = 0; i < RarityKeys.Length; i++)
             {
                 float x = ArmyPadL + (i % 3) * (ArmyCell + raritySpX);   // pad L14 **两窗同值**；列距按窗分（5/7）
@@ -747,17 +747,17 @@ namespace CardPresentation
                 });
             }
 
-            // ⑤b Rarity 的 chip（该行**无 CSF** ⇒ 溢出照算，见 `L` 那一段的判据）
-            AppendChips(cells, rarFirst, RarityKeys.Length, ArmyPerRow, ArmyPadL, L.RarityTop + RarityContentTop,
-                        RarityCell, raritySpX, 0f,
-                        i => DeckFilter.RaritySelected(f, RarityKeys[i]), i => "$chip:$rar:" + RarityKeys[i]);
+            // ⑤b Rarity 的 chip —— 🔴 **2026-11-03（`B121-COLL-21`）：行内不建**（原版 `SetParent` 搬走，见 ④b）。
+            //   ⚠️ 旧注那条「该行**无 CSF** ⇒ chip 溢出照算」写的是**行内 chip**，现在行内一颗都没有
+            //   ⇒ 那条溢出判据**没有对象了**（页头 chip 走 `BuildHeaderChips` 的 85×70 网格，不在这里）。
+            //   ⛔ 别把 `AppendChips(cells, rarFirst, …)` 写回：`rarFirst` 下标同批退场（判据 → `报告/B121_COLL16_页头chip.md` §五.1）。
 
             // ---- ⑥ Cost：**8 档（`1-`/2…7/`8+`）** · 格 65×65 · sp15/20 · pad L15 ⇒ 4 格/行 ----
             //   🔴 **2026-10-14（账 `N14`）**：这一族的 8 格**照建**，但卡组没有督军时整个
             //   `Cost Filter` 节点在原版是 `SetActive(false)` ⇒ 这里只**标记** `Hidden`（见 `costHidden`
             //   那段与「费用那一行的显隐」整节）。⚠️ **别改成「不 Add 进 cells」** ——
             //   格数与 key 都要照旧（`Editor/DeckScene.cs` 的「31 个格子」与 `$cost:` 探针按 key 找）。
-            int costFirst = cells.Count;
+            // （`costFirst` 已随行内 chip 一起退场 —— 2026-11-03 `B121-COLL-21`，见下面 ⑥b）
             for (int i = 0; i < CostBuckets.Length; i++)
             {
                 float x = CostPadL + (i % 4) * (CostCell + costSpX);
@@ -777,14 +777,14 @@ namespace CardPresentation
                 });
             }
 
-            // ⑥b Cost 的 chip（无 CSF ⇒ **溢出照算**：8 档已占 2 行，chip 从第 2 行起 ⇒ 直接压到 Type 标题上）
-            AppendChips(cells, costFirst, CostBuckets.Length, 4, CostPadL, L.CostTop + CostContentTop,
-                        CostCell, costSpX, CostSpY,
-                        i => f.CostSelected(CostBuckets[i].Lo), i => "$chip:$cost:" + CostBuckets[i].Lo,
-                        costHidden);
+            // ⑥b Cost 的 chip —— 🔴 **2026-11-03（`B121-COLL-21`）：行内不建**（原版 `SetParent` 搬走，见 ④b）。
+            //   旧注那条「8 档已占 2 行、chip 从第 3 行起压到 Type 标题上」描述的是**行内 chip**；
+            //   现在行内一颗都没有 ⇒ 那条溢出判据没有对象了（页头 chip 走 `BuildHeaderChips` 的 85×70 网格）。
+            //   ⚠️ **费用行的显隐闸照旧**（`costHidden` 仍落在上面 8 格的 `Cell.Hidden` 上）—— 那一半没动。
+            //   ⛔ 别把 `AppendChips(cells, costFirst, …)` 写回：`costFirst` 下标同批退场。
 
             // ---- ⑦ Type：**3 档** · 格 80×100 · HLG pad15 / align 6(LowerLeft) ----
-            int typeFirst = cells.Count;
+            // （`typeFirst` 已随行内 chip 一起退场 —— 2026-11-03 `B121-COLL-21`，见下面 ⑦b）
             for (int i = 0; i < TypeKeys.Length; i++)
             {
                 float x = typePadL + i * TypeCellW;
@@ -809,26 +809,26 @@ namespace CardPresentation
                     LabelWrap = 0,                       // 🔴 dump：类型族 `折行=0`（A62 #5；⛔ 别按 LabelRight 反推）
                     Key = "$type:" + TypeKeys[i],
                     On = DeckFilter.TypeSelected(f, TypeKeys[i]),
-                    OffTint = OffTintCostType,
+                    OffTint = OffTintCostType, Hidden = typeHidden,   // 🔴 2026-11-03（B121-C1 · COLL-5②）：无督军 ⇒ 卡类整行不画（原版 `CardTypeFilter.cs:20-40`）
                 });
             }
-            // ⑦b Type 的 chip（HLG：spacing 0 ⇒ x = pad + slot*80；无 CSF ⇒ 溢出照算）
-            AppendChips(cells, typeFirst, TypeKeys.Length, TypeKeys.Length, typePadL, L.TypeTop + TypeContentTop,
-                        TypeCellW, 0f, 0f,
-                        i => DeckFilter.TypeSelected(f, TypeKeys[i]), i => "$chip:$type:" + TypeKeys[i]);
+            // ⑦b Type 的 chip —— 🔴 **2026-11-03（`B121-COLL-21`）：行内不建**（原版 `SetParent` 搬走，见 ④b）。
+            //   旧注那条「HLG spacing 0 ⇒ x = pad + slot*80；无 CSF ⇒ 溢出照算」说的是**行内 chip**，
+            //   现在行内一颗都没有 ⇒ 那条判据没有对象了。
+            //   ⛔ 别把 `AppendChips(cells, typeFirst, …)` 写回：`typeFirst` 下标同批退场。
         }
 
-        /// <summary>🆕 **2026-10-25（`C` 域 · chip 行）**：把一行里**已选**的那几格**再复制一份**当 chip，
-        /// 排在同一网格的下一个格位（原版 `FillToggleList` 派生的就是**同一个** `CollectionFilterToggle` prefab
-        /// ⇒ 长得跟选项格一模一样、只是点它 = `ForceOff`）。
-        ///
-        /// <para>⚠️ **溢出是照抄的**：`Army` 那行的 `Content` 有 `ContentSizeFitter(MinSize)`（行会撑高），
-        /// 而 `Rarity` / `Cost` / `Type` 三行**没有** ⇒ 多出来的 chip 落在行框之外、**压到下一行标题上**
-        /// —— 判据 = `bundle_menus_assets_all ▸ CardsTab ▸ Card Filters ▸ Filters ▸ {Army,Rarity,Cost,Type} FIlter/Content`
-        /// 的组件表（2026-10-25 `menu_dump.py … --depth 9 --no-layout` 现读）。⛔ 别把它「修好」。</para></summary>
-        static void AppendChips(List<Cell> cells, int firstIdx, int n, int perRow,
+        /// <summary>🆕 **2026-10-25（`C` 域 · chip 行）**：把一行里**已选**的那几格**再复制一份**排到同一网格的
+        /// 下一个格位（原版 `FillToggleList` 派生的就是**同一个** `CollectionFilterToggle` prefab ⇒ 点它 = `ForceOff`）。
+        /// <para>🔴🔴 **2026-11-03（`B121-COLL-21`）就地订正：`Build` 已【不再调用】本方法** —— 原版在行内建完副本后
+        /// `NotifyFilterChange` **立刻 `SetParent(filterIconHolder)` 搬进页头**（`.c:154`）⇒ 行内不留 chip；
+        /// 页头那一份的落点 = <see cref="BuildHeaderChips"/>（85×70 网格）+ 各窗的页头层。</para>
+        /// <para>⚠️ **本方法保留、⛔ 别当死代码删**：账里有 **8 行** `FillToggleList` 把它当等价实现落点
+        /// （`收藏.tsv:25/74/80/85/132/312` + `泛型与启动链_补读.tsv:58/136`），「克隆到格位」这一步确实没变、上限 5
+        /// 也仍在这里；旧注「Army 行会撑高 / 另三行溢出」说的是**行内** chip，现在没对象了（判据 → `报告/B121_COLL16_页头chip.md` §五.1）。</para></summary>
+        public static void AppendChips(List<Cell> cells, int firstIdx, int n, int perRow,
                                 float padL, float top, float cell, float spX, float spY,
-                                Func<int, bool> selected, Func<int, string> chipKey, bool hidden = false, int listLimit = int.MaxValue)   // 🆕 2026-10-28 B92_N6b：`listLimit` = 原版 `FillToggleList(currentList, maxElements)` 的上限（判据 = `out_il2csharp/Assembly-CSharp/CardRarityFilter.cs:29` 循环首句 `if (currentList._size >= listLimit) break;`）—— ⚠️ **原版实参值未解**（来自 `CollectionFilterController` 的序列化字段；本地 MonoBehaviour JSON 搜 `maxElements/listLimit` = 0 命中）⇒ 默认「不限」= 今天的行为不变，等 VA 读出值再从现在这个默认值改一处
+                                Func<int, bool> selected, Func<int, string> chipKey, bool hidden = false, int listLimit = 5)   // 🔴 2026-11-03（`B121-COLL-07`）就地订正：**原版实参值已解出 = 5** —— `FillToggleList(toggleOptions, 5)`（`decomp_generic_trial/out/CollectionFilterController_object___NotifyFilterChange__15f01a0.c:110`）+ 页头那一轮 `if (5 < toggleOptions.Count) break`（同文件 `:141`）⇒ 缺省从「不限」改成 **5**（`CardRarityFilter.cs:29` 的 `if (currentList._size >= listLimit) break;` 是同一个上限）
         {
             if (cells == null || selected == null) return;
             int slot = n, added = 0;
@@ -1000,7 +1000,7 @@ namespace CardPresentation
                                        float titlePx = TitleFontPx, bool costRowNeedsWarlord = false)
         {
             var L = ComputeLayout(state);
-            bool costHidden = !CostRowVisible(state, costRowNeedsWarlord);   // 🆕 N14（同 `Build` 那一处）
+            bool costHidden = !CostRowVisible(state, costRowNeedsWarlord); bool typeHidden = costRowNeedsWarlord && !HasWarlord(state);   // 🆕 N14（同 `Build` 那一处）+ 🔴 2026-11-03 B121-C1 COLL-5②
             // 🔴 **`Title.Text` 是【英文原名】，一行两用**：① 渲染方拿它当**显示文案的输入**
             //   （要过 `TitleText` 换成词条文案）；② **节点名**就直接由它拼出来
             //   （`DeckRuntime` 的 `"flt_title_" + Text.Replace(" ","_")`、`CollectionWindow` 的 `"Title " + Text`）
@@ -1008,7 +1008,7 @@ namespace CardPresentation
             titles.Add(new Title { Text = "Army", R = new PxRect(TitleArmyX, L.ArmyTop, w, L.ArmyTop + TitleH), Px = titlePx, Left = true });
             titles.Add(new Title { Text = "Rarity", R = new PxRect(TitleRarityX, L.RarityTop + TitleRarityYIn, w, L.RarityTop + TitleRarityYIn + TitleH), Px = titlePx, Left = true });
             titles.Add(new Title { Text = "Energy Cost", R = new PxRect(TitleCostX, L.CostTop + TitleCostYIn, w, L.CostTop + TitleCostYIn + TitleH), Px = titlePx, Left = true, Hidden = costHidden });
-            titles.Add(new Title { Text = "Type", R = new PxRect(TitleTypeX, L.TypeTop + TitleTypeYIn, w, L.TypeTop + TitleTypeYIn + TitleH), Px = titlePx, Left = true });
+            titles.Add(new Title { Text = "Type", R = new PxRect(TitleTypeX, L.TypeTop + TitleTypeYIn, w, L.TypeTop + TitleTypeYIn + TitleH), Px = titlePx, Left = true, Hidden = typeHidden });   // 🔴 2026-11-03（B121-C1 · COLL-5②）
         }
 
         // ============================================================
@@ -1126,9 +1126,9 @@ namespace CardPresentation
         /// **卡组编辑窗传 <see cref="CosmoLabWDeckEdit"/> = 230**（⇒ 右缘 232.21 → **255**）。</param>
         public static void BuildCosmetics(List<string> facs, DeckFilter f, float w, List<Cell> cells,
                                           float labelAutoMin = ToggleFontAutoMin, float armySpY = 0f,
-                                          float iconW = 0f, float labW = 0f)
+                                          float iconW = 0f, float labW = 0f, bool ownedFirst = false)
         {
-            float armyTop = CosmoSpacing1;
+            float armyTop = ownedFirst ? CosmoSpacing1 + ToggleRowH : CosmoSpacing1;   // 🔴 2026-11-03（B121-COLL-06）：两窗行序不同 —— 卡组编辑 `Spacing → Army → Spacing(1) → Owned`；**收藏窗 `Spacing 15 → Owned 50 → Army 345`**（`menu_dump … "Cardback Tab"` 现读）⇒ `ownedFirst` 把 Army 行顶推到 65（Title 70 / Content 130）
             for (int i = 0; i < facs.Count; i++)
             {
                 float x = ArmyPadL + (i % ArmyPerRow) * (ArmyCell + ArmySpX);
@@ -1138,13 +1138,13 @@ namespace CardPresentation
                 cells.Add(new Cell
                 {
                     R = rr, Bg = rr, Icon = DeckRuntime.FactionIcon(facs[i]), Label = null,
-                    Key = "$fac:" + facs[i], On = f.Faction == facs[i],
+                    Key = "$fac:" + facs[i], On = DeckFilter.FactionSelected(f, facs[i]),   // 🔴 **2026-11-03（B121-COLL-23）**：原版判「这一项 IsOn」⇒ 读**真正生效**的判据（`FactionSelected`：集合非空看集合、否则看单值）。原来只读单值 `f.Faction`，而卡背页点阵营走 `FilterPanelModel.Click("$fac:")` 写的是**集合** `f.Factions` ⇒ 单值恒空 ⇒ 点了不亮（分叉已收口）
                     OffTint = OffTintFaction,
                 });
             }
 
             PxRect row, icon, lab;
-            ToggleRowRects(w, CosmoOwnedTop(facs.Count, armySpY), out row, out icon, out lab, iconW, labW);
+            ToggleRowRects(w, ownedFirst ? CosmoSpacing1 : CosmoOwnedTop(facs.Count, armySpY), out row, out icon, out lab, iconW, labW);
             cells.Add(new Cell
             {
                 R = row, Bg = icon, Icon = ToggleSprite, IconOff = ToggleSpriteOff, Lab = lab,
@@ -1163,6 +1163,104 @@ namespace CardPresentation
                                         //   （= 与本行 `ToggleFontAutoMin` 本就一致、不是偏离）。真偏离在 `Deck/DeckRuntime.cs`
                                         //   那一路（按窗分参数传 26）⇒ 另账 **A247**。
             });
+        }
+
+        // ============================================================ 🆕 2026-11-03（`B121-COLL-16`）· **页头筛选 chip**
+        //
+        // 判据（四问全解；证据逐条见 `资料/完全复刻/报告/B121_COLL16_页头chip.md`）：
+        //   ① `filterIconHolder` 的 PPtr **就是页头那颗 `Filters`**（四页各一份：
+        //      `Select Deck Tab ▸ Header ▸ Filters` · `CardsTab ▸ Header Filters ▸ Filters` ·
+        //      `Cardback Tab ▸ Header ▸ Filters` · `Alternate Art Tab ▸ Header Filters ▸ Filters`），
+        //      组件 = `GridLayoutGroup`（cell **85×70** · spacing **5,0** · `m_Constraint = FixedRowCount(1)` ·
+        //      `m_ChildAlignment = 3 (MiddleLeft)` · pad 0）+ `ContentSizeFitter(m_HorizontalFit = 1 **MinSize**,
+        //      `m_VerticalFit = 0**)`；唯一子件 = `Clear Filter Button`（`LayoutElement.m_IgnoreLayout = 1`）。
+        //   ② chip 的来源 = `CollectionFilterController.NotifyFilterChange`：先销毁上一批、再对每个 filter 调
+        //      `FillToggleList(toggleOptions, 5)`（只对 `IsOn` 的选项 clone 一份）⇒ 逐颗
+        //      **`SetParent(filterIconHolder, false)`** —— **是「搬」到页头，不是「复制」**。
+        //   ③ 上限 = **5**（`FillToggleList` 里 `if (listLimit <= currentList.Count) return;`，那个 list 是**跨
+        //      filter 累计**的同一个 `toggleOptions`；`NotifyFilterChange` 里还有一道 `if (5 < count) break`）。
+        //   ④ 显隐 = `clearFiltersButton.gameObject.SetActive(0 < toggleOptions.Count)` ⇒ **chip 与 Clear 钮共存、
+        //      同一条判据**（无 chip ⇒ 没有 Clear；有 chip ⇒ 一起出现）。
+        //   ⑤ 几何：容器左缘 **592.17**（四页同值）；chip i 左缘 = `592.17 + i·90`；纵向 MiddleLeft ⇒
+        //      y = 70.94 + (85−70)/2 = **78.44**；容器宽（CSF MinSize）= `90n − 5`（n = 0 时 GridLayoutGroup
+        //      的 minWidth 算出来是 **−5**，而 `LayoutUtility.GetMinSize` **忽略负值** ⇒ 宽 0 —— 这正是实测的 612.2）。
+        //      `Clear Filter Button` 锚 `(1,.5) pos(20,0)`、`m_IgnoreLayout = 1` ⇒ 它贴在**容器右缘**、**跟着 chip 右移**
+        //      ⇒ **chip 与 Clear 钮不重叠**（审计 `?2` 里那个「592.2 压 612.2」的顾虑不成立）。
+        //   ⑥ chip 自己的长相 = 那一族 option toggle 的 clone：`Background` 那一张图标（Rarity/Type 的 `Background`
+        //      是 **50×50 居中**、Army/Cost 是**铺满**）；Rarity/Type 的 `Label` 被 `HideLabel()` 关掉（只剩图标），
+        //      Army/Cost 不关（Cost 那颗 `Label` 是数字，Army 那颗根本没有 Label）。
+
+        /// <summary>页头 `Filters` 的左缘（设计 px · 四页同值）。判据 = `menu_dump.py … --rt <filterIconHolder>`
+        /// 现读 **592.2**（父 `Header`/`Header Filters` = 167.17,70.94 → 1920.01,155.94）。</summary>
+        public const float HdrGrpL = 592.17f;
+        /// <summary>页头 `Filters` 的模板矩形上下沿（**70.94 → 155.94**，高 85；同一次现读）。</summary>
+        public const float HdrGrpT = 70.94f, HdrGrpH = 85f;
+        /// <summary>`GridLayoutGroup` 的 `m_CellSize` / `m_Spacing.x`（prefab 实读 85×70 / 5,0）。</summary>
+        public const float HdrChipW = 85f, HdrChipH = 70f, HdrChipSpX = 5f;
+        /// <summary>chip 的纵向起点 = `HdrGrpT + (85 − 70)/2`（`m_ChildAlignment = 3 (MiddleLeft)` 的纵轴居中）。</summary>
+        public const float HdrChipY = HdrGrpT + (HdrGrpH - HdrChipH) * 0.5f;
+        /// <summary>页头 chip 的总数上限（`FillToggleList(toggleOptions, 5)`，**跨 filter 累计**）。</summary>
+        public const int HdrChipMax = 5;
+        /// <summary>Rarity / Type 两族 chip 里那张 `Background` 的边长（原版那两颗 toggle 的 `Background` 是
+        /// 50×50 居中、不是铺满；Army/Cost 两族才是铺满）。</summary>
+        public const float HdrIconS = 50f;
+
+        /// <summary>`Clear Filter Button` 的左缘（设计 px）—— 跟着 chip 数走。
+        /// <para>`n == 0` ⇒ `HdrGrpL + 20 = 612.17`（实测 612.2）；`n ≥ 1` ⇒ 容器宽 = `90n − 5` ⇒
+        /// `592.17 + (90n − 5) + 20`。⚠️ 卡背页**没有 chip 时**那颗钮停在序列化位置 1488.59
+        /// （父 `Filters.sizeDelta.x = 0`、CSF 从没跑过）—— 那一分支由宿主用 `ClearFilterX(page)` 保留。</para></summary>
+        public static float HdrClearX(int n)
+        {
+            if (n <= 0) return HdrGrpL + 20f;
+            return HdrGrpL + (n * (HdrChipW + HdrChipSpX) - HdrChipSpX) + 20f;
+        }
+
+        /// <summary>页头 chip 的格子表。**顺序 = 原版 `filters` 数组序**（Cards/AltArt = Name·Army·Rarity·Cost·Type·
+        /// Upgradable；Deck = Name·Army；Cardback = Army），组内按各 filter 的 `optionsFinal` 序。
+        /// `CardNameFilter` / `UpgradableCardFilter` 的 `FillToggleList` 是**空体** ⇒ 它们一颗 chip 都不出。
+        /// <para>⚠️ `cells` 必须是**空表**（chip 专用），数量直接决定几何位置。</para>
+        /// <para>`armyOnly = true` = 卡背 / 卡组两页（它们的 `filters` 里只有阵营这一类会出 chip）。</para></summary>
+        public static void BuildHeaderChips(List<string> facs, DeckFilter f, List<Cell> cells, bool armyOnly = false)
+        {
+            if (cells == null) return;
+            int n = cells.Count;
+            if (facs != null)
+                for (int i = 0; i < facs.Count && n < HdrChipMax; i++)
+                    if (DeckFilter.FactionSelected(f, facs[i]))
+                        cells.Add(HdrChip(n++, DeckRuntime.FactionIcon(facs[i]), true, null, OffTintFaction,
+                                          "$chip:$fac:" + facs[i]));
+            if (armyOnly) return;
+            for (int i = 0; i < RarityKeys.Length && n < HdrChipMax; i++)
+                if (DeckFilter.RaritySelected(f, RarityKeys[i]))
+                    cells.Add(HdrChip(n++, RarityArt[i], false, null, OffTintRarity,
+                                      "$chip:$rar:" + RarityKeys[i]));
+            for (int i = 0; i < CostBuckets.Length && n < HdrChipMax; i++)
+                if (f.CostSelected(CostBuckets[i].Lo))
+                    cells.Add(HdrChip(n++, CostSprite, true, CostBuckets[i].Label, OffTintCostType,
+                                      "$chip:$cost:" + CostBuckets[i].Lo));
+            for (int i = 0; i < TypeKeys.Length && n < HdrChipMax; i++)
+                if (DeckFilter.TypeSelected(f, TypeKeys[i]))
+                    cells.Add(HdrChip(n++, TypeArt[i], false, null, OffTintCostType,
+                                      "$chip:$type:" + TypeKeys[i]));
+        }
+
+        /// <summary>一颗页头 chip 的 `Cell`（第 <paramref name="i"/> 格）。`full` = `Background` 铺满整格
+        /// （Army / Cost），否则 50×50 居中（Rarity / Type）。`label == null` ⇒ 只剩图标（原版 `HideLabel`）。</summary>
+        static Cell HdrChip(int i, string icon, bool full, string label, UnityEngine.Color offTint, string key)
+        {
+            float x = HdrGrpL + i * (HdrChipW + HdrChipSpX);
+            var r = new PxRect(x, HdrChipY, x + HdrChipW, HdrChipY + HdrChipH);
+            var bg = full ? r : new PxRect(r.x1 + (HdrChipW - HdrIconS) * 0.5f, r.y1 + (HdrChipH - HdrIconS) * 0.5f,
+                                           r.x1 + (HdrChipW + HdrIconS) * 0.5f, r.y1 + (HdrChipH + HdrIconS) * 0.5f);
+            var c = new Cell { R = r, Bg = bg, Icon = icon, Key = key, On = true, OffTint = offTint };
+            if (!string.IsNullOrEmpty(label))
+            {
+                // 费用那一族：原版 `Label` 是 `Background` 的子件、**伸锚铺满**（跟着 clone 一起放大到 85×70）
+                // ⇒ 这里 `Lab` 也给整格；字号/自适应三档与费用那一行的格子**同值**（那份格子在本文件 ⑥ 段）。
+                c.Lab = r; c.Label = label; c.LabelPx = CostFontPx; c.LabelAutoMin = CostFontAutoMin;
+                c.LabelAutoMax = CostFontAutoMax; c.LabelBase = CostFontBase; c.LabelWrap = 1;
+            }
+            return c;
         }
     }
 }

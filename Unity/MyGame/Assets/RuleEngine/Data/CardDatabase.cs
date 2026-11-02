@@ -69,7 +69,7 @@ namespace RuleEngine
             /// <para>🔴 **`null` ≠ `[]`**（生成器契约 `工具/gen_cards_engine.py:1193`）：
             /// `null` = 整行**没有这个键**（旧表 / 夹具直建）⇒ 「判不了」；
             /// `[]` = 表里**明确说了这张卡没有异画**。`CardDatabase.Parse` 原样把两者分开传下去。</para></summary>
-            public string[] alternateArts;
+            public string[] alternateArts;  public int[] chosenAbility;  /// <summary>🆕 2026-11-03（执行写手 `B121_E03F_DATA` · 账 `B121-E03F`）：卡表 **v32 的 `chosenAbility` 列**（逐卡 `sorted(set(卡内所有 abilityLogic[].chosenAbility))`；`null` = 缺列/未知，`[]` = 明确没有）。 🔴 **原来 `CardDto` 故意不收这一列**（只有 `Data/ForcedAttackRefundMap.cs` 的瘦 DTO 读）—— 2026-11-03 就地订正：改由这里读、经 `CardDef.AttachChosenAbilities` 挂上，**`ForcedAttackRefundMap` 那条瘦 DTO 读法保持不变**（它读的是同一份 JSON、同一列，两处不冲突；⛔ 别删那一份 —— 它的装载有独立的「只试一次 + 出声」口径）。**加这一列的唯一动机** = 🔶 自设计的 13 张变身战术卡拿它当效果码（`RuleCore.WarlordTransformAbilityCode`，见 `Core/RuleCorePartial_B96CB.cs` 文件末那一大段）。⚠️ 同一物理行追加（铁律 18·b）：本文件账按行号引用 27 处、最深 `:3711`
             public string targetingTextReferenceId;   // 🆕 2026-10-27（`A4`）：原版 `RawCardScript.targetingTextReferenceId`（v35 起；语义/三态 → `CardDef.AttachTargetingTextReference` 的 doc，⛔ 不抄第二份）
             public string cardDescriptionTextReferenceId; public string activeAbilityTextReferenceId;   // 🆕 2026-10-27（`A8` · §12·94）：原版 `RawCardScript.cardDescriptionTextReferenceId`（v35 起；语义/三态 → `CardDef.AttachCardDescriptionTextReference` 的 doc，⛔ 不抄第二份）。消费点 = `BattleDriver.OfficialDescKey` → `FaceTextFull` 那 4 处取键。｜🆕 2026-10-29（`B98_P1` · 卡-16）：`activeAbilityTextReferenceId` = 原版 `RawCardScript.activeAbilityTextReferenceId`（同列族；语义/三态 → `CardDef.AttachActiveAbilityTextReference` 的 doc）；消费点 = `BattleDriver.ShowSkillPanel` → `SkillPanel.AbilityKeyId`。⚠️ 两个字段挤一行是**故意的**（铁律 18·b：加行会把下游账落点整体推走）。
             /// <summary>中文名（可选 —— 没翻译的卡没有这两个字段）。来自 `数据/卡牌翻译/zh_cards.json`</summary>
@@ -1759,7 +1759,7 @@ namespace RuleEngine
                 // 🆕 v36（2026-10-28 · 执行代理 `A1c`）：逐行 `damageCriteria`（`abilityDamage` 列）——
                 //   同样**构造后挂载**。缺列（< 36）⇒ 传 `null` = **整列未知** ⇒ 消费端一律不逐目标掷
                 //   （与加这一列之前**逐字相同**）。消费点 = `RuleCore.StampRollPerTarget`。
-                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c, dto.version)); def.AttachStartingCardInHand(MapStartingCardInHand(c)); def.AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def)); def.AttachAbilityEffectTexts(MapAbilityEffectTexts(c)); def.AttachCardTargetCriteria(dto.version >= 46 ? MapCardTargetCriteriaSet(c) : null, dto.version >= 46);   // 🆕 v46（`B113W11`）：卡级 `cardTargetCriteria` 的 36 格载体（`version < 46` ⇒ null = 未知）｜🆕 v44（`B99_W6`）：`abilityEffectTexts` 列（映射块在文件末）｜🆕 B98_H7（账 `战斗逻辑驱动:1288` · 波 7）：把 `triggerAbilityIndices` 组装成 `{trigger 数值 → 正文 op}` 并挂上 —— 组装口 + 三态口径全在 `CardDatabasePartial_B98H7.cs`（⛔ 别在这行里再写一份）；🔴 **必须排在 `AttachTriggerAbilityIndices` 之后**（它读那一列）。⚠️ 同一物理行追加（铁律 18·b）：加行会把 `:1799` 等下游 A 行账落点整体推走。   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
+                def.AttachAbilityDamage(MapAbilityDamage(c)); def.AttachWhileInPlayAnim(dto.version >= 37 ? c.whileInPlayAnim : -1); def.AttachPermanentBuffs(dto.version >= 37 ? MapPermanentBuffs(c) : null); def.AttachAbilitySummon(MapAbilitySummon(c)); RecordAbilityBuffs(def, c); def.AttachAbilityMutations(MapAbilityMutations(c)); def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c, dto.version)); def.AttachStartingCardInHand(MapStartingCardInHand(c)); def.AttachTriggerOpsByNumber(MapTriggerOpsByNumber(def)); def.AttachAbilityEffectTexts(MapAbilityEffectTexts(c)); def.AttachCardTargetCriteria(dto.version >= 46 ? MapCardTargetCriteriaSet(c) : null, dto.version >= 46); def.AttachTransformData(c.transformedWarlordId, MapDeckCriteria(c)); def.AttachNotDeckable(c.notDeckable != 0); def.AttachAbilityHeal(MapAbilityHeal(c)); def.AttachAbilityManaBuff(MapAbilityMana(c)); def.AttachChosenAbilities(c.chosenAbility);   // 🆕 v48（`B121-D4`）：`abilityHeal`（`healCriteria`）/ `abilityMana`（`manaBuff`）两列 → `CardDef` 的载体；列缺（旧表）= `null` = 未知 ⇒ 消费端退回正文口径｜ 🆕 v46（`B113W11`）：卡级 `cardTargetCriteria` 的 36 格载体（`version < 46` ⇒ null = 未知）｜🆕 v44（`B99_W6`）：`abilityEffectTexts` 列（映射块在文件末）｜🆕 B98_H7（账 `战斗逻辑驱动:1288` · 波 7）：把 `triggerAbilityIndices` 组装成 `{trigger 数值 → 正文 op}` 并挂上 —— 组装口 + 三态口径全在 `CardDatabasePartial_B98H7.cs`（⛔ 别在这行里再写一份）；🔴 **必须排在 `AttachTriggerAbilityIndices` 之后**（它读那一列）。⚠️ 同一物理行追加（铁律 18·b）：加行会把 `:1799` 等下游 A 行账落点整体推走。   // 🆕 v37（`E6`）：后两格同样「构造后挂载」（理由同上）；`null` = **未知**（旧表 < 37），⛔ 不要 `?? new[0]`。⚠️ 三条挤一行是**故意的**：加行会把 `:1799` 等下游 A 行账落点整体推走。｜🆕 v40（`B23`）：`RecordAbilityBuffs` 写的是**旁表**（`_abilityBuffsById`，查询口 `CardDatabase.AbilityBuffsOf`）—— 因为 `RuleEngine/Core/**`（`CardDef`）不在该代理白名单；⛔ 别把数据改成 `def.Attach*`（会与旁表两处写同一条规则）。
                 list.Add(def);
             }
             // 🆕 v23（2026-10-24 · 引擎线 `G12`）：`activeAbilityLogic` 的**挂载读数**（一行，⛔ 不逐卡刷屏）。
@@ -2192,6 +2192,76 @@ namespace RuleEngine
                 list.Add(new CardDef.AbilityDamageSpec
                 {
                     Ab = r.ab, Lg = r.lg, Min = r.min, Max = r.max, ValueOptions = r.opt, Type = r.type,
+                });
+            }
+            return list.ToArray();
+        }
+
+        /// <summary>🆕 v48（`B121-D4` · 账 `B121-04`）：`abilityHeal` 列 →
+        /// <see cref="CardDef.AbilityHealSpec"/>（**逐行 `healCriteria`**）。
+        /// <para>坏值口径与 `MapAbilityDamage` 同族：缺 `ab`/`lg`、同 `(ab,lg)` 撞键 ⇒ 出声丢弃；
+        /// 单格非整数 ⇒ 该格落 `-1`（`0` 是合法取值，⛔ 不猜）。</para></summary>
+        static CardDef.AbilityHealSpec[] MapAbilityHeal(CardDto c)
+        {
+            if (c == null || c.abilityHeal == null) return null;      // 缺列 = 未知（⛔ 不是「没有行」）
+            var list = new List<CardDef.AbilityHealSpec>(c.abilityHeal.Length);
+            var seen = new HashSet<long>();
+            foreach (var r in c.abilityHeal)
+            {
+                if (r == null) continue;
+                if (r.ab < 0 || r.lg < 0)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityHeal` 有一行缺 `ab`/`lg`"
+                                 + $"（ab={r.ab}, lg={r.lg}）—— **该行丢弃**。重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                long k = ((long)r.ab << 32) ^ (uint)r.lg;
+                if (!seen.Add(k))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityHeal` 有**重复的 "
+                                 + $"(ab={r.ab}, lg={r.lg})** —— 后一条已丢弃（⛔ 撞键 = 谁赢都说不清）。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                list.Add(new CardDef.AbilityHealSpec
+                {
+                    Ab = r.ab, Lg = r.lg, Min = r.min, Max = r.max, ValueOptions = r.opt,
+                });
+            }
+            return list.ToArray();
+        }
+
+        /// <summary>🆕 v48（`B121-D4` · 账 `B121-05`）：`abilityMana` 列 → <see cref="CardDef.AbilityManaBuffSpec"/>。
+        /// <para>坏值口径同 `MapAbilityHeal`；旗标超出 `0/1/-1` ⇒ 出声、该格落 `-1`。</para></summary>
+        static CardDef.AbilityManaBuffSpec[] MapAbilityMana(CardDto c)
+        {
+            if (c == null || c.abilityMana == null) return null;
+            var list = new List<CardDef.AbilityManaBuffSpec>(c.abilityMana.Length);
+            var seen = new HashSet<long>();
+            foreach (var r in c.abilityMana)
+            {
+                if (r == null) continue;
+                if (r.ab < 0 || r.lg < 0)
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityMana` 有一行缺 `ab`/`lg`"
+                                 + $"（ab={r.ab}, lg={r.lg}）—— **该行丢弃**。重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                long k = ((long)r.ab << 32) ^ (uint)r.lg;
+                if (!seen.Add(k))
+                {
+                    Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）的 `abilityMana` 有**重复的 "
+                                 + $"(ab={r.ab}, lg={r.lg})** —— 后一条已丢弃（⛔ 撞键 = 谁赢都说不清）。"
+                                 + "重跑 工具/gen_cards_engine.py。");
+                    continue;
+                }
+                list.Add(new CardDef.AbilityManaBuffSpec
+                {
+                    Ab = r.ab, Lg = r.lg, ManaAmount = r.amount,
+                    FriendlyPlayer = r.friendly, EnemyPlayer = r.enemy,
+                    CreateMana = r.create, RefillMana = r.refill, UntilEndOfTurn = r.untilEndOfTurn,
+                    PsychicMana = r.psychic, PlasmaMana = r.plasma, SpiritStoneMana = r.spirit,
+                    FaithMana = r.faith, QuestPoints = r.quest,
                 });
             }
             return list.ToArray();
@@ -3589,7 +3659,7 @@ namespace RuleEngine
         /// 所以 `ruleprobe` / 夹具只要碰过本类，钩子就是通的。</para></summary>
         static CardDatabase()
         {
-            BattleContext.EnchantmentTemplatesProvider = LoadEnchantmentTemplates; Enchantments.GrantedEnchantmentsProvider = EnchantmentGrantsOf;   // 🆕 v38（B90/B3）：附魔「打出即挂」的数据源钩子（Core 不引用 Data ⇒ 只能这样注入）
+            BattleContext.EnchantmentTemplatesProvider = LoadEnchantmentTemplates; Enchantments.GrantedEnchantmentsProvider = EnchantmentGrantsOf; CardDef.RawCardPoolProvider = RawCardPoolOrNull;   // 🆕 v48（`B121-D4` · `B121-D5` 报告 §四·1 ③）：`Core` 拿全池的唯一入口（`Core` 不引用 `Data` ⇒ 只能注入；先例 = 前面那两个 Provider）   // 🆕 v38（B90/B3）：附魔「打出即挂」的数据源钩子（Core 不引用 Data ⇒ 只能这样注入）
         }
 
         /// <summary>第二张表的文件 DTO（字段名与 JSON 键名逐字一致，`JsonUtility` 直读）。</summary>
@@ -3660,7 +3730,7 @@ namespace RuleEngine
             /// <summary>`AbilityLogic.targetCriteria.targetsAffected`。</summary>
             public int ta = -1;
             /// <summary>`AbilityLogic.furtherMultiplier`。</summary>
-            public int fm = -1;
+            public int fm = -1; public CountSetDto criteria; public int cond = -1; public int ex = -1; public int mult = -1; public EnchantmentDamageDto damage; public EnchantmentHealDto heal; public EnchantmentManaDto mana; public EnchantmentSummonDto summon;   // 🆕 2026-11-03（`B121_D1B`）：**正文载荷**（生成器 `_enchant_logic_payload` 产出，`null` = 旧表 / 手写夹具 = 未知）——`criteria` = `abilityLogic[].targetCriteria` 的 36 格（复用 `CountSetDto` / `MapCountSetDto`）· `cond`/`ex` = `conditionsFilter`/`excludeCondition` 原值 · `mult` = `multiplier.targetsAffected` · 其余四个子对象见文件末各自的 DTO。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:3772` 等处有 A 行账落点。
         }
 
         [Serializable]
@@ -3726,7 +3796,7 @@ namespace RuleEngine
                 //    （`EffectResolverPartial_B109E6.cs:160-183`）⇒ 池外被授予的 30 张模板今天**一条 trigger 都派不出来**
                 //    （其中 **28 张**经「打出即挂」钩子 `Enchantments.AttachGrantedByPlayedCard` 可达；另 2 张走别的 trigger）。
                 //    形状 / 三态口径 → `Data/CardDatabasePartial_B110E5.cs` 的文件头（⛔ 别在这里抄第二份）。
-                def.AttachTriggerAbilityIndices(MapEnchantmentTriggerAbilityIndices(t.abilities, t.id)); def.AttachAbilityTriggers(EnchantmentTemplateTriggersOf(t.abilities)); RecordEnchantmentTemplateAbilityBuffs(def, t);   // 🆕 2026-11-01（`B115_S5` · 波 2）：把模板的 `buffEffect`/`handBuff` 载荷写进**同一张** `_abilityBuffsById` 旁表（写口仍是 `RecordAbilityBuffs`，⛔ 不另开第二张表 —— 铁律 6）。池内那 2 张（`Pray`/`DA42`）已在 `Parse()` 里落过 ⇒ 该 helper **不覆盖**。   // 🆕 2026-11-01（`B115_S5` · 波 0 · 判据 → `判据/B115_S5_附魔执行器施工面.md` §2·2 B1）：模板卡**恒有** `cardAbilities` ⇒ `abilityTriggers` 这一列也必须到位，否则 `AbilityTriggerPresence` 恒 `-1` ⇒ `HasTriggerSource` 回落 `HasAnimTrigger`（模板 `_animTimes` 空）⇒ `EmitCardTrigger` 恒 null ⇒ `FireEnchantmentAbilitiesByNumber` 在 `:108-116` 就 `continue`（现读 **83/85** 张落这一档；池内 `Pray Enchantment` / DA42 模板走 `Parse()` 不受影响）。🔴 **⛔ 别改成构造形参 `abilityTriggersVersioned: true`** —— 那会同时置 `AbilityTargetsVersioned`，把模板的 `AbilityTargets` 从「未知」变「明确空表」（另一处行为变化）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:3772` 等处有 A 行账落点。
+                def.AttachTriggerAbilityIndices(FillEnchantmentIndexPayload(MapEnchantmentTriggerAbilityIndices(t.abilities, t.id), t.abilities)); AttachEnchantmentLogicPayload(def, t); def.AttachAbilityTriggers(EnchantmentTemplateTriggersOf(t.abilities)); RecordEnchantmentTemplateAbilityBuffs(def, t);   // 🆕 2026-11-01（`B115_S5` · 波 2）：把模板的 `buffEffect`/`handBuff` 载荷写进**同一张** `_abilityBuffsById` 旁表（写口仍是 `RecordAbilityBuffs`，⛔ 不另开第二张表 —— 铁律 6）。池内那 2 张（`Pray`/`DA42`）已在 `Parse()` 里落过 ⇒ 该 helper **不覆盖**。   // 🆕 2026-11-01（`B115_S5` · 波 0 · 判据 → `判据/B115_S5_附魔执行器施工面.md` §2·2 B1）：模板卡**恒有** `cardAbilities` ⇒ `abilityTriggers` 这一列也必须到位，否则 `AbilityTriggerPresence` 恒 `-1` ⇒ `HasTriggerSource` 回落 `HasAnimTrigger`（模板 `_animTimes` 空）⇒ `EmitCardTrigger` 恒 null ⇒ `FireEnchantmentAbilitiesByNumber` 在 `:108-116` 就 `continue`（现读 **83/85** 张落这一档；池内 `Pray Enchantment` / DA42 模板走 `Parse()` 不受影响）。🔴 **⛔ 别改成构造形参 `abilityTriggersVersioned: true`** —— 那会同时置 `AbilityTargetsVersioned`，把模板的 `AbilityTargets` 从「未知」变「明确空表」（另一处行为变化）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:3772` 等处有 A 行账落点。
                 list.Add(def);
             }
             if (file.count != list.Count)
@@ -3912,7 +3982,8 @@ namespace RuleEngine
             /// <summary>原版 `SummonCriteria.shouldRemoveFromCemetery (+0x2B)`：造完把候选从墓地移除。</summary>
             public int cem = -1;
             /// <summary>原版 `SummonCriteria.isForEnemy (+0x10)`：选卖哪个 `MinionArea`。</summary>
-            public int enemy = -1;
+            public int enemy = -1;   /// <summary>🆕 v48（`B121-D4`）：原版 `SummonCriteria.unitsToSummon` 解出的**卡 id 列表**。`null` = **没导出**（⛔ 别当空表；旧表就是这样）· `[]` = 明确没有引用 · 非空 = 候选表（`SummonAllTargets` 决定全给 / 随机取一张）。</summary>
+            public string[] ids;
         }
 
         public partial class CardDto
@@ -3953,10 +4024,18 @@ namespace RuleEngine
                     CreateAtPos = r.cap, MoveToPos = r.mv,
                     SummonAllTargets = r.all, ChooseCardInPlay = r.choose,
                     KeepEffects = r.keep, ShouldRemoveFromCemetery = r.cem,
-                    IsForEnemy = r.enemy,
+                    IsForEnemy = r.enemy, UnitsToSummon = r.ids,   // 🆕 v48（`B121-D4`）：`unitsToSummon` 的卡 id 列表（三态见 DTO 那一格）
                 });
             }
             return list.ToArray();
+        }
+
+        /// <summary>🆕 v48（`B121-D4`）：`CardDef.RawCardPoolProvider` 的实现 —— 全池快照（没加载过就现加载，`Load()` 自带缓存）。
+        /// <para>⚠️ 返回的是**缓存那份列表本身**（⛔ 调用方不许改）；`Core` 侧见 `CardDef.RawCardPool`。</para></summary>
+        static IReadOnlyList<CardDef> RawCardPoolOrNull()
+        {
+            var p = _cache ?? Load();
+            return p;
         }
     }
 
@@ -4540,6 +4619,64 @@ namespace RuleEngine
             /// <summary>🆕 v40：这张卡**逐 `abilityLogic` 行**的 `CardEffect` 载荷（形状同 `abilityDamage` / `abilitySummon`）。
             /// <para>`null` / 缺列 = **未知**（旧表 &lt; v40）；`[]` = 明确没有行。⛔ 不要 `?? new[0]`。</para></summary>
             public AbilityBuffRowDto[] abilityBuffs;
+
+            /// <summary>🆕 v48（2026-11-03 · 执行写手 `B121-D4` · 账 `B121-04`）：**逐行
+            /// `abilityLogic[].healCriteria`**（`minValue` / `maxValue` / `valueOptions` ＋ 该行的
+            /// `chosenAbility`）。形状 → <see cref="AbilityHealRowDto"/>。
+            /// <para>`null` / 缺列 = **未知**（旧表 &lt; v48）；`[]` = 明确没有 heal 行。
+            /// ⚠️ 生成器**只落有值的行**（三格全零 = 序列化默认值 ⇒ 不落）。</para></summary>
+            public AbilityHealRowDto[] abilityHeal;
+
+            /// <summary>🆕 v48（2026-11-03 · 执行写手 `B121-D4` · 账 `B121-05`）：**`ca == 60` 那批
+            /// `abilityLogic[].manaBuff`**（十一格）。形状 → <see cref="AbilityManaRowDto"/>。
+            /// <para>`null` / 缺列 = **未知**（旧表 &lt; v48）；`[]` = 明确没有行。</para></summary>
+            public AbilityManaRowDto[] abilityMana;
+        }
+
+        /// <summary>🆕 v48：`abilityHeal` 的一行（原版 `HealCriteria` + 该行的 `chosenAbility`）。</summary>
+        public class AbilityHealRowDto
+        {
+            /// <summary>`cardAbilities` 下标（`-1` = 缺键）。</summary>
+            public int ab = -1;
+            /// <summary>`abilityLogic` 下标（`-1` = 缺键）。</summary>
+            public int lg = -1;
+            /// <summary>该行 `chosenAbility`（`AbilityEffect`）；**`20` 是原版唯一读 `healCriteria` 的那一支**。</summary>
+            public int ca = -1;
+            /// <summary>原版 `healCriteria.minValue`。</summary>
+            public int min = -1;
+            /// <summary>原版 `healCriteria.maxValue`。</summary>
+            public int max = -1;
+            /// <summary>原版 `healCriteria.valueOptions`（`ChooseValueOptions`）。</summary>
+            public int opt = -1;
+        }
+
+        /// <summary>🆕 v48：`abilityMana` 的一行（原版 `ManaBuff` 十一格）。旗标 0/1、`-1` = 缺键/坏值。</summary>
+        public class AbilityManaRowDto
+        {
+            public int ab = -1;
+            public int lg = -1;
+            /// <summary>原版 `manaBuff.manaAmount`。</summary>
+            public int amount = -1;
+            /// <summary>原版 `manaBuff.friendlyPlayer`。</summary>
+            public int friendly = -1;
+            /// <summary>原版 `manaBuff.enemyPlayer`。</summary>
+            public int enemy = -1;
+            /// <summary>原版 `manaBuff.createMana`。</summary>
+            public int create = -1;
+            /// <summary>原版 `manaBuff.refillMana`。</summary>
+            public int refill = -1;
+            /// <summary>原版 `manaBuff.untilEndOfTurn`。</summary>
+            public int untilEndOfTurn = -1;
+            /// <summary>原版 `manaBuff.psychicMana`。</summary>
+            public int psychic = -1;
+            /// <summary>原版 `manaBuff.plasmaMana`。</summary>
+            public int plasma = -1;
+            /// <summary>原版 `manaBuff.spiritStoneMana`。</summary>
+            public int spirit = -1;
+            /// <summary>原版 `manaBuff.faithMana`。</summary>
+            public int faith = -1;
+            /// <summary>原版 `manaBuff.questPoints`。</summary>
+            public int quest = -1;
         }
 
         /// <summary>🆕 v40：`abilityBuffs` 的一行（映射后的形状；语义逐字同 <see cref="AbilityBuffRowDto"/>，
@@ -5083,6 +5220,268 @@ namespace RuleEngine
             }
             return MapCountSetDto(c, d, "`cardTargetCriteriaSet`（卡级 `cardTargetCriteria` 的 36 格）",
                                   noPlayerTurn: true);
+        }
+
+        // ==================================================================================================
+        //  🆕 2026-11-03（执行代理 `B121_WC` · 账 `B120-E03b` / `B120-E03g`）—— 卡表的**三列新数据**：
+        //     `transformedWarlordId` / `deckCriteria`（督军变身，原版 `RawCardScript +0x200 / +0x1F8`）
+        //     ＋ `notDeckable`（「看得见、进不了卡组」的数据侧标记）
+        //
+        //  🔴 为什么写在【文件最末】：本文件有 40 处账落点按【行号】引用（且 `:1762` 是「同一物理行追加」的
+        //     老落点）⇒ 在中间插行会让下游整体漂移（铁律 18·b）。
+        //
+        //  📌 **为什么不提卡表 `version`、也不加 `< 48` 守卫**（与 v9..v13 那几列的口径不同，理由要说清）：
+        //     · 三列都属「**缺键 = 原版那一格为空**」这一档 —— 缺 `transformedWarlordId` ⇒ 不会变身；
+        //       缺 `notDeckable` ⇒ 不拦（= 改前行为）。行为上与「明确为空」不可分，⛔ 不存在
+        //       「旧表被静默读成『原版说没有』」那一类错（那才是 v19/v34 必须守卫的理由）。
+        //     · `deckCriteria` 与 `transformedWarlordId` 由生成器**成对落盘**（`工具/gen_cards_engine.py`
+        //       的 `transform_of`）⇒ JSON 里**不可能**出现「有目标 id、没有 criteria」；
+        //       万一被手改出来，<see cref="MapDeckCriteria"/> 会出声并落 **null = 查不到**
+        //       （⛔ 不当作「无条件满足」—— `targetsAffected = 0 (any)` 是一个**具体取值**）。
+        //     · 因此**今天重跑生成器，产物逐字节不变**（`--check` 实测「一致 ✅」）。
+        // ==================================================================================================
+        public partial class CardDto
+        {
+            /// <summary>🆕 原版 `RawCardScript.transformedWarlordId`（`+0x200`）。
+            /// 缺键 / 空 = **这张卡不会让督军变身**（= 今天全池那一档）。</summary>
+            public string transformedWarlordId;
+            /// <summary>🆕 原版 `RawCardScript.deckCriteria`（`+0x1F8`）；形状见 <see cref="DeckCriteriaDto"/>。
+            /// <para>🔴 **别用 `deckCriteria == null` 判「这一列没落」**：`JsonUtility` 会把**缺失的可序列化类字段**
+            /// 物化成默认实例（判据 → `报告/B100_X10.md` §A）。真正的判据 = <see cref="transformedWarlordId"/> 空
+            /// （两列成对落盘）＋ `countSet` 的缺键哨兵 <see cref="UnitConditionDto.MissingIndex"/>。</para></summary>
+            public DeckCriteriaDto deckCriteria;
+            /// <summary>🆕 2026-11-03（`B120-E03g`）：`1` = 这张卡**看得见但进不了卡组**（→ `CardDef.NotDeckable`）。
+            /// 缺键 = `0` = 不拦（= 改前行为）。⛔ 不是枚举、没有「未知」档。</summary>
+            public int notDeckable;
+        }
+
+        /// <summary>🆕 2026-11-03：`deckCriteria` 的传输形状（**字段名与 JSON 键名逐字一致**，`JsonUtility` 直读；
+        /// 语义 → <see cref="DeckCriteriaSpec"/>）。
+        /// <para>🔴 缺键哨兵 = `MissingIndex`（`-99`）、⛔ 不是 `0`：`triggerIf = 0` 是
+        /// `StatFilterOptions.NotApplicable`（合法取值），`referenceValue = 0` 也是合法张数。</para></summary>
+        [Serializable]
+        public class DeckCriteriaDto
+        {
+            const int MissingIndex = UnitConditionDto.MissingIndex;
+            /// <summary>原版 `DeckCriteria.triggerIf`（`StatFilterOptions`：1 相等 / 2 ≥ / 3 ≤）。</summary>
+            public int triggerIf = MissingIndex;
+            /// <summary>原版 `DeckCriteria.referenceValue`：要比的**张数**。</summary>
+            public int referenceValue = MissingIndex;
+            /// <summary>原版 `DeckCriteria.countCriteria`（`TargetCriteria` 的 36 格；`playerTurn` 结构上没有）。</summary>
+            public CountSetDto countSet;
+        }
+
+        /// <summary>🆕 2026-11-03：`deckCriteria` → <see cref="DeckCriteriaSpec"/>。
+        /// <para>`null` 返回 = **这一列没落**（= 原版那一格为空 ⇒ 不会变身）：由「`transformedWarlordId` 空」
+        /// 或「`countSet` 缺键」判定；⛔ **不看 `c.deckCriteria == null`**（理由见 `CardDto.deckCriteria` 的 doc）。</para></summary>
+        static DeckCriteriaSpec MapDeckCriteria(CardDto c)
+        {
+            if (c == null || string.IsNullOrEmpty(c.transformedWarlordId)) return null;
+            var d = c.deckCriteria;
+            if (d == null || d.countSet == null)
+            {
+                Debug.LogError($"[RuleEngine] 卡「{c.name}」（{c.id}）有 `transformedWarlordId = {c.transformedWarlordId}`"
+                             + " 但**没有 `deckCriteria.countSet`** —— 落 **null = 查不到**"
+                             + "（⛔ 不当作「无条件满足」：`targetsAffected = 0 (any)` 是具体取值）。"
+                             + "两列由生成器成对落盘，出现这一档说明数据被手改过 —— 重跑工具/gen_cards_engine.py。");
+                return null;
+            }
+            var s = new DeckCriteriaSpec();
+            s.TriggerIf = CountSetInt(c, "deckCriteria.triggerIf", d.triggerIf);
+            s.ReferenceValue = CountSetInt(c, "deckCriteria.referenceValue", d.referenceValue);
+            s.CountCriteria = MapCountSetDto(c, d.countSet, "`deckCriteria.countCriteria`（36 格）", noPlayerTurn: true);
+            return s;
+        }
+    }
+}
+
+// ==================================================================================================
+//  🆕 2026-11-03（执行写手 `B121-D1B` · 报告 `资料/完全复刻/报告/B121_D1B_附魔载荷.md`）
+//     —— 附魔模板表（第二张表）的**正文载荷**装载端
+//
+//  🔴 **为什么另起一个 partial 块、写在文件最末**：本文件被 `账/*.tsv` 按【行号】钉了落点
+//     （现读最大 `CardDatabase.cs:3772`）⇒ 在中间插成员会让下游 A 行整体漂移（铁律 18·b）。
+//     调用点只在 `LoadEnchantmentTemplates` 的**同一物理行**上加了两个调用（零行数变化）。
+//
+//  📌 数据面 = 生成器 `工具/gen_cards_engine.py` 的 `_enchant_logic_payload`（口径 / 字段偏移都在那儿）。
+//     消费端 = `Core/EnchantmentExecutor_B115.cs` 的 `RunEnchantmentLogicRows` 那一族。
+//  ⚠️ **不是第二套映射**：伤害 / 召唤 / 36 格 criteria 全部复用卡表既有的
+//     `CardDef.AbilityDamageSpec` / `AbilitySummonSpec` / `CountSetSpec` + `MapCountSetDto`（铁律 6）。
+// ==================================================================================================
+namespace RuleEngine
+{
+    public static partial class CardDatabase
+    {
+        /// <summary>附魔模板一行 logic 的 `damageCriteria`（原版 `DamageCriteria`：`valueOptions/min/max/type`）。
+        /// `null`（整个子对象缺席）= **未知**（旧表 / 手写夹具）；四格 `-1` = 缺键/坏值（⛔ 不是 `0`）。</summary>
+        [Serializable]
+        public class EnchantmentDamageDto
+        {
+            public int min = -1;
+            public int max = -1;
+            public int opt = -1;
+            public int type = -1;
+        }
+
+        /// <summary>附魔模板一行 logic 的 `healCriteria`（原版 `HealCriteria`：`valueOptions/minValue/maxValue`）。</summary>
+        [Serializable]
+        public class EnchantmentHealDto
+        {
+            public int min = -1;
+            public int max = -1;
+            public int opt = -1;
+        }
+
+        /// <summary>附魔模板一行 logic 的 `manaBuff`（原版 `ManaBuff` 十一格；字段名见 `CardDef.AbilityManaBuffSpec`）。</summary>
+        [Serializable]
+        public class EnchantmentManaDto
+        {
+            public int amount = -1;
+            public int friendly = -1;
+            public int enemy = -1;
+            public int create = -1;
+            public int refill = -1;
+            public int untilEndOfTurn = -1;
+            public int psychic = -1;
+            public int plasma = -1;
+            public int spirit = -1;
+            public int faith = -1;
+            public int quest = -1;
+        }
+
+        /// <summary>附魔模板一行 logic 的 `summonCriteria`（原版 `SummonCriteria` 七格；键名同卡表 `AbilitySummonRowDto`）。</summary>
+        [Serializable]
+        public class EnchantmentSummonDto
+        {
+            public int cap = -1;
+            public int mv = -1;
+            public int all = -1;
+            public int choose = -1;
+            public int keep = -1;
+            public int cem = -1;
+            public int enemy = -1;
+            /// <summary>🆕 v48（`B121-D4`）：原版 `SummonCriteria.unitsToSummon` 解出的卡 id 列表；`null` = 没导出（⛔ 别当空表）。</summary>
+            public string[] ids;
+        }
+
+        /// <summary>把模板一行的 `pa` / `fm` 补进 `MapEnchantmentTriggerAbilityIndices` 造出来的 spec。
+        ///
+        /// <para>🔴 为什么不改 `MapEnchantmentTriggerAbilityIndices` 本身：它在
+        /// `Data/CardDatabasePartial_B110E5.cs`（本代理白名单外）；这里用「按 `(Ab, Lg)` 回查」的纯函数，
+        /// 语义等价、零文件冲突（两处下标同源：`abilities[i].logic[j]`）。</para>
+        /// <para>三态：`rows == null`（列未知）原样返回；`abil == null` 原样返回（判不了 ⇒ 保持 `-1`）。</para></summary>
+        static CardDef.TriggerAbilityIndexSpec[] FillEnchantmentIndexPayload(
+            CardDef.TriggerAbilityIndexSpec[] rows, EnchantmentTemplateAbilityDto[] abil)
+        {
+            if (rows == null || abil == null) return rows;
+            for (int i = 0; i < rows.Length; i++)
+            {
+                var r = rows[i];
+                if (r == null || r.Ab < 0 || r.Ab >= abil.Length) continue;
+                var a = abil[r.Ab];
+                if (a == null || a.logic == null || r.Lg < 0 || r.Lg >= a.logic.Length) continue;
+                var lg = a.logic[r.Lg];
+                if (lg == null) continue;
+                r.Pa = lg.pa;
+                r.Fm = lg.fm;
+                r.Mult = lg.mult;
+            }
+            return rows;
+        }
+
+        static readonly CardDef.AbilityDamageSpec[] EmptyAbilityDamage = new CardDef.AbilityDamageSpec[0];
+        static readonly CardDef.AbilityHealSpec[] EmptyAbilityHeal = new CardDef.AbilityHealSpec[0];
+        static readonly CardDef.AbilityManaBuffSpec[] EmptyAbilityManaBuff = new CardDef.AbilityManaBuffSpec[0];
+        static readonly CardDef.AbilitySummonSpec[] EmptyAbilitySummon = new CardDef.AbilitySummonSpec[0];
+        static readonly CardDef.TargetCriteriaRowSpec[] EmptyCriteriaRows = new CardDef.TargetCriteriaRowSpec[0];
+
+        /// <summary>把模板的正文载荷挂到模板 `CardDef` 上（构造之后；与 `AttachAbilityDamage` 同族）。
+        ///
+        /// <para>三态：`t.abilities == null`（旧表 / 手写夹具）⇒ **整列未知**，什么都不挂
+        /// （`HasAbilityDamage` 等仍为 `false`）；`abilities` 存在但某子对象缺席 ⇒ 该格 `null` = 未知，
+        /// 对应 `Attach*` 收到**空数组** = 明确没有（只有当 `abilities` 整个存在时这一判断才成立，
+        /// 因为生成器对每一行都落这四个子对象）。</para>
+        /// <para>⚠️ `criteria` 走 `CardDef.AttachAbilityTargetCriteria` —— 它把
+        /// `AbilityTargetCriteriaVersioned` 置真（= 「这一列到位」）。</para></summary>
+        static void AttachEnchantmentLogicPayload(CardDef def, EnchantmentTemplateDto t)
+        {
+            if (def == null || t == null) return;
+            var abil = t.abilities;
+            if (abil == null) return;                     // 未知（⛔ 别折成「明确没有」）
+
+            List<CardDef.AbilityDamageSpec> dmg = null;
+            List<CardDef.AbilityHealSpec> heal = null;
+            List<CardDef.AbilityManaBuffSpec> mana = null;
+            List<CardDef.AbilitySummonSpec> summon = null;
+            List<CardDef.TargetCriteriaRowSpec> crit = null;
+            var who = new CardDto { id = t.id, name = t.name };   // 只为 `MapCountSetDto` 的报错文案（无副作用）
+
+            for (int i = 0; i < abil.Length; i++)
+            {
+                var a = abil[i];
+                if (a == null || a.logic == null) continue;
+                for (int j = 0; j < a.logic.Length; j++)
+                {
+                    var lg = a.logic[j];
+                    if (lg == null) continue;
+                    if (lg.damage != null)
+                    {
+                        if (dmg == null) dmg = new List<CardDef.AbilityDamageSpec>(4);
+                        dmg.Add(new CardDef.AbilityDamageSpec
+                        {
+                            Ab = i, Lg = j, Min = lg.damage.min, Max = lg.damage.max,
+                            ValueOptions = lg.damage.opt, Type = lg.damage.type,
+                        });
+                    }
+                    if (lg.heal != null)
+                    {
+                        if (heal == null) heal = new List<CardDef.AbilityHealSpec>(2);
+                        heal.Add(new CardDef.AbilityHealSpec
+                        { Ab = i, Lg = j, Min = lg.heal.min, Max = lg.heal.max, ValueOptions = lg.heal.opt });
+                    }
+                    if (lg.mana != null)
+                    {
+                        if (mana == null) mana = new List<CardDef.AbilityManaBuffSpec>(2);
+                        mana.Add(new CardDef.AbilityManaBuffSpec
+                        {
+                            Ab = i, Lg = j, ManaAmount = lg.mana.amount, FriendlyPlayer = lg.mana.friendly,
+                            EnemyPlayer = lg.mana.enemy, CreateMana = lg.mana.create, RefillMana = lg.mana.refill,
+                            UntilEndOfTurn = lg.mana.untilEndOfTurn, PsychicMana = lg.mana.psychic,
+                            PlasmaMana = lg.mana.plasma, SpiritStoneMana = lg.mana.spirit,
+                            FaithMana = lg.mana.faith, QuestPoints = lg.mana.quest,
+                        });
+                    }
+                    if (lg.summon != null)
+                    {
+                        if (summon == null) summon = new List<CardDef.AbilitySummonSpec>(2);
+                        summon.Add(new CardDef.AbilitySummonSpec
+                        {
+                            Ab = i, Lg = j, CreateAtPos = lg.summon.cap, MoveToPos = lg.summon.mv,
+                            SummonAllTargets = lg.summon.all, ChooseCardInPlay = lg.summon.choose,
+                            KeepEffects = lg.summon.keep, ShouldRemoveFromCemetery = lg.summon.cem,
+                            IsForEnemy = lg.summon.enemy, UnitsToSummon = lg.summon.ids,   // 🆕 v48（`B121-D4`）：`unitsToSummon` 的卡 id 列表
+                        });
+                    }
+                    if (lg.criteria != null)
+                    {
+                        if (crit == null) crit = new List<CardDef.TargetCriteriaRowSpec>(8);
+                        crit.Add(new CardDef.TargetCriteriaRowSpec
+                        {
+                            Ability = i, Trigger = a.trigger, Logic = j,
+                            ConditionsFilter = lg.cond, ExcludeCondition = lg.ex,
+                            Criteria = MapCountSetDto(who, lg.criteria,
+                                                      $"附魔模板 `{t.name}` 的 `abilities[{i}].logic[{j}].targetCriteria`",
+                                                      noPlayerTurn: true),
+                        });
+                    }
+                }
+            }
+
+            def.AttachAbilityDamage(dmg == null ? EmptyAbilityDamage : dmg.ToArray());
+            def.AttachAbilityHeal(heal == null ? EmptyAbilityHeal : heal.ToArray());
+            def.AttachAbilityManaBuff(mana == null ? EmptyAbilityManaBuff : mana.ToArray());
+            def.AttachAbilitySummon(summon == null ? EmptyAbilitySummon : summon.ToArray());
+            def.AttachAbilityTargetCriteria(crit == null ? EmptyCriteriaRows : crit.ToArray());
         }
     }
 }

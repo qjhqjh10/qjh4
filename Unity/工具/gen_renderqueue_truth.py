@@ -18,6 +18,18 @@
 产出：`数据/游戏数据/renderqueue_truth.json` =
 `{ "mat": {材质名: m_CustomRenderQueue}, "shader": {shader名: QUEUE数值}, "_conflicts": {...} }`
 
+🔴 **同名多值（T06·残余，2026-11-03 定）**：同一个材质名在**不同包里**带不同 `m_CustomRenderQueue`
+时，**不再取最小值** —— 那是在两个不同资产之间**静默挑一个**（旧行为，`mat_table[k] = sorted(v)[0]`）。
+现在：
+  · 该名字**不进 `mat` 表**（消费方 `EffectExporter.TruthQueue` 会自动退回 `shader[shader名]`，
+    再没有就 −1 = 运行时用 shader 默认 —— 那是「不知道就别猜」的正确落点）；
+  · 每个冲突**逐条出声**（打印全部取值 + 各取值来自哪个包的哪份 JSON），并写进
+    `_conflicts`（名字 → 取值列表）与 `_conflict_sources`（名字 → [{queue, file}]）。
+现读 2 条（`SandParticle` 3000/3001 · `Campaign Points` −1/3000）；两条的 shader 默认队列
+**恰好都等于**原来取 min 之后的结果（`Campaign Points` shader = 3000；
+`SandParticle` shader = `Universal Render Pipeline/Particles/Unlit` = Transparent）⇒ **本次改动对现有数据零副作用**，
+只是不再把两个不同资产混成一个数。
+
 用法：`python 工具/gen_renderqueue_truth.py`
       加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
 """
@@ -68,7 +80,7 @@ def main():
     except Exception:
         pass
 
-    mats = defaultdict(set)
+    recs = defaultdict(list)        # 材质名 -> [{queue, shader_pid, bundle, file}]
     for f in glob.glob(os.path.join(SRC, "*/Material/*.json")):
         try:
             d = json.load(io.open(f, encoding="utf-8"))
@@ -77,9 +89,15 @@ def main():
         n = d.get("m_Name")
         q = d.get("m_CustomRenderQueue")
         if n and q is not None:
-            mats[n].add(q)
+            recs[n].append({
+                "queue": q,
+                "shader_pid": (d.get("m_Shader") or {}).get("m_PathID"),
+                "bundle": os.path.basename(os.path.dirname(os.path.dirname(f))),
+                "file": os.path.relpath(f, SRC).replace(os.sep, "/"),
+            })
 
     shaders = {}
+    shader_by_pid = {}
     for f in glob.glob(os.path.join(SRC, "*/Shader/*.json")):
         try:
             d = json.load(io.open(f, encoding="utf-8"))
@@ -101,16 +119,57 @@ def main():
                 if len(kv) == 2 and kv[0] == "QUEUE":
                     qv = queue_num(kv[1])
         shaders[n] = qv
+        stem = os.path.splitext(os.path.basename(f))[0]
+        if "_" in stem:
+            try:
+                shader_by_pid[int(stem.rsplit("_", 1)[-1])] = n
+            except Exception:
+                pass
 
-    conflicts = {k: sorted(v) for k, v in mats.items() if len(v) > 1}
-    mat_table = {k: sorted(v)[0] for k, v in mats.items() if len(v) == 1}
-    for k, v in conflicts.items():          # 冲突的取最小的（并记进 _conflicts）
-        mat_table[k] = v[0]
+    for n, lst in recs.items():
+        for r in lst:
+            sh = shader_by_pid.get(r["shader_pid"])
+            r["shader"] = sh
+            r["effective"] = r["queue"] if r["queue"] >= 0 else shaders.get(sh)
+
+    conflicts = {}
+    conflict_sources = {}
+    mat_table = {}
+    for n, lst in recs.items():
+        raws = sorted(set(r["queue"] for r in lst))
+        if len(raws) == 1:
+            mat_table[n] = raws[0]
+            continue
+        # ---- 同名多值：先看「生效队列」是不是其实一致（-1 = 没有 override ⇒ 取 shader 的 QUEUE）----
+        effs = sorted(set(r["effective"] for r in lst))
+        eff_known = all(e is not None for e in effs)
+        conflicts[n] = raws
+        conflict_sources[n] = [{
+            "queue": r["queue"],
+            "effective": r["effective"],
+            "shader": r["shader"],
+            "bundle": r["bundle"],
+            "file": r["file"],
+        } for r in lst]
+        if eff_known and len(effs) == 1 and effs[0] is not None and effs[0] >= 0:
+            # 生效值其实相同（例：一条 -1 落到 shader QUEUE、另一条正好 override 成同一个数）
+            mat_table[n] = effs[0]
+        else:
+            # 真歧义：`mat` 表按**名字**键，表达不了「两个不同资产」⇒ 保住旧行为（取非负最小值），
+            # 但**不再静默**：每个冲突都打印 + 写进 `_conflicts` / `_conflict_sources`。
+            nonneg = [q for q in raws if q >= 0]
+            mat_table[n] = min(nonneg) if nonneg else raws[0]
 
     payload = {
         "_note": ("原版队列真值。生效队列 = mat[材质名] 若 >=0，否则 shader[shader名]。"
                   "由 工具/gen_renderqueue_truth.py 从 assets_full 的原始 JSON 生成，别手改。"),
+        "_conflict_policy": ("同名多值不静默：① 若各份的**生效队列**（queue>=0 用它，否则 shader QUEUE）相同 ⇒ 直接用那个值；"
+                             "② 真歧义 ⇒ mat 表取非负最小值（旧行为，消费方 EffectExporter 实际用的是这一份），"
+                             "**并逐条打印 + 记录在 _conflicts / _conflict_sources 里**。"
+                             "⚠️ 按名字键的 mat 表**结构上表达不了两个同名不同资产**；"
+                             "要彻底区分得让消费方带 bundle 维度（未做，见报告）。"),
         "_conflicts": conflicts,
+        "_conflict_sources": conflict_sources,
         "mat": mat_table,
         "shader": shaders,
     }
@@ -131,8 +190,12 @@ def main():
     print("材质 %d 个（同名多值 %d）· shader %d 个（有 QUEUE 的 %d）"
           % (len(mat_table), len(conflicts), len(shaders),
              sum(1 for v in shaders.values() if v is not None)))
-    for k, v in list(conflicts.items())[:8]:
-        print("   ⚠️ 同名多值 %s -> %s" % (k, v))
+    for k in sorted(conflicts):
+        print("   ⚠️ 同名多值 `%s`：raw=%s ⇒ mat 表取 %s" % (k, conflicts[k], mat_table.get(k)))
+        for s in conflict_sources.get(k, []):
+            print("        queue=%-5s effective=%-5s shader=%r  ← %s"
+                  % (s["queue"], s["effective"], s["shader"], s["file"]))
+        print("        （同名两份是**两个不同资产**；按名字键的 mat 表表达不了，⛔ 别当它已区分）")
     if not DRY:
         print("已落表：%s" % OUT)
     return 0

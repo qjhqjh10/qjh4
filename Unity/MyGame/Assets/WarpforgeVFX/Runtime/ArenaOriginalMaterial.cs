@@ -56,7 +56,7 @@ namespace WarpforgeVFX
         /// （`ArenaBuilder.GetOrCreateMaterial` 调 <see cref="ResolveQueue"/>；透明的非 3000 队列
         /// **另起一份 `<tex> q&lt;queue&gt;.mat`**，因为 `.mat` 资产是按贴图名共享的）
         /// ⇒ **`Rebuild()` 失败退回 `.mat` 时绘制顺序也是对的**。
-        /// ⚠️ 但**别拿 `mat_renderqueue.tsv` 按名字查**（同名 `SandParticle` 有 3000/3001 两份，表里取了 3000）——
+        /// ⚠️ 但**别拿 `mat_renderqueue.tsv` 按名字查**（同名 `SandParticle` 有 3000/3001 两份 —— 🔴 2026-11-03 `T06·残余`：生成器现在**逐条打印 + 记进 `_conflict_sources`**，`Campaign Points` 的 `-1/3000` 已按**生效队列**统一成 3000，但**按名字键仍表达不了两个不同资产**，表里还是 min = 3000）——
         /// 判据只有 <see cref="ResolveQueue"/>（`_QueueOffset` 现算，天然分得开）。</summary>
         public int queue = -1;
         public bool transparent, alphaClip, blendAuthoritative, applyAmbientColor;

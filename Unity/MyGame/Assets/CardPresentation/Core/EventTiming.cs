@@ -491,7 +491,7 @@ namespace CardPresentation
             //   **没有任何「演多久」的判据**（原版就是 fire-and-forget）。同理 ⛔ 别写成
             //   「按 `Quest UI Trigger` 的时长排」：那会把下一条事件推后一段原版不存在的等待。
             EvtKind.QuestSpent,
-            EvtKind.CollectWaystone, EvtKind.Fatigue,// 收集粒子是**并行**的一发（原版 `CollectWaystoneEffect` 不 `yield`）。｜🆕 2026-11-02（执行写手 `B118_W11` · `D118-41`）：`EvtKind.Fatigue` = **疲劳专用信号**，与紧随其后的 `EvtKind.Hit` **同一拍**（原版 `_ResolveFatigue_d__587__MoveNext.c` 里横幅那一下不占时长，0.5 s 那一段挂在**伤害之后**、由 `B117-T08` 的横幅收尾承担）⇒ 登记成 0，⛔ 别让它掉进「未登记」（那会每抽空一次打一条 LogError）。⚠️ 写在同一物理行 = **刻意零行数变化**（本文件 `:1014` 有账落点，铁律 18·b）
+            EvtKind.CollectWaystone, EvtKind.Fatigue, EvtKind.WarlordTransform,// 收集粒子是**并行**的一发（原版 `CollectWaystoneEffect` 不 `yield`）。｜🆕 2026-11-02（执行写手 `B118_W11` · `D118-41`）：`EvtKind.Fatigue` = **疲劳专用信号**，与紧随其后的 `EvtKind.Hit` **同一拍**（原版 `_ResolveFatigue_d__587__MoveNext.c` 里横幅那一下不占时长，0.5 s 那一段挂在**伤害之后**、由 `B117-T08` 的横幅收尾承担）⇒ 登记成 0，⛔ 别让它掉进「未登记」（那会每抽空一次打一条 LogError）。⚠️ 写在同一物理行 = **刻意零行数变化**（本文件 `:1014` 有账落点，铁律 18·b）｜🆕 2026-11-03（执行写手 `B121_E03F_VFX` · 账 `B121-E03F` · 用户 2026-11-03 裁定）：`EvtKind.WarlordTransform` = **督军变身演出**（🔶 自己设计（非原版）—— 原版这一档根本不存在，判据见 `EvtKind.WarlordTransform` 的 doc 与 `Battle/TransformPresentation.cs` 文件头）。**登记成零时长**：这条演出按自己的 0.9 s 时间轴走（`TransformPresentation.Total`）、**不进**动作队列、也不冻结输入 ⇒ 没有「占多久」的判据可言；⛔ 别改成 `TimedKinds`（那要在 `DurationOf`/`SourceOf` 各补 `case`，而 0.9 s 会把下一条事件凭空推后 —— 原版根本没有这段演出，那是我们造出来的等待）
             EvtKind.AmbushExit,     // 原版 `SetAmbush(card,false)` 是普通方法、不阻塞（见 `SourceOf`）
             EvtKind.SecretOrder,    // 日志/揭密那一拍；我们没有它的演出（`RuleCore` 无发出点）
             EvtKind.ShowCardsWindow,// 🆕 原版**非阻塞**（`FinishResolvingAction` 紧跟、无 `yield`）
@@ -1266,6 +1266,13 @@ namespace CardPresentation
                                               + "= `CardFeel.StealRevealStepTime`；调用点 "
                                               + "`BattleManager._ResolveStealFromDeck_d__547__MoveNext.c:243`）"
                                               + "—— 🔴 与弃牌那一档**不同值、⛔ 别统一**（两条链各用各的字面量，不是笔误）"; case EvtKind.SabotageCreated: return "原版 `CardScript._DisplayEnemyCardInCenter_d__263__MoveNext.c:25-119` 的四段 state 的三处 `WaitForSeconds` 之和：state0 **0.1**（`DAT_1834b2dc4`，与同一段的 `DORotate` 是同一个常量）+ state1 `stepTime×0.66`（`.rdata 0x1834b3184` 4B float 实读）+ state2 `stepTime×2.6`（`.rdata 0x1834b3190` 实读）；调用点 `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-107` 那个 `DisplayEnemyCardInCenter(targetCard, 0.3f, 0.3f, changeVisibility: true)` 的 `timeToDraw / stepTime` **是同一个常量**（`.rdata 0x1834b2dc8` = 0.3f）⇒ **1.078 s**。🔴 它是 `yield return StartCoroutine(...)` ⇒ **真阻塞**：那张牌在它**之后**才进手（`:134-142`）、`FinishResolvingAction` 也在它之后（`:128`）；`DOMove` 的 0.15 是并行补间、**不进**这条算式";
+                // 🆕 2026-11-03（执行写手 `B121_E03F_VFX` · 账 `B121-E03F`）：**督军变身演出**（🔶 自己设计 · 用户 2026-11-03 裁定）。
+                //   零时长档也给它一句「为什么」，理由同 `AmbushExit`：**这条演出不占时间线**，
+                //   它自己 0.9 s（三拍 0.30 / 0.45 / 0.90 = `TransformPresentation` 的常量，唯一出处在那儿），
+                //   由 `BattleDriver.PlayWarlordTransformFeel` 起播后自己走完；动作队列**不等**它。
+                case EvtKind.WarlordTransform: return "**占 0**（🔶 自己设计：原版没有这段演出 ⇒ 没有「占多久」的原版判据；"
+                                                  + "我们这条按自己的 0.9 s 时间轴走，`TransformPresentation.Total` 是唯一出处）"
+                                                  + "—— ⛔ 别改成「有时间」档：那会把下一条事件凭空推后 0.9 s";
                 // 🆕 2026-10-24（`A2`）：登记成零时长的那一档照旧回「（无）」；**未登记**的出声 + 明写。
                 // 🔴 2026-10-24（执行代理 `E2`）：与 `DurationOf` 同一条口径 —— 「登记了但没 `case`」
                 //   走 `ReportMissingCase`（⛔ 别把它也说成「没在登记表里」，那是两件事）。

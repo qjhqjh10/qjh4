@@ -3999,10 +3999,10 @@ namespace CardPresentation
         /// <param name="isPlayer">原版 `EntityScript.isPlayer`（`+0x40`）：真 ⇒ `TurnCardAround`，假 ⇒ 换卡背。</param>
         /// <param name="cardBack">`isPlayer == false` 时用的卡背贴图（原版 `SetObjectVisibility(inDeck)` 那一支）；
         /// 我方那一支不用它。</param>
-        /// <param name="onDone">补间收尾之后（原版那两条收尾动作之后）回调。</param>
+        /// <param name="onDone">补间收尾之后（原版那两条收尾动作之后）回调。🆕 2026-11-03（执行写手 `B121-E04B`）新增形参 `targetScale` = **终点缩放**（`null` = 照旧用 `deckRef.localScale`）：原版 `SetInDeckPosition()` 照抄的是 `DeckManager.DeckReferenceObject`（一张**带位姿的参考卡**）的 `localScale`，而我们这一侧 `deckRef` 常常是**牌堆那张 uGUI 图**（`HudPiece.SetWorldHeight` 改的是 `sizeDelta` ⇒ 它的 `localScale` **恒 1**）⇒ 不传它时卡会以**原尺寸**停到牌堆上（视觉上「飞过去但不缩小」）；调用方可按两个**实测**量给值（牌堆世界高 ÷ `CardView.Height`），⛔ 别自己编一个数。</param>
         public static Tween ReturnToDeck(CardView card, Transform deckRef, float timeToMove,
                                          bool isPlayer = true, Texture2D cardBack = null,
-                                         System.Action onDone = null)
+                                         System.Action onDone = null, float? targetScale = null)
         {
             if (card == null) return null;
             if (deckRef == null)
@@ -4038,7 +4038,7 @@ namespace CardPresentation
 
             // ③④ 三条同长同缓动（OutQuart）的补间；只有移动那条挂收尾
             Vector3 toPos = deckRef.position;              // `GetReferencePosition`：**世界**坐标（照抄）
-            Vector3 toScale = deckRef.localScale;          // `GetReferenceScale` 两项：**局部**
+            Vector3 toScale = targetScale.HasValue && targetScale.Value > 0f ? Vector3.one * targetScale.Value : deckRef.localScale;          // 🆕 2026-11-03（`B121-E04B`）：传了 `targetScale` 就用它（判据见形参 doc）；`null` ⇒ 照旧 `GetReferenceScale` 的**局部**缩放
             Quaternion toRot = deckRef.localRotation;
             var seq = DOTween.Sequence();
             seq.Append(tr.DOMove(toPos, dur).SetEase(Ease.OutQuart).SetUpdate(CardTween.Mode));
@@ -4051,7 +4051,7 @@ namespace CardPresentation
                 // ⑤⑥ 收尾 = `SetInDeckPosition()`（三项照抄参考件的**局部**值）+ 关掉这张卡
                 tr.localPosition = deckRef.localPosition;
                 tr.localRotation = deckRef.localRotation;
-                tr.localScale = deckRef.localScale;
+                tr.localScale = toScale;   // 🆕 2026-11-03（`B121-E04B`）：与补间同一个终点值（传了 `targetScale` 时**不能**再写 `deckRef.localScale`，两者不同）
                 if (card.gameObject != null && card.gameObject.activeSelf) card.gameObject.SetActive(false);
                 if (onDone != null) onDone();
             });
@@ -4456,5 +4456,28 @@ namespace CardPresentation
         {
             return layer == ArenaSlots.BoardCardLayer || layer == ArenaSlots.ArenaLayer;
         }
+
+        /// <summary>🆕 **2026-11-03（执行写手 `B121-E04B` · 活状态表 `B120-E04b`）：墓地洗回牌库那一趟
+        /// 的**可见时长** = **0.25 s** = 原版两段阻塞之和。
+        ///
+        /// <para>判据（逐段，🥇 `d:/2/tools/decomp_full/` 亲读 + `工具/read_literal.py` 实读字面量）：</para>
+        /// <list type="number">
+        ///   <item>① `CardScript.CreateCardInGame(…, time = DAT_1834b2dc4)` —— `.rdata 0x1834b2dc4` **4B float 实读 0.1**；
+        ///     协程尾 `WaitForSeconds(time)`（`CardScript._CreateCardInGame_d__250__MoveNext.c:78-84`）。
+        ///     它的调用点 = `_ResolveDrawCard_d__432__MoveNext.c:150-160`（洗回那一支 case 0）。</item>
+        ///   <item>② `CardScript.MoveToDeck(card, 0, DAT_1834b2f94, 0)` —— `.rdata 0x1834b2f94` **4B float 实读 0.05**
+        ///     （= 那个 time 实参）；方法返回 `fVar14 + fVar19` = `VarsGlobal.timeToScaleIntoMoving`
+        ///     （`globalVars + 0x78` = **0.1**，尾段缩放/旋转/位移那三条的时长）**＋** 上面那个 0.05（延迟）
+        ///     = **0.15**；协程 `WaitForSeconds(返回值)`（`.c:246-252`，case 1）。</item>
+        /// </list>
+        /// <para>⇒ 一张卡合计 **0.1 + 0.15 = 0.25 s**；洗完一张才轮到下一张（原版那个 `while` 是
+        /// 「case 0 → case 1 等待 → case 2 → 回到循环」）。</para>
+        ///
+        /// <para>⚠️ **与时间线的分档（如实记）**：`EventTiming` 对 `EvtKind.Return` 的 `Slot &lt; 0` 一档
+        /// 给的是 `ReturnGraveHold` = `CardFeel.DealDuration` = **0.3 s** —— 那是**墓地取回**（只有
+        /// `CreateCardInGame` 那一段）的口径。本趟 0.25 ≤ 0.3 ⇒ **装得下、不会挤压下一条事件**；
+        /// 多的 0.05 是既有分档的余量。⛔ 别为了这 0.05 去改 `EventTiming`（本批白名单不含它，
+        /// 且那一档服务另外两条链）。</para></summary>
+        public const float ReshuffleToDeckSeconds = 0.25f;
     }
 }

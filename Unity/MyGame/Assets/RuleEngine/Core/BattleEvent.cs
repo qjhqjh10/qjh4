@@ -50,7 +50,7 @@ namespace RuleEngine
         /// ✅ **2026-09-29：那条位移动画已经做了** —— 表现层 = `CardFeel.ReturnToHand`
         ///    （原版 `BattleCardUI.PlayBackToHandAnimation`：**倒放 `Card Hand To Board`**，
         ///     `speed = −1`、`time = AnimationState.length`，外加 `DOMove(up × localScale.x × 3.0, 0.208 s, 线性)`；
-        ///     逐帧判据在那个方法的注释里）。**回牌库也走同一条**（原版两个调用者）。
+        ///     逐帧判据在那个方法的注释里）。**回牌库也走同一条**（原版两个调用者）。🆕 **`Effect == <see cref="BattleEventEffect.ReshuffleToDeck"/>`（`Slot = -1`）= 墓地洗回牌库那一趟**（2026-11-03 执行写手 `B121-E04B` · 活状态表 `B120-E04b`；原版那一串 = `CardScript.UndissolveToDeck` / `BattleCardUI.ShowBoardObjects` / `SetObjectVisibility` / `CardScript.MoveToDeck`，`_ResolveDrawCard_d__432__MoveNext.c:98-123` + `:241`）—— 它**不在棋盘上**（`Slot` 恒 -1），消费端 = `BattleDriver.PlayReshuffleToDeckFeel`；⛔ 别为它另开 `EvtKind`（`EventTiming` 对 `Slot < 0` 的 `Return` 已有 `ReturnGraveHold` 那一档，而新成员要同时改 `EventTiming` —— 本批白名单不含它）。
         /// </summary>
         Return,
 
@@ -489,7 +489,7 @@ namespace RuleEngine
         /// ⚠️ 纯表现信号：走 `ctx.Signals.Add`（与 <see cref="GainQuest"/> 同一条路）、**不进 `ctx.Events`**
         /// ⇒ **不动 `NetProtocol.Fingerprint`**、不进动作流、不影响本地录像 / 联机。</para>
         /// </summary>
-        QuestSpent, Fatigue,   // 🆕 2026-11-02（执行写手 `B118_W11` · 活状态表 `D118-41`）：**疲劳（牌库抽空）** —— 一方的牌库被抽空、督军吃了一次疲劳伤害。**字段**：`Player` = 牌库空那一方 · `Slot` = `BoardSpec.WarlordSlot`（恒 4）· `CardId` = 该方督军卡名 · `Amount` = **本次疲劳伤害**（= 自增后的 `PlayerState.Fatigue`，与紧随其后那条 `Hit` 同量）。**判据**（第一权威，逐句）= 原版 `BattleManager._ResolveFatigue_d__587__MoveNext.c`：`UIMessageController.ShowError(文案)` → `DealMultiDamage(量 = 疲劳值, 类型 = 2)` → `yield return new WaitForSeconds(0.5f)`；原版**没有**「疲劳事件」这种东西（那条协程天然知道），我们引擎同步、表现层只拿得到事件流 ⇒ 必须专开一条才不用猜。🔴 **发出点只此一处** = `RuleCore.MoveDeckTopToHand` 的牌库空分支、**排在 `EmitHit` 之前**（原版次序 = 横幅 → 伤害）。⚠️ 零时长（登记在 `EventTiming.ZeroDurationKinds`）：它与紧随的 `Hit` 同一拍，多占时长会拖长节奏。⚠️ **同一物理行追加 = 刻意零行数变化**（本文件 `:874` 有账落点，铁律 18·b）
+        QuestSpent, Fatigue, WarlordTransform,   // 🆕 2026-11-03（执行写手 `B121_E03F_VFX` · 账 `B121-E03F` · 用户 2026-11-03 裁定）：**督军变身成功** —— 🔶 **自己设计（非原版）**：原版那套 `BattleManager.CheckForHeroDeckTransform` 只换 `rawBattleData.deckWarlord` + 换对白池，**没有任何专属演出/特效/cue**（判据 → `RuleCorePartial_B96CB.cs` 文件末「§变身」那一大段）。本档是**表现层窄口**：`Player` = 变身那一方 · `Slot` = `BoardSpec.WarlordSlot`(4) · `CardId` = **新**督军卡名 · `Effect` = **旧**督军卡名（`null`/空 = 原来没有督军，那一段溶解不播）· `InstanceId` = 新督军那一份的实例号。**发出点只此一处** = `RuleCore.SwapWarlordCard` 的 `return true` 之前；**消费端** = `BattleDriver.PlayWarlordTransformFeel` → `TransformPresentation.Play`（0.9 s 三拍；全部参数与「查不到 ⇒ 自设计」的逐条记录在 `CardPresentation/Battle/TransformPresentation.cs` 文件头）。纯表现信号：**不改局面、不冻结输入、不进动作流**（`BattleEvent` 不进 `.json`）；登记在 `EventTiming.ZeroDurationKinds`（不占时间线）。｜🆕 2026-11-02（执行写手 `B118_W11` · 活状态表 `D118-41`）：**疲劳（牌库抽空）** —— 一方的牌库被抽空、督军吃了一次疲劳伤害。**字段**：`Player` = 牌库空那一方 · `Slot` = `BoardSpec.WarlordSlot`（恒 4）· `CardId` = 该方督军卡名 · `Amount` = **本次疲劳伤害**（= 自增后的 `PlayerState.Fatigue`，与紧随其后那条 `Hit` 同量）。**判据**（第一权威，逐句）= 原版 `BattleManager._ResolveFatigue_d__587__MoveNext.c`：`UIMessageController.ShowError(文案)` → `DealMultiDamage(量 = 疲劳值, 类型 = 2)` → `yield return new WaitForSeconds(0.5f)`；原版**没有**「疲劳事件」这种东西（那条协程天然知道），我们引擎同步、表现层只拿得到事件流 ⇒ 必须专开一条才不用猜。🔴 **发出点只此一处** = `RuleCore.MoveDeckTopToHand` 的牌库空分支、**排在 `EmitHit` 之前**（原版次序 = 横幅 → 伤害）。⚠️ 零时长（登记在 `EventTiming.ZeroDurationKinds`）：它与紧随的 `Hit` 同一拍，多占时长会拖长节奏。⚠️ **同一物理行追加 = 刻意零行数变化**（本文件 `:874` 有账落点，铁律 18·b）
     }
 
     /// <summary>
@@ -889,6 +889,32 @@ namespace RuleEngine
         public int Slot;
         public string CardId;
         public int InstanceId;
+    }
+
+    /// <summary>🆕 **2026-11-03（执行写手 `B121-E04B` · 活状态表 `B120-E04b`）：`BattleEvent.Effect` 上那几个
+    /// **跨层共用**的字符串值的**唯一出处**。
+    ///
+    /// <para>为什么要有它：`Effect` 是自由字符串，**引擎写、表现层读** —— 两边各写一遍字面量就是「两处写同一条规则」
+    /// （迟早不一致，而且对不上时**没有任何报错**，只是那条表现静默不播）。`RuleEngine` 不能引用 `CardPresentation`，
+    /// 所以这份常量必须住在引擎侧。⛔ 别在 `BattleDriver` / `RuleCore` 里另抄字面量。</para>
+    ///
+    /// <para>⚠️ **只收「跨层对账用」的值**（引擎发出、表现层按它分档）；纯诊断用的 `Effect`（例如
+    /// `"牌库抽空回填"` 那种中文出声）**不要**往这里搬。今天只有一档。</para>
+    ///
+    /// <para>⚠️ 追加在**命名空间末尾**（`CLAUDE.md` 铁律 18·b）：`BattleEvent.cs` 在账里有 `文件:行号` 落点
+    /// （最深 `:874`）⇒ 插在成员之间会把下游落点整体推走。</para>
+    /// </summary>
+    public static class BattleEventEffect
+    {
+        /// <summary>**墓地洗回牌库**（原版 `BattleManager._ResolveDrawCard_d__432__MoveNext.c:89-123` 的
+        /// `createdInInitialDeck` 那一支）。载体 = `EvtKind.Return` + `Slot = -1`；发出点 =
+        /// `RuleCore.ReshuffleCemeteryIntoDeck`（唯一）；消费端 = `BattleDriver.PlayReshuffleToDeckFeel`。
+        /// <para>判据（四段方法体全读，2026-11-03）：`CardScript__UndissolveToDeck.c`（`SetCardImage(null)` →
+        /// `FadeCardItems(1, 0)` 瞬时淡入 → `StopSummonSicknessAnim` → `SetActive(true)` → 设回牌库态）·
+        /// `BattleCardUI__ShowBoardObjects.c`（2D/3D 全藏）· `BattleCardUI__SetObjectVisibility.c`（state 0 = inDeck）·
+        /// `CardScript__MoveToDeck.c`（三条同长补间飞回 `DeckManager.DeckReferenceObject`；
+        /// 本调用点实参 `time = 0.05` = `.rdata 0x1834b2f94` 实读）。</para></summary>
+        public const string ReshuffleToDeck = "reshuffleToDeck";
     }
 }
 // ==========================================================================================

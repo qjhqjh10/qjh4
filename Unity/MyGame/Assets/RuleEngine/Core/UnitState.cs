@@ -1102,7 +1102,7 @@ namespace RuleEngine
         }
 
         public int KwValue(string keyword)
-        {
+        {   // 【功能】关键词数值的唯一读口 —— `Armour 2` 的 2 / `Ferocity 3` 的 3 都从这一格取（读 `_keywords` 字典）；判据 = 原版 `GetCurrentTraitValueWithModifiers`
             int v;
             return _keywords.TryGetValue(keyword, out v) ? (v > 0 ? v : 0) : 0;   // 🔴 原版 `GetCurrentTraitValueWithModifiers` 的 `num5 < 0 ⇒ 0` 夹紧（判据见类尾 `RawKw` 那一节）
         }

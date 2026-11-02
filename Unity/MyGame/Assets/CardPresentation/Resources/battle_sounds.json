@@ -1,12 +1,14 @@
 {
  "version": 1,
- "note": "原版**战斗**的「时机 → cue」表。**两组**：① `group=collection` = `BattleManager.soundCollection`(`+0x80`) → `SoundAssetCollection` 的 28 个字段；② `group=card` = **卡 prefab 上 `CardScript`** 那一块（9 条 + `changeTo*` 2 条；🔴 **不是逐卡序列化** —— 全资产里只有一份，小/中/大三档还指向同一条音）。⚠️ `name` 那一列**两组都是原版字段名**（C# 按字段名索引，如 `startTurn` / `invokeCUE`），`srcCue` 才是 cue 资产名。clips 里随机挑一条；音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；文件名在 Resources/Art/audio/sfx/<clip 名>。全部走 MixerType.FX（反编译调用点第 4 实参恒为 0）。`gaps[]` = 原版这一格里就没有声音的那些字段（空引用 / 悬挂 GUID / 空 PPtr），⛔ 不是我们没做。",
+ "note": "原版**战斗**的「时机 → cue」表。**四组**：① `group=collection` = `BattleManager.soundCollection`(`+0x80`) → `SoundAssetCollection` 的 28 个字段；② `group=card` = **卡 prefab 上 `CardScript`** 那一块（9 条 + `changeTo*` 2 条；🔴 **不是逐卡序列化** —— 全资产里只有一份，小/中/大三档还指向同一条音）；③ `group=scene` = **战场场景/预制体上直接序列化的 `AudioCue`**（`EndBattleDoors.victoryCue/defeatAudioCue/drawAudioCue` × 13 场 · `OvertimeUi.enteringOvertimeSound` × 13 场 · `ShakeAndSoundObject.sounds[0].sound` = 环境条件 Blackout）；④ `group=event` = **活动弹窗开窗音**（`EventElements.EventAssets[key=8 OpenSound]`，消费点 `BaseEventPopup.Open` 的 `AudioCue.Play2D(MixerType.Jingles)`）。⚠️ `name` 那一列：**①② 是原版字段名**（C# 按字段名索引，如 `startTurn` / `invokeCUE`）、**③④ 是 cue 资产名**（`srcCue` 同值）—— 这是四组之间唯一的形状差异。clips 里随机挑一条；音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；文件名在 Resources/Art/audio/sfx/<clip 名>。①② 全部走 MixerType.FX（反编译调用点第 4 实参恒为 0）；③④ 走 `MixerType.Jingles`（=3，调用点见各组出处）。`gaps[]` = 原版这一格里就没有声音的那些字段（空引用 / 悬挂 GUID / 空 PPtr），⛔ 不是我们没做。🔴 **③④ 的「谁指向哪条 cue」写死在生成器的 `HAND_WRITTEN`**（引用者在场景/预制体/活动 SO 上，没有自动取材口），**但参数是当场从 shipped cue 束重解的** ⇒ 重跑生成器**不会丢**这 7 条（`Editor/B121_AUD_Assert.cs` / `B121_D2_Assert.cs` 逐名钉住）。⚠️ `Draw` 在 `animfx_sounds.json` 里**还有一条同名的旧手写副本**（现 `import_original_sfx.py` 的取材面产不出它）⇒ `WFSoundBank` 撞名时保留**先装的**那条并警告一次；两条的参数逐值相同（clip `MatchDraw` · vol 0.7 · ttp 0.1），行为无差别。下次重生成 `animfx_sounds.json` 会自然掉那条旧副本。判据全文 → `资料/完全复刻/报告/B121_D2_音效cue覆盖.md`（③④ 的持有者与搜过的三种目录）。",
  "source": {
   "so": "SoundAssetCollection（bundle_duplicateassetisolationso_assets_all，挂在 BattleManager.soundCollection +0x80）",
   "card_block": "CardScript.battleCardSounds（bundle_battleprefabs_vfxandmisc_assets_all，**全资产唯一一份**；字段是普通 PPtr ⇒ 按束 externals 解到 soundcollection 的 cue）",
   "cue_bundle": "soundcollection_assets_all.bundle",
   "guid_resolver": "工具/_guid_resolve_probe.py（catalog_main.json；**只 A 组用**）",
-  "script": "工具/import_battle_sfx.py"
+  "script": "工具/import_battle_sfx.py（四组都产出；③④ 见脚本里的 `HAND_WRITTEN`）",
+  "scene_group": "③ 战场场景序列化字段：`EndBattleDoors.victoryCue/defeatAudioCue/drawAudioCue`（13 场 arena 的同一组 pid）+ `OvertimeUi.enteringOvertimeSound`（同 13 场）+ `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour_9031176634359415475.json` 的 `sounds[0].sound`（`m_Script` pathID 8184164905518033017 → 类 `ShakeAndSoundObject`，= 环境条件 Saim Hann Blackout）",
+  "event_group": "④ 活动开窗音：`EventElements.EventAssets` 里 `key=8 (EventAssetReferenceType.OpenSound)`，资产 = bundle_cosmeticsso_assets_all 的 `Expansion Orks1 Parent Event` / `Release Space Wolves Parent Event`；消费点 = `BaseEventPopup.Open`（cpp2il `BaseEventPopup.cs:56-60`，`AudioCue.Play2D(MixerType.Jingles)`）"
  },
  "mixer": "FX",
  "cues": [
@@ -364,6 +366,97 @@
     "ChangeToRangeAttack"
    ],
    "srcCue": "Change to Range Attack CUE",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Victory",
+   "group": "scene",
+   "clips": [
+    "MatchVictory"
+   ],
+   "srcCue": "Victory",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.7,
+   "maxVolume": 0.7,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Defeat",
+   "group": "scene",
+   "clips": [
+    "MatchDefeat"
+   ],
+   "srcCue": "Defeat",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.7,
+   "maxVolume": 0.7,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Draw",
+   "group": "scene",
+   "clips": [
+    "MatchDraw"
+   ],
+   "srcCue": "Draw",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.7,
+   "maxVolume": 0.7,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "OvertimeStart",
+   "group": "scene",
+   "clips": [
+    "OvertimeStart"
+   ],
+   "srcCue": "OvertimeStart",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Blackout",
+   "group": "scene",
+   "clips": [
+    "Aeldari Blackout"
+   ],
+   "srcCue": "Blackout",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 0.5,
+   "maxVolume": 0.5,
+   "timeToPlayAgain": 0.5
+  },
+  {
+   "name": "Ork Expansion 1 jingle",
+   "group": "event",
+   "clips": [
+    "Ork expansion pop up jingle"
+   ],
+   "srcCue": "Ork Expansion 1 jingle",
+   "minPitch": 1.0,
+   "maxPitch": 1.0,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.1
+  },
+  {
+   "name": "Space Wolves Relase Jingle",
+   "group": "event",
+   "clips": [
+    "Ragnar Howl"
+   ],
+   "srcCue": "Space Wolves Relase Jingle",
    "minPitch": 1.0,
    "maxPitch": 1.0,
    "minVolume": 1.0,

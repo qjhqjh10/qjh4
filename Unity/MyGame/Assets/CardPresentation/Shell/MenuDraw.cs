@@ -3245,7 +3245,7 @@ namespace CardPresentation
                                          //   —— 见 <see cref="DeckCellClickCue"/>（缺省 = 原版 `DeckClick 1`）与
                                          //   <see cref="WindowButton.playClickSound"/>（`false` 优先于 `clickCue`：
                                          //   原版**根本没有按钮音**的那一族，例 = `Collection Cosmetic.onClickSound = null`）。
-                                         string clickCue = DeckCellClickCue, bool playClickSound = true)
+                                         string clickCue = DeckCellClickCue, bool playClickSound = true, int deckIndex = -1)
         {
             if (win == null)
             {
@@ -3257,11 +3257,11 @@ namespace CardPresentation
                                    + "见 `DeckCell(win, …)` 的注释里那条订正）。");
                 return DeckCell(parent, name, r, info, selected, q, qBelow, qText, qOverlay, qHit, onClick,
                                 null, gameMode, difficulty, showDifficulty, Vector4.zero, sortMode,
-                                clickCue, playClickSound);
+                                clickCue, playClickSound, deckIndex);
             }
             return DeckCell(parent, name, r, info, selected, q, qBelow, qText, qOverlay, qHit, onClick,
                             win.Clip, gameMode, difficulty, showDifficulty, win.ClipPad, sortMode,
-                            clickCue, playClickSound);
+                            clickCue, playClickSound, deckIndex);
         }
 
         /// <summary>`DeckCell(win, …)` 收到 null 窗口的次数（只用来**限流那条警告**，不是缺陷计数）。</summary>
@@ -3314,7 +3314,7 @@ namespace CardPresentation
                                          Vector4 maskPad = default(Vector4), bool sortMode = false,
                                          // 🆕 **2026-10-25（执行代理 `R17`）**：与上面那个重载**逐字同义**的两个尾参
                                          //   （缺省 ⇒ 既有调用点逐位不变）。见 <see cref="DeckCellClickCue"/>。
-                                         string clickCue = DeckCellClickCue, bool playClickSound = true)
+                                         string clickCue = DeckCellClickCue, bool playClickSound = true, int deckIndex = -1)
         {
             const float AuthorW = 250f, AuthorH = 405f; float sx = r.W / AuthorW, sy = r.H / AuthorH;   // 🔴 B103_F6：内层几何按格子实际尺寸等比（作者系 250×405）。桌面 r = 225×364.5 ⇒ sx = sy = 0.9 = `DeckCellK` ⇒ **逐位不变**；小屏 r = 281.25×455.625 ⇒ sx = sy = 1.125 ⇒ 撑满。x 一律 `* sx`、y 一律 `* sy`（⛔ 别合回一个标量）。
             // 🔴 **2026-10-12（A198② 阶段 1）：取裁切状态走【一处】共用解析**（`ViewportClip.Resolve`）——
@@ -3460,7 +3460,7 @@ namespace CardPresentation
                 //   **`auto[8~32]`** · 居中 · **Capline** · 白 · **字距 `m_characterSpacing = −2`**。
                 //   ⚠️ 我们原来：**高写成 35.8**（`DcNameH`）、**不传 auto、不传字距**
                 //   —— 而 `MenuDraw.Text` 本来就有 auto 那三个口、`Label.SetCharSpacing` 也早就有 ⇒ **只是没接**。
-                var nl = Text(cell, nameR, info.Name, Color.white, "Deck Name", DcNamePx * sy, qText,
+                var nl = Text(cell, nameR, info.Name, DeckBan.NameInk(info, deckIndex), "Deck Name", DcNamePx * sy, qText,
                               autoMinPx: 8f * sy, autoMaxPx: DcNamePx * sy, autoBasePx: 30f * sy);   // B103_F6：字号按**竖向**比例 `sy`（横向由 auto-fit 收进框；桌面 sy = 0.9 ⇒ 逐位不变）
                 if (nl != null)
                 {
@@ -3590,7 +3590,7 @@ namespace CardPresentation
                     wb.onExit  = () => { if (cell != null && !sortMode) cell.localScale = Vector3.one; };
                 }
             }
-            return cell;
+            return DeckBan.Apply(cell, info, deckIndex, r, sx, sy, clipR, qOverlay + 1);   // 原版 `CollectionDeck.Config` 末尾那一档，判据 → 本文件末尾 `DeckBan` 的类注释
         }
 
         // ============================================================ 图缓存释放（`ClearChildren` 那一跳）
@@ -3738,5 +3738,142 @@ namespace CardPresentation
 
         /// <summary>自检口（静态表 ⇒ 每轮断言收尾必须清）。</summary>
         public static void ClearForTest() { _registry.Clear(); }
+    }
+
+    // ============================================================ 卡组格「被 Ban」那一档（B121-C3 · 2026-11-03 · 账 收藏 `B121-COLL-09`）
+    //
+    // 判据（🥇 `d:/2/tools/decomp_full/CollectionDeck__Config.c` 末尾那一段 ＋ `CollectionDeck.__c__DisplayClass16_0___Config_b__0.c`）：
+    //   `cVar4 = Enumerable.Any(deck.GetLibraryInFull(), c => deck.CustomGameModeEvent.IsCardBanned(c))`
+    //   → `bannedImage.gameObject.SetActive(cVar4)`（`CollectionDeck` 字段 `+0x90`）
+    //   → `greyscaleController.ToggleGreyScale(cVar4, 0.25f)`（`+0x98`；常量 `0x1834b2e7c` 实读 = **0.25**）
+    //   → `deckName.color = cVar4 ? (1, 0.3, 0.3, 1) : (1, 1, 1, 1)`
+    //     （`0x1834b3210…` / `0x1834b2e50…`，8 个 float 用 `工具/read_literal.py` 逐个实读）
+    // · `GetLibraryInFull`（`CardDeck__GetLibraryInFull.c`）= `deck.cardIds` 的拷贝，再把 **督军** `Insert(0)`、
+    //   再把 **防御卡** `Insert(0)` ⇒ 判「整副有没有禁卡」要扫 **督军 / 防御卡 / 普通卡** 三处。
+    // · 灰的是 **4 张图**（`UIImageGreyscaleController.imageMaterialPairs` 恰好 4 条；`资料/普查产出_0923/A2_Deck页.md` §2·2
+    //   ＋ 本轮 prefab 复读）：`Deck Image` / `Frame` / `Faction Icon` / `Game Mode Icon`
+    //   —— **`Ban Icon` 自己与 `Deck Name` 都不灰**（名字走「变红」那一档，Ban Icon 是新点亮的那一张）。
+    //
+    // 几何（`python -I 工具/menu_dump.py bundle_menus_assets_all -2024334647938937812 --depth 3` 现读；作者系 250×405）：
+    //   · `Ban Icon`：`-25.00,-25.11 → 275.00,352.50`（**300.00 × 377.61**）· sprite `40k_Cross_icon_cross_big Banned card`
+    //     512×512 · `Simple` ＋ **`m_PreserveAspect = 1`** · `m_Color` 白 · `m_RaycastTarget = 0`。
+    //   · `Banned Text`（`Ban Icon` 的子件）：绝对 `20.00,125.93 → 230.00,201.45`（210.00 × 75.52）
+    //     ⇒ 相对图标原点 = **(45, 151.04)**；TMP `m_fontSize 38.25` / 基准 36 / autosize `0.25…72` /
+    //     `Center/**Midline**` / 折行 1 / 白；`Localize.mTerm = MenuDeck/Banned`（官方表 = `["Banned","禁止"]`）。
+    //   · 子件序（`content` 下）：`Deck` → **`Ban Icon`** → `Create` ⇒ Ban Icon **画在整块 `Deck` 之上**（用它自己的渲染队列）。
+    //
+    // 🔴 **数据源（本 build 休眠，如实标）**：原版按**卡组自己的** `CustomGameModeEvent` 判；禁卡表来自 LiveOps 活动数据
+    //   （远端 CCD / `BannedCardsSO`），本地 0 事件 ⇒ 本机判据空。我们复用 `DeckRuntime.CurrentEventData` 这个注入点
+    //   （`B96_MENU` 2026-10-29 为**卡池格**建的那个 seam，`Deck/DeckRuntime.cs` 的『禁卡 seam』那一段已标 `🔶 自己设计（非原版）`）。
+    //   🔶 自己设计（非原版）：把「每副卡组自己的活动」换成「进程级一个活动」—— 为什么必须自定：`PlayerDeck` 没有
+    //     `CustomGameModeEvent` 那一格，而 mode→event 的映射表在 LiveOps（关服、判据在远端）。沿用上面那个 seam 的口径 ·
+    //     调度台 B121-C3 2026-11-03 复用（⛔ 不另开第二个注入点）。
+    //   ⇒ **生产路今天恒 `null` ⇒ 本类整段空转**（`IsBanned` 第一句就返回 `false`，一格都不建、一笔灰都不刷）；
+    //     活动线把禁卡表灌进 `PlayEventData.SetBannedCards(ids)` 再赋给 `CurrentEventData`，这一档**自动点亮**。
+    //   ⛔ 别伪造一张禁卡表（用户 2026-09-17 边界「过期的活动不做」· 铁律 18·0）。
+    internal static class DeckBan
+    {
+        /// <summary>原版 `Ban Icon` 的 sprite（`CardArt.MenuUi` → `Resources/Art/ui_menu/…`，工程里已有）。
+        /// ⚠️ 与卡池那枚 ban 徽标**同一张图**（`DeckRuntime.SetPoolBanIcon`），不是另一张。</summary>
+        const string BanSprite = "40k_Cross_icon_cross_big_Banned_card";
+
+        // 作者系几何（250×405）；调用处乘 `sx` / `sy`（与 `DeckCell` 其余层同一条换算）
+        const float IconX = -25f, IconY = -25.11f, IconW = 300f, IconH = 377.61f;
+        // `Banned Text` **相对 `Ban Icon` 原点**（原版绝对 `20,125.93` 减图标原点 `−25,−25.11`）
+        const float TxtX = 45f, TxtY = 151.04f, TxtW = 210f, TxtH = 75.52f;
+        const float TxtPx = 38.25f, TxtBasePx = 36f, TxtMaxPx = 72f, TxtMinPx = 0.25f;
+
+        /// <summary>原版 `_DAT_1834b3210…` 实读 = (1, 0.3, 0.3, 1)（8 个 float 逐个读过，⛔ 不是照截图量的）。</summary>
+        public static readonly Color BannedInk = new Color(1f, 0.3f, 0.3f, 1f);
+        /// <summary>原版 `DAT_1834b2e7c` 实读 = **0.25**（= `ToggleGreyScale` 的第三个实参）。</summary>
+        public const float BannedGrey = 0.25f;
+
+        /// <summary>卡名颜色（原版 `Config` 末句：命中 ⇒ 红；否则白 `(1,1,1,1)`）。
+        /// <para>⚠️ 今天恒返回 `Color.white`（数据源空）⇒ `DeckCell` 那一行**逐位不变**。</para></summary>
+        public static Color NameInk(CollectionData.DeckInfo info, int deckIndex)
+        {
+            return IsBanned(info, deckIndex) ? BannedInk : Color.white;
+        }
+
+        /// <summary>= 原版 `Enumerable.Any(deck.GetLibraryInFull(), c => evt.IsCardBanned(c))`。
+        /// <para>数据源空 ⇒ `false`（与原版 `PlayEventData.IsCardBanned` 首句「缓存 null ⇒ 恒 false」同义）。</para>
+        /// <para><paramref name="deckIndex"/> = 调用点知道的那一格在库里的下标；`-1`（缺省）⇒ 按卡组名回查
+        /// （`CollectionData.IndexOf`，同名取第一个 —— 见那个方法的「名字当 id」那条老账）。
+        /// 🔴 调用点有下标时**请显式传**（`CollectionWindow.BuildDeckCell` 手上的 `i` 就是），别长期靠名字。</para></summary>
+        public static bool IsBanned(CollectionData.DeckInfo info, int deckIndex)
+        {
+            var evt = DeckRuntime.CurrentEventData;
+            if (evt == null) return false;                        // 🔴 本 build 恒走这一支（休眠，见类注释）
+            int i = deckIndex >= 0 ? deckIndex : CollectionData.IndexOf(info.Name);
+            var d = CollectionData.Raw(i);
+            if (d == null) return false;
+            if (evt.IsCardBanned(d.WarlordId)) return true;       // `GetLibraryInFull` 的 `Insert(0, deckHero)`
+            if (evt.IsCardBanned(d.DefensiveId)) return true;     // 同上那一步的防御卡
+            var ids = d.CardIds;
+            if (ids != null)
+                for (int k = 0; k < ids.Count; k++) if (evt.IsCardBanned(ids[k])) return true;
+            return false;
+        }
+
+        /// <summary>把「被 Ban」这一档画到已建好的卡组格上，返回同一个 `cell`（`DeckCell` 的 `return` 直接吃它）。
+        /// <para>不违禁 ⇒ **一个节点都不建**（= 原版 `bannedImage.SetActive(false)` + 灰度 0 + 名字白）。</para>
+        /// <para><paramref name="qBan"/> = Ban Icon 那一档渲染队列 —— 必须**高于本格所有内容层**
+        /// （原版它是 `Deck` 的兄弟、排在 `Deck` 之后；我们这套的 draw order 只看队列）。</para></summary>
+        public static Transform Apply(Transform cell, CollectionData.DeckInfo info, int deckIndex,
+                                      PxRect r, float sx, float sy, PxRect? clipR, int qBan)
+        {
+            if (cell == null || !IsBanned(info, deckIndex)) return cell;
+
+            // ① 四张图灰 0.25（原版 `imageMaterialPairs` 那 4 条；⛔ 别灰 `Ban Icon` / `Deck Name`）
+            //    ⚠️ 主图那一格有两种节点名：有督军卡面插图 ⇒ `Deck Image`；取不到插图退回画卡背 ⇒ `CardBack`
+            //    （`DeckCell` 里那条 else 支）。原版只有**一个** `deckCardback` 组件、两种情况下灰的都是它
+            //    ⇒ 两个名字都试一遍（同一格里只会存在其中一个）。
+            Grey(cell, "Deck Image");
+            Grey(cell, "CardBack");
+            Grey(cell, "Frame");
+            Grey(cell, "Faction Icon");
+            Grey(cell, "Game Mode Icon");
+
+            // ② 卡名变红（`Text` 已经按白建好 ⇒ 这里改色；原版是同一颗 TMP 直接 `set_color`）
+            var nameNode = cell.Find("Deck Name");
+            if (nameNode != null)
+            {
+                var lb = nameNode.GetComponent<Label>();
+                if (lb != null) lb.SetColor(BannedInk);
+            }
+
+            // ③ `Ban Icon`（＋ 子件 `Banned Text`）
+            var icon = MenuDraw.Rect(cell, CardArt.MenuUi(BanSprite),
+                                     new PxRect(r.x1 + IconX * sx, r.y1 + IconY * sy,
+                                                r.x1 + (IconX + IconW) * sx, r.y1 + (IconY + IconH) * sy),
+                                     "Ban Icon", qBan, null, true, clipR);   // `keepAspect` = 原版 `m_PreserveAspect = 1`
+            if (icon == null) return cell;
+
+            // ⚠️ 两套矩形**别合并**：子件坐标要**相对图标原点**（`Label.Create` 吃相对父节点的局部坐标），
+            //    而「整块在视口外吗」/ 裁字那一刀吃的是**设计空间的绝对框**。
+            var absR = new PxRect(r.x1 + (IconX + TxtX) * sx, r.y1 + (IconY + TxtY) * sy,
+                                   r.x1 + (IconX + TxtX + TxtW) * sx, r.y1 + (IconY + TxtY + TxtH) * sy);
+            var relR = new PxRect(TxtX * sx, TxtY * sy, (TxtX + TxtW) * sx, (TxtY + TxtH) * sy);
+            if (!MenuDraw.Visible(absR, clipR)) return cell;      // 原版 `RectMask2D`：整块在视口外 ⇒ 一个像素都不画
+            var txt = MenuDraw.Text(icon.transform, relR, Loc.T("MenuDeck/Banned"), Color.white, "Banned Text",
+                                    TxtPx * sy, qBan + 1, wrapPx: relR.W,
+                                    autoMinPx: TxtMinPx * sy, autoMaxPx: TxtMaxPx * sy, autoBasePx: TxtBasePx * sy);
+            if (txt != null)
+            {
+                MenuDraw.SetVAlign(txt, Label.VAlign.Midline, relR);   // 原版 `Center/Midline`（`Deck Name` 是 Capline，⛔ 别抄错）
+                if (clipR.HasValue) MenuDraw.ClipText(txt, clipR, Vector2.zero);
+            }
+            return cell;
+        }
+
+        /// <summary>按节点名把那一张图设成 0.25 灰（`ImageQuad.SetGrey` 与 `CardView.SetGrey` 同一算式、同一属性名 `_GreyScale`）。
+        /// 节点不在（这一格本来没有阵营 / 模式图标）⇒ 跳过 —— 原版那两条 `imageMaterialPairs` 在同样的格子里也取不到图。</summary>
+        static void Grey(Transform cell, string layer)
+        {
+            var t = cell.Find(layer);
+            if (t == null) return;
+            var q = t.GetComponent<ImageQuad>();
+            if (q != null) q.SetGrey(BannedGrey);
+        }
     }
 }

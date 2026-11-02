@@ -134,22 +134,22 @@ namespace CardPresentation
         /// <para>原版键 = `AudioCue` **资产实例**（`lastTimePlayed` 住在 cue 上，偏移 `+0x34`；`AudioCue__OnEnable.c` 写回 0）。
         /// ⚠️ 但那 6 条 remnant cue **不在** `animfx_sounds.json` 里（2026-11-02 现读 513 条零命中：
         /// `Aeldari To Waystone` / `Aeldari Waystone Collect` / `Aeldari Waystone Destruction` / `CardShatter` /
-        /// `NecronsCardReanimate` / `RemnantsDestroyed` 全部不在）⇒ **拿不到 `WFSoundCue` 实例**。</para>
+        /// `NecronsCardReanimate` / `RemnantsDestroyed` 全部不在）⇒ **当时拿不到 `WFSoundCue` 实例**（已由第三张表补上，见下一段）。</para>
         /// <para>本 build 里 6 条 cue ↔ `(阵营, 时机)` **一一对应**（`remnant_cue_props.json` 就按这个分行）
         /// ⇒ 用这个**值类型**当键：零字符串、零分配、不会因为改名/拼错而静默分叉（改前是字符串键）。</para>
-        /// <para>⚠️ 仍然不是「cue 资产实例」：若将来两条 cue 共用同一个 `(阵营, 时机)`，这里会与 cue 键分叉。
-        /// 真正对齐的做法 = 把这 6 条 cue 收进 `animfx_sounds.json`（`工具/import_remnant_sfx.py` 的活、⛔ 别手改生成物），
-        /// 再把本表换成 `Dictionary&lt;WFSoundCue, float&gt;`。已记在 `报告/B120_W5_执行.md` §六。</para></summary>
+        /// <para>🆕 2026-11-03（`B121-WA` · `B120-F21`）：6 条 cue 已由 `B120-W17` 收进**第三张表**
+        /// `Resources/remnant_sounds.json`（键 = cue 资产名）⇒ 冷却键已切到类尾 `_lastAtCue`（`Dictionary&lt;WFSoundCue, float&gt;`），
+        /// 这个下标只在**表缺失**时兜底。⚠️ 若将来两条 cue 共用同一个 `(阵营, 时机)`，只有兜底那一档会分叉。</para></summary>
         static int CueIndex(Moment m, bool aeldari) { return (int)m * 2 + (aeldari ? 0 : 1); }
 
-        /// <summary>各档上一次播的时刻（`WFSoundPlayer.CooldownClock`，原版 = `Time.time`）——用来实现 `timeToPlayAgain`。
-        /// 🔴 2026-11-02 `B120-W5b`：键从**字符串**（`"Aeldari/collect"`）改成**值类型身份**（见 `CueIndex` 的 doc）。</summary>
+        /// <summary>各档上一次播的时刻 —— **兜底表**（键 = `(阵营, 时机)` 下标，见 `CueIndex`）：只在 `Resources/remnant_sounds.json` 缺失、
+        /// 拿不到原版 cue 实例时才用。🆕 2026-11-03 `B121-WA`（`B120-F21`）：正常路径走类尾的 `_lastAtCue`（键 = 原版 cue 资产实例）。</summary>
         static readonly System.Collections.Generic.Dictionary<int, float> _lastAt =
             new System.Collections.Generic.Dictionary<int, float>();
         /// <summary>自检用：因为 `timeToPlayAgain` 被挡掉了几次。</summary>
         public static int Throttled { get; private set; }
         /// <summary>自检用：把节流记录清掉（每段之前调）。</summary>
-        public static void ResetThrottle() { _lastAt.Clear(); Throttled = 0; }
+        public static void ResetThrottle() { _lastAt.Clear(); _lastAtCue.Clear(); Throttled = 0; }
 
 
         static GameObject _host;
@@ -197,14 +197,14 @@ namespace CardPresentation
             // 🆕 2026-09-29 原版 `AudioCue` 的三个随机量（判据见上面那一节）。
             // ⚠️ `timeToPlayAgain` 挡掉的那次**返回 false 但不是错**（原版就是这么节流的）——
             //    调用方**别把它当失败报警**；要看节流了几次有 `Throttled`。
-            var cue = PropsOf(m, aeldari);
+            var props = PropsOf(m, aeldari);        // 随机区间 / 冷却窗口：旧表（`remnant_cue_props.json`）与 cue 表**逐值相同**；保留旧读口是因为 `B117_WCOOL3_Assert` A3 会改它来测「窗口外放行」
+            var cue = CueOf(m, aeldari);            // 🆕 2026-11-03（`B121-WA` · `B120-F21`）：冷却**键**改成原版 cue 资产实例（判据 = `AudioCue.lastTimePlayed` 住在 cue 上，偏移 `+0x34`）；cue 表缺失才退回旧下标键 `_lastAt`
             // 🆕 2026-11-02（`B117-WCOOL3`）：冷却公式收口到 `WFSoundPlayer.CanPlayByCooldown`（全项目唯一实现，铁律 6）
             //   判据 = `AudioCue__ConfigAudioSource.c:19-21` 的闸 + `:31` 的「先写戳、再挑 clip」次序，两半都在那一处；
             //   `last != 0` 那半句也在那里（0 = 从没播过，漏掉它会把 `Time.time` 还小时的第一次也拦掉）。
-            //   ⚠️ `cue` 取不到（区间表缺失）或 `timeToPlayAgain == 0` ⇒ 传 0 ⇒ 天然永远放行（与原版一致）。
-            //   🔴 2026-11-02 `B120-W5b`：键从字符串改成 `CueIndex(m, aeldari)`（见那张表的 doc）。
-            float ttpa = cue != null ? cue.timeToPlayAgain : 0f;
-            if (!WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(_lastAt, CueIndex(m, aeldari), ttpa))
+            //   ⚠️ 两张表都取不到 / `timeToPlayAgain == 0` ⇒ 传 0 ⇒ 天然永远放行（与原版一致）。
+            float ttpa = props != null ? props.timeToPlayAgain : (cue != null ? cue.timeToPlayAgain : 0f);
+            if (!(cue != null ? WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(_lastAtCue, cue, ttpa) : WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(_lastAt, CueIndex(m, aeldari), ttpa)))
             {
                 Throttled++;
                 return false;
@@ -212,8 +212,8 @@ namespace CardPresentation
 
             // ⚠️ 用 `UnityEngine.Random`（**表现层**的随机，不进引擎状态）—— 引擎那边那条
             //    「只用 `System.Random(seed)`」管的是**对局可复现**，音高不参与。
-            float pitch = cue != null ? Random.Range(cue.minPitch, cue.maxPitch) : 1f;
-            float vol   = cue != null ? Random.Range(cue.minVolume, cue.maxVolume) : 1f;
+            float pitch = props != null ? Random.Range(props.minPitch, props.maxPitch) : (cue != null ? Random.Range(cue.minPitch, cue.maxPitch) : 1f);
+            float vol   = props != null ? Random.Range(props.minVolume, props.maxVolume) : (cue != null ? Random.Range(cue.minVolume, cue.maxVolume) : 1f);
             _src.pitch = pitch;
 
             // 🔴 **2026-11-02（`B120-W5b` · 分报告主表 #26）**：原版残骸音走 **FX 混音组**，不是「代码里乘音量」。
@@ -282,6 +282,88 @@ namespace CardPresentation
                 ApplyTemplate(_src);
             }
             return _src;
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-03（`B121-WA` · `B120-F21`）：冷却键 = **原版 cue 资产实例**
+        //  —— 追加在**类尾**（⛔ 别往中间插：本文件被 `账/音频_语音.tsv:157/159` 按 `文件:行号` 引用）
+        // ==================================================================
+        //  判据：原版 `lastTimePlayed` 就住在 `AudioCue` 上（偏移 `+0x34`，`AudioCue__OnEnable.c` 写回 0），
+        //  闸 = `AudioCue__ConfigAudioSource.c:19-21` ⇒ **冷却的键是 cue 资产实例**，不是「第几档」。
+        //  2026-11-02 `B120-W17`（`F15`）已把这 6 条 cue 收进 `Resources/remnant_sounds.json`
+        //  （`WFSoundBank` 第三张表，键 = cue 资产名）⇒ 现在拿得到真实例，本批把键切过去。
+        //  ⚠️ 旧 `(阵营, 时机)` 下标表（`_lastAt`）**保留为兜底**：那份 json 缺失时仍要能节流。
+        //  ⚠️ 旧 `remnant_cue_props.json` 本批**不退役** —— `B120_W17_Assert` A3（`PropsLoaded == 6`）与
+        //     `B117_WCOOL3_Assert` A 组（`PropsOf`）还在读它；退役要与那两条断言同批做。
+        static readonly System.Collections.Generic.Dictionary<WarpforgeVFX.WFSoundCue, float> _lastAtCue =
+            new System.Collections.Generic.Dictionary<WarpforgeVFX.WFSoundCue, float>();
+
+        /// <summary>这一档对应的原版 **cue 资产名**（⚠️ 与 clip 名**不同**：灵族「收集」cue = `Aeldari Waystone Collect`、
+        /// clip = `Aeldari To Waystone Death`；死灵「收集」cue = `NecronsCardReanimate`、clip = `CardReanimate`）。
+        /// 判据 = `RemnantBody.cs:17,26` / `RemnantAeldari.cs` / `RemnantNecrons.cs` 四格序列化的 `AudioCue` 字段，
+        /// 六个名字逐字取自 `Resources/remnant_sounds.json`（生成器 `工具/import_remnant_sfx.py`）。</summary>
+        public static string CueNameOf(Moment m, bool aeldari)
+        {
+            switch (m)
+            {
+                case Moment.Collect: return aeldari ? "Aeldari Waystone Collect" : "NecronsCardReanimate";
+                case Moment.Death:   return aeldari ? "Aeldari Waystone Destruction" : "RemnantsDestroyed";
+                default:             return aeldari ? "Aeldari To Waystone" : "CardShatter";
+            }
+        }
+
+        static WarpforgeVFX.WFSoundCue[] _cues;
+        static bool _cuesTried;
+        /// <summary>自检用：因为 cue 表缺失、退回下标键的档数（6 档里几条没解析到）。</summary>
+        public static int CueMisses { get; private set; }
+
+        /// <summary>这一档的原版 cue 实例（`WFSoundBank` 三张表里的第三张）。取不到 = null ⇒ 调用方退回下标键。</summary>
+        static WarpforgeVFX.WFSoundCue CueOf(Moment m, bool aeldari)
+        {
+            LoadCues();
+            int i = CueIndex(m, aeldari);
+            return _cues != null && i < _cues.Length ? _cues[i] : null;
+        }
+
+        static void LoadCues()
+        {
+            if (_cuesTried) return;
+            _cuesTried = true;
+            _cues = new WarpforgeVFX.WFSoundCue[6];
+            int miss = 0;
+            for (int mi = 0; mi < 3; mi++)
+            {
+                for (int a = 0; a < 2; a++)
+                {
+                    string name = CueNameOf((Moment)mi, a == 0);
+                    WarpforgeVFX.WFSoundCue c;
+                    // ⚠️ 先 `HasCue` 再 `TryGetCue`：`TryGetCue` 的 miss 会累加 `WFSoundBank.BadCues`（那是别人的读口，别被我们污染）。
+                    if (WarpforgeVFX.WFSoundBank.HasCue(name) && WarpforgeVFX.WFSoundBank.TryGetCue(name, out c))
+                        _cues[mi * 2 + a] = c;
+                    else miss++;
+                }
+            }
+            CueMisses = miss;
+            if (miss > 0)
+                Debug.LogWarning($"[Remnant] {miss}/6 条残骸 cue 不在音效表里（`Resources/{WarpforgeVFX.WFSoundBank.RemnantTablePath}.json`）"
+                               + " ⇒ 冷却退回 `(阵营, 时机)` 下标键。跑一次 `python 工具/import_remnant_sfx.py --write`（⛔ 别手改生成物）");
+        }
+
+        /// <summary>自检用：这一档的原版 cue 名（表缺失也返回名字 —— 断言要能验「映射表本身」）。</summary>
+        public static string DebugCueName(Moment m, bool aeldari) { return CueNameOf(m, aeldari); }
+        /// <summary>自检用：这一档解析到的 cue 实例（取不到 = null）。</summary>
+        public static WarpforgeVFX.WFSoundCue DebugCue(Moment m, bool aeldari) { return CueOf(m, aeldari); }
+        /// <summary>自检用：6 档里解析到了几条 cue（表缺失 = 0）。</summary>
+        public static int DebugCueResolved
+        {
+            get
+            {
+                LoadCues();
+                if (_cues == null) return 0;
+                int n = 0;
+                foreach (var c in _cues) if (c != null) n++;
+                return n;
+            }
         }
     }
 }

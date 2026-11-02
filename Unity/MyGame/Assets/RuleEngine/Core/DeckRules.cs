@@ -82,7 +82,7 @@ namespace RuleEngine
         //   判据 = 原版 `DeckUtility.CanAddCard.c:100-147`（这一闸只出一句话、没有错误枚举 ⇒
         //   我们这一档是**为了把两句话分开**才造的枚举值，键名取原版实有的那一条）。
         //   ⚠️ **追加在枚举末尾**（⛔ 别插中间：枚举序号一旦位移，按号取值的地方会静默错位）。
-        LegendaryTotalExceeded, InvalidArmy,   // ← `InvalidArmy` 见文件尾 partial 的 `IsNeutralFaction`/`DeckArmy` 那段（2026-10-31 `B105_W4`；写成同一行 = 零行数变化，本文件被账按行号引用）
+        LegendaryTotalExceeded, InvalidArmy, InvalidCard,   // ← `InvalidArmy` 见文件尾 partial 的 `IsNeutralFaction`/`DeckArmy` 那段（2026-10-31 `B105_W4`；写成同一行 = 零行数变化，本文件被账按行号引用）｜🆕 `InvalidCard`（2026-11-03 `B121_WC` · 账 `B120-E03g`）= 原版 `CardDeck__CanAddCard.c:40` 的具名键 `MenuDeck/Error/InvalidCard`（官方表 EN/ZH 齐全 ⇒ `Loc.T` 取得到）：**卡自己的规则不许进任何卡组**（`CardDef.NotDeckable`）。判据/为什么不能并进 `EffectOnlyCard` → 文件尾 `IsNotDeckable` 的 doc。
     }
 
     public static partial class DeckRules
@@ -439,7 +439,7 @@ namespace RuleEngine
                 DeckError why;
                 if (c == null) why = DeckError.UnknownCard;                       // 我们加的（见上文）
                 else if (c.Type != "unit" && c.Type != "tactic") why = DeckError.WarlordInCards;   // a：卡型
-                else if (CannotAddToDeck(c)) why = DeckError.EffectOnlyCard;      // b + c：inv / show
+                else if (IsNotDeckable(c)) why = DeckError.InvalidCard; else if (CannotAddToDeck(c)) why = DeckError.EffectOnlyCard;      // b + c：inv / show　🆕 2026-11-03（`B121_WC` · `B120-E03g`）：`NotDeckable` 那档排在准入判据**之前**（更specific；判据/为什么单独一档 → 文件尾 `IsNotDeckable` 的 doc）
                 else if (!SameFaction(c.Faction, deckArmy))                       // d：阵营（原版比 `deck+0x50`；⚠️ 原版这一支【没有】`IsNeutralArmy` 例外 —— 照抄别修，与 `CanAdd` 那支的差异是原版自己的）
                     why = DeckError.WrongFaction;
                 else continue;
@@ -499,7 +499,7 @@ namespace RuleEngine
             //     （原版 `DeckUtility__ValidateDeckCards.c:68-77`；这里是它的卡片清单那一支）。
             //     原来的 `IsEffectOnly(c.Subtype)`（按兵种猜的三类）**已删** —— 见那个方法的订正注。
             foreach (var c in cards)
-                if (CannotAddToDeck(c)) return DeckError.EffectOnlyCard;
+                if (IsNotDeckable(c)) return DeckError.InvalidCard; else if (CannotAddToDeck(c)) return DeckError.EffectOnlyCard;   // 🆕 2026-11-03（`B121_WC` · `B120-E03g`）：`NotDeckable` 排在准入判据之前（同一物理行追加 = 零行数漂移）
 
             // ⑦ 同名上限
             var copies = new Dictionary<string, int>();
@@ -635,7 +635,7 @@ namespace RuleEngine
         {
             return e == DeckError.InvalidDeck                 // `MenuDeck/Error/InvalidDeck`（原版有）
                 || e == DeckError.EffectOnlyCard              // `Describe` 已把它映射成 `InvalidDeck`（原版有）
-                || e == DeckError.LegendaryTotalExceeded || e == DeckError.InvalidArmy;  // 后者 = `MaxLegendayCopiesReached`；`InvalidArmy` = 原版 `CardDeck.CanAddCard` 的具名键（判据见文件尾 `DeckArmy` 那段）
+                || e == DeckError.LegendaryTotalExceeded || e == DeckError.InvalidArmy || e == DeckError.InvalidCard;  // 后者 = `MaxLegendayCopiesReached`；`InvalidArmy` = 原版 `CardDeck.CanAddCard` 的具名键（判据见文件尾 `DeckArmy` 那段）；🆕 `InvalidCard` = `CardDeck__CanAddCard.c:40` 的具名键（官方表 EN/ZH 齐全，判据见文件尾 `IsNotDeckable`）
         }
 
         /// <summary>这一档是**我们自己的槽位判据**（原版不查督军/防御卡槽位）⇒ 原版**没有对应错误码**。
@@ -1238,6 +1238,48 @@ namespace RuleEngine
 
                 // ④ 都没有（或全都解析不出来）⇒ 原版 `deckArmy` 的出厂值 `CardArmy.Neutral`
                 return null;
+            }
+
+            // ========================================================================================
+            //  🆕 2026-11-03（执行代理 `B121_WC` · 账 `B120-E03g`）：**「看得见、进不了卡组」的那一类卡**
+            //  —— `CardDef.NotDeckable` 的**唯一判据口**（`CanAddCore` / `Validate` / 摘不合法卡那条链都转发到它）。
+            //
+            //  🔎 这是什么：卡**自己的规则**说「不许进任何卡组」（用户 2026-11-03 裁定的「变身战术卡」=
+            //     效果生成的那一类：卡池里**看得见**，但加不进卡组）。**不是**「从卡池隐藏」——
+            //     原版对这类卡的表现是 **显示 + 变灰**（判据 = `DeckEditorCollectionDisplay__DrawCell.c:65,78`
+            //     把 `CanAddCard` 的结果当 `canAdd` 传给 `CollectionCard.UpdateCardVisuals`，后者只灰「张数条」；
+            //     卡池**显不显示**是另一条链：`PassesShowInCollection` + `PassesEditModeInventory`，
+            //     见 `Deck/DeckEditorState.cs` 的 `VisibleCards` 头注释）。
+            //
+            //  🔴 **为什么另立一档、不并进 `CannotAddToDeck`（`EffectOnlyCard`）**：两档**原因不同、文案必须分开**
+            //     （`B120-E03g` 的验收原话）——
+            //       · `EffectOnlyCard` = 原版 `inventoryOptions` / `showInCollectionOptions` 那条准入链；
+            //       · 本档 = **卡自己**的规则（数据标记），原版对应的具名键是 `MenuDeck/Error/InvalidCard`
+            //         （`CardDeck__CanAddCard.c:40`；官方表 EN「Trying to add an invalid card to the deck.」/
+            //          ZH「尝试向卡组添加无效的张牌。」—— `Loc.T` 取得到 ⇒ ⛔ 不会把键名印上屏）。
+            //
+            //  🔴 **为什么不能用既有的 `inventoryOptions = 5 (CantAddToDeck)` 顶替**（本件现读，如实记）：
+            //     · `CannotAddToDeck` 现在是 `inv != 0 && show != 5`（`&&`，2026-10-18 用户全解锁边界那一版）
+            //       ⇒ `inv = 5` + `show = 5` **不拦**；
+            //     · 改成 `inv = 5` + `show = 0 (Hide)` 虽然会拦，但**同时把卡从卡池里藏掉**
+            //       （`PassesShowInCollection` = `show != 0`）⇒ 方向正好反了；
+            //     · `inv = 5` 还会被卡组编辑卡池的 `PassesEditModeInventory` 剔掉（`!= 5 ⇒ true`；
+            //       5 又不是 `defence` ⇒ 返回 `false`）⇒ **还是藏**。
+            //     ⇒ 原版客户端靠「持有数 = 0」实现「可见但加不进」（`CanAddCard.c:76-77` 的
+            //       `InventoryManager.GetOwnedCount`），我们**单机全解锁、没有那道闸** ⇒ 只能用数据标记补这一维。
+            //
+            //  🔴 **2026-11-03 就地订正（`B121-FIX` · 用户 2026-11-03 裁定「允许加入卡组」）**：这里原写「下一波造那 13 张变身战术卡时落 `"notDeckable": 1`」——**方向已反，⛔ 别再照它做**。
+            //     现读 `cards_engine.json`：`notDeckable` 非 0 的卡 = **0 张**，13 张 `TRANSFORM_<阵营>` 全为缺键 = **不拦**（= 允许进卡组）。
+            //     ⇒ 机制（`CardDto.notDeckable` → `CardDef.NotDeckable` → 本方法）**保留**，只是当前无卡置位；将来有「看得见、按卡自己的规则进不了卡组」的卡再落它。
+            //     ⚠️ 真要置位时另两列口径仍有效：`showInCollectionOptions = 5`（或 `-1` 未知，两档都可见）＋ `inventoryOptions = 0` 或 `-1`（⛔ **别落 5**，理由见上）。
+            // ========================================================================================
+            /// <summary>这张卡**看得见、但按卡自己的规则不许进任何卡组**（`CardDef.NotDeckable`）。
+            /// <para>**判据只此一处**：`DeckEditorState.CanAddCore` · <see cref="Validate"/> ·
+            /// 摘不合法卡那条链（`RemoveInvalidCards`）都转发到它，⛔ 别在别处再读 `NotDeckable`。</para>
+            /// <para>⚠️ `null` ⇒ `false`（与 `CannotAddToDeck` 同一条 null 口径）。</para></summary>
+            public static bool IsNotDeckable(CardDef c)
+            {
+                return c != null && c.NotDeckable;
             }
         }
     }

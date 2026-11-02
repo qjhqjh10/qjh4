@@ -612,7 +612,7 @@ namespace CardPresentation
 
         void Update()
         {
-            if (cam == null || hand == null || board == null) return;
+            if (cam == null || hand == null || board == null) return; TickDeployCancelByPointer();   // 🔴🆕 2026-11-03（执行写手 `B121-Q4B` · 账 `B120-Q04c4b`）：**只给「撤销出牌」用的窄口** —— 必须排在下面 `BlockedThisFrame` **之前**，也要排在 `_cards.Count == 0` 那条早退之前（最后一张打出去时手牌列表就是空的）。为什么：提交后这段飞行里 `FrozenNow` 恒真（`OnPlayerDeployFlightStart` 的 `BeginBlockingWindow`）⇒ 整帧闸会直接 return、撤销判定一辈子轮不到（原版 `case 3` 是**逐帧**跑的，`decomp_full/BattleManager__Update.c:568-590`）。⚠️ 这个口**只读撤销票**，⛔ 不解除整段冻结。
             if (_cards.Count == 0) return;
             // 🔴 2026-10-25（`AUD8` #19）：**战斗状态闸 + 冻结闸**收成一处（`BlockedThisFrame`）——
             //    `Update` 与自检口 `SimulateTickForTest` 走**同一个**判据，⛔ 别再抄第二份。
@@ -1081,7 +1081,7 @@ namespace CardPresentation
             //      （`BoardLayout.cs:450-455`）—— 产品里另一条同样取指针的路径也这么用（`BattleDriver.cs:3104`）。
             int boardSlot;
             BoardLayout which;
-            bool ok = ResolveDrop(world, _dragging, out boardSlot, out which, true); if (TryCommitWhileHolding(world, ok)) return;   // 🔴 2026-11-02（`B120-W16`）：原版「**还按着就 commit**」—— 越过高度那一帧就提交，⛔ 不等松手（判据 → 类尾 `TryCommitWhileHolding`）· 🆕 `B120-W24`（`A15`）：`allowNearest=true` = 指针没正对某一格也给出最近候选格（⛔ 提交仍要过 `PlayCommitGate` 那两道）
+            bool ok = ResolveDrop(world, _dragging, out boardSlot, out which, true); if (TryCommitWhileHolding(world, ok)) return; if (TryGiveUpTooHigh(world, ok)) return;   // 🔴 2026-11-02（`B120-W16`）：原版「**还按着就 commit**」—— 越过高度那一帧就提交，⛔ 不等松手（判据 → 类尾 `TryCommitWhileHolding`）· 🆕 `B120-W24`（`A15`）：`allowNearest=true` = 指针没正对某一格也给出最近候选格（⛔ 提交仍要过 `PlayCommitGate` 那两道）· 🆕 2026-11-03（`B121-WB` · `Q04c6`）：**提交不成立时**再判一次「拖太高且打不出去 ⇒ 收回手牌」（原版 `case 2` 的 `maxHeightOfUnplayableCard` 放弃闸，判据 → 类尾 `TryGiveUpTooHigh`）
             // 🔴 **2026-11-02（`B118-W18`）整句已删** —— 原句是 `_dragging.SetHighlight(ok ? CardHighlightState.ValidTarget : CardHighlightState.Selected);`。判据（`B118_J8` §4 + 反编译）：原版**被拖的那张手牌从头不进状态环** —— 绿环 `potentialTargetInBoard` 只点**棋盘上的候选单位**（`BattleManager.ShowPotentialTargets` 只遍历 `unitsInPlay`），`BattleManager__Update` 的拖拽全程**不碰** `_Outline`、**不碰**状态环；`CardScript__StartMovingFromHand.c` 五句里也没有 `ChangeState`。⇒ 「合法落点 = 绿环」是我们自加的，⛔ 别再写回来。⚠️ 上面 `:1072` 那行小节标题「落点是否合法 → 实时反映在卡的着色上」随之**作废**（着色那条路整条不做了；落点反馈只走**底片** `ShowDropIndicator`，判据在原版 `SetCardShadow` 那一条）。
 
             // 🆕 2026-10-01（§〇 第 14 条 (b)）：**落点指示** —— 只点亮**它会去的那一格**。
@@ -1444,7 +1444,7 @@ namespace CardPresentation
                 // ⚠️ 战术卡**不占格位** —— 记进 `_placed` 的话，那个格位本回合就再也放不了牌了
                 if (!tactic) _placed[land] = card;
                 // 从手牌里拿掉：之后的手牌重排不该再算它
-                _cards.Remove(card);
+                _deployCancelIndex = _cards.IndexOf(card); _deployCancelParent = card.transform.parent; _deployCancelLayer = card.gameObject.layer; _cards.Remove(card);   // 🔴🆕 2026-11-03（`B121-Q4B`）：撤销那一支要**原位插回**（原版撤销后手牌仍按原列表序）+ 换回手牌的父链/层 ⇒ 这三样必须在卡片离手**之前**取（0.95 s 交接会把父链换成 `boardRoot`、层换成 `BoardElements`，见 `BattleDriver.OnDeployHandoff`）
                 card.SetHighlight(CardHighlightState.Normal); card.SetOutline(CardHighlight.OutlineSelectOf(card.Data.rarity)); _deployingView = card;   // 🔴 2026-11-02（`B118-W18`）：**松手打出的这一刻**把 SDF `_Outline` 换成 select 色 —— 原版 `CardScript__MoveIntoFieldFromHand.c:42`（`isPlayer != 0` 那一支）→ `BattleCardUI__ChangeHighlightToSelectColor.c:6-24`：`cardSelectedColor` **#003765**（0,55,101），`rarity == legendary` 走 HDR 橙 **#FF6203**（原值 r = 1.3041 > 1）。这就是玩家说的「淡蓝卡框边缘光」。`_deployingView` = 「已进入打出链」的闸，给 `RefreshHandPlayable` 跳过用（见 `IsDeployFlowing` 的 doc）。
                 // 🔴 **2026-10-11（A337）补间的【终点】必须用 `which.DropTargetWorld(land)`，不是 `SlotPosition`。**
                 //    3D 战场下 `SlotPosition` 是**2D 行线**上那个点（屏上 708 px），而落位交接时
@@ -1482,8 +1482,8 @@ namespace CardPresentation
                                              which.DropTargetWorld(land),
                                              which.placedScale * LayoutSpace.Scale,
                                              handoff,
-                                             () => { if (ReferenceEquals(_deployingView, card)) _deployingView = null; if (OnDeployed != null) OnDeployed(card, slot); });   // 🔴 2026-11-02（`B118-W18`）：飞完（= 落位 / 战术卡 inline 立即）才摘掉「打出链」闸 —— 那之前 `RefreshHandPlayable` 不许把这张的描边刷回绿（见 `IsDeployFlowing`）。
-                tw.SetUpdate(CardTween.Mode);
+                                             () => { if (ReferenceEquals(_deployingView, card)) _deployingView = null; ClearDeployCancelTicket(card); if (OnDeployed != null) OnDeployed(card, slot); });   // 🔴 2026-11-02（`B118-W18`）：飞完（= 落位 / 战术卡 inline 立即）才摘掉「打出链」闸 —— 那之前 `RefreshHandPlayable` 不许把这张的描边刷回绿（见 `IsDeployFlowing`）。🆕 `B121-Q4B`：正常落地 ⇒ 撤销票作废（`ClearDeployCancelTicket`，见类尾）。
+                tw.SetUpdate(CardTween.Mode); _deployCancelTween = tw; _deployCancelCard = card; _deployCancelLand = land;   // 🔴🆕 2026-11-03（`B121-Q4B` · 账 `B120-Q04c4b`）：**记下「撤销票」** —— 这张卡已提交、正在飞。`Kill` 掉这条序列 = 撤掉原版「已排程的出牌动作」（`onDone` 不再跑 ⇒ `OnDeployed` → `DoPlay` → `RuleCore.PlayCard` 一步都不发生；DOTween 的 `OnComplete` 在 `Kill` 时**不派**）。
                 // 🔴 **出牌那个特效不在这里播**（2026-09-15 修）—— 驱动层收引擎的 `EvtKind.Play`
                 //    事件时已经在**格位**上播了同一个 `VfxMap.PlayCard`，这里再播一次等于**打一张牌
                 //    播两遍**（单位卡再叠一个 `Deploy`，一共三个）。
@@ -2259,7 +2259,7 @@ namespace CardPresentation
         //    （`BattleDriver.cs:28152-28176`：`_handViews` 与 `p.Hand` **都还含这张**）
         //    ⇒ 描边被刷回绿、玩家看到的「淡蓝」只闪一帧。
         //  ⇒ 本类记住这张卡，驱动层在 `RefreshHandPlayable` 里用 `IsDeployFlowing` **跳过它**。
-        //  ⚠️ 摘除点只有一处：`DeploySequence.Play` 的 `onDone`（上面那段 lambda）。
+        //  ⚠️ 摘除点只有**两处**：`DeploySequence.Play` 的 `onDone`（上面那段 lambda）· 撤销出牌（类尾 `CancelDeployFlight`；🆕 2026-11-03 `B121-Q4B` 就地订正：原来这里写「只有一处」）。
         //  ⚠️ 视图被销毁后 `ReferenceEquals` 自然失配（Unity 的假 null 会先让 `v != null` 为假）
         //     ⇒ 残留标志不会永久压住别的卡；`PickUp` 也会在拿起新一张时覆盖它。
         CardView _deployingView;
@@ -2579,5 +2579,196 @@ namespace CardPresentation
             return true;
         }
         static bool _warnedNoRoomMismatch;
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-03（执行写手 `B121-WB` · 账 `B120-Q04c6`）：`maxHeightOfUnplayableCard` —— 「拖太高 ⇒ 放弃」
+        // ════════════════════════════════════════════════════════════════════════════════════
+        // 【判据 · 亲读】`cpp2il/out_il2csharp/Assembly-CSharp/BattleManager.cs:25788-25822`（`case 2`，还按着）：
+        //   if (UIstate == movingHandCard) {                        // ← = **还没提交**
+        //     if (mouse.y <= HandLimitArea.y)                     { …卡跟手… }        // 线以下
+        //     else if (mouse.y <= pointerCursorStart.y + maxHeightOfUnplayableCard) { …卡跟手… }
+        //     else if (!CanPlayCard(cardTracked, showTips:1, true, 0)) {
+        //            MoveBackToHand(); RemoveSwarm(0); HandCardReleased(); UIstate = normalBattle; }
+        //   }
+        //   机器码同形：`decomp_full/BattleManager__Update.c:291-303`（`0x80` = `maxHeightOfUnplayableCard`）。
+        // 【值是 **25.0**，不是 3.0】`VarsGlobal` 的**序列化资产**（`Warpforge_Data/sharedassets0.assets`，
+        //   `工具/read_varsglobal.py` 2026-11-03 现读 = **25.0**）优先于 ctor 默认值
+        //   （`VarsGlobal__.cctor.c` 的 `+0x80 = 0x40400000` = 3.0 —— 运行时被反序列化覆盖）。
+        // 【量纲】25 **原版世界单位** × 桥 0.13736 = **3.4340 我们的单位 ≈ 370.9 px**（与 `PlayLiftWorld` 同一条桥）。
+        // 【原版那条「不跟手」子支**不可达**】同一帧里出牌闸问 `CanPlayCard(…, showTips:0, …)`、
+        //   放弃闸问 `CanPlayCard(…, showTips:1, …)` —— **同一个谓词、只差提示开关** ⇒ 能打的话上面早就提交了
+        //   ⇒ 「太高 + 能打 + 还没提交」不存在 ⇒ 唯一可观测行为 = **太高 + 打不出去 ⇒ 收回手牌**。
+        // 【我们落地成什么】`ok == false`（= `ResolveDrop` 已经问过引擎并判「打不出去」：没格 / 候选集空 /
+        //   引擎拒）⇒ 走 `AbortDrag`（= `MoveBackToHand` + `HandCardReleased` 的等价物；⛔ 不播 cantdo ——
+        //   原版这一支没有提示）。⛔ 别在这里再问一次 `CanDropAtSlot`：`ResolveDrop` 里那一问就是引擎同一个答案。
+
+        /// <summary>原版 `VarsGlobal.maxHeightOfUnplayableCard`（`+0x80`）= **25.0 原版世界单位** × 桥 = **3.4340 我们的单位**（≈ 370.9 px）。
+        /// <para>判据 = `资料/VarsGlobal_原版数值.md:45`（序列化资产现读；ctor 里那个 3.0 会被覆盖）＋
+        /// `decomp_full/BattleManager__Update.c:291-303`。⚠️ `minMovementToPlayCard`（0.3，出牌闸）与它
+        /// 在 `.c` 里**写法一模一样**（都是 `pointerCursorStart.y + 字段 < mouse.y`）⇒ 别互相误认。</para></summary>
+        public const float MaxPlayHeightWorld = 25f * HandLayout.OurUnitsPerWorldUnit;
+
+        /// <summary>「拖得太高又打不出去 ⇒ 放弃」—— 原版 `case 2` 的 `maxHeightOfUnplayableCard` 那一支（见上）。
+        /// <para>返回 true = 已经收回手牌，调用方**必须立刻 return**（`_dragging` 已被 `AbortDrag` 置空）。</para>
+        /// <para>⛔ 三条前置缺一不可：还在拖（= 还没提交）· 落点不成立（= 打不出去）· 指针在出牌区里且高出按下点
+        /// 超过 <see cref="MaxPlayHeightWorld"/>。</para></summary>
+        bool TryGiveUpTooHigh(Vector3 world, bool dropOk)
+        {
+            if (_dragging == null) return false;                                // 已经提交 / 没在拖
+            if (dropOk) return false;                                           // 能打 ⇒ 原版那一支**什么都不做**（迟早由出牌闸提交）
+            if (!IsInPlayArea(world)) return false;                             // 原版这一支只在线以上（线以下走「卡跟手」那一支）
+            float up = world.y - _pressWorld.y;
+            if (up <= MaxPlayHeightWorld) return false;                         // 原版 `pointerCursorStart.y + maxHeightOfUnplayableCard`
+            AbortDrag("拖得太高（高出按下点 " + up.ToString("F2") + " 我们的单位 > " + MaxPlayHeightWorld.ToString("F2")
+                    + " = 25 原版世界单位）**且这一手打不出去** ⇒ 收回手牌"
+                    + "（原版 `case 2` 的 `maxHeightOfUnplayableCard` 放弃闸；⛔ 这一支原版**不播** cantdo）");
+            return true;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-03（执行写手 `B121-Q4B` · 账 `B120-Q04c4b`）
+        //  **已提交、但还按着、指针又拖回手牌线以下 ⇒ 撤销出牌**（原版 `case 3 = playingMinion`）
+        // ════════════════════════════════════════════════════════════════════════════════════
+        // 【判据 · 亲读（⛔ 别照抄二手）】
+        //  ① `cpp2il/out_il2csharp/Assembly-CSharp/BattleManager.cs:25991-25998`（`case 3`，`FUN_180617800(...) != 0` = **还按着**）：
+        //       指针 y 掉回 `HandLimitArea.y` 以下 ⇒ `cardTracked.OutFromPlayingAreaAnim(); RemoveSwarm(0);
+        //       UIstate = movingHandCard; ReassembleMinions(0);` —— `decomp_full/BattleManager__Update.c:568-590` 逐句同形
+        //       （同一形状在 `case 4`(`:823`) / `case 5`(`:951`) 各一份）。
+        //  ② `decomp_full/CardScript__OutFromPlayingAreaAnim.c:11-42` = `MoveBackToHand` 那一对动作
+        //     + `localScale = GetCardInHandMovingScale()`（**只 `targeted` 支**）+ `cardState = 9`(`inHandMoving`) + 末句 `PlayerHand.LightPlayableHand()`。
+        //  ③ 原版**松手**那一支是另一条（`MoveBackToHand` + `HandCardMovedToNewIndex`，`Update.c:626-700` 的 `cVar13 == 0` 那一半）；
+        //     「撤出牌」只在这一支 ⇒ 它是**独立**的一条动作，⛔ 别与松手合并。
+        // 【我们的等价物 · 逐条对照见报告 `报告/B121_Q4B_提交后撤销.md`】
+        //   · 撤已排程的出牌 = `Kill` `DeploySequence.Play` 那条序列（`onDone` 不派）
+        //   · `OutFromPlayingAreaAnim` = 类尾已有的 `ApplyOutFromPlayingArea`（`B120-W28` 落的，判据逐句在那个方法上）
+        //   · `ReassembleMinions(0)` = 驱动层那一半（撤 blocking window + 撤登场 clip + 让位预览回滚，见 `BattleDriver.CancelDeployFlight`）
+        //   · `UIstate = movingHandCard` 的可见面 = 卡回手牌 + `QHandMoving` 队列（`cardState = 9` 的等价物，口径同 `B120_W28` A2）
+        // ⚠️ 全部**追加在类尾**（铁律 18·b）：本文件被账按 `文件:行号` 引用 30+ 处，插进成员之间会整片漂移。
+        // ------------------------------------------------------------------------------------
+
+        /// <summary>已提交、正在飞、仍可能被撤销的那一张（`null` = 没有票）。</summary>
+        CardView _deployCancelCard;
+        /// <summary>它原来在手牌列表里的下标（撤销时**原位**插回）。</summary>
+        int _deployCancelIndex = -1;
+        /// <summary>落点格号（`_placed` 的键）。</summary>
+        int _deployCancelLand = -1;
+        /// <summary>离手前的父链（0.95 s 交接会换成 `boardRoot` ⇒ 撤销要换回来）。</summary>
+        Transform _deployCancelParent;
+        /// <summary>离手前的层（交接会换成 `BoardElements`）。</summary>
+        int _deployCancelLayer;
+        /// <summary>`DeploySequence.Play` 那条序列 —— `Kill` 它 = 撤掉已排程的 `DoPlay`。</summary>
+        Tween _deployCancelTween;
+        /// <summary>自检口：把「指针还按着吗」钉成给定量（`null` = 读真设备；批处理里 `Mouse.current == null` ⇒ 设备那支恒 false）。</summary>
+        bool? _pointerHeldForTest;
+        /// <summary>自检用：真的走了几次撤销（生产口径、只增）—— 给「未提交时**不**走撤销」那条反证做判别。</summary>
+        int _deployCancelCount;
+
+        /// <summary>驱动层接这一条做**它那一半**：撤 blocking window / 撤已排程的登场 clip / 作废起飞票 / 让位预览回滚。
+        /// <para>接不接都能跑（表现层自检 / `CardBaseDemo` 没有驱动层）—— 不接时只做卡片自己那一半。</para></summary>
+        public event Action<CardView> OnCancelDeployFlight;
+
+        /// <summary>自检读口：现在有没有「已提交、可撤销」的票（⛔ 生产别用）。</summary>
+        public bool CanCancelDeployForTest { get { return _deployCancelCard != null; } }
+        /// <summary>自检读口：那张票是哪一张（`null` = 没有）。</summary>
+        public CardView CancelDeployCardForTest { get { return _deployCancelCard; } }
+        /// <summary>自检读口：真的撤销过几次（只增）。</summary>
+        public int CancelDeployCountForTest { get { return _deployCancelCount; } }
+        /// <summary>自检口：钉住「指针还按着吗」（见 `_pointerHeldForTest`）。</summary>
+        public void SetPointerHeldForTest(bool? held) { _pointerHeldForTest = held; }
+
+        /// <summary>自检口：喂一帧「撤销判定」（与生产**同一个** <see cref="TickDeployCancel"/>）。返回 true = 这一帧真的撤销了。</summary>
+        public bool SimulateDeployCancelTickForTest(Vector3 world, bool held) { return TickDeployCancel(world, held); }
+
+        /// <summary>生产那条轮询（`Update` 里**在 `BlockedThisFrame` 之前**调，判据见 `Update` 那一行）。
+        /// <para>⚠️ 这一段飞行里 `FrozenNow` 恒真 ⇒ 这里是**只给撤销用**的窄口，⛔ 别顺手把整段冻结取消。</para></summary>
+        void TickDeployCancelByPointer()
+        {
+            if (_deployCancelCard == null) return;          // 没有票 = 这一帧零开销（绝大多数帧走这条）
+            if (FullBlocked()) return;                      // 整帧闸（模态窗 / 终局）优先 —— 原版那几档里 `Update` 的 case 3 整段都不跑
+            TickDeployCancel(PointerWorldSafe(), PointerHeldNow());
+        }
+
+        /// <summary>指针**现在是否还按着** —— 原版 `FUN_180617800() != 0` 的等价物（`case 3` 只有「还按着」才走撤销支）。
+        /// <para>只在**已经提交**的那张票上被问：松手那一刻提交（`Release` 的 `releasedNow` 支）天然拿不到撤销窗口，
+        /// 与原版「松手 = 另一支」一致。</para></summary>
+        bool PointerHeldNow()
+        {
+            if (_pointerHeldForTest.HasValue) return _pointerHeldForTest.Value;
+            if (Mouse.current != null && Mouse.current.leftButton.isPressed) return true;
+            var ts = Touchscreen.current;
+            if (ts != null && ts.primaryTouch.press.isPressed) return true;
+            return false;
+        }
+
+        /// <summary>**撤销判定本体**（生产与自检共用，判据只此一处）。
+        /// 三条同时成立：有票 · 还按着 · 指针掉回 `HandLimitY` 以下（原版 `mouse.y &lt;= HandLimitArea.y`）。</summary>
+        bool TickDeployCancel(Vector3 world, bool held)
+        {
+            if (_deployCancelCard == null) return false;
+            if (!held) return false;                       // 原版 `case 3` 的 `FUN_180617800() != 0`（= 还按着）
+            if (IsInPlayArea(world)) return false;         // 原版 `local_5a8._4_4_ < 指针.y` 为假的那一支（判据口同 `OutOfPlayArea`）
+            var card = _deployCancelCard;
+            CancelDeployFlight(card);
+            return true;
+        }
+
+        /// <summary>**撤销这一手出牌** —— 已提交、还按着、指针拖回线下（原版 `case 3/4/5` 那一支）。
+        /// <para>逐条对照：`Kill` 序列（撤已排程的出牌）→ 驱动层那一半（`OnCancelDeployFlight`）→
+        /// 换回手牌形态（父链 / 层 / 卡面 / 登场 clip 残留）→ `ApplyOutFromPlayingArea`（原版 `OutFromPlayingAreaAnim`）
+        /// → `_placed.Remove(land)` → `_cards` 原位插回 → `Relayout(true)`（对应原版 `ReassembleMinions(0)` 那一半的手牌重排）。</para>
+        /// <para>⚠️ **顺序不能换**：`ApplyOutFromPlayingArea` → `CardFeel.MoveBackToHand` 会 `StopInPlayAnims()`
+        /// （对整张卡 `DOKill`）⇒ 必须排在 `Relayout` **之前**（见那个方法的 doc）。
+        /// ⚠️ `_deployingView` 先摘掉：`ApplyOutFromPlayingArea` 会抬 `OnLightPlayableHand` → 驱动层
+        /// `RefreshHandPlayable`，那张卡得重新参与描边刷新（否则蓝光会一直留在手里）。</para>
+        /// <para>⚠️ **如实记一条残余差**：原版撤销后 `UIstate` 回 `movingHandCard`(2)，卡**继续跟着指针**、还能再拖上去重提；
+        /// 我们这一版按施工单的形状把卡放回手牌槽位（票已清、`_dragging` 仍为 null）⇒ 玩家要**松手再按下**才能再拖。
+        /// 可见面（卡回手牌 / `QHandMoving` / 描边重刷）一致，手感差这一档已登记在报告 §还差什么。</para></summary>
+        public void CancelDeployFlight(CardView card)
+        {
+            if (card == null || !ReferenceEquals(_deployCancelCard, card)) return;
+            var tween = _deployCancelTween;
+            _deployCancelTween = null; _deployCancelCard = null; _deployCancelCount++;
+            // ① 撤掉已排程的出牌动作：`onDone`（→ `OnDeployed` → `DoPlay` → `RuleCore.PlayCard`）**不再跑**
+            if (tween != null) tween.Kill(false);
+            // ② 驱动层那一半（blocking window / 登场 clip / 起飞票 / 让位预览）—— 不接也能跑
+            if (OnCancelDeployFlight != null) OnCancelDeployFlight(card);
+            // ③ 换回手牌形态 —— 0.95 s 交接之后卡已经 `SetParent(boardRoot)` + `SetFace(Board)` + 换层
+            if (ReferenceEquals(_deployingView, card)) _deployingView = null;
+            if (_deployCancelParent != null && card.transform.parent != _deployCancelParent)
+                card.transform.SetParent(_deployCancelParent, true);
+            card.SetLayer(_deployCancelLayer);
+            card.SetFace(CardFace.Hand);
+            // ④ 登场 clip 的残留（撤销可能落在 clip 的任意一帧）—— 逐项复位到 clip 起播前那一档
+            card.EndFrameDissolve();                                                   // 卡框溶解材质实例 → 还原原材质（`CardFeel.HandToBoard` ②）
+            card.RestoreOriginalMaterial(); card.SetDissolveAmount(0f);                // 3D 卡体材质 / `_DissolveAmount`（③）
+            card.SetBody3DVisible(false);                                              // `body3D.SetActive(false)`（③ 的反向）
+            card.SetAlpha2D(1f); card.SetCounterAlpha(1f); card.SetCountersForcedVisible(false);   // 2D 卡面 α / 计数器（⑤⑦）
+            card.SetSpawnParticlesActive(false); card.SetTrailActive(false);           // `ToBoardFX` 两颗粒子（②'''）
+            card.SetArtLocalScale(1f); card.SetFaceRootLocalZ(0f);                     // `CardImage` 缩放 / `2DCard` z（②'' / ②'''）
+            var body = card.transform.Find("body3D");
+            if (body != null) { var p = body.localPosition; p.y = -CardView.Height * 0.5f; body.localPosition = p; }   // `BuildBody3D` 的基准位（−Height/2）
+            var be = card.transform.Find("Board Elements");
+            if (be != null) { var p = be.localPosition; p.y = 0f; be.localPosition = p; }                                // 那两级是恒等变换（`CardView.Board3DBones`）
+            // ⑤ 原版 `CardScript.OutFromPlayingAreaAnim`（= `MoveBackToHand` 那一对动作 + `cardState = 9` + `LightPlayableHand`）
+            card.SetHighlight(CardHighlightState.Normal);
+            _placed.Remove(_deployCancelLand);
+            int at = Mathf.Clamp(_deployCancelIndex, 0, _cards.Count);
+            if (!_cards.Contains(card)) _cards.Insert(at, card);   // ⚠️ 只插一次（飞行期间若有 `SyncHand` 已经把它放回来，就沿用它那一份）
+            ApplyOutFromPlayingArea(card);                         // ⚠️ 必须排在 `Relayout` 之前（它会 `StopInPlayAnims`）
+            _insertIndex = -1;
+            Relayout(true);
+            // ⑥ 票用完即清（下一手重新记）
+            _deployCancelIndex = -1; _deployCancelLand = -1; _deployCancelParent = null;
+            Debug.Log("[CardPresentation] 撤销出牌：指针拖回手牌线以下（原版 `case 3` 的 `OutFromPlayingAreaAnim` 支）⇒ 「"
+                    + card.name + "」回到手牌第 " + Mathf.Max(0, _cards.IndexOf(card)) + " 位");
+        }
+
+        /// <summary>`DeploySequence.Play` 的 `onDone` 调它：这一手**正常落地了** ⇒ 撤销票作废（⛔ 别留着票去打下一手）。</summary>
+        void ClearDeployCancelTicket(CardView card)
+        {
+            if (!ReferenceEquals(_deployCancelCard, card)) return;
+            _deployCancelCard = null; _deployCancelTween = null;
+            _deployCancelIndex = -1; _deployCancelLand = -1; _deployCancelParent = null;
+        }
     }
 }

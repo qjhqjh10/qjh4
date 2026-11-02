@@ -168,7 +168,7 @@ public static class B120_W16_Assert
                 + CardInteraction.PlayLiftWorld.ToString("F5") + "（= `minMovementToPlayCard` 0.3 原版世界单位 = 4.45 px）"
                 + "｜判据 `BattleManager__Update.c:253`（`pointerCursorStart.y + +0x7C < mouse.y`）");
             int slot0;
-            bool resolves = f.board.TryResolveSlot(drop, out slot0);
+            bool resolves = f.board.TryResolveSlot(drop, out slot0, 3, 3);   // 🆕 2026-11-03（`B121-WB` · `Q04c3`）：已删自定容差；显式给两侧各 3 已占 ⇒ 8 格全候选，槽 4 才可解析
             Check(resolves && slot0 == 4,
                   "（前提）落点解析到第 4 格（实得 resolves=" + resolves + "、槽 " + slot0 + "）");
             Check(f.it.HandCardCountForTest == hand0 && hand0 == 1,
@@ -236,7 +236,7 @@ public static class B120_W16_Assert
                   "（前提）抬高 " + (drop.y - home.y).ToString("F5") + " < "
                 + CardInteraction.PlayLiftWorld.ToString("F5") + "（差这一点点）");
             int s;
-            Check(f.board.TryResolveSlot(drop, out s) && s == 4,
+            Check(f.board.TryResolveSlot(drop, out s, 3, 3) && s == 4,
                   "（前提）落点照样解析到第 4 格（实得 " + s + "）—— 落点这一条**不是**本组失败的原因");
 
             f.it.SimulateHover(home);
@@ -275,7 +275,7 @@ public static class B120_W16_Assert
                   "（前提）抬高 " + (drop.y - home.y).ToString("F4") + " ≥ "
                 + CardInteraction.PlayLiftWorld.ToString("F5") + "（抬高这一条**已经满足**）");
             int s;
-            Check(f.board.TryResolveSlot(drop, out s) && s == 4,
+            Check(f.board.TryResolveSlot(drop, out s, 3, 3) && s == 4,
                   "（前提）落点照样解析到第 4 格（实得 " + s + "）");
 
             f.it.SimulateHover(home);

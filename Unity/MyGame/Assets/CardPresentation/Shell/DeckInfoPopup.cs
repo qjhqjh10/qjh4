@@ -714,7 +714,7 @@ namespace CardPresentation
             ShowItem("Btn:Practice Deck", mine && (st == 0 || st == 2));          // 原版 :105-112
             ShowItem("Opt:Switch Deck Info", true);                               // 原版没看到 SetActive ⇒ 常显
             // 🆕 **2026-10-18（第四轮 P1）**：藏/露变了 ⇒ 底部那一行要**重新右对齐**（布局组只排 active 子件）。
-            LayoutButtonRow();
+            LayoutButtonRow(); RefreshEditDeckLabel();
 
             // 出声（别静默）：这一窗现在是哪一态、藏了哪几颗、以及判据里**我们做不到**的那两处
             var hidden = new List<string>();
@@ -806,17 +806,17 @@ namespace CardPresentation
         /// （见 `ApplyControlStates` 第 ④ 条 + `CanImportDeck`）⇒ 只剩这一条。</summary>
         void NoteUnimplementedLayers()
         {
-            // `state == 1` 时 `Edit Deck` 的文案换成**另一条本地化键**（原版 :84-95，两条键
-            //    `DAT_1842d05e0` / `DAT_1842d04e0`）。🔴 **2026-10-19（`W57`）就地订正（铁律 5）**：
-            //    这里原来写「词条表在**远端 CCD**（本地无 I2 表）」—— **已过期**：官方 13 语言表自
-            //    2026-10-14 起就在本地（`Resources/official_loc_13lang.json`，现读 10,862 键）。
-            //    今天仍做不到的真正原因是 **那两条键还没解出来**（反编译里是 `_DAT_…` 常量，未换成字面量）
-            //    + 我们**没有 state==1 的生产调用点**（只有 `Editor/CollectionScene.cs` 自检造这一态）
-            //    ⇒ 保持英文标签。
+            // `state == 1` 时 `Edit Deck` 的文案换成**另一条本地化键**（原版 `DeckInfoControls.cs:84-95`）。
+            //   🔴 **2026-11-03（B121-C2）就地订正（铁律 5）**：这里原来写「那两条键还没解出来（反编译是
+            //   `_DAT_…` 常量）+ 我们**没有 state==1 的生产调用点**」—— **两条都已过期**：
+            //   ① 键解出来了 = `MenuDeck/MenuButtons/{EditDeck,ImportDeck}`（`ImportDeckPopup.prefab` 上那颗
+            //      `importString` 的 `mTerm` 就是后者；`Resources/official_loc_13lang.json` 两档都在）；
+            //   ② state==1 **有**生产调用点了：`ImportDeckPopup.TryImport` 解析成功就开这一态（原版同一条路）。
+            //   ⇒ **已接**（`Build()` 里那三颗钮的 `labelText` + `RefreshEditDeckLabel()`），这里只留一条出声。
             if (State == DeckInfoState.Import)
-                Debug.LogWarning("[DeckInfo] state==1（Import）时原版把 `Edit Deck` 的**文案**换成另一条本地化键 —— "
-                                 + "那两条词条键还没解出来（反编译是 `_DAT_…` 常量）⇒ **文案取不到**，"
-                                 + "这扇窗仍显示我们那句英文（不许静默）");
+                Debug.Log("[DeckInfo] state==1（Import）⇒ `Edit Deck` 那颗印 **`MenuDeck/MenuButtons/ImportDeck`**"
+                          + "（原版 `DeckInfoControls.cs:84-95`；同族另一条 = `MenuDeck/MenuButtons/EditDeck`"
+                          + "；`RefreshEditDeckLabel()` 会在每次显隐后重钉一次）");
         }
 
         /// <summary>🆕 2026-10-05（§三第29条 A65②）——
@@ -1510,7 +1510,7 @@ namespace CardPresentation
                 //   键在中英两档表里都有（`Resources/official_loc_13lang.json` 现查三条全在）⇒ 中文档出中文、英文档出英文。
                 //   ⚠️ `btns[]` 那三个串**不是文案**、是**内部键**（`Track("Btn:"+key)` / `OnButton(key)` 认它）
                 //   —— ⛔ 别把 `btns[]` 换成译文，那会把显隐表与动作分派一起打断。
-                string[] btnTerms = { "MenuDeck/HUD/Practice", "MenuDeck/MenuButtons/EditDeck", "MenuDeck/MenuButtons/Select" };
+                string[] btnTerms = { "MenuDeck/HUD/Practice", TermEditDeckKey, "MenuDeck/MenuButtons/Select" };
                 for (int i = 0; i < btns.Length; i++)
                 {
                     // ⚠️ **坐标一律是「页面绝对 px」、basis 给【实际父节点】** ——
@@ -1544,7 +1544,7 @@ namespace CardPresentation
                     if (btns[i] == "Select Deck" && SelectButtonProvided && !string.IsNullOrEmpty(SelectButtonText))
                         labelText = SelectButtonText;
                     else
-                        labelText = Loc.T(btnTerms[i]);
+                        labelText = (btns[i] == "Edit Deck" && State == DeckInfoState.Import) ? Loc.T(TermImportDeckKey) : Loc.T(btnTerms[i]);
                     // 🆕 **A1205 接上**（`R5` §2·F #37：`Buttons ▸ {Practice,Edit,Select} Deck ▸ Button Text`
                     //    三颗逐值相同 = `auto[10~40] · base 12 · 折行 0`）
                     //   🔴 **2026-10-17（`A1207`）就地核到原版 MB**：`Deck info Popup/Buttons/
@@ -2135,7 +2135,7 @@ namespace CardPresentation
                 if (tex != null)
                 {
                     var cbq = Img(b, b, tex, DiCbCX - w * 0.5f, DiCbCY - h * 0.5f, DiCbCX + w * 0.5f, DiCbCY + h * 0.5f,
-                                  "Cardback", QDIRow, false);
+                                  "Cardback", QDIRow, false); BuildCardbackFront(b, tex);
                     // 🔴 **2026-10-18（P1 §2·2 · 报告第 6 条）**：原版 `Cardback` 带 **`↻ +1.60°`**
                     //   （`menu_dump … "Deck info Popup" --depth 12` 的 `↻1.60°`；改前我们画的是正的）。
                     //   旋转中心 = 枢轴（节点中心 = 视觉框中心）—— 矩形/缩放**不动**（表里给的也是未旋转帧）。
@@ -3030,6 +3030,95 @@ namespace CardPresentation
                     + "（**尚未入库** —— `Done` 过了校验才 `Insert` = 原版 `UploadUnsyncedDeck`）");
             Close();                                      // 原版顺序：`EditButtonAction?.Invoke()` → `Close()` → `OpenWindow`
             CollectionWindow.GoNewDeck();
+        }
+
+        // ============================================================ 🆕 2026-11-03（B121-C2）· 追加在类尾
+        //   （本文件被账按 `文件:行号` 引用 252 处、最深 `:2611` ⇒ 类尾新增**零行号漂移**）
+
+        /// <summary>`Edit Deck` 那颗钮在 **`state == 0`** 时的文案键（原版 `DeckInfoControls.cs:84-95` 同族另一条）。</summary>
+        public const string TermEditDeckKey = "MenuDeck/MenuButtons/EditDeck";
+        /// <summary>`Edit Deck` 那颗钮在 **`state == 1`（Import）** 时的文案键。
+        /// <para>判据 = 原版 `DeckInfoControls.cs:84-95`（文案键由 `state == 1` 决定；同族另一条是
+        /// `MenuDeck/MenuButtons/EditDeck`）。键名逐字见 `Import Deck Popup.prefab` 上那颗 `importString`
+        /// 的 `Localize.mTerm`；`Resources/official_loc_13lang.json` 现读 EN = `Import Deck`。
+        /// 🔴 **2026-11-03（B121-C2）**：改前这里（`NoteUnimplementedLayers`）写着「两条键还没解出来、
+        /// 本地取不到」—— **已过期**（铁律 5：就地订正，并接上）。</para></summary>
+        public const string TermImportDeckKey = "MenuDeck/MenuButtons/ImportDeck";
+
+        /// <summary>把 `Edit Deck` 那颗钮的**字**按当前 `State` 重钉一次（`state==1` ⇒ `ImportDeck` 那条键）。
+        /// <para>⚠️ 为什么需要「重钉」而不只在 `Build()` 里算一次：`State` 是 **public 字段**，自检/调用方
+        /// 可以在建完之后改它再调 `ApplyStateVisibility()`（见那一处的 `LayoutButtonRow(); RefreshEditDeckLabel();`）
+        /// —— 只在 `Build()` 里算一次的话，那颗钮会停在旧文案上（**静默**）。</para>
+        /// <para>⚠️ 找不到那颗 `Label` 时**什么都不做**（`Build()` 之前、或 `UI_Button_Mulligan` 取不到图时
+        /// 它不存在）；调用点不需要判空。</para></summary>
+        void RefreshEditDeckLabel()
+        {
+            List<GameObject> parts;
+            if (!_parts.TryGetValue("Btn:Edit Deck", out parts)) return;
+            string txt = Loc.T(State == DeckInfoState.Import ? TermImportDeckKey : TermEditDeckKey);
+            for (int i = 0; i < parts.Count; i++)
+            {
+                if (parts[i] == null) continue;
+                var lb = parts[i].GetComponent<Label>();
+                if (lb != null) { lb.SetText(txt); return; }
+            }
+        }
+
+        // ---- `Cardback Front`（原版 `Deck Info ▸ Cardback ▸ Cardback Front`）的几何 ----
+        /// <summary>子件 `Cardback Front` 的**绝对矩形**（屏幕 px · `menu_dump` 的**未旋转帧**读数）。</summary>
+        const float DiCbFL = 1292.9f, DiCbFT = 263.9f, DiCbFR = 1680.6f, DiCbFB = 823.2f;
+        /// <summary>子件自己的 `m_LocalRotation.z`（原版 **−3.43°**；父件是 <see cref="CardbackRotDeg"/> = +1.60°）。</summary>
+        const float CardbackFrontRotDeg = -3.43f;
+
+        /// <summary>原版 `Cardback` 的**子件** `Cardback Front`（我们改前只画了父层 —— 老账，2026-11-03（B121-C2）补）。
+        /// <para>判据（逐字段实读）= `python 工具/menu_dump.py bundle_menus_assets_all "Deck info Popup" --depth 12`：
+        /// <code>
+        /// 3  Cardback        1361.0 400.1 → 1571.0 705.1  210.00×305.00  Image  ↻1.60°  视觉 ×1.85 → 388.50×564.25
+        /// 4    Cardback Front 1292.9 263.9 → 1680.6 823.2  387.68×559.32  Image  ↻-3.43°
+        /// </code>
+        /// ⇒ ① 子件**布局 209.56×302.33**（父链已带 1.85 ⇒ 屏幕 **387.68×559.32**）；
+        /// ② 中心相对父件偏 **(+11.2, −4.9)**（父局部 px ×1.85 = 屏幕 (+20.72, −9.07)）；
+        /// ③ 世界角 = 父 `+1.60°` + 子 `−3.43°` = **−1.83°**；
+        /// ④ **两个 `Image` 喂的是同一张贴图**（`DeckInfoDrawer.cs:14-36`：`cardbackFront.sprite = sprite;`
+        /// `cardbackBackground.sprite = sprite;` —— 同一个 `deck.GetDeckCardback().CosmeticSprite`）。
+        /// </para>
+        /// <para>⚠️ 上面那两个绝对矩形是 **`menu_dump` 的「未旋转帧」读数**（该工具只标不转）；我们这里
+        /// 直接用它们，⛔ 别自己按 −3.43° 再算一遍 AABB（那会得到 420.5×581.5 = **包住旋转后四边形**的外框）。</para>
+        /// <para>🔴 队列：父层在 `QDIRow`(3124)，子件落到 `QDIRowArt`(3125) —— **必须比父层高一档**（两张同图叠在
+        /// 一起，同档同 z 时谁盖谁退化成渲染器排序）。`QDIRowArt` 本来只给 `Deck List` 抽屉的行图用，而两个抽屉
+        /// **互斥**（`ToggleDrawers`）⇒ 不会同时在场。</para></summary>
+        void BuildCardbackFront(Transform b, Texture2D tex)
+        {
+            if (b == null || tex == null) return;
+            var q = Img(b, b, tex, DiCbFL, DiCbFT, DiCbFR, DiCbFB, "Cardback Front", QDIRowArt, false);
+            if (q == null)
+            {
+                Debug.LogWarning("[DeckInfo] `Cardback Front` 那一层没建出来（`Img` 返回空）—— 出声，不静默");
+                return;
+            }
+            q.transform.localRotation = Quaternion.Euler(0f, 0f, CardbackRotDeg + CardbackFrontRotDeg);
+            _cardbackFront = q.transform;
+        }
+
+        Transform _cardbackFront;
+        /// <summary>`Cardback Front` 的节点（自检用；没建出来 / 卡背图取不到 ⇒ `null`）。</summary>
+        public Transform CardbackFrontForTest { get { return _cardbackFront; } }
+
+        /// <summary>`Edit Deck` 那颗钮**现在印的字**（自检用；`Build()` 之前 / `UI_Button_Mulligan` 取不到图 ⇒ 空串）。</summary>
+        public string EditDeckLabelTextForTest
+        {
+            get
+            {
+                List<GameObject> parts;
+                if (!_parts.TryGetValue("Btn:Edit Deck", out parts)) return "";
+                for (int i = 0; i < parts.Count; i++)
+                {
+                    if (parts[i] == null) continue;
+                    var lb = parts[i].GetComponent<Label>();
+                    if (lb != null) return lb.Text ?? "";
+                }
+                return "";
+            }
         }
     }
 }

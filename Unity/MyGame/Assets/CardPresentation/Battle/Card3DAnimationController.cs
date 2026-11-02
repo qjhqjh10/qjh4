@@ -402,17 +402,17 @@ namespace CardPresentation
             //   把它映射成 `Application.targetFrameRate = -1` ⇒ **真包默认档就是 -1**
             //   （我们自己也照抄了这条映射：`Shell/LocalPlayerData.TargetFramerateFor`，出厂 2 ⇒ −1）。
             //   ⇒ 原式 `OneFrameSlack / -1 + t < 0` ⇔ **`t < 1`：剩不到 1 秒就当帧收尾**。
-            //   ⛔ **这一档本轮【没有】照抄**，停手交调度台裁 —— 反证：现读 `cardanim_clips.json`
-            //   1067 条卡体动画里 **881 条 ≤ 1.0 s（82.6%）**（`vd+ts+tm+te`，中位数 0.75）
-            //   ⇒ 照抄会让它们**在第一次 `Update` 就当帧收尾**（= 整层卡体动画不播），其余 186 条也一律被砍掉 1 秒。
-            //   完整反证与两个候选方案 → `资料/完全复刻/报告/B120_W10_执行.md` §Q7。
-            // 🔶 自己设计（非原版）：`fps <= 0` 时的「一帧裕量」按 **60 fps** 算（= 1/60 s）· 为什么必须自己定：
-            //    照抄原版那一档会让 82.6% 的卡体动画当帧收尾（见上），本格**待调度台裁定** · B120-W10 2026-11-02
-            //   ⚠️ **2026-10-23（第六十六会话实跑红的）**：初稿为了防除零写成 `Mathf.Max(1, fps)` ⇒ 裕量被放大成
-            //   **1.0 秒**，一条 0.2 s 的 clip 推 0.33 s 还**不会收尾**（`BattleScene.Run` 当场红：
-            //   「回调 False · enabled True · 剩 clip 1 · 收尾 0 次」）⇒ ⛔ 别把它写成 `Mathf.Max(1, fps)`。
-            int fps = Application.targetFrameRate;
-            if (fps <= 0) fps = 60;
+            //   🔴 **2026-11-03（执行写手 `B121-WB` · 账 `B120-Q07`）裁定 = 照抄**：原版没有「`fps <= 0` ⇒ 按 60 算」
+            //      这个钳制（`__Update.c:22-23` 把 `Application.targetFrameRate` **原样**喂进式子）⇒ 本类原来那一行
+            //      `if (fps <= 0) fps = 60;`（🔶 自设计，理由 = 「照抄会让 82.6% 的卡体动画当帧收尾」）**已删除**。
+            //      那个 82.6% 是**事实、不是理由**：原版就是这样（881/1067 条 ≤ 1.0 s 的卡体动画在原版里
+            //      也是第一次 `Update` 就 `AnimFinished`）—— 复刻要的是「与原版一致」，不是「我们自己觉得更好看」。
+            //      ⚠️ 如实记一条边界：`fps == 0` 时 `1.0f / 0f = +∞` ⇒ 动画**永不到期**（原版同，⛔ 别加特判；
+            //      `GameStaticData.FPSLimit` 的三档映射 0→30 / 1→60 / 2→-1 只产出 30/60/-1，0 不可达）。
+            //      ⚠️ **2026-10-23（第六十六会话实跑红的）**：初稿为了防除零写成 `Mathf.Max(1, fps)` ⇒ 裕量被放大成
+            //      **1.0 秒**，一条 0.2 s 的 clip 推 0.33 s 还**不会收尾** ⇒ ⛔ 别把它写成 `Mathf.Max(1, fps)`。
+            int fps = Application.targetFrameRate;   // 🔴 原版那一格，**原样**喂下去（⛔ 不再钳制 —— 见上）
+            // 自检闸：`CardPresentation/Editor/B121_WB_Assert.cs` C 段钉住「-1 档第一次 `Update` 就收尾」。
             if (!FrameSlackExpired(fps, _currentAnimationTime)) return;
 
             if (_unitWasFlying)
@@ -502,8 +502,8 @@ namespace CardPresentation
         /// `decomp_full/Card3DAnimationController__Update.c:22-23`：
         /// `Application.targetFrameRate → OneFrameSlack / (float)fps + remaining &lt; 0`。
         /// <para>⚠️ 这里**不加任何钳制** —— `fps = -1` 就按原版算成 `-1 + remaining`（⇒ `remaining &lt; 1` 即到期）；
-        /// `fps = 0` 时 `1.0f / 0f` = `+∞` ⇒ 永不收尾（原版同，⛔ 别给它加特判）。钳制在调用点
-        /// （<see cref="Update"/> 的 🔶 标记：本轮 `fps &lt;= 0` 按 60 算，**待调度台裁定**）。</para>
+        /// `fps = 0` 时 `1.0f / 0f` = `+∞` ⇒ 永不收尾（原版同，⛔ 别给它加特判）。**调用点也已无钳制**
+        /// （2026-11-03 `B121-WB`：`fps &lt;= 0 ⇒ 60` 那一行已删，见 <see cref="Update"/> 里那段裁定）。</para>
         /// <para>把这条式子单独拎出来，是为了让自检能**把「照抄原版会怎样」直接断出来**
         /// （`Editor/B120_W10_Assert.cs` C 组）—— 否则反证只是一段散文、下个会话无法机检。</para></summary>
         public static bool FrameSlackExpired(int targetFrameRate, float remaining)

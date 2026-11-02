@@ -327,9 +327,9 @@ public static class B117_WBD_Assert
         Check(src.IndexOf("NoteAttackTween(CardFeel.MeleeAttack(", StringComparison.Ordinal) >= 0
            && src.IndexOf("NoteAttackTween(CardFeel.AttackRecover(", StringComparison.Ordinal) >= 0,
               "★ ⑤（源级）两条攻击补间都登记进「暂停即提速」那一组（`NoteAttackTween(...)`）");
-        Check(src.IndexOf("ApplyReplaySkipToLiveAttackTweens(on);", StringComparison.Ordinal) >= 0,
-              "★ ⑤（源级）`SetReplayPaused` 会把**在飞**的攻击补间一起提速 / 复原"
-            + "（原版暂停之后，正在 `WaitForSeconds(get_AttackStepTime())` 的协程立刻变快）");
+        Check(src.IndexOf("void ApplyReplaySkipToLiveAttackTweens", StringComparison.Ordinal) < 0
+           && src.IndexOf("readonly List<Tween> _attackTweens", StringComparison.Ordinal) < 0 && src.IndexOf("_attackTweens.Add(", StringComparison.Ordinal) < 0,
+              "★ ⑤（源级·反向）`ApplyReplaySkipToLiveAttackTweens` / `_attackTweens` 已删（C08）：跳过档改由 `stepScale` 按段缩，⛔ 别加回来（会双重缩放）");
         Check(src.IndexOf("plan.At = ReplayScaledAttackStep(EventTiming.AttackStepRanged);", StringComparison.Ordinal) >= 0
            && src.IndexOf("float vfxAt = ReplayScaledAttackStep(", StringComparison.Ordinal) >= 0,
               "★ ⑤（源级）远程那两处调度（VFX 时刻 / `plan.At`）也走同一个 ÷3 口径");

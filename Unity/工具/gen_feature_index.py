@@ -468,6 +468,104 @@ def _fmt_mtime(paths):
     return time.strftime('%Y-%m-%d %H:%M', time.localtime(max(mts))) if mts else '?'
 
 
+# ======================================================================================
+# 关键词 / 机制名 → 功能点（🆕 2026-11-03 `B121-WF`）
+#
+# 起因（用户原话）：「或者卡牌总索引工具有说对应卡牌的代码在什么地方……以后方便查询」。
+# 症状：本文件 180 个功能点里搜「祈祷」**0 命中** —— 关键词只被笼统归进 `关键词与词条（含光环 / buff）`
+# 一条，且那一行的文本里**没有任何关键词名**。
+#
+# 做法（两条，都**只读现成产物**，⛔ 不在本文件另造一套关键词数据）：
+#   ① 关键词来源 = `判据/关键词与效果词_代码落点索引.tsv`（`gen_card_dossier.py --kwindex` 的产物，140 行）；
+#      它没有/读不到 ⇒ **出声**（⛔ 不许静默当「没有关键词」）。
+#   ② §1 总表：把该功能点覆盖的关键词名**并进备注列**（搜「祈祷」能直接命中那一行）；
+#      §6 新增一节：关键词 | 类别 | 实现方法 | 文件:行 | 域 | 备注。
+#
+# ⚠️ `KW_FP_HINT` 是**人工裁定**的关键词 → 功能点归属（一个关键词只挂一处；没列到的落到
+#   `关键词与词条（含光环 / buff）`）—— 它是「**归到哪一行最有用**」的编辑判断，⛔ 不是判据。
+# ======================================================================================
+KW_TSV = os.path.join(r'D:/4/Unity/资料/完全复刻/判据', '关键词与效果词_代码落点索引.tsv')
+
+KW_FP_HINT = {
+    '攻击与伤害结算': ['Strike', 'Slay', 'LongRange', 'SneakAttack', 'Sniper', 'Terror',
+                 'BloodThirst', 'Mob', 'Regiment', 'Destroyer', 'DoubleRage', 'Cruelty', 'Penitence'],
+    '出牌与目标选择': ['Rally', 'Teleport', 'Uprising', 'Ambush', 'SummonRift', 'GiantKiller'],
+    '死亡 / 残骸 / 墓地': ['Remnant', 'Waystone', 'Survivor', 'SurvivorSpent', 'Sacrifice', 'DropPod',
+                    'Backlash', 'Unstable', 'Requiem', 'Landing'],
+    '召唤 / 造牌 / 偷牌 / 变身': ['Sabotage', 'Companion', 'Swarm'],
+    '回合流转与能量': ['SpentAllMana', 'BloodThirst'],
+    '关键词与词条（含光环 / buff）': None,      # None = 收「没被别处列过的全部」
+}
+
+# 落点文件 → 域（与账的域名对齐；只用于展示，⛔ 不参与任何判定）
+DOMAIN_BY_PATH = [
+    ('RuleEngine/Core/', '战斗逻辑驱动'),
+    ('RuleEngine/Data/', '战斗逻辑驱动'),
+    ('CardPresentation/Battle/', '战斗界面/HUD'),
+    ('CardPresentation/Hand/', '战斗界面/HUD'),
+    ('CardPresentation/Board/', '战斗界面/HUD'),
+    ('CardPresentation/Effects/', '特效动画'),
+    ('CardPresentation/Net/', '联机'),
+    ('CardPresentation/Core/', '卡牌面/渲染'),
+]
+
+
+def _kw_domain(path):
+    for pre, dom in DOMAIN_BY_PATH:
+        if pre in path:
+            return dom
+    return '未分类/其他'
+
+
+def load_keyword_index():
+    """读 `判据/关键词与效果词_代码落点索引.tsv` → (rows, note)。
+
+    每行 = dict(disp, cat, method, loc, src, note, constant, domain)。
+    读不到 ⇒ 返回 ([], 原因)；调用方**必须出声**（⛔ 不许静默当「没有关键词」）。
+    """
+    if not os.path.exists(KW_TSV):
+        return [], f'盘上没有 {KW_TSV}（先跑 `python -I -X utf8 d:/4/Unity/工具/gen_card_dossier.py --kwindex --write`）'
+    raw = io.open(KW_TSV, encoding='utf-8', newline='').read()
+    lns = [l.rstrip('\r') for l in raw.split('\n')]
+    hdr = None
+    out = []
+    for l in lns:
+        if not l or l.startswith('#'):
+            continue
+        p = l.split('\t')
+        if hdr is None:
+            hdr = p
+            continue
+        if len(p) < 6:
+            continue
+        disp, cat, method, loc, src, note = p[0], p[1], p[2], p[3], p[4], p[5]
+        # 常量名：`Pray（Pray / 祈祷）` → `Pray`；动词行没有括号 ⇒ 原样（动词不参与关键词归属）
+        const = re.split(r'[（(]', disp)[0].strip()
+        out.append({'disp': disp, 'cat': cat, 'method': method, 'loc': loc, 'src': src,
+                    'note': note, 'const': const, 'domain': _kw_domain(loc)})
+    return out, ('' if hdr else '表里没有列名行（文件可能是空的）')
+
+
+def keyword_owner_map(rows):
+    """关键词常量名 → 功能点名（`KW_FP_HINT` 的逆表；没列到的落到「关键词与词条」）。"""
+    owner = {}
+    for fn, kws in KW_FP_HINT.items():
+        for k in (kws or []):
+            owner[k] = fn
+    return owner
+
+
+def _kw_short(disp):
+    """`Pray（Pray / 祈祷）` → `祈祷(Pray)`；官方没有词条的只留常量名；其它原样返回。"""
+    if '官方 Card_Trait 无此词条' in disp:
+        return re.split(r'[（(]', disp)[0].strip()
+    m = re.match(r'^(\S+?)（[^（）]*/\s*([^（）/]+)）$', disp)
+    if m:
+        return f'{m.group(2).strip()}({m.group(1)})'
+    return disp
+
+
+
 def collect_part_recompute():
     """**表体重算**：按每份 part 的 `原版构成` 现读账展开，重算 FP 级等级分布与去重构成合计。
 
@@ -611,6 +709,14 @@ def main(argv=None):
     A('')
     A('| # | 功能点 | 主链/边角（我判） | 账推分类（P0⇒主链 / P1P2⇒边角） | 域 | 挂哪些类.方法（前几个） | 方法数 | 状态分布 | 最高档 | 备注 |')
     A('|---|---|---|---|---|---|---|---|---|---|')
+    # 🆕 2026-11-03（`B121-WF`）：关键词 → 功能点（搜「祈祷」要能命中，见 §6）
+    kw_rows, kw_err = load_keyword_index()
+    _owner = keyword_owner_map(kw_rows)
+    kw_by_fp = collections.defaultdict(list)
+    for _r in kw_rows:
+        if _r['cat'] != '关键词':
+            continue
+        kw_by_fp[_owner.get(_r['const'], '关键词与词条（含光环 / buff）')].append(_kw_short(_r['disp']))
     order = {'主链': 0, '边角': 1, '暂停': 2}
     items = sorted(groups.items(), key=lambda kv: (order.get(kv[0][1], 9), -len(kv[1]['rows'])))
     for i, ((fn, kind, dom), g) in enumerate(items, 1):
@@ -646,6 +752,10 @@ def main(argv=None):
             note = (note + ' ' if note else '') + '⏭ 推进顺序：' + RESUME['轮抽模式']
         if fn == '存档与玩家数据':
             note += (' ⚠️ 原版存档系统我们是**整体替换**的，这批 C 是否成立要按方案 §4.1 重判（⛔ 不属本轮）')
+        # 🆕 2026-11-03（`B121-WF`）：把该功能点覆盖的关键词名并进备注 ⇒ 搜「祈祷」能直接命中这一行。
+        _kws = kw_by_fp.get(fn)
+        if _kws:
+            note = (note + ' ' if note else '') + '🔎 关键词（%d）：%s —— 落点见 §6' % (len(_kws), '、'.join(_kws))
         A(f'| {i} | **{disp}** | {kind} | {derived} | {dom} | {cls_s}<br>例：`{sample}` | {len(rs)} | {dist} | **{best}** | {note} |')
     A('')
     A('## §2 怎么读这张表（验收三法怎么挂）')
@@ -739,6 +849,33 @@ def main(argv=None):
       '⚠️ 但「暂停」现在**逐条规则写死**（不是按域名切），活动线里**不**暂停的条目（`排位赛与遭遇战模式`）不会跟着被标暂停。')
     A('5. **⏭ 编译器生成类型那几行不参与验收**：只为「账没有丢行」留档（见 §1 备注与 `SKIP_NODES`）。')
     A('')
+
+    # ---------------------------------------------------------------- §6 关键词/机制名 → 代码落点
+    # 🆕 2026-11-03（`B121-WF`）：用户要的是「搜『祈祷』能查到代码在哪」。§1 的备注里已经点了名，
+    # 这里给**逐条落点**（数据源是 `gen_card_dossier.py --kwindex` 的产物，⛔ 本文件不另造一套）。
+    A('## §6 关键词 / 机制名 → 代码落点（搜「祈祷」「Deal damage」从这里进）')
+    A('')
+    if kw_err:
+        A(f'> ❌ **关键词表没读到**：{kw_err} —— 本节因此只有表头，⛔ 别当成「没有关键词」。')
+        print('⚠️ 关键词索引：' + kw_err)
+    else:
+        A(f'> 数据源：`判据/关键词与效果词_代码落点索引.tsv`（`python -I -X utf8 d:/4/Unity/工具/gen_card_dossier.py --kwindex --write` 的产物；'
+          f'现读 **{len(kw_rows)} 行** · mtime `{_fmt_mtime([KW_TSV])}`）。')
+        A('> 行号**每次现读**（符号锚 = 声明行正则），源码一动就重跑；**「查不到」= 真查不到**（⛔ 不是没写）。')
+        A('> 一眼三档：**关键词** = 卡面/数据里的词 · **卡面动词** = 正文动词 → `EffectResolver.EffectDispatch` 的 handler · **trigger** = 原版 `AbilityTrigger` 名/数值。')
+        A('')
+        A('| 关键词/动词 | 类别 | 实现方法 | 文件:行 | 域 | 备注 |')
+        A('|---|---|---|---|---|---|')
+        for _r in kw_rows:
+            # ⚠️ 先截断**再**转义竖线：反过来会把 `\|` 截成半截 `\` ⇒ 后面那格的 `|` 被吃掉（表格错列）
+            A('| %s | %s | `%s` | `%s` | %s | %s |' % (
+                _r['disp'][:120].replace('|', '\\|'), _r['cat'], _r['method'][:80].replace('|', '\\|'),
+                _r['loc'], _r['domain'], _r['note'][:200].replace('|', '\\|')))
+        A('')
+        A(f'共 **{len(kw_rows)}** 行：' + ' · '.join(
+            f'{k} {v}' for k, v in sorted(collections.Counter(x["cat"] for x in kw_rows).items())) +
+          '。示例三条查法见报告 `报告/B121_WF_索引.md` §三条示例查询。')
+        A('')
     if out:
         with io.open(out, 'w', encoding='utf-8', newline='\n') as f:
             f.write('\n'.join(L) + '\n')

@@ -1,5 +1,6 @@
 {
  "_note": "原版队列真值。生效队列 = mat[材质名] 若 >=0，否则 shader[shader名]。由 工具/gen_renderqueue_truth.py 从 assets_full 的原始 JSON 生成，别手改。",
+ "_conflict_policy": "同名多值不静默：① 若各份的**生效队列**（queue>=0 用它，否则 shader QUEUE）相同 ⇒ 直接用那个值；② 真歧义 ⇒ mat 表取非负最小值（旧行为，消费方 EffectExporter 实际用的是这一份），**并逐条打印 + 记录在 _conflicts / _conflict_sources 里**。⚠️ 按名字键的 mat 表**结构上表达不了两个同名不同资产**；要彻底区分得让消费方带 bundle 维度（未做，见报告）。",
  "_conflicts": {
   "SandParticle": [
    3000,
@@ -8,6 +9,40 @@
   "Campaign Points": [
    -1,
    3000
+  ]
+ },
+ "_conflict_sources": {
+  "SandParticle": [
+   {
+    "queue": 3000,
+    "effective": 3000,
+    "shader": "Universal Render Pipeline/Particles/Unlit",
+    "bundle": "bundle_battleprefabs_vfxandmisc_assets_all",
+    "file": "bundle_battleprefabs_vfxandmisc_assets_all/Material/Material_406942044651542579.json"
+   },
+   {
+    "queue": 3001,
+    "effective": 3001,
+    "shader": "Universal Render Pipeline/Particles/Unlit",
+    "bundle": "bundle_battlesharedresources_assets_all",
+    "file": "bundle_battlesharedresources_assets_all/Material/Material_6754647309651436631.json"
+   }
+  ],
+  "Campaign Points": [
+   {
+    "queue": 3000,
+    "effective": 3000,
+    "shader": "Everguild/UI/Campaign Points",
+    "bundle": "bundle_menusharedresources_assets_all",
+    "file": "bundle_menusharedresources_assets_all/Material/Material_-9201859392408540328.json"
+   },
+   {
+    "queue": -1,
+    "effective": 3000,
+    "shader": "Everguild/UI/Campaign Points",
+    "bundle": "bundle_shaders_assets_all",
+    "file": "bundle_shaders_assets_all/Material/Material_4211551213075265906.json"
+   }
   ]
  },
  "mat": {
@@ -399,6 +434,7 @@
   "SandParticle_blend": 3000,
   "Explosion_big_ground": -1,
   "Hexagon_2": 3000,
+  "SandParticle": 3000,
   "Cut Arc_blend": 3000,
   "WarpStuff_extra": -1,
   "Sororitas_Flames_TwoLayer": -1,
@@ -810,6 +846,7 @@
   "UI Color Multiplier": -1,
   "Border Highlight Appear Yellow": -1,
   "Lightning Random UI": 3000,
+  "Campaign Points": 3000,
   "UI Border Mask Welcome Screen Mode": -1,
   "Aura_2": 3000,
   "Border Chest Collect": -1,
@@ -985,9 +1022,7 @@
   "LiberationSans SDF Material": -1,
   "LiberationSans SDF - Drop Shadow": -1,
   "LiberationSans SDF - Outline": -1,
-  "Default-Skybox": -1,
-  "SandParticle": 3000,
-  "Campaign Points": -1
+  "Default-Skybox": -1
  },
  "shader": {
   "Unlit/ScrollingTextures": null,

@@ -387,6 +387,7 @@ GoopSplat_blood	2454
 SandParticle_blend	3000
 Explosion_big_ground	-1
 Hexagon_2	3000
+SandParticle	3000
 Cut Arc_blend	3000
 WarpStuff_extra	-1
 Sororitas_Flames_TwoLayer	-1
@@ -798,6 +799,7 @@ Asar-Regular White	-1
 UI Color Multiplier	-1
 Border Highlight Appear Yellow	-1
 Lightning Random UI	3000
+Campaign Points	3000
 UI Border Mask Welcome Screen Mode	-1
 Aura_2	3000
 Border Chest Collect	-1
@@ -974,5 +976,3 @@ LiberationSans SDF Material	-1
 LiberationSans SDF - Drop Shadow	-1
 LiberationSans SDF - Outline	-1
 Default-Skybox	-1
-SandParticle	3000
-Campaign Points	-1

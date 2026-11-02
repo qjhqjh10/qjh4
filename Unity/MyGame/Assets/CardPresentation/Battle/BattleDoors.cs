@@ -49,21 +49,21 @@ namespace CardPresentation
             { Result.Draw,    "draw"    },
         };
 
-        /// <summary>🆕 **开门音效**（2026-09-27 接）。原版每一档都配一支 `AudioCue`，走
-        /// `SoundManager.Play2D(cue, MixerType.Jingles /*=3*/)`（`EndBattleDoors__SetupDoor.c:113`；
-        /// 三支 cue 的字段偏移 = `victoryCue` 0xB0 / `defeatAudioCue` 0xB8 / `drawAudioCue` 0xC0）。
-        /// 🔴 **这三个不在那三条 .mp4 里** —— 原版那三条片子**没有音轨**（实测 `audioTrackCount=0`），
-        /// 音效是**另播**的；我们原来**一支都没接**（`audioOutputMode = None` ⇒ 静默）。
-        /// 资产：`素材/Warpforge原版/音频/音效库/AudioClip/{MatchVictory,MatchDefeat,MatchDraw}.ogg`
-        /// ⇒ 已拷进 `Resources/Art/audio/sfx/`（`Art/` 整个目录 gitignore，**原版资产不进仓库**）。
-        /// ⚠️ 删掉那三支 ⇒ `Resources.Load` 返回 null ⇒ **静默跳过音效**（画面照常，与删视频同一条退化路）。</summary>
+        /// <summary>🆕 **开门音效**（2026-09-27 接 · **2026-11-03（`B121-AUD-05`）改走 cue**）。原版每一档都配一支 `AudioCue`，
+        /// 走 `SoundManager.Play2D(cue, MixerType.Jingles /*=3*/)`（`EndBattleDoors__SetupDoor.c:113`；三个字段
+        /// `victoryCue` 0xB0 / `defeatAudioCue` 0xB8 / `drawAudioCue` 0xC0 → 三个 pid）⇒ 在 `soundcollection_assets_all`
+        /// 束里解成 cue 资产 **`Victory` / `Defeat` / `Draw`**（**cue 名 ≠ clip 名**：clip 才是 `MatchVictory` 那三支）。
+        /// 🔴 **音量来自 cue**：三条包装实测 **min/maxVolume = 0.7** · pitch 1.0 · `timeToPlayAgain 0.1`；
+        /// 我们原来直接 `Resources.Load<AudioClip>` + `PlayOneShot` ⇒ **按 1.0 播 = 比原版响 1.43 倍**（已改）。
+        /// 🔴 **这三个不在那三条 .mp4 里** —— 片子**没有音轨**（实测 `audioTrackCount = 0`），音效是**另播**的。
+        /// ⚠️ 退化路：cue 表里查不到 ⇒ `WindowSounds` 出声一次、**画面照常**（与删视频同一条退化路，⛔ 不静默）。</summary>
         static readonly Dictionary<Result, string> CueName = new Dictionary<Result, string>
         {
-            { Result.Victory, "MatchVictory" },
-            { Result.Defeat,  "MatchDefeat"  },
-            { Result.Draw,    "MatchDraw"    },
+            { Result.Victory, "Victory" },
+            { Result.Defeat,  "Defeat"  },
+            { Result.Draw,    "Draw"    },
         };
-        const string CueRoot = "Art/audio/sfx/";
+        // （2026-11-03 `B121-AUD-05`）原来这里是 `const string CueRoot = "Art/audio/sfx/";` —— 改走 cue 之后不再直接 `Resources.Load`；留成注释只为不动下游账落点（`:73/:78` 被账按行号引用）。
 
         /// <summary>🆕 原版 `SetupDoor` **返回的是 `clip.length + 一个常量`**（不是光片长）——
         /// 那个常量是 `EndBattleDoors` ctor 里的 `commonAnimationScaleTime`
@@ -120,8 +120,8 @@ namespace CardPresentation
         RectTransform _screenRt;
         RawImage _screen;
         Material _mat;
-        /// <summary>开门音效那个 `AudioSource`（🆕 2026-09-27）。</summary>
-        AudioSource _sfx;
+        /// （2026-11-03 `B121-AUD-05`）原来这两行是「开门音效那个 `AudioSource`（🆕 2026-09-27）」+ `AudioSource _sfx;`
+        //   —— 音效改走 `WindowSounds.PlayJingles`（cue 表 / 节流 / Jingles 组一处收口）之后不再需要专属音源。
 
         float _length, _t;
 
@@ -335,13 +335,13 @@ namespace CardPresentation
             _player.skipOnDrop = true;
             _player.gameObject.SetActive(false);
 
-            // 🆕 开门音效那条路（**与视频无关的另一支** —— 原版那三条 .mp4 没有音轨）。
-            //    宿主挂在 `BattleDoors` 外节点上（它是「一次开门」的那颗脚本节点，和原版同构）。
-            _sfx = gameObject.AddComponent<AudioSource>();
-            _sfx.playOnAwake = false;
-            _sfx.loop = false;
-            _sfx.spatialBlend = 0f;                                       // 原版就是 `Play2D`
-            _sfx.outputAudioMixerGroup = WarpforgeAudio.JinglesGroup;      // 原版 `MixerType.Jingles`（=3）
+            // 🔴 **2026-11-03（`B121-AUD-05`）这里原来建一支专属 `AudioSource _sfx`**（`AddComponent<AudioSource>` +
+            //    `playOnAwake=false` / `loop=false` / `spatialBlend=0` / 挂 `WarpforgeAudio.JinglesGroup`）。
+            //    开门音效改走 `WindowSounds.PlayJingles` 之后**不再需要它** —— 那条路就是「原版
+            //    `SoundManager.Play2D(cue, Jingles)`」的等价物：cue 表 + `timeToPlayAgain` 节流 + Jingles 组**一处收口**。
+            //    （`WFSoundPlayer` 自己租音源、自己按 cue 的 min/maxVolume+min/maxPitch 播 ⇒ 那 5 行里的参数它全包了。）
+            //    ⚠️ 这 5 行留成注释**只为不动下游账落点**（`账/战斗界面_HUD.tsv:456` 引 `BattleDoors.cs:352`、
+            //    `:700` 引 `:434`）—— ⛔ 别把上面的代码往下拉、也别在这里加回音源。
         }
 
         /// <summary>
@@ -352,7 +352,7 @@ namespace CardPresentation
         public float SetupDoor(Result r)
         {
             Stop();
-            HasVideo = false;
+            HasVideo = false; PlayCue(r);   // 🔴 2026-11-03（`B121-FIX`）：原版 `EndBattleDoors__SetupDoor.c:113` **无条件**播开门音效；原来这句排在下游两处早退（`ClipName` 未命中 / `Resources.Load<VideoClip>` 拿不到）之后 ⇒ **没有视频资产时连音效也不播**。挪到早退之前 ⇒ 早退只挡视频、不挡音效。
             Clip = null;
             _length = 0f;
             // 🔴 闸门**默认开着**，下面真取到片再关回去 —— 这样所有「早退 / 取不到片」的分支
@@ -432,7 +432,7 @@ namespace CardPresentation
             Clip = name;
             _length = (float)clip.length + CommonAnimationScaleTime;
             _finished = false;                 // 有片 ⇒ 闸门关着，等 `Advance` 推够 `_length`（见 `Finished`）
-            PlayCue(r);
+            // （2026-11-03 `B121-FIX`）原 `PlayCue(r);` 已上移到本方法开头 —— 原版 `.c:113` 是**无条件**播，而它原位置排在两处早退之后（没有视频资产 ⇒ 连音效也不播）。这一行留成注释**只为不动下游账落点**（账引 `:352` / `:434`，`PlayCue` 声明在 `:472`）。
             return _length;
         }
 
@@ -453,37 +453,37 @@ namespace CardPresentation
         /// <summary>停下并丢掉这轮的状态（重开一局要调）。
         /// ⚠️ **不清 `_t`** —— 播完之后 `Elapsed` 要留在片长上给自检对账；
         ///    `Play()` 自己会把它归零，所以留着不会串到下一局。</summary>
-        /// <summary>这一档的开门音效**加载得到吗**（自检用：缺了会出声警告，但不该悄悄少一件）。</summary>
+        /// <summary>这一档的开门音效**查得到吗**（自检用：缺了会出声警告，但不该悄悄少一件）。🔴 2026-11-03（`B121-AUD-05`）改判据：
+        /// 原来判「clip 能不能 `Resources.Load`」→ 现在判 **cue 表里有没有这条 cue**（原版 `LoadAsset<AudioCue>` 拿到的就是它）。</summary>
         public static bool HasCue(Result r)
         {
             string cue;
-            if (!CueName.TryGetValue(r, out cue)) return false;
-            return Resources.Load<AudioClip>(CueRoot + cue) != null;
+            return CueName.TryGetValue(r, out cue) && WarpforgeVFX.WFSoundBank.HasCue(cue);
         }
 
-        /// <summary>放这一档的开门音效（原版 `SoundManager.Play2D(cue, MixerType.Jingles)`）。
-        /// ⚠️ **资产不在就只出一行警告、画面照常**（与视频同一条退化路：删掉 `Resources/Art/` 之后
-        /// 结算界面照常显示，只是没声、没片）。</summary>
+        /// <summary>放这一档的开门音效 —— 原版 `SoundManager.Play2D(cue, MixerType.Jingles)`（`EndBattleDoors__SetupDoor.c:113`）。
+        /// 🔴 **2026-11-03（`B121-AUD-05`）改走 cue**：原版音量来自 `AudioCue` 包装 —— 13 场 arena 的 `EndBattleDoors`
+        /// 三个字段 `victoryCue`(+0xB0) / `defeatAudioCue`(+0xB8) / `drawAudioCue`(+0xC0) → pid
+        /// `-8834901031682234264` / `-1641929618139842138` / `-2870999988157826586`，在 `soundcollection_assets_all` 束里
+        /// 逐条解成 cue 资产 **`Victory` / `Defeat` / `Draw`**，参数都是 **min/maxVolume 0.7** · pitch 1.0 · ttp 0.1。
+        /// 我们原来直接 `Resources.Load<AudioClip>` + `PlayOneShot` ⇒ **按 1.0 播 = 比原版响 1.43 倍**。
+        /// ⇒ 现在走 `WindowSounds.PlayJingles`（cue 表 / 节流 / Jingles 组的**唯一**实现；
+        /// ⛔ 别在这里再挑一次 clip、也别自己 `Lerp` 音量）。</summary>
         void PlayCue(Result r)
         {
-            if (_sfx == null) return;
             string cue;
             if (!CueName.TryGetValue(r, out cue)) return;
-            var clip = Resources.Load<AudioClip>(CueRoot + cue);
-            if (clip == null)
-            {
-                Debug.LogWarning("BattleDoors：没有开门音效 `" + CueRoot + cue +
-                                 "`（原版每档一支、走 Jingles 组）—— 视频照播，只是**没声**");
-                return;
-            }
-            _sfx.PlayOneShot(clip);
+            // 缺 cue / 缺 clip ⇒ `WindowSounds.Play` **自己出声**并返回 false（红线：不静默），这里不当错误。
+            // ⚠️ 节流由 cue 的 `timeToPlayAgain` 管（原版 `AudioCue.ConfigAudioSource` 同一个闸），⛔ 别自己判。
+            // ⚠️ 也别退回「直读 clip + `PlayOneShot`」—— 那会丢掉 **0.7** 这个音量（本条就是为它改的）。
+            WindowSounds.PlayJingles(cue, "BattleDoors 开门音效（原版 `SetupDoor` 的 Jingles 那条）");
         }
 
         public void Stop()
         {
             Playing = false;
             _finished = false;                      // 闸门跟着这次开门一起作废（下一次 `SetupDoor` 重新定）
-            if (_sfx != null) _sfx.Stop();          // 🆕 音效也停（开第二局时别把上一局的 jingle 拖着）
+            // （2026-11-03 `B121-AUD-05`）原 `_sfx.Stop()` 已去掉：改走 `WindowSounds`（共享池）没有「停这一条」的口（原版 `SoundManager.Play2D` 也没有）；jingle 是一次性短音、两次开门隔着整场比赛。占位一行保持行号。
             if (_player != null)
             {
                 _player.Stop();
@@ -572,6 +572,16 @@ namespace CardPresentation
         /// ⚠️ 它和 `Playing` 是两回事：`Playing` 是**我们的时序**（按片长算），
         ///    这个是**解码器**的真实进度 —— 批处理里只有把主线程还给编辑器环路它才动。</summary>
         public int DecodedFrames { get { return _player == null ? -1 : (int)_player.frame; } }
+
+        // ── 🆕 2026-11-03（`B121-AUD-05`）：开门音效走哪条 **cue**（自检读口）────────────────────────
+        //  只读、播放器构建里也在（无副作用）。断言在 `Editor/B121_AUD_Assert.cs`。
+        /// <summary>这一档走的是哪条 **cue 资产名**（⛔ 不是 clip 名 —— 改走 cue 之后两者不同：
+        /// `Victory` vs `MatchVictory`；`null` = 这一档没有 cue 字段）。判据 → `CueName` 的 doc。</summary>
+        public static string CueAssetOf(Result r)
+        {
+            string cue;
+            return CueName.TryGetValue(r, out cue) ? cue : null;
+        }
 
         // ── 🆕 2026-10-20（W57 · `T09` 步骤 A3-d）：**Editor-only 只读探针** ────────────────────
         //  ⚠️ 只读、且**播放器构建里不存在**（`#if UNITY_EDITOR`）。断言写在 `Editor/BattleScene.cs`

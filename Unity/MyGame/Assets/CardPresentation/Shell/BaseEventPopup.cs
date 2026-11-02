@@ -38,7 +38,7 @@
 //   ② `warlordImage` 非空 ⇒ `LoadAsset(liveOps, warlordImageTag)` 一路 `set_sprite`；
 //   ③ `titleText` / `descriptionText` 非空 ⇒ `GetLabel(liveOps, tag, Array.Empty())` → `set_text`；
 //   ④ `trigger`（那颗整屏 `Collider` 的 `EverguildButton`）的 `onClick += Close`；
-//   ⑤ `HasAsset(liveOps, 8 /*OpenSound*/)` 才 `AudioCue.Play2D`（prefab 里 `openSound` 是 null）。
+//   ⑤ `HasAsset(liveOps, 8 /*OpenSound*/)` ⇒ `LoadAsset<AudioCue>(8)` 非空才 `AudioCue.Play2D(MixerType.Jingles)` —— 🔴 **2026-11-03 就地订正（`B121-AUD-04`）**：原来这里写「prefab 里 `openSound` 是 null ⇒ 无音可播」，**口径错**：原版读的是**事件数据** `EventAssets[key=8]`（`cpp2il/out_il2csharp/Assembly-CSharp/BaseEventPopup.cs:56-60`；`decomp_full/BaseEventPopup__Open.c` 末段 `HasAsset(…,8)` → `LoadAsset<AudioCue>(…,8)` → `AudioCue__Play2D(…,3)`），本地 2 份活动 SO 真有（`Expansion Orks1` / `Release Space Wolves` 的 Parent Event，见 `PlayOpenSound`）。
 //   🔴 **拿不到标签时 `set_text` 写的是空串**（`GetLabel`：`GetEventLabel` 返回 0 ⇒ 回
 //      `DAT_184557100 + 0xb8` 那个静态空串）—— **不是**保留 prefab 里烤的那句样例文案。
 //      ⇒ 我们拿不到事件标签时，标题/正文**留空**是**照原版**，不是我们的取舍。
@@ -290,7 +290,7 @@ namespace CardPresentation
 
         public override void Open()
         {
-            LastOpened = this; AutoAttachEventImage();
+            LastOpened = this; AutoAttachEventImage(); PlayOpenSound();   // 2026-11-03（`B121-AUD-04`）：原版 `Open()` 第 ⑤ 步 = 事件数据的 `OpenSound`（见 `PlayOpenSound`）
             Build();
         }
 
@@ -585,6 +585,66 @@ namespace CardPresentation
             EventImage = null;
             EventImageRef = null;
             base.Close();
+        }
+
+        // ============================================================ 🆕 2026-11-03（`B121-AUD-04`）活动开窗音
+        // **原版**（🥇 cpp2il 可读版 `BaseEventPopup.cs:56-60`；同 `decomp_full/BaseEventPopup__Open.c` 末段）：
+        //   `if (LiveOpsAssetUtility.HasAsset(liveOps, EventAssetReferenceType.OpenSound))`
+        //     `{ var cue = LiveOpsAssetUtility.LoadAsset<AudioCue>(liveOps, OpenSound);`
+        //       `if (cue) cue.Play2D(MixerType.Jingles); }`      // ← 机器码第 3 实参 = 3（Jingles）
+        // **判据错在哪**：旧口径（`日常_奖励.tsv:5` / 本文件头第 ⑤ 条）写「prefab 里 `openSound` 是 null ⇒ 无音可播」——
+        //   原版根本**不读 prefab 那个字段**，读的是**事件数据** `drawData.EventAssets[key=8]`。
+        // **我们**：`LiveOpsLocalEvent.Assets` 里 `Key == 8` 那条就是它（`Shell/LiveOpsLocalCatalog.cs` 逐值照 SO 抄，
+        //   已含 3 个活动：Orks1 / Space Wolves / Emperors Children），`Guid` = 原 SO 的 `m_AssetGUID`。
+        // 🔴 **为什么还要一张 GUID → cue 名的表**：这三条的 `LiveOpsLocalAsset.SubObjectName` **都是空串**
+        //   （原 SO 就这样），而本仓**没有 Addressables 寻址层**（`Core/LoadableRef.cs` 文件头自陈）⇒ 只能把
+        //   「GUID → 容器键 → cue 资产名」解好钉在这里。解法（可复跑）：`工具/_guid_resolve_probe.py` 的
+        //   `lookup(catalog_main.json, guid)` → bundle `soundcollection_assets_all.bundle` 的 `m_Container`
+        //   → MonoBehaviour(`AudioCue`) 的 `m_Name`。
+        // ⚠️ **加新活动时这张表要跟着补** —— 解不出会**出声**（每 GUID 一条），⛔ 不静默、⛔ 不拿别的 cue 顶。
+        public static readonly Dictionary<string, string> OpenSoundCueByGuid = new Dictionary<string, string>
+        {
+            // `Expansion Orks1 Parent Event` 的 `EventAssets[key=8]`（`m_SubObjectName` 空）
+            { "11c215f6b9e254461a3ec5d917c4f147", "Ork Expansion 1 jingle" },
+            // `Release Space Wolves Parent Event` 的同一条
+            { "baa1a292a3fe04b6097feefbfea91919", "Space Wolves Relase Jingle" },
+            // ⚠️ `Release Emperors Children Parent Event` 也带 key=8（GUID `ba6b95f76b1003141b098fc85bed0a3b`），
+            //    但那个 GUID 在本地**任何 catalog / 任何束的容器键里都 0 命中**（悬挂引用）⇒ 原版本地也解不出，
+            //    ⛔ 不拿 `EC Expansion 1 jingle` 之类的同名族 cue 顶（那是另一条资产、另一处引用）。
+        };
+
+        static readonly HashSet<string> _warnedOpenSound = new HashSet<string>();
+
+        /// <summary>放这一次开窗的 `OpenSound`（= 原版 `BaseEventPopup.Open()` 第 ⑤ 步，`MixerType.Jingles`）。
+        /// <para>`HasAsset` 为假（这个事件没有 key=8）⇒ **不播、不出声**，那是原版行为；只有「有资产但本地解不出」
+        /// 才出声 —— 「没有」与「解不出」不是一回事，别混成一句。</para></summary>
+        void PlayOpenSound() { PlayOpenSoundForTest(EventNote); }
+
+        /// <summary>自检入口：按**事件 id** 走一遍「事件数据 → `EventAssets[key=8]` → cue」这条链，**返回要播的
+        /// cue 资产名**（`null` = 这一跳不播）。与 `Open()` 里那一声是**同一条实现** ⇒ 断它 = 断那一跳。
+        /// <para>⚠️ 会**真的喊一次** `WindowSounds.PlayJingles`（批处理里 `WFSoundPlayer.Enabled=false` 时不出声，
+        /// 但 `WindowSounds.LastCue` 照样记下来 —— 自检读那个）。</para></summary>
+        public string PlayOpenSoundForTest(string eventId)
+        {
+            var evt = string.IsNullOrEmpty(eventId) ? null : LiveOpsLocalCatalog.Find(eventId);
+            var a = evt != null ? evt.FindAsset((int)LiveOpsAssetRef.OpenSound) : null;
+            if (a == null) return null;               // 原版 `HasAsset(liveOps, 8)` == false ⇒ 不播
+            string cue;
+            if (!string.IsNullOrEmpty(a.Guid) && OpenSoundCueByGuid.TryGetValue(a.Guid, out cue)
+                && !string.IsNullOrEmpty(cue))
+            {
+                WindowSounds.PlayJingles(cue, "[EventPopup] OpenSound");     // 原版 `AudioCue.Play2D(MixerType.Jingles)`
+                return cue;
+            }
+            string key = (eventId ?? RootNameOf(Variant)) + "|" + (a.Guid ?? "");
+            if (_warnedOpenSound.Add(key))
+                Debug.LogWarning("[EventPopup] 「" + (eventId ?? RootNameOf(Variant)) + "」的 `OpenSound`"
+                    + "（事件数据 `EventAssets[key=8]` · GUID `" + (a.Guid ?? "<空>") + "` · bundle `"
+                    + (a.Bundle ?? "?") + "`）**在本地解不出 cue 名** ⇒ 这一声**不播**"
+                    + "（本仓没有 Addressables 寻址层；GUID→cue 见 `OpenSoundCueByGuid`，判据 = "
+                    + "`工具/_guid_resolve_probe.py` 的 catalog 查表 + `soundcollection_assets_all` 的 `m_Container`）"
+                    + "，⛔ 不拿别的 cue 顶。");
+            return null;
         }
     }
 }

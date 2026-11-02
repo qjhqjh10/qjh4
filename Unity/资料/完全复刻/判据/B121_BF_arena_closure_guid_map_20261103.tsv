@@ -1,0 +1,35 @@
+kind	old_guid	name	refs	arenas	status	resolution
+animation-clip	1235f5e8af0437046a6c9ebb535c917e	Astra Militarum Scene Animations	2	battlearenaastramilitarum	project-asset	已拷入对应 <arena>/Animations/（与 bundle 曲线数逐项相同）
+animation-clip	163590d955bad7648a01bfd35a9bf242	Battle Arena 3 Animations	2	battlearena3	project-asset	已拷入对应 <arena>/Animations/（与 bundle 曲线数逐项相同）
+animation-clip	69fd8b231a447fb429e48da1533aa26d	Black Legion Scene Animation	2	battlearenablacklegion	project-asset	已拷入对应 <arena>/Animations/（与 bundle 曲线数逐项相同）
+animation-clip	04aea4ca2c3b8b24b849b8f9b863f15f	Dark Angels Scene animations	2	battlearenadarkangels	project-asset	已拷入对应 <arena>/Animations/（与 bundle 曲线数逐项相同）
+animation-clip	2eebc6d2b6ab62648b85dba0c166f1e6	Emperor's Children Scene Animations	2	battlearenaemperorschildren	project-asset	已拷入对应 <arena>/Animations/（与 bundle 曲线数逐项相同）
+animation-clip	f27fa105e474fb248949158cf5cfbee8	Genestealers Scene Animations	2	battlearenagenestealers	project-asset	已拷入对应 <arena>/Animations/（与 bundle 曲线数逐项相同）
+animation-clip	b759d5bafb4a50e4dbf6b29e0861e640	Railgun BIG	2	battlearenatauviorla	project-asset	已拷入对应 <arena>/Animations/（与 bundle 曲线数逐项相同）
+animation-clip	29ce92c82178aeb46a67eaa91d4f1a79	Railgun Turret 1	2	battlearenatauviorla	project-asset	已拷入对应 <arena>/Animations/（与 bundle 曲线数逐项相同）
+animation-clip	cf4c1d8750877f34bb1ce6e8814f036a	Railgun Turret 2	2	battlearenatauviorla	project-asset	已拷入对应 <arena>/Animations/（与 bundle 曲线数逐项相同）
+animator-controller	e2df0361947e12c4f981bca4fb05fb4f	Battle Arena 2	1	battlearena2	runtime-bundle	按名字从 wf_arena_anims_arena2.bundle 取（工程内 .controller 会是空壳，不拷）
+animator-controller	247aee8d740eb0b42b22bf56f789592e	Battle Arena Leviathan	1	battlearenaleviathan	runtime-bundle	按名字从 wf_arena_anims_shared.bundle 取（工程内 .controller 会是空壳，不拷）
+animator-controller	25a9b4140ac7ace48b389f6a9b26dbe2	Cannon 1	2	battlearena1	runtime-bundle	按名字从 wf_arena_anims_arena1.bundle 取（工程内 .controller 会是空壳，不拷）
+animator-controller	e24ebf6983a5c0149ae850e564ecaa55	Dynamic Skulls	1	battlearena2	runtime-bundle	按名字从 wf_arena_anims_arena2.bundle 取（工程内 .controller 会是空壳，不拷）
+animator-controller	cc7c8c74587419f4f8b54c70f3f14c92	Pump 1	1	battlearena2	runtime-bundle	按名字从 wf_arena_anims_arena2.bundle 取（工程内 .controller 会是空壳，不拷）
+prefab	1c566b3ae3358ec4987dcb42c0fa1462	ParticlesLight	10	battlearena2,battlearena3	project-asset	_shared/ParticlesLight.prefab（自足：只引 URP UniversalAdditionalLightData，已映射到本工程 guid）
+shader	fc85a45818972be43b7726d6897575fe	Everguild/FX/Alpha Mask One Layer  Color Ramp	1	battlearena2	runtime-bundle	按名字从 wf_arena_2.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	85e3ade8c32548d4c9dd1f87e981a94f	Everguild/FX/Alpha Mask One Layer  Color Ramp	1	battlearenadarkangels	runtime-bundle	按名字从 wf_arena_2.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	b99ac27799249534cb2a22fa7f772175	Everguild/FX/Burning	1	battlearenasororitas	runtime-bundle	按名字从 wf_shaders.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	3c75f7d88d9c88948877f459289cdc08	Everguild/FX/Floor Planar Reflections Grainny	3	battlearena3,battlearenaaeldari,battlearenasororitas	runtime-bundle	按名字从 wf_shaders.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	fe9ae5d8a5efaeb458d5907b09ee65d7	Everguild/FX/Floor Planar Reflections Grainny Vertex color shadow mask	1	battlearenatauviorla	runtime-bundle	按名字从 wf_arena_tauviorla.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	3b9f9aa2bfa58844a9b42ebfaf71f3cd	Everguild/FX/Simple Fake Water	1	battlearena2	runtime-bundle	按名字从 wf_arena_2.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	6afe3c5699e8540439d7fc2d57bd10be	Everguild/FX/Specific/Necrons Rays	1	battlearena3	runtime-bundle	按名字从 wf_shaders.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	142b4feafd0facd46b9dd8e1815f71b5	Everguild/FX/Specific/Tau Generator Energy	2	battlearenatauviorla	runtime-bundle	按名字从 wf_arena_tauviorla.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	780a8a471750e85488225331270ff1dd	Everguild/FX/Tyranids/Pulsating Mesh	6	battlearenaleviathan	runtime-bundle	按名字从 wf_arena_shaders.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	c4e82c8093d53fb4ca9015d0b3c3d52e	Everguild/FX/Tyranids/Tyranid Tentacle	4	battlearenaleviathan	runtime-bundle	按名字从 wf_arena_shaders.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	8711183c3f7e8a649ab1dd317e85cf4e	Everguild/FX/Vortex	1	battlearenaaeldari	runtime-bundle	按名字从 wf_shaders.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	2ef9073a060cfd440ad4e1704fdc46c1	Everguild/Misc/Unlit shadows receiver	9	battlearena1,battlearena2,battlearenaastramilitarum,battlearenablacklegion,battlearenadarkangels,battlearenaemperorschildren,battlearenagenestealers,battlearenaleviathan,battlearenaspacewolves	runtime-bundle	按名字从 wf_shaders.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	f2642f618e317484b9b0a2930a6690b6	Hidden/VFX/Aeldari Dust/System/Output Particle Unlit Quad	2	battlearenaaeldari,battlearenaleviathan	runtime-bundle	按名字从 wf_arena_shaders.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	d9ff19e6ac6ccf6459aa15abf82f8871	Hidden/VFX/Aeldari Portal/System (3)/Output ParticleStrip Unlit Quad	1	battlearenaaeldari	runtime-bundle	按名字从 wf_arena_shaders.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	9c6a6f6750d7ff94e8669f2fdea8a8f0	Hidden/VFX/Aeldari Portal/System (4)/Output Particle Unlit Quad	1	battlearenaaeldari	runtime-bundle	按名字从 wf_arena_shaders.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	d38980a103a14c64d9dfe14e705e2187	Hidden/VFX/Aeldari Portal/System (5)/Output Particle Unlit Quad	1	battlearenaaeldari	runtime-bundle	按名字从 wf_arena_shaders.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	c5062bee1d8d1c041a065a71297da43f	Hidden/VFX/Aeldari Portal/System/Output Particle Unlit Quad	1	battlearenaaeldari	runtime-bundle	按名字从 wf_arena_shaders.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+shader	4eaec7c5878aecb4b89e3929e26ad4a5	Spine/Special/HiddenPass	1	battlearenadarkangels	runtime-bundle	按名字从 wf_shaders_extra.bundle 取（名字表 = _shared/arena_shader_guid_map.tsv）
+timeline-playable	8dce83de8f413b348bad069ee5f164b7	Leviathan Bunker Door Animation	2	battlearenaleviathan	runtime-built	运行时重建：工具/gen_arena_timeline.py 直读原版包 → Resources/arena_timelines.json → WarpforgeVFX/Runtime/ArenaTimelinePlayer.cs（TimelineAsset 在运行时建，muscle clip 落不了工程资产）。原版在 battlesharedresources pid 546939151656983859。🔴 2026-11-03 更正：原写「ExportedProject 的 YAML 是退化版（5 轨 m_Clips 全空）⇒ 不拷假件」——「5 轨 m_Clips 全空」不成立：Animation Track 走的是 m_InfiniteClip（所以 m_Clips 空是对的），另 4 条 ControlTrack 各有 2/2/2/1 个 clip，m_Start/m_Duration/m_DisplayName/particleRandomSeed 全在。

@@ -679,7 +679,7 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  ⑥ 祈祷附魔（`X20` · 2026-10-25）—— 原版隐藏卡 `Pray Enchantment`
+        //  ⑥ 祈祷附魔（修女会 Sororitas · 原版隐藏卡 `Pray Enchantment`）—— 2026-10-25 `X20`
         // ==================================================================
         // 🔴 **为什么这一段在附魔层**：原版这条语义**不在 C# 里，在卡数据里** ——
         //   23 张带 `pray` 特性的卡在 `cardAbilities[trigger = 655 (AbilityTrigger.Pray)]
@@ -743,7 +743,7 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **祈祷那一刻把「祈祷附魔」挂到 <paramref name="carrier"/> 身上**（原版
+        /// 【功能】修女会「祈祷附魔」的挂载口 —— **祈祷那一刻把「祈祷附魔」（原版隐藏卡 `Pray Enchantment`）挂到 <paramref name="carrier"/> 身上**（原版
         /// `cardAbilities[trigger = 655].abilityLogic[0].buffEffect{buffType 15, enchantment → PE}`）。
         ///
         /// <para>**幂等**：已经挂着就返回那一条、不重复挂 —— 与 `X13` 的 bool 语义一致

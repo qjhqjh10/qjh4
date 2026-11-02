@@ -1788,6 +1788,8 @@ def ability_damage_of(cid, name, trow, report):
 ABILITY_DAMAGE_REPORT = {"cards": 0, "rows": 0, "no_truth": 0, "bad": []}
 
 
+
+
 # ==========================================================================================
 #  🆕 2026-10-24（卡表数据 `D11` · 战斗审计 `D10` §6·1）：主动能力**整条链**
 #    → 逐卡 `activeAbilityLogic` 列
@@ -2620,6 +2622,86 @@ def ability_gate_of(cid, name, trow, truth_by_path, report):
 
 
 # ==========================================================================================
+#  🆕 2026-11-03（第一百二十二会话 · 执行代理 `B121_WC` · 账 `B120-E03b`）：
+#    **督军变身两列** —— `transformedWarlordId` / `deckCriteria`
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译 `d:/2/tools/decomp_full/`，逐句读过）：
+#   · 消费链 = `BattleManager__CheckForHeroDeckTransform.c`（101 行全文）→
+#     `BoardAnalysis__DeckMeetsCriteria.c`（101 行全文）；调用点 = `BattleManager__SetupBoardPhase.c:56/66`。
+#   · 字段：`RawCardScript.transformedWarlordId // 0x200` · `RawCardScript.deckCriteria // 0x1F8`
+#     （`d:/2/tools/il2cpp_out/dump.cs:23244`）；`DeckCriteria { TargetCriteria countCriteria +0x10;
+#      StatFilterOptions triggerIf +0x18; int referenceValue +0x1C }`（同 `dump.cs:21785`）。
+#   · 语义 / 我们的等价物 / 为什么今天休眠 → `RuleEngine/Core/RuleCorePartial_B96CB.cs` 文件末
+#     「§变身（督军换将）· 集中注释」（⛔ 别在这里抄第二份）。
+#
+# 🔴 **落盘口径：两列【成对】。** 这张卡的 `transformedWarlordId` 为空 ⇒ **两个键都不落**
+#    （= 原版那一格为空，不会变身）；非空 ⇒ **两个键一起落**（`deckCriteria` 即使全是默认档也落 ——
+#    「默认档」在原版是 `countCriteria.targetsAffected = 0 (any)` = **无条件即满足**这个**具体取值**，
+#    不是「没有数据」）。
+#    ⇒ 因此卡片顶层键集**只取决于数据**，不取决于本列的代码在不在。
+#    ⚠️ 也**不提卡表 `version`**（理由 → `CardDatabase.cs` 文件末那段：缺键与「原版为空」行为不可分，
+#      不存在「旧表被静默读成『原版说没有』」那一类错）⇒ **今天重跑产物逐字节不变**（`--check` 实测「一致 ✅」）。
+#
+# 现读规模（`资料/普查产出_1018/allcards_1350/cards_raw.json` 的 `cards[*].full_raw`，1,351 张）：
+#   `transformedWarlordId` 非空 **0** 张；`deckCriteria` 全部是默认档（`targetsAffected = 0` / `triggerIf = 1` /
+#   `referenceValue = 0`）⇒ **本列今天一个键都不落**，`CardDef` 那两格恒 `null`（休眠 ≠ 缺口）。
+TRANSFORM_REPORT = {
+    "cards": 0, "no_truth": 0, "with_id": 0, "unresolved": [], "bad": [],
+    # `criteria_set_of` 要的三个键（与 `unit_conditions_report` 同形，⛔ 别改名）
+    "set_bad": [], "set_unresolved": [], "set_rows": 0,
+}
+
+
+def transform_of(cid, name, trow, truth_by_path, report):
+    """一张卡 → `None`（= 两列都不落）或 `{"transformedWarlordId": …, "deckCriteria": {…}}`。
+
+    形状 / 落盘口径 / 为什么成对 → 上面那一段长注释（⛔ 别在这里抄第二份）。
+    `deckCriteria` 的形状 = `{"triggerIf": …, "referenceValue": …, "countSet": {36 格}}`
+    （`countSet` 走 `criteria_set_of(..., has_player_turn=False)` —— 纯 `TargetCriteria`，**没有**
+    `playerTurn` 这一格；与 `cardTargetCriteriaSet` 同一分工）。
+    """
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    tid = trow.get("transformedWarlordId")
+    if isinstance(tid, bool) or not isinstance(tid, str):
+        report["bad"].append((cid, name, "transformedWarlordId", tid))
+        return None
+    tid = tid.strip()
+    if not tid:
+        return None                       # 原版这一格为空 ⇒ 两列都不落（今天全池这一档）
+    dc = trow.get("deckCriteria")
+    if not isinstance(dc, dict):
+        # 有目标 id、却没有 criteria ⇒ **不落**（⛔ 不许拿「默认档」顶 —— 那会把
+        # `targetsAffected = 0` 这个具体取值冒名成「没有数据」）。出声，等人工核。
+        report["bad"].append((cid, name, "deckCriteria", dc))
+        return None
+    cc = dc.get("countCriteria")
+    if not isinstance(cc, dict):
+        report["bad"].append((cid, name, "deckCriteria.countCriteria", cc))
+        return None
+    out = {
+        "transformedWarlordId": tid,
+        "deckCriteria": {
+            "triggerIf": _gate_int(dc, "triggerIf"),
+            "referenceValue": _gate_int(dc, "referenceValue"),
+            "countSet": criteria_set_of(cid, name, cc, None, truth_by_path, report,
+                                       label="deckCriteria.countCriteria.",
+                                       has_player_turn=False),
+        },
+    }
+    if out["deckCriteria"]["triggerIf"] is None:
+        report["bad"].append((cid, name, "deckCriteria.triggerIf", dc.get("triggerIf")))
+        out["deckCriteria"]["triggerIf"] = -1
+    if out["deckCriteria"]["referenceValue"] is None:
+        report["bad"].append((cid, name, "deckCriteria.referenceValue", dc.get("referenceValue")))
+        out["deckCriteria"]["referenceValue"] = -1
+    report["with_id"] += 1
+    report["cards"] += 1
+    return out
+
+
+# ==========================================================================================
 #  🆕 2026-10-22（引擎线 `W64` · 战斗审计 `B-16` 根因条）：原版**结构化条件** `conditionsFilter`
 #    → 逐卡 `unitConditions` 列（B-05 `foreach` / B-06 `istype` 的数据侧同源）
 # ==========================================================================================
@@ -2868,6 +2950,8 @@ def criteria_set_of(cid, name, cr, player_turn, truth_by_path, report, label="",
         ids = []
         for ref in lst:
             pid = ref.get("m_PathID") if isinstance(ref, dict) else None
+            if not pid:
+                continue                       # `m_PathID == 0` = 空 PPtr（不是坏数据，不计坏格）
             uid = truth_by_path.get(pid)
             if uid is None:
                 report["set_unresolved"].append((cid, name, label + f, pid))
@@ -4551,11 +4635,147 @@ def enchantment_grants_of(cid, name, trow, truth_by_path, truth_cards, report):
 ABILITY_SUMMON_REPORT = {"cards": 0, "rows": 0, "no_truth": 0, "bad": []}
 
 
-def ability_summon_of(cid, name, trow, report):
-    """一张卡 → `[{"ab":…, "lg":…, "cap":…, "mv":…, "all":…, "choose":…, "keep":…, "cem":…, "enemy":…}]`。
+# ==========================================================================================
+#  🆕 v48（2026-11-03 · 执行写手 `B121-D4` · `B121-04`）：`abilityHeal` —— 逐 `(ab, lg)` 的
+#    `healCriteria`（原版 `AbilityLogic.healCriteria // +0x48`）
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译，逐句现读）：
+#   · `AbilityLogic__PlayAbility.c:1178` `if (iVar8 != 0x14) …` 那一支（`chosenAbility == 20 heal`）：
+#       `:1191 lVar11 = *(longlong *)(param_1 + 0x48)`（= `healCriteria`）
+#       `:1194 local_res8 = *(undefined4 *)(lVar11 + 0x14)`（`minValue`）
+#       `:1195 uVar10 = *(undefined4 *)(lVar11 + 0x18)`（`maxValue`）
+#       `:1201 uVar9 = *(undefined4 *)(lVar11 + 0x10)`（`valueOptions`）
+#       `:1203 AbilityLogic__GetValueFromCriteria(param_1, param_2, min, max, …, valueOptions, …)`
+#     —— 与 `damageCriteria`（`abilityDamage` 列）**同一套三格 + 同一个求值器**。
+#   · 字段表 → `dump.cs` 的 `HealCriteria`（`/ 0x10 valueOptions / 0x14 minValue / 0x18 maxValue`）。
+#
+# 🔴 **只有 `chosenAbility == 20` 的行会被消费**（`PlayAbility` 的 `0x14` 支是 `healCriteria` 的
+#   **唯一**读点）—— 现读池内 84 行非零里只有 **60 行**是 `ca 20`，另 24 行（`ca 100/320/30/10/40/
+#   70/60/150/410/411/480`）是 SO 序列化默认值残留，消费端按 `ca` 闸跳过（与 `abilityDamage`
+#   「只有 damage 族才被消费」同一条纪律）。
+#
+# 形状：`abilityHeal: [{"ab":i,"lg":j,"ca":20,"min":…,"max":…,"opt":…}]`
+#   · **只落有值的行**（`min/max/opt` 任一非 0）；没有这一行 = 这一格是**全零默认值**（= 不治疗）。
+#     与 `abilityDamage`（每行都落）不同 —— 那一列要表达「`valueOptions` 显式 0」，本列不需要。
+#   · `ca` 进行内是**消费端的闸**（见上）；`-1` = 缺键/坏值。
+#   · 真值快照里没有这张卡 ⇒ `None`（调用方**不落列** = 未知）。
+def ability_heal_of(cid, name, trow, report):
+    """一张卡 → `[{"ab":…, "lg":…, "ca":…, "min":…, "max":…, "opt":…}]`（只落非零行）。"""
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    out = []
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        for j, lg in enumerate(ab.get("abilityLogic") or []):
+            # 🔴 **只落 `chosenAbility == 20` 的行** —— 原版 `PlayAbility.c:1178` 那一支是
+            #   `healCriteria` 的**唯一**读点；其余 24 行非零是 SO 序列化默认值残留。
+            #   ⚠️ 载体 `CardDef.AbilityHealSpec`（`EnrichmentPayload_B121D1B`）**没有 `ca` 格**
+            #   ⇒ 闸必须在这里做（落下来消费端就分不清了）。`ca` 照样进行，只为审计可读。
+            if lg.get("chosenAbility") != 20:
+                continue
+            hc = lg.get("healCriteria") or {}
+
+            def _g(key, _hc=hc, _i=i, _j=j):
+                v = _hc.get(key)
+                if isinstance(v, bool) or not isinstance(v, int):
+                    report["bad"].append((cid, name, _i, f"lg{_j}.healCriteria.{key}", v))
+                    return -1
+                return v
+
+            mn, mx, opt = _g("minValue"), _g("maxValue"), _g("valueOptions")
+            if not (mn or mx or opt):
+                continue                       # 全零默认值 ⇒ 不落行（见上面那段 doc）
+            ca = lg.get("chosenAbility")
+            if isinstance(ca, bool) or not isinstance(ca, int):
+                report["bad"].append((cid, name, i, f"lg{j}.chosenAbility", ca))
+                ca = -1
+            out.append({"ab": i, "lg": j, "ca": ca, "min": mn, "max": mx, "opt": opt})
+            report["rows"] += 1
+    report["cards"] += 1
+    return out
+
+
+ABILITY_HEAL_REPORT = {"cards": 0, "rows": 0, "no_truth": 0, "bad": []}
+
+
+# ==========================================================================================
+#  🆕 v48（2026-11-03 · 执行写手 `B121-D4` · `B121-05`）：`abilityMana` —— `ca == 60 (buffMana)`
+#    行的 `manaBuff` 十一格（原版 `AbilityLogic.manaBuff`）
+# ==========================================================================================
+# 判据（第一权威 = 全量反编译，逐句现读）：
+#   · `AbilityLogic__PlayAbility.c:686` 起那一支（`chosenAbility == 60`）把 `manaBuff` 交给
+#     `BattleManager.ResolveManaBuff`；`BattleManager__ResolveManaBuff.c:84/93` 按
+#     `friendlyPlayer(+0x14)` / `enemyPlayer(+0x15)` **各跑一次** `ProcessManaBuff`
+#     （第二次把 `isPlayer` **取反** ⇒ `enemyPlayer` = 对面收）。
+#   · `BattleManager__ProcessManaBuff.c:27-49` 的**单支分派**（优先级自高到低）：
+#       `spiritStoneMana(+0x1b)` → `AddSpiritStoneMana(manaAmount)`
+#       `faithMana(+0x1c)`       → `AddFaithMana(manaAmount)`
+#       `questPoints(+0x1d)`     → `AddQuestPoints(manaAmount)`
+#       否则按 `manaAmount` **循环**：`createMana(+0x16)` → `AddNewMana()`；
+#                                   `refillMana(+0x17)` → `RefillOneMana()`
+#     ⇒ **一行最多只结算一种资源**（不是叠加），且 `manaAmount` 是**这一行的量**。
+#   · 字段偏移 → `dump.cs` 的 `ManaBuff`（`+0x10 manaAmount / 0x14 friendly / 0x15 enemy /
+#     0x16 create / 0x17 refill / 0x18 untilEndOfTurn / 0x19 psychic / 0x1a plasma /
+#     0x1b spirit / 0x1c faith / 0x1d questPoints`）。
+#
+# 🔴 **只落 `ca == 60` 的行**：全表 128 行非零 `manaBuff` 里另外 77 行挂在其它的 `chosenAbility`
+#   上（SO 序列化默认值残留）—— 原版只在 `60` 那一支读它，落下来只会给消费端制造假入口。
+#   现读：池内 **51 行 / 44 张**（`cards_raw.json` 的 `full_raw`，按 `ca == 60` 过滤）。
+#
+# 形状：`abilityMana: [{"ab","lg","amount","friendly","enemy","create","refill","untilEndOfTurn",
+#                       "psychic","plasma","spirit","faith","quest"}]`
+#   · 旗标一律 0/1 整数；`-1` = 缺键/坏值（⛔ 不是 0）。
+#   · 真值快照里没有这张卡 ⇒ `None`（不落列 = 未知）。
+MANA_BUFF_FIELDS = (("manaAmount", "amount"),
+                    ("friendlyPlayer", "friendly"), ("enemyPlayer", "enemy"),
+                    ("createMana", "create"), ("refillMana", "refill"),
+                    ("untilEndOfTurn", "untilEndOfTurn"),
+                    ("psychicMana", "psychic"), ("plasmaMana", "plasma"),
+                    ("spiritStoneMana", "spirit"), ("faithMana", "faith"),
+                    ("questPoints", "quest"))
+
+
+def ability_mana_of(cid, name, trow, report):
+    """一张卡 → `[{"ab","lg", 十一格}]`（**只落 `chosenAbility == 60` 的行**）。"""
+    if trow is None:
+        report["no_truth"] += 1
+        return None
+    out = []
+    for i, ab in enumerate(trow.get("cardAbilities") or []):
+        for j, lg in enumerate(ab.get("abilityLogic") or []):
+            if lg.get("chosenAbility") != 60:
+                continue
+            mb = lg.get("manaBuff") or {}
+            row = {"ab": i, "lg": j}
+            for src, col in MANA_BUFF_FIELDS:
+                v = mb.get(src)
+                if isinstance(v, bool):
+                    v = 1 if v else 0
+                elif not isinstance(v, int):
+                    report["bad"].append((cid, name, i, f"lg{j}.manaBuff.{src}", v))
+                    v = -1
+                row[col] = v
+            out.append(row)
+            report["rows"] += 1
+    report["cards"] += 1
+    return out
+
+
+ABILITY_MANA_REPORT = {"cards": 0, "rows": 0, "no_truth": 0, "bad": []}
+
+def ability_summon_of(cid, name, trow, report, truth_by_path=None):
+    """一张卡 → `[{"ab":…, "lg":…, "cap":…, …, "enemy":…, "ids":[…]}]`。
 
     语义 / 分支表 / 为什么缺键落 `-1` → 上面那一段（⛔ 别在这里抄第二份）。
     真值快照里没有这张卡 ⇒ `None`（调用方**不落列** = 未知）。
+
+    🆕 v48（2026-11-03 · 执行写手 `B121-D4` · `B121-D5` 报告 §四·1）：加一格 **`ids`** =
+    原版 `SummonCriteria.unitsToSummon`（`List<RawCardScript>` PPtr）解出的**卡 id 列表**
+    （解引用表 = `truth_by_path`，与 `filterSpecificCards` 同一张桥）。三态：
+      · `null`  = **没导出 / 桥不可用**（⛔ 别当「空表」—— 那会把「不知道」静默变成「没有候选」）；
+      · `[]`    = 明确没有引用（原版 `GetCardToSummon.c:47-149` 的「扫整个收藏」那一支才走）；
+      · 非空    = 逐张候选（`summonAllTargets` 决定全给 / 随机取一张）。
+    解不出的 PPtr **逐条出声、不进列表**（⛔ 不拿 path_id 当 id）。
     """
     if trow is None:
         report["no_truth"] += 1
@@ -4577,11 +4797,33 @@ def ability_summon_of(cid, name, trow, report):
                     return -1
                 return v
 
-            out.append({"ab": i, "lg": j,
-                        "cap": _g("createAtPos"), "mv": _g("moveToPos"),
-                        "all": _g("summonAllTargets"), "choose": _g("chooseCardInPlay"),
-                        "keep": _g("keepEffects"), "cem": _g("shouldRemoveFromCemetery"),
-                        "enemy": _g("isForEnemy")})
+            row = {"ab": i, "lg": j,
+                   "cap": _g("createAtPos"), "mv": _g("moveToPos"),
+                   "all": _g("summonAllTargets"), "choose": _g("chooseCardInPlay"),
+                   "keep": _g("keepEffects"), "cem": _g("shouldRemoveFromCemetery"),
+                   "enemy": _g("isForEnemy")}
+            # ---- 🆕 v48：`unitsToSummon` → 卡 id 列表（三态见 docstring）----
+            refs = sc.get("unitsToSummon")
+            if truth_by_path is None:
+                row["ids"] = None                      # 桥不可用 ⇒ 未知（⛔ 落 `[]`）
+            elif not isinstance(refs, list):
+                report["bad"].append((cid, name, i, "lg%d.summonCriteria.unitsToSummon" % j, refs))
+                row["ids"] = None
+            else:
+                _ids = []
+                for ref in refs:
+                    pid = ref.get("m_PathID") if isinstance(ref, dict) else None
+                    if not pid:
+                        continue                       # `m_PathID == 0` = 空 PPtr（不是坏数据，不计坏格）
+                    uid = truth_by_path.get(pid)
+                    if uid is None:
+                        report["bad"].append(
+                            (cid, name, i, "lg%d.summonCriteria.unitsToSummon m_PathID=%r" % (j, pid),
+                             "解不出卡 id"))
+                    else:
+                        _ids.append(uid)
+                row["ids"] = _ids
+            out.append(row)
             report["rows"] += 1
     report["cards"] += 1
     return out
@@ -4651,6 +4893,10 @@ def ability_summon_of(cid, name, trow, report):
 #     （`grep -o '"buffType": 5[,}]' cards_raw.json` 一类实测 = 0）⇒ 那 8 档落列之后仍是**休眠分支**。
 ABILITY_BUFFS_REPORT = {"cards": 0, "no_truth": 0, "rows": 0, "skipped_zero": 0,
                         "by_buff": {}, "hand": 0, "bad": [], "unknown_bt": []}
+
+# 🆕 v48（`B121-D4`）：**卡表**那一列补 `handBuff` 四格时的读数（与附魔模板表那份分开记，
+#   否则摘要会把两张表的行数混在一起）。键 = `fill_hand_buff_columns` 读的那三个。
+CARD_HAND_BUFF_REPORT = {"hand_rows": 0, "hand_no_row": [], "hand_bad": []}
 
 # 原版 `BuffType` 枚举（`dump.cs:45430-45462`）—— 🔴 **全工程只抄这一份**。
 BUFF_TYPE_NAMES = {
@@ -5023,6 +5269,9 @@ ENCHANT_TEMPLATES_REPORT = {"rows": 0, "with_owner": 0, "pool_reachable": 0,
                             # 🆕 2026-11-02（`B115_W20` · 格 4/2/3）：手牌 buff 四列的口径与坏值
                             "hand_rows": 0, "hand_no_row": [], "hand_bad": [],
                             "set_bad": [], "set_unresolved": [],
+                            # 🆕 2026-11-03（执行写手 `B121-D1B`）：正文载荷（criteria / damage / heal / mana / summon）
+                            #   的坏值读数（`-1` 落列并出声）
+                            "payload_bad": [],
                             # 🆕 2026-11-02（`B116_W18` · `B-328`）：`enchantmentId` / `enchantmentPathId` 两列
                             "enchant_rows": 0, "enchant_bad": [], "enchant_off_table": []}
 
@@ -5176,6 +5425,76 @@ def fill_enchantment_pptr_columns(rows, trow, cid, name, truth_by_path, report):
     return rows
 
 
+def _enchant_logic_payload(lg, ab_i, lg_i, uid, name, truth_by_path, report):
+    """附魔模板一行 `abilityLogic` 的**正文载荷**（🆕 2026-11-03 · 执行写手 `B121-D1B`）。
+
+    形状 = 直接挂在 `templates[].abilities[].logic[]` 上的子对象；消费端 = `Data/CardDatabase.cs` 的
+    `EnchantmentTemplateLogicDto` → `CardDef.AttachAbilityDamage` / `AttachAbilityHeal` /
+    `AttachAbilityManaBuff` / `AttachAbilitySummon` / `AttachAbilityTargetCriteria`。
+    字段偏移 / 语义 → `Core/CardDef.cs` 里 `AbilityDamageSpec` / `AbilityHealSpec` /
+    `AbilityManaBuffSpec` / `AbilitySummonSpec` 各自的 doc（⛔ 别在这里抄第二份）。
+
+    口径与卡表**逐字同源**：`criteria`（36 格）复用 `criteria_set_of`（⛔ 别另写一份字段表，
+    `ability_target_criteria_of` 也是它）；缺键/坏值一律 `-1`（⛔ 不是 `0` —— `0` 是合法真值）。
+    判据：`AbilityLogic__PlayAbility.c` 的 `ca 0/10/13/15/20/60/70/100` 各支读的就是这几个对象
+    （`:1440` / `:1463` / `:1262` / `:686` / `:723` / `:986`）。
+    """
+    def _i(obj, key):
+        if not isinstance(obj, dict):
+            return -1
+        v = obj.get(key)
+        if isinstance(v, bool) or not isinstance(v, int):
+            report["payload_bad"].append((name, ab_i, lg_i, key, v))
+            return -1
+        return v
+
+    out = {}
+    tc = lg.get("targetCriteria")
+    out["criteria"] = criteria_set_of(uid, name, tc, None, truth_by_path, report,
+                                      label=f"abilities[{ab_i}].logic[{lg_i}].targetCriteria.",
+                                      has_player_turn=False)
+    out["cond"] = _i(tc, "conditionsFilter")
+    out["ex"] = _i(tc, "excludeCondition")
+    out["mult"] = _i(lg.get("multiplier"), "targetsAffected")
+    dc = lg.get("damageCriteria")
+    if isinstance(dc, dict):
+        out["damage"] = {"min": _i(dc, "minDamage"), "max": _i(dc, "maxDamage"),
+                         "opt": _i(dc, "valueOptions"), "type": _i(dc, "damageType")}
+    hc = lg.get("healCriteria")
+    if isinstance(hc, dict):
+        out["heal"] = {"min": _i(hc, "minValue"), "max": _i(hc, "maxValue"),
+                       "opt": _i(hc, "valueOptions")}
+    mb = lg.get("manaBuff")
+    if isinstance(mb, dict):
+        out["mana"] = {"amount": _i(mb, "manaAmount"), "friendly": _i(mb, "friendlyPlayer"),
+                       "enemy": _i(mb, "enemyPlayer"), "create": _i(mb, "createMana"),
+                       "refill": _i(mb, "refillMana"), "untilEndOfTurn": _i(mb, "untilEndOfTurn"),
+                       "psychic": _i(mb, "psychicMana"), "plasma": _i(mb, "plasmaMana"),
+                       "spirit": _i(mb, "spiritStoneMana"), "faith": _i(mb, "faithMana"),
+                       "quest": _i(mb, "questPoints")}
+    sc = lg.get("summonCriteria")
+    if isinstance(sc, dict):
+        _ids = None
+        if isinstance(sc.get("unitsToSummon"), list):
+            _ids = []
+            for _r in sc["unitsToSummon"]:
+                _pid = _r.get("m_PathID") if isinstance(_r, dict) else None
+                _u = (truth_by_path or {}).get(_pid)
+                if _u is None:
+                    report["payload_bad"].append(
+                        (name, ab_i, lg_i, "unitsToSummon m_PathID=%r" % (_pid,), "解不出卡 id"))
+                else:
+                    _ids.append(_u)
+        out["summon"] = {"cap": _i(sc, "createAtPos"), "mv": _i(sc, "moveToPos"),
+                         "all": _i(sc, "summonAllTargets"), "choose": _i(sc, "chooseCardInPlay"),
+                         "keep": _i(sc, "keepEffects"), "cem": _i(sc, "shouldRemoveFromCemetery"),
+                         "enemy": _i(sc, "isForEnemy"),
+                         # 🆕 v48（`B121-D4` · `B121-D5` 报告 §四·1）：`unitsToSummon` → 卡 id 列表。
+                         # `null` = 没导出 / 桥不可用（⛔ 别当「空表」）；`[]` = 明确没有引用。
+                         "ids": _ids}
+    return out
+
+
 def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
     """真值快照 → 第二张表的 doc（`{version, source, note, count, templates[]}`）；口径见上面那段长注释。"""
     pool_ids = {c.get("id") for c in (pool_cards or [])}
@@ -5255,14 +5574,22 @@ def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
             _tv = a.get("triggerValue")
             _tv = _tv if isinstance(_tv, int) and not isinstance(_tv, bool) else -1
             logic = []
-            for lg in (a.get("abilityLogic") or []):
+            for _lg_i, lg in enumerate(a.get("abilityLogic") or []):
                 tc = lg.get("targetCriteria") or {}
-                logic.append({
+                _logic_row = {
                     "ca": truth_int(lg, "chosenAbility", -1),
                     "pa": truth_int(lg, "playersAffected", -1),
                     "ta": truth_int(tc, "targetsAffected", -1),
                     "fm": truth_int(lg, "furtherMultiplier", -1),
-                })
+                }
+                # 🆕 2026-11-03（执行写手 `B121-D1B`）：正文载荷（`criteria` 36 格 / damage / heal / mana / summon /
+                #   `cond` / `ex` / `mult`）。为什么必须落：`B121-D1` 查明「执行器已写好、数据一格没有」
+                #   —— 模板一行 logic 原来只导出 `ca/pa/ta/fm` 四格标量 ⇒ `ca 0/10/13/15/20/60/70/100`
+                #   的 63 行**连「打谁、打多少」都读不到**。口径 → `_enchant_logic_payload` 的 doc。
+                _logic_row.update(_enchant_logic_payload(
+                    lg, len(abil), _lg_i, uid, norm_str(r.get("cardName")) or uid,
+                    truth_by_path, ENCHANT_TEMPLATES_REPORT))
+                logic.append(_logic_row)
             abil.append({"trigger": tg if isinstance(tg, int) and not isinstance(tg, bool) else -1,
                          "triggerValue": _tv,
                          "logic": logic})
@@ -5353,7 +5680,11 @@ def build_enchantment_templates(truth_cards, truth_by_path, pool_cards, off_id):
             "口径：`whileInPlayAnim` 三态（-1 未知 / 0 / 1）；`abilities` 带 `trigger` / `triggerValue`"
             "（= 原版 `CardAbility.trigger(+0x10)` / `triggerValue(+0x20)`；缺键 ⇒ -1 未知）与四格标量 "
             "`ca`(chosenAbility) `pa`(playersAffected) `ta`(targetsAffected) `fm`(furtherMultiplier)，"
-            "buff/damage/summon 正文**不在本表**；`permanentBuffs` 与卡表 v37 同形（稀疏）；"
+            "🆕 2026-11-03 起每行另带**正文载荷**：`criteria`（`targetCriteria` 的 36 格，形状与卡表 "
+            "`abilityTargetCriteria` 同）+ `cond`/`ex`（`conditionsFilter`/`excludeCondition`）+ `mult`"
+            "（`multiplier.targetsAffected`）+ `damage`/`heal`/`mana`/`summon` 四个子对象"
+            "（判据 = `AbilityLogic__PlayAbility.c` 的 `ca 0/10/13/15/20/60/70/100` 各支）；缺键/坏值一律 -1；"
+            "`permanentBuffs` 与卡表 v37 同形（稀疏）；"
             "`owners` = 谁挂它（`id` / `buffType` / `trigger` / `inPool`）；排序 = uniqueId 升序。"
             "`abilityBuffs` 每行另带 `enchantmentId` / `enchantmentPathId`"
             "（原版 `CardEffect.enchantment(+0x88)` 的 PPtr 原值 + 它解出的模板 id；"
@@ -5589,12 +5920,23 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
         # 🆕 v36（`A1c`）：`damageCriteria` 四格（判据 → `判据/B88_R1_90档_逐卡施工单.md` §三·4）
         _admg = ability_damage_of(uid, name, r, ABILITY_DAMAGE_REPORT)
         if _admg is not None: entry["abilityDamage"] = _admg
+        # 🆕 v48（`B121-D4` · 账 `B121-04` / `B121-05`）：与主循环**落同一批列**
+        #   （这条支 = 隐藏附魔模板入池，`Pray Enchantment` / `Reconnaissance Mission` 走它；
+        #    漏了这里 ⇒ 那两张卡少两列，而摘要只报 1127/1129 —— 实测踩过）
+        _ahl = ability_heal_of(uid, name, r, ABILITY_HEAL_REPORT)
+        if _ahl is not None: entry["abilityHeal"] = _ahl
+        _amn = ability_mana_of(uid, name, r, ABILITY_MANA_REPORT)
+        if _amn is not None: entry["abilityMana"] = _amn
         # 🆕 v39（`A4`）：`abilitySummon` 七格（与 `abilityDamage` 同构；口径 / 分支表 → `ability_summon_of` 上面那段）
-        _asum = ability_summon_of(uid, name, r, ABILITY_SUMMON_REPORT)
+        _asum = ability_summon_of(uid, name, r, ABILITY_SUMMON_REPORT,
+                                    truth_by_path or {})
         if _asum is not None: entry["abilitySummon"] = _asum
         # 🆕 v40（`B23`）：`abilityBuffs` —— 原版 `CardEffect` 的逐行载荷（口径 → `ability_buffs_of` 上面那段）
         _abf = ability_buffs_of(uid, name, r, ABILITY_BUFFS_REPORT)
-        if _abf is not None: entry["abilityBuffs"] = _abf
+        if _abf is not None:
+            # 🆕 v48（`B121-D4`）：`handBuff` 四格，与主循环同一 helper（理由见那一处）
+            _abf = fill_hand_buff_columns(_abf, r, uid, name, truth_by_path, CARD_HAND_BUFF_REPORT)
+            entry["abilityBuffs"] = _abf
         # 🆕 v41（`B96_GEN`）：`abilityMutations` —— 原版 `CardEffect.mutationType` 逐行（口径 → `ability_mutations_of`）
         _amu = ability_mutations_of(uid, name, r, ABILITY_MUTATIONS_REPORT)
         if _amu is not None: entry["abilityMutations"] = _amu
@@ -5625,6 +5967,158 @@ def build_enchantment_entries(truth_cards, raw, cards, truth_by_path=None,
         report["pooled"].append((uid, name, faction, rarity, inv, show,
                                  len(owners_pool), want[uid]["name"]))
     return entries, report
+
+
+# ==========================================================================================
+#  🔶 自己设计（非原版）· 用户 2026-11-03 裁定 · 执行写手 `B121_E03F_DATA`（账 `B121-E03F`）
+#    **13 张「变身战术卡」**（`TRANSFORM_<FACTION>`，13 个阵营各 1 张）：
+#    打出后把**当前督军**换成**同阵营、非当前**的另一位督军（候选 >= 2 时按 `ctx.Rng` 随机）。
+# ==========================================================================================
+#  为什么是「自设计」而不是复刻：原版**没有**这张卡、也没有这条效果 —— 原版变身只发生在
+#  **开局装配棋盘之前**（`BattleManager.CheckForHeroDeckTransform`，见
+#  `Assets/RuleEngine/Core/RuleCorePartial_B96CB.cs` 文件末「§变身」那一大段：
+#  换的是 `rawBattleData.deckWarlord` + 对白池，**没有卡牌 / 费用 / 演出**）。
+#
+#  🔴 效果怎么被引擎认出来：卡面正文（`desc` / `descZh`）是**说明文字**、不是可解析的效果句
+#     （`EffectText.Parse` 解不出它，⛔ 别为了「能解析」去编一句假效果）。
+#     真正的载体 = v32 就有的 **`chosenAbility` 列** 里的**自定码 900**
+#     （`RuleCore.WarlordTransformAbilityCode`；原版 `AbilityEffect` 枚举只到 480 ⇒ **不撞码**）。
+#     判定 / 结算 / 换人本体全在 `RuleCorePartial_B96CB.cs`，⛔ 本文件只管数据。
+#
+#  🔴 每一列都**显式写死**（⛔ 不从别的卡上 deepcopy 一份再改）—— 模板卡上的残留列
+#     （`abilityBuffs` / `unitConditions` / `animTimes` …）会变成**静默多出来的效果**。
+#
+#  ⚠️ 这 13 张**允许加入卡组**（用户 2026-11-03 改口：「否则无法进行测试」）⇒
+#     `inventoryOptions = 0 (InInventory)`、`showInCollectionOptions = 5 (Show)`、
+#     ⛔ **不置** `NotDeckable`（`B120-E03g` 的机制保留，但这 13 张不挂）。
+TRANSFORM_FACTIONS = (
+    "AstraMilitarum", "BlackLegion", "DarkAngels", "EmperorsChildren", "Genestealers",
+    "Goff", "Leviathan", "SaimHann", "Sautekh", "Sororitas", "SpaceWolves",
+    "TauEmpire", "Ultramarines",
+)
+
+#: 卡 id 段。🔴 原版 id 是「字母前缀 + 纯数字」，这里带下划线 ⇒ **形状上就不可能是原版 id**
+#: （与「自造 id」那套标记同一条纪律；`CardDatabase.Parse` 只把 `id` 当身份、不解析格式）。
+TRANSFORM_ID_PREFIX = "TRANSFORM_"
+
+#: 效果码 —— **必须**与 `Assets/RuleEngine/Core/RuleCorePartial_B96CB.cs` 的
+#: `RuleCore.WarlordTransformAbilityCode` 逐字相等（本文件 `main()` 的读数段会把它打出来供核对）。
+TRANSFORM_ABILITY_CODE = 900
+
+TRANSFORM_CARD_NAME = "Warlord Ascension"
+TRANSFORM_CARD_NAME_ZH = "战将升格"
+TRANSFORM_CARD_DESC = "Transform your Warlord into another Warlord of the same faction, chosen at random."
+TRANSFORM_CARD_DESC_ZH = "随机将你的战将变为同阵营的另一位战将。"
+
+#: 跑完的读数（`main()` 打出来）—— 只记账，不参与 `--check` 的比对。
+TRANSFORM_CARD_REPORT = {"cards": [], "fac_missing": []}
+
+
+def _neutral_card_target_criteria_set():
+    """「没有写任何条件」的 36 格 `cardTargetCriteriaSet`（与池里零条件战术卡的实例**逐键同形**）。
+
+    ⚠️ 键表照 `cards_engine.json` 的现读实例写死（`AM76` / `ASH46` 两份逐键相同）——
+    ⛔ 不要为了「少写几个键」省略：`CardDef.CardTargetCriteria` 的消费端按键取值，
+    缺键与 0 在 `JsonUtility` 里都是 0，但**落盘形状会与其它 1,129 张不一致**（审计时看不出哪张是自设计的）。
+    """
+    return {
+        "playerTurn": -1, "targetsAffected": 0, "chosenArmy": 0, "armyFilter": 0,
+        "keywordFilter": 0, "traitsFilter": 0, "maxTargets": 0, "targetSelectMethod": 0,
+        "attackFilter": 0, "attackFilterOption": 0, "currentHealthFilter": 0,
+        "currentHealthFilterOption": 0, "manaCostFilter": 0, "manaCostFilterOption": 0,
+        "rarityFilter": 0, "rarityFilterOption": 0, "spellType": 0, "friendlyUnits": 0,
+        "enemyUnits": 0, "includeHero": 0, "includeMinions": 0, "includeSpells": 0,
+        "includeWhispers": 0, "includeWeapons": 0, "includeRemnants": 0,
+        "includeHeroParts": 0, "includeSelf": 0, "excludeNotSelf": 0,
+        "excludeSimilarCards": 0, "excludeTargetted": 0, "excludeFriendlyHero": 0,
+        "excludeEnemyHero": 0, "excludeRace": 0, "excludeTrait": 0,
+        "selectFromChooseResolution": 0, "filterSpecificCards": [], "excludeEnchantments": [],
+    }
+
+
+def transform_card_entry(faction):
+    """造一张变身战术卡（🔶 自设计）。**每一列显式写死**；口径 → 上面那一段。"""
+    return {
+        "id": TRANSFORM_ID_PREFIX + faction,
+        "name": TRANSFORM_CARD_NAME,
+        "type": "tactic",
+        # 费用 = 2（用户 2026-11-03 裁定；与同阵营普通战术卡同档）。
+        "cost": 2,
+        "attack": 0, "health": 0, "ranged": 0, "armour": 0,
+        "keywords": [], "cardTraits": [],
+        "desc": TRANSFORM_CARD_DESC,
+        "descZh": TRANSFORM_CARD_DESC_ZH,
+        "nameZh": TRANSFORM_CARD_NAME_ZH,
+        "faction": faction,
+        "rarity": "rare",
+        "subtype": "Spell",
+        "keyword": 0,                       # 原版 `RawCardScript.keyword` 枚举；0 = none
+        "spellType": 0,                     # 0 = 普通计策（不是 Secret 150 / 环境 200）
+        "cardType": 20,                     # 20 = Tactic
+        "specialAttackScoring": 0,
+        "enchantTrait": "",
+        "alternateArts": [],
+        "activeAbilityManaCost": 0, "activeAbilityPsychicCost": 0,
+        "activeAbilityPlasmaCost": 0, "activeAbilityTargeted": 0,
+        "whileInPlayAnim": 0,
+        "permanentBuffs": [], "enchantment": [],
+        # 🔴 可进卡组 / 卡池可见（本卡与「隐藏附魔模板」正好相反 —— 见上面那一段）。
+        "inventoryOptions": 0,              # CardInventoryOptions.InInventory
+        "showInCollectionOptions": 5,       # ShowInCollectionOptions.Show
+        # 同一张表里其余 446 张 tactic 的这三个标量都是同一档（现读：`initiative` 20 446/446 ·
+        # `attackDamageType` 4 446/446）；`cardShortId` 是**死列**（`CardDto` 上已标 Obsolete）。
+        "initiative": 20,
+        "attackDamageType": 4,
+        "cardShortId": 0,
+        "useOverDraw": 0, "cantBeRandomlyCreated": 0, "expansionPack": 0,
+        "refNameId": "", "itemDescriptionKey": "", "fullHeroSpriteReference": "",
+        "eventSpriteName": "", "targeted": 0,
+        "cardDescriptionTextReferenceId": "", "activeAbilityTextReferenceId": "",
+        "targetingTextReferenceId": "",
+        "choicesTargetsAffected": 0, "choicesMaxTargets": 0, "choicesSpecificCardIds": [],
+        "animTimes": [],                    # 自设计卡没有原版动画行（演出走 `B121_E03F_VFX` 那条窄口）
+        "cardTargetCriteriaSet": _neutral_card_target_criteria_set(),
+        # 🔴 这张卡**没有**原版 `cardAbilities` ⇒ `abilityTriggers` 落 `[]`（「明确没有」，⛔ 不是「未知」）。
+        "abilityTriggers": [],
+        # 🔴 **效果码**：唯一让引擎认出「这是变身卡」的地方（判据 = `RuleCore.HasWarlordTransformAbility`）。
+        "chosenAbility": [TRANSFORM_ABILITY_CODE],
+        "abilityTargets": [], "abilityMultipliers": [],
+        "activeAbilityLogic": [], "activeAbilityTargets": [],
+        "abilityTargetCriteria": [], "abilityDamage": [],
+        "abilityHeal": [], "abilityMana": [], "abilitySummon": [],
+        "abilityBuffs": [], "abilityMutations": [], "abilityEffectTexts": [],
+        "triggerAbilityIndices": [],
+        "abilityLevelCriteria": [], "abilityActingCriteria": [], "activeAbilityPickCriteria": [],
+        "hasNormalAbilityBoardCriteria": 0,
+        "startingCardInHand": "",
+    }
+
+
+def build_transform_cards(cards):
+    """把 13 张变身战术卡追加进 `cards`（**落在主循环与附魔入池之后**）→ 返回新条目的张数。
+
+    🔴 **为什么落在最末尾**：它是自设计卡、`cards_truth.json` 里**没有这一行**
+    （所有「真值派生列」的 helper 拿它当「真值里没这张卡」⇒ 会落 `None`/不落列）。
+    本函数因此**逐列显式写死**（见 `transform_card_entry`），并保证：
+      ① 既有 1,129 张的每一列**一个字节都不动**（本函数只 append）；
+      ② 新卡的列**集合**是那 1,129 张的并集的子集（`_dto_column_gate` 因此照过）。
+    """
+    have = {c.get("id") for c in cards}
+    add = 0
+    for fac in TRANSFORM_FACTIONS:
+        e = transform_card_entry(fac)
+        if e["id"] in have:
+            sys.exit(f"❌ 变身卡 id 撞车：{e['id']} —— 池里已经有这个 id，先核 `TRANSFORM_ID_PREFIX`")
+        cards.append(e)
+        have.add(e["id"])
+        TRANSFORM_CARD_REPORT["cards"].append((e["id"], fac))
+        add += 1
+    have_fac = {c.get("faction") for c in cards}
+    TRANSFORM_CARD_REPORT["fac_missing"] = sorted(set(TRANSFORM_FACTIONS) - have_fac)
+    if TRANSFORM_CARD_REPORT["fac_missing"]:
+        sys.exit("❌ 变身卡阵营名与卡表里的 `faction` 对不上："
+                 + " · ".join(TRANSFORM_CARD_REPORT["fac_missing"]))
+    return add
 
 
 def build():
@@ -6204,6 +6698,11 @@ def build():
         _en = enchantment_grants_of(cid, name, trow, truth_by_path, truth_cards, ENCHANTMENT_GRANT_REPORT)
         if _en is not None:
             entry["enchantment"] = _en
+        # ---- 🆕 2026-11-03（`B121_WC` · 账 `B120-E03b`）：督军变身两列（`transformedWarlordId` / `deckCriteria`）----
+        # 判据 / 为什么**成对**落盘 / 为什么今天一个键都不落 → `transform_of` 上面那一段长注释（⛔ 别在这里抄第二份）。
+        _tr = transform_of(cid, name, trow, truth_by_path, TRANSFORM_REPORT)
+        if _tr is not None:
+            entry.update(_tr)
         # ---- 卡能不能进卡组（原版 `inventoryOptions` / `showInCollectionOptions`，`A1798` 2026-10-14）----
         # 🔴 **原版真值直搬**（`工具/gen_card_inventory_options.py` 四级定位出来的），本处**一个字不推**。
         #    `-1` = 真值里查不到这张卡（快照比现池旧：整个 SpaceWolves + DA75..DA74 等）⇒ 引擎**不拦**，
@@ -6346,13 +6845,27 @@ def build():
         _admg = ability_damage_of(cid, name, trow, ABILITY_DAMAGE_REPORT)
         if _admg is not None:
             entry["abilityDamage"] = _admg
+        # 🆕 v48（`B121-D4` · 账 `B121-04`）：`healCriteria` 三格（口径 / `ca` 闸 → `ability_heal_of`）
+        _ahl = ability_heal_of(cid, name, trow, ABILITY_HEAL_REPORT)
+        if _ahl is not None:
+            entry["abilityHeal"] = _ahl
+        # 🆕 v48（`B121-D4` · 账 `B121-05`）：`manaBuff` 十一格（只 `ca == 60`；口径 → `ability_mana_of`）
+        _amn = ability_mana_of(cid, name, trow, ABILITY_MANA_REPORT)
+        if _amn is not None:
+            entry["abilityMana"] = _amn
         # 🆕 v39（`A4`）：`abilitySummon` 七格（与 `abilityDamage` 同构；口径 / 分支表 → `ability_summon_of` 上面那段）
-        _asum = ability_summon_of(cid, name, trow, ABILITY_SUMMON_REPORT)
+        _asum = ability_summon_of(cid, name, trow, ABILITY_SUMMON_REPORT, truth_by_path)
         if _asum is not None:
             entry["abilitySummon"] = _asum
         # 🆕 v40（`B23`）：`abilityBuffs` —— 原版 `CardEffect` 的逐行载荷（口径 → `ability_buffs_of` 上面那段）
         _abf = ability_buffs_of(cid, name, trow, ABILITY_BUFFS_REPORT)
         if _abf is not None:
+            # 🆕 v48（`B121-D4` · `B121-DATA-09`）：卡表这一列也补 `handBuff` 的四格
+            #   `pa` / `limitedUses` / `numberOfUses` / `criteria`（口径 → `fill_hand_buff_columns`）。
+            #   🔴 2026-11-02 `B115_W20` 当时只补了**附魔模板表**那段（注释写「卡表不动它」）⇒
+            #      卡表主路 `ca 50 buffHand` 的行**四格全缺**（`AbilityBuffSpec.PlayersAffected`
+            #      恒 `-1`、`Criteria` 恒 `null`）。本波把它补齐（DTO 那侧四格**早就**在了）。
+            _abf = fill_hand_buff_columns(_abf, trow, cid, name, truth_by_path, CARD_HAND_BUFF_REPORT)
             entry["abilityBuffs"] = _abf
         # 🆕 v41（`B96_GEN`）：`abilityMutations` —— 原版 `CardEffect.mutationType` 逐行（口径 → `ability_mutations_of`）
         _amu = ability_mutations_of(cid, name, trow, ABILITY_MUTATIONS_REPORT)
@@ -6981,6 +7494,25 @@ def build():
           f" · keep **{_as_nz('keep')}** · cem **{_as_nz('cem')}** · enemy **{_as_nz('enemy')}**"
           f" · `no_truth` {ABILITY_SUMMON_REPORT['no_truth']}"
           f" · 坏格 **{len(ABILITY_SUMMON_REPORT['bad'])}** 处")
+    # ---- 🆕 v48（`B121-D4`）：`abilityHeal` / `abilityMana` / 卡表 `handBuff` 四格的读数 ----
+    _ah_cards = [c for c in cards if "abilityHeal" in c]
+    _ah_hit = [c for c in _ah_cards if c["abilityHeal"]]
+    _ah_ca20 = sum(1 for c in _ah_hit for r_ in c["abilityHeal"] if r_.get("ca") == 20)
+    print(f"  · `abilityHeal`（v48 · `B121-D4`）：落列 **{len(_ah_cards)}/{len(cards)}** 张 · "
+          f"**非空 {len(_ah_hit)}** 张 · 行数 **{ABILITY_HEAL_REPORT['rows']}**"
+          f" · 其中 `ca == 20`（原版唯一读点）**{_ah_ca20}** 行"
+          f" · `no_truth` {ABILITY_HEAL_REPORT['no_truth']}"
+          f" · 坏格 **{len(ABILITY_HEAL_REPORT['bad'])}** 处")
+    _am_cards = [c for c in cards if "abilityMana" in c]
+    _am_hit = [c for c in _am_cards if c["abilityMana"]]
+    print(f"  · `abilityMana`（v48 · `B121-D4`）：落列 **{len(_am_cards)}/{len(cards)}** 张 · "
+          f"**非空 {len(_am_hit)}** 张 · 行数 **{ABILITY_MANA_REPORT['rows']}**"
+          f" · `no_truth` {ABILITY_MANA_REPORT['no_truth']}"
+          f" · 坏格 **{len(ABILITY_MANA_REPORT['bad'])}** 处")
+    print(f"  · 卡表 `abilityBuffs` 的 `handBuff` 四格（v48 · `B121-D4`）："
+          f"补 **{CARD_HAND_BUFF_REPORT['hand_rows']}** 行"
+          f" · 没有 `handBuff` 载荷行（`buffType == 0`）{len(CARD_HAND_BUFF_REPORT['hand_no_row'])} 处"
+          f" · 坏 criteria {len(CARD_HAND_BUFF_REPORT['hand_bad'])} 处")
     # ---- 🆕 v40（2026-10-29 · 执行代理 `B23`）：`abilityBuffs` 列的读数 ----
     _abf_cards = [c for c in cards if "abilityBuffs" in c]
     _abf_hit = [c for c in _abf_cards if c["abilityBuffs"]]
@@ -7126,10 +7658,17 @@ def build():
     if _etpl["enchant_off_table"]:
         print("             ⚠️ 不在本表：" + " · ".join(str(x) for x in _etpl["enchant_off_table"][:5]))
 
+    # ---- 🔶 自设计的 13 张变身战术卡（用户 2026-11-03 裁定）----
+    # 🔴 落在**一切真值派生列之后**：它们不是原版卡（`cards_truth.json` 里没有这一行）。
+    _tc_add = build_transform_cards(cards)
+    print(f"变身战术卡   🔶 自设计 **{_tc_add}** 张（`TRANSFORM_<FACTION>`，13 阵营各 1）"
+          f" ⇒ 池 {len(cards) - _tc_add} → **{len(cards)}** 张；"
+          f"效果码 `chosenAbility = {TRANSFORM_ABILITY_CODE}`（须等于 `RuleCore.WarlordTransformAbilityCode`）")
+
     return {
                                # v43（2026-10-29 · 执行代理 `B98_D1` · 账 `战斗逻辑驱动:607` ① 格）= 加卡表 `startingCardInHand` 列（原版 `RawCardScript.startingCardInHand +0x148` 解成**池内卡名**；三态 `缺键=未知 / ""=明确没有 / 卡名`；口径 → `fill_starting_card_in_hand` 上面那一段）。⚠️ **本列改的是【取值口】**：消费端（`CardDef.StartWithNames`，已落）从此以 SO 真值优先、卡面文本降为兜底；现读卡面写「Start the game with …」的只有 2 张（`SW1`/`BL36`），两张的 SO 真值与卡面文字**指向同一张卡** ⇒ **可观测预期不变**（仍应在同步点跑 `play check` 确认）。判据 `BattleManager._StartBattlePhase_d__334.MoveNext.c:213-247`。
                                #      ⚠️ 同表还顺带落了 **v41 `abilityMutations` + v42 `triggerAbilityIndices`** —— 那两列的代码在**第九十五会话**就提交了，只是表一直没重生成（现读盘上仍是 v40）。本次 `--write` 把它们一并落盘；两列都「只落数据、不接线」⇒ 零行为变化（`CardDatabase` **早已接**：`Data/CardDatabase.cs:1749` 的 `def.AttachTriggerAbilityIndices(MapTriggerAbilityIndices(c))`；缺的是**消费者** —— `CardDef.TriggerAbilityIndices` 今天还没人读）。
-        "version": 47,         # v47（2026-11-01 · 第一百一十四会话 · 写手 `W-B` · 账 `B-211`）= `triggerAbilityIndices` 每行加一格 **`ca`**（原版 `AbilityLogic.chosenAbility`，`Assembly-CSharp/AbilityLogic.cs:9`；逐 `(ab,lg)` 行，`-1` = 未知、`0 drawCard` = 合法值；口径 → `trigger_ability_indices_of` 上面那段）。现读 1,129 张 / 1,622 行：已知 1,621 · 未知 1（`GOF97` 空 logic）· 缺键 0 · 51 种取值。⚠️ **只落数据**（派发口 `EffectResolver` 归 `W-A`）⇒ 零行为变化。上一档 v46（2026-11-01 · 第一百一十三会话 · 执行代理 `B113W11` · 反账 `B-177`）= 加一列 `cardTargetCriteriaSet`（原版 `RawCardScript.cardTargetCriteria +0x280` 的**其余 36 格**，逐卡一个对象；`conditionsFilter`/`excludeCondition` 仍在 `unitConditions` 的 `role="cardtarget"` 行）。⚠️ **只落数据、不接线**（载体 `CardDef.CardTargetCriteria` 已接反序列化，消费端/点选路另立账）⇒ 零行为变化。同一版还补了 `triggerAbilityIndices` / 附魔模板 `abilities` 的 **`triggerValue`**（`B-04`；`CardAbility.triggerValue +0x20`，缺键 ⇒ -1 未知）。判据 → `报告/B113W11_生成器两列.md`。
+        "version": 49,         # v49（2026-11-03 · 执行写手 `B121_E03F_DATA` · 账 `B121-E03F` · 用户 2026-11-03 裁定）= **加卡不加列**：池内新增 **13 张 🔶 自设计的「变身战术卡」**（`TRANSFORM_<FACTION>`，13 阵营各 1 张，1,129 → **1,142**）。它们**唯一用到的新值**是 v32 就有的 `chosenAbility` 列（`900`，落在原版 `AbilityEffect` 枚举 `0..480` **之外** ⇒ 不与任何原版分支撞码）；卡的形状 / 效果码 / 「为什么这是自设计」→ 本文件 `TRANSFORM_FACTIONS` 上面那一段 + `Assets/RuleEngine/Core/RuleCorePartial_B96CB.cs` 文件末「变身战术卡」那一大段。🔴 **本版会改行为**（新卡可被打出、会换督军）⇒ 同步点要重跑 `ruleprobe play check` 并**重钉 `PinnedPlayMd5`**（新增 13+13 行，见探针那一侧的读数）。｜v48（2026-11-03 · 执行写手 `B121-D4`）= **三处数据面**：① 加 `abilityHeal`（原版 `AbilityLogic.healCriteria +0x48` 的三格，**只落非零行**；`chosenAbility == 20` 是唯一读点，行内带 `ca` 供消费端闸）；② 加 `abilityMana`（原版 `AbilityLogic.manaBuff` 十一格，**只落 `ca == 60` 的行**）；③ 卡表 `abilityBuffs` 的 `handBuff` 行**补四格** `pa`/`limitedUses`/`numberOfUses`/`criteria`（原来只有附魔模板表那段补，卡表主路恒缺）。判据 → `报告/B121_D4_数据列.md`。上一档 v47（2026-11-01 · 第一百一十四会话 · 写手 `W-B` · 账 `B-211`）= `triggerAbilityIndices` 每行加一格 **`ca`**（原版 `AbilityLogic.chosenAbility`，`Assembly-CSharp/AbilityLogic.cs:9`；逐 `(ab,lg)` 行，`-1` = 未知、`0 drawCard` = 合法值；口径 → `trigger_ability_indices_of` 上面那段）。现读 1,129 张 / 1,622 行：已知 1,621 · 未知 1（`GOF97` 空 logic）· 缺键 0 · 51 种取值。⚠️ **只落数据**（派发口 `EffectResolver` 归 `W-A`）⇒ 零行为变化。上一档 v46（2026-11-01 · 第一百一十三会话 · 执行代理 `B113W11` · 反账 `B-177`）= 加一列 `cardTargetCriteriaSet`（原版 `RawCardScript.cardTargetCriteria +0x280` 的**其余 36 格**，逐卡一个对象；`conditionsFilter`/`excludeCondition` 仍在 `unitConditions` 的 `role="cardtarget"` 行）。⚠️ **只落数据、不接线**（载体 `CardDef.CardTargetCriteria` 已接反序列化，消费端/点选路另立账）⇒ 零行为变化。同一版还补了 `triggerAbilityIndices` / 附魔模板 `abilities` 的 **`triggerValue`**（`B-04`；`CardAbility.triggerValue +0x20`，缺键 ⇒ -1 未知）。判据 → `报告/B113W11_生成器两列.md`。
         # v45（2026-10-30 · 第一百零一会话 · 数据契约）= 新增**显式布尔** `hasNormalAbilityBoardCriteria`（0/1，逐卡；`board_gate_of` 返回 None ⇒ 0）。理由：`JsonUtility` 把缺失的可序列化类字段物化成默认实例 ⇒ `NormalAbilityBoardCriteria == null` 恒假 + 每次 `Load()` 刷 ≈4,508 行错误（`报告/B100_X10.md` §A）。⚠️ 本版**只落数据**：读取侧（`CardDef` / `CardDatabase`）还没接，接之前行为不变。⛔ 别拿「三格都 == MissingIndex」去猜。
         # v44（2026-10-29 · 执行代理 `B99_W3` · 卡牌 `#11` / 卡-17）= 加一列 `abilityEffectTexts`（原版 `CardEffect.effectText` `+0x28` 逐 `(ab,lg,挂点)` 行，形状 `[{ab,lg,at,src}]`；口径 → `ability_effect_texts_of` 上面那段）。现读 38 行 / 31 值 / 31 卡；🔴 **只落数据、不接线**（消费端尚未接）⇒ 零行为变化（`PinnedPoolMd5` / `PinnedPlayMd5` 不变）；⚠️ `--check` 会报「已过期」—— 需要一次 `--write` 落盘。⛔ 别把这一版当成「已经接了」。
         # v40（2026-10-29 · 执行代理 `B23` · 判据 `判据/B94_R-W_战斗38条分诊.md` §二 B-3）= 加卡表 `abilityBuffs` 列（原版 `CardEffect` 的**逐行引擎侧载荷**：`buffType` + 26 格 `trait/traitValue/newRace/6 个 change/5 个 *ValueOptions/permanentBuff/doNotStack/markOfChaosType/daemonHostType/mutationType/extrinsic*/until*`；`at` 区分 `buffEffect` 与 `handBuff.cardEffect`；`buffType 0` 不落；**只落数据、不接线** ⇒ 不改指纹；口径 → `ability_buffs_of` 上面那段）
@@ -9124,6 +9663,16 @@ def main():
     if _etr.get("missing_stub"):
         print(f"  ⚠️ `DefinedTrait` 枚举桩读不到（{DEFINED_TRAIT_STUB}）⇒ 这 "
               f"{_etr['missing_stub']} 次查询一律**未知**（列缺席；⛔ 不猜名字）")
+
+    # 🆕 2026-11-03（`B121_WC` · 账 `B120-E03b`）：督军变身两列的读数（形状 / 为什么成对 → `transform_of` 上面那段）
+    _tfr = TRANSFORM_REPORT
+    print(f"督军变身     `transformedWarlordId` / `deckCriteria` 落值 **{_tfr['with_id']}/{doc['count']}** 张"
+          f"（原版 `RawCardScript +0x200 / +0x1F8`；两列成对落盘 ⇒ 0 张时**两个键都不出现**）"
+          f" ⇒ 引擎侧 `CardDef.TransformedWarlordId` / `DeckCriteria` 恒 null = **休眠**（数据事实，不是缺口）")
+    if _tfr["no_truth"]:
+        print(f"  ⚠️ 真值快照里没有的卡 {_tfr['no_truth']} 张（它们的这两列**未知**）")
+    for _cid, _nm, _f, _v in _tfr["bad"][:20]:
+        print(f"  🔴 `{_cid}` {_nm} 的 `{_f}` 形状不对：{_v!r} ⇒ **不落那两列**（⛔ 不拿默认档顶）")
 
     # 🆕 2026-10-31（B110_W6 · 账 `N53`）：**列 → DTO 同步闸**（纯 Python、只读）。放在 `--check` 之前 ⇒
     #   `--check` / `--write` / 干跑三条路都过它；红则 `_bad`（`--write` 一个字节都不写）。

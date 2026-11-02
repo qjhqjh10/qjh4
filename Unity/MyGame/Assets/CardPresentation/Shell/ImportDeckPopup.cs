@@ -35,8 +35,8 @@
 //   · `Generic Close Button Green` = 圆钮 + **`40k_bt_close`**（56.37×54.50）
 //
 // ---- 与卡组编辑那边的关系（**一条行为、两处入口**）----
-//   校验那一步**只留一份**：`CollectionData.ImportDeck`（内部走 `DeckLibrary.ImportString`，
-//   错误文案与 `DeckRuntime.TryImport` **逐字一致**）。本窗只负责画 + 转调。
+//   校验那一步**只留一份**：`CollectionData.ParseDeck`（内部走 `DeckLibrary.ImportString`，
+//   空串那一档照原版造畸形卡组）。本窗只负责画 + 转调；**落库不在这里**（见 `TryImport` 的两站）。
 //   键盘走 `PointerLayer` 的文本焦点（外壳唯一那条键盘路，2026-09-23 加的）。
 using UnityEngine;
 
@@ -128,7 +128,7 @@ namespace CardPresentation
         public Transform CloseHit { get { return transform.Find("CloseHit"); } }
         public Transform ShadeHit { get { return transform.Find("BackgroundHit"); } }
 
-        /// <summary>导入成功之后要做什么（收藏窗用它重画卡组列表）。**没有就只打日志。**</summary>
+        /// <summary>🔴 **2026-11-03（B121-C2）起**不再触发：导入那一站**不落库**（原版 `__TryImport.c` 也不落库），收藏页刷新由「从编辑器回程」那一跳负责。字段保留只为不改 `CollectionWindow.cs:5430` 的调用签名（该文件不在本笔白名单）—— ⛔ 别拿它当刷新口。</summary>
         public System.Action OnImported;
 
         public static ImportDeckPopup Create(WindowsManager mgr, System.Action onImported = null)
@@ -148,13 +148,13 @@ namespace CardPresentation
         public override void Open() { _text = ""; _error = ""; Build(); }
 
         /// <summary>自检用：直接喂一串（等同键盘打完）。</summary>
-        public void SetTextForTest(string s) { _text = s ?? ""; }
+        public void SetTextForTest(string s) { _text = s ?? ""; if (transform.Find("Window") != null) RefreshInputText(); }
 
 
         void Build()
         {
             var root = transform;
-            for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject);
+            for (int i = root.childCount - 1; i >= 0; i--) RewardsWindow.DestroySafe(root.GetChild(i).gameObject); _okWb = null;
 
             // 1) 压暗 + 点背景关（原版 `backgroundCloseButton`）
             //    🔴 **2026-10-18（P1 §四）**：尺寸照原版超画幅 **3161.26 × 1777.49**（改前写死 1920×1080
@@ -257,7 +257,7 @@ namespace CardPresentation
                 // A17：原版 `Window>Buttons>Generic UI Button` 是 SpriteSwap（普查 §块 3 第 11 行）
                 var okHit = HitOn(b.transform, b.transform, "OkHit", r, () => TryImport());
                 var okWb = okHit != null ? okHit.GetComponent<WindowButton>() : null;
-                if (okWb != null) okWb.BindNine(confirmBg, "40K_button");
+                if (okWb != null) { okWb.BindNine(confirmBg, "40K_button"); _okWb = okWb; RefreshConfirmState(); }
             }
 
             // 5) 关闭圆钮（绿的那一颗）
@@ -316,7 +316,7 @@ namespace CardPresentation
             var holder = transform.Find("Window");
             var old = holder != null ? holder.Find("Input Text") : null;
             if (old != null) RewardsWindow.DestroySafe(old.gameObject);
-            bool empty = string.IsNullOrEmpty(_text);
+            bool empty = string.IsNullOrEmpty(_text); RefreshConfirmState();
             // 🆕 **2026-10-17（B11 · A884）**：占位符走**词条**（`PlaceholderTerm`，见那颗常量的 doc），
             //   ⛔ 不再写死 `"Enter text..."` —— 原版那颗 TMP 上挂着 `Localize`
             //   （`mTerm = "MenuDeck/HUD/EnterText"`）⇒ 它**跟着语言变**，写死就永远是英文。
@@ -356,14 +356,14 @@ namespace CardPresentation
                          s => { _text = s ?? ""; RefreshInputText(); });
         }
 
-        /// <summary>点 `Confirm`：**校验只走 `CollectionData.ImportDeck` 那一份**。
+        /// <summary>点 `Confirm`：**解析只走 `CollectionData.ParseDeck` 那一份**，成功后再开信息窗（**不落库**）。
         /// <para>🆕 **2026-10-25（K3）**：解析前**先按 `\n` 取最后一行** —— 原版 `ImportDeckPopup__TryImport.c:14-18`
-        /// 逐句 `String.Split(text, "\n")` → `Enumerable.Last(...)` → `CardDeck.DeserializeDeckString(那一行)`。
-        /// 为什么必须做：原版 `Share` 造出来的串是**整块可读文本 + 最后一行才是 base64**
-        /// （`DeckInfoPopup__MakeDeckString.c`：`* {卡组名}\n*\n* {Card_Race/Warlord}: {督军}\n*\n`
-        /// + 每张卡 `* {N}x {卡名}\n` + `*\n` + base64）⇒ **原版玩家分享出来的串贴进本窗，最后一行才是有效载荷**。
-        /// ⚠️ **我们与 `Last()` 的唯一差别**：原版对「尾随换行」会取到**空串**（⇒ 报「不是合法卡组串」）；
-        /// 我们跳过尾部空行 —— 它只会把「本来能读的串」判成错，跳过是**更宽容、且不改变有效串的结果**。</para></summary>
+        /// 逐句 `String.Split(text, "\n")` → `Enumerable.Last(...)` → `CardDeck.DeserializeDeckString(那一行)`；
+        /// 原版 `Share` 造的串 = 整块可读文本 + 最后一行才是 base64（`DeckInfoPopup__MakeDeckString.c`）⇒ 必须这么做。
+        /// ⚠️ 我们与 `Last()` 的唯一差别：原版对「尾随换行」取到**空串**（⇒ 按原版会造出畸形卡组，见 `ParseDeck`），
+        /// 我们跳过尾部空行（更宽容、不改变有效串的结果）。
+        /// 🔴 **2026-11-03（B121-C2）**：成功后**不再** `ImportDeck` 落库 + 关窗 —— 原版是「开
+        /// `DeckInfoPopup(State=Import)` 再关自己」，保存要等玩家在信息窗点 `Import Deck` → 编辑器 `Done`。</para></summary>
         public bool TryImport()
         {
             var pl = PointerLayer.Instance;
@@ -381,19 +381,19 @@ namespace CardPresentation
             if (multiline)
                 Debug.Log("[ImportDeck] 粘贴的是**整块分享文本** ⇒ 照原版 `Split(\"\\n\").Last()` 取**最后一行**"
                           + "当卡组串（" + payload.Trim().Length + " 字符）");
+            if (_okWb != null) _okWb.Interactable = false;           // 原版 `TryImport` 头一句 `set_interactable(…, 0)`
             string why;
-            string name = CollectionData.ImportDeck(payload, out why);
-            if (string.IsNullOrEmpty(name))
+            var deck = CollectionData.ParseDeck(payload, out why);    // **只解析、不落库**（原版同一步）
+            if (deck == null)
             {
                 _error = why;
                 Debug.LogWarning("[ImportDeck] 导入失败：" + why);
+                if (_okWb != null) _okWb.Interactable = true;        // 原版失败支 `set_interactable(…, 1)`
                 RebuildErrorLine();
                 return false;
             }
-            Debug.Log("[ImportDeck] 导入成功：「" + name + "」");
-            if (OnImported != null) OnImported();
-            Close();
-            return true;
+            Debug.Log("[ImportDeck] 解析成功 ⇒ 开 `Deck info Popup`（State=Import）并关自己（原版 `__TryImport.c:20-40`）");
+            return OpenImportInfo(deck);
         }
 
         void RebuildErrorLine()
@@ -577,6 +577,69 @@ namespace CardPresentation
             wb.clickCue = clickCue;
             if (target != null) wb.Bind(target, art, hoverArt, pressedArt);
             return hit.transform;
+        }
+
+        // ============================================================ 🆕 2026-11-03（B121-C2）· 追加在类尾
+        //   （本文件被账按 `文件:行号` 引用 47 处、最深 `:399` ⇒ 类尾新增**零行号漂移**）
+
+        /// <summary>`Confirm` 那颗钮的 `WindowButton`（`Build()` 重建时置空）。</summary>
+        WindowButton _okWb;
+
+        /// <summary>`Confirm` 现在可不可点（自检用；= 原版 `importButton.interactable`）。</summary>
+        public bool ConfirmInteractable { get { return _okWb != null && _okWb.Interactable; } }
+
+        /// <summary>原版 **`OnEnable` + `ValidateField`** 两段合成的那条状态机（判据逐句）：
+        /// <list type="bullet">
+        /// <item>`ImportDeckPopup__OnEnable.c`：`set_interactable(importButton, 0)` —— **出厂不可点**；
+        ///   紧接着 `errorGo.SetActive(0)`（错误行隐藏）。</item>
+        /// <item>`ImportDeckPopup__ValidateField.c`（挂在 `onValueChanged` 上）：**每次输入变化**
+        ///   ⇒ ① `errorGo.SetActive(0)`（错误行隐藏）② `importButton.interactable = !IsNullOrEmpty(value)`。</item>
+        /// </list>
+        /// <para>⚠️ 原版的 `IsNullOrEmpty` **只判空**、不判空白 ⇒ 敲一个空格也会点亮（我们照抄）。
+        /// ⚠️ 这里同时**清 `_error` 并拆掉那颗 `Error msg`**（原版是 `SetActive(false)`；我们这个窗每次重画
+        /// 都是重建节点，拆掉等价且更省）。</para></summary>
+        void RefreshConfirmState()
+        {
+            if (!string.IsNullOrEmpty(_error))
+            {
+                _error = "";
+                var old = transform.Find("Error msg");
+                if (old != null) RewardsWindow.DestroySafe(old.gameObject);
+            }
+            if (_okWb != null) _okWb.Interactable = !string.IsNullOrEmpty(_text);
+        }
+
+        /// <summary>**导入的第二站**（原版 `ImportDeckPopup__TryImport.c:20-40` 逐句）：
+        /// `DeckInfoContext{Deck = 刚解析出来的那副, State = Import(1), SelectButton = null,
+        /// CheckOwnership = true, EditButtonAction = null}` → `OpenWindow&lt;DeckInfoPopup&gt;` → **关自己**。
+        /// <para>🔴 **这一站不落库**：保存 = 玩家在信息窗点 `Import Deck`（= `Edit Deck` 那颗）→
+        /// 编辑器的 `Done`（= 原版 `DeckEditingWindow.UploadDeck`）。改前我们是「`ImportDeck` 直接落库 + 关窗」
+        /// ⇒ 玩家根本看不到导进来的是什么、也没得改（少一站，B121-COLL-09 那份审计判的 ⚠️）。</para>
+        /// <para>⚠️ `isPlayerDeck` 传 **false**：原版它 = `InventoryManager.HasItem(context.Deck)`，而这一副
+        /// **还没入库** ⇒ false。该态下只有 `Edit Deck` + `Switch Deck Info` 两颗露（`Share/Delete/Duplicate/Practice`
+        /// 都被 `state == 0` 那条判据藏掉）⇒ 这个取值不影响画面，但**语义要对**。</para>
+        /// <para>⚠️ 没有 `WindowsManager`（自检直接 `Create(null)`）时**不给假成功**：出 `LogError`、窗留着、
+        /// 按钮重新点亮（原版这一步不可能失败）—— 红线「不许静默失败」。</para></summary>
+        bool OpenImportInfo(RuleEngine.PlayerDeck deck)
+        {
+            if (deck == null) return false;
+            if (Manager == null)
+            {
+                Debug.LogError("[ImportDeck] 解析成功但**没有 `WindowsManager`** ⇒ 开不了 `Deck info Popup`；"
+                               + "窗留着、这一副**不落库**（原版这一步必须开信息窗）—— 出声，不静默");
+                if (_okWb != null) _okWb.Interactable = true;
+                return false;
+            }
+            var info = CollectionData.InfoOf(deck);
+            var w = DeckInfoPopup.CreateForPicked(Manager, -1, deck, info, DeckInfoPopup.DeckInfoState.Import,
+                                                  false, null, null);
+            Manager.OpenWindow(w);
+            // ⚠️ `OnImported` **不在这里触发**：这一站还没入库（原版也没有这一跳）。收藏页的刷新由
+            //    「从编辑器回程」那一跳负责（`CollectionData.InvalidateLibrary`），别把这个回调当刷新口。
+            Debug.Log("[ImportDeck] 开 `Deck info Popup`（State=Import）并关自己 —— 卡组「" + (info.Name ?? "")
+                      + "」**尚未入库**，玩家在信息窗点 `Import Deck` 才进编辑器、`Done` 才保存");
+            Close();
+            return true;
         }
     }
 }

@@ -1397,7 +1397,7 @@ public static partial class RuleEngineTest
             _fail += B112_T2C_Assert.Fail;
             B112W_B127_Assert.Run();
             _pass += B112W_B127_Assert.Pass;
-            _fail += B112W_B127_Assert.Fail; B114_W9_Assert.Run(); _pass += B114_W9_Assert.Pass; _fail += B114_W9_Assert.Fail; B114_W19_Assert.Run(); _pass += B114_W19_Assert.Pass; _fail += B114_W19_Assert.Fail;   // 🆕 2026-11-01（写手 `W-19` 接线 · 活状态表 `B-251`）：`randomAbilityChoice` 接上**数值路**（原版 `RawCardScript__TriggerAbility.c:75` 的 `ability+0x48` 对两条路都成立），断言全文 `CardPresentation/Editor/B114_W19_Assert.cs`；同一物理行追加 ⇒ 行数零变化   // 🆕 2026-11-01（`B114_W9` · 调度台接线）：账 `B-211` 派发口（`TriggerRowKindOf` + `FireTriggerRowsByChosenAbility`），断言全文 `CardPresentation/Editor/B114_W9_Assert.cs`；同一物理行追加 ⇒ 行数零变化
+            _fail += B112W_B127_Assert.Fail; B114_W9_Assert.Run(); _pass += B114_W9_Assert.Pass; _fail += B114_W9_Assert.Fail; B114_W19_Assert.Run(); _pass += B114_W19_Assert.Pass; _fail += B114_W19_Assert.Fail; Guard("B121D1_Assert", B121_D1_Assert.Run); _pass += B121_D1_Assert.Pass; _fail += B121_D1_Assert.Fail; Guard("B121D1B_Assert", B121_D1B_Assert.Run); _pass += B121_D1B_Assert.Pass; _fail += B121_D1B_Assert.Fail; B121_D3_Assert.Run(); _pass += B121_D3_Assert.Pass; _fail += B121_D3_Assert.Fail; Step(B121D4Case); B121_D5_Assert.Run(); _pass += B121_D5_Assert.Pass; _fail += B121_D5_Assert.Fail; B121_D5R_Assert.Run(); _pass += B121_D5R_Assert.Pass; _fail += B121_D5R_Assert.Fail; B121_E03F_DATA_Assert.Run(); _pass += B121_E03F_DATA_Assert.Pass; _fail += B121_E03F_DATA_Assert.Fail; RuleEngineTest_B121WC.Run(); _pass += RuleEngineTest_B121WC.Pass; _fail += RuleEngineTest_B121WC.Fail;   // 🆕 2026-11-01（写手 `W-19` 接线 · 活状态表 `B-251`）：`randomAbilityChoice` 接上**数值路**（原版 `RawCardScript__TriggerAbility.c:75` 的 `ability+0x48` 对两条路都成立），断言全文 `CardPresentation/Editor/B114_W19_Assert.cs`；同一物理行追加 ⇒ 行数零变化   // 🆕 2026-11-01（`B114_W9` · 调度台接线）：账 `B-211` 派发口（`TriggerRowKindOf` + `FireTriggerRowsByChosenAbility`），断言全文 `CardPresentation/Editor/B114_W9_Assert.cs`；同一物理行追加 ⇒ 行数零变化
         }
 
         // ---- 汇总 ----
@@ -16475,7 +16475,7 @@ public static partial class RuleEngineTest
             // 🔴 **2026-10-27（批次 9 · `E7ENG` · 账 532 的 1b）**：20 → **21**（新增
             //    `EnchantmentRemoved` —— 「一条附魔效果被摘掉」；**这是我们为表现层新开的窄口**
             //    （🔶 自己设计），判据 → `判据/T4_532与PremiumCampaign_判据.md` §1b）。
-            Check(kinds.Count, 25, "`EvtKind` 现在 **25** 种"
+            Check(kinds.Count, 27, "`EvtKind` 现在 **27** 种（25→26 是 `Fatigue` 2026-11-02 未跟改；26→27 是本次 `WarlordTransform` 督军变身窄口）"
                                  + "（21 + `DiscardReveal` / `StealReveal`（2026-10-29 `B96_CB` · 账 921："
                                  + "`CardScript.ShowCardBeingDrawn` 的 0.2 / 0.4 两档）"
                                  + "（19 + `TraitRemoved`（`E1` 第四段 · W9：关键词被摘掉，"
@@ -22790,8 +22790,8 @@ public static partial class RuleEngineTest
                 //    多的是 `DA42` 的附魔模板 **`Reconnaissance Mission`**（`e8cf1eb55ca41534abe38efc90b302e9`，
                 //    `cardType = 20` / `type = "enchantment"`）—— `gen_cards_engine.py` 的
                 //    `ENCHANTMENT_EXECUTORS` 加第 2 条。判据 → `资料/完全复刻/调度台日志.md` §13·5。
-                //    ⚠️ 与上面两条同一性质：**前提检查**，不是卡池合法性的判据。
-                CheckTrue(pool.Count == 1129,
+                //    ⚠️ 与上面两条同一性质：**前提检查**，不是卡池合法性的判据。🔴 **2026-11-03（`E121-WIRE`）就地改期望值（铁律 5）：1129 → 1142。**v48 = 三处数据列（`abilityHeal` / `abilityMana` / 卡表 `handBuff` 四格）· v49 = **加卡不加列**（池内 +13 张 🔶 自设计 `TRANSFORM_<阵营>` 变身战术卡，1,129 → 1,142；判据 → `工具/gen_cards_engine.py` 的 `TRANSFORM_FACTIONS`）。现读 `cards_engine.json` = version 49 / count 1142。
+                CheckTrue(pool.Count == 1142,
                           $"（前提）卡池张数（判据只写在 `资料/阵营推进_清单与交接.md` §一，这里只做前提检查）：{pool.Count}");
                 // 🔴 **2026-10-15（P3 相 · `A1763` 数据层）就地改期望值（铁律 5）：82 / 33 → 60 / 32。**
                 //    **成因查实**：本轮把 `descZh` 全池换成**官方模板**（`Card_Description/*`）——

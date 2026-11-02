@@ -21,8 +21,10 @@
      —— 逐条核过 `EndTurnClick:50,171`（End Turn / End Turn Inactive）· `_NextTurn_d__395:450`（Start Turn）·
      `_MulliganCountdown_d__347:33`（Mulligan）· `EndCountdown:34`（TimerExpired）·
      `SetNoActionsUi:53`（No Actions）· `DrawCard:50`（Draw Card）· `_Heal_d__468:148,154`（UnitHeal）·
-     `DraggableController` 那处也一样 ⇒ **全部走 `MixerType.FX`（=0）**，⛔ 别照 `EndBattleDoors` 的 Jingles 套。
-     （`EndBattleDoors` 的胜/败/平三支是**唯一**走 `Jingles` 的，那三支另有归属，不在本表。）
+     `DraggableController` 那处也一样 ⇒ **A/B 两组全部走 `MixerType.FX`（=0）**，⛔ 别照 `EndBattleDoors` 的 Jingles 套。
+     （🔴 **2026-11-03 订正**：原来这里写「`EndBattleDoors` 的胜/败/平三支是**唯一**走 `Jingles` 的、不在本表」——
+     那三支**已经进本表了**（`group=scene`，D2 补），而且 `MixerType.Jingles` 的还不止它们：
+     `OvertimeUi.enteringOvertimeSound` 与活动 SO 的 `OpenSound` 也走 Jingles ⇒ **C 组一律 Jingles**。）
 
 产物两块：
 
@@ -52,6 +54,12 @@
    另留一列 `srcCue` = **cue 资产名**（原版那个 SO 里真正指到的资产，供人核对；
    ⚠️ 原版自己的拼写错误也照抄：`startTurn` 指的资产叫 **`Start Trun`**）。
    ⚠️ 字段名与 `animfx_sounds.json` 的 cue 名**理论上可能撞车** ⇒ `WFSoundBank` 装载时**要报**（不许静默覆盖）。
+
+🆕 **2026-11-03（`B121-AUD-03`）C 组 = 手写组（`group=scene` / `group=event`）**：
+  这一组的引用者**不在** `SoundAssetCollection` 里（场景/预制体的序列化字段、活动 SO 的 `EventAssets[key=8]`）
+  ⇒ 没有自动取材口。**只有「谁指向哪条 cue」写死在 `HAND_WRITTEN`**；clips / 音量 / 音高 / ttp **仍然
+  当场从 shipped cue 束重解**。⇒ 重跑本脚本**不再丢**那 7 条（`B121-D2` 那 6 条 + `B121-AUD-05` 补的 `Draw`）。
+  ⚠️ 这一组的 clip **不从解包目录拷**（扩展名可能不同，会出现同名两扩展名）⇒ `--check` 只按 **stem** 验在位。
 
 用法：
     PYTHONIOENCODING=utf-8 python 工具/import_battle_sfx.py --check   # 只报告，不写盘
@@ -300,16 +308,81 @@ def main():
             "timeToPlayAgain": round(c["timeToPlayAgain"], 4),
         })
 
+    have = set(os.path.splitext(f)[0].strip() for f in os.listdir(DST_AUDIO)) if os.path.isdir(DST_AUDIO) else set()
+
+    # ---- C 组（**手写组**）：`group=scene` / `group=event` --------------------------------------
+    # 🔴 **为什么这一组只能手写**：它的引用者**不在** `SoundAssetCollection` 的 28 个字段里 ——
+    #   ③ `scene` = **场景 / 预制体的序列化字段**：13 场 arena 的 `EndBattleDoors`
+    #      （`victoryCue` +0xB0 · `defeatAudioCue` +0xB8 · `drawAudioCue` +0xC0；`m_Script` 82936325632428873，
+    #       例 `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_5238.json`）
+    #      ＋ 同 13 场的 `OvertimeUi.enteringOvertimeSound`
+    #      ＋ `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MonoBehaviour_9031176634359415475.json`
+    #        的 `sounds[0].sound`（`m_Script` 8184164905518033017 → 类 `ShakeAndSoundObject`，环境条件 Saim Hann Blackout）；
+    #   ④ `event` = **活动 SO 的 `EventElements.EventAssets[key=8]`**（`EventAssetReferenceType.OpenSound`）：
+    #      `bundle_cosmeticsso_assets_all` 的 `{Expansion Orks1,Release Space Wolves} Parent Event`，
+    #      消费点 = `BaseEventPopup.Open`（`AudioCue.Play2D(MixerType.Jingles)`，cpp2il `BaseEventPopup.cs:56-60`）。
+    # 🔴 **只有「谁指向哪条 cue」是手写的**；clips / 音量 / 音高 / timeToPlayAgain 一律**当场从 shipped cue 束
+    #   重解**（`read_cues()` 的 `cues[名字]`）⇒ 原版改值或我们换束时，这一组不会与真值脱节。
+    # ⚠️ 这两组的 `name` 是 **cue 资产名**（不是字段名）—— 与 ①② 的唯一形状差异（`srcCue` 同值）。
+    # 判据全文 → `资料/完全复刻/报告/B121_D2_音效cue覆盖.md` §三·A / §四（持有者逐条 + 搜过的三种目录）。
+    # 🆕 `Draw` = `B121-AUD-05`（2026-11-03）补解：`B121-D2` 那份漏了**同一颗 MB 里**的 `drawAudioCue`
+    #   （pid `-2870999988157826586` → cue `Draw` → clip `MatchDraw`，参数与胜/败同：vol 0.7 · ttp 0.1）。
+    HAND_WRITTEN = [
+        # (表里的 name = **cue 资产名**, group, 判据出处)
+        ("Victory", "scene",
+         "`EndBattleDoors.victoryCue`(+0xB0) × 13 场 arena；消费点 decomp_full/EndBattleDoors__SetupDoor.c:113 "
+         "= SoundManager.Play2D(cue, Jingles)"),
+        ("Defeat", "scene",
+         "`EndBattleDoors.defeatAudioCue`(+0xB8) × 13 场 arena；同一消费点（同上）"),
+        ("Draw", "scene",
+         "`EndBattleDoors.drawAudioCue`(+0xC0) × 13 场 arena；同一消费点（同上）"),
+        ("OvertimeStart", "scene",
+         "`OvertimeUi.enteringOvertimeSound` × 13 场 arena（例 battlearena1/MonoBehaviour/MonoBehaviour_4883.json）"),
+        ("Blackout", "scene",
+         "`ShakeAndSoundObject.sounds[0].sound`（bundle_battleprefabs_vfxandmisc_assets_all/"
+         "MonoBehaviour_9031176634359415475.json，环境条件 Saim Hann Blackout）"),
+        ("Ork Expansion 1 jingle", "event",
+         "`Expansion Orks1 Parent Event` 的 `EventAssets[key=8 OpenSound]`（容器键 11c215f6…）；"
+         "消费点 = BaseEventPopup.Open → AudioCue.Play2D(Jingles)"),
+        ("Space Wolves Relase Jingle", "event",
+         "`Release Space Wolves Parent Event` 的 `EventAssets[key=8 OpenSound]`（容器键 baa1a292…）；同一消费点"),
+    ]
+    # ⚠️ **这一组的 clip 不参与「从解包目录拷音频」**：它们早就导进 `Resources/Art/audio/sfx/` 了，而扩展名
+    #   可能不同（`OvertimeStart` 解包目录是 `.vorbis`、我们的 Resources 里是 `.wav`）—— 照 A/B 组那套拷进来
+    #   会出现**同名两扩展名**，`Resources.Load` 挑哪一个不可控 ⇒ 这里只**按 stem 查 Resources 有没有**。
+    hand_clips = set()
+    for name, group, why in HAND_WRITTEN:
+        c = cues.get(name)
+        if c is None:
+            gaps.append({"field": name, "group": group,
+                         "why": f"手写组钉的 cue 资产 `{name}` 不在 soundcollection 束里（换束 / 名字写错）—— {why}"})
+            continue
+        clips = sorted({(x or "").strip() for x in c["clips"] if (x or "").strip()})
+        hand_clips.update(clips)
+        got = [cl for cl in clips if cl in files or cl in have]
+        if not got:
+            gaps.append({"field": name, "group": group, "clips": clips,
+                         "why": f"cue 在、但它的 clip 在解包目录和 Resources 里都对不上 —— {why}"})
+            continue
+        table.append({
+            "name": name, "group": group, "clips": got, "srcCue": name,
+            "minPitch": round(c["minPitch"], 4), "maxPitch": round(c["maxPitch"], 4),
+            "minVolume": round(c["minVolume"], 4), "maxVolume": round(c["maxVolume"], 4),
+            "timeToPlayAgain": round(c["timeToPlayAgain"], 4),
+        })
+
     n_coll = sum(1 for t in table if t["group"] == "collection")
     n_card = sum(1 for t in table if t["group"] == "card")
+    n_scene = sum(1 for t in table if t["group"] == "scene")
+    n_event = sum(1 for t in table if t["group"] == "event")
     print(f"\n接得上 = {len(table)} 条（A 组 collection {n_coll}/{len(fields)} · "
-          f"B 组 card {n_card}/{len(CARD_CUE_FIELDS) + len(CARD_TOP_FIELDS)}）；"
+          f"B 组 card {n_card}/{len(CARD_CUE_FIELDS) + len(CARD_TOP_FIELDS)} · "
+          f"C 组 scene {n_scene} / event {n_event}（手写 + 参数重解））；"
           f"原版这格里就没有声音的 = {len(gaps)}")
     for g in gaps:
         print(f"  ⊘ {g['field']:<24} {g['why'][:60]}")
 
-    need_files = sorted({cl for t in table for cl in t["clips"]})
-    have = set(os.path.splitext(f)[0].strip() for f in os.listdir(DST_AUDIO)) if os.path.isdir(DST_AUDIO) else set()
+    need_files = sorted({cl for t in table for cl in t["clips"]} - hand_clips)
     print(f"\n要用到 {len(need_files)} 个音频文件；其中本地已有 {sum(1 for c in need_files if c in have)} 个"
           f" ⇒ 要拷 {sum(1 for c in need_files if c not in have)} 个")
 
@@ -332,16 +405,28 @@ def main():
 
     out = {
         "version": 1,
-        "note": "原版**战斗**的「时机 → cue」表。**两组**：① `group=collection` = "
+        "note": "原版**战斗**的「时机 → cue」表。**四组**：① `group=collection` = "
                 "`BattleManager.soundCollection`(`+0x80`) → `SoundAssetCollection` 的 28 个字段；"
                 "② `group=card` = **卡 prefab 上 `CardScript`** 那一块（9 条 + `changeTo*` 2 条；"
-                "🔴 **不是逐卡序列化** —— 全资产里只有一份，小/中/大三档还指向同一条音）。"
-                "⚠️ `name` 那一列**两组都是原版字段名**（C# 按字段名索引，如 `startTurn` / `invokeCUE`），"
-                "`srcCue` 才是 cue 资产名。clips 里随机挑一条；"
-                "音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；"
+                "🔴 **不是逐卡序列化** —— 全资产里只有一份，小/中/大三档还指向同一条音）；"
+                "③ `group=scene` = **战场场景/预制体上直接序列化的 `AudioCue`**"
+                "（`EndBattleDoors.victoryCue/defeatAudioCue/drawAudioCue` × 13 场 · `OvertimeUi.enteringOvertimeSound` × 13 场 · "
+                "`ShakeAndSoundObject.sounds[0].sound` = 环境条件 Blackout）；"
+                "④ `group=event` = **活动弹窗开窗音**（`EventElements.EventAssets[key=8 OpenSound]`，"
+                "消费点 `BaseEventPopup.Open` 的 `AudioCue.Play2D(MixerType.Jingles)`）。"
+                "⚠️ `name` 那一列：**①② 是原版字段名**（C# 按字段名索引，如 `startTurn` / `invokeCUE`）、"
+                "**③④ 是 cue 资产名**（`srcCue` 同值）—— 这是四组之间唯一的形状差异。"
+                "clips 里随机挑一条；音量 = minVolume..maxVolume、音高 = minPitch..maxPitch；"
                 "文件名在 Resources/Art/audio/sfx/<clip 名>。"
-                "全部走 MixerType.FX（反编译调用点第 4 实参恒为 0）。"
-                "`gaps[]` = 原版这一格里就没有声音的那些字段（空引用 / 悬挂 GUID / 空 PPtr），⛔ 不是我们没做。",
+                "①② 全部走 MixerType.FX（反编译调用点第 4 实参恒为 0）；③④ 走 `MixerType.Jingles`（=3，调用点见各组出处）。"
+                "`gaps[]` = 原版这一格里就没有声音的那些字段（空引用 / 悬挂 GUID / 空 PPtr），⛔ 不是我们没做。"
+                "🔴 **③④ 的「谁指向哪条 cue」写死在生成器的 `HAND_WRITTEN`**（引用者在场景/预制体/活动 SO 上，"
+                "没有自动取材口），**但参数是当场从 shipped cue 束重解的** ⇒ 重跑生成器**不会丢**这 7 条"
+                "（`Editor/B121_AUD_Assert.cs` / `B121_D2_Assert.cs` 逐名钉住）。"
+                "⚠️ `Draw` 在 `animfx_sounds.json` 里**还有一条同名的旧手写副本**（现 `import_original_sfx.py` 的取材面"
+                "产不出它）⇒ `WFSoundBank` 撞名时保留**先装的**那条并警告一次；两条的参数逐值相同（clip `MatchDraw` · "
+                "vol 0.7 · ttp 0.1），行为无差别。下次重生成 `animfx_sounds.json` 会自然掉那条旧副本。"
+                "判据全文 → `资料/完全复刻/报告/B121_D2_音效cue覆盖.md`（③④ 的持有者与搜过的三种目录）。",
         "source": {
             "so": "SoundAssetCollection（bundle_duplicateassetisolationso_assets_all，"
                   "挂在 BattleManager.soundCollection +0x80）",
@@ -349,7 +434,9 @@ def main():
                           "**全资产唯一一份**；字段是普通 PPtr ⇒ 按束 externals 解到 soundcollection 的 cue）",
             "cue_bundle": "soundcollection_assets_all.bundle",
             "guid_resolver": "工具/_guid_resolve_probe.py（catalog_main.json；**只 A 组用**）",
-            "script": "工具/import_battle_sfx.py",
+            "script": "工具/import_battle_sfx.py（四组都产出；③④ 见脚本里的 `HAND_WRITTEN`）",
+            "scene_group": "③ 战场场景序列化字段：`EndBattleDoors.victoryCue/defeatAudioCue/drawAudioCue`（13 场 arena 的同一组 pid）+ `OvertimeUi.enteringOvertimeSound`（同 13 场）+ `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour_9031176634359415475.json` 的 `sounds[0].sound`（`m_Script` pathID 8184164905518033017 → 类 `ShakeAndSoundObject`，= 环境条件 Saim Hann Blackout）",
+            "event_group": "④ 活动开窗音：`EventElements.EventAssets` 里 `key=8 (EventAssetReferenceType.OpenSound)`，资产 = bundle_cosmeticsso_assets_all 的 `Expansion Orks1 Parent Event` / `Release Space Wolves Parent Event`；消费点 = `BaseEventPopup.Open`（cpp2il `BaseEventPopup.cs:56-60`，`AudioCue.Play2D(MixerType.Jingles)`）"
         },
         "mixer": "FX",
         "cues": table,
@@ -389,10 +476,19 @@ def main():
                 print("   缺:", b)
             if len(lack_files) > 50:
                 print(f"   …共 {len(lack_files)} 个")
-        if not lack_json and not lack_files:
-            print(f"✅ --check：产物齐全（表 {DST_JSON} · 音频 {len(need_files)} 个）")
+        # 🆕 2026-11-03（`B121-AUD-03`）：C 组（手写组）的 clip **不走拷贝那条路**（原因见 `hand_clips`），
+        #   但照样要验 —— 按 **stem** 查 `Resources/Art/audio/sfx/` 里有没有（扩展名不比，原版解包是
+        #   `.vorbis`、我们导入的是 `.wav` 的那几条就靠这一条）。
+        lack_hand = sorted(cl for cl in hand_clips if cl not in have)
+        if lack_hand:
+            print(f"🔴 C 组（scene/event）手写 cue 的 clip 在 {DST_AUDIO} 里缺 {len(lack_hand)}/{len(hand_clips)} 个：")
+            for cl in lack_hand[:50]:
+                print("   缺:", cl)
+        if not lack_json and not lack_files and not lack_hand:
+            print(f"✅ --check：产物齐全（表 {DST_JSON} · 音频 {len(need_files)} 个 · "
+                  f"C 组手写 clip {len(hand_clips)} 个按 stem 在位）")
         print("（--check：没有写盘）")
-        return 0 if (not lack_json and not lack_files) else 1
+        return 0 if (not lack_json and not lack_files and not lack_hand) else 1
 
 
 if __name__ == "__main__":

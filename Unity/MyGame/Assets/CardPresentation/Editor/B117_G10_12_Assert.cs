@@ -238,9 +238,31 @@ public static class B117_G10_12_Assert
             try { tbl = JsonUtility.FromJson<WFSoundTable>(ta.text); }
             catch (Exception e) { Debug.LogWarning("[B117G1012] 解析 battle_sounds.json 失败：" + e.Message); }
         }
-        Check(tbl != null && tbl.cues != null && tbl.cues.Length == 27,
-              $"C1 战斗 cue 表 = **27 条**（16 个 A 组字段 + 11 个 B 组字段；实得 {(tbl != null && tbl.cues != null ? tbl.cues.Length : -1)}）"
-            + "｜🧨 有人把 12 条静音 cue 也塞进表 ⇒ 条数变多 ⇒ 本条红");
+        // 🔴 **2026-11-03（`B121-D2` / `B121-AUD`）就地订正**：原为 `== 27`。现表 = **34 条 / 四组**
+        //   （16 `collection` + 11 `card` + **5 `scene`** + **2 `event`**）——
+        //   后两组是 `B121_D2`/`B121_AUD` 补的 7 条「原版场景/活动序列化 cue」（`name` = **cue 资产名**；
+        //   `Draw` 是 AUD 从 `EndBattleDoors.drawAudioCue` 解出的平局档）。
+        //   ⚠️ 它们**没有自动取材口**（`import_battle_sfx.py` 只产出前两组）⇒ 重跑生成器会把它们丢掉，
+        //   下面 C1b 逐名点名就是为了**当场变红**，⛔ 别把 C1b 删掉了事。
+        Check(tbl != null && tbl.cues != null && tbl.cues.Length == 34,
+              $"C1 战斗 cue 表 = **34 条**（16 `collection` + 11 `card` + 5 `scene` + 2 `event`；实得 {(tbl != null && tbl.cues != null ? tbl.cues.Length : -1)}）"
+            + "｜🧨 有人把 12 条静音 cue 也塞进表 ⇒ 条数变多 ⇒ 本条红；重跑 `import_battle_sfx.py` 丢掉 scene/event 那 7 条 ⇒ 条数变少 ⇒ 本条也红");
+
+        // C1b：`B121-D2` / `B121-AUD` 那 7 条**逐名**钉住（生成器不管它们 ⇒ 唯一的防丢闸）。
+        {
+            string[] sceneEventCues =
+            {
+                "Victory", "Defeat", "OvertimeStart", "Blackout", "Draw",
+                "Ork Expansion 1 jingle", "Space Wolves Relase Jingle",
+            };
+            int miss = 0; string missList = "";
+            foreach (var n in sceneEventCues)
+                if (!WarpforgeVFX.WFSoundBank.HasCue(n)) { miss++; missList += " " + n; }
+            Check(miss == 0,
+                  $"C1b ★ `B121-D2`/`B121-AUD` 补的 7 条 scene/event cue 仍在表里（缺 {miss}{missList}）"
+                + "｜🧨 重跑 `工具/import_battle_sfx.py`（它只产出 collection/card 两组）⇒ 这 7 条被丢掉 ⇒ 本条红"
+                + " ⇒ 照 `报告/B121_D2_音效cue覆盖.md` §补了哪些 / `报告/B121_AUD_四条.md` 手写回去");
+        }
 
         int bad = 0; string badList = "";
         foreach (var n in SilentByEmptyPPtr)

@@ -13,11 +13,11 @@
 // ⚠️ 本文件属于 `Core/` —— **不允许依赖 UnityEngine**。
 //    随机数走 System.Random(seed)，同一个种子必须永远得到同一局。
 //
-// v1 只实现 5 个关键词：Vanguard / Stealth / Flying / Armour / Shield。
-// 🔴 **2026-10-17 订正（P2 现核）**：本段是 **v1 当时的**口径，**已过期** —— 2026-09-14 起
-//   **61 个关键词全部实现**（数字的唯一出处 = `资料/阵营推进_清单与交接.md` §一；
-//   现读用 `RuleCore.UnimplementedKeywords(pool)`）。下面那句「其余关键词会被解析出来但不参与结算」
-//   **只对 v1 成立**，⛔ 别再照它判断今天的行为。
+// **关键词**（现状）：**61 个全部实现**（2026-09-14 起）—— 数字的唯一出处 = `资料/阵营推进_清单与交接.md` §一；
+//   现读用 `RuleCore.UnimplementedKeywords(pool)`。⚠️ v1 当时只有 5 个（Vanguard / Stealth / Flying / Armour / Shield），
+//   旧句「其余关键词会被解析出来但不参与结算」**只对 v1 成立**，⛔ 别再照它判断今天的行为。
+//   🔴 2026-10-17 订正（P2 现核）：本节首句原文是「v1 只实现 5 个关键词」，已就地合并成上面这两行 ——
+//   扫前 20 行不会再先读到错口径。
 //
 // 2026-09-12 增补：**技能与触发**
 //   · 触发类关键词（Rally / Strike / Slay / Backlash / Penitence）—— 时机照抄规则书 :161 的 61 关键词表
@@ -5564,7 +5564,7 @@ namespace RuleEngine
             //         ⚠️ 我们原来的实现只看了「有没有别的单位带 vanguard」两条都没过滤 ⇒
             //            「敌方只剩一个**隐身**先锋」/「先锋已经挨够致死伤害」这两种局面下，
             //            我们**错误地禁止**攻击非先锋目标 = 玩家打不出去（主链可见）。
-            //       · 督军那一支：我们的 4 号格就是督军，天然落进同一个循环 ⇒ 不用另写一份。
+            //       · 督军那一支：我们的 4 号格就是督军，天然落进同一个循环 ⇒ 不用另写一份。 ⚠️【功能】Vanguard = 先导 / 前线单位（语义见 `HasVanguardTrait` 的 doc）；下面的 `IsDefenderUnit` 就是「谁是必须先打的先锋」那一条判据
             bool IsDefenderUnit(UnitState d)
             {
                 if (d == null || d == target) return false;
@@ -8026,7 +8026,7 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  🆕 2026-10-21（`A1354`）：**空投舱的「开舱」那一半**
+        //  空投舱「开舱」那一半（DropPod） —— 🆕 2026-10-21（`A1354`）
         // ==================================================================
 
         /// <summary>
@@ -8250,7 +8250,7 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  🆕 2026-10-19（第五十五会话 · 账 `A1819` / `A1985`）：**密令（SecretOrder）的发出点**
+        //  密令（SecretOrder）的发出点 —— 🆕 2026-10-19（第五十五会话 · 账 `A1819` / `A1985`）
         // ==================================================================
 
         /// <summary>
@@ -8346,7 +8346,7 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  🆕 2026-10-19（第五十五会话 · `A1567` 第⑤格）：**开局附魔**
+        //  开局附魔 —— 🆕 2026-10-19（第五十五会话 · `A1567` 第⑤格）
         // ==================================================================
 
         /// <summary>
@@ -8694,7 +8694,7 @@ namespace RuleEngine
             }
 
             // ==================================================================
-            //  🆕 2026-10-11（第十三会话 · `W4` · `A1335`）：**空投舱血池 / 堡垒**
+            //  空投舱血池 / 堡垒 —— 🆕 2026-10-11（第十三会话 · `W4` · `A1335`）
             // ==================================================================
             //  位置照原版：**dodge / invulnerable / shield 挡下之后、扣血之前**
             //  （`CardScript._ReceiveDamage_d__381__MoveNext.c:56-183` 那个大 `if/else`：
@@ -9191,7 +9191,7 @@ namespace RuleEngine
                         //   缺省 `Unknown` = **不计** ⇒ 所有老调用点行为逐字不变；8 个打标点
                         //   在攻击结算那一段各传一个（判据 → `资料/待办判据_成就计数器_1025b.md` §B-3 #1）。
                         DamageKind kind = DamageKind.Unknown, UnitState actionTarget = null)   // 🔴 2026-11-02（执行写手 `B118_W20` · 账 #63）：`actionTarget` = 原版 `BattleAction.targetCard`（`BattleManagerSupport__BroadcastDeadUnit` 逐观察者调 `ResolveDeadCard` 时带下来的那一格，`CardScript__ResolveDeadCard.c:242` 拿它跟观察者比）⇒ 一路喂到 `CleanupDeaths(actionTarget:)`；缺省 `null` ⇒ 既有调用点逐字不变（`CleanupTargetSacrificeFor` 仍回落 `ctx.LastTarget`）
-        {
+        {   // 【功能】全引擎唯一的伤害入口（`Deal N damage` / 攻击 / 反伤 / 疲劳全从这里进）—— 伤害 → 死亡 → 广播 → 触发三拍；判据 = 原版 `BattleManager__ApplyDamage`，死亡那一段见 `CleanupDeaths`
             // 🔴 **2026-10-22（`W62` · R1）：`Hurt` 也是「拥有死亡/广播路径的入口」⇒ 必须自带 `ActionScope`。**
             //   触发改「只入队」之后，本函数里那几拍（Penitence / Ecstasy / Cruelty → `FireTriggerAt`，
             //   死亡 → `BroadcastWhen(Die)` / `Backlash` / `minionDeath` 记账）**全是入队**；
@@ -11378,7 +11378,7 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  🆕 2026-10-25（执行代理 `E8` · `E8-1`）：主动能力的**候选侧**（原版 criteria 两格）
+        //  主动能力的候选侧（原版 criteria 两格） —— 🆕 2026-10-25（执行代理 `E8` · `E8-1`）
         // ==================================================================
         //  判据（第一权威 = 全量反编译）：
         //   · `ActiveAbility.targetCriteria`（`+0x38`）的 `friendlyUnits(+0x14)` / `enemyUnits(+0x15)`
@@ -11598,7 +11598,7 @@ namespace RuleEngine
             return u != null && (u.Has(ConditionEval.Ward) || u.Has(ConditionEval.WardWb));
         }
 
-        /// <summary>原版 `EntityScript.HasVanguardTrait`（`EntityScript__HasVanguardTrait.c`）：
+        /// <summary>【功能】关键词「先导」Vanguard（`vanguard`，原版 `DefinedTrait` id 980 / 0x3d4）= **前线单位** —— 敌方场上有它时，你必须先打它、不能越过它打后排（违者 `ErrAttackBlock`，词条 `Battle/Tips/AttackBlock` 原版 `IsValidAttackTarget.c:149-174`）。原版 `EntityScript.HasVanguardTrait`（`EntityScript__HasVanguardTrait.c`）：
         /// **带 `stealth(70)` ⇒ 恒 `false`**；否则看 `vanguard(0x3d4 = 980)`。
         /// <para>⚠️ 原版签名还带一个「相对谁」的实参，但实现里**只在做 null 检查时用到**（`param_3 != 0`），
         /// 不参与判定 ⇒ 这里只吃单位。`tainted` 那一闸就靠这一格（见 <see cref="CanUseAbilityTarget"/> ③）。</para></summary>
@@ -11990,7 +11990,7 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  🆕 2026-10-11 **信仰能力**（`N ☀: 正文` / `N [faith]: 正文`）—— `A1452` ＋ `A1453`
+        //  信仰能力（修女会 Sororitas · 卡面 `N ☀: 正文` / `N [faith]: 正文`）—— 🆕 2026-10-11 `A1452` ＋ `A1453`
         //
         //  🔴 **它和誓约【不是】同一档东西，别照 `CanUseOathAbility` 抄全**：
         //    · 誓约 = **玩家/AI 主动激活的一次行动**（占「主动技能」那一格按钮），
@@ -12003,7 +12003,7 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
-        /// 这个单位此刻的信仰能力**能不能发动** —— 判据 = 卡上有至少一条信仰段，且
+        /// 【功能】修女会「信仰」能力的使用闸（Faith：卡面 `N ☀: 正文` / `N [Faith]: …`；N 是**阈值不是开销 ⇒ 不扣费**）：这个单位此刻的信仰能力**能不能发动** —— 判据 = 卡上有至少一条信仰段，且
         /// `faith &gt;= 那一条的 N`。
         ///
         /// **原版判据**（`CardAbility__CanTriggerAbility.c` 的 605 支，逐行）：
@@ -12056,7 +12056,7 @@ namespace RuleEngine
             using (BeginAction(ctx)) return UseFaithAbilityCore(ctx, p, slot);
         }
 
-        /// <summary><see cref="RuleCore.BeginAction"/> 包住的原文（2026-10-21 `T03·c` 批 B 接线）。</summary>
+        /// <summary>【功能】修女会「信仰」能力的结算（Faith）—— <see cref="RuleCore.BeginAction"/> 包住的原文（2026-10-21 `T03·c` 批 B 接线）。</summary>
         static int UseFaithAbilityCore(BattleContext ctx, int p, int slot)
         {
             int code = CanUseFaithAbility(ctx, p, slot);
@@ -12245,7 +12245,7 @@ namespace RuleEngine
             // 🆕 2026-10-27（`B9_W54ENG2`）：同 `UseAbilityCore`。⚠️ 这一支 `ops != null` 时没有 `EffectSpec`
             //   ⇒ `AttachAbilityTargets` 回落「就把 `chosen` 当唯一目标」（⛔ 不猜第二个）。
             AttachAbilityTargets(ctx, p, u, spec, chosen);
-            // 「正在祈祷」= **状态**，真值区间 = 「**祈祷那一刻**」→「**下一个回合开始（不分敌我）**」
+            // 【功能】修女会「祈祷」Pray 支（关键词定义 `CardDef.cs:7660`；原版 `DefinedTrait.pray = 1185`，本支落点 = trigger 655）—— 「正在祈祷」= **状态**，真值区间 = 「**祈祷那一刻**」→「**下一个回合开始（不分敌我）**」
             //   或 「**自己挨一次伤害**」，**以先到者为准**
             //   ✅ **2026-10-14（账 `A1155②`）时长【已核】—— 原来这一行写的是「一直挂到
             //      **本单位控制者的**下个回合开始」，那一句【错的】**（多活了**一整个回合**）。
@@ -13095,7 +13095,7 @@ namespace RuleEngine
 
         /// <summary>单位还在场上时触发（自己找格位）</summary>
         // ==========================================================================================
-        //  🆕 v29b（2026-10-25 · 执行代理 `X6` · **口径乙 · 单位 trigger 那一跳**）
+        //  单位 trigger 那一跳（口径乙） —— 🆕 v29b（2026-10-25 · 执行代理 `X6`）
         // ==========================================================================================
         /// <summary>
         /// **`FireTriggerAt` 的族闸**：按 `op` 的动词 → 能力种类族名 → 认那条
@@ -14309,9 +14309,9 @@ namespace RuleEngine
         /// 按下标取，见 `BattleContext.GetRandomInt`）—— 本条原来标的「我们 `System.Random` 流式」**口径差已消除**。
         /// （唯一残留：烧表数源用 `System.Random(seed)`，原版用全局 `UnityEngine.Random` —— 见 `InitRandomNumbers` 的 🔶。）</para>
         ///
-        /// <para>⚠️ **表现层没接**：原版这一趟还有 `UndissolveToDeck` / `ShowBoardObjects` /
-        /// `SetCardObjectVisibility` / `MoveToDeck` 一串动画，我们**没有对应的 `EvtKind`**
-        /// （`Core/BattleEvent.cs` 不在本批白名单）⇒ 只在 `ctx.Log` 出声，⛔ 不许当「已复刻表现」。</para>
+        /// <para>✅ **表现层已接（2026-11-03 执行写手 `B121-E04B` · 活状态表 `B120-E04b`）**：原版这一趟还有 `UndissolveToDeck` / `ShowBoardObjects` /
+        /// `SetCardObjectVisibility` / `MoveToDeck` 一串动画 ⇒ 我们在回填那一句旁发 `EvtKind.Return` + `Effect = BattleEventEffect.ReshuffleToDeck`（`Slot = -1`），
+        /// 消费端 = `BattleDriver.PlayReshuffleToDeckFeel`（起点 = 墓地那张卡的位姿 `CardFeel.CemeteryCardX/Y` + 0.65 缩放，飞向牌堆；时长 = `CardFeel.ReshuffleToDeckSeconds`）—— ⛔ 别再当「没接」。</para>
         /// </summary>
         /// <returns>`true` = 「空牌库这一件事我接手了，**别再走疲劳那一支**」（无论最后有没有抽到牌）；
         /// `false` = 「不关我的事」（`shouldReshuffle` 为假 / 牌库本来就不空）⇒ 调用方照原样走疲劳。</returns>
@@ -14337,7 +14337,7 @@ namespace RuleEngine
                 int at = 0;
                 if (ps.Deck.Count > 0) at = ctx.GetRandomInt(0, ps.Deck.Count + 1);
                 // 镜像：原版「下标 0 = 顶」，我们「末尾 = 顶」⇒ 插到 `Count - at`。
-                ps.Deck.Insert(ps.Deck.Count - at, inst);
+                ps.Deck.Insert(ps.Deck.Count - at, inst); ctx.Emit(EvtKind.Return, p, -1, inst.Card != null ? inst.Card.Name : null, effect: BattleEventEffect.ReshuffleToDeck, instanceId: inst.Id);   // 🆕 2026-11-03（执行写手 `B121-E04B` · 活状态表 `B120-E04b`）：**「这一张墓地牌被洗回了牌库」的表现信号** —— 原版这一趟是 `_ResolveDrawCard_d__432__MoveNext.c:98-123` 那四段（`CardScript.UndissolveToDeck` → `BattleCardUI.ShowBoardObjects(0)` / `SetObjectVisibility(0)` → `CreateCardInGame` →（case 1 `:241`）`CardScript.MoveToDeck`），**引擎侧一个字都不写**、纯表现。载体 = 既有 `EvtKind.Return` + `Slot = -1` + `Effect`（与 `EffectResolver` 的「墓地取回」`:6989` 同形）；⛔ 不另开 `EvtKind`（新成员要同时登记 `EventTiming`，那份文件不在本批白名单）。逐张发 = 原版那个 `while` 是「洗回一张 → 等它演完 → 下一张」。⚠️ 同一物理行追加 ⇒ **零行数变化**（本文件账按行号引用，铁律 18·b）
             }
             return true;
         }
@@ -16563,7 +16563,7 @@ namespace RuleEngine
         static readonly HashSet<string> _warlordWeaponNoted = new HashSet<string>();
 
         // ==================================================================
-        //  🆕 2026-10-28（批次 91 追加 · `W4` 转派 · 账 **L1101**）：`ActivateMinion` 的**集中广播**
+        //  `ActivateMinion` 的集中广播 —— 🆕 2026-10-28（批次 91 追加 · `W4` 转派 · 账 **L1101**）
         // ==================================================================
 
         /// <summary>
@@ -16617,7 +16617,7 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  🆕 2026-10-28（批次 91 追加 · `W1` · 账 **L722**）：回合末「限时增益」的**逐条入队**
+        //  回合末「限时增益」的逐条入队 —— 🆕 2026-10-28（批次 91 追加 · `W1` · 账 **L722**）
         // ==================================================================
 
         /// <summary>
@@ -16684,7 +16684,7 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  🆕 2026-10-28（批次 91 追加 · `W1` · 账 **L515/L516**）：疲劳那一发的结算体
+        //  疲劳那一发的结算体 —— 🆕 2026-10-28（批次 91 追加 · `W1` · 账 **L515/L516**）
         // ==================================================================
 
         /// <summary>
@@ -16757,7 +16757,7 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  🆕 2026-10-28（批次 91 · 有界批 · `W1` · 账 **L720**）：`CheckStun`（晕 + 晕不了）
+        //  `CheckStun`（晕 + 晕不了） —— 🆕 2026-10-28（批次 91 · 有界批 · `W1` · 账 **L720**）
         // ==================================================================
 
         /// <summary>
@@ -17251,7 +17251,7 @@ namespace RuleEngine
         }
 
         // ==========================================================================================
-        //  🆕 2026-10-29（`B95_WRC` · 账 1248 `RawCardScript.GetValidTargets`）：**合法目标「整表」枚举口**
+        //  合法目标「整表」枚举口（`RawCardScript.GetValidTargets`） —— 🆕 2026-10-29（`B95_WRC` · 账 1248）
         // ==========================================================================================
         //
         // **判据（第一权威，现读）**：`d:/2/tools/decomp_full/RawCardScript__GetValidTargets.c:1-51`（全文）：
@@ -17393,7 +17393,7 @@ namespace RuleEngine
         }
 
         // ==========================================================================================
-        //  🆕 2026-10-29（执行代理 `B97_W1` · 账 870 · concussive 在【type-4 攻击伤害】上的施加口）
+        //  concussive 在【type-4 攻击伤害】上的施加口 —— 🆕 2026-10-29（执行代理 `B97_W1` · 账 870）
         // ==========================================================================================
 
         /// <summary>
@@ -17852,7 +17852,7 @@ namespace RuleEngine
         public const string Precognition = "precognition";
 
         // ==========================================================================================
-        //  🆕 2026-10-30（执行代理 `B100_F17` · `报告/B100_X5.md` C 组 #21–26）
+        //  族闸 × ability 级 `targetCriteria` 闸的合判（「这条触发走不走族闸那一路」） —— 🆕 2026-10-30（执行代理 `B100_F17` · `报告/B100_X5.md` C 组 #21–26）
         // ==========================================================================================
         /// <summary>
         /// **这条触发是不是走「族闸」那一路**（= <see cref="AbilityFamilyGateOpsForTrigger"/> 真的会启用）。
@@ -17916,8 +17916,8 @@ namespace RuleEngine
         //     抽一个并从池里删；非 `default` 六档末尾统一 `Take(maxTargets)`；
         //   · **随机源** = `ctx.GetRandomInt`（开局预烧 100 个整数 + 按下标取；⛔ 别在结算路径上写 `ctx.Rng.Next`）。
         //
-        //  🔴 **本批只接 `ta ∈ {10, 20, 30, 110, 140, 150}`**（施工单裁定的那一批 ＋ `B-342` 补的 `140`）；其余 `ta`（含 `0 any` —— 池内 0 张、
-        //     原版休眠，裁定 ④ 不接线）一律返回 `null` ⇒ 调用方退回改前的单数路（**零回归**）。
+        //  🔴 **本批接 `ta ∈ {0, 10, 20, 30, 110, 140, 150}`**（施工单裁定的那一批 ＋ `B-342` 补的 `140` ＋ `B121_D3` 补的 `0`）；其余 `ta`（`50/51/52/65/70/80/90/100/120/180/190/210/220/240` 等，原版走「手牌 / 牌库 / 督军」三族，本版没有对应建池）一律返回 `null` ⇒ 调用方退回改前的单数路（**零回归**）。
+        //  🔴 2026-11-03（`B121_D3` · 账 `b121-d3-ta0`）**就地订正**：这条原来写「其余 `ta`（含 `0 any` —— **池内 0 张**、原版休眠，裁定 ④ 不接线）」—— **前提不成立**：现读 `cards_engine.json` 有 **224 行 / 209 张** `abilityTargets[].ta == [0]`（`activeAbilityLogic` 另有 **17 行 / 14 张**）；原版 `d:/2/tools/decomp_full/AbilityLogic__GetTargets.c:884-891` 的 `if (targetsAffected == 0)` 是一支**实分支**（`GetUnitsInPlayList(clear 0, inclHero/Minions/HeroParts/Weapons/Remnants/Player/Enemy 全 1, includeDying 0)` = **双方全场**），**不是休眠** ⇒ 已接线。逐 case 复核与「谁真消费这张表」→ `资料/完全复刻/报告/B121_D3_ta0与playersAffected.md`。
         //  🔴 2026-11-02（`B116_W39` · 账 `B-342`）**补 `140` 的那一格**：建池**与 150 同一句**（原版 `GetTargets.c:849-866` = `AddRange(上一条 ability 的目标表)` 后 `goto LAB_180818485`），
         //     差别只在**逐候选筛**（140 = `Contains` 直接返回 / 150 = 在表里才继续走常规格）—— 那一半在 `TargetCriteriaEval.Matches`（`:133-143`），本文件**不重复判**。
         //  🔴 **`ta=150` 落到手牌的那一半不产**（`BattleEventTarget` 只能表达棋盘格）：只产出仍在棋盘上的那些并**出声**一次
@@ -17966,11 +17966,11 @@ namespace RuleEngine
             if (ctx == null || criteria == null || ctx.Players == null || ctx.Players.Length < 2) return null;
             if (owner < 0 || owner > 1) return null;
             int ta = criteria.TargetsAffected;
-            if (ta != 10 && ta != 20 && ta != 30 && ta != 110 && ta != 140 && ta != 150) return null;   // 本批只接这**六**档（见类尾注释）；🔴 2026-11-02（`B116_W39` · 账 `B-342`）：补 `140` —— 池内 `ta=140` **7 行 / 3 张**（`BL55`×4 · `GSC29` · `GSC75`×2）；140 与 150 的建池**同一句**（都是「上一条 ability 的目标表」`GetTargets.c:849-866` vs `:867-883`），差别只在**逐候选筛**（140 `Contains` 直接返回、150 落常规格）—— 那一半在 `TargetCriteriaEval.Matches` 的 `case 140/150` 里，⛔ 别在这条 switch 里再判一次
+            if (ta != 0 && ta != 10 && ta != 20 && ta != 30 && ta != 110 && ta != 140 && ta != 150) return null;   // 本批接这**七**档（见类尾注释）；🔴 2026-11-02（`B116_W39` · 账 `B-342`）：补 `140` —— 池内 `ta=140` **7 行 / 3 张**（`BL55`×4 · `GSC29` · `GSC75`×2）；140 与 150 的建池**同一句**（都是「上一条 ability 的目标表」`GetTargets.c:849-866` vs `:867-883`），差别只在**逐候选筛**（140 `Contains` 直接返回、150 落常规格）—— 那一半在 `TargetCriteriaEval.Matches` 的 `case 140/150` 里，⛔ 别在这条 switch 里再判一次；🔴 2026-11-03（`B121_D3` · 账 `b121-d3-ta0`）：补 `0 any` —— 判据 `GetTargets.c:884-891`、复核 → 类尾注释 + `报告/B121_D3_ta0与playersAffected.md`
             string cardId = source != null && source.Card != null ? source.Card.Id : "?";
 
             var pool = new List<UnitState>(4); var handRefs = new List<CardRef>();   // 🔴 2026-11-01（`B115_W23` · E12）：`pool` 仍是棋盘单位（下面那趟筛 / 截断照旧只服务它）；`handRefs` = **不在棋盘上的候选**（`ta=150` 的手牌 / 已离场 —— 原版 `CardScript` 手牌与场上同型，`dump.cs:35370`）
-            switch (ta)
+            if (ta == 0) { AddSide(pool, ctx.Players[owner], false, false, -1, includeRemnants: true); AddSide(pool, ctx.Players[1 - owner], true, false, owner, includeRemnants: true); } else switch (ta)   // 🔴 2026-11-03（`B121_D3`）：`ta=0 any` ⇒ **双方全场的单位**（判据 `AbilityLogic__GetTargets.c:884-891` 的 `if (targetsAffected == 0)`：`GetUnitsInPlayList(clear 0, inclHero/Minions/HeroParts/Weapons/Remnants/Player/Enemy 全 1, includeDying 0)`）。⚠️ 原版这一支建完池**直接 `goto LAB_180818485`（= return）** ⇒ ⛔ 不过逐候选筛（`TargetsAffected.any` 的 tooltip「'Any' disregards all other filters」`dump.cs:23826`）· ⛔ 不走 `maxTargets` 截断（下面两处 `ta != 0` 就是这条）｜`AddSide` 跳过 `!u.IsAlive` = `includeDying 0` 的等价物｜⚠️ 我们棋盘上没有 `includeWeapons/includeHeroParts` 这两类实体，`AddSide` 遍历的 `Board` 已涵盖本引擎有的一切单位
             {
                 case 20:   // self（`:184-191`）：写这条 logic 的那张卡；**不筛**
                     if (source != null) pool.Add(source);
@@ -18042,7 +18042,7 @@ namespace RuleEngine
 
             // ---- 逐候选筛（原版 `:1081-1163` = `FilterMethods.CheckIfMeetsCriteria`）----
             //   `20/30` 在建池那一支已经 `return`（原版同）⇒ 不走这一层；其余档都要过这一层（`140` 在 `Matches` 里直接 `Contains` 返回 —— 等于不筛，⛔ 别在这里替它短路）。
-            if (ta != 20 && ta != 30)
+            if (ta != 0 && ta != 20 && ta != 30)   // 🔴 2026-11-03（`B121_D3`）：`ta=0` 与 `20/30` 同档 —— 原版那一支 `goto LAB_180818485`（return）⇒ **不落**这一层
             {
                 for (int i = pool.Count - 1; i >= 0; i--)
                 {
@@ -18058,7 +18058,7 @@ namespace RuleEngine
 
             // ---- 截断（原版 `:1164-1371`）----
             int max = criteria.MaxTargets;      // `-1`（没落）与 `<= 0` 同向 = 不截（同 `CountEval.ApplyMaxTargets` 的口径）
-            if (max >= 1 && pool.Count > max)
+            if (ta != 0 && max >= 1 && pool.Count > max)   // 🔴 2026-11-03（`B121_D3`）：`ta=0` **永不走截断** —— 原版那一支建完池直接 return（`:884-891`），`maxTargets` 对它无效（现池 13 行 `ta=0 ∧ maxTargets=1` 就是被这一句兜住的）
             {
                 int method = criteria.TargetSelectMethod;
                 switch (method)
@@ -18449,8 +18449,8 @@ namespace RuleEngine
                 var set = card.AbilityTargetCriteriaAt(r.Ab, r.Lg);
                 if (set == null) continue;                          // 该行没落 36 格数据
                 int ta = set.TargetsAffected;
-                if (ta != 10 && ta != 110 && ta != 140 && ta != 150) continue;   // ① + ②（见类尾）
-                if (set.MaxTargets >= 1) continue;                  // ② 截断档会烧随机数
+                if (ta != 0 && ta != 10 && ta != 110 && ta != 140 && ta != 150) continue;   // ① + ②（见类尾）；🔴 2026-11-03（`B121_D3` · 账 `b121-d3-ta0`）：补 `0 any` —— 它**同属多目标档**且**建完池直接 return**（`GetTargets.c:884-891`）⇒ 既不消费随机数（①）、也不走截断（②）
+                if (ta != 0 && set.MaxTargets >= 1) continue;       // ② 截断档会烧随机数；🔴 2026-11-03（`B121_D3`）：`ta=0` 的 `maxTargets` 原版**不看**（那一支建完池就 return）⇒ 不按它筛掉
                 return set;
             }
             return null;

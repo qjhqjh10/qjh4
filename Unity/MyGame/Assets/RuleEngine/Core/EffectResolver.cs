@@ -837,7 +837,7 @@ namespace RuleEngine
             //   取值来自「参照卡」= `AbilityLogic.GetRefCard()` = 上一条 ability 的目标表 `[0]`
             //   （判据与逐分支出处 → `RuleCore.ApplyRefCardValueOption` 的 doc）。
             //   ⚠️ 这里递的是**副本**（`Clone()`）：`EffectOp` 是解析产物、会被复用，⛔ 别改原件。
-            if (!payOnly && card != null) op = ApplyRefCardValueOption(ctx, op, card, owner, chosen);   // 🆕 B108_N08：80 档求值要 owner/actor（`min + max × 目标数`，判据 `AbilityLogic__GetValueFromCriteria.c:113-116` / `PlayAbility.c:232-236`）；缺了会走「没递 owner ⇒ 保留文本数值」出声支（`EffectResolverPartial_B88E2.cs:467` 的 `ApplyRefCardValueOption`）
+            if (!payOnly && card != null) op = ApplyRefCardValueOption(ctx, op, card, owner, chosen); if (!payOnly && card != null) { op = ApplyHealCriteria(ctx, by, op, card); op = ApplyManaBuff(ctx, by, op, card); }   // 🆕 v48（`B121-D4`）：卡表两列（`abilityHeal` / `abilityMana`）的消费口 —— 同一位置、同一纪律（只改副本、取不到就退回正文）；⚠️ 同一物理行追加（铁律 18·b：本文件下游有账落点，加行会整体漂移）   // 🆕 B108_N08：80 档求值要 owner/actor（`min + max × 目标数`，判据 `AbilityLogic__GetValueFromCriteria.c:113-116` / `PlayAbility.c:232-236`）；缺了会走「没递 owner ⇒ 保留文本数值」出声支（`EffectResolverPartial_B88E2.cs:467` 的 `ApplyRefCardValueOption`）
             // ---- 付费激活：付不起就**整段不结算**（我们自己的 `rule_core.gd:2529`（旁证、非权威））----
             // ⚠️ **2026-09-13 第三十三轮修了一条真 bug**：这里原来**只扣能量、完全不看 `CostKind`**。
             //    于是 `8 [Faith]: Deploy an additional Battle Sister` 那族卡**一直在偷偷扣能量** ——
@@ -1093,7 +1093,7 @@ namespace RuleEngine
             { "jam",        (c, o, b, op, ch, un) => DoJam(c, o, b, op, ch, un) },
             { "blind",      (c, o, b, op, ch, un) => DoBlind(c, o, b, op, ch, un) },
             // 🆕 2026-09-13 A4：两个小原子（`Does nothing` / `Reload the Duty …`）
-            { "noeffect",   (c, o, b, op, ch, un) => DoNoEffect(c, o, b, op) },
+            { "noeffect",   (c, o, b, op, ch, un) => DoNoEffect(c, o, b, op) }, { "warlordtransform", (c, o, b, op, ch, un) => DoWarlordTransform(c, o, b, op, ch, un) }, // 🔶 自己设计（非原版）· 用户 2026-11-03 裁定：13 张变身战术卡（`TRANSFORM_<FACTION>`）—— 解析层**不产**这个动词（卡面正文是说明文字），op 由 `RuleCore.TacticOpsOf` 直接构造；候选 / 随机 / 换人本体全在 `RuleCore.ResolveWarlordTransform`（单一实现，⛔ 这里不复制换人逻辑）
             { "costwhen",   (c, o, b, op, ch, un) => DoCostWhenStub(c, o, b, op) },
             // `<效果> when <事件>`（**后缀形**）的**标记 op**（`A1461` / `A1575`，2026-10-12）——
             // 见 `EffectText.TryWhenSuffix`：机制在**事件层**（`CardDef.WhenTriggers` +
@@ -2037,13 +2037,13 @@ namespace RuleEngine
             //    被打出时结算 ⇒ `IsFullyParsed` 对它为假是**对的**，但「打不出去」不是。
             //    和回合起止型（`At the end of your turn, …`）保持同一个口径：
             //    **能打出去 = 丢弃它**（`DoAtTurn` 早就是这么做的）。
-            if (!EffectText.IsFullyParsed(card.Desc) && !EffectText.IsHandTrap(card))
+            if (!EffectText.IsFullyParsed(card.Desc) && !EffectText.IsHandTrap(card) && !RuleCore.HasWarlordTransformAbility(card))   // 2026-11-03（B121_E03F_DATA · 账 B121-E03F）：🔶 自设计的 13 张变身战术卡给这条闸开一个**数据驱动的**例外（判据 = RuleCore.HasWarlordTransformAbility 一处；卡面正文是说明文字、本来就解析不完）
                 return RuleCodes.ErrUnimplemented;
             // 🆕 2026-10-19（`A1959`/`A1960`）：把 **card** 交给解析器 —— 原版 `choicesDefinition`
             //   要让「正文没写 choose 的选牌卡」也产出一条 `choosecard`（判据/闸门见
             //   `EffectText.InjectChoicesDefinitionOp`）。⚠️ 这里只影响 `PickTarget`/`PickSide`
             //   的候选 op 列表（注入的 choosecard 没有 `Target`，不会改变「要不要选目标」）。
-            var ops = EffectText.Parse(card.Desc, out _, out _, card: card);
+            var ops = RuleCore.TacticOpsOf(card);   // 2026-11-03（B121_E03F_DATA）：唯一取值口（普通卡 = EffectText.Parse 逐字不变；变身卡 = 一条 warlordtransform op）
 
             // 🆕 2026-10-28（B88 · `A1`）：**答了「付誓约」就要把誓约费一起判够**（原版
             //   `CardScript__CanPlayWithOathNowInHand.c:31-36`：`CurrentCost + oathValue <= ManaLeft`）。
@@ -2619,7 +2619,7 @@ namespace RuleEngine
             var card = inst.Card;
             // 🆕 2026-10-19（`A1960`）：`card` 传进去 —— 正文没写 choose 的 `choicesDefinition` 卡
             //   也要发一条 `choosecard`（候选域 `specific`；闸门见 `EffectText.InjectChoicesDefinitionOp`）。
-            var ops = EffectText.Parse(card.Desc, out _, out _, card: card);
+            var ops = RuleCore.TacticOpsOf(card);   // 2026-11-03（B121_E03F_DATA）：唯一取值口（普通卡 = EffectText.Parse 逐字不变；变身卡 = 一条 warlordtransform op）
             string side = EffectText.PickSide(ops);
 
             // 🔴 **2026-10-26（批次 9 · 执行代理 `E9ER`）：「点定的那个单位」优先，格号只当兜底。**
@@ -3085,12 +3085,12 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  各个动词的结算
+        //  各个动词的结算（卡面动词 → handler；总表 = 本文件 `EffectDispatch`，28 个 handler，`ImplementedEffectVerbs` 由它派生）
         // ==================================================================
 
         static bool DoDeal(BattleContext ctx, int owner, string by, EffectOp op,
                            UnitState chosen, List<string> unresolved)
-        {
+        {   // 【功能】卡面动词 `Deal N damage` 的伤害总入口（多目标 / 区间 `1-5` / 关键词驱动的 `Deals X` 都收在这一支）；判据 = 原版 `AbilityLogic__PlayAbility` 的 deal 支，伤害本体走 `RuleCore.Hurt`
             // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
             var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
             if (targets.Count == 0)
@@ -3720,7 +3720,7 @@ namespace RuleEngine
         }
 
         static bool DoHeal(BattleContext ctx, int owner, string by, EffectOp op,
-                           UnitState chosen, List<string> unresolved)        {
+                           UnitState chosen, List<string> unresolved)        {   // 【功能】卡面动词 `Heal N`（治疗）—— 含「没写目标 ⇒ 治己方督军」的默认支；实际量走 `HealUnit`（min(请求, 缺失)）
             // `1-5` 区间：和 `Deal` 一样走 `ctx.Rng`（我们自己的 `rule_core.gd:2677`（旁证、非权威）的 `randi_range`）
             int heal = op.AmountMax > op.Amount ? ctx.GetRandomInt(op.Amount, op.AmountMax + 1) : op.Amount;
 
@@ -3746,7 +3746,7 @@ namespace RuleEngine
         }
 
         static bool DoDraw(BattleContext ctx, int owner, string by, EffectOp op)
-        {
+        {   // 【功能】卡面动词 `Draw N`（抽牌）—— 含「抽到的是哪几份」的代词槽回填（`Draw two troops and give them +1` 里的 `them`）
             var hand = ctx.Players[owner].Hand;
             int before = hand.Count;
             for (int i = 0; i < op.Amount && !ctx.IsOver; i++) Draw(ctx, owner);
@@ -3835,7 +3835,7 @@ namespace RuleEngine
             }
 
             // ==========================================================================================
-            //  🆕 2026-10-19（第五十五会话 · 引擎线 `E12`）：**`deploy them / it` = 上一条效果刚落进手牌的那几份**
+            //  `deploy them / it` = 上一条效果刚落进手牌的那几份 —— 🆕 2026-10-19（第五十五会话 · 引擎线 `E12`）
             // ==========================================================================================
             // 起因（`AM58 Siege Warfare`）：卡面 `Draw two Vehicles from your deck and deploy them`
             //   解析成两条 op：`drawtype(2, vehicles)` + `deploy(payload="them", deployFrom=<空>)`。
@@ -4331,7 +4331,7 @@ namespace RuleEngine
 
         static bool DoDestroy(BattleContext ctx, int owner, string by, EffectOp op,
                               UnitState chosen, List<string> unresolved)
-        {
+        {   // 【功能】卡面动词 `Destroy …`（直接置死）—— ⚠️ **不能走 `Hurt`**：伤害要减护甲（5 血 2 甲吃 5 点只掉 3），「摧毁」就变成「打一下」；这里直写 `Health = 0` 再走正常离场流程
             // 🆕 2026-10-22（`W64`·`B-16`）：按**这条 op** 的结构化目标条件行筛（`null` = 没有/读不到 ⇒ 不筛）。
             var targets = ResolveTargets(ctx, owner, op.Target, null, chosen, op.TargetCondition, op);
             foreach (var t in targets)
@@ -4372,7 +4372,7 @@ namespace RuleEngine
 
         static bool DoStun(BattleContext ctx, int owner, string by, EffectOp op,
                            UnitState chosen, List<string> unresolved)
-        {
+        {   // 【功能】卡面动词 `Stun a unit`（眩晕 / 立 flag 到该单位下一次行动）—— 未写目标 ⇒ 打敌方「槽号最小」那个（不掷骰）；判据 = 原版 `CardScript__Stun.c:44-45` 的 `cardState ∈ IsInPlay()` 闸
             // `Stun` 没写目标 = 打一个敌方单位（原版 `:2755` 起）。
             // ⚠️ 不掷骰：目标按**槽号最小**那个走（`ResolveTargets` 的顺序就是棋盘顺序）。
             var spec = op.Target ?? new EffectTargetSpec
@@ -5227,7 +5227,7 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  🆕 2026-09-14 T3：**「选一个效果」**（`chooseeffect`）
+        //  「选一个效果」（`chooseeffect`） —— 🆕 2026-09-14 T3
         // ==================================================================
 
         /// <summary>
@@ -16135,7 +16135,7 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  🆕 2026-10-26（完全复刻批次 3 · 执行代理 `E2`）：回手 / 回牌库 事件的**唯一发射口**
+        //  回手 / 回牌库事件的唯一发射口 —— 🆕 2026-10-26（完全复刻批次 3 · 执行代理 `E2`）
         // ==================================================================
         //  ⚠️ **追加在类尾**（本批纪律：新成员一律追加，别插进已有成员之间 —— 否则本文件
         //     下游所有账行号整体漂）。
@@ -16278,7 +16278,7 @@ namespace RuleEngine
         }
 
         // ==========================================================================================
-        //  🆕 2026-10-26（完全复刻批次 4 · 执行代理 `F2`）：**`Jam` 族的驱动侧**（`F3` 的 R3-F2 / R3-F2b）
+        //  `Jam` 族的驱动侧（`F3` 的 R3-F2 / R3-F2b） —— 🆕 2026-10-26（完全复刻批次 4 · 执行代理 `F2`）
         // ==========================================================================================
         //  ⚠️ **状态侧不在本文件**：清效果 / 摘 trait / 挂 jam / 压主动技能 = `UnitState.ApplyJam()`
         //     （`F3` 已建，判据 = `CardScript.ReactToUnitJammed` 的 ①②③④⑤）。
@@ -16897,7 +16897,7 @@ namespace RuleEngine
         }
 
         // ==========================================================================================
-        //  🆕 2026-10-26（批次 9 · 执行代理 `W10WR` · 调度台追加）：**残骸翻回 = 原地翻**
+        //  残骸翻回 = 原地翻 —— 🆕 2026-10-26（批次 9 · 执行代理 `W10WR` · 调度台追加）
         // ==========================================================================================
         //  判据（🥇 第一权威 · 全量反编译，逐句读过）：
         //   · `decomp_full/CardScript__TransformFromRemnant.c:1-19`（全文三句）：`*(undefined2*)(+0x65) = 0`
@@ -17141,7 +17141,7 @@ namespace RuleEngine
         }
 
         // ==============================================================================================
-        //  🆕 2026-10-27（完全复刻批次 9 · 执行代理 `B9_W27ENG`）：`cond`/`ex` 的 **`targetsAffected` 门**
+        //  `cond`/`ex` 的 `targetsAffected` 门 —— 🆕 2026-10-27（完全复刻批次 9 · 执行代理 `B9_W27ENG`）
         // ==============================================================================================
         //  判据正本 = `资料/完全复刻/判据/cond341_canUseDuty_ex语义.md`（§1.6-A / §四 改动 A）。
         //  一句话：原版 `FilterMethods__CheckIfMeetsCriteria.c` **先按 `targetsAffected` 短路**，
@@ -18689,7 +18689,7 @@ namespace RuleEngine
         }
 
         // ==========================================================================================
-        //  🆕 2026-10-28（B90 · B1 · 账行 `RawCardScript.OnTriggerAlt(...)`）—— 纯 thunk 的同形入口
+        //  纯 thunk 的同形入口（账行 `RawCardScript.OnTriggerAlt(...)`） —— 🆕 2026-10-28（B90 · B1）
         // ==========================================================================================
         /// <summary>🆕 **2026-10-28（B90·B1）**：原版 `RawCardScript.OnTriggerAlt` 的等价入口 ——
         /// **纯转发**（判据 `decomp_full/RawCardScript__OnTriggerAlt.c:1-20`：自己一个分支都没有，
@@ -18719,7 +18719,7 @@ namespace RuleEngine
         }
 
         // ==========================================================================================
-        //  🆕 2026-10-28（B90 · B1 · 账行 `RawCardScript.UpdateTriggerOnce(...)`）—— trigger 200 那一趟
+        //  trigger 200 那一趟（账行 `RawCardScript.UpdateTriggerOnce(...)`） —— 🆕 2026-10-28（B90 · B1）
         // ==========================================================================================
         /// <summary>🆕 **2026-10-28（B90·B1）**：原版 `RawCardScript.UpdateTriggerOnce` 的等价入口 ——
         /// 判据 `decomp_full/RawCardScript__UpdateTriggerOnce.c:1-16`（**全文**）：
@@ -19614,7 +19614,7 @@ namespace RuleEngine
         }
 
         // ==========================================================================================
-        //  🆕 2026-10-29（`B96_CA`）：账 482 / 636 —— 「按施放者整份摘 extrinsic 效果」的两半
+        //  「按施放者整份摘 extrinsic 效果」的两半 —— 🆕 2026-10-29（`B96_CA` · 账 482 / 636）
         // ==========================================================================================
         //  原版是**两条**（判据 🥇 `d:/2/tools/decomp_full/`，逐句现读）：
         //   · `BattleManager.RemoveExtrinsicEffectsFrom(BattleManager mgr, CardScript actingCard, int priority)`
@@ -19705,7 +19705,7 @@ namespace RuleEngine
         }
 
         // ==========================================================================================
-        //  🆕 2026-10-29（`B96_CA`）：账 482 的**调用点** —— `WhileInPlayVariable(240)` 不再可触发时
+        //  `WhileInPlayVariable(240)` 不再可触发时的调用点 —— 🆕 2026-10-29（`B96_CA` · 账 482）
         // ==========================================================================================
         //  判据（🥇 `decomp_full/RawCardScript__TriggerAbilities.c:207-221`，逐句）：
         //    `if (!CardAbility.CanTriggerAbility(ability, trigger, mgr, thisCard, …)) {`
@@ -21608,7 +21608,7 @@ namespace RuleEngine
         }
 
         // ======================================================================================
-        //  🆕 2026-11-02（`B116_W6` · `ENG-12` / `ENG-18`）—— `chooseone` 的**结构化选项支**
+        //  `chooseone` 的结构化选项支 —— 🆕 2026-11-02（`B116_W6` · `ENG-12` / `ENG-18`）
         // ======================================================================================
         //  判据（🥇 第一权威，现读 → `资料/完全复刻/判据/B116_对账_G2_引擎执行.md` §ENG-12/§ENG-18）：
         //   · 原版机制 ①（卡面明写 `choose one:`）= `choicesDefinition` → 候选是**选项卡 SO**
@@ -21700,6 +21700,182 @@ namespace RuleEngine
         {
             var c = AbilityLevelGateTarget(kind, subject, target);
             return c != null && c.SeatKnown ? (int?)c.OwnerSeat : null;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-11-03（执行写手 `B121-D4` · 账 `B121-04` / `B121-05`）：卡表 v48 两列的消费端
+        // ==========================================================================================
+        //  两列都走**同一条形状**：在 `ResolveOneCore` 的入口把「卡表数据」叠到 op 上（与
+        //  `StampRollPerTarget` / `ApplyRefCardValueOption` 同一位置、同一条纪律：**只改副本**，
+        //  ⛔ 不动解析产物原件），取不到数据 ⇒ **原样退回正文口径**（= 加这两列之前逐字相同）。
+        // ------------------------------------------------------------------------------------------
+
+        /// <summary>**`abilityHeal` 覆盖 `heal` op 的数值**（原版 `AbilityLogic.healCriteria +0x48`）。
+        ///
+        /// <para>**判据（逐句现读）**：`AbilityLogic__PlayAbility.c:1178` 那一支（`chosenAbility == 0x14`）
+        /// 读 `*(param_1 + 0x48)` 得 `minValue(+0x14)` / `maxValue(+0x18)` / `valueOptions(+0x10)`，
+        /// 再交 `AbilityLogic__GetValueFromCriteria` —— **`healCriteria` 的唯一读点就是这一支**
+        /// ⇒ `spec.Ca != 20` 的行**原版根本不会读**（现读 84 行非零里 24 行是这种序列化残留）。</para>
+        ///
+        /// <para>**只在 `valueOptions == 0 (Normal)` 时覆盖**：其余档（现池只有 `210 TargetExcessDamage`，
+        /// EC42 两行）我们**没有**求值器 ⇒ 出声、**保留正文数值**（⛔ 不拿 min 当结果假装算对了）。</para>
+        ///
+        /// <para>⚠️ 坐标取法（**三档，⛔ 别只取第一档**）：① `AbilityIndex/LogicIndex`（`AssignAbilityIndices`
+        /// 按 `role="target"` 条件行归位）；② 归不到就用 `TargetCriteriaAbility/Logic`（`AssignAbilityTargets` 那套）；
+        /// ③ 都拿不到 ⇒ `CardDef.AbilityHealSole()`（**全卡恰好一行**才认，与 `SoleAbilityDamageIs80` 同纪律）。
+        /// 实测原因：① 对没有 `role="target"` 行的卡**恒 -1**（`Sawbonez` 就是），只取 ① 会让这一列永远读不到。</para>
+        /// </summary>
+        static EffectOp ApplyHealCriteria(BattleContext ctx, string by, EffectOp op, CardDef card)
+        {
+            if (ctx == null || op == null || card == null) return op;
+            if (!string.Equals(op.Verb, "heal", System.StringComparison.Ordinal)) return op;
+            var spec = HealSpecFor(op, card);
+            if (spec == null) return op;                                   // 这条 logic 没有 heal 行 ⇒ 正文
+            // ⚠️ 「只认 `chosenAbility == 20`」那道闸在**生成器**里（载体 `AbilityHealSpec` 没有 `ca` 格）
+            //   —— 见 `工具/gen_cards_engine.py` 的 `ability_heal_of`。这里拿到的行一定是 `ca 20`。
+            if (spec.Min < 0 || spec.Max < 0) return op;                   // 坏格 ⇒ 退回正文（⛔ 不猜）
+            if (spec.ValueOptions != 0)
+            {
+                ctx.Log($"{by}：「{op.Source}」的 `healCriteria.valueOptions = {spec.ValueOptions}`"
+                      + " **本仓没有那个求值档** ⇒ **沿用正文数值**（⛔ 不拿 `minValue` 假装算对了）");
+                return op;
+            }
+            if (spec.Min == 0 && spec.Max == 0) return op;                 // 明确 0 ⇒ 没有可治的量
+            var c = op.Clone();
+            c.Amount = spec.Min;
+            c.AmountMax = spec.Max > spec.Min ? spec.Max : spec.Min;
+            ctx.Log($"{by}：「{op.Source}」的治疗量取自卡表 `healCriteria` = "
+                  + (c.AmountMax > c.Amount ? $"{c.Amount}-{c.AmountMax}" : $"{c.Amount}")
+                  + $"（原版 `AbilityLogic.healCriteria`，ab{spec.Ab}/lg{spec.Lg}）");
+            return c;
+        }
+
+        /// <summary>**`abilityMana` 定「哪一方收」与 `create`/`refill` 的种类**（原版 `AbilityLogic.manaBuff`）。
+        ///
+        /// <para>**数值不动**：原版按 `manaAmount` **逐行**结算（一行 +1），而我们正文解析出来的是
+        /// **整张卡的合计**（`Gain 2 Quest Points` 在原版是两条 logic 各 +1）⇒ 拿行内 `amount`
+        /// 覆盖会**少给**。本方法只订正两件正文说不准的事：</para>
+        /// <list type="number">
+        /// <item><b>收资源的一方</b>：`BattleManager__ResolveManaBuff.c:84/93` —— `friendlyPlayer(+0x14)`
+        ///   用施放方、`enemyPlayer(+0x15)` 把 `isPlayer` **取反**（对面收）。数据说「只有对面收」时
+        ///   把 op 的 `Target.Side` 置 `enemy`（`DoFactionResource` 认这一格）。</item>
+        /// <item><b>`createMana` / `refillMana` 的种类</b>：`ProcessManaBuff.c:38-49` 先看 `create`
+        ///   再看 `refill`（抬上限 vs 补当前）。正文把 `Gain N Energy` 解成 `gainenergy`、
+        ///   `Refill N Energy` 解成 `refill` —— 两者冲突时以数据为准。</item>
+        /// </list>
+        ///
+        /// <para>⚠️ **能量给对面**（`enemyPlayer` + `create/refill`）本仓**没有那一支**（`DoEnergy` /
+        /// `DoRefill` 恒作用于 `owner`）⇒ 出声、不改（如实标着，⛔ 不假装）。</para>
+        /// </summary>
+        static EffectOp ApplyManaBuff(BattleContext ctx, string by, EffectOp op, CardDef card)
+        {
+            if (ctx == null || op == null || card == null) return op;
+            var spec = ManaSpecFor(op, card);
+            if (spec == null) return op;
+
+            var c = op;
+            // ---- ① create / refill 的种类（两者都真 ⇒ 原版 `create` 优先，见 ProcessManaBuff 的 if 序）----
+            bool create = spec.CreateMana > 0, refill = spec.RefillMana > 0 && !create;
+            if (create || refill)
+            {
+                if (create && string.Equals(c.Verb, "refill", System.StringComparison.Ordinal))
+                {
+                    c = c.Clone(); c.Verb = "gainenergy";
+                    ctx.Log($"{by}：「{op.Source}」卡表 `manaBuff.createMana = 1` ⇒ 按**抬上限**结算"
+                          + "（原版 `ProcessManaBuff.c:38-49` 的 `createMana` 支；正文写的是 refill 口径）");
+                }
+                else if (refill && string.Equals(c.Verb, "gainenergy", System.StringComparison.Ordinal))
+                {
+                    c = c.Clone(); c.Verb = "refill";
+                    ctx.Log($"{by}：「{op.Source}」卡表 `manaBuff.refillMana = 1` ⇒ 按**补当前能量**结算"
+                          + "（原版 `ProcessManaBuff.c:38-49` 的 `refillMana` 支；正文写的是 gain 口径）");
+                }
+            }
+
+            // ---- ② 收资源的一方（只在「数据明确说对面、且没说自己也收」时才翻）----
+            if (spec.EnemyPlayer > 0 && spec.FriendlyPlayer <= 0)
+            {
+                bool toPlayer = c.Verb != null && (c.Verb.StartsWith("gain", System.StringComparison.Ordinal)
+                                                   || c.Verb == "faith" || c.Verb == "spirit" || c.Verb == "quest"
+                                                   || c.Verb == "refill");
+                if (!toPlayer) return c;
+                if (c.Verb == "gainenergy" || c.Verb == "refill")
+                {
+                    ctx.Log($"{by}：「{op.Source}」卡表说**对面**收能量（`manaBuff.enemyPlayer = 1`）"
+                          + " —— 本仓 `DoEnergy`/`DoRefill` 只作用于施放方 ⇒ **这一条没按原版结算**（如实标着）");
+                    return c;
+                }
+                var tgt = c.Target ?? new EffectTargetSpec { Raw = "(卡表 manaBuff：对面收)", Kind = "unit", Count = 0, Auto = true };
+                if (tgt.Side == "enemy") return c;                          // 正文已经说对了
+                var t2 = new EffectTargetSpec
+                {
+                    Raw = tgt.Raw, Side = "enemy", Kind = tgt.Kind, Count = tgt.Count, Random = tgt.Random,
+                    Adjacent = tgt.Adjacent, Anchor = tgt.Anchor, AnchorInSet = tgt.AnchorInSet,
+                    Subjectless = tgt.Subjectless,
+                };
+                c = c.Clone(); c.Target = t2;
+                ctx.Log($"{by}：「{op.Source}」卡表说这份资源归**对面**（`manaBuff.enemyPlayer = 1`）"
+                      + " ⇒ 改由对面收（原版 `ResolveManaBuff.c:93` 把 `isPlayer` 取反）");
+            }
+            return c;
+        }
+
+        /// <summary>取这一条 op 的 `healCriteria` 行 —— 三档坐标，见 <see cref="ApplyHealCriteria"/> 的 doc。</summary>
+        static CardDef.AbilityHealSpec HealSpecFor(EffectOp op, CardDef card)
+        {
+            if (op == null || card == null) return null;
+            if (op.AbilityIndex >= 0 && op.LogicIndex >= 0
+                && !string.Equals(op.AbilityMap, "attached", System.StringComparison.Ordinal))
+            {
+                var s = card.AbilityHealAt(op.AbilityIndex, op.LogicIndex);
+                if (s != null) return s;
+            }
+            if (op.TargetCriteriaAbility >= 0 && op.TargetCriteriaLogic >= 0)
+            {
+                var s = card.AbilityHealAt(op.TargetCriteriaAbility, op.TargetCriteriaLogic);
+                if (s != null) return s;
+            }
+            return card.AbilityHealSole();
+        }
+
+        /// <summary>取这一条 op 的 `manaBuff` 行 —— 坐标三档同 <see cref="HealSpecFor"/>。</summary>
+        static CardDef.AbilityManaBuffSpec ManaSpecFor(EffectOp op, CardDef card)
+        {
+            if (op == null || card == null) return null;
+            if (op.AbilityIndex >= 0 && op.LogicIndex >= 0
+                && !string.Equals(op.AbilityMap, "attached", System.StringComparison.Ordinal))
+            {
+                var s = card.AbilityManaBuffAt(op.AbilityIndex, op.LogicIndex);
+                if (s != null) return s;
+            }
+            if (op.TargetCriteriaAbility >= 0 && op.TargetCriteriaLogic >= 0)
+            {
+                var s = card.AbilityManaBuffAt(op.TargetCriteriaAbility, op.TargetCriteriaLogic);
+                if (s != null) return s;
+            }
+            return card.AbilityManaBuffSole();
+        }
+
+        // ==================================================================
+        //  🔶 自己设计（非原版）· 用户 2026-11-03 裁定 · 执行写手 `B121_E03F_DATA`（账 `B121-E03F`）
+        //    13 张变身战术卡（`TRANSFORM_<FACTION>`）的**结算适配器**。
+        //    唯一实现都在 `RuleCore` 那一侧（`HasWarlordTransformAbility` / `WarlordTransformCandidates` /
+        //      `ResolveWarlordTransform`），本方法只做两件：① 调它；② 失败时**出声**（红线：不许静默失败）。
+        //    ⛔ 别在这里写「重建 UnitState / 搬生命修正」那一套 —— 换人本体只有 `SwapWarlordCard` 一份。
+        // ==================================================================
+        static bool DoWarlordTransform(BattleContext ctx, int owner, string by, EffectOp op,
+                                       UnitState chosen, List<string> unresolved)
+        {
+            CardDef picked; int cands; string why;
+            if (RuleCore.ResolveWarlordTransform(ctx, owner, out picked, out cands, out why))
+            {
+                ctx.Log($"{by}：「{op.Source}」把督军换成同阵营的「{picked.Name}」（候选 {cands} 位）");
+                return true;
+            }
+            // 0 个候选 / 没有督军 / 换人自身失败 —— **空放**：卡照常结算完、进弃牌堆，但一定要看得见。
+            ctx.Log($"{by}：「{op.Source}」没有变身 —— {why}");
+            if (unresolved != null) unresolved.Add(op.Source + "（变身没发生：" + why + "）");
+            return false;
         }
     }
 }

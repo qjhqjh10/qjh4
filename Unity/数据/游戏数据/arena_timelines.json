@@ -1,0 +1,180 @@
+{
+ "schema": 1,
+ "note": "原版战场 Timeline（PlayableDirector）的运行时重建表。由 工具/gen_arena_timeline.py 从原版 StreamingAssets 包直读，别手改。",
+ "arenas": [
+  {
+   "key": "battlearenaleviathan",
+   "directors": [
+    {
+     "path": "Scenario/Battle Arena Leviathan Baked/Bunker Door Parent",
+     "playableAsset": "Leviathan Bunker Door Animation",
+     "initialState": 1,
+     "wrapMode": 1,
+     "updateMode": 1,
+     "initialTime": 15.0,
+     "durationMode": 0,
+     "tracks": [
+      {
+       "name": "Animation Track",
+       "trackPid": 983775116529081651,
+       "kind": "animation",
+       "animatorPath": "Scenario/Battle Arena Leviathan Baked/Bunker Door Parent/Bunker_door",
+       "clip": "Recorded",
+       "clipDuration": 17.133333,
+       "applyOffsets": 0,
+       "trackOffset": 0,
+       "matchTargetFields": 63
+      },
+      {
+       "name": "Control Track R",
+       "trackPid": 1437556166743465267,
+       "kind": "control",
+       "clips": [
+        {
+         "display": "ElectricalSparks Down R",
+         "start": 8.683333,
+         "duration": 2.0,
+         "clipIn": 0.0,
+         "timeScale": 1.0,
+         "exposedName": "-113049594",
+         "target": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Down R",
+         "active": 1,
+         "postPlayback": 2,
+         "updateParticle": 1,
+         "updateDirector": 1,
+         "updateITimeControl": 1,
+         "searchHierarchy": 0,
+         "particleRandomSeed": 4912,
+         "directorOnClipEnd": 0
+        },
+        {
+         "display": "ElectricalSparks Up R",
+         "start": 3.133333,
+         "duration": 2.0,
+         "clipIn": 0.0,
+         "timeScale": 1.0,
+         "exposedName": "-750256669",
+         "target": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Up R",
+         "active": 1,
+         "postPlayback": 2,
+         "updateParticle": 1,
+         "updateDirector": 1,
+         "updateITimeControl": 1,
+         "searchHierarchy": 0,
+         "particleRandomSeed": 7853,
+         "directorOnClipEnd": 0
+        }
+       ]
+      },
+      {
+       "name": "Control Track L",
+       "trackPid": 2111554965440863539,
+       "kind": "control",
+       "clips": [
+        {
+         "display": "ElectricalSparks Down L",
+         "start": 8.616667,
+         "duration": 2.0,
+         "clipIn": 0.0,
+         "timeScale": 1.0,
+         "exposedName": "-1812151148",
+         "target": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Down L",
+         "active": 1,
+         "postPlayback": 2,
+         "updateParticle": 1,
+         "updateDirector": 1,
+         "updateITimeControl": 1,
+         "searchHierarchy": 0,
+         "particleRandomSeed": 5477,
+         "directorOnClipEnd": 0
+        },
+        {
+         "display": "ElectricalSparks Up L",
+         "start": 3.216667,
+         "duration": 2.0,
+         "clipIn": 0.0,
+         "timeScale": 1.0,
+         "exposedName": "-1563789596",
+         "target": "Scenario/Particle Effects/Bunker Timeline Particles/ElectricalSparks Up L",
+         "active": 1,
+         "postPlayback": 2,
+         "updateParticle": 1,
+         "updateDirector": 1,
+         "updateITimeControl": 1,
+         "searchHierarchy": 0,
+         "particleRandomSeed": 3177,
+         "directorOnClipEnd": 0
+        }
+       ]
+      },
+      {
+       "name": "Control Track",
+       "trackPid": -614657872508773069,
+       "kind": "control",
+       "clips": [
+        {
+         "display": "Door Open",
+         "start": 0.0,
+         "duration": 4.683333,
+         "clipIn": 0.0,
+         "timeScale": 1.0,
+         "exposedName": "1614308479",
+         "target": "Scenario/Particle Effects/Bunker Timeline Particles/Door Open Up",
+         "active": 1,
+         "postPlayback": 2,
+         "updateParticle": 1,
+         "updateDirector": 1,
+         "updateITimeControl": 1,
+         "searchHierarchy": 0,
+         "particleRandomSeed": 778,
+         "directorOnClipEnd": 0
+        },
+        {
+         "display": "Door Open Down",
+         "start": 6.95,
+         "duration": 4.75,
+         "clipIn": 0.0,
+         "timeScale": 1.0,
+         "exposedName": "73953325",
+         "target": "Scenario/Particle Effects/Bunker Timeline Particles/Door Open Down",
+         "active": 1,
+         "postPlayback": 2,
+         "updateParticle": 1,
+         "updateDirector": 1,
+         "updateITimeControl": 1,
+         "searchHierarchy": 0,
+         "particleRandomSeed": 7819,
+         "directorOnClipEnd": 0
+        }
+       ]
+      },
+      {
+       "name": "Control Track (1)",
+       "trackPid": 1358979367241817395,
+       "kind": "control",
+       "clips": [
+        {
+         "display": "Door Open Down End",
+         "start": 8.616667,
+         "duration": 3.916667,
+         "clipIn": 0.0,
+         "timeScale": 1.0,
+         "exposedName": "1500186034",
+         "target": "Scenario/Particle Effects/Bunker Timeline Particles/Door Open Down End",
+         "active": 1,
+         "postPlayback": 2,
+         "updateParticle": 1,
+         "updateDirector": 1,
+         "updateITimeControl": 1,
+         "searchHierarchy": 0,
+         "particleRandomSeed": 2163,
+         "directorOnClipEnd": 0
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

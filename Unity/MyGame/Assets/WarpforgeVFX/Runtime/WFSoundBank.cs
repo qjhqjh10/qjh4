@@ -50,9 +50,9 @@ namespace WarpforgeVFX
         /// <summary>🆕 2026-10-15（`T06` · 战斗音响）：**战斗那一族**的 cue 表。
         /// 取值链 = `BattleManager.soundCollection`(`+0x80`) → `SoundAssetCollection` 的**字段** →
         /// Addressables `AssetReference` → cue 资产（`AudioCue`）→ `clipList`。
-        /// 🔴 **它的 `name` 列是【原版字段名】**（`startTurn` / `endTurnButton` …），不是 cue 资产名 ——
+        /// 🔴 **它的 `name` 列是【原版字段名】**（`startTurn` / `endTurnButton` …），不是 cue 资产名 —— 🆕 2026-11-03（`B121-D2`）**例外**：表里另有 `group=scene`(4) / `group=event`(2) 共 6 条，`name` 是 **cue 资产名**（`Victory`/`Defeat`/`OvertimeStart`/`Blackout`/两条活动 jingle），**手写**（引用者在场景/预制体序列化字段与活动 SO 上，无自动取材口）⇒ 重跑生成器会丢，由 `Editor/B121_D2_Assert.cs` C1b 逐名钉住。
         /// C# 那边照原版 `soundCollection.startTurn` 那句按**字段名**索引。
-        /// 产出方 = `工具/import_battle_sfx.py`（两族的 cue 名实测**零交集**，故各自一张表、同一套解析）。</summary>
+        /// 产出方 = `工具/import_battle_sfx.py`（A 组 `collection` 16 + B 组 `card` 11 = 自动取材；**C 组 = 手写组 `HAND_WRITTEN`**：`scene` 5 + `event` 2，引用者在场景/预制体/活动 SO 上、无自动取材口 ⇒ 只有「谁指向哪条 cue」手写，clips/音量/音高/ttp 仍当场从 cue 束重解）。⚠️ **2026-11-03 就地订正（`B121-FIX`）**：原文写「它**只产出 `collection`/`card` 两组**，上面那 6 条不在它的取材面里」——**已过期**：C 组已于同日 `B121-AUD-03` 并进生成器（现 7 条，含 `B121-AUD-05` 的 `Draw`）⇒ 重跑生成器**不再丢**它们。**本类管【三张表】**（`animfx_sounds` 513 条 · `battle_sounds` 现读 **34 条 / 四组** · `remnant_sounds` 6 条），⛔ 别在别处再维护第四份 cue 名单。</summary>
         public const string BattleTablePath = "battle_sounds";
         /// <summary>🆕 2026-11-02（`B120-W17` · `B120-F15`）：**残骸体那六条 cue** 的表。
         /// 改前那 6 个 cue 名（`Aeldari To Waystone` / `Aeldari Waystone Collect` / `Aeldari Waystone Destruction` /

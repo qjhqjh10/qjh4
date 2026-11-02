@@ -1323,7 +1323,7 @@ class Program
             // 🔴 2026-11-01（写手 `W-25` · 活状态表 `B-257`）：`triggerAbilityIndices` ＋
             //   `{触发数值 → 正文 op}` 两列也要挂 —— 与引擎 `Data/CardDatabase.cs:1762` 那两句
             //   **同一套代码、同一顺序**（判据与理由见 `CardDatabaseProbeHook.cs` 文件头）。
-            AttachTriggerAbilityAndOpsByNumber(__def, c, poolVersion); __def.AttachCardTraits(ProbeCardTraits(c));   // 🔴 2026-11-02（`B116_W33` · 活状态表 `B-324`）：卡池的 `cardTraits` 列也要挂 —— 与引擎 `Data/CardDatabase.cs:1734` 同一句、同一个方法（理由与三态口径 → 类尾 `ProbeCardTraits` 的 doc）。⚠️ 同一物理行追加（铁律 18·b）：加行会把本文件下游行号整体推走。
+            AttachTriggerAbilityAndOpsByNumber(__def, c, poolVersion); __def.AttachCardTraits(ProbeCardTraits(c)); __def.AttachChosenAbilities(ProbeChosenAbilities(c));   // 🔴 2026-11-02（`B116_W33` · 活状态表 `B-324`）：卡池的 `cardTraits` 列也要挂 —— 与引擎 `Data/CardDatabase.cs:1734` 同一句、同一个方法（理由与三态口径 → 类尾 `ProbeCardTraits` 的 doc）。⚠️ 同一物理行追加（铁律 18·b）：加行会把本文件下游行号整体推走。
             list.Add(__def);
         rawKw.Add(kws);
         }
@@ -2274,6 +2274,32 @@ class Program
     {
         return card.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.String
             ? idEl.GetString() : "(无 id 列)";
+    }
+
+    // ======================================================================================
+    //  🔶 自己设计（非原版）· 用户 2026-11-03 裁定 · 执行写手 `B121_E03F_DATA`（账 `B121-E03F`）
+    //    卡池 `chosenAbility` 列 → `CardDef.AttachChosenAbilities` 的**探针侧读口**
+    // ======================================================================================
+    //  与引擎 `Data/CardDatabase.cs:1762` 的 `def.AttachChosenAbilities(c.chosenAbility)` **同一列、同一方法**。
+    //  🔴 为什么必须有这一句：本探针**不走** `CardDatabase.Parse`（自己手读 JSON，见文件头）
+    //     ⇒ 不挂这一列的话 `CardDef.ChosenAbilities` 恒 `null` ⇒ `RuleCore.HasWarlordTransformAbility` 恒 false
+    //     ⇒ 13 张变身战术卡在探针里被当成「卡面正文解析不了」⇒ `CanPlayTactic` 返 `ErrUnimplemented`
+    //     （症状：`play TRANSFORM_*` 显示「打不出去」、`play check` 少 13 组读数 —— 2026-11-03 实测撞到）。
+    //  ⚠️ 缺键 / 不是数组 / 元素不是整数 ⇒ `null`（= **列未知**，⛔ 不拿空数组顶 —— 那是「明确没有」）。
+    static int[] ProbeChosenAbilities(JsonElement c)
+    {
+        if (c.ValueKind != JsonValueKind.Object) return null;
+        JsonElement el;
+        if (!c.TryGetProperty("chosenAbility", out el) || el.ValueKind != JsonValueKind.Array) return null;
+        var list = new List<int>();
+        foreach (var v in el.EnumerateArray())
+        {
+            if (v.ValueKind != JsonValueKind.Number) return null;
+            int n;
+            if (!v.TryGetInt32(out n)) return null;
+            list.Add(n);
+        }
+        return list.ToArray();
     }
 }
 

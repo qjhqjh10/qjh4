@@ -54,7 +54,7 @@ public static partial class RuleEngineTest
     static void G12DataReadings(List<CardDef> pool)
     {
         // 🔴 2026-10-25（`X20`）就地改期望值：1127 → 1128（池内新增隐藏附魔模板 `Pray Enchantment`）。
-        Check(pool.Count, 1129, "(前提) 卡池 1129 张｜2026-10-27 `A1a` 收 `DA42` 附魔模板 `Reconnaissance Mission`（v35）");
+        Check(pool.Count, 1142, "(前提) 卡池 1142 张｜2026-10-27 `A1a` 收 `DA42` 附魔模板 `Reconnaissance Mission`（v35）；🔴 2026-11-03 `E121-WIRE`：v49 再加 13 张 `TRANSFORM_*` 变身战术卡（1,129 → 1,142）");
 
         int notVersioned = 0, nullColumn = 0, cardsWith = 0, cardsEmpty = 0;
         int objects = 0, logicRows = 0, gate0Cards = 0, gate0Rows = 0, fmPositive = 0;
@@ -90,7 +90,7 @@ public static partial class RuleEngineTest
         }
 
         Check(notVersioned, 0,
-              "★ v23 卡表 ⇒ **1128/1128** 张卡都带 `activeAbilityLogic` 的正面信号"
+              "★ v23 卡表 ⇒ **1142/1142** 张卡都带 `activeAbilityLogic` 的正面信号（🔴 2026-11-03 `E121-WIRE` 现读：v49 池 1,142）"
             + "｜🧨 `CardDatabase.Parse` 里写成 `>= 24` / 漏传那一格 ⇒ 红");
         Check(nullColumn, 0,
               "★ **没有一张卡的这一列是 `null`**（v23 每张卡都落；`null` 只该出现在旧表 / 调用方没给）"
@@ -101,9 +101,9 @@ public static partial class RuleEngineTest
         // 🔴 2026-10-25（`X20`）：995 → **996**（池内新增的附魔卡没有 active/alt 行 ⇒ `[]`；
         //    1128 − 132 = 996）。
         // 🔴 2026-10-27（`A1a`）：996 → **997**（池 1,128→1,129，新模板 `Reconnaissance Mission`
-        //    同样没有 active/alt 行 ⇒ 1129 − 132 = 997）。
-        Check(cardsEmpty, 997,
-              "★ 明确没有行的卡 = **997 张**（1129 − 132）"
+        //    同样没有 active/alt 行 ⇒ 1129 − 132 = 997；🔴 2026-11-03 `E121-WIRE`：v49 池 1,142，新增的 13 张 `TRANSFORM_*` 同样没有 active/alt 行 ⇒ 1142 − 132 = 1010）。
+        Check(cardsEmpty, 1010,
+              "★ 明确没有行的卡 = **1010 张**（1142 − 132）"
             + "｜🧨 把「没有行」写成不落列 ⇒ 这个数掉、上面 `nullColumn` 涨 ⇒ 两条一起红");
         Check(objects, 133,
               "★ 能力对象总数 = **133**（132 个 `activeAbility` ＋ `SW21` 的 1 个 `alternativeAbility`）"

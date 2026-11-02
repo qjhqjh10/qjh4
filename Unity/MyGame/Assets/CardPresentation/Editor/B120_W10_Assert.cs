@@ -4,23 +4,25 @@
 //  Q6   多张部署间隔：`EventTiming.DeploySummonHold` **1.0 → 0.45**（= `_ResolveSummonUnit` 那条协程的整条寿命
 //       0.1 + 0.05 + 0.2 + 0.1；原版**没有**「部署间隔」字段、动作泵无额外等待）
 //  Q7   `Card3DAnimationController.Update` 的到期判据：把原式 `OneFrameSlack / targetFrameRate + remaining < 0`
-//       抽成 `FrameSlackExpired(fps, remaining)`（原版照抄、⛔ 不加钳制）。**行为仍按 60 fps 算** ——
-//       照抄原版默认档（`targetFrameRate = -1`）会让 82.6% 的卡体动画当帧收尾 ⇒ 已停手交调度台裁（反证见报告 §Q7）。
+//       抽成 `FrameSlackExpired(fps, remaining)`（原版照抄、⛔ 不加钳制）。🔴 **2026-11-03（`B121-WB`）已裁定照抄**：
+//       调用点那一行 `if (fps <= 0) fps = 60;`（🔶 自设计）**已删** ⇒ `-1` 档（原版默认）真的生效：剩不到 1 s 就当帧收尾。
 //  Q9② `BattleCampaignScriptHost.PlaySoundAsset` 改成原版形状：**只入队** + 每帧出队一条
 //       + `SoundFxVolume > 0` 闸 + `PlayOneShot(clip, SoundFxVolume × volume)` + **无混音组（Master）**
 //
 // ============================ 🔴 灭自证（哪一处改回去会让哪一条红）============================
 //  🧨 Q6：把 `DeploySummonHold` 改回 `1.0f` ⇒ A2/A3/A6/A7/A8 红（0.45 那两档、兜底两档、与「四段之和」全对不上）。
 //  🧨 Q6：把四段之一改掉（0.1/0.05/0.2/0.1）而不同步常数 ⇒ A7 红（那是**算出来**的恒等式，不是抄常数）。
-//  🧨 Q7：把 `FrameSlackExpired` 改成带钳制（`fps <= 0 ⇒ 60`）⇒ B2 红（`fps = -1, remaining = 0.5` 必须**到期**）。
-//          把它写成 `>= 0` 反向 ⇒ B1/B3 全红。
+//  🧨 Q7：把 `FrameSlackExpired` 改成带钳制（`fps <= 0 ⇒ 60`）⇒ B2/B4 红（`fps = -1, remaining = 0.5` 必须**到期**）。
+//          把它写成 `>= 0` 反向 ⇒ B1/B3 全红。🧨 把调用点那一行 `if (fps <= 0) fps = 60;` 加回来 ⇒ B7/B7′ 红
+//          （真控制器会按 60 fps 算裕量，与 `FrameSlackExpired(Application.targetFrameRate, …)` 的答案分叉）。
 //  🧨 Q9②：把 `PlaySoundAsset` 改回「立刻 `PlayOneShot`」⇒ C1 红（入队后 `LastSoundQueueVolume` 仍是 -1 才算没播）。
 //          把音量改回 `AudioListener.volume` ⇒ C3 红（会记到 0.25 而不是 0.2）；把闸删掉 ⇒ C2 红；
 //          把混音组挂回 `VoicesGroup` ⇒ C4 红；把出队改成「一次抽干」⇒ C5 红（第二条必须还在队里）。
 //
 // ============================ 覆盖边界（如实记）============================
 //  · **Q7 的 82.6% 是数据侧证据**（`Resources/cardanim_clips.json` 现读 881/1067 条 ≤ 1.0 s）——
-//    它证明「照抄 -1 档会怎样」，**不证明**「我们该不该照抄」；后者待调度台裁，⛔ 本件不替它下结论。
+//    它证明「照抄 -1 档会怎样」；🔴 **2026-11-03（`B121-WB`）调度台已按铁律 18·0 裁定「照抄」**（原版默认档就是 -1），
+//    本件 B8 保留它当**事实读数**（不是「该不该」的论据）。
 //  · **Q9② 没有出声验证**（批处理里 `AudioSource.PlayOneShot` 不出声也返回）：只验**队列/闸/音量实参/路由**。
 //  · **Q9② 的泵今天无人调用**（战役脚本数据是服务端 LiveOps 资产、本地 0 条 ⇒ 整条链休眠）——
 //    本件的 C 组是**手动**调 `PlayNextSoundInQueue()`，⛔ 不代表宿主已经把它接进 `AdvanceTimeline`。
@@ -132,18 +134,30 @@ public static class B120_W10_Assert
         Check(!Card3DAnimationController.FrameSlackExpired(0, 0.001f),
               "B6 ✋ `fps = 0` ⇒ `1.0f/0f = +∞` ⇒ **永不到期**（原版同；⛔ 别加特判）");
 
-        // B7：真控制器跑一遍（行为**没变**：调用点仍把 fps 钳成 60）
+        // B7：真控制器跑一遍 —— 🔴 **2026-11-03（`B121-WB`）改写**：原来的断言是「0.2 s 的拍推 0.25 s ⇒ 收尾」
+        //   用 0.25 s 那一步**区分不出**「钳成 60」和「原样 -1」（两档都会收尾）⇒ 换成**小步 dt**（0.02 s）：
+        //   剩余 0.18 s 时 `-1` 档到期（`-1 + 0.18 < 0`）、`60` 档不到期（`0.0167 + 0.18 > 0`）⇒ 两档答案**相反**。
         var go = new GameObject("B120W10_Card3D");
         try
         {
+            int tfr = Application.targetFrameRate;
+            Check(tfr <= 0,
+                  "B7 前提：`Application.targetFrameRate = " + tfr + "` ≤ 0（原版默认档 −1）。"
+                + "若这里 > 0，B7′ 退化成一个恒真等式（判别力消失）—— 不是绿，是前提变了");
             var ctl = new Card3DAnimationController(go.transform);
             int done = 0;
             bool started = ctl.DoAnim(new CardAnimPlayback { Prefab = "Probe", Duration = 0.2f, Label = "b120w10" },
                                       false, () => done++);
             Check(started && ctl.PlayedCount == 1, "（前提）0.2 s 的拍起来播了");
-            ctl.Update(0.25f);
-            Check(done == 1 && ctl.FinishedCount == 1 && !ctl.Enabled,
-                  "B7 ★ 0.2 s 的拍推 0.25 s ⇒ **收尾 1 次**（与改动前逐位相同：调用点按 60 fps 算裕量）");
+            ctl.Update(0.02f);                       // 剩余 0.18 s —— **故意不推过时长**，只看「一帧裕量」这一档
+            int expect = Card3DAnimationController.FrameSlackExpired(tfr, 0.18f) ? 1 : 0;
+            Check(done == expect && ctl.FinishedCount == expect,
+                  "B7 ★ 真控制器与 `FrameSlackExpired(Application.targetFrameRate, 0.18f)` **同一个答案**（收尾 " + done + " 次 / 期望 " + expect + "）"
+                + "｜🧨 把调用点那一行 `if (fps <= 0) fps = 60;` 加回来 ⇒ 控制器按 60 fps 算 ⇒ `done = 0 ≠ 1` ⇒ 红");
+            // B7′：把「−1 档真实语义」钉在判据本身上（用一个小步长的剩余时间，与 B4 的 0.5 s 互为补充）
+            Check(Card3DAnimationController.FrameSlackExpired(-1, 0.18f),
+                  "B7′ ★ 原版默认档 `targetFrameRate = -1` 的到期线：剩 **0.18 s** 也已经到期（`1/(-1) + 0.18 = -0.82 < 0`）"
+                + "｜🧨 给式子或调用点加 `fps <= 0 ⇒ 60` 的钳制 ⇒ 红");
             ctl.Detach();
         }
         finally { UnityEngine.Object.DestroyImmediate(go); }

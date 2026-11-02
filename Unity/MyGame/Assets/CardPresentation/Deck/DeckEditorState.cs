@@ -442,7 +442,7 @@ namespace CardPresentation
             //    （原版 `DeckUtility__ValidateDeckCards.c:68-77`，`inventoryOptions` / `showInCollectionOptions`）。
             //    ⚠️ 那个函数**内部**已经照原版把 hero / 防御卡路由走（`CanAddCard.c:32-39`），
             //    所以这里不必再自己挡一遍（上面那两行早返回的仍在，是**槽位**口径不是准入口径）。
-            if (DeckRules.CannotAddToDeck(c)) return DeckError.EffectOnlyCard;
+            if (DeckRules.IsNotDeckable(c)) return DeckError.InvalidCard; if (DeckRules.CannotAddToDeck(c)) return DeckError.EffectOnlyCard;   // 🆕 2026-11-03（`B121_WC` · 账 `B120-E03g`）：`NotDeckable` 那档**排在准入判据之前**（原因不同、文案必须分开 —— 判据/落点 → `RuleEngine/Core/DeckRules.cs` 类尾 `IsNotDeckable` 的 doc）。同一物理行追加 ⇒ 行号零漂移
 
             // 阵营：原版 `CardDeck.CanAddCard` 比的是 **`deckArmy`**（督军 > 卡表第 0 张 > Neutral），**不是督军的阵营**
             // 判据 = `CardDeck__CanAddCard.c:86-93`（`deck+0x50` vs `card+0x2c`；`IsNeutralArmy` 跳过、`CardCount(countHero:1) > 0` 才挡）· ILSpy 同形 `CardDeck.cs:812-819`
@@ -582,7 +582,7 @@ namespace CardPresentation
             // 🆕 **2026-10-18**：显示闸在两处宿主上都生效 ——
             //   · 卡组编辑（`WarlordGatedPool`）：原版 `DeckEditingWindow.GetCardCollection` 那条链；
             //   · 收藏卡牌页（`ShowInCollectionOnly`）：原版 `CardCollectionTab.GetCollection` 同一条 `Where`。
-            bool showGate = WarlordGatedPool || ShowInCollectionOnly;
+            bool showGate = WarlordGatedPool || ShowInCollectionOnly; bool armyPicked = (f.Factions != null && f.Factions.Count > 0) || !string.IsNullOrEmpty(f.Faction);   // 🆕 2026-11-03（`B121_WC` · COLL-5①）：玩家在筛选栏**显式点了阵营** ⇒ 下面不再用督军硬闸（原版 `CardArmyFilter.SetFilterToDeck` 只是**预选** `FilterToArmy(deckArmy)`，玩家改了就以筛选为准；加牌时再由 `CanAddCard` 的 `InvalidArmy` 挡）。同一物理行追加 ⇒ 行号零漂移
             // 🆕 2026-10-23（`W64·B-12`）：原版分支③那个字段**一次取好**（属性里要过 `GameplayVariables.For`）
             bool assignDefensiveInEditMode = AssignDefensiveCardsInEditMode;
 
@@ -592,7 +592,7 @@ namespace CardPresentation
                 if (WarlordGatedPool)
                 {
                     if (wl == null) { if (c.Type != "hero") continue; }                 // 还没督军 ⇒ 只列督军
-                    else if (!DeckRules.SameFaction(c.Faction, wl.Faction)) continue;   // 定了 ⇒ 只列该阵营
+                    else if (!armyPicked && !DeckRules.SameFaction(c.Faction, wl.Faction)) continue;   // 定了 ⇒ 只列该阵营（🆕 `B121_WC` · COLL-5①：玩家显式点了阵营 ⇒ 以筛选为准，见上面 `armyPicked`）
                     // 🔴 **2026-10-18**：这一行原来是 `DeckRules.CannotAddToDeck(c)`（准入判据），
                     //   现换成**原版卡池的 `inventoryOptions` 层**。
                     //   ⛔ 别再退回准入判据：那会把「可见但加不进」的卡藏起来（原版是显示+变灰）。

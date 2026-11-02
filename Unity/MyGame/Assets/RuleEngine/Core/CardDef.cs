@@ -907,7 +907,7 @@ namespace RuleEngine
                        // 「这一列**来自 v18 卡表**」的正面信号（只有 `CardDatabase.Parse` 知道）。
                        bool abilityTriggerPrioritiesVersioned = false,
                        // 🆕 v19（2026-10-23 · 引擎线 `新账-97` ③/⑤）：原版 `RawCardScript.spellType`
-                       // 🔶 自己设计（非原版）：我们自设那 26 张卡的 `spellType = -1`（= 未知，⛔ 不是 Normal(0)） · 那 26 张不在原版快照里 ⇒ 原版 `RawCardScript.spellType` 取不到（原版判据拿不到） · TODO(谁定的)｜原注：（`SpellType` 枚举）。`-1` = 未知（快照里没这张卡）—— ⛔ 别当成 Normal(0)。
+                       // 🔶 自己设计（非原版）：我们自设那 26 张卡的 `spellType = -1`（= 未知，⛔ 不是 Normal(0)） · 那 26 张不在原版快照里 ⇒ 原版 `RawCardScript.spellType` 取不到（原版判据拿不到） · 原始拍板人未记（`工具/selfdesign_census.py` 自动打标时的占位）· 补标人：执行代理 `B121_WC`，2026-11-03（只补标记，⛔ 未改语义）｜原注：（`SpellType` 枚举）。`-1` = 未知（快照里没这张卡）—— ⛔ 别当成 Normal(0)。
                        //   ⚠️ **追加在参数表末尾**（同前几条：全仓有位置传参的老调用点）。
                        int spellType = -1,
                        // 🔴🆕 2026-10-23（引擎线 `新账-95` #2）：原版 `RawCardScript.targeted`（`+0x268`）
@@ -2542,7 +2542,7 @@ namespace RuleEngine
             /// **合法值**）· 其余 = 族名（可判）。</para>
             /// <para>⚠️ 目前只有 `abilityLevelCriteria`（`CardDatabase.MapAbilityLevelCriteria`）会写它。
             /// 消费端 = <see cref="AbilityLevelCriteriaForFamily"/>。</para></summary>
-            public string Family;
+            public string Family; public int ConditionsFilter = -1; public int ExcludeCondition = -1;   // 🆕 2026-11-03（`B121_D1B`）：原版 `TargetCriteria.conditionsFilter(+0x38)` / `excludeCondition(+0x3d)` 的**原值**（`-1` = 没落）。⚠️ 这两个格**不在** `CountSetSpec` 里（那是 `cond`/`ex` 的既有分工，见 `TargetCriteriaEval` 的 `cond` 形参）⇒ 附魔模板那条路（没有 `unitConditions` 列）用这两格自己拼 `ConditionSpec`；卡表路**不读**它们（`-1` = 逐字旧行为）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:9436` 等处有 A 行账落点。
             /// <summary>这一行的 36 格（原版 `TargetCriteria`，除 `cond`/`ex`）。`null` = 坏行。</summary>
             public CountSetSpec Criteria;
         }
@@ -7362,7 +7362,7 @@ namespace RuleEngine
         /// <summary>**集结** —— **从手牌部署到场上之后**触发（不是「打出时」）。
         /// 触发点在 `RuleCore` 的部署链里，位置在 `ResolveSpiritAbility` **之后**
         /// ⇒ 正文里的 `Self` 指向的已经是场上那个单位，而且看得见刚给出的关键词。
-        /// 🔶 自己设计（非原版）：`Rally` 的触发先后（部署到场上之后） · 规则书只写「部署到场上之后」，与原版方法体的先后无据可查（原版判据拿不到） · TODO(谁定的)｜原注：出处：规则书 `:200`。⚠️ 那一跳的**先后是我们挑的**（原版无据可查，如实标着）。</summary>
+        /// 🔶 自己设计（非原版）：`Rally` 的触发先后（部署到场上之后） · 规则书只写「部署到场上之后」，与原版方法体的先后无据可查（原版判据拿不到） · 原始拍板人未记（`工具/selfdesign_census.py` 自动打标时的占位）· 补标人：执行代理 `B121_WC`，2026-11-03（只补标记，⛔ 未改语义）｜原注：出处：规则书 `:200`。⚠️ 那一跳的**先后是我们挑的**（原版无据可查，如实标着）。</summary>
         public const string Rally = "rally";
 
         /// <summary>**猛击** —— **攻击结算之后**触发，**打没打死都算**。
@@ -7465,7 +7465,7 @@ namespace RuleEngine
         ///
         /// ⚠️ **规则书一条写「后」一条写「时」**（`:193` 是「后」、`:202` 是「时」）——
         ///    我们没有能分辨这个差别的依据 ⇒ **两条都放在同一个位置**（伤害结算完、`Slay`/`Strike` 之后）。
-        /// 🔶 自己设计（非原版）：`Regiment` 的触发先后（伤害结算完、`Slay`/`Strike` 之后） · 规则书一条写「后」一条写「时」，我们分不出差别（原版判据拿不到） · TODO(谁定的)｜原注：这是**我们挑的**，如实标着。
+        /// 🔶 自己设计（非原版）：`Regiment` 的触发先后（伤害结算完、`Slay`/`Strike` 之后） · 规则书一条写「后」一条写「时」，我们分不出差别（原版判据拿不到） · 原始拍板人未记（`工具/selfdesign_census.py` 自动打标时的占位）· 补标人：执行代理 `B121_WC`，2026-11-03（只补标记，⛔ 未改语义）｜原注：这是**我们挑的**，如实标着。
         /// </summary>
         public const string Regiment = "regiment";
 
@@ -7594,7 +7594,7 @@ namespace RuleEngine
         public const string Cruelty = "cruelty";
         /// <summary>
         /// 主动技能：**消耗本单位的一次行动**发动效果。
-        /// 🔶 自己设计（非原版）：`Ability` 关键词（花一次行动换一个效果） · 原版「替代行动」（Duty/Ferocity/Pray/Agenda）用法各异，v1 收成一条（原版判据拿不到） · TODO(谁定的)｜原注：这是本工程自己定的关键词 —— 原版的「替代行动」（职责 Duty / 狂暴 Ferocity / 祈祷 Pray /
+        /// 🔶 自己设计（非原版）：`Ability` 关键词（花一次行动换一个效果） · 原版「替代行动」（Duty/Ferocity/Pray/Agenda）用法各异，v1 收成一条（原版判据拿不到） · 原始拍板人未记（`工具/selfdesign_census.py` 自动打标时的占位）· 补标人：执行代理 `B121_WC`，2026-11-03（只补标记，⛔ 未改语义）｜原注：这是本工程自己定的关键词 —— 原版的「替代行动」（职责 Duty / 狂暴 Ferocity / 祈祷 Pray /
         /// 议程 Agenda）是一族用法各异的东西，v1 先收成一条：「花一次行动换一个效果」。
         /// 不是原版关键词，所以卡面上按本工程的名字显示。
         /// </summary>
@@ -9160,7 +9160,7 @@ namespace RuleEngine
             /// <summary>原版 `SummonCriteria.shouldRemoveFromCemetery (+0x2B)`：造完把候选从墓地移除（`GetCardToSummon.c:138`）。</summary>
             public int ShouldRemoveFromCemetery = -1;
             /// <summary>原版 `SummonCriteria.isForEnemy (+0x10)`：决定喂哪个 `MinionArea`（`PlayAbility.c:745`）。</summary>
-            public int IsForEnemy = -1;
+            public int IsForEnemy = -1;   public string[] UnitsToSummon = null;   // 🆕 v48（`B121-D4` · `B121-D5` 报告 §四·1）：原版 `SummonCriteria.unitsToSummon`（PPtr 列表）解出的**卡 id**。三态：`null` = 没导出/桥不可用（⛔ 别当「空表」；旧表 / 手写夹具就是这个）· `[]` = 明确没有引用（`GetCardToSummon.c:47-149` 的「扫整个收藏」那一支）· 非空 = 候选表（`SummonAllTargets` 决定全给 / 随机取一张）。⚠️ 追加在同一物理行（铁律 18·b：本类下游有账落点）。
         }
 
         AbilitySummonSpec[] _abilitySummons;
@@ -9226,7 +9226,7 @@ namespace RuleEngine
             /// <summary>`abilityLogic` 下标；`-1` = 这条 ability 没有任何 logic 行。</summary>
             public int Lg = -1;
             /// <summary>原版 `AbilityTrigger` 数值。</summary>
-            public int Trigger = -1; public int TriggerValue = -1; public int Ca = -1; public int Ta = -1;   // 🆕 2026-11-01（`B115_S5` · 波 1）：`Ta` = 原版 `AbilityLogic.targetCriteria.targetsAffected`（`+0x18`；`AbilityLogic__GetTargets.c` 的 `iVar6`）—— **只有 `ta = 30 (target) / 220` 两档读调用方点的那个目标**（`.c:192-207`），其余档自己派生载体。`-1` = 未知（旧表 / `Lg == -1` / 手写夹具），⛔ 不是 `0`（`0 any` 是合法真值）。今天唯一消费者 = `Core/EnchantmentExecutor_B115.cs`（附魔模板那条路）；卡表主路 `MapTriggerAbilityIndices` **还没写这一格**（`-1` = 未知，逐字旧行为）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:9436` 等处有 A 行账落点。   // 🆕 v47（`W-B` · `B-211`）：`Ca` = 原版 `AbilityLogic.chosenAbility`（`Assembly-CSharp/AbilityLogic.cs:9`）—— 逐 `(ab, lg)` 行；`-1` = 未知（旧表 / `Lg == -1` 无 logic 实例 / 键缺失），`0 drawCard` 是合法真值 ⇒ ⛔ 别折成 0。  // 🆕 B109/C8（2026-10-31 · 判据 `判据/B109_R18_附魔三判据.md` §2）：原版 `CardAbility.triggerValue // +0x20`（`dump.cs:20340`：`{trigger @0x10; abilityContext @0x14; priority @0x18; playIcon @0x1C; triggerValue @0x20; …}`；`.c` 里 `*(int*)(lVar2+0x20) == 1` 就是它）。⚠️ **`-1` = 缺键/未知**（旧表 —— 现读 `cards_engine.json` **v45 没有这一列**，要重跑生成器；手写夹具同理），⛔ **不是 0**。今天唯一消费者 = 410 去重闩（`Enchantments.ApplyFollowUpResolutionDedup`）；真值里 `trigger==410 ∧ triggerValue==1` 全库只有 1 条（`Hallowed Martyrs`，且它在 abilities 末位 ⇒ 零可观测）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:9436` 等处有 A 行账落点。
+            public int Trigger = -1; public int TriggerValue = -1; public int Ca = -1; public int Ta = -1; public int Pa = -1; public int Fm = -1; public int Mult = -1;   // 🆕 2026-11-03（`B121_D1B` · 账补丁 `账/_parts/B121_D1B.tsv`）：`Pa` = 原版 `AbilityLogic.playersAffected`（`+0x20`）；`Fm` = `AbilityLogic.furtherMultiplier`（`+0x38`）；`Mult` = `AbilityLogic.multiplier.targetsAffected`（`+0x30` → `+0x10`；`0 any` ⇒ 乘数 = 1；`-1` = 未知）。判据 = `AbilityLogic__PlayAbility.c:180-236`（`local_178`）/ `:1440-1451`（`ca 0 drawCard` 按 `pa` 分两侧各来一遍）。⚠️ `-1` = 未知（旧表 / 手写夹具），⛔ 不是 `0`（`0 Both` 是合法真值）。装载口 = `CardDatabase.FillEnchantmentIndexPayload`（`Data/CardDatabase.cs` 文件末）。   // 🆕 2026-11-01（`B115_S5` · 波 1）：`Ta` = 原版 `AbilityLogic.targetCriteria.targetsAffected`（`+0x18`；`AbilityLogic__GetTargets.c` 的 `iVar6`）—— **只有 `ta = 30 (target) / 220` 两档读调用方点的那个目标**（`.c:192-207`），其余档自己派生载体。`-1` = 未知（旧表 / `Lg == -1` / 手写夹具），⛔ 不是 `0`（`0 any` 是合法真值）。今天唯一消费者 = `Core/EnchantmentExecutor_B115.cs`（附魔模板那条路）；卡表主路 `MapTriggerAbilityIndices` **还没写这一格**（`-1` = 未知，逐字旧行为）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:9436` 等处有 A 行账落点。   // 🆕 v47（`W-B` · `B-211`）：`Ca` = 原版 `AbilityLogic.chosenAbility`（`Assembly-CSharp/AbilityLogic.cs:9`）—— 逐 `(ab, lg)` 行；`-1` = 未知（旧表 / `Lg == -1` 无 logic 实例 / 键缺失），`0 drawCard` 是合法真值 ⇒ ⛔ 别折成 0。  // 🆕 B109/C8（2026-10-31 · 判据 `判据/B109_R18_附魔三判据.md` §2）：原版 `CardAbility.triggerValue // +0x20`（`dump.cs:20340`：`{trigger @0x10; abilityContext @0x14; priority @0x18; playIcon @0x1C; triggerValue @0x20; …}`；`.c` 里 `*(int*)(lVar2+0x20) == 1` 就是它）。⚠️ **`-1` = 缺键/未知**（旧表 —— 现读 `cards_engine.json` **v45 没有这一列**，要重跑生成器；手写夹具同理），⛔ **不是 0**。今天唯一消费者 = 410 去重闩（`Enchantments.ApplyFollowUpResolutionDedup`）；真值里 `trigger==410 ∧ triggerValue==1` 全库只有 1 条（`Hallowed Martyrs`，且它在 abilities 末位 ⇒ 零可观测）。⚠️ 同一物理行追加（铁律 18·b）：本文件 `:9436` 等处有 A 行账落点。
         }
 
         TriggerAbilityIndexSpec[] _triggerAbilityIndices;
@@ -9611,6 +9611,140 @@ namespace RuleEngine
 
         /// <summary>见 <see cref="HasTrait"/>：`cardTraits` 没喂时**全进程只吼一次**（夹具会批量造这种卡）。</summary>
         static bool _warnedNoCardTraits;
+    }
+
+    // ==================================================================================================
+    //  🆕 2026-11-03（执行代理 `B121_WC` · 账 `B120-E03b` · 第 121/122 会话）
+    //     —— **督军变身两列**（`transformedWarlordId` / `deckCriteria`）的载体 + `notDeckable` 标记
+    //
+    //  🔴 为什么另起 `partial class CardDef` 块、写在【文件最末】：同上面 `v46` / `B96_GEN` / `A4` / `E6` 那几段 ——
+    //     本文件已有 125 处账落点按【行号】引用 ⇒ 在类尾插成员会让它们整体漂移；追加在**文件最末**只增加尾部行号。
+    //     ⛔ **也不往构造函数加形参**（那四十处账落点都在构造函数上）—— 走「构造后挂载」口，
+    //     与 <see cref="AttachCardTargetCriteria"/> / <see cref="AttachAbilityTriggers"/> 同族。
+    //
+    //  📌 判据（第一权威，逐句现读 `d:/2/tools/decomp_full/`）：
+    //     · `BattleManager__CheckForHeroDeckTransform.c`（101 行全文）· `BoardAnalysis__DeckMeetsCriteria.c`（101 行全文）
+    //     · 字段：`RawCardScript.transformedWarlordId // 0x200` · `RawCardScript.deckCriteria // 0x1F8`
+    //       （`d:/2/tools/il2cpp_out/dump.cs:23244`）；`DeckCriteria { TargetCriteria countCriteria +0x10;
+    //        StatFilterOptions triggerIf +0x18; int referenceValue +0x1C }`（同 `dump.cs:21785`）
+    //     · 语义 / 谁读它 / 为什么今天休眠 → `Core/RuleCorePartial_B96CB.cs` 的「变身」集中注释（⛔ 此处不抄第二份）
+    //
+    //  🔴 **数据现状 = 本 build 休眠（数据事实，不是缺口）**：原始 SO 1,351 张**两列全空**
+    //     （`资料/普查产出_1018/allcards_1350/cards_raw.json` 的 `full_raw` 现扫：
+    //      `transformedWarlordId` 非空 **0/1,351**；`deckCriteria` 全部是默认档
+    //      `countCriteria.targetsAffected = 0` ⇒ 原版「无条件即满足」那一支）。
+    //     ⇒ 生成器**今天一个键都不落**（`工具/gen_cards_engine.py` 的 `transform_of`：两列**成对**落盘，
+    //     空 ⇒ 两个键都不出现）⇒ `CardDef` 上恒 `null` / `false`。数据一旦出现，这条链**不改一行**就能跑。
+    // ==================================================================================================
+    public partial class CardDef
+    {
+        /// <summary>🆕 原版 `RawCardScript.transformedWarlordId`（`+0x200`）：**要变身成的那位督军**的 `uniqueId`。
+        /// `null` / 空 = **这张卡不会让督军变身**（= 今天全池那一档，⛔ 不是「查不到」——两列成对落盘，
+        /// 没有目标就等于原版那一格为空）。
+        /// <para>⚠️ 它与 <see cref="DeckCriteria"/> **成对**来自数据：真出现「有目标 id、没有 criteria」
+        /// 说明数据坏了，`CardDatabase` 会出声。</para></summary>
+        public string TransformedWarlordId { get; private set; }
+
+        /// <summary>🆕 原版 `RawCardScript.deckCriteria`（`+0x1F8`）：这张卡当督军时，
+        /// 「**这副牌本身**要满足什么构筑条件才变身」。`null` = 这一列没落（数据缺席）。
+        /// 🔴 **三态**：`null` = **查不到**（⛔ 不是「不满足」）；非 null 且
+        /// `DeckCriteria.CountCriteria.TargetsAffected == 0` = 原版「`any` ⇒ 无条件即满足」
+        /// （`BoardAnalysis__DeckMeetsCriteria.c:44-46` 直接 `return 1`）。
+        /// ⚠️ 消费端只此一处 = `RuleCore.CampaignHeroTransformDeckMeets`。</summary>
+        public DeckCriteriaSpec DeckCriteria { get; private set; }
+
+        /// <summary>🆕 2026-11-03（账 `B120-E03g`）：**这张卡看得见、但进不了任何卡组**。
+        /// <para>它是「效果生成的卡 / 变身战术卡」这一类**数据侧标记**：卡池照列（原版对这类卡的表现是
+        /// **显示 + 变灰**，见 `Deck/DeckEditorState.cs` 的 `VisibleCards` 头注释）、`CanAdd` 给**独立错误码**
+        /// （`DeckError.InvalidCard` → 官方词条 `MenuDeck/Error/InvalidCard`：
+        /// 「尝试向卡组添加无效的张牌。」）。
+        /// 判据 / 落点 / **为什么不能拿既有的 `inventoryOptions = 5` 顶替** → `DeckRules.IsNotDeckable` 的 doc。</para>
+        /// <para>⚠️ `false` 是**绝大多数卡**的常态（含「这一列没落」）—— 它与「明确可进卡组」在行为上不可分，
+        /// 所以**不需要** `Versioned` 正面信号（与 <see cref="TransformedWarlordId"/> 同一条口径）。</para></summary>
+        public bool NotDeckable { get; private set; }
+
+        /// <summary>由 `CardDatabase.Parse` 在**构造之后**挂载（见本块头「为什么不往构造函数加形参」）。
+        /// <paramref name="transformedWarlordId"/> 空 ⇒ 两格一起落空（原版这两列只对「会变身的督军」有意义）。</summary>
+        public void AttachTransformData(string transformedWarlordId, DeckCriteriaSpec deckCriteria)
+        {
+            TransformedWarlordId = string.IsNullOrEmpty(transformedWarlordId) ? null : transformedWarlordId;
+            DeckCriteria = TransformedWarlordId == null ? null : deckCriteria;
+        }
+
+        /// <summary>由 `CardDatabase.Parse` 在构造之后挂载（`false` = 不拦，与「没这一列」同行为）。</summary>
+        public void AttachNotDeckable(bool notDeckable) { NotDeckable = notDeckable; }  public int[] ChosenAbilities { get { return _chosenAbilities; } }  int[] _chosenAbilities;  public void AttachChosenAbilities(int[] chosenAbilities) { _chosenAbilities = chosenAbilities; }   // 🆕 2026-11-03（执行写手 `B121_E03F_DATA` · 账 `B121-E03F` · 用户 2026-11-03 裁定）：卡表 **v32 `chosenAbility` 列**（逐卡 `sorted(set(cardAbilities[].abilityLogic[].chosenAbility))`，`null` = 列缺失/未知）挂进 `CardDef` —— 原版就是这一列的**真值**，我们此前只有 `Data/ForcedAttackRefundMap.cs` 用瘦 DTO 读过它。**加进 `CardDef` 的唯一动机** = 🔶 自设计的 13 张变身战术卡拿它当**效果码**（`RuleCore.WarlordTransformAbilityCode = 900`，落在原版 `AbilityEffect` 枚举 `0..480` 之外）；判据 / 为什么是 900 / 三件东西的分工 → `Core/RuleCorePartial_B96CB.cs` 文件末那一大段（⛔ 此处不抄第二份）。⚠️ 同一物理行追加（铁律 18·b）：本文件账按行号引用 92 处、最深 `:9436`
+
+        // ======================================================================================
+        //  🆕 2026-11-03（执行写手 `B121-D4` · 账 `B121-04` / `B121-05`）：
+        //    `abilityHeal` / `abilityManaBuff` 的**「唯一一行」取法**
+        // ======================================================================================
+        //  为什么要它：`EffectOp.AbilityIndex / LogicIndex` 是 `EffectText.AssignAbilityIndices`
+        //  按 **`unitConditions` 的 `role="target"` 行**归位的结果 —— 那张卡没有那种行时它**恒 -1**
+        //  （实测：`Sawbonez` 这类只有一条 `healCriteria` 的卡就是这样，消费端因此一条都读不到）。
+        //  原版没有「哪条 op 属于哪行 logic」这个问题（每条 logic 自己 `PlayAbility`），我们这层是
+        //  数据形状的近似 ⇒ 与 `SoleAbilityDamageIs80` **同一条纪律**：**全卡恰好一行**才敢认
+        //  （多于一行就分不清哪行属这条 op，⛔ 不猜）。
+
+        /// <summary>全卡**恰好一行** `abilityHeal` ⇒ 返回它；否则 `null`（含整列未知 / 多行）。</summary>
+        public AbilityHealSpec AbilityHealSole()
+        {
+            if (_abilityHeals == null || _abilityHeals.Length != 1) return null;
+            return _abilityHeals[0];
+        }
+
+        /// <summary>全卡**恰好一行** `abilityManaBuff` ⇒ 返回它；否则 `null`（含整列未知 / 多行）。</summary>
+        public AbilityManaBuffSpec AbilityManaBuffSole()
+        {
+            if (_abilityManaBuffs == null || _abilityManaBuffs.Length != 1) return null;
+            return _abilityManaBuffs[0];
+        }
+
+        // ======================================================================================
+        //  🆕 2026-11-03（执行写手 `B121-D4` · `B121-D5` 报告 §四·1 ③）：
+        //    **`Core` 拿「全卡池」的唯一入口**（`Core` 不引用 `Data` ⇒ 只能注入）
+        // ======================================================================================
+        //  为什么需要：原版 `AbilityLogic.GetCardToSummon.c:47-149` 的「`unitsToSummon` 空 ∧
+        //  `chooseCardInPlay` 假」那一支要**扫整个收藏**、按 `CheckIfRawCardMeetsCriteria` 过滤
+        //  （= 我们的 `TargetCriteriaEval.MatchesRawCard`）。那张表在 `Data/CardDatabase`，而 `Core`
+        //  不能反向引用 `Data` ⇒ 照 `Enchantments.GrantedEnchantmentsProvider` 的先例开一个静态钩子，
+        //  由 `CardDatabase` 的静态构造登记（现读那一行：`CardDatabase.cs` 的
+        //  `BattleContext.EnchantmentTemplatesProvider = …` 同一句）。
+        //  ⚠️ `ruleprobe` 里没人登记（它手读 JSON、不走 `CardDatabase`）⇒ `null` = **未知**，
+        //     消费端必须**出声**，⛔ 不许把 `null` 当「空池」（那会把「判不了」静默变成「没有候选」）。
+
+        /// <summary>卡池提供者（`Data/CardDatabase` 登记）。`null` = 没人登记 ⇒ 调用方**出声**，⛔ 不许当空池。
+        /// 返回的是数据源自己的列表（⛔ 调用方不许改）。</summary>
+        public static System.Func<System.Collections.Generic.IReadOnlyList<CardDef>> RawCardPoolProvider;
+
+        /// <summary>全池快照；`Provider` 没登记 ⇒ `null`（**未知**，不是「空池」）。</summary>
+        public static System.Collections.Generic.IReadOnlyList<CardDef> RawCardPool
+        {
+            get
+            {
+                var p = RawCardPoolProvider;
+                return p != null ? p() : null;
+            }
+        }
+    }
+
+    /// <summary>🆕 2026-11-03（`B121_WC` · 账 `B120-E03b`）：原版 `DeckCriteria`（`dump.cs:21785`）的等价物 ——
+    /// 督军变身那道「**这副牌**满不满足」的构筑闸。
+    /// <para>形状：`{ TargetCriteria countCriteria; StatFilterOptions triggerIf; int referenceValue; }`
+    /// ⇒ <see cref="CountCriteria"/>（36 格，**复用** <see cref="CardDef.CountSetSpec"/> 那一份字段表，
+    /// ⛔ 不另写一份）+ <see cref="TriggerIf"/>（`1` 相等 / `2` ≥ / `3` ≤，见 `BoardAnalysis.Mode*`）+
+    /// <see cref="ReferenceValue"/>。</para>
+    /// <para>⚠️ 与 `CardDef.BoardGateSpec` **不是同一格**：那个是 `BoardCriteria`（有 `countOptions` / `playerTurn`），
+    /// 本类只是纯 `TargetCriteria` + 比较档 ⇒ `PlayerTurn` 恒 `-1`（结构上没有，不适用）。</para></summary>
+    public sealed class DeckCriteriaSpec
+    {
+        /// <summary>原版 `DeckCriteria.countCriteria`（`+0x10`，`TargetCriteria`）。
+        /// `null` ⇒ 原版 `DeckMeetsCriteria.c:37-39` **return 0**（⛔ 不是「无条件满足」——
+        /// 「无条件」那一档是 `TargetsAffected == 0`，这一点别读反）。</summary>
+        public CardDef.CountSetSpec CountCriteria;
+        /// <summary>原版 `DeckCriteria.triggerIf`（`+0x18`，`StatFilterOptions`：1 `EqualTo` / 2 `EqualOrHigher` / 3 `EqualOrLower`）。</summary>
+        public int TriggerIf = CardDef.CountSetSpec.Unknown;
+        /// <summary>原版 `DeckCriteria.referenceValue`（`+0x1c`）：要比的**张数**。</summary>
+        public int ReferenceValue = CardDef.CountSetSpec.Unknown;
     }
 
 }

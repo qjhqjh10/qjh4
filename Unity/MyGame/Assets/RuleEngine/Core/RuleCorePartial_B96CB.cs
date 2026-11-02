@@ -161,7 +161,7 @@ namespace RuleEngine
         }
 
         // ==================================================================
-        //  账 248 · `BattleManager.CheckForHeroDeckTransform(DeckAndWarlordData, bool)`
+        //  账 248 · `BattleManager.CheckForHeroDeckTransform(DeckAndWarlordData, bool)`　📌 **本功能的集中注释（变身 / 战将）→ 文件末「§变身（督军换将）」那一大段**（原版判据链 · 我们的等价物 · 为什么休眠 · 以后的 mod 入口清单）—— 本段只讲这一次订正。
         // ==================================================================
         //
         // 🔴🔴 **2026-11-03（`B120_W30`）就地订正（铁律 5）—— `B96_CB` 那一版把语义读错了**：
@@ -350,28 +350,88 @@ namespace RuleEngine
         /// <summary>
         /// 原版 `RawCardScript.transformedWarlordId(+0x200)` 的取值口 —— **要变身成的那位督军的 id**。
         ///
-        /// <para>🔴 **本机没有这一列 ⇒ 恒 `null`**（判据：`cards_engine.json` / `CardDef` 都没有它，生成器不输出；
-        /// 原始 SO 的 `cards_raw.json` `full_raw` 现扫 1,351 张**非空 = 0**）。
-        /// **这是「查不到」不是「不做事」** —— 数据落地那天**只改这一个方法**：
-        /// 例如从 `CardDatabase` 把 SO 的 `transformedWarlordId` 挂到 `CardDef` 上，这里 `return ctx.Players[seat].Warlord.Card.TransformedWarlordId;`。</para>
+        /// <para>🆕 **2026-11-03（`B121_WC` · 账 `B120-E03b`）：数据管线已通** —— 这一格现在读
+        /// <see cref="CardDef.TransformedWarlordId"/>（列由 `工具/gen_cards_engine.py` 的 `transform_of`
+        /// 落进 `cards_engine.json`，`CardDatabase.Parse` 挂到 `CardDef` 上）。
+        /// 🔴 **今天全池仍是 `null`**，原因在**数据**（原始 SO 1,351 张这一列**全空**）——
+        /// 不是「查不到」、更不是「不做事」：数据一出现，本方法**一行不用改**就开始工作
+        /// （集中说明见文件末「§变身」那一大段）。</para>
         /// </summary>
         public static string CampaignHeroTransformTargetId(BattleContext ctx, int seat)
         {
-            return null;
+            return CampaignHeroTransformTargetId(CampaignHeroTransformCard(ctx, seat));
+        }
+
+        /// <summary>同上，**纯函数形态**（自检/探针用：不依赖 `ctx`，只吃那张督军卡）。
+        /// <para>`null` / 空 = 这张卡不会让督军变身（= 今天全池那一档）。</para></summary>
+        public static string CampaignHeroTransformTargetId(CardDef deckWarlord)
+        {
+            return deckWarlord != null ? deckWarlord.TransformedWarlordId : null;
         }
 
         /// <summary>
         /// 原版 `BoardAnalysis.DeckMeetsCriteria(shuffledCardLibrary, deckWarlord)` 的求值结果
         /// （读的是督军身上的 `deckCriteria(+0x1f8)`）。
         ///
-        /// <para>🔴 **本机没有 `deckCriteria` 这一列 ⇒ 恒 `null`（三态：查不到，⛔ 不是「不满足」）**。
-        /// 数据落地后的写法：把 `countCriteria` 翻成我们的逐张谓词（`TargetCriteriaEval` / `CardCriteria` 那一路），
-        /// 再调 <see cref="BoardAnalysis.DeckMeetsCriteria"/>（单一正本在 `BoardAnalysis_B94B8.cs:45`，⛔ 别在这重写）
-        /// —— `targetsAffected == 0` 时按原版早退传 `meets: null`（= 无条件即满足）。</para>
+        /// <para>🆕 **2026-11-03（`B121_WC` · 账 `B120-E03b`）：数据管线已通** —— 判据逻辑落在下面的纯函数重载里；
+        /// 🔴 **今天恒返回 `null`（= 查不到）**，因为原始 SO 的 `deckCriteria` 这一列虽然**每张都有默认值**，
+        /// 但按「两列成对落盘」的口径**没有被写进卡表**（没有变身目标的卡，这一格没有意义）。</para>
         /// </summary>
         public static bool? CampaignHeroTransformDeckMeets(BattleContext ctx, int seat)
         {
-            return null;
+            return CampaignHeroTransformDeckMeets(CampaignHeroTransformDeck(ctx, seat),
+                                                  CampaignHeroTransformCard(ctx, seat));
+        }
+
+        /// <summary>
+        /// **纯函数形态**的 <see cref="BoardAnalysis.DeckMeetsCriteria"/> 适配器（自检/探针用）。
+        ///
+        /// <para>**跳序严格照原版**（`BoardAnalysis__DeckMeetsCriteria.c`，101 行逐句）：
+        /// ① `deckWarlord == null` ⇒ **查不到**（`null`）；② `deckCriteria == null` ⇒ **查不到**（`null`，
+        /// 本机「这一列没落」那一档）；③ `transformedWarlordId` 空 ⇒ **`false`**（`.c:29-33` `return 0`）；
+        /// ④ `countCriteria == null` ⇒ **`false`**（`.c:37-39`，⛔ 不是「无条件满足」）；
+        /// ⑤ `countCriteria.targetsAffected == 0 (any)` ⇒ **`true`**（`.c:44-46` 直接 `return 1`）；
+        /// ⑥ 否则逐张 `FilterMethods.CheckIfRawCardMeetsCriteria` 筛、再按 `triggerIf` / `referenceValue`
+        /// 比张数（算法本体 = <see cref="BoardAnalysis.DeckMeetsCriteria"/>，**单一正本**，⛔ 本文件不重写）。</para>
+        ///
+        /// <para>🔴 **三态**：`null` = **查不到**（没有这一列 / 某一格本版判不了）—— ⛔ 不当作「不满足」，
+        /// 也 ⛔ 不当作「满足」（写口会按「不换」处理，并如实出声）。</para>
+        /// </summary>
+        public static bool? CampaignHeroTransformDeckMeets(IReadOnlyList<CardDef> deck, CardDef deckWarlord)
+        {
+            if (deckWarlord == null) return null;
+            var spec = deckWarlord.DeckCriteria;
+            if (spec == null) return null;                                  // ②
+            if (string.IsNullOrEmpty(deckWarlord.TransformedWarlordId)) return false;   // ③
+            var cc = spec.CountCriteria;
+            if (cc == null) return false;                                   // ④
+            if (cc.TargetsAffected == 0) return true;                        // ⑤ `TargetsAffected.any`
+            if (cc.TargetsAffected == CardDef.CountSetSpec.Unknown) return null;        // 判不了 ⇒ 查不到
+            if (spec.TriggerIf == CardDef.CountSetSpec.Unknown
+                || spec.ReferenceValue == CardDef.CountSetSpec.Unknown) return null;    // 同上
+            if (deck == null) return false;
+
+            // ⑥ 逐张判据：先整体求一遍值 —— 只要有一张「本版判不了」，整条结论就**查不到**（⛔ 不猜）。
+            //   ⚠️ 空项直接剔掉（原版 `deck.cardLibrary` 里不可能有 null，`BoardAnalysis.DeckMeetsCriteria`
+            //   那边也是 `continue`）⇒ 下面喂给它的 `cards` **没有 null** ⇒ 谓词按序调用、`idx` 恒对齐。
+            var cards = new List<CardDef>(deck.Count);
+            var oks = new List<bool>(deck.Count);
+            for (int i = 0; i < deck.Count; i++)
+            {
+                if (deck[i] == null) continue;
+                string gap;
+                bool? ok = TargetCriteriaEval.MatchesRawCard(deck[i], cc, out gap);
+                if (ok == null)
+                {
+                    UnityEngine.Debug.Log($"[HeroDeckTransform] 「{deckWarlord.Name}」的 `deckCriteria.countCriteria` "
+                          + $"第 {i} 张判不了（{gap}）⇒ 本次结论 **查不到**（⛔ 不当成「不满足」/「满足」）");
+                    return null;
+                }
+                cards.Add(deck[i]);
+                oks.Add(ok.Value);
+            }
+            int idx = 0;
+            return BoardAnalysis.DeckMeetsCriteria(cards, _ => oks[idx++], spec.TriggerIf, spec.ReferenceValue);
         }
 
         /// <summary>原版 `PlayerDataManager.fullHeroCollection.Find(hero.uniqueId == id)` 的等价物。
@@ -399,7 +459,7 @@ namespace RuleEngine
         /// `Exhausted = false`（与 `BuildPlayer` 同句）、`PlayOrder`（次序在换人前已定）、生命修正
         /// （按「旧 `MaxHealthBase` − 旧卡面 `Health`」原样搬；绝对上限覆盖由 `ApplyWarlordLifeOverride` 幂等重落）。</para>
         /// </summary>
-        static bool SwapWarlordCard(BattleContext ctx, int seat, CardDef hero)
+        internal static bool SwapWarlordCard(BattleContext ctx, int seat, CardDef hero)
         {
             if (ctx == null || hero == null || seat < 0 || seat >= ctx.Players.Length) return false;
             var ps = ctx.Players[seat];
@@ -424,11 +484,236 @@ namespace RuleEngine
             ActivateTraitsOnSummonOrEnchantment(nu);  // 与 `BuildPlayer` 同一跳（原版 `SetPlayerDataAndWarlord` 的尾巴）
             // 绝对上限覆盖（`EventAI`/`PracticeOffline`）：幂等（绝对赋值），没有注入时立刻返回。
             ApplyWarlordLifeOverride(ctx);
+            // 🆕 2026-11-03（执行写手 `B121_E03F_VFX` · 账 `B121-E03F` · 用户 2026-11-03 裁定）：
+            //   **表现层窄口** —— 换人**成功**（换失败的三条闸都在上面各 `return false`，走不到这里）才发一条
+            //   `EvtKind.WarlordTransform`，供 `BattleDriver.PlayWarlordTransformFeel` → `TransformPresentation.Play`
+            //   播那段 🔶 **自己设计（非原版）**的 0.9 s 三拍演出。
+            //   · 为什么放在**引擎**（而不是某个出牌调用点）：变身有**两条**来路 ——
+            //     ① 开局 `CheckForHeroDeckTransform`（原版那条）；② `B121-E03F` 的 13 张变身战术卡（自设计）。
+            //     两路都过本方法，**在这里发＝不会漏、也不会各写一份**（同 `RuleCore.Draw` 的单口纪律）。
+            //   · 纯表现信号：不改局面、不进动作流、**不动 `NetProtocol.Fingerprint`**
+            //     （`Fingerprint` / `StateHash` 自 2026-10-31 起都不含 `ctx.Events.Count`），
+            //     而且 P2P 两端跑的是同一条确定性引擎路径 ⇒ 两端**都**会发（不是「只在一端发生」的分叉面）。
+            //   · 字段约定见 `EvtKind.WarlordTransform` 的 doc：`CardId` = 新督军 · `Effect` = 旧督军。
+            ctx.Emit(EvtKind.WarlordTransform, seat, BoardSpec.WarlordSlot, hero.Name,
+                     effect: oldDef != null ? oldDef.Name : null,
+                     instanceId: (nu.Instance != null) ? nu.Instance.Id : 0);
             return true;
         }
 
         /// <summary>「两列数据本机没有」只喊一次（`RuleEngineTest` 一次跑几百局 `NewBattle`，⛔ 不要刷屏）。
         /// ⚠️ 它是**诊断节流**、不是状态：数据落列后这条日志自然不再走（金丝雀断言 `B120_W30_Assert` F1/F2 会先红）。</summary>
         static bool _heroDeckTransformDataLogged;
+
+        // ================================================================================================
+        //  §变身（督军换将）· **集中注释** —— 账 `战斗逻辑驱动:248`（`BattleManager.CheckForHeroDeckTransform`）
+        //  执行代理 `B120_W30`（判据订正）+ `B121_WC`（数据管线 · 账 `B120-E03b`/`E03e`）· 2026-11-03
+        //
+        //  🔎 **改这条链之前先读这一段**（grep 关键词：变身 / 战将 / 督军 / Transform）——
+        //     旧注释把它写成「换整副牌库」，那是**读错语义**，已在 2026-11-03 订正（反证见下）。
+        //
+        //  ── 一、这个功能是什么 ────────────────────────────────────────────────────────────────────────
+        //   **「这副牌的督军变身成另一位督军」**（名字 `HeroDeckTransform` 里那个 Deck = 「这副牌的」，
+        //   ⛔ 不是「换一副牌」）。开局装配棋盘时双方各查一次；满足条件就把**当前战将（督军）**换成
+        //   另一位已持有的英雄。**牌库一张都不动**。玩家侧再换一套对白。
+        //   ⚠️ 与两条同名但不同的事**别混**：
+        //     · `ResolveTransformUnit`（场上/手牌**单位**变身，`chosenAbility 80/85/90`）—— 另一条链；
+        //     · `Tooltip`/实体版的「战将变身」—— 那是玩法说明，不是这段代码。
+        //
+        //  ── 二、原版判据链（第一权威，逐句现读 `d:/2/tools/decomp_full/`）─────────────────────────────
+        //   调用点：`BattleManager__SetupBoardPhase.c:56`（玩家，`matchData.playerRawBattleData(+0x58)`，
+        //           `isPlayer=1`）与 `:66`（敌方，`enemyRawBattleData(+0x50)`，`isPlayer=0`）—— **只有这两处**。
+        //   ① 取**这一副牌自己的督军**：`rawBattleData.deckWarlord(+0x18)`（= 这个座位开局那位督军）；
+        //   ② `BoardAnalysis.DeckMeetsCriteria(rawBattleData.shuffledCardLibrary(+0x28), deckWarlord)`
+        //      —— 拿**这副牌本身的牌表**按督军身上的 `deckCriteria(+0x1F8)` 逐张筛、比张数：
+        //        · `transformedWarlordId(+0x200)` 空 ⇒ `return 0`；
+        //        · `deckCriteria` 空 / `countCriteria` 空 ⇒ `return 0`；
+        //        · `countCriteria.targetsAffected == 0 (any)` ⇒ **`return 1`（无条件即满足）**；
+        //        · 否则逐张 `FilterMethods.CheckIfRawCardMeetsCriteria` 后按
+        //          `triggerIf(+0x18)`（1 相等 / 2 ≥ / 3 ≤）与 `referenceValue(+0x1c)` 比；
+        //   ③ 满足 ⇒ 按 `deckWarlord.transformedWarlordId`（**另一位督军的 id**）到
+        //      `PlayerDataManager.fullHeroCollection` 里 `Find(hero.uniqueId(+0x38) == 那个 id)`；
+        //   ④ 找到 ⇒ `matchData.originalPlayerWarlord(+0xD8)` / `originalEnemyWarlord(+0xE0)` ← 原督军，
+        //      再把 `rawBattleData.deckWarlord` **换成找到的那一位**（🔴 **只换督军这一格，牌库一张不动**），
+        //      玩家侧再 `VoiceLinesController.SetTransformedWarlordNewChats`。
+        //
+        //  ── 三、我们的等价物（都在本文件，⛔ 别在别处再写一份）─────────────────────────────────────
+        //   | 原版那一跳 | 我们的落点 |
+        //   | `rawBattleData.deckWarlord(+0x18)` | `CampaignHeroTransformCard(ctx, seat)` = `PlayerState.Warlord.Card` |
+        //   | `shuffledCardLibrary(+0x28)` | `CampaignHeroTransformDeck(ctx, seat)` = `PlayerState.Deck` 的 CardDef 视图 |
+        //   | `deckWarlord.deckCriteria(+0x1F8)` | `CampaignHeroTransformDeckMeets(...)`（三态：`null` = 查不到）→ `CardDef.DeckCriteria` |
+        //   | `deckWarlord.transformedWarlordId(+0x200)` | `CampaignHeroTransformTargetId(...)` → `CardDef.TransformedWarlordId` |
+        //   | `fullHeroCollection.Find(...)` | `FindHeroInCollection`（`ctx.CardPool` 里 `Type=="hero"` 的；本项目全解锁） |
+        //   | `rawBattleData.deckWarlord = 找到的那位` | `SwapWarlordCard`（重建 `UnitState` + 补 `Exhausted/PlayOrder/生命修正`） |
+        //   | `matchData.originalPlayerWarlord/originalEnemyWarlord` | **没有等价字段**；写口用 `out originalWarlord` 交回调用方 |
+        //   | 整条 | `CheckForHeroDeckTransform(ctx, seat, deckWarlord, deck)`（生产入口，四个输入全从 `ctx` 现取） |
+        //   调用点：`RuleCore.NewBattle` 的 `CheckForHeroDeckTransform(ctx, 0/1, …)` 两个（= 原版 `:56/:66`）。
+        //   🔴 **W30 订正的要点**：只换**督军这一格**、**不换牌库**；「名称叫 Transform、谓词比的是 id」不矛盾 ——
+        //     比的是 `hero.uniqueId == deckWarlord.transformedWarlordId`，**两个不同的 id**。
+        //
+        //  ── 四、为什么今天休眠（数据事实，⛔ 不是「不可达」/ 不是缺口）─────────────────────────────────
+        //   原始 SO 1,351 张（`资料/普查产出_1018/allcards_1350/cards_raw.json` 的 `full_raw` 现扫）：
+        //     · `transformedWarlordId` 非空 = **0 / 1,351**；
+        //     · `deckCriteria` 全是默认档（`countCriteria.targetsAffected = 0` ⇒ 原版「无条件即满足」那一支）。
+        //   ⇒ 生成器按「两列成对落盘」的口径**一个键都不写**（`工具/gen_cards_engine.py` 的 `transform_of`），
+        //     `CardDef.TransformedWarlordId` 恒 `null` ⇒ 写口永远停在「没有变身目标」那一支。
+        //   🔴 **休眠 ≠ 不可达**（铁律 11）：写口、判据、换人动作、数据管线**都已就位**，只差数据。
+        //   ⛔ **不许为了让机制跑起来去编一张变身表** —— 那是卡 SO 上的字段，不是服务器档口可自设计的那一类。
+        //
+        //  ── 五、以后加 mod / 新功能，从这里接（入口清单）──────────────────────────────────────────────
+        //   ① **数据**：`工具/gen_cards_engine.py` 的 `transform_of`（两列唯一的落盘口，成对）→
+        //      `Assets/RuleEngine/Resources/cards_engine.json`（`--write` 落盘）→
+        //      `CardDatabase.MapDeckCriteria` + `CardDef.AttachTransformData`（载体，已接）。
+        //   ② **判据**：`CampaignHeroTransformDeckMeets(IReadOnlyList<CardDef>, CardDef)`（纯函数，
+        //      算法本体在 `BoardAnalysis.DeckMeetsCriteria`，⛔ 别在这里重写）；
+        //      逐张谓词 = `TargetCriteriaEval.MatchesRawCard`（卡面级，判不了会退回 `null` = 查不到）。
+        //   ③ **写口**：`CheckForHeroDeckTransform(...)`；换人动作 `SwapWarlordCard`（**别改成「换牌库」**）。
+        //   ④ **生产接线**：`RuleCore.NewBattle` 的两个调用点（原版 `SetupBoardPhase.c:56/66`）。
+        //   ⑤ **表现层（还没接）**：原版 `VoiceLinesController.SetTransformedWarlordNewChats` ——
+        //      `CardPresentation` 那侧等价物尚未建（账 `B120-E03c`）；要接就在写口返回 `true` 之后那一步。
+        //   ⑥ **原督军的去处（还没接）**：`MatchData.originalPlayerWarlord/originalEnemyWarlord` 无等价字段，
+        //      今天只用 `out originalWarlord` 交回；要「换人演出 / 战后取原督军」得先给 `BattleContext` 开一格。
+        //   ⑦ **自检**：`Editor/RuleEngineTest_B121WC.cs`（E03b 数据管线 · 纯函数两态）＋
+        //      `CardPresentation/Editor/B120_W30_Assert.cs`（A~F 六组 · 写口/换人/牌库不动）。
+        // ================================================================================================
+
+        // ==================================================================
+        //  🆕 2026-11-03（执行写手 `B121_E03F_VFX` · 账 `B121-E03F`）：**自检口**
+        // ==================================================================
+        /// <summary>自检专用：把 <see cref="SwapWarlordCard"/> 抬成公开口 —— 让「督军变身演出」那条链
+        /// 能在**变身卡数据落地之前**就被验（`B121-E03F` 的 13 张变身战术卡属于 `E03F-IMPL`）。
+        /// <para>⚠️ 它**只是同一段代码的别名**（⛔ 不在这里另写一份换人逻辑）：换人 + 补 `Exhausted/PlayOrder/生命修正`
+        /// 全在 `SwapWarlordCard` 里；本口额外做的只有「事件照发」这一件（同生产路径）。</para>
+        /// <para>生产代码**不许**调它 —— 生产入口 = <see cref="CheckForHeroDeckTransform"/>（原版那条）
+        /// 与 <see cref="ResolveWarlordTransform"/>（🔶 自设计的 13 张变身战术卡，见文件末那一大段；
+        /// 2026-11-03 `B121_E03F_DATA` 就地订正：原来这里写「唯一的生产入口」—— 现在有两个）。</para></summary>
+        public static bool SwapWarlordCardForTest(BattleContext ctx, int seat, CardDef hero)
+        {
+            return SwapWarlordCard(ctx, seat, hero);
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-03（执行写手 `B121_E03F_DATA` · 账 `B121-E03F` · 用户 2026-11-03 裁定）：
+        //    **13 张变身战术卡**（`TRANSFORM_<FACTION>`）的引擎侧 —— 三件东西，各自只有一份实现。
+        // ==================================================================
+        //  🔶 自己设计（非原版）· 用户 2026-11-03 裁定：
+        //    原版**没有**「打出后把督军换成同阵营另一位」这张卡、也没有这条效果 —— 原版变身只发生在
+        //    开局装配棋盘**之前**（`CheckForHeroDeckTransform`，见本文件「§变身」那一大段），
+        //    换的是 `rawBattleData.deckWarlord` + 对白池，**没有卡牌 / 费用 / 演出**。
+        //    ⇒ 本组三项全部自定：卡数据（`工具/gen_cards_engine.py` 的 `TRANSFORM_CARDS`）、
+        //      效果码（`WarlordTransformAbilityCode`）、演出（执行写手 `B121_E03F_VFX` 的
+        //      `TransformPresentation`，由 `SwapWarlordCard` 里那条 `EvtKind.WarlordTransform` 驱动）。
+        //
+        //  🧩 分工（⛔ 别在别处再写一份）：
+        //    ① <see cref="HasWarlordTransformAbility"/> —— 「这张卡是不是变身卡」的**唯一判据**
+        //       （读卡表 `chosenAbility` 列；沙盒 / 探针 / 断言读同一列）。
+        //    ② <see cref="WarlordTransformCandidates"/> —— 「能换成谁」的**唯一算法**
+        //       （同阵营 ∧ `Type=="hero"` ∧ `Id != 当前督军`；**按 `Id` 序** ⇒ 与池子顺序无关）。
+        //    ③ <see cref="ResolveWarlordTransform"/> —— 选人（`ctx.Rng`）+ 换人（`SwapWarlordCard`）。
+        //       换人本体**只有 `SwapWarlordCard` 那一份**（⛔ 别复制一段「重建 UnitState」的代码）。
+
+        /// <summary>🔶 自己设计（非原版）· 用户 2026-11-03 裁定：变身战术卡在 `chosenAbility` 列上的**效果码**。
+        /// <para>**为什么是 900**：原版 `AbilityEffect` 枚举的取值域是 `0..480`
+        /// （末尾 `480 highlightBloodThirst`，判据 = `d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityEffect.cs`；
+        /// 现池 `chosenAbility` 实际出现 **52 种**、最大 **480**）⇒ **900 落在枚举之外，不会与任何原版分支撞码**。
+        /// 消费口只有一处：`EffectResolver.TacticOpsOf`（`CanPlayTactic` / `PlayTacticCore` 都经它取 op）。</para></summary>
+        public const int WarlordTransformAbilityCode = 900;
+
+        /// <summary>这张卡是不是 🔶 自设计的变身战术卡 —— **唯一判据**（`chosenAbility` 列含 <see cref="WarlordTransformAbilityCode"/>）。
+        /// <para>`null`（列未知 / 旧表 / 手写夹具）⇒ `false`（⛔ 不猜）。</para></summary>
+        public static bool HasWarlordTransformAbility(CardDef card)
+        {
+            if (card == null) return false;
+            var cas = card.ChosenAbilities;
+            if (cas == null) return false;
+            for (int i = 0; i < cas.Length; i++)
+                if (cas[i] == WarlordTransformAbilityCode) return true;
+            return false;
+        }
+
+        /// <summary>战术 / 防御卡**这一把要结算的 op 流** —— 唯一取值口。
+        /// <para>普通卡 = `EffectText.Parse(card.Desc)`（逐字等于改前那两处各自写的那一句）；
+        /// 变身卡 = **一条** <c>warlordtransform</c> op（卡面正文是**说明文字**、不是可解析的效果句，
+        /// 所以 ⛔ 不能让解析器去猜）。</para>
+        /// <para>⚠️ `CanPlayTactic` 与 `PlayTacticCore` **必须都从这里取** —— 两处各解析一次的话，
+        /// 「要不要选目标」与「实际结算什么」会分叉（拖拽高亮说能选、打出去却空过）。</para></summary>
+        public static List<EffectOp> TacticOpsOf(CardDef card)
+        {
+            if (card == null) return null;
+            if (HasWarlordTransformAbility(card))
+                return new List<EffectOp> { new EffectOp { Verb = "warlordtransform", Source = card.Name } };
+            return EffectText.Parse(card.Desc, out _, out _, card: card);
+        }
+
+        /// <summary>「这一方能换成谁」—— **唯一算法**：同阵营的督军卡、且不是当前这位。
+        /// <para>口径（🔶 自设计，用户 2026-11-03 裁定「随机变同阵营、非当前的另一位督军」）：
+        /// 扫 `ctx.CardPool` 的 `Type == "hero"`；**按 `Id` 序号排序** ⇒ 与池子遍历顺序无关（可复现的前提）；
+        /// 同一 `Id` 只留一份（池里理论上无重复，重复时按第一份，⛔ 不去重后改变随机分布）。</para>
+        /// <para>`ctx` / `CardPool` 为空 ⇒ **空表**（调用方会出声）。`null` 与空表在这里同义 ——
+        /// 因为「能换成谁」的答案确实是「一个都没有」，不是「判不了」。</para></summary>
+        public static List<CardDef> WarlordTransformCandidates(BattleContext ctx, int seat)
+        {
+            var list = new List<CardDef>();
+            if (ctx == null || ctx.Players == null || seat < 0 || seat >= ctx.Players.Length) return list;
+            var ps = ctx.Players[seat];
+            var cur = ps != null && ps.Warlord != null ? ps.Warlord.Card : null;
+            var pool = ctx.CardPool;
+            if (cur == null || pool == null) return list;
+            var seen = new HashSet<string>();
+            for (int i = 0; i < pool.Count; i++)
+            {
+                var c = pool[i];
+                if (c == null) continue;
+                if (!string.Equals(c.Type, "hero", System.StringComparison.Ordinal)) continue;
+                if (!string.Equals(c.Faction, cur.Faction, System.StringComparison.Ordinal)) continue;
+                if (string.Equals(c.Id, cur.Id, System.StringComparison.Ordinal)) continue;
+                if (!seen.Add(c.Id)) continue;
+                list.Add(c);
+            }
+            list.Sort((a, b) => string.CompareOrdinal(a.Id, b.Id));
+            return list;
+        }
+
+        /// <summary>变身战术卡的**结算本体**：选人（≥2 个时按 `ctx.Rng` 随机）→ <see cref="SwapWarlordCard"/>。
+        /// <para>三档（🔶 自设计 · 用户 2026-11-03 裁定「候选 ≥2 随机、0 个空放并出声、1 个直接换」）：</para>
+        /// <list type="bullet">
+        /// <item>0 个候选 ⇒ `false` + `failure` 文案 + `Debug.LogWarning`（**不崩**，卡照常进弃牌堆）；</item>
+        /// <item>1 个候选 ⇒ **不掷骰**（掷了会无谓推进随机流、让后续判定漂移）；</item>
+        /// <item>≥2 个候选 ⇒ `ctx.Rng.Next(n)`（`System.Random`；同一个 seed ⇒ 同一个结果）。</item>
+        /// </list>
+        /// <para>⚠️ 随机源用 `ctx.Rng`（种子化）而**不是** `UnityEngine.Random` —— 工程铁律「一局必须可复现」。
+        /// ⛔ 也**不用** `ctx.GetRandomInt`：那是原版那 100 格预烧表的消费口，这张卡原版不存在，
+        /// 借它会改变已有卡的随机序列。</para></summary>
+        public static bool ResolveWarlordTransform(BattleContext ctx, int seat, out CardDef picked,
+                                                   out int candidateCount, out string failure)
+        {
+            picked = null; candidateCount = 0; failure = null;
+            if (ctx == null) { failure = "没有对局上下文"; return false; }
+            if (ctx.Players == null || seat < 0 || seat >= ctx.Players.Length)
+            { failure = $"座位越界（{seat}）"; return false; }
+            var ps = ctx.Players[seat];
+            var cur = ps != null && ps.Warlord != null ? ps.Warlord.Card : null;
+            if (cur == null) { failure = "这一方没有督军"; return false; }
+
+            var cands = WarlordTransformCandidates(ctx, seat);
+            candidateCount = cands.Count;
+            if (candidateCount == 0)
+            {
+                failure = $"「{cur.Name}」（{cur.Faction}）在卡池里没有另一位同阵营督军";
+                UnityEngine.Debug.LogWarning($"[变身战术卡] 座位 {seat}：{failure} ⇒ **空放**（不崩、不变身）");
+                return false;
+            }
+            picked = candidateCount == 1 ? cands[0] : cands[ctx.Rng.Next(candidateCount)];
+            if (!SwapWarlordCard(ctx, seat, picked))
+            {
+                failure = $"换人动作自身失败（「{cur.Name}」⇒「{picked.Name}」）";
+                picked = null;
+                UnityEngine.Debug.LogWarning($"[变身战术卡] 座位 {seat}：{failure}");
+                return false;
+            }
+            UnityEngine.Debug.Log($"[变身战术卡] 座位 {seat}：「{cur.Name}」⇒「{picked.Name}」"
+                  + $"（候选 {candidateCount} 位{(candidateCount > 1 ? "，按 ctx.Rng 随机选中" : "，唯一候选")}）");
+            return true;
+        }
     }
 }

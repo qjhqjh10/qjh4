@@ -451,7 +451,7 @@ namespace RuleEngine
             //      **看卡类**才知道算不算（单位卡的 `When …` 是事件层、不是陷阱）——
             //      判据在 `EffectText.IsHandTrap(CardDef)` 一处。
             if (EffectText.IsHandTrap(c)) return false;
-            return EffectText.IsFullyParsed(c.Desc);
+            return EffectText.IsFullyParsed(c.Desc) || RuleCore.HasWarlordTransformAbility(c);   // 2026-11-03（`B121-FIX`）：🔶 自设计的 13 张变身战术卡卡面是**说明文字**、`IsFullyParsed` 恒假 ⇒ 自动组牌会整批跳过它们（玩家可见的漏牌）。判据复用 `RuleCore.HasWarlordTransformAbility` 一处，⛔ 别在这里另写一份
         }
 
         static void Note(List<string> skipped, string id, string type)
