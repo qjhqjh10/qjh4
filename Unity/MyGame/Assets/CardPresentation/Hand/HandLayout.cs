@@ -129,7 +129,7 @@ namespace CardPresentation
         /// 前者是别人的常量，后者是「卡心到卡底」的几何量。</para>
         ///
         /// 🔴 **判据只此一处**：`BattleScene` 引用它（`HandBaselineY`），⛔ 别在别处再写一个数。</summary>
-        public const float DefaultBaselineY = 131.35f / LayoutSpace.DesignPxH;   // 131.35/1080 = 0.12162037
+        public const float DefaultBaselineY = 131.35f / LayoutSpace.DesignPxH;   // 🔶 自己设计（非原版）：手牌基准 y = **131.35 px**（原版 118.8 px）· 为什么自己定：+12.55 px = 卡半高，取「卡心到卡底贴边」的保真档（原版基准 118.8 px 会让卡底出屏）· 用户 2026-10-22 裁定。131.35/1080 = 0.12162037
 
         /// <summary>敌方手牌卡缩放 = 原版 `m_scale 0.54` ⇒ 卡宽 2.0927 × 0.54 × 108 ≈ **122 px**
         /// （我方是 165 px，同一套 2DCard 预制体，只是 `m_scale` 不同）。</summary>

@@ -1,0 +1,50 @@
+# B120_REC · 旧行对账（只读代理 · 2026-11-02）
+
+> 范围 = `活状态表.md` 里**仍开着的旧行**（24 条）。**⛔ 不核**本波写手正在改的 `B120-*` / `D118-65/77/80/82–86` / `B117-R17`。
+> 方法：**每条现读当前代码**（⛔ 不按账备注判 —— 备注是追加式的，后写的「✅已落地」压在旧句后面）。
+> 判四档：`✅已做完待核销` · `🟠真没做` · `⛔判据本身错` · `❓查不到`。
+
+| ID | 判档 | 证据（文件:行 + 摘录 / 反证 / 搜过的路径） | 建议动作 |
+|---|---|---|---|
+| **B-322** | ✅已做完待核销 | 四通道全切（最后两条 B117_F4 已落）：<br>`CardPresentation/Shell/CardDetailPopup.cs:184` `string text = SaveCenter.ReadThroughLegacy(SaveKeys.OursCardProgress, path);`<br>`:215` `if (!SaveCenter.SaveThroughLegacy(SaveKeys.OursCardProgress, SavePath, JsonUtility.ToJson(d, true), out werr))`<br>`CardPresentation/Shell/DraftModeWindow.cs:788` `string text = SaveCenter.ReadThroughLegacy(SaveKeys.ActiveEvent, path);`<br>`:830` `SaveThroughLegacy(SaveKeys.ActiveEvent, path, JsonUtility.ToJson(dto, true), out werr)`<br>`:826` 与 `:849` 两条删档分支都 `SaveCenter.Delete(SaveKeys.ActiveEvent)`<br>断言：`CardPresentation/Editor/B117_F4_Assert.cs`（现数 `Tr(` = **44**，账写 56 —— 条数口径不一致，不影响结论），已接线 `Editor/ShellScene.cs:11214` 聚合行。 | 核销；顺手把「56 条」改成现数 44（或说明 56 是循环展开后的条数）。⏳ 断言实跑仍归 Unity 轮。 |
+| **FX-01** | 🟠真没做 | 机制在、**默认档仍关**：`WarpforgeVFX/Runtime/GrabPassTransparentFeature.cs:101` `public bool redrawAt501 = false;` · `:184` `return _env501 == 2 ? redrawAt501 : _env501 == 1;`<br>缺 = `WF_GRAB501=0/1` 两跑 A/B + 默认开（留在 `§D-01`）。判据（批 E：原版无挪层活路径）已查清，**不阻塞**。 | 保持开；等真机窗口（与 `D-01`/`B117-R5` 是**同一件事**，建议合并成一条，别三处各挂）。 |
+| **B117-11** | ✅已做完待核销 | 观察项，前提**现读成立**：`RuleEngine/Core/EffectResolver.cs:8177` `EmitDeathByAbilityTriggers(...)` → `:8179` `EmitDeathTriggerToListeners(ctx, deadOwner, dead, "UnitDeathByAbility", 180, ...)`，doc 明写「⛔ 这里只发 `EvtKind.Trigger`、不结算任何效果」。<br>4 张卡现读**都带 180 且正文有条件句**：`cards_engine.json` → `AM9` `triggers:[180,301]` desc「If it dies, draw a card」· `AM34` `[180]`「For each one that dies, deploy…」· `SOR29` `[180,655]`「If target dies, gain 1 ☀」· `UM99` `[180]`「If target dies, gain Shield」。 | 核销为「已记录、当前非缺口」；若想留警示，转成 `CardDef` 侧注释，⛔ 别再挂成待办。 |
+| **B117-14** | ✅已做完待核销 | 观察项，前提**现读成立**：`RuleEngine/Core/EffectResolverPartial_B97W2.cs:688` `if (b.BuffType == 16)` 整档 `ctx.Log(...整档不结算...)` + `return false`。<br>两卡**确有 buffType 16 数据行**，但**正文非空、不走结构化兜底**：`GSC64` desc「Create a random troop with Ambush in your hand. It costs 2 less」· `TL50` desc「Choose an effect and give it to all troops in your hand」。 | 核销为「已记录、当前非缺口」（⛔ 别派写手，改了没有消费者）。 |
+| **B117-19** | ✅已做完待核销 | 量具口径项，数字**现读一致**：`判据/全卡核验_判定.tsv` 14 列，`动画判定` 分布 = `对 714 · N/A 260 · 未验到 154`（与账的 154 同）。<br>⚠️ 本轮**没有重跑**它那三段静态核对（触发口 / `VfxMap` 路由 / prefab 在工程且在运行期消费表），只核了「154」这个门牌；该行结论是「**不是链路缺口、别去补动画**」，方向与现行台账一致。 | 核销；若日后要复跑那三段，落到 `S3 电池` 那条，⛔ 别当动画缺口。 |
+| **B117-20** | ✅已做完待核销（含 1 处**子句订正**） | 4 条观察逐条现读：① **成立** —— `ASH5` desc「Shuriken 1」/ `descZh`「[[waystone]]。[[shuriken]] 1」；`ASH18` desc「Shuriken 3」/ zh 带 `[[flying]]`；`ASH26` desc「Armour. Blast」/ zh「护甲 1。爆裂 2。」（英文两侧都缺）。② 未逐字核 `pool_diff4` 那格。③ `ASH85` `abilityTriggers:[0,240]` 存在；🔴 **子句「卡面也没写降费」错** —— desc 明写「This costs 1 less if you control a unit with Stealth」（中文「这个花费少1」）。④ `SOR10` `abilityTriggers:[90,130]` 确有 90，卡面写「When this unit kills an enemy」 ⇒ 按 trigger 号对账会误判，成立。 | 核销；**就地订正 ③ 那句「卡面也没写降费」**（卡面确实写了降费），其余保留为数据观察。 |
+| **B117-R5** | 🟠真没做 | 与 `FX-01` / `D-01` **同一件活**：`WF_GRAB501=0/1` 两跑 + 同一局面比。当前默认关（`GrabPassTransparentFeature.cs:101`）⇒ 那条路**今天根本没走**。缺 = 真机两跑日志与画面比对。 | 合并进 `D-01`（三条同源，别各排一轮）。 |
+| **B117-R7** | 🟠真没做 | 「`战斗!` 按钮按视觉位置点不中、(2020,1290) 才点到」= **待复现**，本轮无新证据。缺 = 用 `menu_rect` 量真实命中区（可点区 = 可射线件**并集** + `m_RaycastPadding`，见 CLAUDE.md 记忆条）再判是「量错坐标」还是「命中区偏」。 | 真机/离线量命中区；⛔ 别先当缺陷排期。 |
+| **B117-R25** | 🟠真没做 | G2 边界：全部静态数值判据，**没跑 Unity、没渲图**。缺 = 真机截 `t≈0.31` / `t≈0.72` 两帧复核「有没有播、播的是不是该播的那个」。 | 进真机批量轮（与 `D-05` 的「真 Play」批同一趟）。 |
+| **B117-R43** | 🟠真没做（**含 1 处机制订正**） | 代码现状：`CardPresentation/Core/CardView.cs:13493` `void BuildFaceCostText()`，三个提前返回 `:13495 !TmpFont.Available` / `:13496 !ShowsCost(Data)` / `:13497 _faceMode == CardFace.Board`。<br>🔴 **订正**：`_faceMode == Board` 这条**已经不管五边形了** —— `:4540` 费用底板建法已被 `B118-W15` 去掉 `!board`（注释「出生就在场上 ⇒ 只建不开」），场上卡也建底板。所以「三个提前返回同时管五边形」不再成立，只剩 `ShowsCost` 管 `:2414 Show(_costBg, !board && ShowsCost(Data))`。<br>真凶仍在 TMP 侧或构建时序；最小探针 = 读第 3 行任一格 `cv.FaceCostText` 是否 null（`FaceCostText` 属性在 `:13579`）。 | 用探针 + 「停留 3 秒再截」复看；顺手改掉账里「三者同时管五边形」那句。 |
+| **D118-38** | 🟠真没做 | 代码改动**在**：`CardPresentation/Shell/LiveOpsHandler.cs:838` `LocalLiveOpsEvent : LiveOpsEvent<PlayEventSaveGame, LiveOpsEventData>` · `:973` `typeof(PlayEventSaveGame)`；断言 `Editor/B118W5_Assert.cs` **已接线**（`Editor/ShellScene.cs` 聚合行 `B118W5Assert.Run()`）。缺 = 起窗口跑 `ShellScene.Run` + `MainMenuScene.Run`（13 份活动存档变宽的回归）。 | 保持开，归 Unity 轮；断言已接，不用再派写手。 |
+| **D118-44** | ✅已做完待核销 | 观察项，前提**现读成立**：`RuleEngine/Core/CountEval.cs:309` `if (gate.StatOption == 8)` → `:319` `return ctx.GetRandomInt(0, 100) < gate.ReferenceValue;`（确实推进预烧表游标）。可达性：全池 `normalAbilityBoardCriteria.triggerIf == 8` 现数 = **0**（`cards_engine.json` 1,129 张递归扫） ⇒ 「今天 0 张可达」成立。 | 核销为「已记录、当前休眠」；建议把这条做成 `CountEval` 侧注释，⛔ 不立任务。 |
+| **D118-57** | 🟠真没做 | 前提**已具备**：`CardPresentation/Shaders/ArtOpaque.shader:68` 已改成 `c.a = i.color.a;`（`B118-W14` 2026-11-02 就地订正：原来硬写 1 ⇒ 材质/顶点 alpha 全丢）。缺 = 真机逐条看「发牌淡入 / 阵亡消散 / 相关卡压暗」的立绘淡得对不对。 | 保持开，归真机批量轮（验收项，不是缺陷）。 |
+| **D118-63** | ✅已做完待核销（含 1 处**过期子句**） | 观察项主句成立：`CardPresentation/Core/CardView.cs:4540` `_costTierBuilt = CostBig ? 1 : 0; if (board) Show(_costBg, false);`（`B118-W15`）· `:1505` 注释「场上形态也建这一层（初始隐藏）⇒ 不再是 `-1`」。<br>⚠️ **「今天无断言读它」已过期**：`Editor/CardBaseDemo.cs:3784/3795/3811` 都在读 `CostTierBuilt`（普通档 0 / 跟到 1 / 刷回普通档）。 | 核销；把「今天无断言读它」改成「`CardBaseDemo.AssertCostTierRefresh` 已读，但都是**手牌档**」。 |
+| **D118-64** | 🟠真没做 | 引擎仍是「满了直接进弃牌堆、牌从不进 `Hand`」：`RuleEngine/Core/RuleCore.cs:3277-3287` `if (ps.Hand.Count < limit) {...} AddToCemetery(ps, inst); ctx.Log(... 直接进弃牌堆)`。<br>**提示那一半已补**（账说「无提示」过期）：`CardPresentation/Battle/BattleDriver.cs:19398` `SetHint(HandFullText());`（`WatchHandFull`，旁证式观测）。<br>缺 = **飞牌视图 + 等 0.5 s + 送墓演出**（原版 `_AddDrawnCardToHand_d__37` state2）。 | 拆成两条：①「提示行」可核销（已有 `SetHint`）；②「飞牌/0.5 s/送墓演出」保持 🟠，落点 `BattleDriver` 只演不结算的新链。 |
+| **D118-66** | 🟠真没做（**① 已有部分判据**） | ① 多张同时抽的间隔：`.c` 现读到**每张一次等待** —— `d:/2/tools/decomp_full/BattleManager._ResolveDrawCard_d__432__MoveNext.c:243` `WaitForSeconds(fVar2 + fVar11)`（`fVar2 = *(globalVars+0xa4)`、`fVar11 = VarsGlobal.TimeToDrawCard(...)`）⇒ 形如**串行**；还差 `+0xa4` 是 `VarsGlobal` 哪一格。<br>② 抽卡起点：`MyDeckX01/MyDeckY01 = 0.90104/0.10648` vs 原版牌库参考件位，**未逐值比**。<br>③ 悬停 445 px 缺原版实拍（用户 2026-11-02 已定「不再进原版截图」⇒ 只能真机目视）。 | 保持开；① 可立刻再读 `VarsGlobal` 把 `+0xa4` 定名（离线可做），②③ 留真机。 |
+| **D118-73** | 🟠真没做（**5 处接线已全部完成**，剩 #15 的拆分） | 五处**都在**：`Editor/DraftAssertD3.cs:1128` `B107_W14_Assert.RunDraftSlider(win);` · `Editor/CollectionScene.cs:13283` `B110_F2_Assert.Run();` · `Editor/DeckScene.cs:840` `B99W5_Assert.Run(...)`（且 `B99W1_Assert.cs:94` 注释「原来的 A2/A4 不成立，删掉」已履行）· `Editor/BattleScene.cs:46983` `C7_Assert.Run();` · `Editor/ShellScene.cs` 聚合行 `B97W32Assert.Run()`。<br>**仍缺** = #15 附带的那半：`Editor/B98A8_Assert.cs:130-136` 仍是**一条合并断言**（`r == null` 或 `r.sharedMaterial == null` 与 `renderQueue < QShade` 合判），账要求「材质 null / 队列低」**拆两条**。 | 核销「接线」这一面；**只剩一条小活** = `B98A8` 拆两条断言（就地改，不改行数）。 |
+| **D118-74** | ✅已做完待核销（含 1 条**只能改判「量不了」**） | 回源 `资料/比对基线/台账_before_1031fix.tsv:2-5` 四件，逐件对现行 `资料/特效还原台账.tsv`：<br>· `BulletImpact_Shuriken_Long_twinlink` → `:859` `Z 对得上 1.00`（已改判）<br>· `Tidewall Gunrig` → `:241` `W 两边全程空（完全脚本驱动/需触发条件）` ⇒ **尺子量不了，不是「已好」**（原判是抓屏扭曲假象）<br>· `BulletTrail_Single` → `:878` `Z 对得上 1.00`（已改判）<br>· `Swarm Battle Card Icon` → **已导出且在用**：`WarpforgeVFX/Prefabs/Swarm Battle Card Icon.prefab` 在盘（SpriteRenderer 型，`ParticleSystemRenderer` 为 0 是**它本来就是 sprite 图标效果**）· `Resources/WarpforgeVFX/WarpforgeEffectLibrary.asset:75347` `- name: Swarm Battle Card Icon` · 运行期消费者 `Core/CardView.cs:8824` `public const string SwarmPrefabName = "Swarm Battle Card Icon";` | 核销；`Tidewall Gunrig` 归 `S3-V4/V5`（量不了那一档），⛔ 别写成「已对得上」。 |
+| **D-01** | 🟠真没做 | 挪层批 C/D 的 `WF_GRAB501=0/1` A/B —— 真机两跑，判据 `判据/B109_R17_挪层分片.md` §1。默认关的状态在 `GrabPassTransparentFeature.cs:101`。 | 挂起（用户 2026-10-31「代码层面全解决后再开」），与 `FX-01`/`B117-R5` 合并。 |
+| **D-02** | 🟠真没做 | 5 组**全部需真机**：`AUD12` 全套（`判据/非方法体审查_任务清单.md:34` 仍标「⬜ 未开始」）· `AUD08` 边框 `activeSelf`（`判据/AUD08_we_do_more_第2轮.md`，需真机 dump）· `AUD03 #62` · `AUD05 J3/J5`（`判据/AUD05_state_matrix_*.md` 7 份在，无「已完成」标记）· `AUD10` 走查。 | 保持挂起；恢复条件 = §B「能立刻做」清零 + 用户点头。 |
+| **D-03** | 🟠真没做 | 5 项均需真机/真听感：时钟图预乘 α（观感）· 随机卡叠序（`交接_第109会话 §4·2` 仍列「随机卡 Icon 建序无截图」）· `C7` CJK fallback 真渲 · mixer 真听感 · `N135`。 | 同上，保持挂起。 |
+| **D-04** | 🟠真没做 | `A860 的续`（菜单版那颗眼睛钮只读了反编译、没跑到实况）。核过：`资料/真Play待验清单.md` 里 `A860` **仍 0 命中**（`grep -c A860` = 0）⇒ 账说的「双向无主」在清单侧**仍然成立**（本表这一行是它唯一的挂点）。 | 建议**补进** `真Play待验清单.md`，让它在真机轮里有一条可执行项；然后本表转指针。 |
+| **D-05** | ✅已做完待核销（**指针行，无活**） | 指针核对：`资料/真Play待验清单.md` 现读命中 —— `A577` 1 · `A586` 1 · `A914` 1（E11）· `A962` 2（D45/D48）· `A367` 1（D36）· `D41` 2 · `D42` 1 · `D45` 2 · `D48` 1 ⇒ 9 个 ID **全部有落点**。 | 核销（保留为「状态只在清单里」的指针说明即可）。 |
+| **D-06** | 🟠真没做 | `X5`/`Dg5` 三条（「延后生成」链第 4 步为什么没落网格 · 469 格同帧激活尖峰 · 若证实要修重试）—— 卡在 Unity/真机探针，`任务线/自检断言线/任务总表.md:53-55`。 | 保持挂起，随 Unity 轮。 |
+
+---
+
+## 汇总
+
+- ✅ **可核销 9 条**：`B-322` · `B117-11` · `B117-14` · `B117-19` · `B117-20` · `D118-44` · `D118-63` · `D118-74` · `D-05`
+- 🟠 **真没做 15 条**：`FX-01` · `B117-R5` · `B117-R7` · `B117-R25` · `B117-R43` · `D118-38` · `D118-57` · `D118-64` · `D118-66` · `D118-73` · `D-01` · `D-02` · `D-03` · `D-04` · `D-06`
+- ⛔ **判据本身错 0 条**（但有 **3 处子句要就地订正**，见下）
+- ❓ **查不到 0 条**
+
+### 顺手发现（可直接改账，⛔ 零代码改动）
+
+1. **`B117-20` ③ 的「卡面也没写降费」错**：`ASH85` desc 明写「This costs 1 less if you control a unit with Stealth」（中文「这个花费少1」）。
+2. **`B117-R43` 的「三个提前返回同时管五边形」已过期**：`B118-W15` 之后 `_faceMode==Board` 那条只挡 TMP，不挡费用底板（`CardView.cs:4524` 的 `if (costTex != null && ShowsCost(d))` 里已没有 `!board`）。
+3. **`D118-63` 的「今天无断言读它」已过期**：`Editor/CardBaseDemo.cs:3784/3795/3811` 都在读 `CostTierBuilt`。
+4. **`D118-73` 的接线其实已全部完成**（5/5），只剩 `B98A8_Assert.cs:130-136` 那一处「材质 null / 队列低」没拆两条 —— 这条被当成「整批未做」会误排一轮 Unity。
+5. **`FX-01` / `B117-R5` / `D-01` 是同一件事**（`WF_GRAB501` A/B），账上挂了三处；建议并成一条。
+6. **`D-04` 的 `A860` 在 `真Play待验清单.md` 仍 0 命中** ⇒ 「双向无主」的清单侧没修，建议先补一条再谈验收。

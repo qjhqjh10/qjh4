@@ -24,10 +24,9 @@ namespace WarpforgeVFX
         /// <summary>累计请求播放次数（**不受 `Enabled` 影响**，自检读它）。</summary>
         public static int Played { get; private set; }
 
-        const int PoolSize = 24;
+        const int PoolSize = 20;   // F-5 判据 = `Assets/SoundManager.prefab` 的 `amountToPool: 20`（原版实读）；改前 24 是我们自选的数、无判据
         static AudioSource[] _pool;
         static GameObject _root;
-        static int _next;
 
         /// <summary>固定的伪随机序列（挑 clip / 音高 / 音量）。用 `System.Random` 而不是
         /// `UnityEngine.Random` —— 本工程那条「对局可复现」的规矩对**表现层**一视同仁，
@@ -43,7 +42,7 @@ namespace WarpforgeVFX
                 //   自检宿主走 `-executeMethod`（**编辑模式**）⇒ 这里 `new GameObject` 建出来的东西
                 //   **落在当时打开的那个场景里**，收尾 `SaveScene()` 会把它**连同音源池一起烘进 `.unity`**。
                 //   实测（`DeckEditor.unity`）：跑一趟 `DeckScene.Run` ⇒ 场景里多一个 `WFSoundPlayer` 节点，
-                //   它名下 `AudioSource` 的**颗数 = 那一趟真租过几颗**（HEAD 5 颗 → 某趟 6 颗；`PoolSize = 24` 封顶）。
+                //   它名下 `AudioSource` 的**颗数 = 那一趟真租过几颗**（HEAD 5 颗 → 某趟 6 颗；`PoolSize` 封顶 —— 2026-11-02 `B120-W5` 起 = 20）。
                 //   批处理下没有帧循环 ⇒ `isPlaying` 永不转 false ⇒ 每多播一条就多租一颗 ⇒
                 //   **场景文件的内容成了「那趟跑过什么」的函数**（跨趟不可复现）。
                 //   ⇒ `DontSave` =「我是运行时对象、**任何场景 / 构建都别持久化我**」（也含 `DontSaveInEditor`）。
@@ -54,23 +53,39 @@ namespace WarpforgeVFX
                 if (Application.isPlaying) Object.DontDestroyOnLoad(_root);
                 _pool = new AudioSource[PoolSize];
             }
+            // 🔴 **2026-11-02（`B120-W5` · F-6）**：**照原版从下标 0 起扫**，取第一个「不活跃」的。
+            //   判据 = `d:/2/tools/decomp_full/SoundManager__GetAudioSource.c`（`param_1+0x28` 那个 `List<AudioSource>`
+            //   从 `i = 0` 遍历到 `+0x78` 的 Count，取第一个 `gameObject.activeInHierarchy == false` 的）；
+            //   回收器 = `SoundManager__Update.c`（`isPlaying == false` ⇒ 把那一颗的 `gameObject.SetActive(false)`）。
+            //   ⇒ 我们用 `AudioSource.isPlaying` 当「活跃」判据（与原版「那颗 GameObject 还挂着」是同一个状态的两面）。
+            //   改前是「轮转挑一颗」（`_next`），既不是原版、也没有判据。
             for (int i = 0; i < PoolSize; i++)
             {
-                int k = (_next + i) % PoolSize;
-                if (_pool[k] == null)
+                if (_pool[i] == null)
                 {
                     var src = _root.AddComponent<AudioSource>();
                     src.playOnAwake = false;
-                    _pool[k] = src;
+                    // ---------------------------------------------------------------
+                    //  F-2 · 3D 衰减模板（判据 = `Assets/Audio Source Template.prefab`
+                    //  的 `!u!82 &82724804207875695` 本轮现读）：MinDistance 15.61 · MaxDistance 500 ·
+                    //  rolloffMode 0(Logarithmic) · Priority 128 · DopplerLevel 1 · Spatialize 0。
+                    //  ⚠️ 改前 `AddComponent<AudioSource>()` 之后**一个衰减参数都没设** ⇒ Unity 默认 `minDistance = 1`
+                    //  ⇒ 889 条 `is2d = 0` 的 3D 音，**满音量的半径差了 15.6 倍**（原版 15.61 世界单位内满音量）。
+                    //  ⚠️ 这里是**唯一**的建源点 ⇒ 两条 `Play` 重载（`AudioClip` 那条与 cue 那条）都吃这五项。
+                    // ---------------------------------------------------------------
+                    src.minDistance = SrcMinDistance;
+                    src.maxDistance = SrcMaxDistance;
+                    src.rolloffMode = SrcRolloff;
+                    src.priority = SrcPriority;
+                    src.dopplerLevel = SrcDopplerLevel;
+                    src.spatialize = false;
+                    _pool[i] = src;
                 }
-                // 轮转：优先挑一个**没在响**的，全在响就按轮转盖掉最早那个
-                if (!_pool[k].isPlaying || i == PoolSize - 1)
-                {
-                    _next = (k + 1) % PoolSize;
-                    return _pool[k];
-                }
+                if (!_pool[i].isPlaying) return _pool[i];
             }
-            return _pool[0];
+            // 原版：全活跃 ⇒ `CustomDebug.LogError("There are not enough audio sources!")` 并 `return 0`
+            // ⇒ `SoundManager.Play` 把默认值往外交（**这一声不播**）。改前我们是「轮转盖掉最早那条」。
+            return OnPoolExhausted();
         }
 
         /// <summary>直接播一条 clip（**不走 cue 表**）。给那些**不在 AnimFX 表里**的原版音效用
@@ -83,6 +98,7 @@ namespace WarpforgeVFX
             if (!Enabled || clip == null) return;
 
             var src = Rent();
+            if (src == null) return;        // F-6：池满 ⇒ 原版 `GetAudioSource` 回 null ⇒ **这一声不播**（`OnPoolExhausted` 已出声）
             src.transform.position = Vector3.zero;
             src.spatialBlend = is2d ? 0f : 1f;
             src.outputAudioMixerGroup = FxGroup;
@@ -102,6 +118,32 @@ namespace WarpforgeVFX
             // 原版 `AudioCue.ConfigAudioSource.c:19-21` 那道冷却：**先写戳、再挑 clip**（`:31` 的次序）。
             // ⚠️ 排在 `!Enabled` **之外** —— 批处理自检关掉出声时仍然照旧冷却（与 `BattleSfx` 原写法一致）。
             if (!CanPlayByCooldown(cue)) { Throttled++; LastCueThrottled = true; return null; }
+            return PlayPrepared(cue, worldPos, is2d, null);
+        }
+
+        /// <summary>🆕 **2026-11-02（`B120-W5b`）· 给「已经自己判过冷却」的调用方用的播放口** ——
+        /// 当前唯一调用方 = `Shell/WindowSounds`（它要自己做 `Played`/`Throttled` 记账，所以先判一次）。
+        /// <para>**判据**：原版 `SoundManager.Play` 里 `AudioCue.ConfigAudioSource`（= `timeToPlayAgain` 那道闸）
+        /// **只判一次**（`SoundManager__Play.c` → `ConfigureAudioSourceAndPlay` → `AudioCue__ConfigAudioSource.c:19-21`）。
+        /// 改前 `WindowSounds` 先按 cue 名挡一次、再进 `Play` 被按 cue 实例挡第二次 ⇒ **多一层**，
+        /// 造成「`Played++` 了却没响」（同一条 cue 被别的调用方先播过时）。⇒ 它判完直接走这里。</para>
+        /// <para>⚠️ `mixerGroup` 只服务壳侧那两条 **Jingles**（原版 `MixerType.Jingles = 3`，
+        /// `SoundManager__ConfigureAudioSourceAndPlay.c` 的 `param_7 == 3` 取 `+0x60`）；**传 null = `FxGroup`**。
+        /// ⛔ 别拿它给特效那 900+ 条开「可以接错组」的口子 —— 主入口 `Play(...)` 仍写死 `FxGroup`
+        /// （`WarpforgeAudio.PlayJingle` 那段注释里的「别加带组参数的重载」指的就是主入口）。</para>
+        /// <para>⛔ **本方法不判冷却** —— 传进来的调用方必须已经判过（否则同一条 cue 会被连播）。</para></summary>
+        public static AudioClip PlayWithoutCooldown(WFSoundCue cue, Vector3 worldPos, bool is2d,
+                                                    AudioMixerGroup mixerGroup = null)
+        {
+            Played++;
+            LastCueThrottled = false;
+            if (cue == null) return null;
+            return PlayPrepared(cue, worldPos, is2d, mixerGroup);
+        }
+
+        /// <summary>两个入口共用的「挑 clip → 租源 → 配置 → 播」（冷却与 `Enabled` 由调用方各自判）。</summary>
+        static AudioClip PlayPrepared(WFSoundCue cue, Vector3 worldPos, bool is2d, AudioMixerGroup mixerGroup)
+        {
             if (!Enabled) return null;
 
             var clip = WFSoundBank.PickClip(cue, Rng);
@@ -111,18 +153,20 @@ namespace WarpforgeVFX
             float vol = Mathf.Lerp(cue.minVolume, cue.maxVolume, (float)Rng.NextDouble());
 
             var src = Rent();
+            if (src == null) return null;   // F-6：池满 ⇒ 原版 `GetAudioSource` 回 null ⇒ **这一声不播**（`OnPoolExhausted` 已出声）
             src.transform.position = is2d ? Vector3.zero : worldPos;
             src.spatialBlend = is2d ? 0f : 1f;
-            src.outputAudioMixerGroup = FxGroup;
+            src.outputAudioMixerGroup = mixerGroup != null ? mixerGroup : FxGroup;
             src.pitch = pitch <= 0f ? 1f : pitch;
             // ⚠️ `PlayOneShot` 而不是 `Play`：同一帧里同一句可能连发（`loops` 多的条目；带 `timeToPlayAgain` 的 cue 已被上面那道闸拦住），
-            //    而且池子轮转会**把上一条掐掉**。音高/音量是**发起那一刻**取值的，各条互不影响。
+            //    而且**池满时原版丢新声**（不改写已在响的那条）。音高/音量是**发起那一刻**取值的，各条互不影响。
+            //    （2026-11-02 `B120-W5`：改前这句写「池子轮转会**把上一条掐掉**」—— 轮转已按原版删除，见 `Rent`。）
             src.PlayOneShot(clip, vol);
             return clip;
         }
 
-        /// <summary>自检用：把计数清零（池子留着）。</summary>
-        public static void ResetCounter() { Played = 0; }
+        /// <summary>自检用：把计数清零（池子留着）。⚠️ 2026-11-02 `B120-W5`：`Dropped`（池满丢弃次数）也是「计数」⇒ 一并清。</summary>
+        public static void ResetCounter() { Played = 0; Dropped = 0; }
 
         // ============================================================================================
         //  `timeToPlayAgain` 冷却 —— **全项目唯一的一处实现**（2026-11-02 `B117-WSOUNDCOOL` 收口）
@@ -219,6 +263,84 @@ namespace WarpforgeVFX
                 float t = Time.time;
                 return t > 0f ? t : Time.realtimeSinceStartup;
             }
+        }
+
+        // ============================================================================================
+        //  FX 音源池的三件原版事实（2026-11-02 `B120-W5` · F-2 / F-5 / F-6）—— 判据全是**原版 Asset 现读**
+        // ============================================================================================
+        //   · **容量 20** = `d:/2/tools/assetripper_out/ExportedProject/Assets/SoundManager.prefab`
+        //       `amountToPool: 20`（现读）。⚠️ `assets_full` 里只有 `GameObject/SoundManager.json`
+        //       （不带组件字段）⇒ 按名字在 `assets_full` 里搜不到这个数，判据只能走 AssetRipper 导出的原版工程。
+        //   · **3D 模板** = `.../Assets/Audio Source Template.prefab` 的 `!u!82 &82724804207875695`（现读）：
+        //       `MinDistance: 15.61` · `MaxDistance: 500` · `rolloffMode: 0`(Logarithmic) ·
+        //       `Priority: 128` · `DopplerLevel: 1` · `Spatialize: 0` · `Volume/Pitch: 1` · `Loop: 0` · `PlayOnAwake: 0`。
+        //   · **耗尽策略** = `d:/2/tools/decomp_full/SoundManager__GetAudioSource.c`：
+        //       池（`+0x28` 的 `List<AudioSource>`，Count 在 `+0x78`）从**下标 0** 起扫，取第一个
+        //       `gameObject.activeInHierarchy == false` 的；**全活跃 ⇒ `CustomDebug.LogError("There are not enough
+        //       audio sources!")` 并 `return 0`** ⇒ `SoundManager.Play` 把默认值往外交（**这一声不播**）。
+        //       回收器 = `SoundManager__Update.c`（`isPlaying == false` ⇒ 把那一颗的 `gameObject.SetActive(false)`）。
+        // ============================================================================================
+
+        /// <summary>池容量（自检读口）。判据 = 原版 `SoundManager.prefab` 的 `amountToPool: 20`。</summary>
+        public static int PoolCapacity { get { return PoolSize; } }
+
+        /// <summary>3D 衰减模板 · `MinDistance`（判据 = 原版 `Audio Source Template.prefab`，逐字段现读）。</summary>
+        public const float SrcMinDistance = 15.61f;
+        /// <summary>3D 衰减模板 · `MaxDistance`。</summary>
+        public const float SrcMaxDistance = 500f;
+        /// <summary>3D 衰减模板 · `rolloffMode: 0` = Logarithmic。</summary>
+        public const AudioRolloffMode SrcRolloff = AudioRolloffMode.Logarithmic;
+        /// <summary>3D 衰减模板 · `Priority`。</summary>
+        public const int SrcPriority = 128;
+        /// <summary>3D 衰减模板 · `DopplerLevel`。</summary>
+        public const float SrcDopplerLevel = 1f;
+
+        /// <summary>自检用：因为**池满**而「这一声没播」的次数（原版同一路径 = `GetAudioSource` 回 0）。
+        /// ⚠️ 与 <see cref="Played"/>（请求次数）分开记 —— 池满时 `Played` 照样涨。</summary>
+        public static int Dropped { get; private set; }
+
+        /// <summary>🔶 自检注入口（非原版）：把「池已满」强制成给定次数，让 F-6 那条策略能被**确定性**量到。
+        /// 为什么必须自定 = 批处理里没法真让 20 条 `AudioSource.isPlaying` 同时为真（没有帧循环）；
+        /// 每调一次 `Rent()` 消费一次，**生产路径恒 0**（那一段代码永不进入）。先例 = 本类 `ClockOverride`。
+        /// 调度台 2026-11-02 裁定（`B120-W5`）。</summary>
+        public static int DebugForceFullRents;
+
+        /// <summary>自检用：直接租一颗源（走 `Rent()` 的**生产分支**，含建池与五项衰减参数）。
+        /// ⚠️ 只给自检读「源上的参数对不对」；⛔ 别在玩法代码里用（它绕过 `Play` 的音量/混音组设置）。</summary>
+        public static AudioSource DebugRent() { return Rent(); }
+
+        static bool _batchFallbackWarned;
+
+        /// <summary>池满时原版的动作：`LogError` + **这一声不播**（`d:/2/tools/decomp_full/SoundManager__GetAudioSource.c` 末尾）。
+        /// <para>🔶 自己设计（非原版 · **只服务无帧循环的宿主**）：`-executeMethod` 批处理 / 编辑模式没有帧循环，
+        /// `AudioSource.isPlaying` 永不转 false（本类 `A1534` 那条注释记的是同一现象）⇒ 照抄原版会让第 21 条起
+        /// **全部静音 + 每次刷一条 LogError**，自检日志被淹。**真实播放路径（`Application.isPlaying`）逐位同原版**。
+        /// 调度台 2026-11-02 裁定（`B120-W5`）。</para></summary>
+        static AudioSource OnPoolExhausted()
+        {
+            if (DebugForceFullRents > 0)
+            {
+                // 自检注入：走**生产**那一路（回 null + 出声），与本机是不是批处理无关。
+                DebugForceFullRents--;
+                Dropped++;
+                Debug.LogError("[WFSoundPlayer] There are not enough audio sources!"
+                             + "（原版同一句；自检注入 `DebugForceFullRents`）—— 这一声**不播**");
+                return null;
+            }
+            if (!Application.isPlaying)
+            {
+                if (!_batchFallbackWarned)
+                {
+                    _batchFallbackWarned = true;
+                    Debug.LogWarning("[WFSoundPlayer] 批处理 / 编辑模式没有帧循环，`AudioSource.isPlaying` 不会回到 false"
+                                   + " ⇒ 池满后退回「复用第 0 条」（🔶 仅此环境；真实播放路径按原版丢弃新声并报错）。");
+                }
+                return _pool != null && _pool.Length > 0 ? _pool[0] : null;
+            }
+            Dropped++;
+            Debug.LogError("[WFSoundPlayer] There are not enough audio sources!"
+                         + "（原版 `SoundManager.GetAudioSource` 同一句）—— 池 " + PoolSize + " 条全在响 ⇒ **这一声不播**");
+            return null;
         }
     }
 }

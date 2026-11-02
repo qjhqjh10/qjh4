@@ -119,14 +119,19 @@ namespace CardPresentation
 
         /// <summary>自检用：一共喊过几次（**不受 `Enabled` 影响**）。</summary>
         public static int Played { get; private set; }
-        /// <summary>自检用：经本类出队、被 `WFSoundPlayer` 的冷却挡掉几次（**不是错**，原版就这么节流）。</summary>
+        /// <summary>自检用：经本类**请求播放**（`Play` 直放 / `EnqueueLegacySoundAsset` 出队）、被 `WFSoundPlayer` 的冷却挡掉几次（**不是错**，原版就这么节流）。</summary>
         public static int Throttled { get; private set; }
         /// <summary>自检用：最后一次喊的字段名（没喊过 = null）。</summary>
         public static string LastField { get; private set; }
         /// <summary>自检用：最后一次真的播出去的 clip 名（没播 = null）。</summary>
         public static string LastClip { get; private set; }
 
-        /// <summary>自检用：把**全部读口**清零（计数 / 出队日志 / 节流表）。⚠️ **不碰待播队列** —— 那是 `ResetQueueForTest` 的活（`B117-57`：原来这里连 `Log`/`Drained` 都不清，名字与行为不符）。</summary>
+        /// <summary>自检用：把**全部读口**清零（计数 / 出队日志 / 节流表）。⚠️ **不碰待播队列** —— 那是 `ResetQueueForTest` 的活（`B117-57`：原来这里连 `Log`/`Drained` 都不清，名字与行为不符）。
+        /// 🆕 2026-11-02 `B120-W5`：节流表原来只清 `WFSoundPlayer` 那张（键 = cue 资产）⇒ 战斗域另一张
+        /// （`RemnantSfx`，键 = 档名）没跟着清，doc 与行为有缝。这里补上。
+        /// 🆕 2026-11-02 `B120-W5b`：壳侧那张（`WindowSounds`，键 = cue 实例）也一起收了 ⇒ 现在「全部节流表」这条
+        /// 契约是**真的**成立的。调用链 = 本方法 → `WFSoundPlayer.ResetThrottle()`（①④）·
+        /// `RemnantSfx.ResetThrottle()`（②）· `WindowSounds.ResetThrottle()`（③）。</summary>
         public static void ResetCounters()
         {
             Played = 0;
@@ -134,6 +139,8 @@ namespace CardPresentation
             LastField = null;
             LastClip = null;
             Drained = 0; Log.Clear(); WarpforgeVFX.WFSoundPlayer.ResetThrottle();
+            RemnantSfx.ResetThrottle();        // ② 那张字符串键的节流表（判据 = 「全部读口」这条契约本身）
+            WindowSounds.ResetThrottle();      // ③ 壳侧那张（2026-11-02 `B120-W5b` 补；调用链见 `WindowSounds.ResetThrottle` 的 doc）
         }
 
         // 🔴 2026-11-02 `B117-WSOUNDCOOL`：这里原有 `_lastAt`（**字段名** → 上次播的时刻）—— 已删。
@@ -143,7 +150,8 @@ namespace CardPresentation
 
         /// <summary>
         /// 按**原版字段名**喊一条战斗音效（原版一律 `SoundManager.Play2D(cue, MixerType.FX)` ⇒ 2D）。
-        /// 返回 true = **已进播放队列**（2026-10-26 起不再「立刻播」—— 原版 `PlaySoundAsset` 只入队，见文件尾「音效 FIFO」）。**取不到 cue 会出声警告**（项目红线：不许静默失败）。
+        /// 返回 true = **cue 找到了、当场交给了播放器**（2026-11-02 `B120-W5` 起**直放**，原版同一拍就是这么做的；
+        /// 见下面 `PlayCore` 的判据）。**取不到 cue 会出声警告**（项目红线：不许静默失败）。
         /// </summary>
         public static bool Play(string field) { return PlayCore(field, Vector3.zero, true); }
 
@@ -157,9 +165,60 @@ namespace CardPresentation
             Played++;
             LastField = field;
 
-            if (string.IsNullOrEmpty(field)) return false;
-
             WarpforgeVFX.WFSoundCue cue;
+            if (!TryResolve(field, out cue)) return false;
+
+            // 🔴 **2026-11-02（`B120-W5` · F-4）：这里【直放】，不再入队。**
+            //    判据（逐处现读 `d:/2/tools/decomp_full/`）—— 原版**每一条战斗 cue 的调用点都是当场直接播**：
+            //      · `CardScript__DrawCard.c:50` → `SoundManager__Play2D`
+            //      · `CardScript__ChangeAttackType.c:53` → `SoundManager__Play2D`
+            //      · `CardScript__LandOnGround.c:41` → `SoundManager__Play3D`（带落点）
+            //      · `CardScript._UnitDeath_d__446__MoveNext.c:368` → `SoundManager__Play3D`
+            //      · `BattleManager__EndTurnClick.c:53,173` · `ClockManager__SetNoActionsUi.c:53`
+            //        · `ClockManager__EndCountdown.c:34` · `CardScript__StartMovingFromHand.c:45`
+            //        · `CardScript__ResolveActiveAbilityPlayed.c:144` · `CardScript__Stun.c:155` …（同一形状）
+            //    而 `BattleManager.soundsToPlay`（`this+0x428`）那条 FIFO **只**吃
+            //    `BattleManager.PlaySoundAsset(SoundAsset_OLD)`（`BattleManager__PlaySoundAsset.c` 全文只有「append」一句；
+            //    唯一生产方 = `AiScripted.cs:2060`），泵 = `BattleManager__Update.c:152` 的
+            //    `PlayNextSoundInQueue`（唯一消费方）。⇒ **两条路互不相干**，战斗 cue 不该进那条 FIFO。
+            //    ⚠️ 改前我们把整族 27 条 cue 全塞进 FIFO、`Tick` 每帧出队一条
+            //    ⇒ 同一拍的多条（落地 + 攻击 + 受击）被摊到**连续帧**（≈16 ms × N），原版是同一帧一起响。
+            //    ⚠️ `timeToPlayAgain` 那道闸本来就在 `WFSoundPlayer.Play` 里（原版 = `AudioCue.ConfigAudioSource.c:19-21`），
+            //    改直放之后闸的位置不变，只是早了一帧。
+            var played = WarpforgeVFX.WFSoundPlayer.Play(cue, worldPos, is2d);
+            // 被冷却挡掉 = `Play` 返回 null 且它把 `LastCueThrottled` 置真（本侧只观察、不在这里判）
+            if (played == null && WarpforgeVFX.WFSoundPlayer.LastCueThrottled) Throttled++;
+            if (played != null) LastClip = played.name;
+            return true;
+        }
+
+        /// <summary>
+        /// 原版 `BattleManager.PlaySoundAsset(SoundAsset_OLD soundAsset)` 那条路：**只入队、不立刻播**。
+        /// 判据 = `d:/2/tools/decomp_full/BattleManager__PlaySoundAsset.c:18-52`（`soundAsset != null &amp;&amp;
+        /// soundAsset.clip != null` ⇒ 往 `soundsToPlay`（`this+0x428`，`List&lt;SoundAsset_OLD&gt;`）尾部 append，
+        /// **整支没有第二句**）＋ `BattleManager__PlayNextSoundInQueue.c:20-67`（一次消费一条，播不播都 `RemoveAt(0)`）
+        /// ＋ 泵点 `BattleManager__Update.c:152`（每帧一句）。
+        /// <para>⚠️ **本 build 里这条路我们零生产方**：原版唯一调用 = `AiScripted.cs:2060`（AI 脚本演出），
+        /// 我们还没复刻那一段（见 `报告/B120_F_音效语音BGM.md` §七）。本方法**故意留着**，只为不丢原版形状
+        /// —— 同一条 FIFO 的参数/复位契约由 `B117_G10_12_Assert` A 组盯着（那一组改成调本方法）。</para>
+        /// <para>🔴 2026-11-02（`B120-W17` · F18）：**clip / 音高 / 音量在入队这一刻就定死**（原版入队即持
+        /// `SoundAsset_OLD` 的 clip + volume）⇒ `DrainOne` 出队时不再查表、不再随机挑。见 <see cref="Pending"/>。</para>
+        /// </summary>
+        public static bool EnqueueLegacySoundAsset(string field)
+        {
+            Played++;
+            LastField = field;
+            WarpforgeVFX.WFSoundCue cue;
+            if (!TryResolve(field, out cue)) return false;
+            Enqueue(field, cue);   // 原版 `PlaySoundAsset` 只有 2D 一档（没有落点参数）
+            return true;
+        }
+
+        /// <summary>原版字段名 → cue（两个播放入口共用；取不到**只警告一次**，逐次刷屏会把别的告警淹掉）。</summary>
+        static bool TryResolve(string field, out WarpforgeVFX.WFSoundCue cue)
+        {
+            cue = null;
+            if (string.IsNullOrEmpty(field)) return false;
             if (!WarpforgeVFX.WFSoundBank.TryGetCue(field, out cue) || cue == null)
             {
                 if (_warnedMissing.Add(field))
@@ -168,18 +227,20 @@ namespace CardPresentation
                                      "（⚠️ 若它属于「原版自己就静音的那些」，见 `Battle/BattleSfx.cs` 文件头。）");
                 return false;
             }
-
-            // 🔴 **2026-10-26（`B9_E5P12` · 原版 `PlaySoundAsset` 那一跳）：这里只【入队】，不立刻播。**
-            //    判据 → `decomp_full/BattleManager__PlaySoundAsset.c:26-46`（`soundAsset != null && clip != null`
-            //    ⇒ 往 `soundsToPlay(+0x428)` 尾部 append，**整支没有第二句**）。
-            //    ⚠️ `AudioCue.timeToPlayAgain` 那道闸**不属于**这一跳 —— 原版它落在 `SoundManager` 播放那一刻
-            //    ⇒ 我们跟着挪到 `DrainOne` 调 `WFSoundPlayer.Play` 那一刻（2026-11-02 起闸住在 `WFSoundPlayer`）。
-            Enqueue(field, cue, worldPos, is2d);
             return true;
         }
 
         // ============================================================================================
         //  音效 FIFO（原版 `BattleManager.soundsToPlay` + `PlayNextSoundInQueue`）· 2026-10-26 `B9_E5P12`
+        //  🔴 **2026-11-02（`B120-W5` · F-4）：这条 FIFO 现在【只】服务 `EnqueueLegacySoundAsset`
+        //     （= 原版 `PlaySoundAsset(SoundAsset_OLD)`）**。战斗 cue 那 27 条已经改回**直放**（见 `PlayCore`）——
+        //     改前它们全被塞进这里、`Tick` 每帧出队一条 ⇒ 同一拍的多条被摊到连续帧。
+        //     ⚠️ 本条 FIFO 目前**零生产方**（原版唯一生产方 = `AiScripted.cs:2060`，我们还没复刻），
+        //     ⇒ 机制与复位契约保留，泵（`Tick` / `InstallPump`）照旧，只是不再有战斗 cue 进来。
+        //  🔴 **2026-11-02（`B120-W17` · F18）：载荷改成「入队时已解好的 clip」**（原版 `SoundAsset_OLD`
+        //     在入队那一刻就带着 clip + volume；`PlayNextSoundInQueue` 出队时只读那个结构体）。
+        //     改前我们只存「字段名 + cue」，clip 要等出队才由 `WFSoundPlayer` 随机挑 ⇒ 与原件不同形。
+        //     现在 clip / 音高 / 音量在 `Enqueue` 里定死，`DrainOne` **不查表**；冷却闸仍在出队（见 `DrainOne`）。
         // ============================================================================================
         //  判据（第一权威，逐句现读 `d:/2/tools/decomp_full/`，并用 ILSpy `out_cpp2il_dev_ilspy` 交叉）：
         //   · **入队** `BattleManager__PlaySoundAsset.c:18-52`（ILSpy `BattleManager.cs:41132 PlaySoundAsset`）：
@@ -227,14 +288,21 @@ namespace CardPresentation
         /// 串行档（<see cref="GapPolicy.SerialByClipLength"/>）是 🔶 可选演示，⛔ 别当默认。</summary>
         public static GapPolicy Gap = GapPolicy.OnePerFrame;
 
-        /// <summary>队列里一条待播（原版 `SoundAsset_OLD`：clip + volume；我们按 cue 寻址，
-        /// clip/音量在**出队那一刻**才由 `WFSoundPlayer` 挑 —— 与原版「入队时已持有 clip」的差别只在这里）。</summary>
+        /// <summary>队列里一条待播。**载荷 = 原版 `SoundAsset_OLD` 的三样**：clip + 音量（+ 我们的音高）。
+        /// 🔴 2026-11-02（`B120-W17` · F18）：改前这里只存「字段名 + cue」，clip 在**出队那一刻**才由
+        /// `WFSoundPlayer` 随机挑 —— 与原版「入队时已持有 clip」（`BattleManager__PlaySoundAsset.c:18-52`
+        /// 把整个 `SoundAsset_OLD`（`+0x10 = clip` / `+0x18 = volume`）压进 `soundsToPlay`）不同。
+        /// 现在 **clip / 音高 / 音量都在入队那一刻定死**（`Enqueue` 里从 cue 的区间取一次随机，
+        /// 分布与原版 cue 的 `Random.Range(min,max)` 相同），`DrainOne` **不再查任何表**。
+        /// ⚠️ 原版这条 FIFO **只有 2D 一档**（`PlaySoundAsset` 没有落点参数）⇒ 本结构不再带 `pos`/`is2d`。
+        /// `cue` 留着只为一件事：**冷却键**（原版 `lastTimePlayed` 住在 `AudioCue` 资产上，偏移 `+0x34`）。</summary>
         struct Pending
         {
             public string field;
             public WarpforgeVFX.WFSoundCue cue;
-            public Vector3 pos;
-            public bool is2d;
+            public AudioClip clip;        // 入队时已解好（`WFSoundBank.PickClip`）—— 取不到 = null（那一条出队时静音）
+            public float pitch;
+            public float volume;
         }
 
         /// <summary>**出队**的一条（自检读口：队列归 0 / 间隔 ≈ clip 时长都靠这张表）。⚠️ `clip == null` = 这一条**没播出去**（被 `timeToPlayAgain` 挡掉）—— 原版「播不播都出队」，所以这张表是**出队记录**、不是「响过几次」；要数真响的用非 null 的条目（`B117-57` 同族）。</summary>
@@ -264,7 +332,7 @@ namespace CardPresentation
         static float _nextAt;                 // 串行档：下一条最早可播的时刻
         static bool _queueOverflowWarned;
 
-        static void Enqueue(string field, WarpforgeVFX.WFSoundCue cue, Vector3 pos, bool is2d)
+        static void Enqueue(string field, WarpforgeVFX.WFSoundCue cue)
         {
             if (_queue.Count >= MaxQueued)
             {
@@ -278,7 +346,21 @@ namespace CardPresentation
                 }
                 return;
             }
-            _queue.Enqueue(new Pending { field = field, cue = cue, pos = pos, is2d = is2d });
+            // 🔴 2026-11-02（`B120-W17` · F18）：**clip / 音高 / 音量在入队这一刻定死** ——
+            //   原版 `PlaySoundAsset` 压进 `soundsToPlay` 的是整个 `SoundAsset_OLD`（`+0x10 = clip`、`+0x18 = volume`）
+            //   ⇒ 出队时**不再查表、不再随机挑**（`PlayNextSoundInQueue.c:20-67` 只读那个结构体）。
+            //   随机分布：**音量**仍取 cue 的 `minVolume..maxVolume` 一次（与 `WFSoundPlayer.PlayPrepared` 同取法）；
+            //   **音高不取**（原版 `SoundAsset_OLD` 没有 pitch ⇒ 见下面那五行）。
+            //   ⚠️ clip 取不到（`Resources/Art/` 是 gitignore 的）⇒ 存 null，那一条出队时**静音**但照旧出队
+            //   （原版 `.c:64-65`「播不播都 RemoveAt(0)」）；`WFSoundBank.Clip` 已经为缺失的 clip 出过一次声。
+            var clip = cue != null ? WarpforgeVFX.WFSoundBank.PickClip(cue, Rng) : null;
+            // 🔴 2026-11-03（调度台裁定 · `B120-W29` §⑤·2）：**音高恒 1.0** —— 原版 `SoundAsset_OLD` 只有
+            //   `+0x10 clip` / `+0x18 volume`（**没有 pitch**）⇒ 这条 FIFO 不许再掷音高（cue 的 `min/maxPitch`
+            //   只服务直放那条路）。⛔ 别为了「听起来更活」再把它加回来。
+            float vol = 1f;
+            if (cue != null)
+                vol = Mathf.Lerp(cue.minVolume, cue.maxVolume, (float)Rng.NextDouble());
+            _queue.Enqueue(new Pending { field = field, cue = cue, clip = clip, pitch = 1f, volume = vol });
         }
 
         /// <summary>推进一步（宿主每帧调：`BattleSfx.Tick(Time.unscaledDeltaTime)`）。
@@ -301,25 +383,33 @@ namespace CardPresentation
             // 原版 `.c:64-65`：**播不播都出队** —— 所以「clip 取不到 / 静音 / 节流」这三种都不留队。
             float length = 0f;
             string clipName = null;
-            // 🔴 2026-11-02 `B117-WSOUNDCOOL`：`timeToPlayAgain` 那道闸**已收进 `WFSoundPlayer.Play(cue, …)`**
-            //    （原版只有一处：`SoundManager.Play` → `AudioCue.ConfigAudioSource.c:19-21`；键 = **cue 资产**）。
-            //    这里原来按**字段名**自己判一遍（`_lastAt` + `Time.time`）⇒ 已删，两条理由：
-            //      ① 原版按 cue 不是按字段名 —— 两个字段指向同一条 cue 时，原版是**一起**冷却的；
-            //      ② 同一道闸写两份 = 迟早不一致（`TapHitMaterialDefinition` 那时还有第三份）。
-            //    ⇒ 本侧只**观察**结果，三件时序与旧写法逐位相同：`LogAdd(字段, null, 0)` 照旧（`Log` 是**出队**
-            //    日志、不是播放次数）· `ScheduleNext(0f)` 照旧（⛔ 别改成别的值 —— 那会改出队节奏）。
-            //    ⚠️ 闸排在 `WFSoundPlayer` 的 `!Enabled` **之外** ⇒ 批处理关掉出声时仍旧冷却（旧写法、原版都
-            //    这样；也是 `B117_G10_12` 的 A2 能过的前提）。冷却状态只有一份，`ResetCounters()` 会一并清。
+            // 冷却闸 = 全项目**唯一**实现 `WFSoundPlayer.CanPlayByCooldown(cue)`（判据 = `AudioCue.ConfigAudioSource.c:19-21`，
+            //   键 = **cue 资产**：原版 `lastTimePlayed` 就住在 `AudioCue` 上，偏移 `+0x34`）。
+            //   2026-11-02 `B117-WSOUNDCOOL` 把这里原来按**字段名**自己判的那一份删了（同一道闸写两份 = 迟早不一致）。
+            //   三件时序照旧：`LogAdd(字段, null, 0)`（`Log` 是**出队**日志、不是播放次数）· `ScheduleNext(0)`（⛔ 别改值）。
+            //   ⚠️ 闸排在 `!Enabled` **之外** ⇒ 批处理关掉出声时仍旧冷却（旧写法、原版都这样；也是 `B117_G10_12` 的 A2 前提）。
+            //   冷却状态只有一份，`ResetCounters()` 会一并清。
 
-            var played = p.cue != null ? WarpforgeVFX.WFSoundPlayer.Play(p.cue, p.pos, p.is2d) : null;
-            // 被冷却挡掉 = `Play` 返回 null 且它把 `LastCueThrottled` 置真（本侧只观察、不在这里判）
-            if (played == null && p.cue != null && WarpforgeVFX.WFSoundPlayer.LastCueThrottled) Throttled++;
-
-            if (played != null)
+            // 🔴 2026-11-02（`B120-W17` · F18）：**冷却闸仍在出队这一拍**（原版 `SoundManager.Play` 里那道
+            //    `AudioCue.ConfigAudioSource.c:19-21`，键 = cue 资产）—— 闸一过就播**入队时已经解好的那条 clip**。
+            //    ⇒ 出队这一侧**不再查任何表、也不再随机挑**：原版 `PlayNextSoundInQueue.c:20-67` 只读那个
+            //    `SoundAsset_OLD`（clip + volume 都在入队时定死）。⚠️ 闸排在 `!Enabled` **之外**（批处理关掉出声时
+            //    仍旧冷却）—— 这一条是 `B117_G10_12` A2 的前提，⛔ 别把它挪进 `Enabled` 分支里。
+            if (p.cue != null && !WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(p.cue))
             {
-                clipName = played.name;
-                LastClip = clipName;
-                length = played.length;
+                Throttled++;
+            }
+            else if (p.clip != null && WarpforgeVFX.WFSoundPlayer.Enabled)   // 🔴 2026-11-03（`B120-W29` · F22）：出队那一跳改走**原版 `BattleManager.audioSource`**（类尾 `LegacySource()`）—— 改前是 `WFSoundPlayer.Play(AudioClip…)`，它把源写死 `FxGroup`
+            {
+                // 原版 `PlayNextSoundInQueue.c:37-40/44-60`：`clip != null` ∧ `SoundFxVolume > 0` ⇒ `PlayOneShot(clip, SoundFxVolume * soundAsset.volume)`
+                // ⇒ 源**不挂混音组**（场景实例 `AudioSource_1595` 的 `OutputAudioMixerGroup {0,0}` = Master）、音量 = 滑块 × 入队音量（两条都在 `PlayLegacyOnMaster` 里）
+                // 🔴 2026-11-03（`B120-W29` · F22）：⛔ 别再退回 `WFSoundPlayer.Play(AudioClip…)` —— 那个口把源写死 `FxGroup`（本行上面那句注释里的结构差就是它）
+                if (PlayLegacyOnMaster(p.clip, p.volume, p.pitch))   // 闸挡了返回 false ⇒ 照原版「播不播都出队」走 `LogAdd(field, null, 0)`
+                {
+                    clipName = p.clip.name;
+                    LastClip = clipName;
+                    length = p.clip.length;
+                }
             }
             LogAdd(p.field, clipName, length);
             ScheduleNext(length);
@@ -465,6 +555,99 @@ namespace CardPresentation
                 }
                 return false;
             }
+        }
+
+        // ============================================================================================
+        //  🆕 2026-11-02（`B120-W17` · F18）· 挂在**类尾**（⛔ 别往中间插：本文件被 `账/战斗逻辑驱动.tsv`
+        //  按 `文件:行号` 引用）
+        // ============================================================================================
+
+        /// <summary>入队时挑 clip / 取音高音量用的伪随机序列（与 `WFSoundPlayer.Rng` 同规矩：
+        /// 用 `System.Random` 固定种子而不是 `UnityEngine.Random`，免得「同一段录屏重跑一遍音不一样」）。</summary>
+        static readonly System.Random Rng = new System.Random(20261102);
+
+        /// <summary>自检读口：**队首那条在入队时已经解好的 clip 名**（队列空 = null）。
+        /// 🧨 它非空 = 「入队即持 clip」这条契约成立（改回「出队那一刻才挑」⇒ 入队后读它恒 null）。</summary>
+        public static string FrontClip
+        {
+            get
+            {
+                if (_queue.Count == 0) return null;
+                var p = _queue.Peek();
+                return p.clip != null ? p.clip.name : null;
+            }
+        }
+
+        // ============================================================================================
+        //  🆕 2026-11-03（`B120-W29` · `B120-F22`）：legacy FIFO 的**输出源** = 原版 `BattleManager.audioSource`
+        //  —— 追加在**类尾**（⛔ 别往中间插：本文件被 `账/战斗逻辑驱动.tsv:461/464` 按 `文件:行号` 引用）
+        // ============================================================================================
+        //  判据（逐句现读）：
+        //   · `decomp_full/BattleManager__PlayNextSoundInQueue.c:48` —— `PlayOneShot` 打的是 `*(this+0x90)` 那颗 2D 源；
+        //   · 场景实例 `bundle_scenes_scenes_battlearena1/MonoBehaviour/AudioSource_1595.json`：
+        //     `OutputAudioMixerGroup {fileID:0, pathID:0}` ⇒ **无混音组 = Master**（不是 FX、不是 Voices）；
+        //     同一份里 `m_Volume = 1.0` · `Priority = 154` · `Spatialize = false`。
+        //   · `.c:44-46` 闸 = `SoundFxVolume > 0`（=0 整条不播，**不是**以 0 音量播）；`:55-60` 音量 =
+        //     `SoundFxVolume * soundAsset.volume`。
+        //  ⇒ 另起一颗源（`WFSoundPlayer` 的池把 `outputAudioMixerGroup` 写死 `FxGroup`，⛔ 别去改它：
+        //     那一族服务 900+ 条特效音效）。形状与 `Battle/CampaignScriptRunner.SoundSource()` 逐句一致
+        //     （同一条原版路、同一份判据 —— 那边是战役脚本宿主，这边是战斗 FIFO）。
+        //  ⚠️ 改前走 `WFSoundPlayer.Play(AudioClip…)` ⇒ 被写成 `FxGroup`（结构差；该路径今天**零生产方**、
+        //     无可听差异，判据见 `报告/B120_W17_执行.md` §二 末尾）。
+
+        static AudioSource _legacySrc;
+
+        /// <summary>legacy FIFO 的音频源（原版 `BattleManager.audioSource` = 场景实例 `AudioSource_1595`）。
+        /// **故意不写 `outputAudioMixerGroup`** —— 原版是 `{fileID:0, pathID:0}` ⇒ 走 Master
+        /// （⛔ 别挂 `FxGroup` / `VoicesGroup`）。</summary>
+        static AudioSource LegacySource()
+        {
+            if (_legacySrc != null) return _legacySrc;
+            var go = new GameObject("WFBattleLegacySfx");
+            // 批处理自检里的运行时对象别存进场景（同 `WarpforgeAudio.PlayJingle` 的做法）；
+            // `DontDestroyOnLoad` 只在播放态调 —— 它在编辑器 / 批处理里会抛（同族先例见 `RemnantSfx`）。
+            go.hideFlags = HideFlags.DontSave;
+            if (Application.isPlaying) Object.DontDestroyOnLoad(go);
+            var src = go.AddComponent<AudioSource>();
+            src.playOnAwake = false;
+            src.spatialBlend = 0f;      // 原版 `Spatialize false`（2D）
+            src.volume = 1f;            // 原版 `m_Volume = 1.0` —— 音量全在 `PlayOneShot` 的实参上
+            src.priority = 154;         // 原版 `Priority 154`
+            // ⛔ 这里**故意**不写 `outputAudioMixerGroup`：原版 `{fileID:0, pathID:0}` ⇒ Master。
+            _legacySrc = src;
+            return src;
+        }
+
+        /// <summary>自检读口：那条 Master 源（还没建 = null）。⚠️ `outputAudioMixerGroup == null` 是**契约**
+        /// （不是「还没设」）—— 原版那颗源的 `OutputAudioMixerGroup` 全 0。</summary>
+        public static AudioSource LegacySourceForTest { get { return _legacySrc; } }
+
+        /// <summary>自检用：把那条 Master 源建出来（**不播**）—— 断言要读它的 `outputAudioMixerGroup` / 三个字段。</summary>
+        public static AudioSource EnsureLegacySourceForTest() { return LegacySource(); }
+
+        /// <summary>自检读口：最近一次 legacy 播放的**音量实参**（= `SoundFx × 入队音量`；没播过 / 被闸挡 = `-1` / `0`）。</summary>
+        public static float LastLegacyPlayVolume { get; private set; } = -1f;
+
+        /// <summary>原版 `PlayNextSoundInQueue` 的**播放那一跳**（`.c:44-60`）：闸 `SoundFxVolume > 0` ·
+        /// 音量 = `SoundFxVolume * soundAsset.volume` · 源 = 无混音组（Master）。
+        /// 返回 false = 这一条**没响**（闸挡 / 没 clip）—— 调用方照原版「播不播都出队」。</summary>
+        static bool PlayLegacyOnMaster(AudioClip clip, float volume, float pitch)
+        {
+            if (clip == null) return false;
+            float fx = WarpforgeAudio.SoundFx;              // = 原版 `GameStaticData.SoundFxVolume`（活值，同 `CampaignScriptRunner.PlayNextSoundInQueue`）
+            if (fx <= 0f) { LastLegacyPlayVolume = 0f; return false; }   // `.c:44-46`：0 ⇒ **整条不播**
+            var src = LegacySource();
+            if (src == null) return false;
+            src.pitch = pitch <= 0f ? 1f : pitch;           // ⚠️ 音高是**我们这一侧的额外量**（原版 `SoundAsset_OLD` 只带 clip + volume，`:0x10` / `:0x18`）
+            LastLegacyPlayVolume = fx * volume;             // `.c:55-60`：`SoundFxVolume * soundAsset.volume`
+            src.PlayOneShot(clip, LastLegacyPlayVolume);
+            return true;
+        }
+
+        /// <summary>自检用：按 legacy FIFO 的形状播一条**已解好的 clip**（⛔ 产线别调；只为验路由与音量实参）。</summary>
+        public static bool PlayLegacyOnMasterForTest(AudioClip clip, float volume, float pitch)
+        {
+            return PlayLegacyOnMaster(clip, volume, pitch);
         }
     }
 }

@@ -649,7 +649,7 @@ namespace CardPresentation
             _pressed = _acting = false;
             _actingA = 0f;
             ShownName = null;
-            ShownTargets = 0;
+            ShownTargets = 0; _canUse = null;
             CurrentLight = Light.None;
             Alpha = 0f;
             Visible = false;
@@ -997,14 +997,14 @@ namespace CardPresentation
         /// 能继续之后做三件：`StartTargetedActiveAbility` · `SetupActiveAbility` · `waitingToResolve = true`，
         /// 再 `actingLight.SetActive(true)` + `DOFade(1, ActingFadeIn=0.4, OutQuad)`（`.c:496-504`）。
         /// 我们这边的等价：前两件由驱动承担（`AbilityDragged → SkillPanelDragToTarget` 幂等重进），
-        /// 第三件 = <see cref="SetActing"/>；可用性闸取 <see cref="ShownTargets"/>（&gt;0 = 至少一个合法目标，
-        /// 是我们这套里 `CanUseActiveAbility` 唯一可观测的那一面）。</para></summary>
+        /// 第三件 = <see cref="SetActing"/>；✅ **2026-11-02（`B120-W3` · 账 `B-2`）**：可用性闸改取
+        /// <see cref="CanUseAbility"/>（原版 `OnTouchDrag.c:70-74` 调的正是 `CanUseActiveAbility(card,1,1)`）；没喂过时退回 `ShownTargets &gt; 0`。</para></summary>
         void OnSkillDrag(BaseEventData _)
         {
             _dragCount++;
             if (!Visible) return;
             if (_pressed) return;            // 原版 `pressingLight.activeSelf` ⇒ 直接 return（⛔ 别熄灯）
-            if (ShownTargets <= 0) return;   // 原版 `CanUseActiveAbility(...) == false` ⇒ 直接 return
+            if (!CanUseNow) return;   // 原版 `ActiveSkillDisplay__OnTouchDrag.c:70-74`：`CanUseActiveAbility(card, 1, 1) == 0` ⇒ 直接 return
             SetActing();
             if (AbilityDragged != null) AbilityDragged();
         }
@@ -1570,11 +1570,11 @@ namespace CardPresentation
                          // 🆕 2026-10-27（`B9` E4BDR · 账 755）：原版 `GetCurrentLocalizedAbilityDescription`
                          //   三档后缀链的输入（见类尾 `AbilityDescription`）。全部可选 ⇒ 既有调用点零改动。
                          string cardId = null, bool requiresLoading = false, bool abilityLoaded = false,
-                         int abilityNeedsLoading = -1, bool hasRemovedReload = false, string abilityTextReferenceId = null)
+                         int abilityNeedsLoading = -1, bool hasRemovedReload = false, string abilityTextReferenceId = null, bool? canUse = null)
         {
             Build();
             ShownName = cardName;
-            ShownTargets = targets;
+            ShownTargets = targets; _canUse = canUse;   // 🆕 2026-11-02（`B120-W3` · 账 B-2）：可用层判据改走原版 `CanUseActiveAbility`（见类尾 `CanUseAbility`）
             // 🔴 2026-10-25（`N4`）：开面板 ⇒ acting 白层**归零并掐掉在飞的补间**（原版每次 `ShowActingLight`
             //   都是「SetActive(true) 后从当前 α 淡到 1」，而面板新开时那颗件是 0.392 的静态态）。
             _acting = false;
@@ -1694,7 +1694,7 @@ namespace CardPresentation
             //   ⇒ 只看 `_actingA` 的话，补间起步那一帧会退成 `Available`/`Pressed`。
             CurrentLight = (_acting || _actingA > 1e-4f) ? Light.Acting
                          : _pressed ? Light.Pressed
-                         : (ShownTargets > 0 ? Light.Available : Light.None);
+                         : (CanUseNow ? Light.Available : Light.None);
 
             // 🔴 2026-11-02（`B117-G10-09`）：`_light` 的 tint 改由 `ComposeLightTint()` 算 ——
             //   原版那是**三层独立的 Image 叠放**，⛔ 不是「三选一」（判据 → `ComposeLightTint` 的 doc）。
@@ -1747,7 +1747,7 @@ namespace CardPresentation
             //   ⇒ 收面板时只能单独把它关掉（见 `SetTargetsShown`）。
             SetTargetsShown(false);
             ShownName = null;
-            ShownTargets = 0;
+            ShownTargets = 0; _canUse = null;
             _pressed = _acting = false;
             _actingA = 0f;
             CurrentLight = Light.None;
@@ -2336,7 +2336,7 @@ namespace CardPresentation
         {
             var acc = new Color(0f, 0f, 0f, 0f);                  // 透明底
             if (_actingA > 1e-5f) acc = OverLayer(LightActing, _actingA, acc);
-            if (ShownTargets > 0) acc = OverLayer(LightAvailable, LightAvailable.a * Mathf.Clamp01(Alpha), acc);
+            if (CanUseNow) acc = OverLayer(LightAvailable, LightAvailable.a * Mathf.Clamp01(Alpha), acc);
             if (_pressed) acc = OverLayer(LightPressed, LightPressed.a, acc);
             return acc;
         }
@@ -2374,5 +2374,32 @@ namespace CardPresentation
         public static Color LightPressedColor { get { return LightPressed; } }
         /// <inheritdoc cref="LightAvailableColor"/>
         public static Color LightActingColor { get { return LightActing; } }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B120-W3` · 账 `B-2`）：**可用（黄绿）那一层的判据 = 原版 `CanUseActiveAbility`**
+        //  ───────────────────────────────────────────────────────────────────────────────────────────
+        //  判据（🥇 `decomp_full/ActiveSkillDisplay__SetupActiveSkill.c:141-148`，现读）：
+        //    `bgLight.gameObject.SetActive(manager.CanUseActiveAbility(lVar6, param_2 /*card*/, 1 /*isPlayer*/, 0 /*notify*/))`
+        //    —— 用的**不是**「有几个合法目标」。`BattleManager__CanUseActiveAbility.c` 的闸逐条 =
+        //    在场（`cardState == 2`）· 未 `Exhausted` · 未 `Stunned` · `duty` 本局未用 · `oath` 放行 ·
+        //    费用够（`PlayerManager.HasEnoughMana`）· 教程放行 —— 我们的同形口 = `RuleCore.CanStartActiveAbility`
+        //    （「只看它自己、不判目标」，见它的 doc）。`ShownTargets > 0` 是**另一问**（= 原版
+        //    `RawCardScript__CanPlayAbilities.c` 的候选集非空）。
+        //  ⚠️ `null`（驱动没传）= 退回旧口径 `ShownTargets > 0` —— 只为**保住既有调用点与自检零改动**；
+        //    生产由 `BattleDriver.ShowSkillPanel` 显式传（补丁见 `报告/B120_W3_执行.md` §B-2）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>驱动喂进来的「现在能不能发动这个主动能力」（= 原版 `CanUseActiveAbility(card, 1, 0)`）。
+        /// `null` = 没喂过 ⇒ 退回 `ShownTargets &gt; 0`（旧口径）。写这个会立刻重铺色片。</summary>
+        public bool? CanUseAbility
+        {
+            get { return _canUse; }
+            set { _canUse = value; ApplyColors(); }
+        }
+        bool? _canUse;
+        /// <summary>本次要铺黄绿层吗 —— **唯一那份合成判据**（`ApplyColors` 与 `ComposeLightTint` 共用）。</summary>
+        bool CanUseNow { get { return _canUse ?? (ShownTargets > 0); } }
+        /// <summary>同 <see cref="CanUseAbility"/> 的显式口（`BattleDriver` 用这个，避免装箱三目）。</summary>
+        public void SetCanUseAbility(bool canUse) { _canUse = canUse; ApplyColors(); }
     }
 }

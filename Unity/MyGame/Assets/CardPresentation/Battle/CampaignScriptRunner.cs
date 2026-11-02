@@ -981,21 +981,101 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `BattleManager.PlaySoundAsset(SoundAsset_OLD)` —— `ExecuteAction` 的末尾一跳。
-        /// 音量口径逐字照 `PlayNextSoundInQueue`：`PlayOneShot(clip, AudioListener.volume * soundAsset.volume)`
-        /// （`soundAsset.volume` 恒 1.0，判据 → `ScriptedActionCampaignData.GetSoundAsset`）。</summary>
+        /// **只入队、不立刻播**（判据 → <see cref="PlayNextSoundInQueue"/>）。
+        /// 🔴 **2026-11-02（`B120-W10` · `B120-Q09②`）就地改（铁律 5）**：改前这里是**立刻**
+        /// `PlayOneShot(clip, AudioListener.volume * volume)` 并挂 `VoicesGroup`，与原版**三处**不符：
+        /// ① 音量/闸 = `AudioListener.volume`（主音量）且**没有闸** —— 原版是 `SoundFxVolume`，
+        ///    `&gt; 0` 才播；② 混音组挂 `VoicesGroup` —— 原版那颗源**无组 ⇒ Master**；③ 立即播 —— 原版入队 + 每帧出队一条。
+        /// 判据 = `decomp_full/BattleManager__PlaySoundAsset.c:18-52`（整支只有「append 到 `+0x428`」一句）
+        /// ＋ `BattleManager__PlayNextSoundInQueue.c:20-67` ＋ 泵点 `BattleManager__Update.c:152`。</summary>
         public void PlaySoundAsset(CampaignSoundAsset soundAsset)
         {
-            if (soundAsset.clip == null) return;      // 原版 `GetSoundAsset` 取不到音 ⇒ clip 为空 ⇒ 这一条本来就没声
-            if (_driver == null) { Warn("`PlaySoundAsset`：没有 `BattleDriver` ⇒ 没有可挂 `AudioSource` 的宿主"); return; }
-            if (_sfx == null)
+            // 原版 `PlaySoundAsset.c:18-32`：`soundAsset != null && soundAsset.clip != null` 才 append。
+            // `GetSoundAsset` 取不到音 ⇒ clip 为空 ⇒ 那一条本来就没声 ⇒ **不入队**。
+            if (soundAsset.clip == null) return;
+            if (_soundsToPlay.Count >= MaxQueuedSounds)
             {
-                _sfx = _driver.gameObject.AddComponent<AudioSource>();
-                _sfx.playOnAwake = false;
-                _sfx.spatialBlend = 0f;                       // 原版 `Play2D`
-                _sfx.outputAudioMixerGroup = WarpforgeAudio.VoicesGroup;
+                if (!_soundsOverflowWarned)
+                {
+                    _soundsOverflowWarned = true;
+                    Warn($"`PlaySoundAsset` 的待播队列已经 {_soundsToPlay.Count} 条 ⇒ **泵没接上**？"
+                       + "（原版由 `BattleManager.Update` 每帧调一次 `PlayNextSoundInQueue`；我们等价的泵 = "
+                       + "`BattleCampaignScriptHost.PlayNextSoundInQueue()`，应由 `BattleDriver.AdvanceTimeline` 每帧调）"
+                       + "。此后新入队的音**直接丢弃**（只喊这一次，⛔ 不静默）。");
+                }
+                return;
             }
-            _sfx.PlayOneShot(soundAsset.clip, AudioListener.volume * soundAsset.volume);
+            _soundsToPlay.Add(soundAsset);
         }
+
+        /// <summary>原版 `BattleManager.PlayNextSoundInQueue()`（**每帧一句**，泵点 `BattleManager__Update.c:152`）。
+        /// 判据 `decomp_full/BattleManager__PlayNextSoundInQueue.c:20-67` 逐句：
+        /// ① 队列空 ⇒ 什么都不做；② 取 `[0]` 并读它的 `clip` / `volume`；
+        /// ③ `clip != null` 且 `SoundFxVolume &gt; 0` ⇒ `audioSource.PlayOneShot(clip, SoundFxVolume * volume)`；
+        /// ④ **播不播都 `RemoveAt(0)`**（一次消费**一条**）。
+        /// <para>返回 true = 这一拍真的出队了一条。⚠️ **今天零生产方**（战役脚本数据是服务端 LiveOps 资产、
+        /// 本地不存在 ⇒ `PlaySoundAsset` 这整条链在真机上是休眠的），所以「没人调它」不会静默丢声音。</para>
+        /// <para>⚠️ **音量源的口径**：原版读 `GameStaticData.SoundFxVolume`（`FUN_180632c40`，静态区 `+0xD4`）；
+        /// 我们那份 `GameStaticData.SoundFxVolume` 是它的镜像，但**设置窗滑块只写 mixer**
+        /// （`WarpforgeAudio.SetSoundFx`，`Shell/SettingsWindow.cs:5457`）⇒ 为了让滑块真的生效，这里取活值
+        /// `WarpforgeAudio.SoundFx`（同一根 FX 滑块、同源同量纲 0..1）。与 `BattleDriver.PlayUnitVoiceClipOnly`
+        /// （`B120-W2`）同一口径。</para></summary>
+        public bool PlayNextSoundInQueue()
+        {
+            if (_soundsToPlay.Count == 0) return false;      // `.c:20-24`
+            var a = _soundsToPlay[0];                        // `.c:26-28`
+            if (a.clip != null)                              // `.c:37-40`
+            {
+                float vol = WarpforgeAudio.SoundFx;          // = `GameStaticData.SoundFxVolume`
+                if (vol > 0f)                                // `.c:44-46`：0 ⇒ 整条不播（**不是**「以 0 音量播」）
+                {
+                    var src = SoundSource();                 // `.c:48`（`this+0x90` 那颗 2D 源）
+                    if (src != null)
+                    {
+                        LastSoundQueueVolume = vol * a.volume;   // `.c:55-60`：`SoundFxVolume * soundAsset.volume`
+                        src.PlayOneShot(a.clip, LastSoundQueueVolume);
+                    }
+                }
+            }
+            _soundsToPlay.RemoveAt(0);                        // `.c:64-65`：**播不播都出队**
+            return true;
+        }
+
+        /// <summary>自检读口：队里还有几条没播（原版 `soundsToPlay.Count`）。</summary>
+        public int QueuedSoundCount { get { return _soundsToPlay.Count; } }
+        /// <summary>自检读口：最近一次出队时 `PlayOneShot` 用的音量（还没播过 = **-1**）。</summary>
+        public float LastSoundQueueVolume { get; private set; } = -1f;
+        /// <summary>队列上限（原版没有上限；我们防「泵没接 ⇒ 队列无限涨」跑飞，同 `BattleSfx.MaxQueued` 的先例）。</summary>
+        public const int MaxQueuedSounds = 256;
+        /// <summary>队列溢出只警告一次（逐次刷屏会把别的告警淹掉）。</summary>
+        bool _soundsOverflowWarned;
+
+        /// <summary>原版 `BattleManager` 自己那颗 2D `AudioSource`（`this+0x90`）：
+        /// `OutputAudioMixerGroup {0,0}`（**无组 ⇒ Master**）· `m_Volume = 1.0` · `Priority 154` ·
+        /// `Spatialize false`（`bundle_scenes_scenes_battlearena1/MonoBehaviour/AudioSource_1595.json` 实读）。
+        /// ⛔ 别给它挂 `WarpforgeAudio.VoicesGroup` —— 那是 `SoundManager.Play2D` 那一族的路，不是这一条。</summary>
+        AudioSource SoundSource()
+        {
+            if (_sfx != null) return _sfx;
+            if (_driver == null)
+            {
+                Warn("`PlayNextSoundInQueue`：没有 `BattleDriver` ⇒ 没有可挂 `AudioSource` 的宿主（这一条按原版**照样出队**）");
+                return null;
+            }
+            _sfx = _driver.gameObject.AddComponent<AudioSource>();
+            _sfx.playOnAwake = false;
+            _sfx.spatialBlend = 0f;      // 原版 `Spatialize false`（2D）
+            _sfx.volume = 1f;            // 原版源 `m_Volume = 1.0` —— 音量全在 `PlayOneShot` 的实参上
+            _sfx.priority = 154;         // 原版 `Priority 154`
+            // ⛔ 不写 `outputAudioMixerGroup`：原版是 `{fileID:0, pathID:0}` ⇒ Master。
+            return _sfx;
+        }
+
+        /// <summary>原版 `BattleManager.soundsToPlay`（`this+0x428`，`List&lt;SoundAsset_OLD&gt;`）。</summary>
+        readonly List<CampaignSoundAsset> _soundsToPlay = new List<CampaignSoundAsset>();
+
+        /// <summary>自检读口：那条 2D `AudioSource`（= 原版 `this+0x90`；**还没播过** ⇒ null）。</summary>
+        public AudioSource SoundSourceForTest { get { return _sfx; } }
 
         /// <summary>原版 `ChatManager.GetChatMessage(ChatMessage.Intro, isPlayer)`（`AiChatBig` 文案为空时的兜底）。
         /// 我们 = 该侧督军的开场白官方词条（`Chat_Messages/&lt;chatId&gt;-Chat0`）；缺键 ⇒ 空串 + 出声（⛔ 不自译）。</summary>

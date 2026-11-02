@@ -924,7 +924,7 @@ namespace CardPresentation
                                                   new Color(0.93f, 0.93f, 0.93f),   // 原版 ActionText = Asar Almost White
                                                   new Vector2(0f, 0.5f), ZText, "LogRowText" + i, face: TmpFont.Face.LatinCardBody);
                 if (_rowTexts[i] != null)
-                    PlaceTextByTopPx(_rowTexts[i], PanelOpenX + RowsCx - RowW * 0.5f + TextInsetPx, cyTop);
+                    { PlaceTextByTopPx(_rowTexts[i], PanelOpenX + RowsCx - RowW * 0.5f + TextInsetPx, cyTop); _rowTexts[i].SetAutoFitBox(RowW - 25f, RowH, 12f, 30f, 30f); _rowTexts[i].SetWrapping(false); }   // 🆕 2026-11-02（`B120-W3` · 账 `B-4`）：原版 `ActionText` = fs30 + auto[12,30] + **不折行**、框 723×43.134（`MB_3885`）⇒ 748−723 = 25 = 左 15（`TextInsetPx`）+ 右 10
                 else
                     Debug.LogError($"[BattleLogPanel] 第 {i} 行的文字没建起来（`MakeText` 返回 null —— "
                                  + "拿不到 TMP 字体资产；uGUI 档**不许**退化点阵，见 `Label.CreateUgui`）");

@@ -98,21 +98,21 @@ namespace CardPresentation
         /// 和「拖出去又放回来」区分开：拖过就不算轻点。</summary>
         public event Action<CardView> OnTapped;
 
-        /// <summary>算不算「轻点」的位移阈值（世界单位）。32.4 px @1080p —— 手抖一下不算拖。
+        /// <summary>**轻点 vs 拖拽**位移阈值（世界单位）= uGUI `EventSystem.pixelDragThreshold`（默认 **10 真实 px**），⛔ 不是 `VarsGlobal.minMovementToPlayCard` 那个 0.3（它是「拖多高出牌」，见 `PlayCommitGate` / `PlayLiftWorld`）。
         ///
-        /// 🔴 **2026-09-17 换成正解**：原版值 = `VarsGlobal.minMovementToPlayCard = 0.3`
-        /// （字面意思就是「要判成『在打这张牌』至少得移动多远」）。
-        /// **原来写 0.12 是「我们挑的」**，已替换 —— 效果是「轻点」判定区从 13 px 放宽到 32.4 px。
-        ///
-        /// ⚠️ **单位不用换算**：原版**手牌那一层**的像素密度也是 108 px/世界单位
-        /// （`Hand/HandLayout.cs` 里那条「165 px = 2DCard 2.0927 × m_scale 0.73 × 108」注：165 px 的卡 = 2DCard 2.0927 × scale 0.73 × 108），
-        /// 与我们一致 ⇒ 手牌层的距离值**可以 1:1 搬**。（棋盘那一层是 182.14 px/单位，才要 ×1.6865。）
-        /// 出处：`资料/VarsGlobal_原版数值.md` §一。
-        ///
-        /// ⚠️ **语义还有一层没对齐（不是换数能解决的）**：原版这个阈值是「轻点 vs 拖出去打牌」的分界；
-        /// 我们的 `Release` 另有一道闸 —— 落点必须命中格位（`DropReject`），移动很小但落在格上照样出牌。
-        /// 阈值只改「轻点」那一支，**没有**变成出牌的前置条件。要完全对齐得另加闸，那是行为改动。</summary>
-        public const float TapThreshold = 0.3f;
+        /// <para>🔴 **2026-11-02（`B120-W1`）整段重写**：旧值 `0.3f` 是**我们的单位**（32.4 px，比原版大 7.28×），且把「轻点分界」与「出牌高度」混成了一个数。
+        /// 判定链：uGUI `PointerInputModule.ShouldStartDrag` = `(pressPos−curPos).sqrMagnitude >= pixelDragThreshold²` ⇒ 过阈值才派 `OnDrag`（`CardCollider.OnDrag` → `CardScript.OnTouchDrag`），
+        /// 否则松手只派 `OnPointerClick`（= 我们的 `OnTapped`）。原版那个阈值本机读不到（`grep -rl m_DragThreshold assets_full` = **0 命中**，运行期建）⇒ 取字段初值 **10 px**。</para>
+        /// <para>⚠️ **量纲**：uGUI 的阈值是**真实屏幕 px** ⇒ 换成我们的世界单位要按**当前屏高**除（`Screen.height / VisibleHeight`；1080p ⇒ 108），⛔ 不是写死 108。</para></summary>
+        public static float TapThreshold { get { return TapThresholdWorldAt(Screen.height); } }
+        //
+        /// <summary>uGUI 默认拖拽阈值（**真实屏幕 px**）= `EventSystem.m_DragThreshold` 的字段初值。</summary>
+        public const float TapThresholdPx = 10f;
+        //
+        /// <summary><see cref="TapThresholdPx"/> → 我们的世界单位（`h` = 真实屏高；≤0 ⇒ 按 1080p 设计档；自检可钉）。</summary>
+        public static float TapThresholdWorldAt(int h)
+        { float k = (h > 0 ? h : LayoutSpace.DesignPxH) / LayoutSpace.VisibleHeight; return TapThresholdPx / Mathf.Max(1f, k); }
+        // 第二半「出牌高度」的常量/判据 → 类尾 `PlayLiftWorld` / `PlayCommitGate`（⛔ 别再和轻点阈值共用一个数）
 
         /// <summary>🔴 **2026-10-25（执行代理 `K2` · 战斗鼠标操作对照）—— 原版「长按 ⇒ 松手**不开**卡面展示窗」的时长门（秒）。**
         ///
@@ -526,7 +526,7 @@ namespace CardPresentation
         int _hovered = -1;
         CardView _dragging;
         int _insertIndex = -1;        // 拖拽中：这张牌会插到第几个位置（手牌边拖边让位）
-        Vector3 _grabOffset;          // 抓起时指针和卡中心的差，拖拽时保持它，手感才不跳
+        Vector3 _dragTargetOffset;    // 🔴 2026-11-02（`B120-W1`）：拖拽目标相对指针的**固定**偏移（原版 = `(0, VarsDevice.moveCardYOffset 0.2 原版世界单位)`，⛔ 不是「抓起时指针和卡中心的差」—— 原版没有抓取偏移，卡心贴指针，判据见类尾 `DragTargetOffset`）
         // 🔴 2026-10-19（`C3` #11）：**按下已记、还没过起拖阈值**那一档（只在 `TouchInputOn` 档用）。
         //   原版 `CardCollider.OnDrag` 每次拖拽事件都试一次 `TryDraggingFromHand`，过了两道阈值才
         //   `StartMovingFromHand`；PC 档四条条件一条都不拦 ⇒ 这个候选态**永远不出现**（行为不变）。
@@ -887,7 +887,7 @@ namespace CardPresentation
             //     判据/取舍见 `_animGate` 那段。⛔ 与 `FrozenNow` 是**两件事**，别合并。）
             if (IsDoingAnim) return;
             _dragging = card; BattleSfx.Play(BattleSfx.MoveCardIntoBattle);   // 🔴 2026-11-03（`B117-33`）：**拾起那一刻**就响 `moveCardIntoBattle` —— 判据 `CardScript__TryDraggingFromHand.c:89` → `CardScript__StartMovingFromHand.c:43`（`SoundManager.Play2D(SoundAssetCollection.get_MoveCardIntoBattle)`，一进来第一句，与缩放补间同拍）。改前要等松手起飞（`BattleDriver.OnPlayerDeployFlightStart`）⇒ 抓牌阶段**零声音反馈**。⚠️ 起飞那一拍已改成不重复放（`PlayDeployTakeoffCues(moveCue:false)`），⛔ 别两处都响。
-            _grabOffset = card.transform.position - world;
+            _dragTargetOffset = DragTargetOffset;   // 🔴 2026-11-02（`B120-W1`，D118-65）：删掉「抓起时指针和卡中心的差」—— 原版 target = 指针 + `moveCardYOffset`，卡心**贴指针**（判据 → 类尾 `DragTargetOffset`）
             _pressWorld = world;
             _travel = 0f;
             // 🆕 2026-10-25（`K2`）：`freshPress`（PC 档按下即抓）时这一帧就是「按下」⇒ 记时刻；
@@ -916,13 +916,13 @@ namespace CardPresentation
             //   🔴 这里现在走 `CardView.TweenPose` = **单条补间** ⇒ 传 `OutQuad` 就是那条 `DOScale` 的形状；
             //   ⛔ 别照抄 `CardTween.ToPose` 的「Sequence 只能传 `Linear`」约定（那会变成匀速）。
             //
-            // 🔴 **2026-10-24（`J3` · 口径差 1）：旋转那一跳改成 `DOLocalRotate`，角度也改成【局部】角。**
-            //   判据同 `HandLayout.Place` 那一段（`CardScript__UpdateMinionInHandPosition.c` 用的是
-            //   `DOLocalRotate`）。原来这里传的是 `card.transform.eulerAngles.z`（**世界**角）配
-            //   `DORotate`（世界）—— 父链一有旋转，卡会被**反着拧**到世界 `(0,0,θ)`
-            //   （= 局部角 `θ − 父件角`）；改成 `localEulerAngles.z` + `DOLocalRotate` 之后
-            //   「保持它现在的倾角」才真的是保持（原版拿起时**根本没有角度补间**，
-            //   我们这一跳的语义就是「保持在当前角」，所以目标值必须取局部角）。
+            // 🔴 **2026-11-02（`B120-W1`）：这一跳的旋转目标改成【0】**（原来传 `tr.localEulerAngles.z` = 保持扇形角，且自陈 🔶）。
+            //   判据：原版 `CardScript__StartMovingFromHand.c:78-81` 把 `rotationTarget`（`card+0x2fc/0x300/0x304`）
+            //   整块写成 `Vector3.zero`（源 = `Vector3.static_fields` 的 `zeroVector` —— `.c` 里那三句
+            //   `*(…)(param_1 + 0x2fc) = **(…)(DAT_1842da2a8 + 0xb8)`，`+0xb8` 就是 `static_fields` 指针），
+            //   之后每帧 `SetCardMovement` 写 `rotation = Euler(rotationTarget + extra)` ⇒ **拖起后世界 Z 被抹平**。
+            //   ⛔ 原来那版「保持局部角」是自设计；按铁律 18·0「默认复刻原版」已取消（扇形角由 `SetPose` 在收手时写回）。
+            //   ⚠️ 真正每帧写角度的是 `UpdateDrag`（`t.rotation`），这里只决定起拖那 0.1 s 补间的终点。
             //
             // 🔴 **2026-10-24（`A3` · 新账-82②）：改走 `CardView.TweenPose`，⛔ 不再直写 `localScale`。**
             //   原来这里经 `J3` 那份 `HandPoseTween` → `transform.DOScale(...)`，**直接写 `localScale`**
@@ -939,8 +939,8 @@ namespace CardPresentation
                 var tr = card.transform;
                 Vector3 worldTarget = tr.position + new Vector3(0f, 0f, -dragLiftZ);
                 Vector3 localTarget = tr.parent != null ? tr.parent.InverseTransformPoint(worldTarget) : worldTarget;
-                card.TweenPose(localTarget, tr.localEulerAngles.z,
-                               hand.cardScale * LayoutSpace.Scale * dragScale,
+                card.TweenPose(localTarget, 0f,
+                               hand.cardScale * LayoutSpace.Scale * PickUpScaleFactorFor(dragScale, cam != null && cam.orthographic),
                                CardTween.PickUpDuration, Ease.OutQuad);
             }
 
@@ -983,30 +983,30 @@ namespace CardPresentation
             // ⚠️ 平滑系数要**按 dt 算**，不能用固定的 0.45 —— 那样帧率一变手感就变，
             //    而且批处理自检里手动喂 dt 时推不到位（踩过）。
             var t = _dragging.transform;
-            var target = world + _grabOffset + new Vector3(0f, 0f, -dragLiftZ);
+            var target = world + _dragTargetOffset + new Vector3(0f, 0f, -dragLiftZ);   // 🔴 2026-11-02（`B120-W1`）：`_dragTargetOffset` = 原版 `moveCardYOffset` 那一跳（= 0.02747 我们的单位），⛔ 不再是「抓取偏移」（判据 → 类尾 `DragTargetOffset`）
             var prevPos = t.position;
             var delta = target - prevPos;
             float d2 = delta.sqrMagnitude;
             // 🔴 2026-11-02（`B117-35` · 执行代理 `B117-WGB`）：跟手 = 原版 `CardScript.SetCardMovement` 的两档。判据 = `decomp_full/CardScript__SetCardMovement.c` + VA `0x1805FC4E0`；
             //   `d2 < 0.01`(0x1834B2DBC) 或 `> 1000`(0x1834B3124) ⇒ `position = target`（硬吸附）；否则 `pos += (target−pos) × (cardMovementSpeed × dt)`，
             //   **原版没有 `Clamp01`**（`0x1805FC619 movss [rbx+0x2E8]` → `mulss`）⇒ ⛔ 别用 `Vector3.Lerp`；`cardMovementSpeed` = **10.8**
-            //   （ctor `0x412ccccd` / `CardPrefab.prefab:2855` 两源一致 ⇒ 60fps 系数 **0.18**，改前 `1−exp(−20dt)` = 0.2835）。⚠️ 单位不用换算（手牌 108 px/单位）
-            bool snap = d2 < 0.01f || d2 > 1000f;
+            //   （ctor `0x412ccccd` / `CardPrefab.prefab:2855` 两源一致 ⇒ 60fps 系数 **0.18**，改前 `1−exp(−20dt)` = 0.2835）。🔴 **2026-11-02（`B120-W1`）就地订正**：原文写「单位不用换算（手牌 108 px/单位）」—— **错**，`d2` 是**世界坐标平方和**，原版 1 单位 = 14.835 px、我们 1 单位 = 108 px ⇒ 两个阈值都要过桥（见 `HandSnapNearD2` / `HandSnapFarD2`）
+            bool snap = d2 < HandSnapNearD2 || d2 > HandSnapFarD2;
             if (snap) t.position = target;
             else t.position = prevPos + delta * (10.8f * dt);
             // 账 767/768（第二批）：**拖卡倾斜**（原版 `CardScript__SetCardMovement.c:69-96`，每帧写）。原版 `rx = (max.x − min.x) × clamp01(Δy/reduction + 0.5) + min.x`、
             //   `ry` 用 **−Δx**（⚠️ 2026-11-02 就地订正：原文写「|Δx|」—— 错，`.c` 那一句是 `fVar9 = (float)((uint)fVar9 ^ DAT_1834b2c80);` = **翻转符号位** ⇒ 右移为负、左移为正；`DAT_1834b2c80` 与 `GetPosition.c:195` 那个「把让位量取反」用的是同一个字面量）、`transform.rotation = Euler((rotationTarget + forcedExtraRotation) × Deg2Rad)`。
-            //   🔴 `B117-35`：上面那条硬吸附支还把 `rotationTarget` 整块拷成静态 `Vector3`（`0x1805FC7A6..0x1805FC7BC`）—— 那个静态度**没落地核**，
-            //      按「与 ctor 的 `targetPosDuringAnim` 同源」**推断 = `Vector3.zero`** ⇒ 硬吸附那一档 **rx/ry 写 0**（⚠️ 推断强度：未 100% 钉死）。
+            //   ✅ **2026-11-02（`B120-W1`）已钉死**：硬吸附支拷的静态 `Vector3` **就是 `Vector3.zero`** —— `.c` 的 `+0xb8` 是 IL2CPP `static_fields` 指针、偏移 0 起读 12 字节 = `zeroVector`
+            //      （`AutoCardRotation__Update.c` 用同一表达式取 `+0x24/+0x3c` = `downVector/rightVector`，互证）⇒ 那一档 rx/ry 写 0，⛔ 不再是推断。
             //   数值判据 = `CardScript` **构造函数默认值**（`decomp_full/CardScript__.ctor.c:41-45`：20 / −20 / 10）；这三个字段在 `CardScript.cs:1437-1443` 没有 `[SerializeField]` ⇒ ctor 就是真值。
-            //   🔶 自己设计（非原版）：原版写**世界**四元数（3D 卡的 X/Y 俯仰）；我们是 2D 卡 ⇒ 只写**局部 X/Y**、保留原 Z 角（否则手牌扇形倾角会被抹平），
-            //      `forcedExtraRotation` 取零；收手时 `CardView.SetPose` 会把 `localRotation` 写成 `Euler(0,0,rotZ)` ⇒ 倾斜自动复位（⛔ 别在这再抄一份）。
+            //   🔴 **2026-11-02（`B120-W1`）取消 🔶「保留扇形 Z」那一条**：原版写**世界**四元数且 `rotationTarget` 已被清零（起拖 `StartMovingFromHand.c:78-81` / 硬吸附支都写成 `Vector3.zero`）
+            //      ⇒ 拖起后世界 Z **就是 0**（扇形倾角被抹平），收手时 `CardView.SetPose` 把扇形角写回。⚠️ 顺带：原版 `Δ` 与世界常量 `10` 同量纲（14.835 px/单位）⇒ 分母过桥 = `DragTiltReduction`。
             {
                 float dy = target.y - prevPos.y;
                 float dx = prevPos.x - target.x;   // = **−Δx**（`.c` 的 `^ DAT_1834b2c80` 翻符号位；⛔ 不是 |Δx| —— 见上面那条 2026-11-02 订正）
                 float rx = snap ? 0f : (DragTiltMaxDeg - DragTiltMinDeg) * Mathf.Clamp01(dy / DragTiltReduction + 0.5f) + DragTiltMinDeg;
                 float ry = snap ? 0f : (DragTiltMaxDeg - DragTiltMinDeg) * Mathf.Clamp01(dx / DragTiltReduction + 0.5f) + DragTiltMinDeg;
-                t.localRotation = Quaternion.Euler(rx, ry, t.localEulerAngles.z);
+                t.rotation = Quaternion.Euler(rx, ry, 0f);   // 🔴 写**世界**旋转（原版 `Transform.set_rotation`），且 Z 恒 0 —— 见上面 2026-11-02 那两条
             }
 
             // 记下这一拖最远走到哪 —— 松手时用它区分「轻点」和「真拖」（只有前者开关展示窗）
@@ -1081,19 +1081,19 @@ namespace CardPresentation
             //      （`BoardLayout.cs:450-455`）—— 产品里另一条同样取指针的路径也这么用（`BattleDriver.cs:3104`）。
             int boardSlot;
             BoardLayout which;
-            bool ok = ResolveDrop(world, _dragging, out boardSlot, out which);
+            bool ok = ResolveDrop(world, _dragging, out boardSlot, out which, true); if (TryCommitWhileHolding(world, ok)) return;   // 🔴 2026-11-02（`B120-W16`）：原版「**还按着就 commit**」—— 越过高度那一帧就提交，⛔ 不等松手（判据 → 类尾 `TryCommitWhileHolding`）· 🆕 `B120-W24`（`A15`）：`allowNearest=true` = 指针没正对某一格也给出最近候选格（⛔ 提交仍要过 `PlayCommitGate` 那两道）
             // 🔴 **2026-11-02（`B118-W18`）整句已删** —— 原句是 `_dragging.SetHighlight(ok ? CardHighlightState.ValidTarget : CardHighlightState.Selected);`。判据（`B118_J8` §4 + 反编译）：原版**被拖的那张手牌从头不进状态环** —— 绿环 `potentialTargetInBoard` 只点**棋盘上的候选单位**（`BattleManager.ShowPotentialTargets` 只遍历 `unitsInPlay`），`BattleManager__Update` 的拖拽全程**不碰** `_Outline`、**不碰**状态环；`CardScript__StartMovingFromHand.c` 五句里也没有 `ChangeState`。⇒ 「合法落点 = 绿环」是我们自加的，⛔ 别再写回来。⚠️ 上面 `:1072` 那行小节标题「落点是否合法 → 实时反映在卡的着色上」随之**作废**（着色那条路整条不做了；落点反馈只走**底片** `ShowDropIndicator`，判据在原版 `SetCardShadow` 那一条）。
 
             // 🆕 2026-10-01（§〇 第 14 条 (b)）：**落点指示** —— 只点亮**它会去的那一格**。
             //   判据 = 原版 `MinionManager.ReassembleMinionsWhilePlayingUnit` 里那句
             //   `SetCardShadow(GetLeft/RightSlotPos(落点), active:1, rotate:1)`（每帧调，见
             //   `BattleManager__Update.c:575`）⇒ 那枚影子落在**它真正会去的那一格**。
-            //   ⚠️ 原版那条链只对**单位牌**跑（名字里的 `WhilePlayingUnit`）；战术卡不落格位 ⇒ 不指。
+            //   ⚠️ 原版那条链只对**单位牌**跑（名字里的 `WhilePlayingUnit`）；战术卡不落格位 ⇒ 不指。另 🔴 2026-11-02（`B120-W21`）：原版**只在过了手牌限位线之后**才算落点（`ReassembleMinionsWhilePlayingUnit` 的唯一调用点在 `case 3`、`BattleManager.cs:25963`）⇒ 我们用 `HandLimitY` 把关；容差删掉后这道闸**不能省**，否则拖在手牌带里也会亮一个格。
             //   ⚠️ 「落点」直接复用上面那一份 `ResolveDrop` —— 指的那一格和松手会落的那一格
             //      必须是**同一个判据**，别在这里另算一份。
             //   🔴 摆位用**这张卡自己的 `transform.position` 与它的层** —— 见
             //      `BoardLayout.SetDropSlot` 那条长注释（试过四套换算，全错）。
-            var litB = (ok && !IsTactic(_dragging)) ? which : null;
+            var litB = (ok && !IsTactic(_dragging) && LayoutSpace.ToNormalized(world).y >= BoardLayout.HandLimitY) ? which : null;
             ShowDropIndicator(litB, litB != null ? LandingSlot(boardSlot) : -1, _dragging);
             // 🆕 2026-10-01：**让位预览** —— 和落点指示同一份判据（`litB` 为空就收工）。
             //   原版那条链只对**单位牌**跑（名字里的 `WhilePlayingUnit`）。
@@ -1264,10 +1264,10 @@ namespace CardPresentation
             return k == DropRejectKind.EngineRefused || k == DropRejectKind.SlotUsed;
         }
 
-        string DropReject(Vector3 pos, CardView card, out int slot, out BoardLayout which)
+        string DropReject(Vector3 pos, CardView card, out int slot, out BoardLayout which, bool allowNearest = false)
         {
             DropRejectKind k;
-            return DropReject(pos, card, out slot, out which, out k);
+            return DropReject(pos, card, out slot, out which, out k, allowNearest);
         }
 
         /// <summary>🆕 **2026-10-25（`X19/P2`）**：最近一次 `DropReject` 判出来的**词条键覆盖**
@@ -1278,7 +1278,7 @@ namespace CardPresentation
         string _lastRejectTip;
 
         string DropReject(Vector3 pos, CardView card, out int slot, out BoardLayout which,
-                          out DropRejectKind kind)
+                          out DropRejectKind kind, bool allowNearest = false)   // 🆕 2026-11-02（`B120-W24` · `A15`）：`allowNearest` = 原版「提交不要求指针压在某一格」—— 见 `BoardLayout.TryResolveSlot(..., allowNearest)` 的类尾长注
         {
             slot = -1;
             which = board;
@@ -1298,10 +1298,10 @@ namespace CardPresentation
                     BoardLayout wantBoard = wantEnemy ? foeBoard : board;
                     BoardLayout otherBoard = wantEnemy ? board : foeBoard;
                     int sWant = -1;
-                    bool hitWant = wantBoard != null && wantBoard.TryResolveSlot(pos, out sWant);
+                    bool hitWant = wantBoard != null && wantBoard.TryResolveSlot(pos, out sWant, SideCount(wantBoard, true), SideCount(wantBoard, false));
                     // ⚠️ 另一块棋盘只用来**区分「拖到了错的一侧」与「拖到空白处」**（前者原版会出声），
                     //    它的格号**不参与任何落点判定**。
-                    bool hitOther = otherBoard != null && otherBoard.TryResolveSlot(pos, out _);
+                    bool hitOther = otherBoard != null && otherBoard.TryResolveSlot(pos, out _, SideCount(otherBoard, true), SideCount(otherBoard, false));
 
                     if (hitWant && CanDropAtSlot(sWant, card))
                     { slot = sWant; which = wantBoard; return null; }
@@ -1326,17 +1326,17 @@ namespace CardPresentation
                 }
                 // `want == ""` = 这张战术卡**不需要目标**（`Refill 2 Energy` 一族）⇒ 引擎不看格位，
                 // 两块棋盘任一处都能放（保持原样，先试敌方——历史上就是这一条）。
-                if (foeBoard != null && foeBoard.TryResolveSlot(pos, out s) && CanDropAtSlot(s, card))
+                if (foeBoard != null && foeBoard.TryResolveSlot(pos, out s, SideCount(foeBoard, true), SideCount(foeBoard, false)) && CanDropAtSlot(s, card))
                 {
                     slot = s; which = foeBoard; return null;
                 }
             }
 
             if (board == null) { kind = DropRejectKind.NoBoard; return "没有棋盘"; }
-            if (!board.TryResolveSlot(pos, out s))
+            if (!board.TryResolveSlot(pos, out s, SideCount(board, true), SideCount(board, false), allowNearest))   // 🆕 `B120-W24`（`A15`）：`allowNearest` 直通（原版 `GetClosestAvailableSlot` 无容差 ⇒ 指针没正对某一格也给出最近候选格）
             {
-                kind = DropRejectKind.MissedSlot;
-                return $"命中不了格位（卡在 {pos.x:F2},{pos.y:F2},{pos.z:F2}）";
+                kind = NoRoomBranch(card, pos, allowNearest) ? DropRejectKind.EngineRefused : DropRejectKind.MissedSlot;   // 🆕 2026-11-03（`B120-W28` · `Q04c5`）：**候选集为空（两侧都满）** ⇒ 原版松手那一刻 `CanPlayCard(showTips:1)` 的 `NotEnoughRoom` 那一支（`il2csharp BattleManager.cs:25816`）⇒ 算**非法操作**（cantdo），⛔ 不再当「正常取消」；为什么只有这一支 → 类尾 `NoRoomBranch`
+                return kind == DropRejectKind.EngineRefused ? $"两侧都满 / 引擎拒 —— 候选集为空（卡在 {pos.x:F2},{pos.y:F2},{pos.z:F2}）" : $"命中不了格位（卡在 {pos.x:F2},{pos.y:F2},{pos.z:F2}）";
             }
             if (!CanDropAtSlot(s, card))
             {
@@ -1354,9 +1354,9 @@ namespace CardPresentation
         }
 
         /// <summary>落点合不合法（`DropReject` 的一层壳；只想知道行不行时用它）。</summary>
-        bool ResolveDrop(Vector3 pos, CardView card, out int slot, out BoardLayout which)
+        bool ResolveDrop(Vector3 pos, CardView card, out int slot, out BoardLayout which, bool allowNearest = false)
         {
-            return DropReject(pos, card, out slot, out which) == null;
+            return DropReject(pos, card, out slot, out which, allowNearest) == null;
         }
 
         /// <summary>
@@ -1377,7 +1377,7 @@ namespace CardPresentation
             return $"{head} ⇒ ❌ {why}";
         }
 
-        void Release(Vector3 world)
+        void Release(Vector3 world, bool byCommitWhileHolding = false)   // 🔴 2026-11-02（`B120-W16`）：`true` = 这一下不是松手，是原版 `Update`·`movingHandCard` 支**越过高度那一刻**就提交（判据 → 类尾 `TryCommitWhileHolding`）；只影响日志措辞，结算路径一字不差。
         {
             var card = _dragging;
             _dragging = null;
@@ -1391,8 +1391,8 @@ namespace CardPresentation
             int slot;
             BoardLayout which;
             DropRejectKind kind;
-            string reject = DropReject(world, card, out slot, out which, out kind);
-            bool ok = reject == null;
+            string reject = DropReject(world, card, out slot, out which, out kind, true);   // 🆕 `B120-W24`（`A15`）：松手这一问同样允许「最近候选格」（原版 `GetClosestAvailableSlot` 无容差）；⛔ 能否真出牌仍由下面 `PlayCommitGate` 两道门决定
+            bool ok = reject == null; if (ok && !PlayCommitGate(_pressWorld, world)) { ok = false; kind = DropRejectKind.MissedSlot; reject = "指针没比按下点抬高 0.3 原版世界单位（= 4.45 px）或没越手牌限位线 —— 原版不会 commit（判据 → 类尾 `PlayCommitGate`）"; }
             DropAccepted = ok && card != null && card.Data.isUnit;   // 「这一手真打出去」= 合法 ∧ 单位卡（⚠️ `CardView.Data` 是**结构体** ⇒ 没有 `!= null` 这一判）
             ClearDropIndicator();     // ⚠️ 必须排在上面那几行**之后**：它内部会拿 `DropAccepted` 决定送不送回
             DropAccepted = false;     // 用完即清 —— ⛔ 别让下一手继承这一手的结论（驱动层 `DoPlay` 末尾也清一次）
@@ -1421,10 +1421,10 @@ namespace CardPresentation
             //     那一下吃的也**确实是手牌**（`card.name` = `Hand_…`，视图由 `SyncHand` 建在手牌层；
             //     棋盘单位在 `_myUnits`/`_foeUnits` 里，**从不进 `_cards`** ⇒ 手牌命中不可能吃到场上按压）。
             //   ⇒ 现在打**松手那一刻的真实状态**，并把「这一下是哪一层吃的」写出来。
-            string line = $"[CardPresentation] Release：指针世界 ({world.x:F2},{world.y:F2})"
+            string line = (byCommitWhileHolding ? "[CardPresentation] 提交（原版「还按着就 commit」· 越过高度那一刻）：指针世界 (" : "[CardPresentation] Release：指针世界 (") + $"{world.x:F2},{world.y:F2})"
                         + $" · 卡「{card.name}」在 ({cp.x:F2},{cp.y:F2},{cp.z:F2})"
-                        + $" · 抓取偏移 ({_grabOffset.x:F2},{_grabOffset.y:F2})"
-                        + $" · 拖动中={(card != null ? "True" : "False")} · 来源=手牌层(Release)"
+                        + $" · 目标偏移=({_dragTargetOffset.x:F2},{_dragTargetOffset.y:F2})（原版 moveCardYOffset 那一跳，⛔ 不再是抓取偏移）"
+                        + $" · 拖动中={(card != null ? "True" : "False")} · 来源=手牌层({(byCommitWhileHolding ? "还按着就提交" : "Release")})"
                         + $" · 落点判定={kind}";
             _lastReleaseLog = line;
             Debug.Log(line);
@@ -1547,7 +1547,7 @@ namespace CardPresentation
                 //   ✅ **2026-10-24（`A3`）：`CardTween.SnapBackDuration`（0.22）已从 `Core/CardTween.cs` 删掉** ——
                 //      判据就是上面这几条（原版没有回弹专用补间）；全仓已**没有**该常量的定义/调用
                 //      （剩下的只是本段这条留痕注释）。
-                card.SetHighlight(CardHighlightState.Normal);
+                card.SetHighlight(CardHighlightState.Normal); if (_travel >= TapThreshold && OutOfPlayArea(world)) ApplyOutFromPlayingArea(card);   // 🆕 2026-11-03（`B120-W28` · `Q04c4`）：**松手落在出牌区外** ⇒ 原版 `CardScript.MoveBackToHand` / `OutFromPlayingAreaAnim` 那一套（单位溶解 / targeted 法术取消溶解 + 还原手牌移动缩放 / cardState 9 / `LightPlayableHand`）—— 判据与「三样各是什么等价物」→ 类尾 `ApplyOutFromPlayingArea` 的长注。⚠️ `_travel >= TapThreshold` 这道闸：**轻点/长按不是拖拽**（原版那一刻走 `OnTouchUpAsButton`，从不进 `movingHandCard`），不加它 ⇒ 点一下手牌就会被溶一次、targeted 法术还会弹一下缩放
                 if (OnReturned != null) OnReturned(card, kind);
                 // 🔴 **「非法操作」与「正常取消」在这里分开** ——
                 //    拖回手牌/拖到空白处（`MissedSlot`）**不播** cantdo，只有落在格位上却被拒才播。
@@ -1856,10 +1856,10 @@ namespace CardPresentation
 
         /// <summary>自检：落点判定的**逐道闸**读数（生产判据本体 `DropReject`，⛔ 断言里别另算一遍）。
         /// 返回 <see cref="DropRejectKind"/> 的枚举值；`why == null` = 合法。</summary>
-        public int DropRejectKindForTest(Vector3 pos, CardView card, out int slot, out BoardLayout which, out string why)
+        public int DropRejectKindForTest(Vector3 pos, CardView card, out int slot, out BoardLayout which, out string why, bool allowNearest = false)   // 🆕 2026-11-03（`B120-W28`）：加**可选** `allowNearest`（默认 false ⇒ 原调用点行为一字不变）；`Q04c5`「两侧都满」那一支只在**提交档**（`allowNearest:true`）出现
         {
             DropRejectKind k;
-            why = DropReject(pos, card, out slot, out which, out k);
+            why = DropReject(pos, card, out slot, out which, out k, allowNearest);
             return (int)k;
         }
 
@@ -2172,7 +2172,7 @@ namespace CardPresentation
         //     （与 `chargeAttackAngle` 那三个**不同** —— 那几个有 `[SerializeField]`，取预制体值）。
         const float DragTiltMaxDeg = 20f;        // maxCardRotation（Vector2 两轴同值）
         const float DragTiltMinDeg = -20f;       // minCardRotation
-        const float DragTiltReduction = 10f;     // movingRotationReduction
+        const float DragTiltReduction = 10f * HandLayout.OurUnitsPerWorldUnit;   // movingRotationReduction —— 🔴 2026-11-02（`B120-W1`）：原版 10 是**世界单位**（10×14.835 = 148.35 px 饱和），我们的 Δ 是 108 px/单位 ⇒ 过桥 ÷7.28 = **1.3736**
 
         // ════════════════════════════════════════════════════════════════════════════════════
         //  🆕 2026-10-28（`B89-R4b`）· 账 `战斗界面_HUD` 的 695 与 761
@@ -2271,5 +2271,313 @@ namespace CardPresentation
 
         /// <summary>自检读口：正走「打出链」的那一张（没有 ⇒ null）。⛔ 生产别用。</summary>
         public CardView DeployingViewForTest { get { return _deployingView; } }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B120-W1`）· 手牌层的**量纲桥** · 拖拽目标偏移 · 「出牌高度」闸
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //
+        //  根因（`资料/完全复刻/报告/B120_A_手牌与场上几何.md` §〇）：原版手牌卡的 `transform.position` 活在
+        //    **原版世界单位**（HUD 画布 = ScreenSpaceCamera、相机 fov40、planeDistance 100 ⇒ **14.835 px/单位**），
+        //    我们的手牌活在**我们的世界单位**（正交相机、可见高恒 10 单位 = 1080 px ⇒ **108 px/单位**；
+        //    唯一出处 = `Core/LayoutSpace.cs:36` 的 `DesignHeight = 10` + `:79` 的 `orthographicSize = 5` + `:208` 的 `DesignPxH = 1080`）。
+        //  ⇒ 凡「以原版世界单位为值」的**距离 / 饱和量**都要过桥 **`HandLayout.OurUnitsPerWorldUnit`**
+        //    （= 14.835/108 = **0.13736**，`Hand/HandLayout.cs:457`）。漏了就整体差 **7.28×**。
+        //  ⚠️ 本类原来（`:107-110`）写着「手牌层的距离值可以 1:1 搬」——**那是错的**：它用「165 px 的卡」证明了
+        //    **卡的尺寸**一致（层内局部量），却把「卡心的世界坐标」当成了同一件事。2026-11-02 已就地订正。
+        /// <summary>拖起那张相对指针的**固定**目标偏移（我们的世界单位）= 原版 `VarsDevice.moveCardYOffset`
+        /// （`VarsDesktop` = **0.2 原版世界单位** ⇒ × 0.13736 = **0.02747** = 2.97 px）。
+        ///
+        /// <para>判据（`d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/BattleManager.cs` 的 `case 2`）：
+        /// `real4 = this.desktopVariables.moveCardYOffset + this.mouseCanvasPos.y;`
+        /// `this.cardTracked.SetCardMovement(new Vector3 { x = mouseCanvasPos.x, y = real4, z = -1.0f }, …);`
+        /// —— 机器码同形：`decomp_full/BattleManager__Update.c:312-313`（`globalVars + 0x3c` = `moveCardYOffset`，
+        /// `dump.cs:120061`）⇒ **卡心贴指针**、只多 0.2 世界单位的 y；原版**没有任何「抓取偏移」**。</para>
+        ///
+        /// <para>🔴 **2026-11-02（`B120-W1`，账 `D118-65`）**：我们原来存 `卡心 − 指针`（抓住卡边拖时卡不跳到指针下）。
+        /// 按铁律 18·0「默认复刻原版」改成这一条。⚠️ 值从 <see cref="VarsDevice.Current"/> 取，⛔ 别在这里再写一个 0.2。</para></summary>
+        static Vector3 DragTargetOffset
+        {
+            get { return new Vector3(0f, VarsDevice.Current.moveCardYOffset * HandLayout.OurUnitsPerWorldUnit, 0f); }
+        }
+
+        /// <summary>拖起时原版那张牌的**透视缩小**系数 = `planeDistance ÷ (planeDistance + 10)` ≈ **0.9215**。
+        ///
+        /// <para>判据（`B120_A` §A-2）：原版 `target.z = Canvas.planeDistance − 10`
+        /// （`CardScript__SetCardMovement.c:30-33`，`工具/read_literal.py 0x1834b2da8` = **10**），而手牌卡平时贴在
+        /// 画布面上（世界 z = 81.48）；拖起后 z = 90 ⇒ 离相机 100 → 108.5 ⇒ **透视缩小 0.9215×**。
+        /// 与起拖缩放 `cardInHandMovingScale 1.1` 相乘 ⇒ **净 1.0137×**（⛔ 不是 1.1）。</para>
+        ///
+        /// <para>⚠️ **我们的相机是正交**（`LayoutSpace.Apply`：`orthographic = true` / size 5）⇒ 挪 z **一点缩放都没有**
+        /// ⇒ 按「像素等价」**显式补乘**。<see cref="PickUpScaleFactorFor"/> 只在正交相机下乘；哪天 D 域把 HUD 相机
+        /// 换回原版透视模型（`D118-85`），这个系数**自动退回 1**（透视会自己产生它）。⚠️ **残余（如实记）**：
+        /// 原版那 10 单位还会让卡**向屏幕中心收拢 ~8%**（透视投影），正交模拟不了 ⇒ 未复刻。</para></summary>
+        public const float DragPerspectiveShrink = 0.9215f;
+
+        /// <summary>起拖缩放系数（乘在手牌缩放上）—— 判据见 <see cref="DragPerspectiveShrink"/>。</summary>
+        public static float PickUpScaleFactorFor(float dragScale, bool orthographicCamera)
+        {
+            return orthographicCamera ? dragScale * DragPerspectiveShrink : dragScale;
+        }
+
+        // ── 跟手硬吸附的两个阈值（原版 `d2 < 0.01` / `d2 > 1000`，**世界单位²**）──
+        //  判据 = `decomp_full/CardScript__SetCardMovement.c:41-45`（`0x1834B2DBC` = 0.01 · `0x1834B3124` = 1000），
+        //  且 `d2` 是 `Transform.get_position()` 与 target 的**三维平方差**。原版 1 单位 = 14.835 px ⇒
+        //  近阈 0.1 单位 = **1.48 px**、远阈 31.6 单位 = **469 px**。换到我们的单位要乘**桥²**（0.13736² = 0.018867）；
+        //  漏了就是「离目标 10.8 px 就停」+「30 多 px 外永远不硬吸」两条手感偏差。
+        /// <summary>近阈（我们的单位²）= `0.01 × 桥²` = **1.887e-4**（= 1.48 px）。</summary>
+        public const float HandSnapNearD2 = 0.01f * HandLayout.OurUnitsPerWorldUnit * HandLayout.OurUnitsPerWorldUnit;
+        /// <summary>远阈（我们的单位²）= `1000 × 桥²` = **18.87**（= 469 px）。</summary>
+        public const float HandSnapFarD2 = 1000f * HandLayout.OurUnitsPerWorldUnit * HandLayout.OurUnitsPerWorldUnit;
+
+        // ── 「出牌高度」：原版 `VarsGlobal.minMovementToPlayCard`（`+0x7C`）──
+        //  判据 = `decomp_full/BattleManager__Update.c:250-253`（`case 2` = `movingHandCard` 的**还按着**那一支）：
+        //    `if (line.y < mouse.y) { if (pointerCursorStart.y + globalVars(+0x7c) < mouse.y) { CanPlayCard(…)
+        //     ⇒ MoveIntoFieldFromHand(); UIstate = 3/4/5; StartMovingHandCard(); } }`
+        //  （`pointerCursorStart` 在 `BattleManager +0x320/0x324`，`dump.cs:30851`；`minMovementToPlayCard`
+        //   在 `GlobalVariables +0x7C`、值 **0.3**，`资料/VarsGlobal_原版数值.md:44`）
+        //  ⇒ 两条**同时**成立才算「要出牌」：① 指针越 `HandLimitArea` 那条线（= `BoardLayout.HandLimitY`）
+        //    ② 指针比**按下点**再高 **0.3 原版世界单位 = 4.45 px**。
+        //  ⚠️ 同一函数里还有 `+0x80`（`maxHeightOfUnplayableCard` = **25.0** 世界单位，`.c:295`）—— 那是
+        //    「拖得太高又打不出去 ⇒ 收回手牌」的**放弃**闸，⛔ 不是出牌闸，别混。
+        //  ⚠️ **原版是「还按着就提交」**，我们是「松手才提交」（`K2` 报告 §五·7 已登记的结构差）⇒ 我们在
+        //    **松手那一刻**用同一个判据；「拖上去再拖回手牌带」两版净结果相同（都不出牌）。
+        /// <summary>「出牌高度」= 原版 `minMovementToPlayCard` 0.3 **原版世界单位** × 桥 = **0.04120 我们的单位 = 4.45 px**。</summary>
+        public const float PlayLiftWorld = 0.3f * HandLayout.OurUnitsPerWorldUnit;
+
+        /// <summary>原版那两条「要出牌」的判据（纯函数，自检直接喂点）—— 见上面那段。
+        /// <paramref name="pressWorld"/> = 按下点、<paramref name="nowWorld"/> = 当前指针（都是世界坐标）。</summary>
+        public static bool PlayCommitGate(Vector3 pressWorld, Vector3 nowWorld)
+        {
+            if (nowWorld.y - pressWorld.y < PlayLiftWorld) return false;           // ① 抬高 0.3 原版世界单位（`globalVars+0x7c`）
+            return LayoutSpace.ToNormalized(nowWorld).y >= BoardLayout.HandLimitY; // ② 越 `HandLimitArea` 那条线（`line.y < mouse.y`）
+        }
+
+        /// <summary>自检读口：拖拽倾斜分母（我们的单位）。原版 10 **世界单位** = 148.35 px ⇒ 过桥 = **1.3736**（= 1080 px 的 1/7.28 那个老值已废）。</summary>
+        public static float DragTiltReductionForTest { get { return DragTiltReduction; } }
+        /// <summary>自检读口：拖拽目标偏移（见 <see cref="DragTargetOffset"/>）。</summary>
+        public static Vector3 DragTargetOffsetForTest { get { return DragTargetOffset; } }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+        // 「还按着就 commit」—— 原版**不等松手**，越过高度那一帧就提交（执行写手 `B120-W16` · 2026-11-02）
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+        // 【判据 · 亲读，⛔ 别照抄二手描述】
+        //  ① `decomp_full/BattleManager__Update.c:249-288`（`case 2` = `UIstate == movingHandCard`）：
+        //       `if (local_5a8._4_4_ < fVar1) {                 // ← 手牌限位线 `HandLimitArea.y` < 指针 y
+        //          fVar26 = *(float *)(param_1 + 0x324);        // ← `pointerCursorStart.y`
+        //          if (fVar26 + *(lVar19 + 0x7c) < fVar1) {     // ← + `minMovementToPlayCard`(0.3)
+        //            if (CanPlayCard(mgr, cardTracked, 0, 1, 0)) {
+        //              CardScript__MoveIntoFieldFromHand(cardTracked, 0);   // :260 ← **就在这一帧提交**
+        //              UIstate = 3 / 4 / 5（按 cardType / targeted）        // :264/:270/:280
+        //              PlayerHand__StartMovingHandCard(...)                 // :284
+        //            } } }`
+        //     ⇒ 全段**没有任何「松手」前置**；同一份逐帧逻辑在
+        //       `out_il2csharp/Assembly-CSharp/BattleManager.cs:25720-25864` 逐行可读（`MoveIntoFieldFromHand()` 在 `:25733`）。
+        //     ⇒ 真正的「松手」处理在**另一支**：`obj77 == null`（`cardTracked` 已被清空，`:25828-25863`）
+        //       ⇒ `MoveBackToHand` + `HandCardMovedToNewIndex` + `HandCardReleased` —— 提交过之后再松手**不会**再出一次牌。
+        //  ② `BattleManager__StartMovingCardInHand.c:4`：`*(undefined8 *)(mgr + 0x320) = param_3`（起点）⇒
+        //     `pointerCursorStart` = **起拖那一刻的指针点**，与我们的 `_pressWorld` 同一个量（`PickUp` 写入）。
+        //  ③ 「提交一次就停」的机制在原版也成立：提交那一句把 `UIstate` 从 2 改成 3/4/5 ⇒ 下一次 `Update`
+        //     走的不再是 `case 2`，`cardTracked` 随即被清 ⇒ 不可能重复提交。
+        //
+        // 【我们原来错在哪】`Release` 里才判 `PlayCommitGate`（松手那一刻）⇒ **必须松手才出牌**，
+        //   而原版是「拖上去就出」——「拖上去再拖回手牌带」两版净结果虽同，但**拖上去那一刻的反馈**不同
+        //   （原版卡已经离开手牌开始落位，我们还在手上跟着指针）。
+        //
+        // 【残余差 —— 🆕 2026-11-02（`B120-W24` · `A15`）**已收口**，原文是「这一档还没做」】原版提交时
+        //   **不要求指针压在某一格上**：`CanPlayCard` 对单位只查 `MinionManager.IsAvailableSlot`（有没有空位），
+        //   落格由 `GetClosestAvailableSlot(指针)` 取**最近可用格**。现在调用方传 `allowNearest: true`
+        //   （`UpdateDrag` / `Release` 两处）⇒ 指针抬到棋盘上方空白处也照样出牌，落格 = 最近候选格；
+        //   ⛔ 但「两侧都满（候选集为空）」仍不给出牌，且**必须**再过 `PlayCommitGate` 那两道门。
+
+        /// <summary>原版「**还按着就 commit**」：越过 `PlayCommitGate` 的那一帧就提交（⛔ 不等松手）。
+        /// <para>走的是与松手**同一条** `Release` 路径 —— 它第一句就把 `_dragging` 置空，而
+        /// `UpdateDrag` / `SimulateDrag` / `TickInput` / `SimulateRelease` 全部带 `_dragging != null` 前置
+        /// ⇒ 后续拖拽帧与真正的松手都成**空操作**，结构上不可能重复出牌。</para>
+        /// <para>⚠️ 回弹 / 取消路径**不受影响**：门没过（`dropOk == false` 或没越过高度）时本口直接返回 false，
+        /// 一切照旧走松手那一趟。</para></summary>
+        /// <returns>true = 这一帧已经提交，调用方必须立刻 return（⛔ 别再用已经置空的 `_dragging`）。</returns>
+        bool TryCommitWhileHolding(Vector3 world, bool dropOk)
+        {
+            if (_dragging == null) return false;                 // 没在拖（含「已经是第二帧」）
+            if (!dropOk) return false;                           // 落点不成立（含**候选集为空 / 引擎拒**）⇒ 不提交（🆕 `B120-W24`：指针没正对某一格**不再**算「不成立」——见上面那段）
+            if (!PlayCommitGate(_pressWorld, world)) return false;   // 原版那两道：越限位线 **且** 抬高 0.3 原版世界单位
+            Release(world, true);
+            return true;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（执行写手 `B120-W21` · 账 `B120-Q04c`）：落点解析要的「每侧已占数」
+        //  原版那个数由 `MinionManager` 自己带（`left/rightMinionsOccupation.Count`，`MinionManager.cs:327/335`）；
+        //  我们这一层没有那两条 List ⇒ 只能回引擎侧现数（口径只此一处 = `RuleEngine.BoardSlots.CountOnSide`）。
+        //  ⚠️ **追加在类尾**：本文件的行号被账按 `文件:行号` 引用 30+ 处，插进成员之间会整片漂移。
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>这一块棋盘**那一方**某一侧「已占几格」—— 供 `BoardLayout.TryResolveSlot` 收窄候选集。
+        /// <para>判据：原版 `MinionManager.GetClosestAvailableSlot` 的 `start/end` 用的是**那个 MinionManager 自己**的
+        /// `left/rightMinionsOccupation.Count`；我们对外的等价物 = `RuleEngine.BoardSlots.CountOnSide(ps, 侧)`
+        /// （同一份口径：「非空格数 = 原版 List.Count」，见该方法的 doc）。</para>
+        /// <para>本地座位取 `RuleEngine.CardPlayedSignals.LocalSeat`（`BattleDriver.SetMySeat` 与 `_me` 同拍写入），
+        /// 另一侧 = `1 − LocalSeat`。⚠️ 单机恒 0。</para>
+        /// <returns>已占格数；**`-1` = 数不出来**（没有驱动 / 没有上下文 / 对面那一格是空引用）——
+        /// 消费方 `ArenaSlots.TryResolveSlot` 会按「该侧皆空」处理，⛔ 不是按「满」。</returns>
+        /// </summary>
+        int SideCount(BoardLayout b, bool left)
+        {
+            var d = Driver; if (_sideLeftForTest >= 0) return left ? _sideLeftForTest : _sideRightForTest;   // 🆕 `B120-W28` 自检口径：钉住每侧已占数时**优先于引擎**（默认 −1 ⇒ 走下面那条真路）
+            var ctx = d != null ? d.Ctx : null;
+            if (ctx == null || ctx.Players == null || ctx.Players.Length < 2) return -1;   // 夹具 / 还没开局
+            int seat = RuleEngine.CardPlayedSignals.LocalSeat;
+            if (seat < 0 || seat >= ctx.Players.Length) seat = 0;
+            int idx = ReferenceEquals(b, foeBoard) ? (seat == 0 ? 1 : 0) : seat;            // `b == null` 也落到我方那一格（调用方已先判空）
+            var ps = ctx.Players[idx];
+            if (ps == null || ps.Board == null) return -1;
+            return RuleEngine.BoardSlots.CountOnSide(ps, left ? RuleEngine.BoardSlots.Left : RuleEngine.BoardSlots.Right);
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-03（执行写手 `B120-W28` · 账 `B120-Q04c4` / `B120-Q04c5`）
+        //  ⚠️ 新增成员一律**追加在类尾**（铁律 18·b / `N9` 先例）：本文件被账按 `文件:行号`
+        //     引用 30+ 处（`B120_W21` 报告列的 `:1380` / `:1584` / `:1740` / `:1893` / `:1967` …），
+        //     插进已有成员之间会让下游落点整体漂移、`check_ledger_points` 成片报。
+        //  ⇒ 两处**产品改动**都做成「同物理行追加」（`Release` 的 `SetHighlight` 那一行、
+        //     `DropReject` 的两行返回），行数**零变化**。
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>自检口径：把「这一块棋盘那一方**每侧已占几格**」钉成给定量（默认 `-1` = 走引擎现数）。
+        /// <para>只影响 <see cref="SideCount"/> 里「**没有上下文**」那一支（夹具 / 还没开局）；
+        /// 产品路径永远有 `Ctx`（读的仍是 `RuleEngine.BoardSlots.CountOnSide`，判据只此一处）。</para></summary>
+        int _sideLeftForTest = -1, _sideRightForTest = -1;
+        public void SetSideCountsForTest(int left, int right) { _sideLeftForTest = left; _sideRightForTest = right; }
+
+        /// <summary>**原版 `PlayerHand.LightPlayableHand()` 的触发点** —— 驱动层接
+        /// `BattleDriver.RefreshHandPlayable`（那边是「引擎说了算的可打出」的唯一判据口）。
+        /// <para>原版唯一的调用点就是 `CardScript.OutFromPlayingAreaAnim` 末尾那一句
+        /// （`decomp_full/CardScript__OutFromPlayingAreaAnim.c:34-38`）；⚠️ 我们的**手牌重排
+        /// 不重算可打出**（`Relayout` 只摆位姿）⇒ 卡从「拖出去」回到手里之后，绿描边会停在
+        /// 「这一手出发前」的旧结论上 ⇒ 必须在这里补一次。</para></summary>
+        public event Action OnLightPlayableHand;
+
+        /// <summary>指针**现在在不在出牌区里** —— 判据 = 原版那条 `HandLimitArea` 线
+        /// （`local_5a8._4_4_ < fVar1` ⇒ `mouseCanvasPos.y > HandLimitArea.y`，
+        /// `BattleManager__Update.c:248-250`）；我们的等价物 = `BoardLayout.HandLimitY`（300/1080）。
+        /// <para>**唯一判据口**：`Release` 判「出牌区外」与 `NoRoomBranch` 判「指针在出牌区里」都读它
+        /// （⛔ 别在调用点各写一份 `ToNormalized(...).y &lt; HandLimitY`）。</para></summary>
+        public static bool IsInPlayArea(Vector3 world) { return LayoutSpace.ToNormalized(world).y >= BoardLayout.HandLimitY; }
+
+        /// <summary>上一条的反面（`Release` 里读它，措辞更贴原版「出牌区外」那一支）。</summary>
+        public static bool OutOfPlayArea(Vector3 world) { return !IsInPlayArea(world); }
+
+        /// <summary>原版 `EntityScript.get_targeted()`（`targeted == 1`）—— 从卡表取。
+        /// <para>⚠️ 我们的 `CardData`（视图层那份结构体）**没有这一列**（只有 `spellType` / `isUnit`）；
+        /// 引擎侧那一份在 `CardDef.Targeted`（三态 `int`：`1` 才算，`0` / `-1` 都不算，口径同
+        /// `BattleDriver.ResolvePlayTargetByUnit` 的 `def.Targeted == 1`）。查不到卡表 ⇒ **false**（出声一次）。</para></summary>
+        public static bool IsTargetedCard(CardView c)
+        {
+            var d = DefOf(c);
+            if (d == null)
+            {
+                if (c != null && _targetedUnknown.Add(c.Data.artId ?? c.Data.id ?? "?"))
+                    Debug.LogWarning("[CardPresentation] 「" + (c.Data.id ?? "?") + "」查不到卡表 ⇒ `targeted` 判不出，"
+                                   + "按**不需要目标**处理（只有 `OutFromPlayingAreaAnim` 那一支受影响）。");
+                return false;
+            }
+            return !d.IsUnit && d.Targeted == 1;
+        }
+        static readonly HashSet<string> _targetedUnknown = new HashSet<string>();
+
+        /// <summary>
+        /// **松手落在出牌区外**那一支 —— 原版 `CardScript.MoveBackToHand()` ＋ `CardScript.OutFromPlayingAreaAnim()`。
+        ///
+        /// <para>🔴 判据（🥇 亲读，2026-11-03；⛔ 别照抄二手描述）：
+        /// <list type="number">
+        ///   <item>**松手这一条的「动作」是 `MoveBackToHand`**：`il2csharp/BattleManager.cs:25845`
+        ///     （`case 2` `obj77 == null` 那一支）＝ `cardTracked.MoveBackToHand()`。
+        ///     逐句（`decomp_full/CardScript__MoveBackToHand.c:12-30`）：`SetSortingLayer(Hand)` ·
+        ///     `StopAnimsInPlay()` · `cardType == 0` ⇒ **`DissolveMinionCard(false)`**
+        ///     （2D 卡面 α→1 + 关 `body3D` + 撤残骸体）· `cardType ∈ {20,40}` 且 `targeted` ⇒ **`UnDissolveWholeCard()`**。</item>
+        ///   <item>**`OutFromPlayingAreaAnim`**（`decomp_full/CardScript__OutFromPlayingAreaAnim.c:11-42` 全文）＝
+        ///     上面那同一对动作 ＋ `transform.localScale = GetCardInHandMovingScale()`（**只有 `targeted` 那一支**）
+        ///     ＋ `cardState = 9`(`inHandMoving`) ＋ 末尾 `PlayerHand.LightPlayableHand()`。</item>
+        /// </list>
+        /// ⚠️ **如实记两条边界**（铁律 2/5·b，别让后人以为这是原版逐句）：
+        /// ① 原版 `OutFromPlayingAreaAnim` 的**真实调用点**在 `case 3/4/5` 的「还按着、指针又掉回线下」那一支
+        ///    （`BattleManager__Update.c:618/823/951`）—— 那是**已经离开手牌之后撤销**的一条路，
+        ///    我们**结构上没有**（越过高度即提交、不可撤销，见类尾 `TryCommitWhileHolding`）；
+        ///    松手这一支原版只调 `MoveBackToHand`（**不含** `localScale` / `cardState` / `LightPlayableHand` 三样）。
+        ///    ⇒ 本方法 = 两条原版方法在**松手这一刻**的**并集**（调度台 `B120-Q04c4` 指定的形状），
+        ///    做法**每一句都有出处**，但「并在一起」这一组合是我们按派活拼的。
+        /// ② `cardState` 我们**视图侧不存**（同 `CardFeel.ShowCardBeingDrawn` 的 ① 口径）⇒ 等价物 =
+        ///    `CardView.SetQueue(QHandMoving)`（原版 `inHandMoving` 那一档恒配 `SetSortingLayer(HandMoving)`）。
+        ///
+        /// <para>⚠️ **必须在 `Relayout` 之前调**：`MoveBackToHand` 会 `StopInPlayAnims()` ＝ 对整张卡
+        /// 所有 `Transform` 补间 `DOKill()`；放在重排之后会把回手那一趟补间当场杀掉（卡停在半空）。
+        /// ⚠️ `targeted` 的两端也照原版：单位卡永不走缩放那一支；非单位卡只在 `CardDef.Targeted == 1` 时走。</para>
+        /// </summary>
+        public Tween ApplyOutFromPlayingArea(CardView card)
+        {
+            if (card == null) return null;
+            bool targeted = IsTargetedCard(card);
+            // ①② 两条原版方法共有的那一对动作（唯一实现 = `CardFeel.MoveBackToHand`，⛔ 别在这里另写一份 α / 溶解）
+            var tw = CardFeel.MoveBackToHand(card, CardView.QHandMoving, targeted);
+            if (targeted && hand != null)
+            {
+                // 原版 `transform.localScale = GetCardInHandMovingScale()` = 手牌缩放 × `cardInHandMovingScale`(1.1)
+                // ⇒ 我们的等价物逐字就是 `PickUp` 那一行用的式子（起拖时已经是这个值 ⇒ 幂等）。
+                // ⚠️ 走 `SetPose`（写 `_baseScale` 再 `ApplyScale`），⛔ 不直写 `transform.localScale`
+                //   —— 直写会让 `_baseScale` 停在旧值，下一次 `SetPose`/高亮缩放把卡弹回去（`T04` 那条教训）。
+                var tr = card.transform;
+                card.SetPose(tr.localPosition, tr.localEulerAngles.z,
+                             hand.cardScale * LayoutSpace.Scale * PickUpScaleFactorFor(dragScale, cam != null && cam.orthographic));
+            }
+            card.SetQueue(CardView.QHandMoving);      // 原版 `cardState = 9`(`inHandMoving`) 的等价物（见上面 ②）
+            if (OnLightPlayableHand != null) OnLightPlayableHand();   // 原版末句 `PlayerHand.LightPlayableHand()`
+            return tw;                                // @return 那条 α 补间（单位支 = 2D 卡面淡回；targeted 支 = `UnDissolveWholeCard`）；自检拿它 `Kill` 用
+        }
+
+        /// <summary>
+        /// 「**候选集为空（两侧都满）**」这一支要不要按原版的 **`NotEnoughRoom`** 报 —— 返回 true 表示
+        /// 这是一个**非法操作**（⇒ `EngineRefused` ⇒ 松手时 `OnIllegalAction` 出 cantdo）。
+        ///
+        /// <para>🔴 判据（🥇 亲读，2026-11-03）：`il2csharp/BattleManager.cs:25806-25822`（`case 2` 的**松手**支）——
+        /// <code>
+        /// if (mouseCanvasPos.y > line.y) {                       // ← 指针在出牌区里
+        ///   if (mouseCanvasPos.y > pointerCursorStart.y + minMovementToPlayCard * 10.0)
+        ///     if (!CanPlayCard(cardTracked, showTips: **1**, initiateAction: true, 0))
+        ///         CustomDebug.Log("Show tips for card moving from hand that can't be played");
+        /// }
+        /// cardTracked.MoveBackToHand(); …                        // ← 之后照样回手
+        /// </code>
+        /// `showTips = 1`（`BattleManager__CanPlayCard.c:3` 的 `param_3`）是**唯一**让那四条
+        /// `NotifyCantDoAction` 分支可达的实参 —— 其余 4 个调用点
+        /// （`_ResolvePlayCardFromHand:213` / `GetAvailableActions:86` / `MoveCardsInHandToPosition:171` /
+        ///  `LightPlayableHand:37`）**全传 `0`** ⇒ 静默。其中「棋盘放不下」那一支 =
+        /// `BattleManager__CanPlayCard.c:104-120`（`MinionManager.IsAvailableSlot` 为假）
+        /// ⇒ `Battle/Tips/NotEnoughRoom`（`0x428A6E0`，`RuleCodes.ErrNotEnoughRoom`）。</para>
+        ///
+        /// <para>⇒ 我们这一侧**问一次引擎**（`CanDropAtSlot` = `RuleCore.CanPlayCard`，次序与原版相同：
+        /// 先费用后格位），让驱动层把码记进 `_lastPlayRejectCode`、松手时由 `OnIllegalAction`
+        /// 按 `RuleCodes.TermKey` 说「战场上没有空位」那一句 —— ⛔ 我们不在这里另拼词条。</para>
+        ///
+        /// <para>⛔ **三条同时成立才走**（缺一条都仍是「正常取消」，⛔ 别扩大）：
+        /// ① `allowNearest`（= 提交那一档；探针那档 `ExplainDrop` 的判据一字不动）；
+        /// ② **指针在出牌区里**（原版那句 `mouseCanvasPos.y > line.y`）—— 指针留在手牌带里时
+        ///    `CanPlayCard` **根本不被问**，出不出声是两回事；
+        /// ③ **候选集为空**（`BoardLayout.NoCandidateSlot`，= 两侧都满）—— 这一档之外 `allowNearest`
+        ///    恒能解出一个格，「解不出格」就不会发生。</para>
+        /// </summary>
+        bool NoRoomBranch(CardView card, Vector3 pos, bool allowNearest)
+        {
+            if (!allowNearest || card == null || IsTactic(card) || board == null) return false;   // ①（候选集是**单位格位**的概念）
+            if (!IsInPlayArea(pos)) return false;                                                // ②
+            if (!BoardLayout.NoCandidateSlot(SideCount(board, true), SideCount(board, false))) return false;   // ③
+            bool engineOk = CanDropAtSlot(0, card);      // 让驱动层记下引擎码（`ErrNotEnoughRoom`；更早的费用档 `ErrCost` 同理）
+            if (engineOk && !_warnedNoRoomMismatch)       // 两侧都满就不可能「能打」⇒ 两套判据不一致，不许静默
+            {
+                _warnedNoRoomMismatch = true;
+                Debug.LogWarning("[CardPresentation] 候选集为空（两侧都满）但引擎说这一格能打 —— 落点解析与 `RuleCore.CanPlayCard` 判据不一致；仍按 `NotEnoughRoom` 处理");
+            }
+            return true;
+        }
+        static bool _warnedNoRoomMismatch;
     }
 }

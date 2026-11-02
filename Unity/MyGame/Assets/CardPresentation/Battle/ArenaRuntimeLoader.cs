@@ -109,6 +109,13 @@ namespace CardPresentation
             Current.name = "Warpforge_" + arenaKey;
             CurrentKey = arenaKey;
             LoadCount++;
+            // 🆕 2026-11-02（`B120-W11`）：原版这 6 件 `AudioSourceMixerGroupFixer`（3 聊天源 + 3 条 BGM 轨）
+            //   是**序列化在场景/prefab 上**的。我们的 arena prefab 里一个 `AudioSource` 都没有（HUD/BGM 音源
+            //   运行期建）⇒ 这条按**数据表里的对象路径**补挂；当前会报「清单 6 / 找到 0」，那是**预期**的，
+            //   真正的补挂点在 `UnitChatPanel.MakeBubble` / `BattleMusic.Initialize`（一行 `Attach`）。
+            //   判据/清单 → `Assets/CardPresentation/Core/AudioSourceMixerGroupFixer.cs` 文件头 +
+            //   `资料/完全复刻/报告/B120_W11_执行.md`。
+            CardPresentation.AudioSourceMixerGroupFixerInstaller.AttachArena(Current, arenaKey);
             // 🆕 A393：场景侧那 5 条 `AnimFXController`（不被任何 blendable 管）—— 原版它们
             //   序列化在场景里 ⇒ 从「战场出现」这一刻就该在。判据 → 资料/普查产出_1012/H2_场景侧AnimFX.md
             CardPresentation.ScenarioBlendableFactory.BuildSceneAnimFx(Current.transform, arenaKey);

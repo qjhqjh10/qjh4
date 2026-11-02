@@ -104,7 +104,7 @@ namespace CardPresentation
         public int spellType;
         /// <summary>见 <see cref="spellType"/>：`true` 时 `spellType` 才算数（`0` = `Normal` 也合法）。
         /// 🔴 今天全工程 **没有任何构造点**置它（生产者 `BattleDriver.ToCardData` 在 `Battle/**`）。</summary>
-        public bool spellTypeKnown;
+        public bool spellTypeKnown; public int traitRev;   // 🆕 2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）：引擎侧 <see cref="RuleEngine.UnitState.TraitRev"/> 的透传格（**只有非静默 trait 写才变**）⇒ `UpdateFigures → SetBadgesDirtyAware` 的「重建 / 幂等短路」依据。⚠️ 缺省 **0 = 未接线**（全工程今天都是 0，`BattleDriver.ToCardData` 那一侧由调度台接）⇒ `SetBadgesDirtyAware` 退回**老行为**（每次都重建），零影响。同一物理行追加 ⇒ 行数零变化
 
         public static CardData Simple(string title, int cost, int melee, int health)
         {
@@ -2313,7 +2313,7 @@ namespace CardPresentation
         public bool RaceShown { get { return _race != null && _race.gameObject.activeSelf; } }
 
         /// <summary>**整张卡换 layer**（含所有子节点）。
-        /// 🔴 2026-09-20 加：**场上的卡要搬进 3D 那一层**（`ArenaSlots.ArenaLayer`），
+        /// 🔴 2026-09-20 加、2026-11-03 订正：**场上的卡搬进原版 `BoardElements` 层**（`ArenaSlots.BoardCardLayer` = 10；`ArenaLayer` 8 仍给 arena 地面/背景/VFX 宿主），
         /// 由透视相机画；手牌仍留在正交相机那层。出牌是「搬视图不重建视图」⇒ 这一步必须显式做，
         /// 漏了的话那张卡**两台相机都不画**（正交的 cullingMask 把它摘了、透视的又不认这一层）
         /// —— 静默消失，正是最坏的那种失败。
@@ -2469,7 +2469,7 @@ namespace CardPresentation
             //   两个方向都要刷：手牌 → 场上要把 TMP 收起来，反之要放出来并重排一次。
             BuildFaceStatTexts();
             BuildFaceCostText();      // 🆕 2026-10-25（K4 D3）：费用 = 第五件真 TMP
-            UpdateFigures();          // 原版 `CardScript.UpdateFigures`：血/攻 + 费 + 徽标 **一次刷完**
+            _traitIconsDirty = true; UpdateFigures();          // 原版 `CardScript.UpdateFigures`：血/攻 + 费 + 徽标 **一次刷完**。🆕 2026-11-02（`B120-W20` · 账 `D118-80`）：**换形态 = 一个刷新点**（同原版 `BattleCardUI.SetObjectVisibility` 那一处）⇒ 先置脏再刷 —— 否则手牌档那批 `SetBadges(null)` 关掉的位会在换到场上时被「幂等短路」跳过、整排徽标不出现。同一物理行追加 ⇒ 行数零变化
             // ↑ 徽标（原版第④件 `UpdateTraitIcons`）由 `UpdateFigures` 里的 `SetBadges(Data.badges)` 负责。
             // 🆕 2026-10-25（`CF`）：**换形态入口**（铁律 10 第 5 条）—— 攻击类型高亮的倍数按
             //   「卡 prefab 族」取（`AttackScaleModifier` ← `ArtUsesFightFamily`），而族跟着形态走。
@@ -3704,7 +3704,7 @@ namespace CardPresentation
         public int SetBadges(List<Badge> badges)
         {
             // 记一份当前这几位（「刚触发的是哪个词条」要按 `key` 找到**这一位**再脉冲，见 `PulseBadgeByKeyword`）
-            _badges.Clear();
+            _badges.Clear(); _badgeRebuilds++; _traitIconsDirty = false; _badgesBuilt = true; _traitIdSeen = Data.id;   // 🔴 2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）：重建计数（自检的幂等短路观测口）+ 这一次重建把「脏」清掉，并记下**建的时候是哪张卡**（视图被复用到另一张卡时短路必须失效 —— 否则会带着上一张的徽标）。⚠️ 本方法 = **无条件重建**（老行为，直接调用点零影响）；「dirty 或首次才重建」那一条在类尾 `SetBadgesDirtyAware`（唯一调用点 = `UpdateFigures`）。同一物理行追加 ⇒ 行数零变化
             if (badges != null)
                 for (int i = 0; i < badges.Count && i < Badges.MaxSlots; i++) _badges.Add(badges[i]);
 
@@ -3739,7 +3739,7 @@ namespace CardPresentation
                     if (b.counter > 0) PlaceBadgeCounter(i);
                 }
             }
-            return badgeFaceVisible ? Mathf.Min(want, _badgeIcons.Count) : 0;   // 返回值语义 =「真正画出来的个数」（见方法 doc）⇒ 被形态闸关掉的那 7 位不计入
+            _badgesDrawn = badgeFaceVisible ? Mathf.Min(want, _badgeIcons.Count) : 0; return _badgesDrawn;   // 返回值语义 =「真正画出来的个数」（见方法 doc）⇒ 被形态闸关掉的那 7 位不计入。🆕 2026-11-02（`B120-W20`）：另存一格 `_badgesDrawn`，给类尾 `SetBadgesDirtyAware` 的**幂等短路**回同一个数（否则「跳过重建」那一档会回错值）。同一物理行追加 ⇒ 行数零变化
         }
 
         /// <summary>现在画着几个徽标（自检用）。</summary>
@@ -15268,7 +15268,7 @@ namespace CardPresentation
             // ⑤ 词条徽标（= 原版 `UpdateTraitIcons`）：**从 `Data` 重新派生**（与 `SetData` 同一口）。
             // ⚠️ `CardData` 是 **struct**（本文件 `:29`）⇒ `Data` 永不为 null，空卡的 `badges` 自然是 null
             //    ⇒ `SetBadges(null)` 把 7 格全关，正是要的那一档。
-            SetBadges(Data.badges);
+            SetBadgesDirtyAware(Data.badges, Data.traitRev);   // 🔴 2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）：原版这里是 `BattleCardUI.UpdateTraitIcons`（14 个调用方之一）；本方法 = 我们唯一的「每拍重推」入口 ⇒ 走**脏档**：`Data.traitRev` 没变（= 引擎没有非静默 trait 写）且已建过 ⇒ **幂等短路、不重建**（原版 4 类刻意不刷 ⟺ `silent` 档不置脏）。⚠️ `traitRev == 0`（今天全工程）= 未接线 ⇒ 老行为（每次重建），零影响
         }
 
         // ==================================================================
@@ -16260,6 +16260,49 @@ namespace CardPresentation
             if (!TmpFont.Available) return;
             BuildTextLayers(Data, CardFace.Hand);
             ApplyTint();      // 新层的颜色/α 走同一份整卡着色（⛔ 别在这里另写一套 α）
+        }
+
+        // ============================================================================================
+        //  🆕 2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）：**徽标刷新 = 「dirty 或首次」**
+        // ============================================================================================
+        //  原版：`CardScript.UpdateTraitIcons()` 由 **14 个调用方 / 18 处调用点分刷**（现扫 `decomp_full`），
+        //    另有 **4 类方法自己一处都不调**：① `AddTraitSilently` ② `RemoveTraitSilently`
+        //    ③ `SetBaseCardTraits` ④ `SetTraitsOnPlayAttackingStatus`。
+        //  我们原来「单口 `SetBadges` + `BattleDriver.SyncBoard` 每拍重推 `SetData`」⇒ 结构差（账 `战斗界面_HUD:979`）。
+        //  现在：`UpdateFigures`（每拍重推的那条路）改走 `SetBadgesDirtyAware` ——
+        //    · 引擎**非静默** trait 写 ⇒ `UnitState.TraitRev` +1（写点逐处见 `UnitState.cs` 的行尾注释）；
+        //    · 表现层把它透传成 `CardData.traitRev`（⚠️ **今天还是 0 = 未接线**，接线在 `BattleDriver.ToCardData`）；
+        //    · rev 与上次重建时一样、且没有别的入口置脏 ⇒ **不重建**（= 原版「那 4 类不刷」那一档）。
+        //  ⚠️ **漏一条置脏的路径 ⇒ 图标静默不更新**（不许静默失败）⇒ 全量「写点 → 是否置脏」表在
+        //    `资料/完全复刻/报告/B120_W20_执行.md` §三。`SetBadges(list)` 这个**老入口仍然无条件重建**
+        //    （所有既有直接调用点零影响），只有 `UpdateFigures → SetBadgesDirtyAware` 这条新路会短路。
+        //  ⚠️ **追加在类尾**（`账/*.tsv` 按 `文件:行号` 引，插中间就漂）。
+        // ============================================================================================
+        bool _traitIconsDirty = true;   // 首次 = true（「首次必重建」那一半）
+        bool _badgesBuilt;
+        int _traitRevSeen;
+        string _traitIdSeen;            // 建的时候是哪张卡（`Data.id`）—— 视图复用到另一张卡时短路必须失效
+        int _badgeRebuilds;
+        int _badgesDrawn;
+
+        /// <summary>徽标**重建次数**（自检用：幂等短路的观测口 —— 同一状态连调两次只该 +1）。</summary>
+        public int BadgeRebuilds { get { return _badgeRebuilds; } }
+
+        /// <summary>显式置脏 —— 给「不经过 `traitRev` 却必须重建」的调用方用（今天唯一候选 = `SetFace` 换形态那一处）。</summary>
+        public void MarkTraitIconsDirty() { _traitIconsDirty = true; }
+
+        /// <summary>**「dirty 或首次」才重建**的徽标入口 —— <see cref="UpdateFigures"/> 的唯一调用口。</summary>
+        /// <param name="badges">同 <see cref="SetBadges"/>。</param>
+        /// <param name="traitRev">引擎侧 `UnitState.TraitRev` 的透传（`CardData.traitRev`）。
+        /// **`&lt;= 0` = 未接线** ⇒ 退回老行为（无条件重建，零影响）。</param>
+        /// <returns>同 <see cref="SetBadges"/>：真正画出来的个数（短路那一档回上次的数）。</returns>
+        public int SetBadgesDirtyAware(List<Badge> badges, int traitRev)
+        {
+            if (traitRev <= 0) return SetBadges(badges);                                                // 未接线 ⇒ 老行为
+            if (_badgesBuilt && !_traitIconsDirty && traitRev == _traitRevSeen && _traitIdSeen == Data.id) return _badgesDrawn;   // 幂等短路（= 原版「这 4 类不刷」那一档）；⚠️ 换了一张卡（`id` 变了）⇒ 必须重建
+            int n = SetBadges(badges);                                                                  // 内部清 dirty / 置 built / 记重建数
+            _traitRevSeen = traitRev;
+            return n;
         }
     }
 }

@@ -70,7 +70,7 @@
 //       （`WarpforgeEffectPlayer.Play` 里一处收口；名单 = prefab 自己带的 `WarpforgeEffectBinder.materials[].shader`
 //        ＋运行时材质名，**不写死条数、不手抄名单**）；
 //    ③ 外加原版的 **拷屏 RT ×0.25**（`GrabPassPass` 里一行，判据见那一段注释）。
-//    ⛔ 全部藏在 `WF_GRAB501` 后面：**不设 / =0 ⇒ 这三件一件都不执行**，代码路径与 2026-10-24 之前逐位相同。
+//    ⛔ ①② 藏在 `WF_GRAB501` 后面（不设 / =0 ⇒ 不执行）；③ **2026-11-02 起恒开**（= 原版 0.25，见 `GrabScreen501.RtScale`）。
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -216,8 +216,8 @@ namespace WarpforgeVFX
                 //     · `GrabScreenFeatureRenderGraphAPI.GrabPass__RecordRenderGraph.c` ——
                 //       `iVar2 = (int)((float)width * *(float *)(lVar3 + 0x1c)); if (0 &lt; iVar2) 宽度 = iVar2;`
                 //       （高度同款）⇒ **宽高各乘这个倍数、结果 ≤0 时取 1**。
-                //   ⛔ **只在 `WF_GRAB501=1` 那一档生效**：关着时 `RtScale == 1` ⇒ 这一步整段不执行，
-                //      `desc` 与改前**逐字段相同**（默认档零变化是硬要求，见 `GrabScreen501.RtScale`）。
+                //   🆕 2026-11-02（`B120-W6`）：**恒按原版 0.25 执行**（不再挂在 `WF_GRAB501` 后面），
+                //      要退回全分辨率 A/B 用 `WF_GRAB501_RT_SCALE=1`（见 `GrabScreen501.RtScale`）。
                 float rtScale = GrabScreen501.RtScale;
                 if (!Mathf.Approximately(rtScale, 1f))
                 {
@@ -400,9 +400,9 @@ namespace WarpforgeVFX
     ///
     /// <para>🔑 **开关**（`System.Environment`，本项目惯例）：</para>
     /// <list type="bullet">
-    /// <item>`WF_GRAB501=1` → ①②③ + 501 重画**一起开**；不设 / `0` / `false` → **全部关（= 现状）**。</item>
+    /// <item>`WF_GRAB501=1` → ①② + 501 重画**一起开**；不设 / `0` / `false` → **①②关**（③ 拷屏 ×0.25 恒开，不受它控制）。</item>
     /// <item>`WF_GRAB501_LAYER=&lt;0..31 | 原始位掩码&gt;` → 用哪一层（默认 **9**）。旧名 `WF_GRAB_501_LAYER` 仍认。</item>
-    /// <item>`WF_GRAB501_RT_SCALE=&lt;float&gt;` → 拷屏 RT 缩放（不设时：开 = **0.25**（原版）、关 = **1.0**（现状））。</item>
+    /// <item>`WF_GRAB501_RT_SCALE=&lt;float&gt;` → 拷屏 RT 缩放（**不设时恒 = 0.25 = 原版**；要全分辨率 A/B 传 `1`）。</item>
     /// </list>
     ///
     /// <para>⛔ **旧的 `WF_GRAB_501=1` / 资产上的 `redrawAt501` 语义不变**：只开 501 重画，
@@ -413,9 +413,9 @@ namespace WarpforgeVFX
     /// <item>所有入口（`EnsureTransparentMaskCleared` / `EnsureCameraSeesRelocated` / `FinalLayer`）
     ///   第一行都是 `if (!Enabled) return …`，而 `Enabled` 是 `static readonly bool`、只在类型初始化时读一次环境变量
     ///   ⇒ **不设环境变量 = 这三个函数体一行都不执行**。</item>
-    /// <item>`GrabScreen501.RtScale` 关着时**恒等于 1f**，`GrabPassPass` 里那一段是
-    ///   `if (!Mathf.Approximately(rtScale, 1f))` ⇒ 关着时 `desc` 的 `width/height` **一个字段都不写**
-    ///   （与改前的 `GetTextureDesc` + `name/clearBuffer/useMipMap` 三行完全同序同值）。</item>
+    /// <item>⚠️ **2026-11-02（`B120-W6`）起此条不再成立**：`GrabScreen501.RtScale` 现在**恒 = 原版 0.25**
+    ///   ⇒ `GrabPassPass` 那一段**每帧都执行**（`desc.width/height` 各 ×0.25）。这是为对齐原版 `textureSizeMultiplier` 的**有意变化**；
+    ///   要 A/B 回全分辨率用 `WF_GRAB501_RT_SCALE=1`。</item>
     /// <item>`RedrawEnabled()` 关着时仍是「`WF_GRAB_501` / `redrawAt501`」那套老逻辑（只在最前面多一个
     ///   `if (GrabScreen501.Enabled) return true;`，而它为 false）⇒ 老的 A/B 行为一字不变。</item>
     /// <item>`WarpforgeEffectPlayer.Play` 里只多了一句 `finalLayer = GrabScreen501.FinalLayer(go, wantLayer)`，
@@ -452,7 +452,7 @@ namespace WarpforgeVFX
         /// <summary>= `1 &lt;&lt; LayerIndex`，给 `GrabRedrawPass.layerMask` 与「清位」用。</summary>
         public static readonly int LayerMask = 1 << LayerIndex;
 
-        /// <summary>拷屏 RT 的缩放。关着时**恒 1.0**（现状，全分辨率）；开着时原版值 0.25，可用环境变量覆盖。</summary>
+        /// <summary>拷屏 RT 的缩放。**恒 = 原版 0.25**（`textureSizeMultiplier`，判据见 `GrabPassPass` 的注释）；可用环境变量覆盖。</summary>
         public static readonly float RtScale = ParseRtScale();
 
         /// <summary>探针/自检用：到此刻为止**被搬到 501 层**的失真效果实例数（关着时恒 0）。</summary>
@@ -488,7 +488,7 @@ namespace WarpforgeVFX
                 float.TryParse(s, System.Globalization.NumberStyles.Float,
                                System.Globalization.CultureInfo.InvariantCulture, out float f) && f > 0f)
                 return f;
-            return Enabled ? OriginalRtScale : 1f;
+            return OriginalRtScale;
         }
 
         // ------------------------------------------------------------------
@@ -650,8 +650,8 @@ namespace WarpforgeVFX
 //     · 它把下面 ① 的开关、② 的 (a)(b) 两步、外加「拷屏 RT ×0.25」（原版 `textureSettingsMultiplier`
 //       = `0x3e800000` = 0.25f，见 `GrabPassPass` 里那段判据）**一起做掉**，层默认 = `GrabScreen501.DefaultLayer`
 //       （现读 **9**；目标层非原版值，见 `判据/B107_B14_失真效果挪层清单.md` §七）；`WF_GRAB501_LAYER` 可换，旧名 `WF_GRAB_501_LAYER` 仍认。
-//     · 不设 / `WF_GRAB501=0` ⇒ **这三件一件都不执行**，只 Enqueue 500 这一个 pass，
-//       与 2026-10-24 之前**逐位相同**（逐条论证见 `GrabScreen501` 的 doc）。
+//     · 不设 / `WF_GRAB501=0` ⇒ **①② 不执行**（③ 拷屏 ×0.25 自 2026-11-02 起**恒开**，不再受它控制），只 Enqueue 500 这一个 pass；
+//       除「拷屏 RT 已按原版 ×0.25」这一项外，其余与 2026-10-24 之前相同（逐条论证见 `GrabScreen501` 的 doc）。
 //     · 验收时看日志三行：`已把第 N 层从 K 份 RendererData 的 m_TransparentLayerMask 里清掉` ·
 //       `失真效果《…》搬到第 N 层` · `相机「…」的 cullingMask 补上第 N 层`。
 //

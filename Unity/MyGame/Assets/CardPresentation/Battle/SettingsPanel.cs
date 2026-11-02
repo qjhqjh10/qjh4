@@ -2543,7 +2543,7 @@ namespace CardPresentation
 
         public void Show()
         {
-            Visible = true; SetActive(true);
+            Visible = true; SetActive(true); ApplySmallScreenScale();   // 🆕 2026-11-03（B120-W31）：原版那一段在 `GameWindow.Open()` 里，见类尾本方法的 doc
             // 🆕 2026-10-26（`G21` · 账 `B13`）：**打开即读一次**（原版 `Open` 的读法）。
             //   只写字段、不在这里调 `SetMatchType`（那会多跑一次 `ApplyMatchTypeUI`）——
             //   下面那一行 `ApplyMatchTypeUI()` 是**唯一**的落地口。
@@ -2901,6 +2901,59 @@ namespace CardPresentation
             if (_fxSlider != null) _fxSlider.SetValue(WarpforgeAudio.SoundFx, false);
             if (_voiceSlider != null) _voiceSlider.SetValue(WarpforgeAudio.VoiceOver, false);
             RefreshTexts();      // = 语言那一行（框里那颗「当前语言名」+ 左边标签）+ 其余跟着语言走的字
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-03（`B120-W31`）：**小屏档整窗 ×1.1**（原版 `BattleSettingsWindow` 的
+        //  `extraScaleSmallScreen`）。⚠️ 追加在**类尾**是纪律 —— 本文件被 `账/*.tsv` 按
+        //  `文件:行号` 引用（现读到的最深一条是 `Hide` 那一行），插在中间会让整片账漂移。
+        //  ⚠️ `Show()` 里那一跳是**同一物理行追加**（行数零变化），理由同上。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>= 原版 `BattleSettingsWindow.extraScaleSmallScreen` —— **实读值**（不是挑的）：
+        /// `d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4034.json`
+        /// → `"extraScaleSmallScreen": 1.100000023841858`（`MB_4034` = 该窗的 `GameWindow` 基类实例；
+        /// 判据同一格 → `资料/完全复刻/报告/B120_B_HUD布局.md` B-7 行「⑩设置 · 小屏档整窗 ×1.1」）。
+        /// ⚠️ 原版的语义是「`!= 1` 才**覆盖**」——所以这里写 1.1 而不是 1.0，1.0 等于「不覆盖」。</summary>
+        const float ExtraScaleSmallScreen = 1.1f;
+
+        /// <summary>= 原版 `GameWindow.Open()` 里那一段（逐句 → `Shell/TransformScalerBySmallScreenUI.cs`
+        /// 文件头 ①，反编译 `GameWindow__Open.c`）：
+        /// <code>
+        /// if (GameStaticData.smallScreenUI) {
+        ///     if (!Mathf.Approximately(extraScaleSmallScreen, 1f)) {
+        ///         (GetComponent&lt;TransformScalerBySmallScreenUI&gt;() ?? gameObject.AddComponent&lt;TransformScalerBySmallScreenUI&gt;())
+        ///             .SetScale(extraScaleSmallScreen);
+        ///     }
+        /// }
+        /// </code>
+        /// <para>🔴 **挂在哪一级**：原版是**窗口根**（`GameWindow` 所在的 GO）。我们这一层没有那一级 ——
+        /// `transform` 是 2026-10-16 块 6 之后**一个件都不装**的世界空间空壳（见文件头那段）⇒ 乘在它上面
+        /// **画面一动不动**（静默）。全部面板件的公共父节点只有 `_panel`（743.2×758.6、中心锚 + 中心枢轴、
+        /// 摆在设计中心 (960,540)）⇒ 乘在**它**上 = 整扇窗绕设计中心长 10%，与「窗口原地变大」同观感。</para>
+        /// <para>⚠️ **`_shade`（整屏压暗）是 `_panel` 的兄弟、不跟着乘**：原版它在窗口根里会一起乘，
+        /// 但它是铺满画布的纯色（`HudCanvas.FillParent`）⇒ 乘 1.1 后仍铺满、画面**无差异**；
+        /// 反过来若去乘 `_cvRt`（子画布）会：① 把压暗推出框 · ② 那块画布**按名字复用**（自检会共用、
+        /// 生产每次 `Create` 也拿到同一块）⇒ ⛔ 别把缩放挂到画布上。</para>
+        /// <para>⚠️ **出厂 `SmallScreenUI.Enabled = false` ⇒ 连 `AddComponent` 都不做、一个数都不改**
+        /// （逐位不变，照原版第一层判据）。⚠️ 批处理**没有帧循环** ⇒ 自检量之前要**手动**调一次
+        /// <see cref="TransformScalerBySmallScreenUI.Tick"/>（同族先例：`Editor/ShellScene.cs` 的小屏缩放那一节）。</para>
+        /// <para>⚠️ 开关在**战斗内改不了**（那颗开关在主菜单设置 · 图形页，原版同理）⇒ 建面板之后不会有人改它；
+        /// 但 `Show()` **每次都重跑本方法**（= 原版 `Open()` 每次都跑），「关掉再打开」时
+        /// `SetScale` 只写倍数、**不乘**（乘在 `LateUpdate`）⇒ 不会叠成 1.21。</para></summary>
+        void ApplySmallScreenScale()
+        {
+            if (_panel == null) return;      // 子画布没建出来时 `Create` 已经 `LogError` + 返回 null，这里只是兜底
+            var sc = _panel.GetComponent<TransformScalerBySmallScreenUI>();
+            if (sc == null)
+            {
+                if (!SmallScreenUI.Enabled) return;    // 原版第一层判据（与窗口宽/屏宽**无关**）
+                sc = _panel.gameObject.AddComponent<TransformScalerBySmallScreenUI>();
+            }
+            if (SmallScreenUI.Enabled && !Mathf.Approximately(ExtraScaleSmallScreen, 1f))
+                sc.SetScale(ExtraScaleSmallScreen);    // = 原版那一支：**覆盖** prefab 烤的 menuScale
+            else
+                sc.Initialize();                       // 「不覆盖」语义：按开关重算 enabled
         }
     }
 }

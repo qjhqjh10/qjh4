@@ -106,7 +106,7 @@ namespace CardPresentation
             Root = go.AddComponent<Canvas>();          // 加 Canvas 会顺带把 Transform 换成 RectTransform
             Root.renderMode = RenderMode.ScreenSpaceCamera;
             Root.worldCamera = cam;
-            Root.planeDistance = PlaneDistance;
+            Root.planeDistance = PlaneDistance; Root.additionalShaderChannels = (AdditionalCanvasShaderChannels)25;   // 🆕 2026-11-02（`B120-W3` · 账 `B-13`）：原版 `Canvas.m_AdditionalShaderChannelsFlag: 25`（`Battle Arena 1.unity` 的 Canvas `&2572`，13 场同值）= TexCoord1 · TexCoord4 · Normal
             Root.sortingOrder = 0;                     // ⛔ 别靠它插队（见文件头）
 
             var scaler = go.AddComponent<CanvasScaler>();

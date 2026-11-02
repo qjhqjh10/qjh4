@@ -60,7 +60,7 @@ namespace CardPresentation
         [SerializeField] float cardInHandShownYOffsetMin;
 
         /// <summary>选中一张手牌时让开的距离（**世界单位**；X = 手牌方向、Y = 另一轴）。
-        /// ⚠️ 同一份 SO 里 `cardInHandShownYOffset` 是 **UI px** 而这一项是**世界单位** —— 原版**混量纲**，照抄。</summary>
+        /// ⚠️ 同一份 SO 里两项**都是原版世界单位**（本项 2.0；`cardInHandShownYOffset` 30 = 30×14.835 = 445 px）。🔴 **2026-11-02（`B120-W1`）就地订正**：原文写「`cardInHandShownYOffset` 是 UI px」——**错**（`B118-W17` 已证：消费者 `CardScript__ShowCardInHand.c:69-79` 把它加在 `Transform.get_position().y` 上 ⇒ 世界长度）。原版**不是混量纲**。</summary>
         public AnimationCurve extraSpaceOnSelectedCard;
 
         public float warlordStartSizeFactor;

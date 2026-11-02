@@ -227,16 +227,15 @@ namespace RuleEngine
             //   两位督军都建好之后，按原版那道 matchType 闸落「上限覆盖」（判据见方法自己的注释块）。
             //   与①半（`Vars.warlordLifeChange`，在 `BuildPlayer` 里）同序：原版也是①先②后。
             ApplyWarlordLifeOverride(ctx);
-            // 🆕 2026-10-29（战斗线 C21 · 执行代理 `B96_CB` · 账 248）：**开局链那两个
-            //   `CheckForHeroDeckTransform` 调用点**（原版 `SetupBoardPhase.c:56/66` 在
-            //   `SetPlayerDataAndWarlord` 族里逐座位调一次）。位置 = 两位玩家都建好之后、
-            //   任何「进手牌 / 抽牌」之前（原版它在换牌之前）⇒ 与 `ApplyWarlordLifeOverride` 同序。
-            //   🔴 **数据两格本机不存在**（`ctx.CampaignStage` 是 `TutorialStageData`，没有原版的
-            //     `rawBattleData+0x18`(变身督军) / `+0x28`(牌表)；`tutorial_stages.json` 也没有）
-            //   ⇒ 两个取值口恒 `null`、`CheckForHeroDeckTransform` 立刻返回 false ⇒ **今天零可观测**。
-            //   ⛔ 别为了让「有调用点」去编一份变身督军表（那是关卡数据，不是「服务器档口」可自设计的那一类）。
-            CheckForHeroDeckTransform(ctx, 0, CampaignHeroTransformCard(ctx), CampaignHeroTransformDeck(ctx));
-            CheckForHeroDeckTransform(ctx, 1, CampaignHeroTransformCard(ctx), CampaignHeroTransformDeck(ctx));
+            // 🆕 2026-10-29（C21 `B96_CB` 建；🔴 2026-11-03 `B120_W30` 就地订正语义）· 账 248：**开局链那两个
+            //   `CheckForHeroDeckTransform` 调用点**（原版 `SetupBoardPhase.c:56/66` 逐座位调一次）。
+            //   位置 = 两位玩家都建好之后、任何「进手牌 / 抽牌」之前（原版它在换牌之前）⇒ 与 `ApplyWarlordLifeOverride` 同序。
+            //   🔴 **原版传的是「这个座位自己的那副牌」**（`matchData.playerRawBattleData/enemyRawBattleData`），
+            //   不是关卡数据 ⇒ 两个取值口现在取得到真值（督军 / 牌库）。**缺的是督军卡上两列**
+            //   （`transformedWarlordId(+0x200)` / `deckCriteria(+0x1f8)`，本机 1,351 张 SO 全空）⇒ 今天恒「不换」。
+            //   判据与「还差什么」→ `RuleCorePartial_B96CB.cs` 的「账 248」方法组头（⛔ 别再按「换牌库」改回去）。
+            CheckForHeroDeckTransform(ctx, 0, CampaignHeroTransformCard(ctx, 0), CampaignHeroTransformDeck(ctx, 0));
+            CheckForHeroDeckTransform(ctx, 1, CampaignHeroTransformCard(ctx, 1), CampaignHeroTransformDeck(ctx, 1));
             // 🔴 **2026-10-08（`D28` 施工单 A）：防御卡**不再**在建人的那一刻进手牌** —— 原版是
             //   「换牌全部走完 → `StartBattlePhase` → 才 `AddNewCardToHand`」（判据见 `BuildPlayer` 里
             //   那一大段与 <see cref="PendingDefence"/>）。两条路：
@@ -1040,8 +1039,8 @@ namespace RuleEngine
 
             string key = c.Id;          // **稳定 id**（2026-09-13 第三十三轮起；以前是卡名，见上面那条）
             // 🔴 **2026-10-25（`K8`）：`setCost(95)` 走原版那条【不含 base】的出口。**
-            //   `CostMod.SetTo >= 0` = 一条 `setCost` 记录（目标绝对值 N）。原版正序遍历、**后写的覆盖先写的**
-            //   （`get_CurrentCost.c:52-53`），所以这里取**最后一条命中的**；然后
+            //   `CostMod.SetTo >= 0` = 一条 `setCost` 记录（目标绝对值 N）。⚠️ 2026-11-02（`B120-Q`）订正：原版 getter 其实是**先写赢**
+            //   （`get_CurrentCost.c:52-79`）；但 `AddEffect` 的 `case setCost` **先 `RemoveActiveEffects(95)` 删光全部匹配项** ⇒ 列表至多一条、先/后写不可观测。我们取最后一条 = 等价；然后
             //   `clamp0(N + Σ 全部 changeCost)` —— **不读 `c.Cost`**，也因此**不带**那两条静态修正
             //   （`CostIfControls` / `CostPerEnemyHandCard` 是我们自己的建模、原版 `get_CurrentCost` 里没有它们；
             //    宁可照原版算式整项丢掉，也不发明一个原版没有的加法）。
@@ -3246,7 +3245,7 @@ namespace RuleEngine
             //   手牌 `Count < MaxCardsInHand` 才 `List.Add` + `SetupCardInHand`；
             //   否则**刚抽的这张** `CardScript__SendToCemetery`（手牌一张不动）。
             //   ⛔ 别再退回「先 Add 再丢表尾」—— 手牌已超上限时那会多丢几张。
-            AddCardToHandWithinLimit(ctx, p, inst); ClearDeckDrawingMark(ctx, inst);   // 🔴 2026-10-29（B98_G1 · 账 573 · 离库即清）：原版**不是「不清 16」** —— `CardScript__DrawCard.c:44-46` 在 `SoundManager.Play2D` 之后立刻 `SetStateInHand()`，而 `CardScript__SetStateInHand.c:37` 写 `+0x228 = 1` ⇒ 下一步的状态赋值把它覆盖掉，**这就是「离库即清」**（`B98_R4` §573 已订正账里那句「原版没有可抄的点」）。我们的 `cardState 16` 是旁表 `ctx.DeckDrawingInstanceIds`（`CardInstance` 不进 `Fingerprint`）⇒ 必须**显式**撤，否则 `IsDeckDrawing` 会对已进手牌的牌说真话。位置 = 真的离开牌库列表那一刻；⚠️ 手牌满那一支 `AddCardToHandWithinLimit` 会把它送墓地，同样「离库」⇒ 一句覆盖两支
+            bool landed = AddCardToHandWithinLimit(ctx, p, inst); ClearDeckDrawingMark(ctx, inst); if (!landed) ctx.Emit(EvtKind.Draw, p, -1, inst.Card.Name, effect: "handFull", instanceId: inst.Id);   // 🔴 2026-10-29（B98_G1 · 账 573 · 离库即清）：原版**不是「不清 16」** —— `CardScript__DrawCard.c:44-46` 在 `SoundManager.Play2D` 之后立刻 `SetStateInHand()`，而 `CardScript__SetStateInHand.c:37` 写 `+0x228 = 1` ⇒ 下一步的状态赋值把它覆盖掉，**这就是「离库即清」**（`B98_R4` §573 已订正账里那句「原版没有可抄的点」）。我们的 `cardState 16` 是旁表 `ctx.DeckDrawingInstanceIds`（`CardInstance` 不进 `Fingerprint`）⇒ 必须**显式**撤，否则 `IsDeckDrawing` 会对已进手牌的牌说真话。位置 = 真的离开牌库列表那一刻；⚠️ 手牌满那一支 `AddCardToHandWithinLimit` 会把它送墓地，同样「离库」⇒ 一句覆盖两支 ｜🆕 **2026-11-02（执行写手 `B120_W15` · 账 `D118-64`）：满手抽牌那条信号** —— 原版 `PlayerHand._AddDrawnCardToHand_d__37__MoveNext.c` 三态机（state0 `CardScript.DrawCard` 飞牌 + `WaitForSeconds(TimeToDrawCard + 0.1)` → state1 判 `Count < MaxCardsInHand`：**不满足** ⇒ `CustomDebug.Log` + `SetCardStateInCemetery` + **仅 `isPlayer`**（`PlayerHand+0x28`）`ShowHeadsUpMessage(GetTermTranslation(Battle/Tips/HandFull))` + `WaitForSeconds(0.5)` → state2 `CardScript.SendToCemetery`）在我们这一侧**引擎同步**、牌从不进 `Hand`，表现层若只看「弃牌堆里多了个从没见过的东西」就既算不出飞牌起点、也拿不到那 0.1/0.5 两拍 ⇒ 必须显式发一条信号。载体**借 `EvtKind.Draw` + `Effect == "handFull"`**（与 `Effect == "display"` 同一套既有借用约定，⛔ 不是 `bool` 字段）；`InstanceId` = 这一份的 `CardInstance.Id`（表现层据此与 `WatchHandFull` 的旁证去重，避免提示发两次）。⚠️ 发出点只此一处 = 本行（`MoveDeckTopToHand` 的抽牌中段），⛔ 别抬进 `AddCardToHandWithinLimit`（那条也服务造牌 `_AddCardNotDrawnToHand`，原版那条路**没有**抬头提示）。⚠️ 不进 `ctx.Events`（`Emit` 只写 `Signals` / `ActionLog`）⇒ 不动 `NetProtocol.Fingerprint`
             return inst;
         }
 

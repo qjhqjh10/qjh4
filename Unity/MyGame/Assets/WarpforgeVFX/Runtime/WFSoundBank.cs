@@ -25,7 +25,13 @@ namespace WarpforgeVFX
         public string[] clips = new string[0];
         public float minPitch = 1f, maxPitch = 1f;
         public float minVolume = 1f, maxVolume = 1f;
-        public float timeToPlayAgain = 0f;
+        /// <summary>重播冷却窗口（秒）。判据 = 原版 `AudioCue__ctor.c` 逐字节实读：
+        /// `*(float *)(this + 0x30) = 0x3dcccccd` = **0.1**（同一支里 `+0x20/+0x24/+0x28/+0x2c` 四个 pitch/volume
+        /// 默认都是 `0x3f800000` = 1.0）⇒ **原版 `AudioCue` 的默认值就是 0.1 s**。
+        /// <para>⚠️ 2026-11-02 `B120-W5b` 改前这里是 `0f`（= 永不冷却）。**行为影响 = 0**：
+        /// 本仓两份 cue 表 `animfx_sounds.json`(513) / `battle_sounds.json`(27) **逐条都带这一格**
+        /// （现读 missing = 0）⇒ `JsonUtility` 总会把真值盖上来，这条只影响「生成器漏写这一格」的将来。</para></summary>
+        public float timeToPlayAgain = 0.1f;
     }
 
     [Serializable]
@@ -48,6 +54,15 @@ namespace WarpforgeVFX
         /// C# 那边照原版 `soundCollection.startTurn` 那句按**字段名**索引。
         /// 产出方 = `工具/import_battle_sfx.py`（两族的 cue 名实测**零交集**，故各自一张表、同一套解析）。</summary>
         public const string BattleTablePath = "battle_sounds";
+        /// <summary>🆕 2026-11-02（`B120-W17` · `B120-F15`）：**残骸体那六条 cue** 的表。
+        /// 改前那 6 个 cue 名（`Aeldari To Waystone` / `Aeldari Waystone Collect` / `Aeldari Waystone Destruction` /
+        /// `CardShatter` / `NecronsCardReanimate` / `RemnantsDestroyed`）在 `animfx_sounds.json` 513 条里**零命中**
+        /// ⇒ `RemnantSfx` 拿不到 `WFSoundCue` 实例，只能用 `(阵营, 时机)` 下标当冷却键。
+        /// 这 6 条在原版是 `RemnantBody` / `RemnantAeldari` / `RemnantNecrons` 上**序列化的 `AudioCue` 字段**
+        /// （`toRemnantSound` `+0x38` · `deathSound` `+0x50` · `waystoneCollectSound` `+0x70` · `reanimateSound` `+0x90`），
+        /// 不在 AnimFX 的 `sounds[*].sound` 清单里 ⇒ 必须由**另一个取材口**产出。
+        /// 产出方 = `工具/import_remnant_sfx.py`（⛔ 别手改生成物；裸跑 = 用法 + rc 2，写盘要显式 `--write`）。</summary>
+        public const string RemnantTablePath = "remnant_sounds";
         /// <summary>clip 在 `Resources/` 下的前缀。</summary>
         public const string ClipRoot = "Art/audio/sfx/";
 
@@ -76,19 +91,18 @@ namespace WarpforgeVFX
             if (_byName != null) return;
             _byName = new Dictionary<string, WFSoundCue>();
 
-            // 🆕 2026-10-15（`T06`）：**两张表装进同一个字典**（一次查表 = 一条路，⛔ 不是两条）。
+            // 🆕 2026-10-15（`T06`）：**三张表装进同一个字典**（一次查表 = 一条路，⛔ 不是三条）。
             //   ① `animfx_sounds` —— 特效 / 起拖 / 奖励窗那些（`import_original_sfx.py`）
             //   ② `battle_sounds`  —— 战斗「时机 → cue」28 条（`import_battle_sfx.py`，键 = **原版字段名**）
-            foreach (var path in new[] { TablePath, BattleTablePath })
+            //   🆕 2026-11-02（`B120-W17` · `F15`）：
+            //   ③ `remnant_sounds` —— 残骸体那 6 条 `AudioCue`（`import_remnant_sfx.py`，键 = **cue 资产名**）
+            foreach (var path in new[] { TablePath, BattleTablePath, RemnantTablePath })
             {
                 var ta = Resources.Load<TextAsset>(path);
                 if (ta == null)
                 {
                     // 不许静默：表没了就等于**那一整族都不响**，而那看起来像「原版就没声音」。
-                    Debug.LogWarning($"[WarpforgeVFX] 音效表 `Resources/{path}.json` 不在 —— " +
-                                     (path == TablePath
-                                      ? "特效的所有 `sounds`/`exitSounds` 都不会播。跑 `工具/import_original_sfx.py` 生成它。"
-                                      : "战斗那 28 条「时机 → cue」一条都不会播（战斗会变默片）。跑 `工具/import_battle_sfx.py` 生成它。"));
+                    Debug.LogWarning($"[WarpforgeVFX] 音效表 `Resources/{path}.json` 不在 —— " + MissingTableAdvice(path));
                     continue;
                 }
                 WFSoundTable tbl;
@@ -105,7 +119,7 @@ namespace WarpforgeVFX
                     // 🔴 撞名**不许静默覆盖**（后装的会把先装的顶掉，而调用方按名字拿到的就是另一个 cue）
                     if (_byName.ContainsKey(c.name))
                     {
-                        Debug.LogWarning($"[WarpforgeVFX] cue 名 `{c.name}` 在两张音效表里都有 " +
+                        Debug.LogWarning($"[WarpforgeVFX] cue 名 `{c.name}` 在音效表里重复（后装的会被顶掉）" +
                                          $"（本张 = `{path}`）—— 保留先装的那一份，`{path}` 这一条被忽略。");
                         continue;
                     }
@@ -161,6 +175,19 @@ namespace WarpforgeVFX
                 if (c != null) return c;               // 坏的那条跳过，别整条 cue 哑掉
             }
             return null;
+        }
+
+        // 🆕 2026-11-02（`B120-W17` · `F15`）：挂在**类尾**（⛔ 别往中间插）—— 本文件被 `账/*.tsv`
+        //   按 `文件:行号` 引用（`账/音频_语音.tsv:4` 的行号 = `PickClip`）⇒ 新成员一律追加在它之后。
+        /// <summary>表缺失时该跑哪个生成器（三张表 = 三个取材口，⛔ 别让人去跑错的那一个）。</summary>
+        static string MissingTableAdvice(string path)
+        {
+            if (path == BattleTablePath)
+                return "战斗那 28 条「时机 → cue」一条都不会播（战斗会变默片）。跑 `工具/import_battle_sfx.py` 生成它。";
+            if (path == RemnantTablePath)
+                return "残骸体那六条 cue 查不到（`RemnantSfx` 只能用 (阵营, 时机) 下标当冷却键）。"
+                     + "跑 `python 工具/import_remnant_sfx.py --write` 生成它（⛔ 别手改；裸跑只打印用法）。";
+            return "特效的所有 `sounds`/`exitSounds` 都不会播。跑 `工具/import_original_sfx.py` 生成它。";
         }
     }
 }

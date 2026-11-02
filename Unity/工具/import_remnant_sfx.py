@@ -17,15 +17,21 @@
 ⚠️ **六条 cue → 五条真 clip**：`Aeldari To Waystone` 与 `Aeldari Waystone Collect` 共用
 `Aeldari To Waystone Death`；`NecronsCardReanimate` 指向的是 **`CardReanimate`**（**cue 名 ≠ clip 名**）。
 
-产物：`MyGame/Assets/CardPresentation/Resources/Art/audio/sfx/<clip 名>.wav`
-（`Resources/Art/` 整个被 `.gitignore` 排除 —— 原版资产不进仓库，与美术/语音同一条规矩。）
+产物（两个表 + 音频本体）：
+  · `MyGame/Assets/CardPresentation/Resources/Art/audio/sfx/<clip 名>.wav`（`Resources/Art/` 整个被 `.gitignore` 排除）
+  · `MyGame/Assets/CardPresentation/Resources/Art/audio/sfx/remnant_cue_props.json` —— `RemnantSfx` 读的「按 (阵营, 时机) 的随机区间」
+  · `MyGame/Assets/CardPresentation/Resources/remnant_sounds.json` —— 🔴 **2026-11-02（`B120-W17` · `F15`）新增**：
+    同样是这 6 条 cue，但按 **cue 资产名** 索引、与 `animfx_sounds.json` / `battle_sounds.json` **同构**（`WFSoundTable`）
+    ⇒ `WFSoundBank` 统一装进同一个字典，`RemnantSfx` 的冷却键才能回到原版的「`AudioCue` 资产实例」
+    （原版 `lastTimePlayed` 住在 cue 上，偏移 `+0x34`）。改前那 6 个名字在 513 条里**零命中**。
 🆕 **2026-10-24（G4）**：拷完**顺手补 `<clip 名>.wav.meta`** —— 共用实现 = `工具/_sfx_meta.py`
 （模板 = 同目录同扩展名的众数，只换 guid；**已存在的 meta 一个字节都不碰**）。没有这步的话
 新补进来的 wav 会被 Unity 用内置默认导入（`loadType: 0`），与同目录既有 510 条不一致。
 
-用法：
-    PYTHONIOENCODING=utf-8 python 工具/import_remnant_sfx.py --check   # 只报告
-    PYTHONIOENCODING=utf-8 python 工具/import_remnant_sfx.py           # 拷贝
+用法（🔴 **必须显式选一个动作** —— 裸跑 = 打印用法 + **rc 2**，⛔ 不会悄悄写盘）：
+    PYTHONIOENCODING=utf-8 python 工具/import_remnant_sfx.py --dry     # 只打印计划，不写盘
+    PYTHONIOENCODING=utf-8 python 工具/import_remnant_sfx.py --check   # 只比对产物（音频 + 两张表），不一致 ⇒ rc 1
+    PYTHONIOENCODING=utf-8 python 工具/import_remnant_sfx.py --write   # 写盘：拷音频 + 两张表
 """
 import argparse
 import io
@@ -33,6 +39,7 @@ import json
 import os
 import shutil
 import sys
+import uuid
 
 sys.stdout.reconfigure(encoding="utf-8")
 
@@ -47,6 +54,10 @@ BUNDLE = ("d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/"
           "StandaloneWindows64/soundcollection_assets_all.bundle")
 UNPACK = "d:/2/新解包资源/assets_full/bundle_soundcollection_assets_all/AudioClip"
 DEST = "MyGame/Assets/CardPresentation/Resources/Art/audio/sfx"
+# 🔴 2026-11-02（`B120-W17` · F15）：按 **cue 资产名** 索引的同构表（`WFSoundTable` → `WFSoundBank`）。
+#    ⚠️ 与 `DEST/remnant_cue_props.json` **不是同一份**：那份是 `RemnantSfx` 按 (阵营, 时机) 读的旧形状。
+#    等 `RemnantSfx` 的冷却键换成 `WFSoundCue` 实例之后，旧那份才可以退役（见 `RemnantSfx.CueIndex` 的 doc）。
+OUT_TABLE = "MyGame/Assets/CardPresentation/Resources/remnant_sounds.json"
 
 # 三时机 × 两阵营 —— 键是「时机 + 阵营」，值是原版 cue 名
 CUES = [
@@ -86,10 +97,48 @@ def _check_registered():
         m.check_coverage_registered([c for (_a, _w, c) in CUES], "残骸线（本脚本）")
 
 
+# 🆕 2026-11-02（`B120-W17` · F15）：`Resources/remnant_sounds.json` 是**新资产**，Unity 第一次导入会给它现生成
+#   一个 `.meta`（随机 guid）⇒ 每个 clone 都会多出一个未跟踪文件、且 guid 各不相同。与 `battle_sounds.json.meta`
+#   同模板，这里**显式补上**（已存在就一个字节都不碰，⛔ 不换已提交的 guid）。
+TEXTASSET_META = ("fileFormatVersion: 2\n"
+                  "guid: {guid}\n"
+                  "TextScriptImporter:\n"
+                  "  externalObjects: {{}}\n"
+                  "  userData: \n"
+                  "  assetBundleName: \n"
+                  "  assetBundleVariant: \n")
+
+
+def _ensure_textasset_meta(path, guids=None):
+    """→ "kept" / "created"。已存在的 `.meta` 一个字节都不碰。"""
+    mp = path + ".meta"
+    if os.path.exists(mp):
+        return "kept"
+    guid = uuid.uuid4().hex
+    if guids:
+        while guid in guids:
+            guid = uuid.uuid4().hex
+    io.open(mp, "w", encoding="utf-8", newline="\n").write(TEXTASSET_META.format(guid=guid))
+    return "created"
+
+
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--check", action="store_true", help="只报告，不写盘")
+    # 🔴 2026-11-02（`B120-W17`）：**显式动作**。裸跑只打印用法 + rc 2（⛔ 不写盘）——
+    #   先例 = `B115_W10` 的「写盘类脚本的默认行为必须是什么都不做」（那次 `--help` 被当成真合并、
+    #   冲掉 232 行手工修订）。
+    ap = argparse.ArgumentParser(add_help=False)
+    ap.add_argument("-h", "--help", action="store_true", help="打印用法")
+    ap.add_argument("--check", action="store_true", help="只比对产物（音频 + 两张表），不一致 ⇒ rc 1，不写盘")
+    ap.add_argument("--write", action="store_true", help="写盘：拷音频 + `.meta` + 两张表")
+    ap.add_argument("--dry", action="store_true", help="只打印计划，不写盘（rc 0）")
     a = ap.parse_args()
+    if a.help or not (a.check or a.write or a.dry):
+        print(__doc__.strip())
+        print("\n🔴 必须显式选一个动作：`--dry` / `--check` / `--write`（裸跑什么都不做）")
+        return 0 if a.help else 2
+    if sum([a.check, a.write, a.dry]) > 1:
+        print("🔴 `--check` / `--write` / `--dry` 一次只能选一个")
+        return 2
     _check_registered()
 
     if not os.path.exists(BUNDLE):
@@ -166,27 +215,87 @@ def main():
         print(f"\n🔴 有 {bad} 条没齐 —— 不写盘（宁可什么都不做，也别只拷一半）")
         return 1
 
+    # ---- 两张表的**期望内容**（`--check` / `--dry` / `--write` 共用同一份计算
+    #      ⇒ `--check` 比的正是 `--write` 会写的那一份，不会「两份口径各算一遍」）----
+    # 🆕 2026-11-02（`B120-W17` · F15）：`props_rows` = 旧形状（键 = `Army/when`，`RemnantSfx` 在读）；
+    #   `cue_rows` = 新形状（键 = **cue 资产名**，`WFSoundTable` 同构，`WFSoundBank` 在读）。
+    props_rows = []
+    for (army, when, cue) in CUES:
+        p = dict(cue2props.get(cue, {}))
+        p["key"] = f"{army}/{when}"
+        props_rows.append(p)
+    props_payload = {"cues": props_rows}
+
+    cue_rows = []
+    for (army, when, cue) in CUES:
+        p = cue2props.get(cue, {})
+        cue_rows.append({
+            "name": cue,
+            "clips": [n.strip() for (t, n) in cue2clips.get(cue, []) if t == "AudioClip" and n],
+            "minPitch": float(p.get("minPitch", 1.0)),
+            "maxPitch": float(p.get("maxPitch", 1.0)),
+            "minVolume": float(p.get("minVolume", 1.0)),
+            "maxVolume": float(p.get("maxVolume", 1.0)),
+            "timeToPlayAgain": float(p.get("timeToPlayAgain", 0.1)),
+        })
+    cue_payload = {
+        "version": 1,
+        "note": ("原版**残骸体那六条 AudioCue** 的 cue 表（`WFSoundCue` 同构，键 = cue 资产名）。取材口 = "
+                 "`RemnantBody.toRemnantSound`(+0x38) / `RemnantBody.deathSound`(+0x50) / "
+                 "`RemnantAeldari.waystoneCollectSound`(+0x70) / `RemnantNecrons.reanimateSound`(+0x90)。"
+                 "⛔ 生成物别手改；重跑 = `python 工具/import_remnant_sfx.py --write`。"),
+        "cues": cue_rows,
+    }
+    props_path = os.path.join(DEST, "remnant_cue_props.json")
+
+    print("\n=== 两张表的期望内容 ===")
+    for r in cue_rows:
+        print(f"  cue `{r['name']}` → clips {r['clips']} · pitch {r['minPitch']}~{r['maxPitch']}"
+              f" · vol {r['minVolume']}~{r['maxVolume']} · 重播间隔 {r['timeToPlayAgain']}s")
+
+    def _diff_table(path, expect):
+        """→ None = 与生成器算出来的一致；否则一句原因。"""
+        if not os.path.exists(path):
+            return "缺文件"
+        try:
+            with io.open(path, "r", encoding="utf-8") as f:
+                got = json.load(f)
+        except Exception as e:                                   # noqa: BLE001
+            return "读不开：" + str(e)
+        return None if got == expect else "内容与生成器不一致（重跑 --write）"
+
     if a.check:
-        # 🔴 2026-10-27（执行代理 B9_W35CHECK）：`--check` 必须**连产物一起查** ——
-        #   原来只报「五条真 clip」源在不在，产物缺失/过期一律静默绿
-        #   （脚本**早退**在拷贝循环之前，那段 `os.path.exists(dst)` 根本不跑）。
-        #   判据同 工具/import_original_art.py `--only-altart`（`:1714-1721`）。
-        lack_files = []
+        # 🔴 2026-10-27（执行代理 B9_W35CHECK）：`--check` 必须**连产物一起查**。
+        # 🆕 2026-11-02（`B120-W17`）：**两张表也一起比对内容** —— 原来只查音频，表过期一律静默绿。
+        problems = []
         for clip, src in sorted(uniq.items()):
             dst = os.path.join(DEST, clip + os.path.splitext(src)[1])
             if not os.path.exists(dst):
-                lack_files.append(os.path.basename(dst))
+                problems.append("缺音频 " + os.path.basename(dst))
             elif os.path.getsize(dst) != os.path.getsize(src):
-                lack_files.append(os.path.basename(dst) + "（尺寸不符）")
-        if lack_files:
-            print(f"\n🔴 产物缺失 {len(lack_files)}/{len(uniq)} 个（{DEST}）—— 重跑不带 --check 落盘：")
-            for b in lack_files:
-                print("   缺:", b)
-        else:
-            print(f"\n✅ 产物齐全：{len(uniq)}/{len(uniq)} 个音频（{DEST}）")
-            print("   ⚠️ `remnant_cue_props.json` 本 check 未比对内容（脚本早退在写表之前）—— 见报告")
-        print("（--check：只报告，没写盘）")
-        return 0 if not lack_files else 1
+                problems.append("音频尺寸不符 " + os.path.basename(dst))
+        for path, payload in ((props_path, props_payload), (OUT_TABLE, cue_payload)):
+            why = _diff_table(path, payload)
+            if why:
+                problems.append(f"{path}：{why}")
+        if not os.path.exists(OUT_TABLE + ".meta"):
+            problems.append(OUT_TABLE + ".meta：缺（Unity 会给它现生成一个随机 guid）")
+        if problems:
+            print(f"\n🔴 产物不一致 {len(problems)} 处 —— 重跑 `python 工具/import_remnant_sfx.py --write`：")
+            for p in problems:
+                print("   ", p)
+            print("（--check：只比对，没写盘）")
+            return 1
+        print(f"\n✅ 产物齐全且与生成器一致：{len(uniq)} 个音频 + 2 张表（{props_path} · {OUT_TABLE}）")
+        print("（--check：只比对，没写盘）")
+        return 0
+
+    if a.dry:
+        print(f"\n(dry) 将拷贝 {len(uniq)} 个音频 → {DEST}")
+        print(f"(dry) 将写 {props_path}")
+        print(f"(dry) 将写 {OUT_TABLE}")
+        print("（--dry：没写盘）")
+        return 0
 
     os.makedirs(DEST, exist_ok=True)
     guids = _sfx_meta.known_guids()      # 2026-10-24（G4）：全工程 meta 扫一次，别每条都扫
@@ -204,22 +313,26 @@ def main():
             n_meta += 1
     print(f"\n✅ 拷了 {n} 个（跳过 {len(uniq) - n} 个已存在的）· 补 meta {n_meta} 条 → {DEST}")
 
-    # 🆕 2026-09-29：把**六条 cue 的随机区间**写成一张小表。
+    # 🆕 2026-09-29：把**六条 cue 的随机区间**写成一张小表（旧形状，`RemnantSfx` 在读）。
     # ⚠️ **必须是「带 key 的数组」而不是「以 Army/when 为键的对象」** —— C# 那边用
     #    `JsonUtility.FromJson` 读，它**不支持字典**（也不支持顶层是数组），所以外面包一层
     #    `{"cues":[{key:…, …}]}`。
     # ⚠️ 键按 **cue** 而不是按 clip：灵族的「出现」与「收集」**共用同一个 clip**，
     #    但原版是**两条不同的 cue**（区间可以不一样）⇒ 按 clip 存会把它们合并掉。
-    cues = []
-    for (army, when, cue) in CUES:
-        p = dict(cue2props.get(cue, {}))
-        p["key"] = f"{army}/{when}"
-        cues.append(p)
-    dst = os.path.join(DEST, "remnant_cue_props.json")
-    with io.open(dst, "w", encoding="utf-8") as f:
-        json.dump({"cues": cues}, f, ensure_ascii=False, indent=1)
-    print(f"✅ 随机区间表 → {dst}")
-    for p in cues:
+    with io.open(props_path, "w", encoding="utf-8") as f:
+        json.dump(props_payload, f, ensure_ascii=False, indent=1)
+    print(f"✅ 随机区间表（key = Army/when）→ {props_path}")
+
+    # 🆕 2026-11-02（`B120-W17` · F15）：**同构 cue 表**（key = cue 资产名）→ `WFSoundBank` 装进同一个字典
+    #   ⇒ `RemnantSfx` 的冷却键才能回到原版的「`AudioCue` 资产实例」（判据：`lastTimePlayed` 住在 cue 上 `+0x34`）。
+    table_dir = os.path.dirname(OUT_TABLE)
+    if table_dir:
+        os.makedirs(table_dir, exist_ok=True)
+    with io.open(OUT_TABLE, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(cue_payload, f, ensure_ascii=False, indent=1)
+    meta_state = _ensure_textasset_meta(OUT_TABLE, guids=guids)
+    print(f"✅ cue 表（key = cue 资产名）→ {OUT_TABLE}（{len(cue_rows)} 条 · meta {meta_state}）")
+    for p in props_rows:
         print(f"  {p['key']:22s} pitch {p.get('minPitch')}~{p.get('maxPitch')}"
               f" · vol {p.get('minVolume')}~{p.get('maxVolume')}"
               f" · 重播间隔 {p.get('timeToPlayAgain')}s")

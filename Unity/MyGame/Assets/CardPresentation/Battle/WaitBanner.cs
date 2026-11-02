@@ -100,7 +100,7 @@ namespace CardPresentation
         /// **图**那一族（`HudImageZ` 0.235~0.6）**和字**那一族（`HudLabelZ` = 0）
         /// ⇒ 本档必须**小于 `HudLabelZ`(0)** 才盖得住整整一族（字在图上，只压过图不够）。
         /// 而 `OverHand`/`PopUps` 那些扇窗各在自己的子画布上（**层先于 order 比**）⇒ 本来就在本件之上，
-        /// **不受这个数影响** ✓。</para></summary>
+        /// **不受这个数影响** ✓。🔶 自己设计（非原版）：`Z = -0.45` 是我们挑的映射值 —— 原版 `WaitText.localPosition.z = 0`、且无 per-node 深度字段（顺序靠兄弟序）· 为什么必须自定：原版没有这个量 · 调度台 2026-11-02 裁定（`B120-Q` 取证）。</para></summary>
         const float Z = -0.45f;
 
         static float U(float px) { return px / 108f; }

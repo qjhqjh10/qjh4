@@ -334,6 +334,7 @@ namespace RuleEngine
             }
 
             int altCopies = 0;
+            int deckStart = list.Count;    // 🔴 2026-11-03（`B120-W7` · `E-01`）：**牌库段**的起点。督军 / 防御卡是**独立两格**（`RuleCore.BuildPlayer` 按 `Type` 分流），⛔ 别跟着一起倒
             foreach (var id in deck.CardIds)
             {
                 // 🔴 账 `HUD:92` / `HUD:93`（卡组层那一半）：`#HB_SW1` = 「这一份是异画副本」，
@@ -358,6 +359,31 @@ namespace RuleEngine
                 if (c.Type != "unit") { Note(skipped, id, c.Type); continue; }
                 list.Add(c);
             }
+            // ================================================================================================
+            //  🔴 **2026-11-03（执行写手 `B120-W7` · 活状态表 `B120-E01`）：牌库段整体倒序 —— 这里就是「装载口」**
+            //
+            //  **判据（第一权威，逐行现读 2026-11-03）**：
+            //    · `decomp_full/BattleCardManager__CreateDeck.c:27-70` —— 原版建牌库 = 按 `deckData` **原序**逐张造
+            //      （`:44` `List__Insert(list, iVar8, card)`，`iVar8` 从 0 递增 ⇒ 等价 append）、`:67`
+            //      `CardScript__SetAsDeck(card, iVar8)`、`:70` `SetActive(go, iVar8 == 0)` ⇒ **下标 0 = 牌库顶**；
+            //    · `decomp_full/BattleManager__DrawCardFromDeck.c:27` —— 抽牌取 `List__get_Item(deck, 0)`
+            //      （`:35` 的 `IndexOf(deck, card) < 1` 也把 0 当「顶上那张」）；
+            //    · `decomp_full/BattleManager__AddInitialCardToDeck.c:50` —— 中途插牌是 `Insert(deck, 0, card)`（插到顶）。
+            //    ⇒ **原版：「牌表里的第一张」最先抽到。**
+            //
+            //  **我们这一侧**：`RuleCore.MoveDeckTopToHand` 取 `Count - 1`（`RuleCore.cs:3241-3243`，那一段的
+            //    注释写明了「我们的 `Deck` 是同一份列表、把**末尾**当顶」的镜像约定）⇒ 装载口必须**倒序喂**
+            //    才能让「牌表第一张」落在 `Deck` 末尾 = 顶。改前是正序 `list.Add` ⇒ **整副倒着抽**
+            //    （洗牌局被随机置换掩盖；不洗牌局——教程 100 / 回放 140 / 自检夹具——看得见）。
+            //
+            //  ⚠️ **只倒「牌库段」**（`deckStart` 之后那一段）：`list[0]` 是督军、`list[1]` 可能是防御卡，
+            //     它们由 `RuleCore.BuildPlayer` 按 `Type` 分流（`RuleCore.cs:628-632`），**不进牌库** ⇒ 位置不许动。
+            //  ⚠️ **教程那条链不走本函数**（`BattleDriver.BuildTutorialDeck` 递的是 `exactMine/exactFoe`，
+            //     它 2026-10-26 已经自己倒序过）⇒ 这里倒序**不会**把它翻回去，⛔ 别再去改 `RuleCore.BuildPlayer`。
+            //  ⚠️ **它会让回放不兼容**：`ReplayRecord.hostCardIds/clientCardIds` 存的是「喂给 `NewBattle` 的牌表」，
+            //     而抽牌顺序变了 ⇒ 改前录的录像会演成另一局 ⇒ 同批把 `ReplayRecord.version` 4 → 5（`ReplayStore.Load` 入口拒绝）。
+            // ================================================================================================
+            list.Reverse(deckStart, list.Count - deckStart);
             if (altCopies > 0)
                 UnityEngine.Debug.Log("[RuleEngine] 卡组「" + deck.Name + "」里有 " + altCopies
                         + " 份**异画副本**（`#` 开头那些）⇒ 按原卡展开、立绘走异画（账 `HUD:92/93`）");

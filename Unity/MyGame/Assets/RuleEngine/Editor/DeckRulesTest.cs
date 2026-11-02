@@ -38,11 +38,11 @@ public static partial class RuleEngineTest
         // 🔴 **2026-09-26 改了判据对象**：原来断言的是 `DeckRules.OvertimeEnergy`，而那个常量
         //    已经**退出运行路径**（运行读 `ctx.Vars.overtimeTurn`）⇒ 那是**自证**。
         //    现在改成盯**运行时的真源头**（`GameplayVariables.Classic.overtimeTurn`）。
-        CheckTrue(RuleEngine.GameplayVariables.Classic.overtimeTurn == 10,
-                  "经典加时阈值 = 10（**运行路径读的就是它**；规则书:51 + 用户 2026-09-17 判据）");
-        CheckTrue(RuleEngine.GameplayVariables.Skirmish.overtimeTurn == 10,
-                  "遭遇**也有**加时、且用**同一个阈值 10**（用户 2026-09-26；「更早」靠能量涨得快，"
-                + "不是另发明一个常数）");
+        CheckTrue(RuleEngine.GameplayVariables.Classic.overtimeTurn == 18,
+                  "经典加时阈值 = 18（**运行路径读的就是它**；2026-11-02 `B120-W12`：客户端常量 `GameStaticData.overtimeStartTurn` = 0x12，三源一致）");
+        CheckTrue(RuleEngine.GameplayVariables.Skirmish.overtimeTurn == 8,
+                  "遭遇加时阈值 = 8（**比经典早**；2026-11-02 `B120-W12`：文案只说「earlier」，"
+                + "8 = 遭遇能量曲线第 4 个自己的回合 ⇒ 🔶 自定）");
         Check(RuleEngine.DeckRules.OvertimeExtraDraw, 1,
               "加时**只多抽 1 张**（原版代码只做这一件事；规则书那个「抽 2 张」= 常规 1 + 加时 1，不是独立常数）");
         // 🔴 **2026-11-02 改了判据对象**（同上面 `overtimeTurn` 那条）：`SkirmishWarlordHealthPenalty` 现在 = **0**，

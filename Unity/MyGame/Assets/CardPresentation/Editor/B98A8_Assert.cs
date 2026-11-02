@@ -126,14 +126,14 @@ public static class B98A8_Assert
         Check(prs.Length > 0, "（前提）卡包实物子树里有粒子（本段才可判队列）");
         if (prs.Length > 0)
         {
-            bool allLifted = true;
+            bool allLifted = true, anyNull = false;
             for (int i = 0; i < prs.Length; i++)
             {
                 var r = prs[i];
-                if (r == null || r.sharedMaterial == null) { allLifted = false; continue; }
+                if (r == null || r.sharedMaterial == null) { anyNull = true; allLifted = false; continue; }
                 if (r.sharedMaterial.renderQueue < BoosterPackOpenWindow.QShade) allLifted = false;
             }
-            Check(allLifted, "包面粒子的 renderQueue 全部 ≥ QShade(3170)（否则透明背景后画会盖掉它）");
+            Check(!anyNull, "包面粒子都拿得到材质（否则下一条判不了队列）"); Check(allLifted, "包面粒子的 renderQueue 全部 ≥ QShade(3170)（否则透明背景后画会盖掉它）");
         }
     }
     // 🆕 2026-10-31（B109 · AUD11）：宿主聚合行原来只裸调 `Run()`、不进 `_sink` ⇒ 全红宿主仍绿。追加到类尾（零行漂）。

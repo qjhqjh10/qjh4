@@ -116,7 +116,7 @@ public static class B117_G10_12_Assert
               "A0 前提：`ResetQueueForTest()` 之后 Played/Throttled/Last*/Drained/Log/队列/Clock 全归零");
 
         // ---- A1 造数据：入队 1 条 → 出队 1 条 ⇒ `DrainOne` **真的**往 Log 记过一笔 ----
-        bool queued = BattleSfx.Play(BattleSfx.StartTurn);
+        bool queued = BattleSfx.EnqueueLegacySoundAsset(BattleSfx.StartTurn);
         Check(queued && BattleSfx.QueueLength == 1,
               $"A1 前提：`Play(startTurn)` 进队 1 条（实得 queued={queued} / QueueLength={BattleSfx.QueueLength}）"
             + "｜🧨 cue 表里没有 `startTurn`（没跑 `工具/import_battle_sfx.py`）⇒ 本条红");
@@ -126,7 +126,7 @@ public static class B117_G10_12_Assert
             + "｜🧨 把 `DrainOne` 里的 `LogAdd(...)` 删掉 ⇒ 本条红（下面 A4 的「清空」就成了空转）");
 
         // ---- A2 节流：同一字段再来一次 ⇒ 被 `timeToPlayAgain` 挡掉（`_lastAt` 有值了）----
-        BattleSfx.Play(BattleSfx.StartTurn);
+        BattleSfx.EnqueueLegacySoundAsset(BattleSfx.StartTurn);
         BattleSfx.DrainOne();
         Check(BattleSfx.Throttled == 1,
               $"A2 同一字段连响两次 ⇒ 第 2 次被 `timeToPlayAgain` 挡掉 1 次（实得 Throttled={BattleSfx.Throttled}）"
@@ -145,7 +145,7 @@ public static class B117_G10_12_Assert
             + "｜🧨 改回「不清 Log / Drained」⇒ 本条红（那正是改前的样子）");
 
         // ---- A5 🧨 `_lastAt` 也清了：reset 之后同一字段**不再**被节流 ----
-        BattleSfx.Play(BattleSfx.StartTurn);
+        BattleSfx.EnqueueLegacySoundAsset(BattleSfx.StartTurn);
         BattleSfx.DrainOne();
         Check(BattleSfx.Throttled == 0,
               $"A5 ★ `ResetCounters()` 把节流表 `_lastAt` 也清了 ⇒ 同一字段 reset 后立刻能再响"
@@ -153,7 +153,7 @@ public static class B117_G10_12_Assert
 
         // ---- A6 🧨 反相之一：`ResetCounters()` **不许**动待播队列 ----
         BattleSfx.ResetQueueForTest();
-        BattleSfx.Play(BattleSfx.StartTurn);
+        BattleSfx.EnqueueLegacySoundAsset(BattleSfx.StartTurn);
         BattleSfx.ResetCounters();
         Check(BattleSfx.QueueLength == 1,
               $"A6 ★ `ResetCounters()` **不碰待播队列**（文档写明的分工：它只管读口）—— 实得 QueueLength={BattleSfx.QueueLength}"
@@ -161,8 +161,8 @@ public static class B117_G10_12_Assert
 
         // ---- A7 🧨 反相之二：`ResetQueueForTest()` **必须**队列 + 读口一起清 ----
         BattleSfx.ResetQueueForTest();              // A6 留下 1 条 ⇒ 先清，下面那条「= 2」才有意义
-        BattleSfx.Play(BattleSfx.StartTurn);
-        BattleSfx.Play(BattleSfx.StartTurn);
+        BattleSfx.EnqueueLegacySoundAsset(BattleSfx.StartTurn);
+        BattleSfx.EnqueueLegacySoundAsset(BattleSfx.StartTurn);
         Check(BattleSfx.QueueLength == 2, $"A7 前提：队列里现在有 2 条（实得 {BattleSfx.QueueLength}）");
         BattleSfx.ResetQueueForTest();
         Check(BattleSfx.QueueLength == 0 && BattleSfx.Played == 0

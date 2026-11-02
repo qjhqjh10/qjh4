@@ -1735,6 +1735,34 @@
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
+   "id": "9218576fd3e26554db5b4c239a36dbc7",
+   "name": "Pray Enchantment",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Pray_Success",
+     "chosenAbility": "buffMana",
+     "seconds": 0.0,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "TurnStartPlayer",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    },
+    {
+     "cardanim": "Pray_Exit",
+     "chosenAbility": "removeThisEnchantment",
+     "seconds": 0.0,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "UnitDamaged",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 0
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "activeWithTween": null,
+   "alternative": null,
    "id": "9238c27730a0c424288d46ed0f4a742c",
    "name": "Master of the Fleet",
    "otherAbilityAnims": [
@@ -7895,8 +7923,8 @@
      "cardanim": "Atk_BulletImpact_DA_Ballistus_Missile_Volley",
      "chosenAbility": "doDamage",
      "seconds": 3.0,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "OtherCardPlayed",
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "OnSecretCreated",
      "tweenAnim": {
       "m_FileID": 2,
       "m_PathID": -8275538427997360676,
@@ -7912,8 +7940,8 @@
      "cardanim": "Atk_BulletImpact_DA_Ballistus_Missile_Volley",
      "chosenAbility": "doDamage",
      "seconds": 3.0,
-     "slot": "cardAbilities[0].abilityLogic[0]",
-     "trigger": "OnSecretCreated",
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "OtherCardPlayed",
      "tweenAnim": {
       "m_FileID": 2,
       "m_PathID": -8275538427997360676,
@@ -9874,15 +9902,6 @@
    "name": "Killa Kan",
    "otherAbilityAnims": [
     {
-     "cardanim": "Buff_Red_ork_self",
-     "chosenAbility": "buffSelf",
-     "seconds": 0.5,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "Mob",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
      "cardanim": "UnstableExplosion_self",
      "chosenAbility": "doDamage",
      "seconds": 1.6,
@@ -9897,6 +9916,15 @@
      "seconds": 0.8,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Unstable",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Red_ork_self",
+     "chosenAbility": "buffSelf",
+     "seconds": 0.5,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "Mob",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -9930,23 +9958,6 @@
    "name": "Deff Dread",
    "otherAbilityAnims": [
     {
-     "cardanim": "KrumpaKlawEffect",
-     "chosenAbility": "doDamage",
-     "seconds": 0.7,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "Mob",
-     "tweenAnim": {
-      "m_FileID": 2,
-      "m_PathID": -8275538427997360676,
-      "name": "Recoil Normal Tween",
-      "resolved": true,
-      "seconds": 0.6,
-      "steps": 1,
-      "waitAnimation": 0
-     },
-     "waitAnimToApplyEffect": 1
-    },
-    {
      "cardanim": "UnstableExplosion_self",
      "chosenAbility": "doDamage",
      "seconds": 1.6,
@@ -9962,6 +9973,23 @@
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Unstable",
      "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "KrumpaKlawEffect",
+     "chosenAbility": "doDamage",
+     "seconds": 0.7,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "Mob",
+     "tweenAnim": {
+      "m_FileID": 2,
+      "m_PathID": -8275538427997360676,
+      "name": "Recoil Normal Tween",
+      "resolved": true,
+      "seconds": 0.6,
+      "steps": 1,
+      "waitAnimation": 0
+     },
      "waitAnimToApplyEffect": 1
     }
    ]
@@ -11211,15 +11239,6 @@
    "name": "Wurrboy",
    "otherAbilityAnims": [
     {
-     "cardanim": "Buff_Ork_WaaaghLightning_Self",
-     "chosenAbility": "doOnlyVfx",
-     "seconds": 0.2,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "TurnEnd",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
      "cardanim": "UnstableExplosion_WaaaghEnergy_self",
      "chosenAbility": "doDamage",
      "seconds": 1.6,
@@ -11234,6 +11253,15 @@
      "seconds": 0.8,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Unstable",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Buff_Ork_WaaaghLightning_Self",
+     "chosenAbility": "doOnlyVfx",
+     "seconds": 0.2,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "TurnEnd",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -11374,15 +11402,6 @@
    "name": "Snakebite Battlewagon",
    "otherAbilityAnims": [
     {
-     "cardanim": "Ork Summon BeastSnagga",
-     "chosenAbility": "summonBuffedUnit",
-     "seconds": 0.4,
-     "slot": "cardAbilities[1].abilityLogic[0]",
-     "trigger": "Mob",
-     "tweenAnim": null,
-     "waitAnimToApplyEffect": 1
-    },
-    {
      "cardanim": "UnstableExplosion_self",
      "chosenAbility": "doDamage",
      "seconds": 1.6,
@@ -11397,6 +11416,15 @@
      "seconds": 0.8,
      "slot": "cardAbilities[0].abilityLogic[0]",
      "trigger": "Unstable",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    },
+    {
+     "cardanim": "Ork Summon BeastSnagga",
+     "chosenAbility": "summonBuffedUnit",
+     "seconds": 0.4,
+     "slot": "cardAbilities[1].abilityLogic[0]",
+     "trigger": "Mob",
      "tweenAnim": null,
      "waitAnimToApplyEffect": 1
     }
@@ -22937,6 +22965,25 @@
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
+   "id": "e8cf1eb55ca41534abe38efc90b302e9",
+   "name": "Reconnaissance Mission",
+   "otherAbilityAnims": [
+    {
+     "cardanim": "Trait_GainQuest_enemywarlord",
+     "chosenAbility": "buffMana",
+     "seconds": 0.7,
+     "slot": "cardAbilities[0].abilityLogic[0]",
+     "trigger": "ThisCardPlayed",
+     "tweenAnim": null,
+     "waitAnimToApplyEffect": 1
+    }
+   ]
+  },
+  {
+   "active": null,
+   "activeAnims": [],
+   "activeWithTween": null,
+   "alternative": null,
    "id": "e9952f50921d2844a94d39ce883430f4",
    "name": "Vox-Hacker",
    "otherAbilityAnims": [
@@ -28243,14 +28290,14 @@
   "animTimesCards": 93,
   "animTimesMismatch": 0,
   "animTimesOnly": 0,
-  "cardsMatchedButNoActiveAnim": 780,
+  "cardsMatchedButNoActiveAnim": 782,
   "cardsWhoseTweenIsWaited": 0,
   "cardsWithTruth": 93,
   "max": 4.0,
   "median": 1.0,
   "min": 0.2,
   "notAbilityRows": 633,
-  "otherAbilityAnims": 1306,
+  "otherAbilityAnims": 1309,
   "tableOnly": 0,
   "tweenRows": 133,
   "tweenUnresolved": 0,

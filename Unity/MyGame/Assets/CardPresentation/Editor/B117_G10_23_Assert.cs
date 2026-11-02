@@ -99,7 +99,7 @@ public static class B117_G10_23_Assert
         ov.SetHighlight(true, Vector3.zero, new Vector2(0.4f, 0.4f));
         Tr(ov.HighlightVisible, "A3 前提：`SetHighlight(true, …)` 之后那一层 activeSelf = true");
         ov.SetHighlight(false, Vector3.zero, new Vector2(0.4f, 0.4f));
-        Tr(!ov.HighlightVisible, "A4 开/关两态都能切换（关掉之后 activeSelf = false）");
+        for (int i = 0; i < 20; i++) ov.Tick(0.01f); Tr(!ov.HighlightVisible, "A4 开/关两态都能切换（关掉并走完 0.1 s 淡出之后 activeSelf = false）");
         ov.SetHighlight(true, Vector3.zero, new Vector2(0.4f, 0.4f));   // 复原成「亮着」，给 B/C 读尺寸
     }
 

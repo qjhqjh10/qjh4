@@ -6,20 +6,20 @@
 //    ⇒ 做遭遇模式时照原版收成一处：**经典/遭遇只是这份结构的两个实例**。
 //    出处（唯一正本）：`资料/加时与冲突模式_原版规格.md` §2.5 —— 那张 18 字段表就是本文件的目录。
 //
-// ⚠️ **值的来源分三档，逐条标在字段注释里**（铁律 2：权威 = 反编译 > 解包字段 > 卡面/文案）：
-//    · 【文案】= 原版**游戏内文案**逐字（`资料/索引与盘点/解包资源使用地图.md:533`，**官方**）——
-//      `12-card decks / Up to 4 Legendaries (Warlord not included) / Warlords start with 10 less Health /
-//       P1 3 Energy P2 4 Energy / Gain +2 Maximum Energy each turn / Overtime begins earlier /
-//       No Offence card. Random Defence card. No mulligan`
+// ⚠️ **值的来源分四档，逐条标在字段注释里**（铁律 2：权威 = 反编译字段 > 解包资产 > 客户端文案）：
+//    · 【官方文案】= **原版客户端自带的规则说明**（1.35.0 `I2Languages`；不是我们写的、也不是粉丝规则书）——
+//      `Event_Description/Classic/Help` · `Event_Description/Skirmish/Help` · `Tips/OvertimeTip` ·
+//      `MenuShop/ExtraLegendaryWarning`；副本 = `_tmp_view/android_1350/work_A3/i2_android.json`（10,857 条）
+//      与 `CardPresentation/Resources/official_loc_13lang.json`（10,862 键），逐键原文见 `报告/B120_OFF_离线对战参数溯源.md`。
+//    · 【序列化资产】= 场景/SO 里读出来的数（例：`MinionManager.slotsPerSide=4`，13 场 ×2 实例）。
 //    · 【规则书】= `资料/规则书/Warpforge_Offline_Rulebook_1_5-3_中文翻译.md:57-64` ——
 //      🔴 **那是粉丝实体版、不是官方**（该文件自己第 5 行写着 `Not official. Fan project.`）
 //      ⇒ **只能当第二来源**，凡只有它一条支撑的，字段上都标着。
-//    · 【推断】= 我们**从别的判据反推**出来的，注释里写清怎么推的。
-//    · 【实拍】= **原版真机跑起来读到的值**（比静态字段更硬，铁律 4：实况与字段冲突时以实况为准）。
-//      ⚠️ **文案要读全，别读字面**：`Warlords start with 10 less Health` 是**相对经典**的，
-//      不是「绝对值 = 某数」—— 2026-11-02 就是把这句读成「冲突 = −10、经典 = 0」而少算了 10 血
-//      （真机实拍三名 Aeldari 督军 40/35/35 vs SO 30/25/25 ⇒ 经典档是 **+10**）。
-//    · ⛔ **18 个值本身全在服务器**（`assets_full` / `解包整理/` / `d:/4` 全盘 0 命中）⇒ **抄不到**。
+//    · 【推断】= 我们从别的判据反推出来的（写清怎么推）；【实拍】= 原版真机读到的值，冲突时以实拍为准。
+//      ⚠️ **文案要读全，别读字面**：`Warlords start with 10 less Health` 是**相对经典**的，不是绝对值 ——
+//      2026-11-02 曾读成「冲突 = −10、经典 = 0」而少算 10 血（实拍三名 Aeldari 督军 40/35/35 vs SO 30/25/25 ⇒ 经典 **+10**）。
+//    · 🔴 **2026-11-02 订正（`B120-OFF` · 铁律 5）**：原写「18 个值全在服务器 ⇒ 抄不到」**只对『服务器下发的那一份』成立**。
+//      18 格里 **11 格**已由官方客户端文案 / 序列化资产定出真值（逐格见那份报告 §二），真正只剩 7~8 条自定；「原版不连服务器也能开打」也**不成立**（`OfflinePractice 6` 只是「单人打 AI」）。
 using System;
 
 namespace RuleEngine
@@ -101,18 +101,18 @@ namespace RuleEngine
         //     **全都从这里取**。要改一个数，**只改这里**（原来 `DeckRules` 一套常量、引擎里散着几个字面量，
         //     做遭遇模式时就会发现同一个「12」在两处 —— 那正是「两处写同一条规则 = 迟早不一致」）。
         // ==================================================================
-        // 经典：**全部是改造前就在跑的值**（`RuleEngineTest` 2995 条断言 = 不许改口径的验收）
-        // ⚠️ **例外一格 = `ClassicWarlordLifeChange`**（2026-11-02 由 0 改成 +10，见字段自己的注释）。
+        // 经典：**全部是改造前就在跑的值**（`RuleEngineTest` 2995 条断言 = 不许改口径的验收）；逐格【来源】见字段注释。
+        // 两格不是老值：`ClassicWarlordLifeChange`（2026-11-02 0→+10 · 实拍 + 官方文案）· `ClassicOvertimeTurn`（10→18 · 客户端常量，见字段注释）。
         public const int ClassicDeckSize = 30, ClassicStartingHand = 3, ClassicHandLimit = 10,
                          ClassicManaPerTurn = 1, ClassicStartingMana = 1, ClassicStartingManaSecond = 1,
-                         ClassicOvertimeTurn = 10, ClassicDrawPerTurn = 1, ClassicManaAccumulation = 0,
+                         ClassicOvertimeTurn = 18, ClassicDrawPerTurn = 1, ClassicManaAccumulation = 0,
                          ClassicWarlordLifeChange = 10,
                          ClassicMaxLegendaries = 0, ClassicCopiesOther = 2, ClassicCopiesLegendary = 1;
-        // 遭遇（Skirmish）—— 逐条的来源分【文案】/【规则书】/【推断】，见下面 `Skirmish` 那个实例
-        // ⚠️ **`SkirmishWarlordLifeChange` 现读 = 0**（2026-11-02 由 −10 改；模式文案那句
-        //    `10 less Health` 是**相对经典**说的，不是绝对值 —— 见字段注释）。
+        // 遭遇（Skirmish）—— 来源分【官方文案】/【规则书】/【推断】/【自定】，见下面 `Skirmish` 那个实例
+        // ⚠️ **`SkirmishWarlordLifeChange` 现读 = 0**（2026-11-02 由 −10 改；`10 less Health` 是**相对经典**说的，不是绝对值）
         public const int SkirmishDeckSize = 12, SkirmishStartingHand = 4, SkirmishHandLimit = 8,
                          SkirmishManaPerTurn = 2, SkirmishStartingManaSecond = 2, SkirmishManaAccumulation = 1,
+                         SkirmishOvertimeTurn = 8,             // 🔶 自己设计（非原版）：官方文案只说 `earlier`、本地无数字（理由见字段注释）
                          SkirmishWarlordLifeChange = 0, SkirmishMaxLegendaries = 4;
 
         // ---- 1~3：卡组构筑 ----------------------------------------------------
@@ -122,9 +122,9 @@ namespace RuleEngine
         /// ⇒ 经典 = **0**。今天**零行为变化**（`DeckRules.LegendaryTotalLimit(false)` 仍显式返回 `int.MaxValue`），但谁哪天改成读本字段，`0` 会**正确**地表示「无限制」，而 `1` 会静默给经典加一条「整副只能 1 张传奇」。
         /// ⚠️ ⛔ **别把 0 读成「一张都不许」** —— 本字段的 `<= 0` 语义就是「关掉这条闸」。</para></summary>
         public int maxLegendaries = ClassicMaxLegendaries;
-        /// <summary>【规则书:53】普/稀/史同名上限。原版活值是 `GetMaxCopiesInDeck` 里读的那个（见 `DeckRules` 文件头）。</summary>
+        /// <summary>【自定】**普/稀/史同名上限 = 2** —— ⚠️ 本地**没有**这一格的判据（`B120-OFF` §二 #2：只有非官方规则书:53 + 商店文案 `ShopOffers/Descriptions/GenericReinforcementDrop`「2 copies of non-legendary ones」的**弱旁证**）；原版活值是 `GetMaxCopiesInDeck` 读的 `+0x14`（`GameplayVariablesData__GetMaxCopiesInDeck.c:11`），真值在服务器。</summary>
         public int numberOfCopiesOtherRarities = ClassicCopiesOther;
-        /// <summary>【规则书:53】传说卡同名上限。</summary>
+        /// <summary>【官方文案】**传说卡同名上限 = 1** —— `MenuShop/ExtraLegendaryWarning`「You can only use one copy of each legendary card in your deck」（读点 `+0x18`；规则书:53 只是旁证）。</summary>
         public int numberOfCopiesLegendary = ClassicCopiesLegendary;
         /// <summary>【规则书】每边棋盘格数（= 9，两模式相同）。
         /// <para>🔴🔴 **2026-10-15（账 `A2099`）：这个字段名与原版【同名不同义】—— 接原版 SO 前必须先看这一条。**
@@ -133,8 +133,8 @@ namespace RuleEngine
         /// （序列化 4 · ctor 默认 3）**⇒ 指的不是同一件事**。
         /// 判据 → `资料/普查产出_1015战斗/B4_战斗相机与棋盘几何.md` §二 与 `资料/战斗复刻_正本.md` §2·8/§2·11。
         /// ⛔ **将来接原版 `GameplayVariablesData` 时逐字段对【语义】，别按名字对** ——
-        /// 按名字对会静默把「每侧 4 格」当成「每边 9 格」。⚠️ 那个 SO 目前**不在本地 91 个 bundle 里**，
-        /// 所以运行时权威值「查不到」（如实记，⛔ 没猜）。</para></summary>
+        /// 按名字对会静默把「每侧 4 格」当成「每边 9 格」。⚠️ 运行时权威值（服务器 `+0x1C`）**查不到**，
+        /// 但**序列化回退值有本地真值 = 4**（13 场 × 2 个 `MinionManager` 全 = 4，`B120-OFF` §二 #4；ctor 默认 3 是回退的回退）。</para></summary>
         public int slotsPerSide = 9;
 
         // ---- 5~6：督军与卡组 ---------------------------------------------------
@@ -148,7 +148,7 @@ namespace RuleEngine
         /// ③ 【反编译】运行期只有一处加减：`BattleManager__SetupWarlordsLifeAndEnchantment.c`
         ///    的 `ForceChangeMaxHealth(督军, *(int*)(lVar3+0x20) + 当前最大生命, 0)`，
         ///    `+0x20` = `GameplayData.warlordLifeChange` ⇒ 它是**每局敌我同加同减的一个全局增量**。
-        /// ④ 【文案】冲突模式那句 `Warlords start with 10 less Health` 是**相对经典**说的
+        /// ④ 【官方文案】冲突模式那句 `Warlords start with 10 less Health`（`Event_Description/Skirmish/Help`）是**相对经典**说的
         ///    （35 − 10 = 25 = SO 值）⇒ 冲突档 = `0`，经典档 = `+10`。
         /// ⇒ **经典 = SO + 10 · 冲突 = SO**；两档相差 10。</para>
         /// <para>🔴 **2026-10-18（`W` 笔）留下的那条仍然成立**：SO 是当前数字 build 的基准；卡表里那 49 项
@@ -160,21 +160,21 @@ namespace RuleEngine
         /// <para>⚠️ **PnP 成品卡图不是本字段的尺子**：它和 SO 的差**不统一**（45 张 −10 · `AM3` −5 · `TL35` −15 ·
         /// 9 张 0）⇒ 拿它验证「+10」只能当**旁证**，逐张对不上的那几张已在报告里列明。</para></summary>
         public int warlordLifeChange = ClassicWarlordLifeChange;
-        /// <summary>【文案】卡组张数：经典 30 · 遭遇 **12**（`12-card decks`）。</summary>
+        /// <summary>【官方文案】卡组张数：经典 **30**（`Classic/Help` `30-card decks`；旁证 `VarsGlobal.deckSize=30`）· 遭遇 **12**（`Skirmish/Help` `12-card decks`）。</summary>
         public int deckSize = ClassicDeckSize;
 
         // ---- 7：加时 ----------------------------------------------------------
-        /// <summary>加时**触发线**（**回合序号阈值**：**全局回合号 `ctx.Turn` ≥ 它**）。**两个模式都是 10**。
+        /// <summary>加时**触发线**（**回合序号阈值**：**全局回合号 `ctx.Turn` ≥ 它**）：经典 **18** · 遭遇 **8**（2026-11-02 定值，判据见下）。
         ///
         /// 🔴 **原版机制（2026-09-26 查实，别再按推断写）**：唯一读点 =
         /// `BattleManager._NextTurn_d__395__MoveNext.c:191` —— 把 `overtimeTurn` 包成 `Nullable&lt;int&gt;`，
         /// 再判 `hasValue &amp;&amp; overtimeTurn &lt;= turnCounter` ⇒ 它是**回合序号阈值**，**不是能量阈值**；
         /// 且**可为 null**（null ⇒ 永远不进加时）。`turnCounter` = `BattleManager` 自己那个计数器（`+0x3F8`）。
-        /// ⇒ 那个**具体值在服务器，本地没有**（`资料/加时与冲突模式_原版规格.md` §1.5）。
+        /// ⇒ 那个**具体值由服务器下发**（本地拿不到那一份；最硬的本地证据 = 客户端常量 18，见下）—— 旧口径「本地没有」2026-11-02 订正。
         /// ⇒ 这里**照它的形状写成可空**（`int?`）：**「没有值」= 这个模式没有加时**。
-        ///    ⚠️ **目前两个模式都有值（都是 10）** —— `null` 那一支是**照原版的形状保留的**
+        ///    ⚠️ **目前两个模式都有值**（经典 18 / 遭遇 8）—— `null` 那一支是**照原版的形状保留的**
         ///    （服务器不下发那个值 ⇒ 一次都不判），不是给我们现在用的。
-        ///    ⚠️ **别把本类型塞进 `JsonUtility`** —— 它不支持可空字段，会**静默丢掉**这一个。
+        ///    ⚠️ **别把本类型塞进 `JsonUtility`** —— 它不支持可空字段，会**静默丢掉**这一个（`ReplayStore` 用 `overtimeTurnSet` 两位编码）。
         ///
         /// ⚠️ 🔴 **2026-10-20 就地订正（`W58-TURN-A` · 铁律 5）**：这里原来写「两种判据在经典模式下等价」——
         ///    **不成立**。`turnCounter` 是**全局回合号**（两人共用、每回合 +1），同常数 10 下：
@@ -182,10 +182,18 @@ namespace RuleEngine
         ///    · 「后手 `MaxEnergy >= 10`」⇒ 后手**第 9 个自己的回合**（≈ 全局第 18 回合）。
         ///    两者只在服务器真值恰好为 18 时才重合。
         /// 🔵 **现行实现 = 照原版的形状，比【全局回合数】**（`RuleCore.BeginTurn`：`ctx.Turn >= overtimeTurn`）。
-        ///    `10` 这个数**仍是推断值** —— 原版真值在服务器，本地查不到（见本文件 §六·1 那条「没查清」）。
-        ///    ⚠️ 连带：遭遇模式原来靠「每回合 +2、跳过 10」在第 4 个自己的回合进加时（文案 `Overtime begins earlier`）；
-        ///    改成全局回合后它与经典一样落在全局第 10 回合 ⇒ 那句「更早」**不再由这条机制复现**，
-        ///    除非服务器给遭遇一个更小的 `overtimeTurn`（**未解**）。
+        ///
+        /// 🔴🔴 **2026-11-02（`B120-E08` · `B120-OFF` 溯源）：阈值不再是「推断 10」。** 逐条判据：
+        /// · **经典 = 18** —— 两条独立证据同向：① 【客户端常量】`GameStaticData.overtimeStartTurn = 18`，两份反编译逐字一致
+        ///   （`cpp2il/out_il2csharp/GameStaticData.cs:1827` · `out_cpp2il_dev_ilspy/GameStaticData.cs:2312`；机器码
+        ///   `decomp_full/GameStaticData__.cctor.c:128` = `*(undefined4*)(…+0x40) = 0x12`）。⚠️ **它 0 个读点**（运行时走服务器）
+        ///   ⇒ 当「**客户端自带的基准值**」，不是「运行时确认值」；⛔ 别再把它写成「推断」。
+        ///   ② 【规则反推】规则书 `资料/规则书/Warpforge_Offline_Rulebook_1_5-3_英文原版.md:70`：`Overtime: Begins when the`
+        ///   second player's maximum energy reaches 10.` ⇒ 经典后手 `MaxEnergy = 1 + N×1` 第 **9** 个自己的回合达 10 ⇒ 全局第 **18**（先手占奇数回合）。
+        ///   ⇒ **两套判据（回合序号 / 后手能量 10）在 18 上恰好等价** —— 当年「只在真值 18 时才重合」的推断在此落地。
+        /// · **遭遇 = 8** —— 🔶 自己设计（非原版）：官方文案 `Event_Description/Skirmish/Help` 只有「Overtime begins **earlier**」，**全表没有数字**
+        ///   （1.35.0 `I2Languages` 10,857 条逐条搜 `overtime` 命中 4 条 = 两条模式说明 + `Battle/Overtime/Title` + `Tips/OvertimeTip`）；规则书对两模式是同一条能量规则 ⇒ 遭遇后手 `MaxEnergy` 走 4→7→9→11 ⇒ 首次 ≥10 在**第 4 个自己的回合** = 全局第 **8** 回合。为什么自定：服务器那一份本地永远拿不到，取 8 让「更早」与同一套能量规则同时成立 —— 调度台 2026-11-02 裁定（铁律 18·0：服务端参数）。
+        /// ⚠️ **连带**：`Overtime begins earlier` 这句文案**现在由机制复现**（全局第 8 vs 第 18）；2026-10-20 那条「未解」到此关闭。
         ///
         /// ============================================================ 2026-10-17
         /// 🔴 **「回合序号」那条判据链已读完整（三段字段定义闭合，别再重复查）**：
@@ -208,27 +216,17 @@ namespace RuleEngine
         ///    口径以用户/调度台最终确认为准；本代理只按任务书执行，⛔ 没把这条历史删掉。
         ///    ⛔ **别再据上一段把实现改回能量阈值** —— 那是历史证据，不是现行代码。
         ///
-        /// 📦 **下面这段是「能量口径」时期的留痕（2026-09-26 ~ 2026-10-20），⛔ 别当现行行为**：
-        ///    🔴 它说「遭遇也有加时，而且更早 —— 靠的就是同一个 10」（**用户 2026-09-26 定案**）：
-        ///    · 遭遇 `manaPerTurn = 2` + `manaAccumulation = 1` ⇒ 后手方 `MaxEnergy` 走
-        ///      **4 → 7 → 9 → 11**（**跳过 10**）⇒ **第 4 个自己的回合**就够阈值（经典要第 9 个）。
-        ///    · `>=` 这个「或超过」正是为它写的 —— 写成 `== 10` 的话遭遇**永远进不了加时**。
-        ///    · 效果与经典**相同**：进入后**双方每回合抽 2 张**，且**进入的那一回合就抽**。
-        ///    · ⇒ 当时认为 `Overtime begins earlier` 由这一条解释掉。
-        ///    🔴 **2026-10-20（`W58-TURN-A`）起不成立**：判据改成全局回合后，两个模式都落在全局第 10 回合
-        ///    ⇒ 那句文案要成立，得是服务器给遭遇一个**更小的 `overtimeTurn` 真值**（**未解**）。
+        /// 📦 **「能量口径」时期的留痕（2026-09-26 ~ 2026-10-20），⛔ 别当现行行为**：当时用「同一个 10」解释「遭遇更早」——
+        ///    遭遇后手 `MaxEnergy` 走 **4 → 7 → 9 → 11**（跳过 10）⇒ **第 4 个自己的回合**就够阈值（经典要第 9 个）；`>=` 正是为它写的（`== 10` 会永不触发）。
+        ///    🔵 **2026-11-02 回看：那个「第 4 个自己的回合」是对的** —— 只是现在落成阈值 **8**（全局回合号），不再靠能量比较；⛔ 别因此把判据改回能量。
         ///
-        /// 📌 **2026-09-26 这一段翻过一次车，留痕**（免得下一个人重蹈）：
-        ///    用户当天先说「遭遇没有加时」（看视频判断），我们据此把遭遇改成 `null`；
-        ///    随后用户更正「**是我搞错了，遭遇也有加时**，后手最大能量达到**或超过** 10 时进入，
-        ///    遭遇可能到 **11**；进入后双方每回合抽 2 张，**进入那个回合就开始抽**」。
-        ///    ⇒ 改回 10。⚠️ **教训**：实况观察要问清「看到了什么现象」，
-        ///    「没看到加时」≠「没有加时」（那局可能没打到触发点）。
+        /// 📌 **2026-09-26 翻车留痕**：用户当天先说「遭遇没有加时」（看视频），我们据此改成 `null`；随后更正「**是我搞错了，遭遇也有加时**」。⚠️ 教训：「没看到加时」≠「没有加时」（那局可能没打到触发点）。
+        ///    原话（「后手能量达到或超过 10、可能到 11、进入那回合就抽 2 张」）与全过程 → `资料/加时与冲突模式_原版规格.md` §1.5/§1.6。
         /// </summary>
         public int? overtimeTurn = ClassicOvertimeTurn;
 
         // ---- 8~13：能量 -------------------------------------------------------
-        /// <summary>【推断】**先手方**的起始能量基数（两模式都 1）。
+        /// <summary>【推断】**先手方**的起始能量基数（两模式都 **1**）—— 官方文案反推：`Classic/Help`「Both players start at 2 energy」⇒ 2 − `manaPerTurn 1`；`Skirmish/Help`「Player 1 starts at 3 Energy」⇒ 3 − 2；两条都得 **1**。
         /// 合成公式见 `RuleCore` 的回合开始那一段：
         /// `MaxEnergy = (后手 ? startingManaSecond : startingMana) + TurnCount × manaPerTurn`
         /// —— **字段语义照原版**（`BattleManager__SetupInitialMana.c:20,28,46`：先手取 `startingMana`、
@@ -237,9 +235,8 @@ namespace RuleEngine
         /// · 遭遇 (1,**2**,2)：P1 第 1 回合 = 1+2 = **3** · P2 = 2+2 = **4**
         ///   —— 原版文案**原文** = `Player 1 starts at 3 Energy, Player 2 at 3+1 Energy`（🔴 2026-10-27 铁律 5 订正：旧引文写成 `P1 3 Energy P2 4 Energy`，把那个 `+1` 抹掉了；中文键同文「玩家2开始时有3+1点能量」。判据 → `资料/完全复刻/报告/B88_J1_两条悬案裁定.md` §悬案1）</summary>
         public int startingMana = ClassicStartingMana;
-        /// <summary>【推断】**后手方**的起始能量基数：经典 1（⇒ 后手第 1 回合也是 2 点）·
-        /// 遭遇 **2**（⇒ 后手第 1 回合 4 点，比先手多那 1 点）。
-        /// 判据同 <see cref="startingMana"/> 那条（原版 `SetupInitialMana` 两个分支）。</summary>
+        /// <summary>【推断】**后手方**的起始能量基数：经典 **1**（⇒ 后手第 1 回合也是 2 点）· 遭遇 **2**（⇒ 后手第 1 回合 4 点 = 文案 `Player 2 at 3+1 Energy`）。
+        /// 判据同 <see cref="startingMana"/>（原版 `SetupInitialMana` 两个分支；遭遇那 2 = `4 − manaPerTurn 2` 反推）。</summary>
         public int startingManaSecond = ClassicStartingManaSecond;
         /// <summary>🔴 **2026-10-20（`W58-TURN-B`）：已实现（原来是「原版有、我们不实现」）。**
         /// 原版 `BattleManager._NextTurn_d__395__MoveNext.c:296-334` 在 `turnCounter == 1` 时把它当
@@ -252,13 +249,14 @@ namespace RuleEngine
         ///   `p.Energy += addedManaSecond`，**绝不加进 `MaxEnergy`**（加了会每回合都多出这份补贴）。
         /// 🔶 自己设计（非原版）：服务端 `PlayEventData.gameplayVariables` 本地取不到 ⇒ 这里只能填值。**本条 2026-10-27 就地订正（铁律 5）：原来写「两个模式都是 0」—— 不成立**，因为 `0 &lt; addedManaSecond` 是「能量累积」整组 HUD 的**唯一显隐闸**（`SetupBoardPhase.c:179-196`），而散战/教程的官方文案都卖这个机制（`Event_Description/Skirmish/Help` · `TutorialData/Tutorial1/Turn6/Tip2fast`）⇒ 至少一个模式非 0。**散战那一格本批【暂不动】**（加 1 会让后手首回合能量变成 5，与官方 `3+1`＝4 和用户实况「后手首回合上限 4」都冲突，见报告 §悬案1 的「算术矛盾」）；**教程那一格已填 1**（见 `Tutorial` 实例）。判据 → `资料/完全复刻/报告/B88_J1_两条悬案裁定.md`。</summary>
         public int addedManaSecond = 0;
-        /// <summary>【文案】每回合最大能量增长：经典 1 · 遭遇 **2**（`Gain +2 Maximum Energy each turn`）。</summary>
+        /// <summary>【官方文案】每回合最大能量增长：经典 **1**（`Classic/Help` `Gain +1 Maximum Energy each turn`）· 遭遇 **2**（`Skirmish/Help` `Gain +2 Maximum Energy each turn`）。</summary>
         public int manaPerTurn = ClassicManaPerTurn;
-        /// <summary>【规则书】每回合抽牌数（= 1，两模式相同）。⚠️ **加时那多抽的 1 张是另一支**
+        /// <summary>【官方文案】每回合抽牌数 = **1**（两模式同值）—— 判据 = `Tips/OvertimeTip`「Draw 2 cards per turn」＋加时只多抽 1 张
+        /// （`TurnStartCardDraw.c:64-70`）⇒ 基础 = 2 − 1 = 1。⚠️ **加时那多抽的 1 张是另一支**
         /// （`DeckRules.OvertimeExtraDraw`），别混进来。</summary>
         public int drawCardsPerTurn = ClassicDrawPerTurn;
-        /// <summary>【规则书:60，**非官方**】回合末未用完的能量最多保存几点（下回合最大能量 +它）。
-        /// 经典 0（不保存）· 遭遇 **1**（规则书那句「回合末未用完的能量保存 1 点 → 下回合最大 +1」）。
+        /// <summary>【官方文案（仅遭遇）】**回合末未用完的能量最多保存几点**：遭遇 **1**（`Skirmish/Help`「accumulate 1 unused point」；
+        /// 另 `TutorialData/Tutorial1/Turn6/Tip2fast` 同口径）· 经典 **0**（⚠️ **没有任何文案说经典累积** ⇒ 0 是「文案沉默」，不是「文案支持」）。
         /// ⚠️ 语义（是**一次性结转**还是**永久涨上限**）规则书没写死，我们按「**一次性结转**」实现
         /// （`PlayerState.ManaCarry`）。
         /// ✅ **2026-09-26 补了一条实况佐证**：用户看原版游戏确认了这个机制，并给出了数 ——
@@ -304,7 +302,9 @@ namespace RuleEngine
         }
 
         // ---- 14~16：手牌与换牌 -------------------------------------------------
-        /// <summary>【规则书:58，**非官方**】手牌上限：经典 10 · 遭遇 **8**。</summary>
+        /// <summary>【自定】**手牌上限：经典 10 · 遭遇 8** —— ⚠️ 本地**没有**这一格的判据（`B120-OFF` §二 #14：`Battle/Tips/HandFull` 只证明这道闸存在、**不给数**；
+        /// `ScenarioVariables.maxCardsInHand = 10`（`DefaultScenario`/`Tutorial`/`Editor` 三份资产同值）是**旁证但原版不读它**——`BattleManager.MaxCardsInHand` 只读 `+0x44`）。
+        /// 遭遇那个 8 **只有非官方规则书:58** 一条支撑。</summary>
         public int handLimit = ClassicHandLimit;
         /// <summary>**牌堆抽空时怎么办**：true ⇒ 把墓地里的初始牌**洗回**牌堆；false ⇒ 改走
         /// `BattleManager.ResolveFatigue()`（疲劳）。读点唯一 =
@@ -325,8 +325,8 @@ namespace RuleEngine
         /// ⚠️ 遭遇那条 `false` 的**依据不同**（原版文案 `No mulligan` 的同族推断，不换牌也不洗回）；
         /// 现在两条都取 `false`，但别把那句推断当成经典模式的判据。</para></summary>
         public bool shouldReshuffle = false;
-        /// <summary>【文案】换牌阶段总开关（**bool**，已查实：false ⇒ 连弹窗都不弹，
-        /// `BattleManager__SetupInitialState.c:98-104`）。遭遇 = false（`No mulligan`）。</summary>
+        /// <summary>【官方文案】换牌阶段总开关（**bool**，已查实：false ⇒ 连弹窗都不弹，
+        /// `BattleManager__SetupInitialState.c:98-104`）。经典 = true（`Classic/Help`「Both players get to mulligan their starting hand」）· 遭遇 = false（`Skirmish/Help`「No mulligan」）。</summary>
         public bool showMulligan = true;
 
         // ---- 17~18：防御卡与其它 ------------------------------------------------
@@ -410,7 +410,7 @@ namespace RuleEngine
         }
 
         /// <summary>冲突/遭遇（Skirmish）。逐条来源见各字段注释；
-        /// **只有【文案】那几条是官方的**，其余标着【规则书】（非官方）或【推断】。</summary>
+        /// **【官方文案】那几条是原版的**，其余标着【规则书】（非官方）/【推断】/【自定】。</summary>
         public static GameplayVariables Skirmish
         {
             get
@@ -423,11 +423,11 @@ namespace RuleEngine
                 v.manaPerTurn = SkirmishManaPerTurn;                  // 【文案】+2 Maximum Energy each turn
                 v.startingManaSecond = SkirmishStartingManaSecond;    // 【推断】文案 P1 3 / P2 4 的那 1 点差
                 v.showMulligan = false;                               // 【文案】No mulligan
-                v.shouldReshuffle = false;                            // 【文案】No mulligan
-                v.assignDefensiveCardsInEditMode = true;              // 【文案】Random Defence card
+                v.shouldReshuffle = false;                            // 【推断】同族推断（不换牌 ⇒ 也不洗回）；`No mulligan` 讲的是换牌，不是本格
+                v.assignDefensiveCardsInEditMode = true;              // 【自定】占位（我们不读它；`Random Defence card` 那句**不是**本字段的证据）
                 v.handLimit = SkirmishHandLimit;                      // 【规则书:58，非官方】
                 v.startingHand = SkirmishStartingHand;                // 【规则书:58，非官方】
-                v.manaAccumulation = SkirmishManaAccumulation;        // 【规则书:60，非官方】
+                v.manaAccumulation = SkirmishManaAccumulation;        // 【官方文案】`Skirmish/Help`「accumulate 1 unused point」
                 // 🔴 **2026-10-25（用户口径 + 全量反编译）：冲突档 = 本开关 `true`。**
                 //    判据：`PlayerManager__AddQuestPoints.c:28,33,41` —— 任务点阈值 `false` ⇒ 3（`+0x2C`）/
                 //    `true` ⇒ 4（`+0x30`）；＋ `CardScript__FinishActiveAbility.c:11,13,19,21` ——
@@ -437,16 +437,16 @@ namespace RuleEngine
                 //    ⚠️ `ClosedDeck`（轮抽）是 `Skirmish.Clone()` ⇒ 会**跟着**拿到 `true`（原版真值查不到，如实标着）。
                 //    判据全文 → `资料/待办判据_祈祷信仰与任务点_1025b.md` §一 / §二·①。
                 v.alternativeTraitLogic = true;                       // 【用户口径 + 反编译】冲突档
-                // 🔴 **遭遇也有加时**（用户 2026-09-26 定案：先看错成「没有」，当天更正「是我搞错了」）。
-                //    ⚠️ **2026-10-20（`W58-TURN-A`）就地订正（铁律 5）**：上面那句「更早 —— 靠的就是同一个 10」
-                //    只在**按能量判**时成立（遭遇 `manaPerTurn = 2` + `manaAccumulation = 1` ⇒ 后手
-                //    `MaxEnergy` 走 **4 → 7 → 9 → 11**、第 4 个自己的回合就够 10）。
-                //    现在判据改回原版的**全局回合数**（`turnCounter >= overtimeTurn`）⇒ 它与经典一样落在
-                //    **全局第 10 回合**，`Overtime begins earlier` 那句**不再由这条机制复现**。
-                //    ⇒ 那条文案要成立，得是服务器给遭遇一个**更小的 `overtimeTurn` 真值**（**未解**，本地没有）。
+                // 🔴 **遭遇也有加时，而且比经典早**（用户 2026-09-26 定案：先看错成「没有」，当天更正「是我搞错了」）。
+                //    🔴 **2026-11-02（`B120-E08`）：阈值 = `SkirmishOvertimeTurn = 8`（经典 18）** —— 官方文案
+                //    `Event_Description/Skirmish/Help`「Overtime begins **earlier**」现在**由机制复现**（全局第 8 vs 第 18）；
+                //    判据/推导全过程 → `overtimeTurn` 字段注释（遭遇后手 `MaxEnergy` 4→7→9→11 ⇒ 第 4 个自己的回合 = 全局第 8）。
+                //    🔶 自己设计（非原版）：官方文案只说 `earlier`、**本地没有那个数字**（`I2Languages` 全表 + 规则书 + 场景资产都查过），
+                //    服务器那一份永远拿不到 ⇒ 取 8 让「更早」与同一套能量规则同时成立；调度台 2026-11-02 裁定（铁律 18·0）。
+                //    ⚠️ **2026-10-20（`W58-TURN-A`）那段**「两个模式都落在全局第 10 回合、文案不再由机制复现」**已作废** ——
                 //    ⛔ 这里一度被改成 `null`（「遭遇没有加时」）—— 那是照用户**当时看错的一次观察**改的，
                 //    用户当天已更正「是我搞错了」。全过程留痕 → `overtimeTurn` 字段的注释。
-                v.overtimeTurn = ClassicOvertimeTurn;               // 【推断】值是 10，见上
+                v.overtimeTurn = SkirmishOvertimeTurn;              // 🔶 自己设计 8（经典 18），判据见 `overtimeTurn` 字段注释
                 _skirmish = v;
                 return _skirmish;
             }
@@ -518,7 +518,7 @@ namespace RuleEngine
         /// <item>`assignDefensiveCardsInEditMode = true` —— 原版【文案】`Random Defence card`
         ///   （⚠️ 该文案**不是**这个字段的证据，见字段自己的注释；且我们只读不实现）。</item>
         /// <item>`handLimit = 8` · `startingHand = 4` · `manaAccumulation = 1` —— 【规则书，**非官方**】。</item>
-        /// <item>`overtimeTurn = 10` —— 【推断】（本地没有真值，见字段注释）。</item>
+        /// <item>`overtimeTurn = 8` —— 克隆 `Skirmish` 所得（经典 18 / 遭遇 8，判据见字段注释）。</item>
         /// <item>`addedManaSecond = 0` · `manaBonusSeat0/1 = 0` · `slotsPerSide = 9` ·
         ///   `numberOfCopies*` / `drawCardsPerTurn` / `secondExtraCards = 1` —— 本地缺省（与经典同值）。</item>
         /// </list>

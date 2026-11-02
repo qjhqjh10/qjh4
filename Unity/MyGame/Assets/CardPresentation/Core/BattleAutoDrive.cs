@@ -427,7 +427,7 @@ public class BattleAutoDrive : MonoBehaviour
         // 🔴 **闭环拖到位** —— 别用「世界→屏幕」开环算。
         //    实测开环会差 **~0.78 世界单位**（84 px）：我给的屏幕坐标和
         //    `LayoutSpace.ScreenToWorld` 那个往返换算**不严丝合缝**，而卡最终停在
-        //    `指针 + _grabOffset`，差一点就被 `ResolveDrop` 判「落点不合法」⇒ 回弹。
+        //    `指针 + _dragTargetOffset`（2026-11-02 `B120-W1` 改名；原 `_grabOffset` 已删），差一点就被 `ResolveDrop` 判「落点不合法」⇒ 回弹。
         //    闭环（按**卡的残差**反过来修指针）不依赖那个换算，人也正是这么拖的：看着卡，挪鼠标，直到它到位。
         Vector3 pointer = to;
         int frames = 0;

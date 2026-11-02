@@ -490,8 +490,8 @@ namespace CardPresentation
             //    🔴 **2026-10-16（`T09` 批 2）**：那一对「先按贴图比例建、再 `SetAspect(648.1/52.4)` 盖掉」
             //    在 uGUI 档里**折成一个显式的 `sizeDelta`**（`ImageInParent` 的 w/h 参）—— 最终矩形
             //    **逐位不变**（648.1×52.4 = `52.4 × 648.1/52.4`）。
-            _skullPlate = ImageInParent(_skullRow, CardArt.Ui("40k_main_bt_nametag"), "skull_plate",
-                                        0f, 0f, 648.1f, 52.4f, BattleDoors.ZContent);
+            _skullPlate = SkullPlateImage(_skullRow, CardArt.Ui("40k_main_bt_nametag"));   // 🆕 2026-11-02（`B120-W3` · 账 `B-9`）：原版 `Image` 就挂在 `SkullsHolder` **自己身上**（`MB_4938` 的 `m_GameObject` = GO 391），⛔ 不是子节点
+            //   ⛔ 别改回「子节点 `skull_plate`」—— 那是**多出来的第 1 颗节点**（尺寸/贴图/PA 全对，画面逐像素相同）。连带要改的断言 → 报告 §B-9
             var skullTex = CardArt.Ui("40k_battle_Win_Skull");
             // 🔴🔴 **2026-10-24（`A28`）就地订正（铁律 5）**：这一段原来两条都不对 ——
             //   ① 宽按**贴图比例**算（`71.2 × 66/73 = 64.373`）；② 间距 `12` 是**我们自己挑的**（原版没有 12）。
@@ -1311,15 +1311,15 @@ namespace CardPresentation
         /// <summary>喂本局的评分（原版 `EndBattleDoors__ShowRewards` 的评分那一半）。
         /// <para>**显隐照原版**：`EarnedRating != 0` 才亮；文字 = `EarnedSeals != 0 ? EarnedSeals : EarnedRating`；
         /// 任一为负 ⇒ 红。</para>
-        /// <para>⚠️ **未接的两支**（⛔ 别当成已复刻）：① 印记那一支的图 `Rank Skull_0` 本地没有 ⇒ 仍用奖杯图；
-        /// ② `ArmyIcon` 的图来自 liveops/`ArmyUtilities` ⇒ 恒不激活（原版序列化也是关着的）。</para></summary>
+        /// <para>✅ 2026-11-02（`B120-W3` · 账 `B-10`）：**印记那一支已接** —— `EarnedSeals != 0` ⇒ `ApplyRatingIcon()`
+        /// 换 `sealIconSprite`；⚠️ 那张图（`Rank Skull_0`）**本地仍没有** ⇒ 图这一半保持奖杯 + 出声一次；② `ArmyIcon` 的图来自 liveops/`ArmyUtilities` ⇒ 恒不激活（原版序列化也是关着的）。</para></summary>
         public void SetRating(int earnedRating, int earnedSeals = 0)
         {
             _rating = earnedRating;
             _seals = earnedSeals;
             if (_ratingText != null)
             {
-                _ratingText.SetText((_seals != 0 ? _seals : _rating).ToString());
+                _ratingText.SetText((_seals != 0 ? _seals : _rating).ToString()); ApplyRatingIcon();   // 🆕 2026-11-02（`B120-W3` · 账 `B-10`）：`EarnedSeals != 0` ⇒ 图标换 `sealIconSprite`（原版 `EndBattleDoors__ShowRewards.c:104-160`）
                 _ratingText.SetColor(_rating < 0 || _seals < 0 ? RatingLoseColor : Color.white);   // 🔶 见 `RatingLoseColor`
                 ApplyRatingFontSpec();
             }
@@ -1379,6 +1379,76 @@ namespace CardPresentation
             _allRewardsGroup.alpha = p;
             if (p >= 1f) _rewardsFadeT = -1f;
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B120-W3`）：账 `B-9`（骷髅行底板挂父节点）· `B-10`（印记 seals 那一支）
+        //  ⛔ 追加在类尾（本文件被账按 `文件:行号` 引用，插在中间会整片漂）
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>`SkullsHolder` 那条底板 —— **`Image` 直接挂在容器自己身上**（账 `B-9`）。
+        /// <para>判据（🥇 解包现读）：`EndBattlePanel/AllRewardsHolder/SkullsHolder` 的
+        /// `Image` = `MB_4938`，它的 `m_GameObject` 就是 **GO 391 = `SkullsHolder` 本身**（同一个
+        /// `RectTransform` `RT_2616`，`m_SizeDelta 648.1×52.4`、`m_Type 0` Simple、`m_PreserveAspect 0` ⇒ 拉满）。
+        /// ⇒ 我们原来那版在它下面又建了一颗 `skull_plate` 子节点，**多一层节点**（画面逐像素相同）。</para>
+        /// <para>⚠️ 贴图取不到 ⇒ 出声、返回 `null`（与旧 `ImageInParent` 同一条：不建件）。</para></summary>
+        static HudPiece SkullPlateImage(Transform holder, Texture2D tex)
+        {
+            if (holder == null) return null;
+            if (tex == null)
+            {
+                Debug.LogError("[EndPanel] 骷髅行底板 `40k_main_bt_nametag` 取不到 ⇒ 那一条长底板不画（⛔ 不静默）");
+                return null;
+            }
+            var go = holder.gameObject;
+            var img = go.GetComponent<UnityEngine.UI.Image>();
+            if (img == null) img = go.AddComponent<UnityEngine.UI.Image>();
+            img.sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+            img.color = Color.white;
+            img.preserveAspect = false;     // 原版 `m_PreserveAspect = 0` ⇒ 拉满 648.1×52.4
+            img.raycastTarget = false;      // 原版这一件不吃点击（点行命中的是 `BG` 那块，见 `BattleLogPanel`）
+            return HudPiece.Of((RectTransform)holder, img);
+        }
+
+        /// <summary>本局印记图标（原版 `EndBattleDoors.sealIconSprite`，`ShowRewards.c` 用 `param_1+0x38` 那个字段）。
+        /// <para>⚠️ **2026-11-02 订正（`B120-W9`）**：原版这份是 `Rank Skull_0`（guid `9bcbe305…`）的独立 native sprite；
+        /// 它**已从原版图集切出并导入**（`Resources/Art/ui_menu/Rank_Skull_0.png`，rect 1720,1916,128×128）。
+        /// 与 `Rank_Skull` 的 guid 不同、但**像素逐点相同**（同一张图集的两个 sprite 槽）⇒ 观感无差。
+        /// 仍需一次 Unity 导入确认 `Resources.Load` 能取到（判 `CardArt.NoteMissing` 不再出声）。</para></summary>
+        static Texture2D SealIcon()
+        {
+            return CardArt.MenuUi("Rank_Skull_0");
+        }
+
+        /// <summary>按 `EarnedSeals` 选图标 —— 原版 `EndBattleDoors__ShowRewards.c:104-160` 的印记那一支：
+        /// `EarnedSeals != 0` ⇒ `ratingIcon.sprite = sealIconSprite`（数字同时换成 `EarnedSeals`，那一半在
+        /// <see cref="SetRating"/> 里）。`EarnedSeals == 0` ⇒ 保持奖杯图（原版不换）。
+        /// <para>⚠️ 图取不到 ⇒ **出声一次** + 保持奖杯图（⛔ 不静默、也⛔ 不拿别的图冒充）。</para></summary>
+        void ApplyRatingIcon()
+        {
+            if (_trophy == null) return;
+            if (_trophyBaseTex == null) _trophyBaseTex = _trophy.Texture as Texture2D;   // 先记下奖杯那张（`SetTexture` 会把它换掉）
+            if (_seals == 0)
+            {
+                if (_trophyBaseTex != null) _trophy.SetTexture(_trophyBaseTex);
+                return;
+            }
+            if (!_sealLookupDone)
+            {
+                _sealLookupDone = true;
+                _sealTex = SealIcon();
+                if (_sealTex == null)
+                    Debug.LogWarning("[EndPanel] 印记图标 `Rank Skull_0` 本地不存在（原版那份是独立 native sprite）"
+                                   + " ⇒ `EarnedSeals != 0` 时数字换对了、**图标仍用奖杯**。⛔ 不拿 `Rank_Skull` 顶（那是另一张）。");
+            }
+            if (_sealTex != null) _trophy.SetTexture(_sealTex);
+        }
+
+        /// <summary>奖杯那一格的原图（`EarnedSeals == 0` 时换回来）。</summary>
+        Texture2D _trophyBaseTex;
+        /// <summary>印记图标（`null` = 本地没有 / 还没查过）。</summary>
+        Texture2D _sealTex;
+        /// <summary>`SealIcon()` 只查一次（缺件会出声一次，⛔ 不每局刷）。</summary>
+        bool _sealLookupDone;
 
 #if UNITY_EDITOR
         //  ── 🆕 2026-11-02（`B117_G10_19`）：Editor-only 只读探针（断言在 `Editor/B117_G10_19_Assert.cs`）──

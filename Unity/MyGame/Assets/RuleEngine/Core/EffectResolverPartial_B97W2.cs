@@ -285,9 +285,9 @@ namespace RuleEngine
                 //  按 `GetTrait(trait).+0x24` 三档合并 `traitValue(+0x40)`：**0 ⇒ Max**（`.c:529`）·
                 //  **10 ⇒ 相加**（`.c:541`）·  **0x14(20) ⇒ 计数 +1**（`.c:549`）；
                 //  找不到才 `List.Add` + `AddTraitSilently(this, trait, traitValue)`（`.c:567-568`）。
-                //  ⇒ 我们的等价位 = **`UnitState.AddKeyword(DefinedTraitName(trait), traitValue)`**（trait 值那一本账）。
-                //  ⚠️ 三档合并方式（Max / 相加 / 计数+1）由 `CardTraitCollection` 的**静态表**决定，本仓**没有**那张表
-                //     ⇒ 交给 `AddKeyword` 自己的既有合并口径（⛔ 不在这里猜某一档）；如实记在报告里。
+                //  ⇒ 我们的等价位 = **`UnitState.ApplyTraitEffect(…)`**（记录账 + 合并 + 落到 `_keywords`）—— 改前只调
+                //     `AddKeyword`（**D118-77**：结构化 buff 路的 addTrait 在记录账上不存在 ⇒ 到期 / 按来源撤 / `AnyEffectGrantsTrait` 全失效）。
+                //     ⚠️ 三档合并（Max/相加/计数+1）本仓没有 `CardTraitCollection` 静态表 ⇒ 交给 `TraitStackTypeOf`（只写死 `markOfChaos=count`）。
                 case 3: case 90:   // 🆕 2026-11-02（`B116_W8` · ENG-11）：`90 addTraitRemnant` 在**原版就是同一个体**（`CardScript__AddEffect.c:220` `if (iVar16 == 0x5a) goto switchD_1805e5668_caseD_3;` ⇒ 直接跳进 `case 3` 那段），⛔ 别另写第二份
                 {
                     string kw = CardDef.DefinedTraitName(b.Trait);
@@ -298,7 +298,7 @@ namespace RuleEngine
                         if (unresolved != null) unresolved.Add($"{who}（trait {b.Trait} 认不出）");
                         return false;
                     }
-                    bool added = target.AddKeyword(kw, b.TraitValue);
+                    bool added = ApplyAddTraitRecordRow(target, b, kw, who);   // 🔴 2026-11-03（`B120-W7` · `D118-77`）：值 > 0 走**记录原语** `UnitState.ApplyTraitEffect`（= 原版 `activeEffects(+0x108)` 那一条记录 + 合并 + 落到 `_keywords`）；`traitValue <= 0`（空给）保持 `AddKeyword`（与文本 op 路 `ApplyOneGain` 同一口径）⇒ **净关键词增量与改前逐字相同**，多的只是记录账。判据全文 → `RuleEngine/Core/RuleCorePartial_B120W7.cs` 的方法头
                     ctx.Log($"{who}：「{target.Name}」的 `{(b.BuffType == 90 ? "addTraitRemnant(90)" : "addTrait(3)")}` ⇒ `{kw}` {b.TraitValue}"
                           + (added ? "" : " —— **没挂上**（`AddKeyword` 拒收，见它的闸）")
                           + "（原版 `CardScript__AddEffect.c:460-679` → `AddTraitSilently`）");

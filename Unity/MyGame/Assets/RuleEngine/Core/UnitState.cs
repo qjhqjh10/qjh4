@@ -1116,8 +1116,8 @@ namespace RuleEngine
         /// 它原来与 `AddAuraKeyword` 各写一份（光环那份漏了 `blind` 与攻击型两条）。
         /// 🔴 **2026-10-09（`A1106`）**：原来这里是**三个**（多一个 `shield`）—— `shield` 已从
         ///    `SyncKeywordState` 里**删掉**：`HasShield` 改成读关键词的**派生属性**，不需要也不许
-        ///    再有第二处同步（见 <see cref="HasShield"/> 的注释）。</summary>
-        public bool AddKeyword(string keyword, int value)
+        ///    再有第二处同步（见 <see cref="HasShield"/> 的注释）。🆕 **2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）`silent`** = 原版 `CardScript.AddTraitSilently` 的等价位 —— **只改状态、不置「图标脏」**（原版那 4 类刻意不刷 trait 图标：`AddTraitSilently` / `RemoveTraitSilently` / `SetBaseCardTraits` / `SetTraitsOnPlayAttackingStatus`；判据 = `decomp_full` 全量 xref：`UpdateTraitIcons` 有 14 个调用方 / 18 处调用点，而这 4 类自己一处都不调）。⚠️ 缺省 `false` = 老行为 + 多一次 `TraitRev++`（零行为变化，见类尾 <see cref="TraitRev"/>）。</summary>
+        public bool AddKeyword(string keyword, int value, bool silent = false)
         {
             if (string.IsNullOrEmpty(keyword)) return false;
 
@@ -1192,7 +1192,7 @@ namespace RuleEngine
             //    ⛔ 别顺手把 `ferocity`/`oath` 也接上 —— 它们抬 `canAct` 的那一次是
             //       `ActivateMinion` 里的**第二写点**（部署那一刻求值），不是「加词就抬」。
             if (keyword == "fast" || keyword == "flank") RuleCore.RecomputeActAndAttack(this);
-            return true;
+            if (!silent) TraitRev++; return true;   // 🔴 2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）：**非静默写 = 一个「刷新点」**（原版这些调用方同方法/同链里都跟一次 `UpdateTraitIcons`/`UpdateFigures`）⇒ 置「图标脏」<see cref="TraitRev"/>；`silent: true` 那一档 ⛔ 不动它（原版 `AddTraitSilently` 自己一处都不刷）。同一物理行追加 ⇒ 行数零变化（本文件下游有账的 A 行落点）
         }
 
         /// <summary>
@@ -1254,7 +1254,7 @@ namespace RuleEngine
             int now = RawKw(keyword) - value;
             if (now > 0)
             {
-                _keywords[keyword] = now;
+                _keywords[keyword] = now; TraitRev++;   // 🔴 2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）：减一层也是「非静默写」⇒ 置脏（整份摘掉那一支由 `RemoveAll` 末尾置，⛔ 别在这里重复加）。同一物理行追加 ⇒ 行数零变化
                 // 🔴 **2026-10-19（`T01 §六·6`②）：护甲的【反方向】也要同步。**
                 //   改前这一支只动 `_keywords`、不动 `Armor`（`AddKeyword` 走
                 //   `SyncKeywordState` 会把字段一起加上，减这一半却没人补）——
@@ -1325,7 +1325,7 @@ namespace RuleEngine
             //      `RuleCore.RecomputeActAndAttack` 的 doc 末段）。
             // 🔴 **2026-10-26（第 4 轮 · `F3`）：`silent` 唯一生效的地方就是这一行** ——
             //    `silent = true` = 原版 `RemoveTraitSilently`（**不重算**，`canAct`/`canAttack` 停在旧值）。
-            if (!silent && (keyword == "fast" || keyword == "flank")) RuleCore.RecomputeActAndAttack(this);
+            if (!silent && (keyword == "fast" || keyword == "flank")) RuleCore.RecomputeActAndAttack(this); if (!silent) TraitRev++;   // 🔴 2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）：非静默摘 = 刷新点（同 `AddKeyword` 那一行）；`silent: true` = 原版 `RemoveTraitSilently`（4 类不刷之一）⇒ ⛔ 不置脏。同一物理行追加 ⇒ 行数零变化
         }
 
         // ---- 关键词「带出来的」属性增益 ----------------------------------
@@ -1535,7 +1535,7 @@ namespace RuleEngine
         public void AddAuraKeyword(string keyword, int value)
         {
             if (string.IsNullOrEmpty(keyword) || value <= 0) return;
-            _keywords[keyword] = RawKw(keyword) + value;
+            _keywords[keyword] = RawKw(keyword) + value; TraitRev++;   // 🔴 2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）：光环授予 = 非静默写（`Auras.Recompose` 每轮重挂会各置一次脏 ⇒ 与今天「每拍重推」等价的重建频率，⛔ 不是自设计）。同一物理行追加 ⇒ 行数零变化
             _auraKw[keyword] = AuraKwValue(keyword) + value; if (!_auraKwSeq.ContainsKey(keyword)) _auraKwSeq[keyword] = NextEffectSeq();   // 🆕 2026-10-29（`B97_US2` · S2）：光环给的关键词留一枚稳定序戳（`ClearAuraGrants` 重算后**不换戳** ⇒ 出表顺序不跳队尾）
 
             // ⚠️ 和 `AddKeyword` 一样**必须同步状态字段** —— 引擎别处是按字段结算的，
@@ -1564,7 +1564,7 @@ namespace RuleEngine
                     int n = kv.Value;
                     int now = RawKw(kw) - n;
                     if (now > 0) _keywords[kw] = now;
-                    else _keywords.Remove(kw);
+                    else _keywords.Remove(kw); TraitRev++;   // 🔴 2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）：光环收回也要置脏（这一本账是**直接改字典**的，不走 `RemoveAll`）⇒ 否则「光环没了、图标还挂着」会停到下一次别的 trait 写为止。同一物理行追加 ⇒ 行数零变化
                     if (kw == KeywordTable.Armour) Armor = System.Math.Max(0, Armor - n);
                     // 🔴🆕 2026-10-25（第 9 段）：**光环这一本账是直接改字典的**（不走 `RemoveAll`），
                     //   所以 `fast`/`flank` 被光环收回时**也要**重算「能动 / 能攻击」——
@@ -2292,7 +2292,7 @@ namespace RuleEngine
                 {
                     string kw = kv.Key;
                     int left = RawKw(kw) - kv.Value;
-                    if (left > 0) _keywords[kw] = left; else _keywords.Remove(kw);
+                    if (left > 0) _keywords[kw] = left; else _keywords.Remove(kw); TraitRev++;   // 🔴 2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）：同 `ClearAuraGrants` —— 光环收回是直接改字典，必须自己置脏。同一物理行追加 ⇒ 行数零变化
                     if (kw == KeywordTable.Armour) Armor = System.Math.Max(0, Armor - kv.Value);
                     if (kw == "fast" || kw == "flank") needActRecompute = true;
                 }
@@ -2641,7 +2641,7 @@ namespace RuleEngine
                 AttackBase = card.Attack;
                 RangedAttackBase = card.RangedAttack;
                 _keywords.Clear();
-                foreach (var kv in card.Keywords) _keywords[kv.Key] = kv.Value; _baseTraitsStripped = false;   // 🔴 2026-11-02（`B116_W19`）：原版 `.c:154 SetBaseCardTraits()` 把 `cardTraits` **重新灌**回 `+0x128` ⇒ jam 那次摘掉的卡面 trait 在这里回来（见类尾 `HasCurrentTrait`）
+                foreach (var kv in card.Keywords) _keywords[kv.Key] = kv.Value; _baseTraitsStripped = false; TraitRev++;   // 🔴 2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）：原版 `SetBaseCardTraits`（4 类不刷之三）**自己不刷**，但它的两个调用点 `CardSetup.c:194` / `ResetToValuesInHand.c:163` **各自跟一次 `UpdateFigures`** ⇒ 净结果是「刷」；本行就是那条刷新点（整表重建必须置脏）。同一物理行追加 ⇒ 行数零变化   // 🔴 2026-11-02（`B116_W19`）：原版 `.c:154 SetBaseCardTraits()` 把 `cardTraits` **重新灌**回 `+0x128` ⇒ jam 那次摘掉的卡面 trait 在这里回来（见类尾 `HasCurrentTrait`）
                 Armor = KwValue(KeywordTable.Armour);
             }
             Health = MaxHealth;            // currentHealth = currentMaxHealthProcessed
@@ -4389,5 +4389,42 @@ namespace RuleEngine
             if (Card == null || !Card.HasDefaultTrait(trait, out _)) return false;   // `cardTraits` 列
             return !HasRemovedTrait(trait);                                  // 曾被 `removeTrait` 摘掉 ⇒ 已不在当前表里
         }
+
+        // ================================================================================================
+        //  🆕 2026-11-02（执行写手 `B120-W20` · 账 `D118-80`）：**trait 图标的「脏」信号**
+        //
+        //  【原版判据（本次现扫 `d:/2/tools/decomp_full` 全量 xref）】`CardScript.UpdateTraitIcons()` 有
+        //    **14 个调用方方法 / 18 处调用点**（`SetAmbush` · `ResolveCardPlayed` · `ResolveActiveAbilityPlayed`×2 ·
+        //    `CheckReplacedAbility` · `OnTurnEnd` · `UpdateFigures` · `RemoveEffect`×2 · `RemoveTrait` · `Stun` ·
+        //    `RemoveCostEffects` · `RemoveBuffHandCostEffects` · `AddEffect`×3 · `ReactToUnitJammed`×2 ·
+        //    `BattleCardUI.SetObjectVisibility`），而**4 类方法自己一处都不调**：
+        //    ① `AddTraitSilently` · ② `RemoveTraitSilently` · ③ `SetBaseCardTraits` · ④ `SetTraitsOnPlayAttackingStatus`。
+        //  【我们原来的模型】引擎侧**根本没有「刷新/不刷新」这个信号** —— 刷新只在表现层
+        //    （`CardView.SetBadges`，由 `BattleDriver.SyncBoard` **每拍重推 `SetData`** 触发）⇒ 「单口 + 每拍重推」。
+        //  【本口的作用】给它一条**引擎侧信号**：`TraitRev` 只被「非静默写」+1，`silent` 档不动
+        //    ⇒ 表现层 `CardView.SetBadgesDirtyAware(badges, rev)` 据此决定「重建 / 幂等短路」。
+        //    判据里的 4 类不刷 = 我们的 `silent` 档；其余（`AddEffect` 系列 / `RemoveEffect` / `Stun` / jam …
+        //    在原版**同方法或同链里都跟一次** `UpdateTraitIcons`/`UpdateFigures`）⇒ 净结果是「刷」= 非静默。
+        //
+        //  ⚠️ **为什么不是逐处复刻 18 个调用点**：我们的刷新是「每拍从 `UnitState` 重新派生」
+        //    （`Badges.For(u.Keywords, …)`），没有「增量重建某个图标」这件事可仿 —— 逐处复刻会变成
+        //    18 个 `bool` 而没有第二个消费者（死代码）。⇒ 取「写 = 刷新点」这个**超集近似**，
+        //    唯一与原始时序不同的两个特例（`ResolveDamageDealt.c:187` 低血 invulnerable ·
+        //    `TransformIntoRemnant.c:74`）已由 `B120-W7` 现核为「幂等 / 走视图重建」，如实记在报告里。
+        //
+        //  ⚠️ **追加在类尾**（`账/*.tsv` 按 `文件:行号` 引，插中间就漂）。
+        // ================================================================================================
+        /// <summary>**trait 变化修订号** —— 只有「非静默写」才 +1（<see cref="AddKeyword"/> 的 `silent` 档 /
+        /// <see cref="RemoveAll"/> 的 `silent: true` 档都不动它）。
+        /// <para>表现层的唯一消费者 = `CardData.traitRev`（`BattleDriver.ToCardData` 那一侧接线）→
+        /// `CardView.SetBadgesDirtyAware`。⚠️ 值是**单调递增**的、含义只是「和上次看到的不一样」——
+        /// ⛔ 别拿它当「改了几个 trait」用。</para></summary>
+        public int TraitRev { get; private set; }
+
+        /// <summary>显式置一次「图标脏」—— 给**不经过 <see cref="AddKeyword"/>/<see cref="RemoveAll"/>
+        /// 却需要刷新**的那几处用（今天唯一候选 = `RuleCore.cs:9118` 的低血 invulnerable：
+        /// 原版 `ResolveDamageDealt.c:187` 用 `AddTraitSilently` 且**整份 `.c` 里 0 次 `UpdateTraitIcons`**
+        /// ⇒ 它自己不该置脏；反过来说，凡**要**刷而不走上面两个口的地方，就在这里显式置一次）。</summary>
+        public void MarkTraitIconsDirty() { TraitRev++; }
     }
 }

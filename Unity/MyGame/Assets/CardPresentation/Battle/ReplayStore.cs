@@ -83,6 +83,21 @@
 //   · ⚠️ **这不是结算语义变化**：同一串动作在新引擎里算出的**局面**与 3 版相同。但**不升版本**的话，
 //     玩家看到的是「回放第 0 条就 break + 一堆红字」而不是一句「版本不认」⇒ 升版本是更诚实的那一档。
 //
+// 🔴 **2026-11-03（执行写手 `B120-W7` · 活状态表 `B120-E01`）：4 → 5** —— 这一次是**真·结算语义变化**：
+//   · 装载口 `DeckBuilder.FromDeck` 把**牌库段倒序**（判据 = 原版 `BattleCardManager__CreateDeck.c:27-70`
+//     按 `deckData` **原序** append + `SetActive(go, i == 0)` ⇒ 下标 0 = 顶；`BattleManager__DrawCardFromDeck.c:27`
+//     取 `List__get_Item(deck, 0)`）。改前我们正序装载、`MoveDeckTopToHand` 取 `Count-1` ⇒ **整副倒着抽**。
+//   · ⇒ **同一 `seed` 下洗出来的整副牌都换了一个排列**，`shuffle: false` 的局更是逐张反序 ⇒
+//     旧档放出来**必然**在第一条动作之后就开始分叉（`trace` / `finalHash` 会如实报，不是静默）。
+//   · 🔴 **为什么是整版 +1，而不是加一个 `deckOrderReversed` 字段做双路装载**（这是本批的裁定，别翻案）：
+//     ① 本文件头部那条规矩写的就是「改结构**或改结算语义**就 +1」，这一批正落在后半句；
+//     ② 双路装载 = **同一件事两条代码路径**（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」），
+//        而且老档即使倒序喂回去也**未必**演得对（`trace` 那本账在 3→4 时已经换过尺子，见上一条）；
+//     ③ 代价可控：本机录像上限 `MaxKept = 50`、纯本地开发产物、**没有跨机器的存量**，
+//        用户侧不存在「升级即丢档」的外部影响。
+//     ⇒ 代价如实记：**升级那一刻起，之前录的全部录像不可播**（列表里仍在，点了会打一条带完整路径的
+//        `[Replay] 版本 N 不认识（本代码只认 5）⇒ 不播` 警告）。
+//
 // **旧版本怎么处理（现有逻辑，一字未改）**：`Load` 拿 `rec.version` 比 `new ReplayRecord().version`，
 // 不等就 `Debug.LogWarning("[Replay] 版本 N 不认识（本代码只认 M）⇒ 不播：<完整路径>")`
 // 并返回 **null**；`BattleDriver.PlayReplay(fileName)` 拿到 null 直接 `return false`，
@@ -111,8 +126,12 @@ namespace CardPresentation
         /// 手牌上限时机 · `Gain N Energy` · 广播预调 · 删掉回合开始自动揭示伏击）⇒ 旧档同样会演成另一局。
         /// 🔴 **2026-10-23（引擎线「新账-88」）：3 → 4** —— **对账的尺子换了**（`DeepHash` 改稳定哈希 +
         /// `StateHash` 补维度）⇒ 旧档会在第 0 条报分叉、末了报「不是同一局」。**不代表旧档演错了**。
+        /// 🔴 **2026-11-03（执行写手 `B120-W7` · 活状态表 `B120-E01`）：4 → 5** —— **结算语义变了**：
+        /// 装载口 `DeckBuilder.FromDeck` 把**牌库段倒序**（判据 = 原版 `BattleCardManager__CreateDeck.c:27-70`
+        /// 保序 + `SetActive(i == 0)`、`BattleManager__DrawCardFromDeck.c:27` 取 `List[0]`）⇒
+        /// **同一 seed 下整副牌的抽牌顺序都变了**，旧档放出来必然演成另一局。
         /// 完整清单与「旧版怎么被拒」→ **本文件头部「版本」那一节**（判据只写一份，⛔ 别在这里抄第二份）。</summary>
-        public int version = 4;
+        public int version = 5;
         /// <summary>存盘时刻（`yyyy-MM-dd HH:mm:ss`，**本地时间**，只给人看）。</summary>
         public string savedAt = "";
         /// <summary>本机那局的座位（**绝对编号**）—— 放的时候要 `FromStart(start, isHost: mySeat == 0)`。</summary>
@@ -361,7 +380,7 @@ namespace CardPresentation
         // 🔴 **我们这一侧的映射（如实标注：这不是原版，是等价物）**：我们没有服务端，判据是**本地录像文件名**
         //   （`BattleLogData.Match.ReplayFile`）⇒「没有」= **`null` / 空串**；另外把原版那个哨兵 `"-1"`
         //   **一并认**（将来若从远端拿回真的 `replaysVersion`，直接喂进来即可）。
-        //   ⛔ **别把 `ReplayRecord.version`（文件格式版本，现读 4）当这一格** —— 两件事，
+        //   ⛔ **别把 `ReplayRecord.version`（文件格式版本，现读 5）当这一格** —— 两件事，
         //     `C5_引擎战斗剩余判据.md` Q5.3 明写「别把两条账混在一起」。
         //   ⚠️ 「灰」的落地：原版那颗钮 `m_Transition = 2 (SpriteSwap)`，`m_SpriteState.m_DisabledSprite`
         //     **有值**（pid `5693181797853584851`，与 `m_SelectedSprite` 同一颗）——

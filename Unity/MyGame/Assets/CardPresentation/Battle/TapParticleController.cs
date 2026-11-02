@@ -18,10 +18,10 @@
 //   ⑦ **`!Input.GetMouseButtonDown(0)` ⇒ return（按下沿，不是松手）**
 //   ⑧ `Camera.main` 取不到 ⇒ return
 //   ⑨ `ray = cam.ScreenPointToRay(mousePosition)`
-//   ⑩ **`Physics.RaycastNonAlloc(ray, hits[3], float.MaxValue, 0x40000C01)`**（本工程掩码含 bit8 ⇒ `0x40000D01`，见常量处）
+//   ⑩ **`Physics.RaycastNonAlloc(ray, hits[3], float.MaxValue, 0x40000C01)`**（原版 mask **本来含 bit10 = 卡**；本工程再加 bit8 ⇒ `0x40000D01`，见常量处）
 //   ⑪ `n < 1` ⇒ return
 //   ⑫ 挑 **`hit.distance` 最小**那条（`RaycastNonAlloc` 不排序）；**不按组件过滤**
-//   ⑬ 那条身上的 `TapHitMaterialDefinition`；**取不到 ⇒ return（⛔ 不顺延到下一条）**
+//   ⑬ 那条身上的 `TapHitMaterialDefinition`；**取不到 ⇒ return（⛔ 不顺延到下一条）** ⇒ **点到卡 = 白点一下、不穿到地面**（卡在层 10、离相机更近，见常量处）
 //   ⑭ 冷却闸 → `PlayParticle(hit.point, hit.normal, def.targetAnchor)` → 置冷却
 //   另：`Initialize()` 里 `enabled = (matchType != Tutorial(100))` —— **只有教程局整件关掉**。
 //
@@ -32,7 +32,7 @@
 //   · ⛔ **不要给死字段补逻辑**（`useTargetAnchor` / `instancedParticle`）。
 //   · 掩码 = **`0x40000C01`**（`1073744897`，13/13 场景序列化同值）= layer 0 `Default` + **10 `BoardElements`**
 //     + **11 `BoardCardLimit`** + 30 `GroundCollider` ⇒ **棋盘那颗 `CardLowBoardLimit`（layer 11）是【打得到】的**。
-//     🔴 2026-11-02 订正：原来写「`0x40000001` = 0+30，打不到棋盘」是**十进制算错**；另**本工程加了 bit8**（见常量处 🔶）。
+//     🔴 2026-11-02 订正：原来写「`0x40000001` = 0+30，打不到棋盘」是**十进制算错**；另**本工程加了 bit8**（见常量处 🔶）· **bit10 是原版本来就有的** ⇒ 点卡会命中卡（`hits[0]`）、卡身上无定义 ⇒ **整天不播地面反馈**（照原版，⛔ 别把 10 去掉让它「穿过去」）。
 //
 // 【与 `BattleDriver` 的接口（只读，不共享边沿）】
 //   · `BattleDriver.Ctx.MatchType` / `Ctx.IsOver` / `InMulligan` —— 对局模式与战斗阶段那两道闸
@@ -57,9 +57,9 @@ namespace CardPresentation
     [DisallowMultipleComponent]
     public class TapParticleController : MonoBehaviour
     {
-        /// <summary>原版 `collisionMask.m_Bits = 1073744897` = **`0x40000C01`**（13 场景逐份同值）= layer **0** `Default` + **10** `BoardElements` + **11** `BoardCardLimit` + **30** `GroundCollider`（原版 `TagManager`）。
-        /// 🔶 自己设计（非原版）：**本工程再把 bit8 `ArenaSlots.ArenaLayer` 加进来**（= `0x40000D01`）—— 原版把场上道具/棋盘分在 0/10/11 三层，而我们的 arena prefab 整树刷 `ArenaLayer(8)`（`ArenaBuilder.BuildOneArenaPrefab`），原版那套 0/11 在本地渲不出来 ⇒ 掩码必须认 8，否则 **165 条 tap 宿主一条都命不中**（产物实测 165/165 都是 layer 8）· 调度台 2026-11-02 裁定</summary>
-        public const int CollisionMask = 0x40000D01;
+        /// <summary>原版 `collisionMask.m_Bits = 1073744897` = **`0x40000C01`**（13 场景逐份同值）= layer **0** `Default` + **10** `BoardElements`（= **棋盘上的卡**，`ArenaSlots.BoardCardLayer`）+ **11** `BoardCardLimit` + **30** `GroundCollider`（原版 `TagManager`）。⚠️ **bit10 原版就在** ⇒ 点到卡时 `hits[0]` 是卡、卡上没定义 ⇒ **整天不播地面反馈**（闸⑬；⛔ 别去掉 10 让它「穿到地面」）。
+        /// 🔶 自己设计（非原版）：**本工程再把 bit8 `ArenaSlots.ArenaLayer` 加进来**（= `0x40000D01`）—— 原版把场上道具/棋盘分在 0/10/11 三层，而我们的 arena prefab 整树刷 `ArenaLayer(8)`（`ArenaBuilder.BuildOneArenaPrefab`），原版那套 0/10/11 在本地画不出来 ⇒ 掩码必须认 8，否则 **165 条 tap 宿主一条都命不中**（产物实测 165/165 都是 layer 8）· 调度台 2026-11-02 裁定。⚠️ 卡从层 8 迁到 10 之后这条**两边的位都得留**（8 = arena 地面/背景，10 = 卡）</summary>
+        public const int CollisionMask = 0x40000D01 | (1 << ArenaSlots.BoardCardLayer);   // bit10 数值上本来就在（原版 mask 含它）；显式绑定 `BoardCardLayer` ⇒ 层号迁移后不会被误删
 
         /// <summary>原版 `new RaycastHit[3]`（构造函数里定的上限）。</summary>
         public const int MaxHits = 3;

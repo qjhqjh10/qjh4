@@ -508,7 +508,7 @@ namespace WarpforgeVFX
                     //   2D 兜底布局的卡全在 HUD 正交平面（z = 0），套这条曲线恒得 1.75× = **纯错**。
                     //   判据见 `CardFeel` 的「按战场深度重算缩放」那一节。
                     bool onArena = cv != null ? CardFeel.IsArenaCard(cv)
-                                              : cardTarget.gameObject.layer == ArenaSlots.ArenaLayer;
+                                              : CardFeel.IsBoardLayer(cardTarget.gameObject.layer);   // 🔴 2026-11-02（`B120_W27`）：层 8 或 10 都算（判据只在 `CardFeel.IsBoardLayer` 一处）
                     if (!onArena) { SkippedBoardScale2D++; }
                     else
                     {

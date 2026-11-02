@@ -335,11 +335,11 @@ namespace CardPresentation
         /// 🔴 **2026-10-23（R9）注意**：`origUnits` 里的 `ShakeBandPeak`(0.149) **不是**信号的真实峰值
         /// （真实峰值 = 0.5·ΣA = 0.0745），这一项**故意保留** —— 它与 `ShakeNoise01` 的 ±0.5 值域
         /// **相抵一次**，合起来才是原版的位移峰值。⛔ 别单独把任何一边「修」成 0.0745。详见 `ShakeBandPeak`。</summary>
-        public static float ShakeWorldAmplitudeFor(int unitSize)
-        {
-            float ampGain = ShakeAmplitudeForUnitSize(unitSize) * ShakePresetDirMag;   // 0/1 档 = 0.5657
-            float origUnits = ampGain * ShakeBandPeak;                                // 0/1 档 = 0.0843（**旋转前**的 pos 峰值）
-            return origUnits * (ShakeOriginalPxPerUnit / OurPxPerUnit);               // 0/1 档 = 0.0570
+        public static float ShakeWorldAmplitudeFor(int unitSize, float dirMag = ShakePresetDirMag)
+        {   // 🔴 2026-11-02（`B120_W4` · `D118-82`）：`dirMag` = 原版 `m_AmplitudeGain` 里那个 `|direction|`（`_DoShake_d__33__MoveNext.c:69-79`）—— preset 自带档 = `ShakePresetDirMag`(0.28284)；**近战挨打档被 `SetDirection` 覆盖成归一化攻击方向 ⇒ 1.0**（判据见 `ShakeCameraForHit` 的 `attackDir` 形参）。
+            float ampGain = ShakeAmplitudeForUnitSize(unitSize) * dirMag;              // 0/1 档 = 0.5657（preset 方向）/ 2.0（单位向量）
+            float origUnits = ampGain * ShakeBandPeak;                                // 0/1 档 = 0.0843 / 0.298（**旋转前**的 pos 峰值）
+            return origUnits * (ShakeOriginalPxPerUnit / OurPxPerUnit);               // 0/1 档 = 0.0570 / 0.2017
         }
 
         /// <summary>**按攻击方的近战攻击**取震屏的档（`SupportMethods.GetUnitSize`）——
@@ -1030,7 +1030,7 @@ namespace CardPresentation
         //  ⚠️ **z 用【世界】z**：我们卡父节点是 `Battle`（`boardRoot` = `sceneRoot`，恒在原点、缩放 1）；
         //     而原版的 localZ 是「相对 `MinionManager`（= 自己那一行）」⇒ 这里用 `worldZ − 自己那行的 z` 现算。
         //  ⚠️ **只有活在 3D 战场上的卡才吃这条**：2D 兜底布局的卡全在 HUD 正交平面（z = 0），
-        //     照这条曲线算出来恒 = 1.75×（那是纯错）。门 = 挂没挂 `ArenaSlots.ArenaLayer`
+        //     照这条曲线算出来恒 = 1.75×（那是纯错）。门 = 挂没挂**场上卡那一层**（原版 10 = `ArenaSlots.BoardCardLayer`；🔴 2026-11-02 `B120_W27` **已迁到 10**，门见 `IsArenaCard` / `IsBoardLayer`）
         //     —— `BattleDriver.SyncBoard` 正是按 `use3DBoard` 决定挂不挂（同族那条 `★ A849` 钉着）。
 
         /// <summary>`MinionScaleByPosition.scaleCurve` 第 0 键的 time —— 原版那份 SO **实读值**，⛔ 别「顺手取整」。</summary>
@@ -1059,11 +1059,11 @@ namespace CardPresentation
             return DepthScaleCurve(x) / DepthScaleCurve(homeX);
         }
 
-        /// <summary>这张卡是不是活在 **3D 战场**里（那一档才有「深度」可言）。
-        /// 判据 = 挂没挂 `ArenaSlots.ArenaLayer` —— `BattleDriver.SyncBoard` 正是按 `use3DBoard` 决定挂不挂。</summary>
+        /// <summary>这张卡是不是活在 **3D 战场**里（那一档才有「深度」可言）。判据 = 挂没挂**棋盘上的卡那一层**（🔴 2026-11-02 `B120_W27` 层号迁移完成：卡 = `ArenaSlots.BoardCardLayer`(10) = 原版 `BoardElements`；过渡期仍认旧的 `ArenaLayer`(8)）
+        /// —— 两个层号**只由 <see cref="IsBoardLayer"/> 判**。⛔ 别只改 `BattleDriver` 的换层而不改这张门 ⇒ 门恒 false ⇒ 深度缩放静默失效。</summary>
         public static bool IsArenaCard(CardView card)
         {
-            return card != null && card.gameObject.layer == ArenaSlots.ArenaLayer;
+            return card != null && IsBoardLayer(card.gameObject.layer);
         }
 
         /// <summary>「这张卡的静止位在哪一侧」—— 给没有 `isPlayer` 可传的调用点兜底（我们 `CardView` 不带阵营字段，
@@ -1119,7 +1119,7 @@ namespace CardPresentation
         /// 我们 `CardView` 不带阵营 ⇒ 不传就按静止位离哪一行近来判（<see cref="IsPlayerRow"/>）；
         /// 调用点知道得准就显式传（⛔ 别在别处再写第二份推断）。</param>
         public static Tween MeleeAttack(Transform tr, Vector3 endPos, Vector3 home, float delay = 0f,
-                                        bool? isPlayer = null)
+                                        bool? isPlayer = null, float stepScale = 1f)   // 🔴 2026-11-02（`B120_W4` · `C-2`）：`stepScale` = 原版 `get_AttackStepTime()` 的「回放跳过」档（÷3）—— **只缩「由 `attackStepTime` 派生出来的段」**（段1/2/4/5），段3 的 `AttackHoldTime` 是 `.rdata 0x1834b2dc4` 的**字面量 0.1，不除**。判据：`CardScript__get_AttackStepTime.c:8-14`（`ReplaySkipAnims` ⇒ `/ DAT_1834b2e8c(3.0)`）+ `_AttackMeleeAnim_d__357__MoveNext.c:198,246`（段1/2 各取一次 `get_AttackStepTime()`）、`:259`（`AppendInterval(DAT_1834b2dc4)` **直接读字面量**）、`:265,279`（段4/5 = `step+step`）⇒ 跳过档整条 = 0.1/3 + **0.1** + 0.2/3 = **0.2 s**（我们原来把整条 0.4 一起 ÷3 = 0.133，少 0.067）。
         {
             if (tr == null) return null;
             Quaternion homeRot = tr.rotation;
@@ -1141,11 +1141,11 @@ namespace CardPresentation
                                 : homeRot;   // 两点重合：原版 `normalized()` 会给 0 向量（NaN）⇒ 我们保持原朝向
 
             var seq = DOTween.Sequence();
-            seq.Append(tr.DOMove(endPos, AttackStepTime).SetEase(Ease.Linear));       // 段1（命中同帧）
-            seq.Join(tr.DORotateQuaternion(toTarget, AttackStepTime));               // 段2
-            seq.AppendInterval(AttackHoldTime);                                      // 段3
-            seq.Append(tr.DOLocalMove(home, AttackReturnTime).SetEase(Ease.OutQuart)); // 段4
-            seq.Join(tr.DORotateQuaternion(homeRot, AttackReturnTime));              // 段5
+            seq.Append(tr.DOMove(endPos, AttackStepTime * stepScale).SetEase(Ease.Linear));       // 段1（命中同帧）· ×stepScale（C-2）
+            seq.Join(tr.DORotateQuaternion(toTarget, AttackStepTime * stepScale));               // 段2 · 原版同一个 `get_AttackStepTime()` ⇒ 同缩
+            seq.AppendInterval(AttackHoldTime);                                      // 段3（**不缩**：原版 `AppendInterval(DAT_1834b2dc4)` 是字面量 0.1）
+            seq.Append(tr.DOLocalMove(home, AttackReturnTime * stepScale).SetEase(Ease.OutQuart)); // 段4
+            seq.Join(tr.DORotateQuaternion(homeRot, AttackReturnTime * stepScale));              // 段5
             // 🆕 2026-10-23（新账-71）：**逐帧按战场深度重算缩放**（原版那条 `seq.OnUpdate`）。
             //   ⛔ 别把它写成 `tr.DOScale(...)` —— 原版不是补间、是每帧按**当前**位置现算的。
             HookDepthScale(seq, tr, isPlayer);
@@ -1533,14 +1533,14 @@ namespace CardPresentation
         /// 传 `-1` = 不知道攻击方是谁（疲劳 / 反伤那类）⇒ 第 1 档，与原版「尺寸 0」同档。</param>
         public static Tween ShakeCameraForHit(Camera cam, Transform hudRoot, int attackerMeleeAttack,
                                               float delay = 0f, Camera extraCam = null,
-                                              int phaseSeed = -1)
-        {
+                                              int phaseSeed = -1, Vector3 attackDir = default(Vector3))
+        {   // 🔴 2026-11-02（`B120_W4` · `D118-82`）：近战挨打的 `direction` 被原版**覆盖成归一化攻击方向**（判据链 → 报告 `B120_W4_执行.md` §D118-82：`_AttackMeleeAnim_d__357__MoveNext.c:186-192` 的 `FUN_180534610`(VA 0x180534610，= `Vector3.Normalize`：平方和→sqrt→除) → `b__1.c:14-17` → `ResolveAttackAnimationEffects.c:51-58` 的 `SetDirection` → `GetModifiedPreset.c:107-119` 盖掉 preset 的 `(0,0.2,0.2)`）⇒ `|dir|` **1.0**（preset 那件 0.28284 ⇒ 幅度差 **3.5417×**）。零向量 = 没覆盖（退回 preset 方向，= 改前行为）；**非零的** `attackDir` 会被**归一化**后使用（与原版 `SetDirection` 收到的那个向量一致 ⇒ 传裸差向量就行，⛔ 别自己乘幅度）。
             int size = ShakeUnitSizeOf(attackerMeleeAttack);
-            // 🔴 2026-10-23（R9 尾账）：`direction` = `Shake Hit Small` 的真件值（**不再是 verticalSign**）；
-            //   旋转 gain 与位置同源 = `amplitude × |direction|`（尺寸 2/3 档一起放大，原版也是这样）。
-            return ShakeCamera(cam, hudRoot, ShakeWorldAmplitudeFor(size), delay, extraCam, phaseSeed,
-                               direction: ShakeHitDirection,
-                               rotationGain: ShakeAmplitudeForUnitSize(size) * ShakePresetDirMag);
+            bool overridden = attackDir.sqrMagnitude > 1e-12f;   // R9 尾账那条「preset 真件值 / verticalSign」只在**没有覆盖**时成立；覆盖档由调用方给（⛔ 别在这里按坐标现推）
+            float dirMag = overridden ? 1f : ShakePresetDirMag;   // 原版 `m_AmplitudeGain = |direction| × amplitude`（`_DoShake_d__33__MoveNext.c:69-79`）—— 覆盖档的向量**已被归一化**（`FUN_180534610`）⇒ |dir| ≡ 1
+            return ShakeCamera(cam, hudRoot, ShakeWorldAmplitudeFor(size, dirMag), delay, extraCam, phaseSeed,
+                               direction: overridden ? attackDir.normalized : ShakeHitDirection,
+                               rotationGain: ShakeAmplitudeForUnitSize(size) * dirMag);
         }
 
         // ---- 🆕 2026-10-16 落地那一下（原版 `CardScript.LandOnGround`）----
@@ -1734,18 +1734,18 @@ namespace CardPresentation
             if (s != null && s.IsActive()) s.Complete();     // `Complete()` 会触发 `OnKill` ⇒ 复位
         }
 
-        /// <summary>包络：**attack 段线性 0→1**（`attackTime 0` ⇒ 立刻 1）→ 保持 `sustainTime` →
-        /// **线性**降到 `ShakeDecayTo`（**终点不是 0** —— 出处见 `ShakeDecayTo`）。
-        /// 🆕 2026-10-23（R9）：三个时间改成**按 preset 传**（不同 preset 差很多：`Shake Earthquake`
-        /// attack 0.5 / sustain 5.0 / decay 1.0，`Shake Very Light 4s` 3.0 s 保持）。
-        /// attack 段的形状出处 = 场景 `CinemachineImpulseSource`（battlearena1 `MonoBehaviour_4914.json`）
-        /// 的 `m_TimeEnvelope.m_AttackShape` = (0,**0**)→(1,**1**)、两帧 `weightedMode:0`（切线被忽略）⇒ 线性。</summary>
-        static float ShakeEnvelope(float t, float attackTime, float sustainTime, float decayTime)
+        /// <summary>包络：**attack 段 = 原版 `m_AttackShape`（化简成 `t²`）** → 保持 `sustainTime` → **decay 段 = 原版 `m_DecayShape`（三次 Hermite，终点不是 0）**。判据 = 场景 `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4914.json` 的 `m_ImpulseDefinition.m_TimeEnvelope`（13 场同构）：`m_AttackShape` = (0,0) `outSlope 0` → (1,1) `inSlope 2.0`；`m_DecayShape` = (0,1) `outSlope 0` → (1,**0.01000213623046875**) `inSlope **0.03539604693651199**`；两键 `weightedMode 0`（切线不被权重覆盖）。
+        /// 求值器 = `CinemachineImpulseManager.EnvelopeDefinition::GetValueAt`（VA `0x180A29920` 反汇编：`t < attackTime ⇒ m_AttackShape.Evaluate(t/attackTime)`、`t < decayTime ⇒ m_DecayShape.Evaluate(t/decayTime)`）⇒ 段内是 Unity `AnimationCurve` 的 Hermite；两键区间长都是 1 ⇒ 切线不用再乘 dt。代入 (0,0,1,2) 化简 = `3u²−2u³+2(u³−u²)` = **u²**（精确）。
+        /// 🔴 **2026-11-02（`B120_W4` · `D118-85`）**：原来两段都是**线性**（`t/attack` / `Lerp(1, 0.01, …)`）⇒ 现在照上面两条原版曲线（decay 中段与线性最大差 ±9~10% 峰值）。
+        /// 🆕 2026-10-23（R9）：三个时间改成**按 preset 传**（不同 preset 差很多：`Shake Earthquake` attack 0.5 / sustain 5.0 / decay 1.0；`Shake Very Light 4s` 3.0 s 保持）。
+        /// 自检口（`Editor/B120_W4_Assert.cs` 断言 `D118-85`）：本方法是 `public`，可纯函数打点（`u = 0.25 / 0.5 / 0.75` 都不是线性值，见那条断言）。
+        /// `attackTime = 0`（`Shake Hit Small` 就是 0）⇒ attack 那段永不进 ⇒ 挨打这一档只看 decay 形状。
+        public static float ShakeEnvelope(float t, float attackTime, float sustainTime, float decayTime)
         {
-            if (attackTime > 0f && t < attackTime) return Mathf.Clamp01(t / attackTime);
+            if (attackTime > 0f && t < attackTime) return ShakeHermite01(t / attackTime, 0f, 0f, 1f, 2f);   // 原版 m_AttackShape ⇒ t²
             float held = attackTime + sustainTime;
             if (t <= held) return 1f;
-            return Mathf.Lerp(1f, ShakeDecayTo, Mathf.Clamp01((t - held) / decayTime));
+            return ShakeHermite01((t - held) / decayTime, 1f, 0f, ShakeDecayTo, ShakeDecayInSlope);          // 原版 m_DecayShape
         }
 
         /// <summary>归一化噪声（值域 ±0.5，见 `ShakeBandPeak` 的注释）。**默认信号 + `ShakeFrequencyGain`** 的
@@ -2275,27 +2275,27 @@ namespace CardPresentation
         /// <param name="isPlayer">原版是卡自己的 `isPlayer` 字段（`CardScript+0x40`）；不传 ⇒ 按静止位
         /// 离哪一行近来判（`IsPlayerRow`，与 `MeleeAttack` 同一个兜底）。</param>
         public static Tween AttackRecover(Transform tr, Vector3 home, float scale, float delay = 0f,
-                                          bool? isPlayer = null)
+                                          bool? isPlayer = null, float stepScale = 1f)   // 🔴 2026-11-02（`B120_W4` · `C-4`）：`stepScale` 同 `MeleeAttack` —— 原版**两段**都由 `get_AttackStepTime()` 取时长：段1 = `_ResolveAttackRangedAnim_d__360__MoveNext.c:84,96,102`（三条补间）、段2 = `CardScript__AfterAttack.c:25-34`（`DOLocalMove(静止位, fVar5)` 且 `fVar5 = attackStepTime / DAT_1834b2e8c`）；中间那个 `SetDelay(DAT_1834b315c)` = **0.65 是字面量、不除**。我们原来段2 写死 `AttackStepTime` ⇒ 跳过档收招慢 0.067 s。
         {
             if (tr == null) return null;
             var card = tr.GetComponent<CardView>();
             float toBase = ToBaseScale(card, Mathf.Max(1e-4f, scale));   // 静止/默认缩放（= 原版 `DefaultScale`）
 
             var seq = DOTween.Sequence();
-            // ---- 段1：回正三条（同时，0.1 s）----
-            seq.Append(tr.DOLocalMove(home, AttackStepTime));
-            seq.Join(tr.DORotateQuaternion(Quaternion.identity, AttackStepTime));
-            var s1 = ScaleTo(card, tr, toBase, AttackStepTime, Ease.OutQuad);
+            // ---- 段1：回正三条（同时，0.1 s × stepScale）----
+            seq.Append(tr.DOLocalMove(home, AttackStepTime * stepScale));
+            seq.Join(tr.DORotateQuaternion(Quaternion.identity, AttackStepTime * stepScale));
+            var s1 = ScaleTo(card, tr, toBase, AttackStepTime * stepScale, Ease.OutQuad);
             if (s1 != null) seq.Join(s1);
-            // ---- 段2：原版 `AfterAttack`（0.65 s 之后再来一段 0.1 s 的归位 + 逐帧深度缩放）----
+            // ---- 段2：原版 `AfterAttack`（0.65 s 之后再来一段 0.1 s × stepScale 的归位 + 逐帧深度缩放）----
             seq.AppendInterval(AfterAttackDelay);
-            seq.Append(tr.DOLocalMove(home, AttackStepTime));
+            seq.Append(tr.DOLocalMove(home, AttackStepTime * stepScale));
 
             var used = CardTween.Use(seq, Ease.Linear, tr);
-            // 深度缩放只挂在**段2**那 0.1 s 上（`activeFrom` = 两段的分界 0.75 s）；
+            // 深度缩放只挂在**段2**那 0.1 s × stepScale 上（`activeFrom` = 两段的分界 `step·scale + 0.65` s；正常 0.75 / 跳过档 0.6833）；
             // 静止缩放**显式**给 `toBase` —— 段2 的 OnUpdate 是拿它当底数的，⛔ 不能拿那一刻的 `BaseScale`
             //（段1 的缩放补间刚把它写成别的值 ⇒ 会复利）。
-            HookDepthScale(used, tr, isPlayer, AttackStepTime + AfterAttackDelay, toBase);
+            HookDepthScale(used, tr, isPlayer, AttackStepTime * stepScale + AfterAttackDelay, toBase);
             // ---- 原版 `FinishAfterAttack`：收尾把位姿钉回静止态 ----
             //   ⚠️ 缩放那一半由 `HookDepthScale` 的 `OnKill` 写回（同值）；这里只补位置与朝向。
             used.OnComplete(() =>
@@ -2762,18 +2762,18 @@ namespace CardPresentation
         // ==================================================================
         //  🆕 2026-10-24（战斗线 `C6·Q1`）：**根特效该落哪一层** —— 判据只此一处
         // ==================================================================
-        //  原版（13 场逐场实读 `Camera_*.json`）：**只有战场透视相机画 layer 0**（`m_CullingMask.m_Bits
-        //  = 1137`），UI 相机只画层 5（bits 32）⇒ 原版「根实例化的阵亡爆散体 / 残骸 Destroy 粒子」
-        //  （根层 0）由**战场相机**按竞技场世界坐标画。
-        //  我们的等价物：3D 档的卡挂在 `ArenaSlots.ArenaLayer`(8)，战场相机只画层 8、HUD（正交）
-        //  把层 8 从 `cullingMask` 里摘掉 ⇒ 根特效必须**跟着卡上到 8**；2D 兜底档卡在层 0
-        //  （没有战场相机）⇒ 根特效留在 0 由 HUD 画。
+        //  原版（13 场逐场实读 `Camera_*.json`）：战场透视相机 `m_CullingMask.m_Bits = 1137` = 层 **0/4/5/6/10**
+        //  （**bit10 = `BoardElements` = 棋盘上的卡**），UI 相机只画层 5（bits 32）⇒ 原版「根实例化的阵亡爆散体 /
+        //  残骸 Destroy 粒子」（根层 0）由**战场相机**按竞技场世界坐标画。
+        //  我们的等价物：3D 档的卡挂在 `ArenaSlots.BoardCardLayer`(10)（= 原版 `BoardElements`；🔴 2026-11-02 `B120_W27` 已迁完），
+        //  战场相机只画层 8、HUD（正交）把层 8 摘掉 ⇒ 根特效必须**跟着卡走**（卡在哪层它就在哪层）；
+        //  2D 兜底档卡在层 0（没有战场相机）⇒ 根特效留在 0 由 HUD 画。
         //  ⚠️ **判据是「卡自己现在在哪一层」**（= `BattleDriver.SyncBoard` 按 `use3DBoard` 挂的）——
         //  不是另起一个 `use3DBoard` 旗标（两处写同一条规则迟早不一致），也不是「按 3D/2D 写死 8/0」。
         //  判据全文 → `资料/普查产出_1024c/C6_表现界面轮抽剩余判据.md` §一。
 
         /// <summary>根特效（`parent == null` 那类）该落的层 = **卡自己现在那一层**
-        /// （场上的卡在 3D 档是 `ArenaLayer` 8 ⇒ 战场透视相机画；2D 兜底档是 0 ⇒ HUD 正交相机画）。
+        /// （场上的卡在 3D 档是 `BoardCardLayer` 10（原版；🔴 2026-11-02 `B120_W27` 已迁）⇒ 战场透视相机画；2D 兜底档是 0 ⇒ HUD 正交相机画）。
         /// 卡为 null ⇒ 0（取不到就按 HUD 那一档，**不猜 8** —— 猜错会被两台相机同时漏掉）。
         /// <para>⚠️ 这个值**必须**由调用方显式传给 `WarpforgeEffectPlayer.Play(..., layer:)` ——
         /// 根实例没有父节点可继承层。</para></summary>
@@ -2815,7 +2815,7 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-24（`C6·Q1` / `C6·Q2`）两处补齐**：
         /// ① **层** —— 根特效原来是 `parent: null` ⇒ 停在 prefab 自带层 0 ⇒ 被 **HUD 正交相机**画
         ///    （原版 13 场只有**战场透视相机**画 layer 0，bits 1137）⇒ 位置/尺度全错。现在显式传
-        ///    <see cref="RootFxLayerForCard"/>（3D 档 = `ArenaLayer` 8，2D 档 = 0）。
+        ///    <see cref="RootFxLayerForCard"/>（3D 档 = 卡自己那一层：`BoardCardLayer` 10，2D 档 = 0）。
         /// ② **落点** —— 原版那句取的是 `card.transform.position`，而**原版 prefab 根的原点 = 卡底边**、
         ///    我们卡根 = **卡心**（差 `Height/2`）⇒ 取「卡底边中心」的世界点
         ///    （`TransformPoint(0, −Height/2, 0)`，自动带卡的 `lossyScale` 与朝向）。</para>
@@ -2901,7 +2901,7 @@ namespace CardPresentation
         ///   父节点是 null ⇒ local 就是 world，赋值即等价。</item>
         /// </list>
         /// <para>🔴 **2026-10-24（`C6·Q1`）**：根特效原来是 `parent: null` ⇒ 停在 prefab 的层 0 ⇒ 被
-        /// **HUD 正交相机**画。现在显式传 <see cref="RootFxLayerForCard"/>（3D 档 = `ArenaLayer` 8）。</para>
+        /// **HUD 正交相机**画。现在显式传 <see cref="RootFxLayerForCard"/>（3D 档 = 卡自己那一层：`BoardCardLayer` 10）。</para>
         /// <para>⚠️ **没做的那半（判据在、但落点在白名单外）**：原版残骸体挂在**原版卡根（= 卡底边）**下，
         /// 我们挂在**卡根（= 卡心）**下且没补 `Height/2`（`CardView.SetRemnantBody` 里 `Vector3.zero`）
         /// ⇒ 残骸体本身比原版高半张卡，本函数取的「残骸体根 world」跟着一起高
@@ -3090,7 +3090,7 @@ namespace CardPresentation
             }
             if (card == null) return;
             // 🆕 2026-10-24（`C6·Q1`）：父节点是卡 ⇒ `WarpforgeEffectPlayer.Play` 新规则会把它
-            //   **整棵搬到卡的层**（3D 档 = `ArenaLayer`）—— 这条退回路原来会停在 prefab 层 0 被 HUD 画。
+            //   **整棵搬到卡的层**（3D 档 = 卡那一层：`BoardCardLayer` 10）—— 这条退回路原来会停在 prefab 层 0 被 HUD 画。
             WarpforgeVFX.WarpforgeEffectPlayer.Play(name, card);
         }
 
@@ -4069,16 +4069,16 @@ namespace CardPresentation
         //    而调用点 `SetAmplitude(preset, undefined4)` 实参是 4 字节 ⇒ 取 4 字节那一档）。
         //  ⇒ **`ShakeAmpUnitSize1/2/3 = 2.0 / 4.0 / 8.0` 逐格对得上**，`ShakeAmplitudeForUnitSize` 的
         //    `== 3`（非 `>= 3`）分支形状也对得上 ⇒ **本条不做数值改动**（施工单里那句「2/4/8 是错的」不成立）。
-        //  🔴 **同一方法的另一半（`SetDirection`）：2026-10-27（`B9_W11SHAKE`）已接上** —— 它收到的是**目标的棋盘坐标**
-        //    （`CardScript.__c__DisplayClass357_0___AttackMeleeAnim_b__1.c:14-16` 把 `_ResolveAttack` 从
-        //    `BattleManager__GetBoardPosOfCard` 拿到的那个 Vector3 原样转进来），而不是一个方向向量。
-        //    🔴 就地订正（铁律 5）：`GetBoardPosOfCard` **不是** `(pos.x, 0, pos.z)` —— VA 级反汇编
-        //    （`0x180965BC0`：`movsd xmm0,[rax]` + `mov eax,[rax+8]` ⇒ **12 字节整抄**）证明三个分量都在；
-        //    ILSpy 那版只写 x/z 是它丢 store 的老毛病。它在 `_DoShake_d__33__MoveNext.c:69-79` 的两处后果：
-        //    `m_Velocity = normalize(direction)`、`m_AmplitudeGain = |direction| × amplitude`。
-        //    ⇒ 我们原来 `ShakeCamera` 只建模「屏幕竖直」一个通道，照抄会让画面**完全不震**（y ≈ 0）；
-        //      本件已补**屏幕水平**通道（`ShakeScreenDirOf`）并加了原版那一路的入口 `ShakeCameraForAttack`。
-        //    ⚠️ 幅度后果（`|棋盘坐标| ≈ 100.2~101.1` 原版单位 ⇒ gain ≈ 200/400/800）见那个方法的 doc。
+        //  🔴 **同一方法的另一半（`SetDirection`）—— 2026-10-27（`B9_W11SHAKE`）接过一次，2026-11-02（`B120_W4` · `D118-82`）就地订正**：
+        //    🔴 **原来这里写「它收到的是目标的棋盘坐标」—— 不成立**。`__c__DisplayClass357_0___AttackMeleeAnim_b__1.c:14-17`
+        //    转给 `ResolveAttackAnimationEffects` 的那个 Vector3，是 `_AttackMeleeAnim_d__357__MoveNext.c:186-192` 里
+        //    `FUN_180534610(targetPos − attackerRestWorldPos)` 的返回值（VA `0x180534610` 反汇编 = 平方和 → `sqrt` → 除
+        //    ⇒ `Vector3.Normalize`）；同一个 helper 在 `:160` 用来算段1 落点 `endPos = 目标 − dir × margin`，`margin` 是**世界单位**
+        //    ⇒ 结果必是**单位向量**（不是坐标）。`GetBoardPosOfCard` 确实整抄三个分量（VA `0x180965BC0`），但它进的是
+        //    `_ResolveAttack` 的 `targetPos` 参数（状态机 `+0x30`），**不是**闭包 `+0x18/+0x20` 那一格。
+        //    ⇒ 所以 `m_AmplitudeGain = |direction| × amplitude = 1 × (2/4/8)`；`m_Velocity = normalize(direction)`（`_DoShake:69-79`）。
+        //      近战挨打的方向是**横的**（y 两边都 ≈ 0）⇒ 屏幕上**只横抖**（`ShakeScreenDirOf` 的 `.x` 通道）。
+        //    ⚠️ 「`|棋盘坐标| ≈ 100` ⇒ gain ≈ 200/400/800」那一版**已作废**（它会给出 ≈1 个屏高的位移）。
         // ==================================================================
 
         // ==================================================================
@@ -4086,15 +4086,15 @@ namespace CardPresentation
         // ------------------------------------------------------------------
         //  判据（三条，全部机器码 / 资产级，逐条可复核）：
         //   ① `CardScript__ResolveAttackAnimationEffects.c:51-58`：`SetDirection(preset, *param_3)` ——
-        //      喂进去的是**目标的棋盘坐标**（`BattleManager__GetBoardPosOfCard.c` 全文 44 行，VA 级反汇编
-        //      `0x180965BC0` 实核：`movsd xmm0,[rax]` + `mov eax,[rax+8]` ⇒ 三个分量**整抄**）。
+        //      喂进去的是 **`normalize(目标位置 − 攻方静止位)`**（单位向量；判据见上一节 `:186-192` + VA `0x180534610`），
+        //      ⛔ **不是**目标的棋盘坐标（那一版误读 2026-11-02 `B120_W4` 已订正）。
         //   ② `CameraShakerManager._DoShake_d__33__MoveNext.c:69-79`：**两样都要** ——
         //      `m_Velocity = normalize(direction)`（末尾 `GenerateImpulseWithVelocity` 收它）·
         //      `m_AmplitudeGain = |direction| × amplitude`（`fVar11 × *(float*)(param_1+0x3c)`）。
         //   ③ `LegacySignalSource::GetSignal`（R9 已坐实）：`pos *= |m_Velocity| × m_AmplitudeGain`、
         //      `pos = FromToRotation(Vector3.down, m_Velocity) × pos` ⇒ raw +Y 经这个旋转落到**世界三轴**，
         //      其中 **x = 屏幕水平**、**y = 屏幕竖直**、z = 景深（2D 正交相机下屏幕上不动）。
-        //  ⇒ 原来我们只取了 `.y`（`ShakeScreenUpOf`）；棋盘坐标那一格的 y ≈ 0 ⇒ 竖直 = 0 ⇒ 画面**完全不震**。
+        //  ⇒ 原来我们只取了 `.y`（`ShakeScreenUpOf`）；原版方向是**棋盘平面内的单位向量**（y ≈ 0）⇒ 竖直 = 0、全在水平通道。
         //  坐标系（逐格出处见报告「屏幕通道映射表」）：原版战场 `x`=屏幕水平 · `y`=屏幕竖直 · `z`=景深；
         //    我们重建 Arena3D 时整体平移 −100（`Editor/BattleScene.cs` 的 `ArenaOriginX`）⇒ **只有 x 换轴**，
         //    y/z 与原版**同值同向**；⇒ 原版坐标 = 我们的 + (`ArenaOriginX`, 0, 0)（见 `OrigBoardPosOf`）。
@@ -4149,6 +4149,11 @@ namespace CardPresentation
 
         /// <summary>🆕 2026-10-27（`B9_W11SHAKE`）**原版挨打那一档的世界单位峰值幅度**（我们的单位，**旋转前**）。
         ///
+        /// 🔴 **2026-11-02（`B120_W4` · `D118-82`）：本函数的前提已被推翻，⛔ 别再调用**（保留只为 `Editor/BattleScene.cs:49446` 的
+        /// 旧断言还能编译 —— 那条断言本身也在证一个错前提，等 BattleScene 写手一起删）。原前提是「`direction` = 目标棋盘坐标」，
+        /// 实际 `direction` = `normalize(目标 − 攻方)`（单位向量）⇒ 正确算式就是 <see cref="ShakeWorldAmplitudeFor"/>(size, 1f)。
+        /// 下面这段原说明**保留作历史**（它算出来的 10.2 / 20.4 / 40.8 是「把坐标当方向」的后果，不是原版值）：
+        ///
         /// 与 <see cref="ShakeWorldAmplitudeFor"/> 逐项同形，只把「preset 自带的 |direction|」换成
         /// **目标棋盘坐标的模长**：
         /// <code>= |origBoardPos| × ShakeAmplitudeForUnitSize(size) × ShakeBandPeak
@@ -4156,13 +4161,10 @@ namespace CardPresentation
         /// 判据链：`m_AmplitudeGain = |direction| × amplitude`（`_DoShake_d__33__MoveNext.c:69-79`）
         /// · `amplitude` = 2/4/8（`ResolveAttackAnimationEffects.c:30-52`，见本文件 `:4051-4058` 的实测）。
         ///
-        /// 🔴 **量级要心里有数**（这是原版数值，不是我们放大）：|棋盘坐标| ≈ **100.2 ~ 101.1** 原版单位
-        /// （`BattleBoardElements` 在 x=100）⇒ `m_AmplitudeGain ≈ 200 / 400 / 800`，而 `Shake Hit Small`
-        /// 自带的那一版只有 `2.0 × 0.28284 = 0.566` ⇒ **约 353 倍**。折算到我们这套单位（屏高 = 10）：
-        /// 峰值位移 ≈ **10.2 / 20.4 / 40.8** 世界单位（= 1 / 2 / 4 个屏高）。
-        /// ⚠️ 这个数**只由机器码与场景数据算出**，没有真机对照过；真机验收若发现镜头「飞出去」，
-        /// 判据缺口在「原版运行期棋盘是不是真在 x≈100」—— 本地唯一的证据是场景 JSON 与
-        /// `H8` 那条 `100.0` 字面量（都说在）。**要改只改 `OrigBoardPosOf` 一行**，⛔ 别动幅度表 2/4/8。</summary>
+        /// 🔴 **量级要心里有数**（这是「坐标当方向」那一版的产物）：|棋盘坐标| ≈ **100.2 ~ 101.1** 原版单位
+        /// （`BattleBoardElements` 在 x=100）⇒ `m_AmplitudeGain ≈ 200 / 400 / 800`，比 `Shake Hit Small` 自带那版大约 353 倍。
+        /// 折算到我们这套单位（屏高 = 10）：峰值位移 ≈ **10.2 / 20.4 / 40.8** 世界单位（= 1 / 2 / 4 个屏高）⇒ **明显荒谬**，
+        /// 这正是「`direction` 是单位向量」这条判据的反证之一（另一条 = `FUN_180534610` 的 `sqrt`+除）。</summary>
         public static float ShakeWorldAmplitudeForAttack(Vector3 origBoardPos, int unitSize)
         {
             float ampGain = origBoardPos.magnitude * ShakeAmplitudeForUnitSize(unitSize);
@@ -4170,32 +4172,39 @@ namespace CardPresentation
             return origUnits * (ShakeOriginalPxPerUnit / OurPxPerUnit);
         }
 
-        /// <summary>🆕 2026-10-27（`B9_W11SHAKE`）**原版挨打震屏的完整一档** ——
-        /// `CardScript.ResolveAttackAnimationEffects` 真正走的那条路（`meleeHitCameraShakePreset`）。
-        ///
-        /// 与 <see cref="ShakeCameraForHit"/> 的差别：那个喂的是 **preset 自带的** `direction = (0,0.2,0.2)`
-        /// （**不是原版挨打那一档** —— 原版在 `Play()` 之前用 `SetDirection` 把它覆盖成目标棋盘坐标）。
-        ///
-        /// 本方法逐句照原版：
-        ///   · `direction` = <see cref="OrigBoardPosOf"/>(目标坐标)（原版是**完整 3 分量**，含 y；我们的 y 已归到地面 0）；
-        ///   · 方向在屏幕上的落点 = `ShakeScreenDirOf(direction)`（**水平 + 竖直两个通道**）；
-        ///   · 幅度增益 = `|direction| × amplitude(2/4/8)`（→ <see cref="ShakeWorldAmplitudeForAttack"/>）；
-        ///   · 旋转 gain 与位置**共用**同一个增益（`LegacySignalSource` 里 `rot = SlerpUnclamped(identity, rot, gain)`）。
+        /// <summary>🆕 **原版挨打震屏那一条入口**（`CardScript.ResolveAttackAnimationEffects` 的 `meleeHitCameraShakePreset` 路）。
+        /// 🔴 **2026-11-02（`B120_W4` · `D118-82`）就地订正（铁律 5）** —— 本方法原来（`B9_W11SHAKE` / `B9_W29BDR2`）
+        /// 把 <see cref="OrigBoardPosOf"/>(目标坐标) 当成 `direction` 喂进 `SetDirection`，据此算 `|direction| ≈ 100`
+        /// ⇒ 幅度 ≈ 200/400/800，峰值 **±10.2 世界单位（≈1 个屏高）**。**那个前提不成立**：
+        /// ① 闭包里存的是 `normalize(目标位置 − 攻方静止位)`，**不是目标的绝对坐标** ——
+        ///    `_AttackMeleeAnim_d__357__MoveNext.c:186-192` 把 `(target − attacker)` 交给 `FUN_180534610`
+        ///    （VA `0x180534610` 反汇编 = 平方和 → `sqrt` → 除 ⇒ `Vector3.Normalize`）之后才写进闭包的 `+0x18/+0x20`；
+        ///    同一个 helper 在 `:160` 也用来算段1 落点 `endPos = 目标 − dir × margin`（`margin` 当**世界单位**用 ⇒ 必是单位向量）。
+        /// ② 因此 `|direction| ≡ 1` ⇒ `m_AmplitudeGain = 2 / 4 / 8`（不是 200/400/800），与 `ShakeCameraForHit` 的
+        ///    `attackDir` 档**是同一条算式**，只把 `|dir|` 从 `ShakePresetDirMag`(0.28284) 换成 1.0。
+        /// ③ **方向端点与符号**：从**攻方静止位**指向**目标命中那一刻的位置**；屏幕分量由 `ShakeScreenDirOf` 的
+        ///    `FromToRotation(Vector3.down, v)` 给（原版棋盘在 +x ⇒ 屏幕 **−x**，⛔ 别按直觉改成 +x）。
+        ///    `y` 两边都按地面 0 ⇒ 屏幕竖直分量恒 0 ⇒ 近战挨打是**横抖**（`ShakeScreenDirOf` 的 `.x` 通道）。
+        /// ⇒ 本方法**不再拿坐标当方向**：有 `attackerOurBoardPos` 就现算 `normalize(差)`（`OrigBoardPosOf` 的 `+100`
+        /// 在差里**天然抵消**、y 两边都归 0），否则退回 preset 方向（不吃方向，但幅度不再离谱）。
+        /// <see cref="ShakeWorldAmplitudeForAttack"/> **保留但已废弃**（那条「`|坐标| × amplitude`」的算式前提已被推翻；
+        /// `Editor/BattleScene.cs:49446` 还在 assert 它 ⇒ 要删得等 BattleScene 的写手一起删）。
         /// **时间轴 / 信号 / 频率**仍走 `Shake Hit Small` 那套默认值（原版这一档只覆盖 direction 与 amplitude，
         /// `OverwriteCameraShakePreset__GetModifiedPreset.c:76-119` 逐格核过：其余五项都取 preset 自带值）。</summary>
-        /// <param name="ourBoardPos">目标卡在**我们**世界坐标里的位置（`CardView.transform.position` 即可；
-        /// y 会被忽略，理由见 <see cref="OrigBoardPosOf"/>）。</param>
+        /// <param name="ourBoardPos">**目标**卡在我们世界坐标里的位置（`CardView.transform.position` 即可）。</param>
         /// <param name="attackerMeleeAttack">攻击方的当前近战（`GetUnitSize` 的判据）；
         /// `&lt; 0` = 不知道攻击方 ⇒ 第 1 档，与原版「尺寸 0」同档。</param>
+        /// <param name="attackerOurBoardPos">**攻方**在我们世界坐标里的位置；零向量（默认）= 调用方拿不到 ⇒ 退回 preset 方向。
+        /// ⚠️ `BattleDriver.PlayHitFrameShake` 那一侧应当给（补丁见报告 `B120_W4_执行.md` §驱动侧）。</param>
         public static Tween ShakeCameraForAttack(Camera cam, Transform hudRoot, Vector3 ourBoardPos,
                                                  int attackerMeleeAttack, float delay = 0f,
-                                                 Camera extraCam = null, int phaseSeed = -1)
+                                                 Camera extraCam = null, int phaseSeed = -1,
+                                                 Vector3 attackerOurBoardPos = default(Vector3))
         {
-            int size = ShakeUnitSizeOf(attackerMeleeAttack);
-            Vector3 dir = OrigBoardPosOf(ourBoardPos);
-            return ShakeCamera(cam, hudRoot, ShakeWorldAmplitudeForAttack(dir, size), delay, extraCam, phaseSeed,
-                               direction: dir,
-                               rotationGain: dir.magnitude * ShakeAmplitudeForUnitSize(size));
+            Vector3 dir = attackerOurBoardPos.sqrMagnitude > 1e-12f
+                        ? OrigBoardPosOf(ourBoardPos) - OrigBoardPosOf(attackerOurBoardPos)   // +100 抵消；y 两边都 0
+                        : default(Vector3);                                                  // 拿不到攻方 ⇒ 不覆盖方向
+            return ShakeCameraForHit(cam, hudRoot, attackerMeleeAttack, delay, extraCam, phaseSeed, dir);
         }
 
         // ═══════════════════════════════════════════════════════════════════════════════════════
@@ -4357,6 +4366,95 @@ namespace CardPresentation
             s.Join(BodyYTo(a, aBase.y + y0, aBase.y + y1, dur));
             s.Join(BodyYTo(b, bBase.y + y0, bBase.y + y1, dur));
             return s;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（执行代理 `B120_W4` · `D118-82` / `D118-85`）：包络曲线 + 挨打震屏方向的两个新口
+        //  ⚠️ **全部追加在本类类尾**（`CardFeel.cs` 4100 行之前有 60+ 条账按行号引，见铁律 18·b）
+        //  判据：`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4914.json` 的
+        //        `m_ImpulseDefinition.m_TimeEnvelope`（两条 `AnimationCurve`）· `CameraShakerManager._DoShake_d__33__MoveNext.c:69-79`
+        //        · `CardScript._AttackMeleeAnim_d__357__MoveNext.c:186-192` · `FUN_180534610`（VA `0x180534610` = `Vector3.Normalize`）
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版 `m_DecayShape` 末键的 `inSlope`（场景 `MonoBehaviour_4914.json` 实读 = `0.03539604693651199`）。
+        /// <para>用它 + <see cref="ShakeDecayTo"/> 才能在归一化段内复现原版那条三次 Hermite（见 <see cref="ShakeEnvelope"/>）。</para>
+        /// <para>⚠️ `ShakeDecayTo` 我们存的是四舍五入后的 `0.01`（原版 `0.01000213623046875`，差 2.1e-6 ⇒ 峰值差 &lt; 0.001%）。</para></summary>
+        public const float ShakeDecayInSlope = 0.035396047f;
+
+        /// <summary>归一化区间 `[0,1]` 上的一次 **Hermite 三次**（Unity `AnimationCurve` 两键段求值的等价式）：
+        /// `h00·v0 + h10·s0 + h01·v1 + h11·s1`；两键时间都在 0 / 1 ⇒ 切线不需要再乘 dt。
+        /// <para>判据：Unity `AnimationCurve.Evaluate` 的两键 Hermite（原版这两个 shape 都只有两键）；`x` 夹到 `[0,1]`
+        /// （原版 `m_PreInfinity / m_PostInfinity = 2` = Clamp）。</para>
+        /// <para>自检口：`Editor/B120_W4_Assert.cs`（`D118-85`）拿它复算 `u = 0.25 / 0.5 / 0.75` 三个内点。</para></summary>
+        public static float ShakeHermite01(float x, float v0, float s0, float v1, float s1)
+        {
+            float u = Mathf.Clamp01(x);
+            float u2 = u * u, u3 = u2 * u;
+            float h00 = 2f * u3 - 3f * u2 + 1f;   // 起点值
+            float h10 = u3 - 2f * u2 + u;         // 起点切线
+            float h01 = -2f * u3 + 3f * u2;       // 终点值
+            float h11 = u3 - u2;                  // 终点切线
+            return h00 * v0 + h10 * s0 + h01 * v1 + h11 * s1;
+        }
+
+        /// <summary>🆕 **原版近战挨打震屏的方向**（`D118-82`）—— 由「攻方 / 目标」两个位置现算。
+        /// <para>原版 = `normalize(目标位置 − 攻方静止位)`（`_AttackMeleeAnim_d__357__MoveNext.c:186-192`，两个端点都在原版世界坐标里）。
+        /// 我们这套 Arena3D 整体平移 −`ArenaOriginX` ⇒ 差值里 `+100` **天然抵消**，直接相减即可（y 两边都归 0，
+        /// 见 <see cref="OrigBoardPosOf"/> 的注释）。</para>
+        /// <para>返回**未归一化**的差（交给 `ShakeCameraForHit` 的 `attackDir`，它按原版把向量**归一化**后使用
+        /// ⇒ 模长恒 1 ⇒ 幅度 = 2/4/8，与本方法给出的距离无关）。两点重合 ⇒ 零向量（= 不覆盖方向）。</para></summary>
+        public static Vector3 ShakeAttackDirectionOf(Vector3 attackerOurPos, Vector3 targetOurPos)
+        {
+            return OrigBoardPosOf(targetOurPos) - OrigBoardPosOf(attackerOurPos);
+        }
+
+        /// <summary>🆕 `D118-82`：**「攻方 + 目标」两个位置打一记近战挨打震屏**（原版那条路的完整入口）。
+        /// <para>等价于 `ShakeCameraForHit(..., attackDir: ShakeAttackDirectionOf(攻方, 目标))`；
+        /// 拿不到攻方（`attackerOurPos` 传 null）⇒ 退回 preset 方向并**出声一次**（⛔ 不静默降级）。</para></summary>
+        public static Tween ShakeCameraForHitFrom(Camera cam, Transform hudRoot, Vector3? attackerOurPos,
+                                                  Vector3 targetOurPos, int attackerMeleeAttack,
+                                                  float delay = 0f, Camera extraCam = null, int phaseSeed = -1)
+        {
+            Vector3 dir = default(Vector3);
+            if (attackerOurPos.HasValue) dir = ShakeAttackDirectionOf(attackerOurPos.Value, targetOurPos);
+            else SpeakNoAttackDirection();
+            return ShakeCameraForHit(cam, hudRoot, attackerMeleeAttack, delay, extraCam, phaseSeed, dir);
+        }
+
+        static bool _warnedNoAttackDirection;
+        static void SpeakNoAttackDirection()
+        {
+            if (_warnedNoAttackDirection) return;
+            _warnedNoAttackDirection = true;
+            Debug.LogWarning("[CardFeel] 近战挨打震屏拿不到攻方位置 ⇒ 方向退回 preset 的 (0,0.2,0.2)"
+                           + "（原版是 normalize(目标 − 攻方) ⇒ |dir|=1、幅度 2/4/8；这一下幅度会小 3.54 倍）");
+        }
+
+        /// <summary>🆕 `C-2`：近战整条序列的**纯时长**（不建补间，给自检 / 时间线用）。
+        /// = 段1/2（并行，`AttackStepTime × scale`）+ 段3（`AttackHoldTime`，**不缩**）+ 段4/5（并行，`AttackReturnTime × scale`）。
+        /// <para>判据 → <see cref="MeleeAttack"/> 的 `stepScale` 注；正常 `scale = 1` ⇒ **0.4**，回放跳过档 `scale = 1/3` ⇒ **0.2**。</para></summary>
+        public static float MeleeAttackDurationOf(float stepScale = 1f)
+        {
+            return AttackStepTime * stepScale + AttackHoldTime + AttackReturnTime * stepScale;
+        }
+
+        /// <summary>🆕 `C-4`：远程收招整条的**纯时长** = 段1（`AttackStepTime × scale`）+ `AfterAttackDelay`（**不缩**）+ 段2（同段1）。
+        /// <para>正常 **0.85**；回放跳过档 `scale = 1/3` ⇒ **0.7167**（原版两段都由 `get_AttackStepTime()` 取 ≈0.0333）。</para></summary>
+        public static float AttackRecoverDurationOf(float stepScale = 1f)
+        {
+            return AttackStepTime * stepScale * 2f + AfterAttackDelay;
+        }
+
+        /// <summary>🔴 2026-11-02（执行写手 `B120_W27` · 活状态表 `B120-Q04e`）：**「这个层号是不是棋盘上的东西」—— 全工程只此一处**。
+        /// <para>层 10 = `ArenaSlots.BoardCardLayer`（= 原版 `BoardElements`，**只有卡**）；层 8 = `ArenaSlots.ArenaLayer`
+        /// （arena prefab 的地面/背景/VFX 宿主；层号迁移**之前**卡也在这层 ⇒ 过渡期照旧认）。2D 兜底档的卡在层 **0** ⇒ `false`。</para>
+        /// <para>⚠️ 为什么收成一处：`IsArenaCard` / `Card3DAnimationController` / `WFModuleTransformModifier` 三处**同一个门**
+        /// —— 只改 `BattleDriver` 的换层而不改这三处 ⇒ 门恒 false ⇒ **深度缩放静默失效**（画面只是「有点不对」，没有任何报错）。</para>
+        /// <para>⚠️ 追加在**类尾**（`CLAUDE.md` §三 / 铁律 18·b）：本文件账里有 `文件:行号` 落点（最深 `:4100`），
+        /// 插在成员之间会把下游落点整体推走。</para></summary>
+        public static bool IsBoardLayer(int layer)
+        {
+            return layer == ArenaSlots.BoardCardLayer || layer == ArenaSlots.ArenaLayer;
         }
     }
 }

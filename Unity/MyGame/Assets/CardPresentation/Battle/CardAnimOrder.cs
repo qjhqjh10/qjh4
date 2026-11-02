@@ -51,10 +51,10 @@
 //        `cardAnimations[]`）⇒ **行序拼接 = 逐拍等价**，单行卡与多行卡**同一条口径**。
 //      ⚠️ **真正还开着的近似不在这张表，而在【选哪一份 ActiveAbility】**：
 //        上面那句三元里 `hasAlternativeAbility` 为真时，原版按 `normalAbilityBoardCriteria`(+0x2B0)
-//        **二选一**（`activeAbility` / `alternativeAbility`）；我们的事件只带卡名、**分不出是哪一份**
-//        ⇒ 本表只装 `activeAbility` 那一份（`SW21 Wulfen Pack Leader` 就是这一族：普通 0.4 / 替代 0.2）。
-//        ⛔ 要接得两件事一起：① `BattleEvent` 带一位「哪一份」（`RuleEngine`，不在本文件）② 卡导出补
-//        `normalAbilityBoardCriteria`（我们现在**没有**这个字段；`cards_raw.json` 只有三样）。
+//        **二选一**（`activeAbility` / `alternativeAbility`）；出哪一份今天**已能判** —— 走
+//        `EventTiming.AbilityUsesAlternative`（驱动在 `BattleDriver.cs:3883` 绑到 `CardDef.UsesAlternativeAbility`），
+//        本表只装 `activeAbility` 那一份、替代支时长从表里的 `alt` 取（`SW21` 普通 0.4 / 替代 0.2）。
+//        ⚠️ 2026-11-02（`B120-W4b`）订正：原句「分不出是哪一份 / 卡导出没有 `normalAbilityBoardCriteria`」**已过期**。
 //   ③ **0 条**解不出 guid（全量件里 `ca` 非空但 `cardAnims` 里没有的）。
 //   ④ **纯延时拍**（`vfx` 为空）在本表里**0 条** —— 那 4 个 `Wait_*` 都挂在 `cardAbilities` 行上（已按 ② 剔掉）。
 // ─────────────────────────────────────────────────────────────────────────────

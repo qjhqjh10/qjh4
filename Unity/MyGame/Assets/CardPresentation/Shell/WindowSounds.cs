@@ -32,10 +32,14 @@
 // `Music = 1` · `Voices = 2` · `Jingles = 3` ⇒ **组号就是这两档**，别互推。
 //
 // ============================ 播放口的分配 ============================
-// · FX 那几条 → `WarpforgeVFX.WFSoundPlayer.Play(cue, …)`（它的音源挂 `FxGroup`，见 `WarpforgeAudio.RouteEffectSounds`）
-// · Jingles 那两条 → `WarpforgeAudio.PlayJingle(cue)`（2026-10-17 新加的那个口 —— `WFSoundPlayer`
-//   只挂 FX 组，而原版这两条走 Jingles；⛔ 别把它们塞回 FX「反正音量同值、听不出来」——
-//   原版 `VolumeJingles` 与 `VolumeFX` 恰好同值，**听不出来正是它接错的保护色**，见 `WarpforgeAudio.JinglesGroup` 的注释）。
+// · FX 那几条 → `WarpforgeVFX.WFSoundPlayer.PlayWithoutCooldown(cue, …)`（它的音源挂 `FxGroup`，见 `WarpforgeAudio.RouteEffectSounds`）
+// · Jingles 那两条 → 同一个口的 `mixerGroup` 参数传 `WarpforgeAudio.JinglesGroup`
+//   （🔴 2026-11-02 `B120-W5b` **就地订正**：改前它走 `WarpforgeAudio.PlayJingle(cue)` ——
+//   那条口自己也会判一次 `timeToPlayAgain`，于是本类的冷却被**判两次**，而原版 `SoundManager.Play`
+//   只判一次 ⇒ 会出现「`Played++` 了却没响」。现在本类判完直接走**不判冷却**的播放口。）
+//   ⚠️ `WFSoundPlayer` 只挂 FX 组，而原版这两条走 Jingles（`MixerType = 3`）；
+//   ⛔ 别把它们塞回 FX「反正音量同值、听不出来」—— 原版 `VolumeJingles` 与 `VolumeFX` 恰好同值，
+//   **听不出来正是它接错的保护色**，见 `WarpforgeAudio.JinglesGroup` 的注释。
 using System.Collections.Generic;
 using UnityEngine;
 using WarpforgeVFX;
@@ -158,15 +162,30 @@ namespace CardPresentation
         public static int Throttled { get; private set; }
         /// <summary>自检用：最后一次喊的 cue 名。</summary>
         public static string LastCue { get; private set; }
+        /// <summary>🆕 2026-11-02 `B120-W5b` 自检用：最后一次**真的播出去**的 clip 名（没播/挑不到 = null）。
+        /// 用来断「`Played++` 的那一声确实交给了播放器」—— 单看 `Played` 分不出「响」与「计数说它响」。</summary>
+        public static string LastClip { get; private set; }
 
         public static void ResetCounters()
         {
-            Played = 0; Throttled = 0; LastCue = null;
+            Played = 0; Throttled = 0; LastCue = null; LastClip = null;
             _lastAt.Clear();
             _warned.Clear();
         }
 
-        static readonly Dictionary<string, float> _lastAt = new Dictionary<string, float>();
+        /// <summary>🆕 2026-11-02 `B120-W5b`：**只清节流表**（不动计数/警告去重）。
+        /// 为什么要单开：`BattleSfx.ResetCounters()` 的契约是「把**全部读口/节流表**清零」，
+        /// 但它原来只清 `WFSoundPlayer` 与 `RemnantSfx` 那两张 ⇒ 本类这张（③）留在那儿，
+        /// 跨域复用同一个 cue 时会带着上一场的窗口。调用链：
+        /// `BattleSfx.ResetCounters()` → `WFSoundPlayer.ResetThrottle()`（①④）· `RemnantSfx.ResetThrottle()`（②）
+        /// · **`WindowSounds.ResetThrottle()`（③）**。⚠️ `ResetCounters()` 里也会清这张表（全清档）。</summary>
+        public static void ResetThrottle() { _lastAt.Clear(); }
+
+        /// <summary>节流表。🔴 2026-11-02 `B120-W5b`：键从 **cue 名（string）** 改成 **`WFSoundCue` 实例** ——
+        /// 原版 `lastTimePlayed` 住在 `AudioCue` 资产上（`AudioCue.cs` 的 `+0x34`，`AudioCue__OnEnable.c` 写回 0），
+        /// 与「从哪条 `Play2D` 路播」无关 ⇒ 键必须是**cue 资产**，不是它的名字
+        /// （`WFSoundBank` 对同名 cue 只给同一个实例，所以行为上等价，但名字漂了不会静默分叉）。</summary>
+        static readonly Dictionary<WFSoundCue, float> _lastAt = new Dictionary<WFSoundCue, float>();
         static readonly HashSet<string> _warned = new HashSet<string>();
 
         /// <summary>FX 组（原版 `MixerType.FX`）。</summary>
@@ -204,17 +223,25 @@ namespace CardPresentation
             //    与 `SoundManager.Play`（原版**所有**按 cue 播的路径都过它）的实际口径不符，⛔ 别再改回去。
             //    公式也收口到 `WFSoundPlayer.CanPlayByCooldown`（全项目唯一实现，铁律 6）；
             //    `last != 0` 那半句（= 从没播过）也在那里 —— 漏掉它就会把第一次也拦掉。
-            //    键 = cue 名（本表的 cue 名与 `WFSoundBank` 的实例一一对应；`ResetCounters` 只清这一张表）。
-            if (!WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(_lastAt, cueName, cue.timeToPlayAgain))
+            //    键 = **`WFSoundCue` 实例**（2026-11-02 `B120-W5b`：原版 `lastTimePlayed` 住在 `AudioCue` 资产上，
+            //    键必须是 cue 本身、不是它的名字；`WFSoundBank` 对同名 cue 只给同一个实例 ⇒ 与旧写法等价且不易漂）。
+            if (!WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(_lastAt, cue, cue.timeToPlayAgain))
             {
                 Throttled++;
                 return false;
             }
 
-            if (jingles) WarpforgeAudio.PlayJingle(cue);
-            else WFSoundPlayer.Play(cue, Vector3.zero, true);   // is2d = true ⇒ 原版 `Play2D`
+            // 🔴 2026-11-02 `B120-W5b`：下面走**不判冷却**的播放口 —— 上面那道闸是**唯一**一次
+            //   （原版 `SoundManager.Play` → `AudioCue.ConfigAudioSource` 只有一处）。
+            //   改前：`jingles` → `WarpforgeAudio.PlayJingle(cue)`、FX → `WFSoundPlayer.Play(cue, …)`，两条都**再判一次**
+            //   ⇒ 同一条 cue 被别的调用方先播过时，这里「`Played++` 了却没响」（静默少一声，而计数说它响了）。
+            //   Jingles 走同一个口的 `mixerGroup` 参数（原版 `MixerType.Jingles = 3`）。
+            var clip = jingles
+                ? WFSoundPlayer.PlayWithoutCooldown(cue, Vector3.zero, true, WarpforgeAudio.JinglesGroup)
+                : WFSoundPlayer.PlayWithoutCooldown(cue, Vector3.zero, true);   // is2d = true ⇒ 原版 `Play2D`
 
             Played++;
+            LastClip = clip != null ? clip.name : null;
             return true;
         }
 

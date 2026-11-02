@@ -1577,10 +1577,10 @@ namespace CardPresentation
         /// ① 有这一项；② `Enabled`（调用方给的「现在能不能用」）；③ 没被 `Hidden`（原版按军队查不到图标）；
         /// ④ **近战那格在 `LockMelee`（= 卡上有 `pindown`）时不选** —— 原版
         /// `AttackButtonClick.c:27-33` 是「指令被吞掉」，效果上等于选不中（⚠️ 原版那颗钮**不置灰**，
-        /// 所以这里也没动 `Enabled`）。</summary>
+        /// 所以这里也没动 `Enabled`）；⑤ **与已选打法同档 ⇒ 不选**（账 `B-12`）。</summary>
         bool Selectable(Option opt)
         {
-            if (opt == null || !opt.Enabled || opt.Hidden) return false;
+            if (opt == null || !opt.Enabled || opt.Hidden) return false; if (opt.Kind == _selected) return false;   // 🆕 2026-11-02（`B120-W3` · 账 `B-12`）：第二个条件 = 原版 `UnitOnBoardAttackTypeSelector__AttackButtonClick.c` **第一句** `if (card.attackType == param_2) return;`（同档不重复下单）
             if (opt.Kind == AttackKind.Melee && LockMelee) return false;
             return true;
         }

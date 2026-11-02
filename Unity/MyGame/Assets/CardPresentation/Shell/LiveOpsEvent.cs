@@ -788,61 +788,61 @@ namespace CardPresentation
             Handler.TryScheduleHandlerRefresh(milis);
         }
 
-        /// <summary>原版 `LoadEventData(data, saveGame, handler)`（`:701`，**逐条照抄**）：
+        /// <summary>原版 `LoadEventData(data, saveGame, handler)`（`:701` / VA `0x181016F80`，**逐条照抄**）：
         /// <code>
-        /// Data     = (TData)data;      // 原版是 isinst 强转，失败走 throw
-        /// SaveGame = (TSave)saveGame;
-        /// Handler  = handler;
-        /// if (Handler != null) Handler.UpdateCachedSave(SaveGame);   // ← handler 侧缓存回写
+        /// Handler = handler;                                              // .c:27-28 ★ 最先写
+        /// if (ValidateEventData(data, saveGame, out d, out s)) {          // .c:29-31 ★ 唯一调用点
+        ///     Data = d; SaveGame = s;                                     // .c:32-37（失败 ⇒ 一个都不写）
+        ///     if (Handler != null) Handler.UpdateCachedSave(SaveGame);    // .c:38-57
+        /// }
         /// </code>
-        /// ⚠️ 强转失败：原版**抛**（`il2cpp_vm_object_is_inst` 之后 `throw`）。我们**出声 + 不写字段**，
-        /// 理由同 `GetState`：坏数据不该让游戏崩。这是**有意差异**，写在账的差异列。</summary>
+        /// 🔴 **2026-11-02（B120_W23）已改为走总闸**（改前**不调** `ValidateEventData`，自己 `as` 后直接写）：原版这是它的**唯一调用点** ⇒ 改前 `Validate(save)` 闸整条不生效、且 `saveGame` 转不成时会把已有存档清成 null。判据 → `报告/B120_W22_ValidateEventData.md` §3.1。⚠️ 失败时**出声**是我们有意差异（原版静默），**语义**（不写字段、不回滚 Handler）照原版。</summary>
         public override void LoadEventData(LiveOpsEventData data, LiveOpsSave saveGame, ILiveOpsHandler handler)
         {
-            var d = data as TData;
-            if (d == null)
+            Handler = handler;                                         // .c:27-28 ★ 最先写，在验证之前（失败分支也不回滚）
+            TData fd; TSave fs;
+            if (!ValidateEventData(data, saveGame, out fd, out fs))
             {
-                Debug.LogError("[LiveOps] LoadEventData：data 不是 " + typeof(TData).Name
-                             + "（实际 " + (data == null ? "<null>" : data.GetType().Name) + "）⇒ 原版会抛 InvalidCastException，"
-                             + "我们出声并放弃本次装载。eventId = " + (data == null ? "<null>" : data.eventId));
+                // 原版此支 = **静默什么都不做**：`Data`(+0x18) / `SaveGame`(+0x20) 一个都不写、
+                // `UpdateCachedSave` 也不调（`.c:32-57` 整段都在 if 的真支里）⇒ 已有的 Data/SaveGame **保持旧值**。
+                // ⚠️ 我们保留**出声**（有意差异：坏数据/类型漂移不该无声无息），但语义 = 原版的 false 分支
+                //    —— ⛔ 不再把 `SaveGame` 清成 null（那是改前那版的行为，已按 `.c:22-33` 订正）。
+                Debug.LogError("[LiveOps] LoadEventData：ValidateEventData 拒收本次装载 —— data 不是 " + typeof(TData).Name
+                             + "，或 save 的实际类型不是 " + typeof(TSave).Name + "（原版要求 GetType() **完全相等**，子类也不收）"
+                             + " ⇒ Data / SaveGame 保持旧值、不回调 UpdateCachedSave。eventId = "
+                             + (data == null ? "<null>" : data.eventId)
+                             + "，save 实际类型 = " + (saveGame == null ? "<null>" : saveGame.GetType().Name));
                 return;
             }
-            var s = saveGame as TSave;
-            if (saveGame != null && s == null)
-            {
-                Debug.LogError("[LiveOps] LoadEventData：saveGame 不是 " + typeof(TSave).Name
-                             + "（实际 " + saveGame.GetType().Name + "）⇒ 原版会抛，我们出声并把存档当「没有」重建。");
-            }
-            Data = d;
-            SaveGame = s;
-            Handler = handler;
-            if (Handler != null) Handler.UpdateCachedSave(SaveGame);
+            Data = fd;
+            SaveGame = fs;
+            if (Handler != null) Handler.UpdateCachedSave(SaveGame);   // ← handler 侧缓存回写
         }
 
-        /// <summary>原版 `ValidateEventData(data, save, out formatedData, out formatedSave)`（`:727`，**逐条照抄**）：
+        /// <summary>原版 `ValidateEventData(data, save, out formatedData, out formatedSave)`（`:727` / VA `0x1810173D0`，**逐条照抄**）：
         /// <code>
-        /// var d = (TData)data; if (d == null) return false;      // 类型不对 ⇒ false（不抛）
-        /// formatedData = d;
-        /// if (save != null) { var s = (TSave)save; if (s != null &amp;&amp; Validate(s)) { formatedSave = s; return true; } }
-        /// formatedSave = CreateNewSave(formatedData);             // 没有 / 校验不过 ⇒ 新建
-        /// return true;
+        /// formatedData = default; formatedSave = default;                        // .c:12-13（任何判断之前先置空）
+        /// if (!(data is TData d)) return false;                                  // .c:18-21（isinst 失败 ⇒ false，不抛）
+        /// if (save != null &amp;&amp; save.GetType() != typeof(TSave)) return false;     // .c:22-33 🔴 精确类型闸（子类也不收）
+        /// formatedData = d;  if (save != null) { var s = (TSave)save; if (Validate(s)) { formatedSave = s; return true; } }
+        /// formatedSave = CreateNewSave(formatedData); return true;               // .c:52-70（原版内联）
         /// </code>
-        /// ⚠️ 「`save` 有值但类型不对」原版是 `isinst` 得到 null 后**落到 CreateNewSave**（不是 false），照抄。</summary>
+        /// 🔴 **2026-11-02（B120_W23）就地订正**：原来这条写「save 有值但类型不对 ⇒ 原版 isinst 得到 null 后**落到 CreateNewSave**（不是 false）」——**那句是错的**（当时方法体没导出，照 ILSpy 残片推的）。`.c:22-33` 的 `GetType() != typeof(TSave) ⇒ return 0` 才是真身：**类型必须完全相等，否则这次装载整体失败**，⛔ 不是「悄悄换一份新存档」。⚠️ 本方法刻意不打日志（原版同）；出声在 <see cref="LoadEventData"/> 的失败分支。</summary>
         public bool ValidateEventData(LiveOpsEventData data, LiveOpsSave save,
                                       out TData formatedData, out TSave formatedSave)
         {
             formatedData = null;
             formatedSave = null;
-            var d = data as TData;
+            var d = data as TData;                                               // .c:18（isinst）
             if (d == null) return false;
-            formatedData = d;
-            if (save != null)
-            {
-                var s = save as TSave;
-                if (s != null && Validate(s)) { formatedSave = s; return true; }
+            if (save != null && save.GetType() != typeof(TSave)) return false;    // .c:22-33 🔴 精确类型闸
+            formatedData = d;                                                    // .c:34-35
+            if (save != null) {
+                var s = save as TSave;                                           // .c:41（上一行闸已保证成功）
+                if (Validate(s)) { formatedSave = s; return true; }               // .c:42-49
             }
-            formatedSave = CreateNewSave(formatedData);
-            return true;
+            formatedSave = CreateNewSave(formatedData);                           // .c:52-66（原版内联）
+            return true;                                                          // .c:70
         }
 
         /// <summary>原版 `Validate(TSave save)`（`virtual`，`:877`）：基类恒 true，子类按自己的存档结构判。</summary>

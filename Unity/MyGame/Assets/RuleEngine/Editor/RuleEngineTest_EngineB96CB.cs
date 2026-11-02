@@ -158,14 +158,10 @@ public static partial class RuleEngineTest
                   "🧨 替换卡/牌表为空 ⇒ **不换**（原版那两道闸也不过）");
         Check(ctx.Players[0].Deck.Count, deckBefore, "不换的时候牌库一张不动");
 
-        // (b) 合成数据：替换卡在牌表里 ⇒ 换
+        // (b) 2026-11-03 `B120-W30` 订正：原版是「**督军变身**」、⛔ **不换牌库**（旧「换整副牌」语义作废）。
+        //     新写法与断言（换督军 / 牌库不动 / 原督军记录）在 `B120_W30_Assert` 的 B/C/D 组，这里不再重复；
+        //     本段只保留 `newDeck` 给 (c) 的纯判据用。
         var newDeck = new List<CardDef> { hero, Unit("B96New1", 1, 2, 2) };
-        int oldFirstId = ctx.Players[0].Deck[0].Id;
-        CheckTrue(RuleCore.CheckForHeroDeckTransform(ctx, 0, hero, newDeck),
-                  "🧨 判据满足 ⇒ 换牌库（`DeckMeetsCriteria` 命中替换卡）");
-        Check(ctx.Players[0].Deck.Count, 2, "换完 = 替换牌表的张数（2）");
-        CheckTrue(ctx.Players[0].Deck[0].Id != oldFirstId,
-                  "🧨 换的是**新的一份实例**（原版换的是整副牌的对象，⛔ 不是复用旧实例）");
 
         // (c) 判据本体：牌表里没有那张替换卡 ⇒ `DeckMeetsCriteria` 为假（走**真判据档** AtLeast/1）
         //     ⚠️ 门那一层表达不了这一档：`RuleCorePartial_B96CB.cs:202` 传的是 0/0（原版 `deckCriteria+0x18/+0x1c`

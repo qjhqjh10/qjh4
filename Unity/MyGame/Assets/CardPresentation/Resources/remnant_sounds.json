@@ -1,0 +1,72 @@
+{
+ "version": 1,
+ "note": "原版**残骸体那六条 AudioCue** 的 cue 表（`WFSoundCue` 同构，键 = cue 资产名）。取材口 = `RemnantBody.toRemnantSound`(+0x38) / `RemnantBody.deathSound`(+0x50) / `RemnantAeldari.waystoneCollectSound`(+0x70) / `RemnantNecrons.reanimateSound`(+0x90)。⛔ 生成物别手改；重跑 = `python 工具/import_remnant_sfx.py --write`。",
+ "cues": [
+  {
+   "name": "Aeldari To Waystone",
+   "clips": [
+    "Aeldari To Waystone Death"
+   ],
+   "minPitch": 0.800000011920929,
+   "maxPitch": 1.2400000095367432,
+   "minVolume": 0.30000001192092896,
+   "maxVolume": 0.30000001192092896,
+   "timeToPlayAgain": 0.10000000149011612
+  },
+  {
+   "name": "Aeldari Waystone Collect",
+   "clips": [
+    "Aeldari To Waystone Death"
+   ],
+   "minPitch": 0.800000011920929,
+   "maxPitch": 1.2400000095367432,
+   "minVolume": 0.30000001192092896,
+   "maxVolume": 0.30000001192092896,
+   "timeToPlayAgain": 0.10000000149011612
+  },
+  {
+   "name": "Aeldari Waystone Destruction",
+   "clips": [
+    "Aeldari Waystone Destruction"
+   ],
+   "minPitch": 0.800000011920929,
+   "maxPitch": 1.2400000095367432,
+   "minVolume": 0.30000001192092896,
+   "maxVolume": 0.30000001192092896,
+   "timeToPlayAgain": 0.10000000149011612
+  },
+  {
+   "name": "CardShatter",
+   "clips": [
+    "CardShatter"
+   ],
+   "minPitch": 0.800000011920929,
+   "maxPitch": 1.100000023841858,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.10000000149011612
+  },
+  {
+   "name": "NecronsCardReanimate",
+   "clips": [
+    "CardReanimate"
+   ],
+   "minPitch": 0.800000011920929,
+   "maxPitch": 1.100000023841858,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.10000000149011612
+  },
+  {
+   "name": "RemnantsDestroyed",
+   "clips": [
+    "RemnantsDestroyed"
+   ],
+   "minPitch": 0.699999988079071,
+   "maxPitch": 1.100000023841858,
+   "minVolume": 1.0,
+   "maxVolume": 1.0,
+   "timeToPlayAgain": 0.10000000149011612
+  }
+ ]
+}

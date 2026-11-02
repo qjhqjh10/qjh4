@@ -138,34 +138,34 @@ namespace CardPresentation
 
         /// <summary>把**屏幕上的一个点**解析成格位（真 3D 那条路）。
         ///
-        /// 做法 = 把 9 个格的**卡心**逐个投影到屏幕，取屏幕距离最近的那个。
-        /// 🔴 **不能用「从相机打射线到地面」那条常规做法** —— `BoardCamera` 的朝向是**单位四元数
-        /// （没有俯仰）**，射线是水平的、**永远打不到地面**（`ray.direction.y == 0`）。
-        /// 容差按**实际投影**算，不写死 px：横向 = 相邻两格投影间距的一半多一点，
-        /// 纵向 = 两行投影间距的一半。
+        /// <para>🔴 **2026-11-02（`B120-W21`）按原版重写** —— 判据 = `MinionManager.GetClosestAvailableSlot`
+        /// （可读源 `d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/MinionManager.cs:321-390`，
+        /// 与 `decomp_full/MinionManager__GetClosestAvailableSlot.c:35-145` 互验一致），四件事逐条：
+        ///   ① 候选集 = **每侧「最内空格 + 内圈已占格」**（满侧整条剔除、**不含督军位**）；
+        ///   ② 距离 = **2D 欧氏屏幕像素** `sqrt(dx² + dy²)`；
+        ///   ③ **没有容差**（只要还有空格，指针在任何位置都返回一个格）；
+        ///   ④ 平手留**更早下标**（原版 `best > d` 严格不等；我们按格号升序循环 = 原版下标升序）。
+        /// 投影基准 = **地面槽点**（`Position`，y = `ExtraYOnBoard` = 0；原版 `GetSlots` 的 `TransformPoint(x,0,0)`），
+        /// ⛔ **不是卡心** —— 卡心比地面高半张卡，透视相机下屏幕 y 差一截。</para>
+        /// <para>返回：`true` + 格号（我们 0..8，`ourSlot = 4 + 原版有符号格号`）；`false` **只在两侧都满**时出现
+        /// —— 原版同一情形返回 `0`（= 无），语义逐字对上。</para>
+        ///
+        /// <para>⚠️ 候选集与「最近」的**结构**另由 <see cref="IsCandidate"/> / <see cref="PickNearest"/> 表达，
+        /// 断言直接喂屏幕点集、不需要相机（`Editor/B120_W21_Assert.cs` 的 A/B/C 段）。</para>
+        ///
+        /// <para>🔶 自己设计（非原版）：这里以前那两道容差（`tolY = 两行投影间距 × 0.5` 与 `0.55 × pitchPx`）
+        /// **是我们自己挑的**，原版**没有** —— `B120-W21` 已删（留痕用；⛔ 别再写回来，见断言 C 段）。</para>
+        ///
+        /// <para>真判据在下面那个带「每侧已占数」的重载里；**本签名没给占用数 ⇒ 按「两侧皆空」处理**
+        /// （= 原版刚开局那一刻的候选集）。产品路径**必须**走带数的重载 —— ⛔ 别把旧「9 格全算」当默认。</para>
+        ///
+        /// <para>🔴 **不能用「从相机打射线到地面」那条常规做法** —— `BoardCamera` 的朝向是**单位四元数`
+        /// （没有俯仰）**，射线是水平的、**永远打不到地面**（`ray.direction.y == 0`）。</para>
         /// </summary>
         public static bool TryResolveSlot(Camera cam, Vector2 screenPos, bool enemy, out int slot)
         {
-            slot = -1;
-            if (cam == null) return false;
-
-            float sc = CardScale(enemy);
-            var rowMe = Project(cam, CardCenter(WarlordSlot, enemy, sc));
-            var rowFoe = Project(cam, CardCenter(WarlordSlot, !enemy, CardScale(!enemy)));
-            float tolY = Mathf.Abs(rowFoe.y - rowMe.y) * 0.5f;
-            float pitchPx = Mathf.Abs(Project(cam, CardCenter(WarlordSlot + 1, enemy, sc)).x - rowMe.x);
-
-            int bestS = -1; float bestDx = float.MaxValue;
-            for (int s = 0; s < SlotCount; s++)
-            {
-                var sp = Project(cam, CardCenter(s, enemy, sc));
-                if (Mathf.Abs(sp.y - screenPos.y) > tolY) continue;
-                float dx = Mathf.Abs(sp.x - screenPos.x);
-                if (dx < bestDx) { bestDx = dx; bestS = s; }
-            }
-            if (bestS < 0 || bestDx > pitchPx * 0.55f) return false;
-            slot = bestS;
-            return true;
+            // 未给占用数 ⇒ 原版「两侧皆空」那一档（候选 = 两侧最内空格，即 3 号与 5 号）。
+            return TryResolveSlot(cam, screenPos, enemy, 0, 0, out slot);
         }
 
         static Vector3 Project(Camera cam, Vector3 world) { return cam.WorldToScreenPoint(world); }
@@ -175,10 +175,9 @@ namespace CardPresentation
         //  （2026-10-26 · B8_AR）⚠️ **一律追加在类尾**：`Position` 在 :98-110，账按行号引用它。
         // ==================================================================
 
-        /// <summary>原版 `MinionManager.slotsPerSide`（**每侧**几格）—— `MonoBehaviour_4372.json` /
-        /// `MonoBehaviour_4373.json` 实读都是 **4**，且 `Awake` 用它把两条槽位数组**重建**成 4 项
-        /// （`MinionManager__Awake.c:41-46`；序列化里那两条只有 3 项 ⇒ **那 3 项是被覆盖的死值**）。
-        /// ⛔ 别和 <see cref="SlotCount"/>（9 = 4 + 督军 + 4）混用。</summary>
+        /// <summary>原版 `MinionManager.slotsPerSide`（**每侧**几格）—— 序列化实读 **4**；
+        /// 但 `Awake` **先用服务器值 `GameplayVariablesData.slotsPerSide` 覆盖 `mm+0x58`、再按它重建**两条槽位数组
+        /// （`MinionManager__Awake.c:30-46`）⇒ **序列化的 4 只是被覆盖的回退值**（2026-11-02 订正）。⛔ 别和 <see cref="SlotCount"/>（9 = 4 + 督军 + 4）混用。</summary>
         public const int SlotsPerSide = (SlotCount - 1) / 2;
 
         /// <summary>原版 `MinionManager.ExtraYOnBoard`（**我方**）= **0**
@@ -253,6 +252,114 @@ namespace CardPresentation
         public static float InPlayScale(bool enemy)
         {
             return MinionInPlayScale * (enemy ? EnemyUnitsScaleRatio : 1f);
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（执行写手 `B120-W19`）：原版 **层 10 = `BoardElements`**
+        //  （⚠️ 一律**追加在类尾**：本文件在账 `战斗界面_HUD:713` 有 A 行落点 `:253`，插进成员之间会整片漂移）
+        // ════════════════════════════════════════════════════════════════════════════════════
+        /// <summary>原版 **`BoardElements` = 层 10** —— **棋盘上的卡**专用层。
+        /// <para>判据（一手）：原版 `ProjectSettings/TagManager.asset` 的 `layers` 索引 **10 = `BoardElements`**；
+        /// 原版 `BattleManager.GetTargetInPos` 的射线掩码 = `1 &lt;&lt; LayerMask.NameToLayer("BoardElements")`
+        /// （`cpp2il/out_cpp2il_dev_ilspy/BattleManager.cs:46450-46495` 明文 + `decomp_full/BattleManager__GetTargetInPos.c:204-265`）。
+        /// 原版层 10 上**只有卡** —— 这正是那条射线能「字面吃 `hits[0]`」的前提。</para>
+        /// <para>🔴 **和 <see cref="ArenaLayer"/>(8) 的分工（⛔ 别把两个合并，也⛔ 别改 8 的值）**：
+        /// `ArenaLayer`(8) = **arena prefab 整棵树**（地面 / 背景 / 灯光 / 半透明道具 / tap 宿主 / VFX 宿主）；
+        /// `BoardCardLayer`(10) = **只有卡**。原版就是这么分的。</para>
+        /// <para>⚠️ **当前状态（2026-11-02 现读）**：`TagManager.asset` 已把索引 10 命名为 `BoardElements`，
+        /// 但**场上卡仍挂在 8**（`BattleDriver` 六处 `SetLayer(ArenaSlots.ArenaLayer)`）⇒ 迁移清单、
+        /// 还没迁的项、以及要改的相机掩码 → `资料/完全复刻/报告/B120_W19_层依赖审计.md`；
+        /// 自检闸 `Editor/B120_W19_Assert.cs` 的 C 段把**未迁项显式标红**（迁移落地后自动转绿）。</para></summary>
+        public const int BoardCardLayer = 10;
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（执行写手 `B120-W21` · 账 `B120-Q04c`）：落点解析按原版重写
+        //  ⚠️ **一律追加在类尾** —— 本文件在账 `战斗界面_HUD:713` 有 A 行落点（`InPlayScale`），
+        //     插进既有成员之间会让那片账整段漂移（判据 → CLAUDE.md 派活纪律 / `check_ledger_points`）。
+        //  判据 = `cpp2il/out_il2csharp/Assembly-CSharp/MinionManager.cs:321-390`
+        //         ＋ `decomp_full/MinionManager__GetClosestAvailableSlot.c:35-145`（两份互验一致）。
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版 `GetClosestAvailableSlot` 的**候选集判据**（纯函数，⛔ 不需要相机）。
+        ///
+        /// <para>原版逐句（`MinionManager.cs:326-342`）：`start = 4 − 左已占数 − 1`（左满了就 `= 4`）、
+        /// `end = 4 + 1 + 右已占数`（右满了就 `= 4`），`start >= end ⇒ 返回 0`（无）；
+        /// 候选 = 拼接数组 `[GetSlots(-1) 下标 0..3 = 左最外 → 贴督军, GetSlots(1) 下标 0..3 = 贴督军 → 右最外]`
+        /// 的 `[start, end)`。逐条翻译到我们的格号（`ourSlot = 4 + 原版有符号格号`，侧内下标 0 = 贴督军）：</para>
+        /// <list type="bullet">
+        /// <item>**满侧整条剔除**（那一侧已占 `SlotsPerSide` ⇒ 一个候选都没有）；</item>
+        /// <item>**该侧最内空格 + 内圈已占格** ⇒ 侧内下标 `idx ∈ [0, 已占数]`（`idx = |slot − 4| − 1`）；</item>
+        /// <item>**不含督军位**（4 号格恒 `false`）—— 原版候选里根本没有督军格，返回值 `0` 是「无」不是督军格。</item>
+        /// </list>
+        /// </summary>
+        public static bool IsCandidate(int slot, int occupiedLeft, int occupiedRight)
+        {
+            if (slot == WarlordSlot || slot < 0 || slot >= SlotCount) return false;   // 督军位 / 越界：不在原版那 8 个候选里
+            int side = slot < WarlordSlot ? -1 : 1;
+            int count = side < 0 ? occupiedLeft : occupiedRight;
+            if (count < 0) count = 0;                  // −1 = 调用方数不出来（见带数重载的 doc）⇒ 该侧按「皆空」
+            if (count >= SlotsPerSide) return false;   // 满侧整条剔除（原版那一侧 `start = 4` / `end = 4`）
+            int idx = Mathf.Abs(slot - WarlordSlot) - 1;   // 0 = 贴督军、SlotsPerSide−1 = 最外
+            return idx <= count;                        // 候选 = 最内空格（idx == count）与它内圈的已占格（idx < count）
+        }
+
+        /// <summary>原版 `GetClosestAvailableSlot` 的**取最近**那一跳（纯函数：喂**已投影好的屏幕点**）。
+        /// <para>逐句（`MinionManager.cs:359-369`）：`d = sqrt((sp.x−pos.x)² + (sp.y−pos.y)²)` ·
+        /// `if (best > d) { best = d; bestIdx = i }` —— **2D 欧氏**、**没有任何容差**、
+        /// **严格不等 ⇒ 平手留更早下标**。</para>
+        /// <para>⚠️ 循环**必须按格号升序**：原版遍历的是「左半（最外→贴督军）+ 右半（贴督军→最外）」的拼接数组，
+        /// 我们的格号 0..8 与它同序（左 0..3 升、右 5..8 升，督军 4 恒非候选）⇒ 平手判据逐字相同。</para>
+        /// <param name="slotScreenPts">长度 = <see cref="SlotCount"/>（索引 = 我们的格号；非候选位上放什么都行）。</param>
+        /// <returns>命中的格号；`-1` = **一个候选都没有**（原版同一情形返回 `0` = 无）。</returns>
+        public static int PickNearest(Vector2[] slotScreenPts, Vector2 screenPos, int occupiedLeft, int occupiedRight)
+        {
+            if (slotScreenPts == null || slotScreenPts.Length < SlotCount) return -1;
+            int bestSlot = -1;
+            float bestD = float.PositiveInfinity;
+            for (int s = 0; s < SlotCount; s++)
+            {
+                if (!IsCandidate(s, occupiedLeft, occupiedRight)) continue;
+                float dx = slotScreenPts[s].x - screenPos.x;
+                float dy = slotScreenPts[s].y - screenPos.y;
+                float d = Mathf.Sqrt(dx * dx + dy * dy);        // 2D 欧氏（原版 `Math.Sqrt`，只取 x/y）
+                if (d < bestD) { bestD = d; bestSlot = s; }     // 严格 < ⇒ 平手留更早下标
+            }
+            return bestSlot;
+        }
+
+        /// <summary>把 <paramref name="slot"/> 的**地面槽点**投到屏幕
+        /// （= 原版 `GetSlots` 之后那句 `boardCamera.WorldToScreenPoint(slots[i])` 的输入）。
+        /// <para>判据：`GetSlots` 算的是 `transform.TransformPoint(new Vector3(x, 0, 0))`（`MinionManager.cs:149-176`）
+        /// ⇒ **y = 0**；我们的等价物 = <see cref="Position"/>（y = `ExtraYOnBoard`，13 场 × 2 实例实读恒 0），
+        /// ⛔ **不是 <see cref="CardCenter"/>**（卡心比地面高半张卡 ⇒ 透视相机下屏幕 y 差一截）。</para>
+        /// ⚠️ `cam == null` 返回 `Vector2.zero` 只是兜底：**调用方必须先判 null**（产品路径恒非 null）。</summary>
+        public static Vector2 GroundScreenPoint(Camera cam, int slot, bool enemy)
+        {
+            if (cam == null) return Vector2.zero;
+            return cam.WorldToScreenPoint(Position(slot, enemy));
+        }
+
+        /// <summary>原版 `GetClosestAvailableSlot(Vector2 pos)` 的等价物 —— **带「每侧已占数」的那一支**
+        /// （= 产品路径；不带数的那支见上面 `TryResolveSlot` 的 doc）。
+        ///
+        /// <para><paramref name="occupiedLeft"/> / <paramref name="occupiedRight"/> = **这一块棋盘那一方**
+        /// 两侧各已占几格 —— 原版是 `leftMinionsOccupation.Count / rightMinionsOccupation.Count`
+        /// （`MinionManager.cs:327/335`）；我们的等价物 = `RuleEngine.BoardSlots.CountOnSide(ps, Left/Right)`
+        /// （`Hand/CardInteraction.SideCount` 现数后传进来）。</para>
+        /// <para>`-1` = 调用方数不出来（自检夹具 / 没有驱动）⇒ 该侧按「皆空」处理
+        /// （⛔ 不静默猜成「满」—— 那会把整侧候选剔光，玩家怎么拖都打不出去）。</para>
+        /// <para>⚠️ 只服务 <c>use3D</c> 那条路：2D 兜底档仍是我们自己的阈值判据
+        /// （见 `BoardLayout.TryResolveSlot` 里那段 `🔶 自己设计`）。</para>
+        /// </summary>
+        public static bool TryResolveSlot(Camera cam, Vector2 screenPos, bool enemy,
+                                          int occupiedLeft, int occupiedRight, out int slot)
+        {
+            slot = -1;
+            if (cam == null) return false;
+            var pts = new Vector2[SlotCount];
+            for (int s = 0; s < SlotCount; s++) pts[s] = GroundScreenPoint(cam, s, enemy);
+            slot = PickNearest(pts, screenPos, occupiedLeft, occupiedRight);
+            return slot >= 0;      // `false` 只在「两侧都满」时出现（原版同一情形返回 0 = 无）
         }
     }
 }

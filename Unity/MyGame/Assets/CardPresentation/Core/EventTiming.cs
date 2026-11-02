@@ -42,10 +42,10 @@
 //          return *(this+0x2B8); }  return *(this+0x260);`
 //      ⇒ 判据字段 = **`normalAbilityBoardCriteria`(+0x2B0)**（卡上**没有**叫 `selectCriteria` 的字段），
 //        且**满足时走的是【普通】支**、**不满足**才落到 `alternativeAbility`(+0x2B8)。
-//      ⛔ 表只记普通那一支；运行时**要不要切到 0.2 还没接** —— 而且**数据侧也缺**：
-//        `normalAbilityBoardCriteria` **不在**我们的卡导出里（`cards_raw.json` 的 `cards[*]` 只有
-//        `hasAlternativeAbility` / `activeAbility` / `alternativeAbility` 三样）⇒ 要接得先补那个字段的导出。
-//        逐条见全量件 `conditional`。
+//      ⛔ 表只记普通那一支；运行时**按棋盘切支** = `AbilityUsesAlternative`（本类那个 `Func`，`AbilityHoldOf` 消费它）。
+//        🔴 **2026-11-02（`B120_W4b` · `C-5`）就地订正（铁律 5）**：原来这里写「运行时还没接、数据侧也缺 `normalAbilityBoardCriteria`」——**两句都已过期**：
+//        数据侧 v21/v45 起就落了 `hasAlternativeAbility` + `normalAbilityBoardCriteria`（现读：带替代支 **1 张** = `SW21`；带非默认闸 **2 张** = `SW9` / `SW21`；`gen_cards_engine.py --check` 一致 ✅）；
+//        驱动侧 `BattleDriver.HookEventTimingCardSource` 已把 `AbilityUsesAlternative` 绑到 `CardDef.UsesAlternativeAbility`（判据 = 原版 `RawCardScript__GetActiveAbility.c`）。
 using RuleEngine;
 
 namespace CardPresentation
@@ -398,11 +398,11 @@ namespace CardPresentation
                 //       `AnimInfo.GetAnimDuration()`（`_ResolveAnimInfoRangeAttack…` state 3 的
                 //       `WaitForSeconds`，`:111-124`）⇒ Attack+0.2+VFX。
                 //   而「出手到命中帧」那一段（近战 0.1 / 远程 0.2）已经算在 `DurationOf(Attack)` 里
-                //   ⇒ 这里返回的是**剩余**那一截（近战 0.3 / 远程 = VFX 时长）。
+                //   ⇒ 这里返回的是**剩余**那一截（近战 0.3 / 跳过档 0.1667 · 远程 = VFX 时长）。
                 //   👉 命中帧的**手感**（后坐/震屏/命中粒子/命中音）不在这一拍 —— 见 <see cref="HitFrameLag"/>。
                 case EvtKind.Hit:
                     if (prev.Kind != EvtKind.Attack) return 0f;
-                    if (!prev.Ranged) return SkipScaled(MeleeDamageLag) - SkipScaled(AttackStepMelee);
+                    if (!prev.Ranged) { float step = SkipScaled(AttackStepMelee); return CardFeel.AttackHoldTime + step * 2f; }   // 🔴 2026-11-02（`B120_W4` · `C-3`）：跳过档下**不是**把整条 0.4 一起 ÷3 —— 原版 `_AttackMeleeAnim_d__357__MoveNext.c:198,246,259,265,279` 的段3 `AppendInterval(DAT_1834b2dc4)`=**0.1 字面量不除**，只有段1/2/4/5 走 `get_AttackStepTime()`（`:259` 与 `:198` 是两处不同的取法）⇒ 整条 = step + 0.1 + 2×step（正常 0.4 / 跳过 0.2）；本条 = 「已扣掉前摇 step 之后还剩多久」= `0.1 + 2×step`（正常 0.3 / 跳过 **0.1667**，改前是 0.4/3−0.1/3 = 0.1，少 0.0667）。⛔ 别写回 `SkipScaled(MeleeDamageLag) - SkipScaled(AttackStepMelee)`（那会把段3 也除 3）。
                     return rangedVfxDuration >= 0f ? rangedVfxDuration : RangedVfxFallback;
 
                 // 阵亡：链路查到了（`_DestroyUnitsAfterBattleEnd_d__392__MoveNext.c` 里
@@ -618,15 +618,18 @@ namespace CardPresentation
         {
             switch (kind)
             {
-                // `Summon Troop Tween`：ScaleTween d=0 + **DelayTween d=1.0** + ResetTween 0.3
+                // 🔴 **2026-11-02（`B120-W10`）就地订正**：这一行原来写「`Summon Troop Tween` 的
+                //    **DelayTween d=1.0**」—— **那句不是判据**：该 tween 的 `waitAnimation = 0`（非阻塞），
+                //    不决定下一条动作何时开始。真判据 = `_ResolveSummonUnit` 那条协程的整条寿命
+                //    （0.1 + 0.05 + 0.2 + 0.1 = **0.45**），见 `DeploySummonHold` 的 doc。
                 // 🆕 2026-09-29：再加**落位之后那一拍**（`DeployLandHold`）——
                 //    原版 `_ResolvePlayCardFromHand` 的 state 4→5 就是 `WaitForSeconds(0.3)`
                 //    （`DAT_1834b2dc8` 实读 = 0.3），发生在**落位动画跑完之后**。
                 // 🔴 **2026-10-21（W61 第 2 批 · 第 3 条）：这一格【按来源分档】了** ——
                 //    手牌打出 = **0.4**（`_MinionPlayedIntoField` state 3 尾的 `attackStepTime` 0.1 +
-                //    `_ResolvePlayCardFromHand` state 4 的 0.3）；`Summon Troop Tween` 的 1.0 只给
-                //    **效果召唤/复活**。分档要 `BattleEvent.DeployFrom` ⇒ 见 `DurationOf(BattleEvent)`。
-                //    ⛔ **这条只按 EvtKind 的重载拿不到来源** ⇒ 返回**兜底**（老口径，给探针/旧路径用）。
+                //    `_ResolvePlayCardFromHand` state 4 的 0.3）；**效果召唤/复活 = 0.45**（见上一条更正）。
+                //    分档要 `BattleEvent.DeployFrom` ⇒ 见 `DurationOf(BattleEvent)`。
+                //    ⛔ **这条只按 EvtKind 的重载拿不到来源** ⇒ 返回**兜底**（0.75，给探针/旧路径用）。
                 case EvtKind.Deploy: return DeploySummonHold + DeployLandHold;
 
                 // 出手 → 命中：**近战档 0.10**（远程 0.20，走 `DurationOf(BattleEvent)` 那个重载）。
@@ -742,8 +745,8 @@ namespace CardPresentation
             if (e.Kind == EvtKind.Attack)
                 return SkipScaled(e.Ranged ? AttackStepRanged : AttackStepMelee);
             // 🔴 **2026-10-21（W61 第 2 批 · 第 3 条）**：`Deploy` **按「怎么进来的」分档** ——
-            //    判据见 <see cref="DeployHoldOf"/>。⛔ 别退回 `DurationOf(EvtKind.Deploy)`（那是兜底 1.3，
-            //    手牌出牌会被它多排 0.9 s —— 正是这条账要修的那 0.9）。
+            //    判据见 <see cref="DeployHoldOf"/>。⛔ 别退回 `DurationOf(EvtKind.Deploy)`（那是兜底 0.75，
+            //    手牌出牌会被它多排 0.35 s —— 正是这条账要修的那 0.35）。
             if (e.Kind == EvtKind.Deploy) return DeployHoldOf(e.DeployFrom);
             // 🆕 `A1767`：**发动能力 = 逐卡真值**。`e.CardId` 装的是 `CardDef.Name`（英文卡名），
             //    表里 id 与卡名两个键都有（见 `AbilityAnimDurations.TryGet`）。
@@ -903,14 +906,33 @@ namespace CardPresentation
         /// </summary>
         public const float DeployLandHold = 0.3f;
 
-        /// <summary>**效果召唤 / 复活**那一档的 `Deploy` 占多久（秒）= **1.0**
-        /// —— `Summon Troop Tween` 的 **`DelayTween.duration = 1.0`**
-        /// （`数据/游戏数据/tween/Summon Troop Tween.json` 现读：ScaleTween d=0 · DelayTween **1.0** ·
-        ///  ResetBodyTween 0.3）。原版走 `BattleManager._ResolveSummonUnit_d__510__MoveNext`。
-        /// ⚠️ ResetBodyTween 那 0.3（`appendType=0` = After）**没算进去**：`waitAnimation = 0`
-        ///    ⇒ 它不阻塞下一条动作；要照字面全算的话这一档会变成 1.3（**如实记**，
-        ///    见 `资料/普查产出_1021/W61b_战斗线_演出链第2批.md`）。</summary>
-        public const float DeploySummonHold = 1.0f;
+        /// <summary>**效果召唤 / 复活**那一档的 `Deploy` 占多久（秒）= **0.45**
+        /// —— 它 = 原版 `_ResolveSummonUnit` 那条协程的**整条寿命**。原版**没有**「部署间隔」字段，
+        /// 动作泵也无额外等待（`BattleManager__Update.c:1271-1299` 取完即跑、
+        /// `FinishResolvingAction.c:118-121,153-155` 同帧拉下一条）⇒ **相邻两张召唤的开始间隔就是这个数**。
+        ///
+        /// <para>判据（逐句现读）：`BattleManager._ResolveSummonUnit_d__510__MoveNext` 的 state 2
+        /// `yield return MinionPlayedIntoField(delay = VarsGlobal.timeToScaleIntoMoving, …)`，
+        /// 而 `CardScript._MinionPlayedIntoField_d__314__MoveNext` 的四个 `WaitForSeconds` 依次是：</para>
+        /// <list type="number">
+        /// <item>state 0 尾 = `delay`（= `VarsGlobal.timeToScaleIntoMoving`，`+0x78` = **0.1**）；</item>
+        /// <item>state 1 尾 = `timeBeforeLand` = **0.05**（`CardScript.cs:5639`）；</item>
+        /// <item>state 2 尾 = `timeToLand` = **0.2**（`CardScript.cs:5637`）；</item>
+        /// <item>state 3 尾 = `AttackStepTime` = **0.1**。</item>
+        /// </list>
+        /// ⇒ **0.45 s**（ILSpy 同形：`CardScript.cs:2783-2787,2843`）。
+        /// 与本文件 `PlayBucketHandPlayedHold` 的 doc 里那四个分段**同一组数**（那里是 0.1+0.05+0.2+0.1）。
+        ///
+        /// <para>🔴 **2026-11-02（`B120-W10` · `B120-Q06`）就地改值：1.0 → 0.45（铁律 5）。**
+        /// 原来那个 1.0 的出处是 `Summon Troop Tween` 的 `DelayTween.duration = 1.0` ——
+        /// 但该资产 **`waitAnimation = 0`（非阻塞）** ⇒ 它**不决定**下一条动作何时开始
+        /// （`assets_full/bundle_tweenandshakes_assets_all/MonoBehaviour/Summon Troop Tween.json`）。
+        /// **错因**：把「那条 tween 有多长」当成了「这条动作占多久」。</para>
+        /// <para>⚠️ **还差的**：原版在**带 `cardAnim` 的那一支**会先 `yield ResolveTraitAnim`（按卡的召唤动画），
+        /// 时长 = `AnimInfo.GetAnimDuration()` —— 我们**还没接**，所以本档只覆盖「基础 0.45 s」；
+        /// 接上之后应为 `0.45 + 该卡召唤 clip`。</para>
+        /// <para>⚠️ `Reanimate` 共用本常量：本轮只核了 `_ResolveSummonUnit` 那条协程，**没单独核再造**。</para></summary>
+        public const float DeploySummonHold = 0.45f;
 
         /// <summary>🆕 **2026-10-21（W61 第 2 批 · 第 3 条）：`Deploy` 这一拍占多久 —— 按「怎么进来的」分档。**
         ///
@@ -923,10 +945,14 @@ namespace CardPresentation
         ///   （0.1 + 0.3）。⚠️ 这就是对账 §2·1 #11 那句「0.1 + `_ResolvePlayCardFromHand` 0.3 = 0.4」。</item>
         /// <item>**自动从手牌打出**（`_ResolveCardAutoSummoned_d__511__MoveNext.c`）：只有
         ///   `MinionPlayedIntoField` 那一段（state 3→4 直接接下去，**没有**再等 0.3）⇒ **0.1**。</item>
-        /// <item>**效果召唤 / 复活**（`_ResolveSummonUnit_d__510__MoveNext.c`）：走 `Summon Troop Tween`
-        ///   ⇒ <see cref="DeploySummonHold"/> 1.0。</item>
-        /// <item>**没写来源**（`DeploySource.Unknown`：旧路径 / 自检手工合成的 `Deploy`）⇒ **老口径 1.3**，
-        ///   与 `BattleEvent.DeploySource` 的 doc「消费端读到 `Unknown` 就按改前的老行为处理」一致。</item>
+        /// <item>**效果召唤 / 复活**（`_ResolveSummonUnit_d__510__MoveNext.c`）：走
+        ///   `CardScript._MinionPlayedIntoField` 那条协程 ⇒ <see cref="DeploySummonHold"/> **0.45**
+        ///   （🔴 2026-11-02 `B120-W10`：原来是 1.0，出处是 `Summon Troop Tween` 的 `DelayTween`，
+        ///   而那条 tween **非阻塞** ⇒ 已就地改成协程真寿命，判据见 `DeploySummonHold` 的 doc）。</item>
+        /// <item>**没写来源**（`DeploySource.Unknown`：旧路径 / 自检手工合成的 `Deploy`）⇒
+        ///   `DeploySummonHold + DeployLandHold` = **0.75**（原口径 1.3 = 老 `DeploySummonHold` 1.0 + 0.3；
+        ///   随 `DeploySummonHold` 一起改了，与 `BattleEvent.DeploySource` 的 doc「消费端读到 `Unknown`
+        ///   就按改前的老行为处理」的分歧**如实记在这里**）。</item>
         /// </list>
         /// <para>🔴 修之前全档都是 1.3 ⇒ **手牌出牌每个兵多 0.9 s**（对账 §2·1 #11「数值错（疑似）」坐实）。</para>
         /// </summary>
@@ -937,8 +963,8 @@ namespace CardPresentation
                 case DeploySource.HandPlayed:       return SkipScaled(AttackStepMelee) + DeployLandHold;   // 0.4
                 case DeploySource.AutoPlayFromHand: return SkipScaled(AttackStepMelee);                    // 0.1
                 case DeploySource.Summon:
-                case DeploySource.Reanimate:        return DeploySummonHold;                   // 1.0
-                default:                            return DeploySummonHold + DeployLandHold;   // 1.3（老口径）
+                case DeploySource.Reanimate:        return DeploySummonHold;                   // 0.45
+                default:                            return DeploySummonHold + DeployLandHold;   // 0.75（老口径曾是 1.3）
             }
         }
 
@@ -988,15 +1014,14 @@ namespace CardPresentation
         /// 逐条见全量件 `uncovered` / `conditional`）：
         ///   · `SOR30` / `SOR65` / `SW9` —— 卡 SO 里 `hasActiveAbility=1`，但 `activeAbility` 一条非空 CardAnim
         ///     引用都没有（`m_AssetGUID` 全空）⇒ 原版这条路上不放动画 ⇒ **时长 0**（2026-11-02 前误给 1.0）；
-        ///   · `SW21 Wulfen Pack Leader` —— 普通支 **0.4**（表里存这支）/ 替代能力支 **0.2**；运行时按棋盘切支**还没接**（判据 = 原版 `RawCardScript.GetActiveAbility`）。
+        ///   · `SW21 Wulfen Pack Leader` —— 普通支 **0.4**（表里存这支）/ 替代能力支 **0.2**；运行时按棋盘切支 = <see cref="AbilityUsesAlternative"/>（`AbilityHoldOf` 消费；🔴 2026-11-02 `B120_W4b` 订正：原来这里写「还没接」，**已过期** —— 驱动 `HookEventTimingCardSource` 已绑到 `CardDef.UsesAlternativeAbility`）。
         /// 另：`tweenAnim`（UnitTweenSO）那一段没算 · `cardAbilities` 那一族不进本表。</summary>
         public const float AbilityNoEntrySeconds = AbilityAnimDurations.NoEntryFallback; public const float AbilityLoadFailSeconds = AbilityAnimDurations.LoadFailFallback;
 
-        /// <summary>🆕 2026-10-14（`A1816`）**抽卡**这一条事件占多久 = **0.3 s**。
-        ///
-        /// 出处 = `VarsGlobal.timeToDrawPlayerCard`（整表见 `资料/VarsGlobal_原版数值.md` §一），
-        /// 也就是**发牌入场那条补间自己的时长** —— 判据只此一处，所以这里直接引用
-        /// `CardFeel.DealDuration`（⛔ **别再写一个字面量 0.3**，那正是「两处写同一条规则」）。
+        /// <summary>🆕 2026-10-14（`A1816`）**抽卡**这一条事件占多久 = **0.5 s**（= `timeToPositionCard 0.2` + `timeToDrawPlayerCard 0.3`）。
+        /// 出处 = `VarsGlobal.timeToDrawPlayerCard` **+ `VarsGlobal.timeToPositionCard`**（`资料/VarsGlobal_原版数值.md` §一）——
+        /// 原版一条抽卡动作在起完 `AddDrawnCardToHand` 之后还要 `WaitForSeconds(globalVars+0xA4 + TimeToDrawCard)`（`_ResolveDrawCard_d__432__MoveNext.c:233-249`）。
+        /// ⚠️ 原来写「= 0.3 s，只算发牌补间那一段」—— **已过期**（2026-11-02 `B120_W15` · `D118-66` ①：漏了 `timeToPositionCard` 那 0.2 ⇒ 两张连抽之间短 0.2 s）。判据只此一处：本行直接引用那两个常量，⛔ 别再写 0.3 / 0.5 字面量。
         /// 原版这一档**确实会等**：`PlayerHand._AddDrawnCardToHand_d__37__MoveNext.c:78-80`
         /// 在把牌送进手牌之后 `WaitForSeconds(TimeToDrawCard + DAT_1834b2dc4)` 才走下一步。
         ///
@@ -1008,7 +1033,7 @@ namespace CardPresentation
         /// 🔴 **2026-10-23（R19）就地更新**：`DurationOf(BattleEvent)` 那一路**已经分档**了
         ///    （`DrawDealOf(e.Player)` + `IsLocalSeat` 钩子）⇒ 生产路径不再有「多排 0.15 s」这个问题；
         ///    本常量现在只给**只按 `EvtKind` 的旧重载**（探针 / 拿不到座位号时的兜底）。</summary>
-        public const float DrawDeal = CardFeel.DealDuration;
+        public const float DrawDeal = CardTween.RelayoutDuration + CardFeel.DealDuration;   // 🆕 2026-11-02（`B120_W15` · `D118-66` ①）= `timeToPositionCard 0.2` + `timeToDrawPlayerCard 0.3` = 0.5；判据见本段 doc 与 `DrawBeatSeconds`
 
         /// <summary>🆕 **2026-10-23（R19）：这一条抽卡事件占多久 —— 按【谁抽的】分档。**
         ///
@@ -1020,7 +1045,8 @@ namespace CardPresentation
         ///
         /// <para>⚠️ **没挂钩**（纯 `RuleEngine` 自检 / 探针）⇒ 按**我方档**并**出声一次** ——
         /// ⛔ 不是静默按 0.3 走（那就是「看着有出处、其实是猜的」）。
-        /// ⛔ 判据只此一处：`CardFeel.DealSeconds` 是那一对数的**唯一**来源（动画侧也用它）。</para></summary>
+        /// ⛔ 判据只此一处：`CardFeel.DealSeconds` 是那一对数的**唯一**来源（动画侧也用它）。
+        /// 🔴🆕 **2026-11-02（执行写手 `B120_W15` · 账 `D118-66` ①）就地补上「另一半时长」（铁律 5）**：原来这里只算**飞牌那一段**（`timeToDrawPlayerCard`），漏了动作收尾那一段 —— 原版 `_ResolveDrawCard_d__432__MoveNext.c:233-249` 在起完 `AddDrawnCardToHand` 之后还要 `WaitForSeconds(fVar2 + fVar11)`，`fVar2 = *(float*)(globalVars + 0xa4)` = **`timeToPositionCard` = 0.2**（`dump.cs` 的 `VarsGlobal` 字段表 `+0xA4`）、`fVar11 = TimeToDrawCard(isPlayer)` ⇒ **一条抽卡动作 = 0.5 / 0.35 s**（我方 / 敌方）；原来按 0.3/0.15 排 ⇒ **两张连抽之间短了 0.2 s**。⚠️ 这与 `DealStaggerFrac`（换牌区**填牌** `get_timeToDraw × 0.5`）**是两个不同的数**，⛔ 别互相套用 —— 抽牌侧的读口 = <see cref="DrawBeatSeconds"/>。</summary>
         public static float DrawDealOf(int seat)
         {
             // 座位没写（`-1`，手工合成的事件）⇒ 按我方档（与改前行为一致），⛔ 别把 -1 当「对面」。
@@ -1030,7 +1056,21 @@ namespace CardPresentation
                 WarnNoLocalSeat();
                 return DrawDeal;             // 我方档（= `DealSeconds(true)`）
             }
-            return CardFeel.DealSeconds(IsLocalSeat(seat));
+            return DrawBeatSeconds(IsLocalSeat(seat));
+        }
+
+        /// <summary>🆕 **2026-11-02（执行写手 `B120_W15` · 账 `D118-66` ①）：一条抽卡动作占多久** ——
+        /// `VarsGlobal.timeToPositionCard(0.2)` **+** `TimeToDrawCard(isPlayer)`（我方 0.3 / 敌方 0.15）
+        /// ⇒ **0.5 / 0.35 s**。
+        /// <para>**判据（第一权威）**：`BattleManager._ResolveDrawCard_d__432__MoveNext.c:233-249` 的
+        /// `WaitForSeconds(fVar2 + fVar11)`；`fVar2 = *(float*)(globalVars + 0xa4)` = `timeToPositionCard`
+        /// （`dump.cs` 字段表 `+0xA4`，值 0.2）、`fVar11 = VarsGlobal.TimeToDrawCard`。</para>
+        /// <para>**判据只此一处**：`CardTween.RelayoutDuration` 是 `timeToPositionCard` 的唯一常量、
+        /// `CardFeel.DealSeconds` 是那一对抽牌时长的唯一来源（⛔ 别在这写 0.2 / 0.5 字面量）。
+        /// 消费点 = `DrawDealOf`（时间轴）与 `BattleDriver.DrawStaggerDelay`（逐张错开）。</para></summary>
+        public static float DrawBeatSeconds(bool mineLocal)
+        {
+            return CardTween.RelayoutDuration + CardFeel.DealSeconds(mineLocal);
         }
 
         static bool _warnedNoLocalSeat;
@@ -1135,8 +1175,9 @@ namespace CardPresentation
             {
                 case EvtKind.Deploy: return "🆕 2026-10-21 按 `BattleEvent.DeployFrom` 分档（见 `DeployHoldOf`）"
                                           + "：手牌打出 0.1+0.3=**0.4** · 自动打出 0.1 · 效果召唤/复活 "
-                                          + "`Summon Troop Tween` 的 DelayTween **1.0**；"
-                                          + "无来源（Unknown）退回老口径 1.3";
+                                          + "`_ResolveSummonUnit` 那条协程 **0.45**（0.1+0.05+0.2+0.1；"
+                                          + "🔴 2026-11-02 `B120-W10` 改，原来的 1.0 出自非阻塞 tween）；"
+                                          + "无来源（Unknown）退回兜底 0.75";
                 case EvtKind.Attack: return "`CardScript.attackStepTime`=0.1（位移完成即命中帧；远程 0.2）";
                 // 🔴 **2026-10-24（`W16`）就地订正（铁律 5）**：这里原来写「⚠️ **出处待补** —— 现值 = `CardFeel.HitRotDuration`
                 //   0.5 + `ResetDuration` 0.25 = 0.75；候选真值 = `WaitForSeconds(1.0)`（被 `+0x34` 的 bool
@@ -1172,11 +1213,12 @@ namespace CardPresentation
                                          + "`WaitForSeconds(gVars+0x34)` 0.5 → 0.2 后进墓地；"
                                          + "`BattleManager._ResolveMinionDeath_d__454:113-121` 对 `UnitDeath` 是 "
                                          + "`yield return` ⇒ 队列串行等 0.7。旧值 0.2 = 只算了消散那一段）";
-                case EvtKind.Draw: return "`VarsGlobal.TimeToDrawCard(bool isPlayer)` 那一对："
+                case EvtKind.Draw: return "一条抽卡动作 = `VarsGlobal.timeToPositionCard`(**+0xA4**)=0.2 **+** `TimeToDrawCard(bool isPlayer)`："
                                         + "我方 `timeToDrawPlayerCard`=0.3（`CardFeel.DealDuration`）/ "
-                                        + "敌方 `timeToDrawEnemyCard`=0.15（`CardFeel.DealDurationFoe`）；"
-                                        + "🔴 2026-10-23（R19）起**按座位分档**（`DrawDealOf(e.Player)` + `IsLocalSeat`），"
-                                        + "⛔ 不是一刀切 0.3";
+                                        + "敌方 `timeToDrawEnemyCard`=0.15（`CardFeel.DealDurationFoe`）⇒ **0.5 / 0.35 s**"
+                                        + "（`BattleManager._ResolveDrawCard_d__432__MoveNext.c:233-249` 的 `WaitForSeconds(fVar2 + fVar11)`；"
+                                        + "🔴 2026-11-02 `B120_W15` 补上原先漏掉的 0.2 那半段）；"
+                                        + "按座位分档（`DrawDealOf(e.Player)` + `IsLocalSeat` = `DrawBeatSeconds`），⛔ 不是一刀切 0.3";
                 case EvtKind.Heal: return "`CardScript._Heal_d__468__MoveNext.c:204` 的 `WaitForSeconds(1.5)`"
                                         + "（= `CardView.HealTextHoldSeconds`；`ResolveHeal` 每目标 `yield return` 等它跑完 "
                                         + "⇒ 多目标治疗严格串行，`BattleManager._ResolveHeal_d__491__MoveNext.c:114-147`）";

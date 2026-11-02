@@ -1012,9 +1012,9 @@ namespace RuleEngine
             }
         }
 
-        /// <summary>一张卡上所有关键词的分值合计（原版 `ValueOfTraits` = `Σ CardTrait._aIScore`）。
-        /// ⚠️ 原版那个 `_aIScore` 是**挂在数据资产上**的 ⇒ 这里用 <see cref="TraitScore"/> 那张表，
-        /// 数值来自反编译（见正本 §五·三），**表本身是原版的**。</summary>
+        /// <summary>⚠️ **2026-11-02（`B120-Q`）订正**：原版 `ValueOfTraits` = `Σ CardTrait._aIScore`，而 77 个 trait 资产的 `_aIScore` **全 0.0** ⇒ 原版这一项恒 0。
+        /// 本方法的 <see cref="TraitScore"/> 表**不是** `_aIScore`（是 buff-trait 评分表），且本方法**零调用点**（死码，仅为历史保留）。
+        /// ⛔ 别把它当原版判据用；要复刻原版就直接返回 0。</summary>
         public static float KeywordValue(CardDef card)
         {
             if (card == null || card.Keywords == null) return 0f;

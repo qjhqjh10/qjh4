@@ -136,7 +136,7 @@ namespace CardPresentation
                 s.loop = true;
                 s.playOnAwake = false;
                 s.volume = 0f;
-                s.outputAudioMixerGroup = WarpforgeAudio.BattleGroupGroup(i) ?? WarpforgeAudio.MusicGroup;   // 🔴 原版：三条轨各挂 BattleGroup Low/Medium/High
+                AudioSourceMixerGroupFixerInstaller.Attach(s, i == 0 ? MixerType.BattleGroupLow : i == 1 ? MixerType.BattleGroupMedium : MixerType.BattleGroupHigh);   // 🔴 原版：三条轨各挂 BattleGroup Low/Medium/High（2026-11-02 `B120-W11`：改走 fixer 唯一映射口）
                 s.Play();                                              // 三条**同时从 0 秒起播**（判据 ②）
                 s.Pause();                                             // 先全停（进场那一刻才淡入）
                 _src[i] = s;
@@ -160,6 +160,7 @@ namespace CardPresentation
             if (_openBeatPending) { _openBeatPending = false; WarpforgeAudio.ToggleSFX(true); StartFade(LevelLow, FadeInLowSeconds); }   // 第 1 拍 = 原版 `_Start_d__13` state 1：FX **2 s 淡回**（`instant=false`）+ Low **3 s 淡入**。⚠️ 必须在下面 `_row == null` 早退**之前** —— 否则 BGM 表缺失时 FX 会永久压在 −80 dB
             if (_row == null) return;
             StepFade(dt);
+            UpdatePauseByVolume();   // 判据 ⑥：每帧按**组音量 dB** 决定 Pause/Play（原版 `AudioSourceTogglerByVolume.Update`）
             if (_ended || _row.useMultipleTracks == 0) return;   // 判据 ⑤：单曲场永不切档
             _checkAcc += dt;
             float every = _row.timeToCheck > 0f ? _row.timeToCheck : FadeToLevelSeconds;
@@ -224,17 +225,89 @@ namespace CardPresentation
             _to[0] = target == LevelLow ? 1f : 0f;
             _to[1] = target == LevelMedium ? 1f : 0f;
             _to[2] = target == LevelHigh ? 1f : 0f;
-            // 判据 ⑥：三条轨**常驻在播**（快照抬组音量时要有声音）、源音量恒 1.0，并互相对齐 timeSamples。
+            // 判据 ⑥：三条轨**常驻在播**（快照抬组音量时要有声音）、源音量恒 1.0。
+            // 🔴 2026-11-02（`B120-W5b`）：**这里不再「三条全部 UnPause + 对齐 timeSamples」** ——
+            //   原版是另一颗 `AudioSourceTogglerByVolume` 每帧按**组音量 dB** 决定，见 `UpdatePauseByVolume`。
+            //   `StartFade` 只负责「源音量恒 1.0」与 `_to[]` 记账。
             for (int i = 0; i < 3; i++)
             {
                 var s = _src[i]; if (s == null) continue; s.volume = 1f;
-                if (!s.isPlaying)
+            }
+        }
+
+        // ============================================================================================
+        //  🔴 2026-11-02（`B120-W5b`）：**判据 ⑥ 的原版实现** —— `AudioSourceTogglerByVolume`
+        // ============================================================================================
+        //  判据（逐行现读 `d:/2/tools/decomp_full/AudioSourceTogglerByVolume__Update.c`）：
+        //    ```
+        //    mixer.GetFloat(audiomixerVolumeLabel, &v);           // 读**这个源所在混音组**的音量（dB）
+        //    if (!src.isPlaying) { if (-60 < v) { ts = GetActiveBrotherTimeSample(); src.timeSamples = ts; src.Play(); } }
+        //    else                { if (v <= -60) src.Pause(); }
+        //    ```
+        //  常量 `DAT_1834b3278 = -60`（dB，`工具/read_literal.py` 4B 实读）。
+        //  `audiomixerVolumeLabel` 三个值 = **`TrackLowVolume` / `TrackMediumVolume` / `TrackHighVolume`**
+        //  （判据 = 13 场战场场景里那三颗 `AudioSourceTogglerByVolume` 的序列化字段，2026-11-02 实读
+        //   `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_{4445,4306,4741}.json`；
+        //   `audioSource` 分别指向 1597/1599/1601 = Low/Medium/High 三条轨，`timeSyncAudioSources` = 另外两条）。
+        //  ⚠️ 我们的 `Resources/Audio/Music.mixer` **正好暴露了这三个名字**（`m_ExposedParameters`，现读），
+        //     所以 `mixer.GetFloat` 能读到快照过渡中的实时 dB —— 不需要自己插值。
+        //  ⚠️ `timeSyncAudioSources` 的顺序是「除自己以外的两条」，取值逻辑 = **第一个在播的**兄弟的 `timeSamples`，
+        //     一个都没在播 ⇒ **0**（`GetActiveBrotherTimeSample` 的默认返回）。我们的 `ActiveTimeSamples` 同一语义。
+        // ⛔ **别把 −80 dB 的「NoBattleMusic 快照」当成阈值** —— 阈值是 −60，−80 只是那个快照的落点。
+        // ============================================================================================
+
+        /// <summary>三个混音组暴露参数名（顺序 = Low / Medium / High，与 `_src[]`、`BattleGroupGroup(i)` 同序）。
+        /// 判据 = 那三颗 `AudioSourceTogglerByVolume.audiomixerVolumeLabel` 的序列化值。</summary>
+        static readonly string[] TrackVolumeLabels = { "TrackLowVolume", "TrackMediumVolume", "TrackHighVolume" };
+
+        /// <summary>暂停/恢复阈值（dB）。判据 = `AudioSourceTogglerByVolume__Update.c` 的 `DAT_1834b3278`。
+        /// 语义：组音量 **&gt; −60** 且没在播 ⇒ 对齐兄弟轨后 `Play()`；**&lt;= −60** 且在播 ⇒ `Pause()`。</summary>
+        public const float VolumePauseThresholdDb = -60f;
+
+        /// <summary>原版 `AudioSourceTogglerByVolume.Update` 的逐帧等价实现（每帧一次，见 `Tick`）。
+        /// ⚠️ 与改前的差别：改前是「淡变**结束时**把不响的那几条 Pause、`StartFade` 时三条**全部** UnPause」
+        /// ⇒ ① 暂停时刻晚于原版（原版在 dB 穿越 −60 那一刻）；② 起淡变时会把**还没升起来**的轨也解暂停。
+        /// 现在完全按组音量 dB 判，两条都对上。</summary>
+        void UpdatePauseByVolume()
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                var s = _src[i];
+                if (s == null) continue;
+                float db;
+                if (!TryGetTrackDb(s, TrackVolumeLabels[i], out db)) continue;   // 没有混音组/参数名对不上 ⇒ 不动它（已在别处出声）
+                if (ShouldBePlaying(db))
                 {
-                    int ts = ActiveTimeSamples(i);
-                    if (ts >= 0 && s.clip != null && ts < s.clip.samples) s.timeSamples = ts;
-                    s.UnPause();
+                    if (!s.isPlaying)
+                    {
+                        int ts = ActiveTimeSamples(i);        // 没有兄弟在播 ⇒ -1 ⇒ 原版取 0
+                        if (ts < 0) ts = 0;
+                        if (s.clip != null && ts < s.clip.samples) s.timeSamples = ts;
+                        s.Play();
+                    }
+                }
+                else if (s.isPlaying)
+                {
+                    s.Pause();
                 }
             }
+        }
+
+        /// <summary>**纯函数**（拆出来是为了能在批处理里断言，不必真让 mixer 过渡）：组音量 dB ⇒ 这一轨该不该在播。
+        /// 判据 = `AudioSourceTogglerByVolume__Update.c` 两条分支：`-60 < v` ⇒ 该播；`v <= -60` ⇒ 该停。
+        /// ⚠️ 阈值是 **−60**（`DAT_1834b3278`），⛔ 不是 −80（那是 `NoBattleMusic` 快照的落点，不是判据）。</summary>
+        public static bool ShouldBePlaying(float groupDb) { return VolumePauseThresholdDb < groupDb; }
+
+        /// <summary>读某个源**所在混音组**的当前音量（dB）。原版做法一致：`src.outputAudioMixerGroup.audioMixer.GetFloat(label, …)`。
+        /// 取不到（没挂组 / mixer 为 null / 参数名没暴露）⇒ `false`（调用方跳过这一轨，⛔ 不猜一个 dB）。</summary>
+        static bool TryGetTrackDb(AudioSource s, string label, out float db)
+        {
+            db = 0f;
+            var group = s != null ? s.outputAudioMixerGroup : null;
+            if (group == null) return false;
+            var mixer = group.audioMixer;
+            if (mixer == null) return false;
+            return mixer.GetFloat(label, out db);
         }
 
         void StepFade(float dt)
@@ -244,10 +317,10 @@ namespace CardPresentation
             float k = _fadeT / _fadeDur;
             // 🔴 2026-10-31（`B109_E17`）：**不再逐轨插值音量** —— 响度由 Music 子 mixer 的
             //   `BattleGroupLow/Medium/High` 说了算、由 `StartFade` 里的快照 `TransitionTo` 驱动；
-            //   源音量恒 1.0，`_to[]` 只表示「哪一条该响」。下面仍按判据 ⑥ Pause 静音那几条（省 CPU）。
+            //   源音量恒 1.0，`_to[]` 只表示「哪一条该响」。
+            // 🔴 2026-11-02（`B120-W5b`）：**这里也不再「淡变结束时把不响的那几条 Pause」** —— 暂停/恢复
+            //   归 `UpdatePauseByVolume`（按组音量 dB 穿越 −60 那一刻，= 原版 `AudioSourceTogglerByVolume.Update`）。
             if (k < 1f) return;
-            for (int i = 0; i < 3; i++)
-                if (_src[i] != null && _to[i] <= 0f && _src[i].isPlaying) _src[i].Pause();
             _level = _fadeTo;
             _fadeDur = 0f;
         }

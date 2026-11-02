@@ -764,7 +764,7 @@ namespace CardPresentation
             if (System.Environment.GetEnvironmentVariable("WF_VOICE_NO_MIXER") == "1")
                 b.audio.outputAudioMixerGroup = null;
             else
-                b.audio.outputAudioMixerGroup = WarpforgeAudio.VoicesGroup;
+                AudioSourceMixerGroupFixerInstaller.Attach(b.audio, MixerType.Voices);   // 2026-11-02 `B120-W11`：走 fixer 唯一映射口
             return b;
         }
 
@@ -1080,7 +1080,7 @@ namespace CardPresentation
                 if (tex != null)
                 {
                     b.portrait.SetTexture(tex);
-                    if (!HasPortraitMask(b)) b.portrait.SetAspect(PortraitW / PortraitH);   // 🔴 T09：遮罩档子图恒 176²（原版 `m_PreserveAspect = 0`，压满会把「画大再裁」又改回「压满遮罩」）
+                    if (!HasPortraitMask(b)) { b.portrait.SetAspect(PortraitW / PortraitH); ApplyPortraitCrop(b.portrait); }   // 🔴 T09：遮罩档子图恒 176²（原版 `m_PreserveAspect = 0`，压满会把「画大再裁」又改回「压满遮罩」）｜`ApplyPortraitCrop` = 世界档的 UV 裁剪（账 `B-14`）
                 }
             }
             // 🔴 **先亮起来，再量尺寸** —— TMP 在**非激活**对象上量不出尺寸（`textBounds` 是垃圾值），

@@ -1300,7 +1300,7 @@ public static partial class RuleEngineTest
         Guard("CheckB97US2Seq", CheckB97US2Seq);
 
         // 🆕 2026-10-29（调度台代接线）：`B97_ER2` —— 账 921（被打出/被偷时发 `CardBeingDrawn`）+ 427（誓约重放条件里现算）。
-        Guard("CheckB97ER2Gaps", CheckB97ER2Gaps); { Guard("CheckB97W2Gaps", CheckB97W2Gaps); Guard("CheckB97W5DataColumnsAndPoolFilters", CheckB97W5DataColumnsAndPoolFilters); }   // 🆕 2026-10-29（调度台代接线）：`B97_W2`（手牌费 Permanent / 210 手牌两跳 / 11 组 buff）· `B97_W5`（startingCardInHand 列 / BoardGate ConditionsFilter / selectFromChooseResolution / 单次变异）—— 同一物理行追加 ⇒ 行数零变化
+        Guard("CheckB97ER2Gaps", CheckB97ER2Gaps); { Guard("CheckB97W2Gaps", CheckB97W2Gaps); Guard("CheckB97W5DataColumnsAndPoolFilters", CheckB97W5DataColumnsAndPoolFilters); Guard("CheckB120W7Gaps", CheckB120W7Gaps); Guard("CheckB120W20Gaps", CheckB120W20Gaps); }   // 🆕 2026-10-29（调度台代接线）：`B97_W2`（手牌费 Permanent / 210 手牌两跳 / 11 组 buff）· `B97_W5`（startingCardInHand 列 / BoardGate ConditionsFilter / selectFromChooseResolution / 单次变异）—— 同一物理行追加 ⇒ 行数零变化
 
         // 🆕 2026-10-29（调度台代接线）：`B97_ER` —— 再裁 #54：`CanTriggerAbility` 第一道闸扩到全部 trigger。
         Guard("CheckB97ERAbilityGates", CheckB97ERAbilityGates); Guard("CheckB108A1TriggerEmits", CheckB108A1TriggerEmits); Guard("CheckB108A16EnchantDataTriggerMatch", CheckB108A16EnchantDataTriggerMatch); Guard("CheckB116G2MultiAbilityQuest", CheckB116G2MultiAbilityQuest); Guard("CheckB116W12SwarmListenerTarget", CheckB116W12SwarmListenerTarget); Guard("CheckB116W6ChoiceTableAndOathRecompose", CheckB116W6ChoiceTableAndOathRecompose); Guard("B116W8_Assert", B116W8_Assert.Run); _pass += B116W8_Assert.Pass; _fail += B116W8_Assert.Fail; Guard("B116W18_Assert", B116W18_Assert.Run); _pass += B116W18_Assert.Pass; _fail += B116W18_Assert.Fail; Guard("CheckB116W19Jam", CheckB116W19Jam); Guard("B116W24_Assert", B116W24_Assert.Run); _pass += B116W24_Assert.Pass; _fail += B116W24_Assert.Fail; Guard("B116W27_Assert", B116W27_Assert.Run); _pass += B116W27_Assert.Pass; _fail += B116W27_Assert.Fail; Guard("B116W31_Assert", B116W31_Assert.Run); _pass += B116W31_Assert.Pass; _fail += B116W31_Assert.Fail; Guard("B116W32_Assert", B116W32_Assert.Run); _pass += B116W32_Assert.Pass; _fail += B116W32_Assert.Fail; Guard("B116W39_Assert", B116W39_Assert.Run); _pass += B116W39_Assert.Pass; _fail += B116W39_Assert.Fail; Guard("B116W41_Assert", B116W41_Assert.Run); _pass += B116W41_Assert.Pass; _fail += B116W41_Assert.Fail; Guard("B118W4_Assert", B118W4_Assert.Run); _pass += B118W4_Assert.Pass; _fail += B118W4_Assert.Fail; Guard("B118W11_Assert", B118W11_Assert.Run); _pass += B118W11_Assert.Pass; _fail += B118W11_Assert.Fail; Guard("B118W20_Assert", B118W20_Assert.Run); _pass += B118W20_Assert.Pass; _fail += B118W20_Assert.Fail;   // 🆕 2026-11-02（`B116_W41` · 活状态表 `B-340` ＋ `ENG-07` `psyker`/`reactor`）：`ta=65` 抽牌支接 36 格 ＋ 灵能/等离子死支（写 flag、没人读）；断言全文在 `Editor/B116W41_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W39` · 账 `B-342` ＋ `ENG-16`① ＋ `B-317`）：表支 `ta=140`（140 不筛 / 150 筛）· 触发正文挂 `ta` 后 `Strike` 才接得住 `chosen:` · 真死时的阵营闸走 `sideOverride`；断言全文在 `Editor/B116W39_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W31` · 活状态表 `SAN-04` 残余 + `SAN-27` 判据侧 + `B-333`）：`ta=150` 手牌半（效果层筛 / 表现层 `Slot=-1`）＋报表口径走表现层白名单；断言全文在 `Editor/B116W31_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W27` · 活状态表 `B-211` ＋ `B-255`）：`cardAbilities` 逐 ability 派发（380/320）＋ 排他闸；断言全文在 Editor/B116W27_Assert.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W24` · `ENG-11`）：`buffType 12/15` 的附魔挂载执行器（`Enchantments.Attach`）；断言全文在 Editor/B116W24_Assert.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W19` · `ENG-07` `jam`）：`cardTraits` 口径 + `HasWhileInPlayAbility` 判反 + 触发闸 + 誓约闸；断言全文在 `Editor/RuleEngineTest_B116W19.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W18` 代接线 · 同一物理行追加 ⇒ 行数零变化）：`B116W8` = ENG-11 的 `8 markOfChaos`/`90 addTraitRemnant`（原 `B116_W8` 写好但未接线）；`B116W18` = `B-328` `abilityBuffs` 的 `enchantmentId`/`enchantmentPathId` 两列   // 🆕 2026-11-02（B116_W12 · `B-314`）：Swarm 监听（620）的 `it` = 留下的 host（`ta=30` ← `targetCard`）；断言全文在 Editor/RuleEngineTest_B116W12.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（B116_W9 · ENG-02）：一件任务附魔有 N 条同 trigger 的 ability ⇒ （判据 = 原版 TriggerAbilities.c:115 在逐条循环里）；断言全文在 Editor/RuleEngineTest_B116G2.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-10-31（B108_A1/A16）：trigger 发射口 + 附魔数据位匹配   // 🆕 2026-11-02（`B116_W32` · `B-329`）：选项 SO 旁表（`choice_option_cards.json`）＋ 结构化支接上 —— TL20 的 `+2 [Melee]` 只加自己，⛔ 不再是「己方全体」；断言全文在 Editor/B116W32_Assert.cs（同一物理行追加 ⇒ 行数零变化）
@@ -4495,7 +4495,7 @@ public static partial class RuleEngineTest
     /// </summary>
     static void TestOvertime()
     {
-        const int N = GameplayVariables.ClassicOvertimeTurn;   // 10（推断值）
+        const int N = GameplayVariables.ClassicOvertimeTurn;   // 18（`GameStaticData.overtimeStartTurn` = 0x12，三源一致；2026-11-02 `B120-W12`）
 
         // ---- ① 自然推进到全局第 N-1 回合：一次都不触发 ----
         var ctx = Battle(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) });
@@ -4507,8 +4507,8 @@ public static partial class RuleEngineTest
         Check(ctx.Turn, N - 1, $"尺子：停在**全局第 {N - 1} 回合**");
         CheckTrue(!ctx.IsOvertime, $"全局第 {N - 1} 回合**还不能进加时**");
         int p2 = ctx.SecondSeat;
-        Check(ctx.Players[p2].MaxEnergy, 5,
-              "后手此时 `MaxEnergy` = 5（经典 = `startingManaSecond 1 + 4×1`）");
+        Check(ctx.Players[p2].MaxEnergy, 9,
+              "后手此时 `MaxEnergy` = 9（经典 = `startingManaSecond 1 + 8×1`；2026-11-02 `B120-W12` 按 N=18 重算）");
 
         // ---- ② 全局第 N 回合 ⇒ 触发（★ 判别式全在这里）----
         RuleCore.EndTurn(ctx);
@@ -4518,13 +4518,13 @@ public static partial class RuleEngineTest
         Check(ctx.Turn, N, $"现在 = **全局第 {N} 回合**");
         CheckTrue(ctx.IsOvertime,
                   $"★ **全局第 {N} 回合进加时**（原版 `overtimeTurn <= turnCounter`）"
-                + "｜🧨 把 `ctx.Turn >=` 改回 `Players[SecondSeat].MaxEnergy >=` ⇒ 本行红，"
-                + $"因为这一刻后手 MaxEnergy 才 {ctx.Players[p2].MaxEnergy}（< {N}）");
-        Check(ctx.Players[p2].TurnCount, 5,
-              "★ 触发时**后手才第 5 个自己的回合** —— 全局回合号与「自己的回合数」在这里差一倍"
-            + "｜🧨 旧能量判据要等后手第 9 个自己的回合（≈ 全局第 18）⇒ 本行与上一行**不可能同时满足**");
-        Check(ctx.Players[p2].MaxEnergy, 6,
-              "★ 触发那一刻后手 `MaxEnergy` **只有 6**（< 阈值 10）—— 按能量口径这里**不会**进加时");
+                + "｜🧨 把 `ctx.Turn >=` 改回 `Players[SecondSeat].MaxEnergy >=` ⇒ 本行**不再有判别力**"
+                + "（阈值 18 时两种判据在同一回合重合）—— 判别力在上一段「第 17 回合不进」那两行");
+        Check(ctx.Players[p2].TurnCount, 9,
+              "★ 触发时后手第 9 个自己的回合 —— 全局回合号 18 与「自己的回合数」9 差一倍"
+            + "｜🧨 把判据改成「后手第 X 个自己的回合」⇒ 数量级会对不上（9 vs 18）");
+        Check(ctx.Players[p2].MaxEnergy, 10,
+              "★ 触发那一刻后手 `MaxEnergy` = 10（= 旧能量阈值）—— 阈值 18 时两种判据**重合**，判别力在上一段「第 17 回合只有 9 ⇒ 不进」");
         int drawn = deck0 - ctx.Players[who].Deck.Count;
         Check(drawn, DeckRules.DrawPerTurn + DeckRules.OvertimeExtraDraw,
               $"★ **进入的那一回合就抽 {DeckRules.DrawPerTurn + DeckRules.OvertimeExtraDraw} 张**（常规 "
@@ -4996,18 +4996,18 @@ public static partial class RuleEngineTest
             return c;
         }
 
-        // ①② 遭遇：**全局第 10 回合**触发（不是「后手第 4 个自己的回合」）
+        // ①② 遭遇：**全局第 8 回合**触发（2026-11-02 `B120-W12`：`SkirmishOvertimeTurn = 8`，比经典 18 早 —— 复现「Overtime begins earlier」）
         var cs = UntilOvertime(sv);
         CheckTrue(cs.IsOvertime, "① 遭遇：**确实会进加时**（2026-09-26 用户更正「是我搞错了」）");
-        Check(cs.Turn, GameplayVariables.ClassicOvertimeTurn,
-              $"① 遭遇：**全局第 {GameplayVariables.ClassicOvertimeTurn} 回合**进加时"
-            + "｜🧨 旧口径（后手 `MaxEnergy >= 10`）会在**全局第 8 回合**（后手第 4 个自己回合、能量 11）就进 ⇒ 本行红");
-        Check(cs.Players[cs.SecondSeat].TurnCount, 5,
-              "① 触发时后手才第 **5** 个自己的回合（全局回合号 ≠ 自己的回合数）");
+        Check(cs.Turn, GameplayVariables.SkirmishOvertimeTurn,
+              $"① 遭遇：**全局第 {GameplayVariables.SkirmishOvertimeTurn} 回合**进加时"
+            + "｜🧨 改回 `ClassicOvertimeTurn`(18) ⇒ 本行红（文案要求「earlier」）");
+        Check(cs.Players[cs.SecondSeat].TurnCount, 4,
+              "① 触发时后手第 **4** 个自己的回合（全局第 8 回合）");
         Check(cs.Active, cs.SecondSeat, "① 触发发生在**后手那一方**的回合（全局偶数回合）");
         CheckTrue(cs.Players[cs.SecondSeat].MaxEnergy >= sv.overtimeTurn.Value,
-                  $"① 触发那一刻后手能量 = {cs.Players[cs.SecondSeat].MaxEnergy}（早已 ≥ {sv.overtimeTurn.Value}）——"
-                + " ⚠️ 这说明**能量不是判据**：旧口径在它之前就已经触发过了");
+                  $"① 触发那一刻后手能量 = {cs.Players[cs.SecondSeat].MaxEnergy}（≥ {sv.overtimeTurn.Value}）——"
+                + " ⚠️ 能量不是判据：能量口径会在全局第 6 回合（9 ≥ 8）就触发，比实际早 2 回合");
         // ★ ② 用**用户给的数**钉住整条曲线：遭遇后手 = **4 → 7 → 9 → 11**
         //    （每回合 +2，再叠上「上回合没用完、保存下来的 1 点」）
         // 🔴 2026-09-26 这条断言当场抓出一个真缺陷：修 `RuleCore.EndTurn` 之前它跑出来是
@@ -5024,9 +5024,9 @@ public static partial class RuleEngineTest
         CheckTrue(seq == "4,7,9,11",
                   $"★ ② 遭遇后手 `MaxEnergy` 曲线 = **4 → 7 → 9 → 11**（实得 {seq}）"
                 + " —— 每回合 +2，加上上回合没用完「保存」的 1 点（用户 2026-09-26 给的数）");
-        CheckTrue(sv.overtimeTurn == GameplayVariables.ClassicOvertimeTurn,
-                  $"② 遭遇的 `overtimeTurn` 与经典**同一个值**（{GameplayVariables.ClassicOvertimeTurn}，推断值）"
-                + "—— 「更早」那句文案**没有**被这条机制复现（见 ① 的订正说明）");
+        CheckTrue(sv.overtimeTurn == GameplayVariables.SkirmishOvertimeTurn && sv.overtimeTurn < GameplayVariables.ClassicOvertimeTurn,
+                  $"② 遭遇 `overtimeTurn` = {sv.overtimeTurn}，**小于**经典 {GameplayVariables.ClassicOvertimeTurn}"
+                + " —— 这才复现了「Overtime begins earlier」");
 
         // ④ **进入的那一回合就抽 2 张**（用户点名的行为）
         //    🔴 2026-10-20（`W58-TURN-A`）：不再用 `TurnCount` 作弊（那是能量口径的捷径），
@@ -5036,9 +5036,9 @@ public static partial class RuleEngineTest
         var c4 = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, sv);
         RuleCore.BeginTurn(c4);
         int g4 = 0;
-        while (c4.Turn < GameplayVariables.ClassicOvertimeTurn - 1 && g4++ < 40)
+        while (c4.Turn < GameplayVariables.SkirmishOvertimeTurn - 1 && g4++ < 40)
         { RuleCore.EndTurn(c4); RuleCore.BeginTurn(c4); }
-        Check(c4.Turn, GameplayVariables.ClassicOvertimeTurn - 1, "④ 尺子：停在全局第 9 回合");
+        Check(c4.Turn, GameplayVariables.SkirmishOvertimeTurn - 1, "④ 尺子：停在全局第 7 回合");
         RuleCore.EndTurn(c4);
         int who4 = c4.Active;
         c4.Players[who4].Hand.Clear();

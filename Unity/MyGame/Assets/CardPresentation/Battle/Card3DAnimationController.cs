@@ -231,7 +231,7 @@ namespace CardPresentation
                 _depthCard = _t.GetComponent<CardView>();
                 _depthBase = _depthCard != null ? _depthCard.BaseScale : _t.localScale.x;
                 _depthOnArena = _depthCard != null ? CardFeel.IsArenaCard(_depthCard)
-                                                   : _t.gameObject.layer == ArenaSlots.ArenaLayer;
+                                                   : CardFeel.IsBoardLayer(_t.gameObject.layer);   // 🔴 2026-11-02（`B120_W27`）：层 8 或 10 都算「棋盘上」（判据只在 `CardFeel.IsBoardLayer` 一处）
             }
             Toggle(false);                          // 原版 `set_enabled(this, 0)` + `myAnimation.enabled = 0`
             AddClipIfNecessary(anim.Clip);
@@ -394,16 +394,26 @@ namespace CardPresentation
             //   （原版 `GetScale` 也如此：曲线值 × `默认值 ÷ 该端键值` 正好约掉）⇒ 卡不动时写的是同一个值。
             if (_depthScale) ApplyDepthScaleTick();
             _currentAnimationTime -= dt;
-            // 🔴 **2026-10-23（第六十六会话实跑红的）**：原式 = `OneFrameSlack / Application.targetFrameRate`。
-            //   ⚠️ **批处理里 `Application.targetFrameRate` 是 `-1`（= 「不覆盖平台默认」）** ——
-            //   初稿为了防除零写成 `Mathf.Max(1, fps)` ⇒ 裕量被放大成 **1.0 秒**，
-            //   一条 0.2 s 的 clip 推 0.33 s 还**不会收尾**（`BattleScene.Run` 当场红：
-            //   「回调 False · enabled True · 剩 clip 1 · 收尾 0 次」）。
-            //   ⇒ 现在：`fps <= 0`（没有显式帧率上限）时按 **60** 算 —— 裕量 = 1/60 s（语义不变）。
-            // 🔶 自己设计（非原版）：`fps <= 0` 时的一帧裕量按 60 fps 算 · 原版那一格取 `Application.targetFrameRate`、真包里恒为正所以取不到那个值 · 调度台 2026-10-23（第六十六会话）裁定
+            // 🔴 **2026-11-02（`B120-W10` · `B120-Q07`）就地订正（铁律 5）**：这里原来那句
+            //   「原版那一格取 `Application.targetFrameRate`、**真包里恒为正**所以取不到那个值」**不成立**。
+            //   实读：出厂 `GameStaticData.FPSLimit = 2`（`GameStaticData__.cctor.c:212` 静态区 `+0x128 = 2`；
+            //   `LoginManager.cs:217` 也写 2）⇒ `ApplySettingsOptions` / `ApplyGraphicsQuality`
+            //   （il2csharp `PlayerDataManager.cs:10408-10459`，逐句 = 0→30 / 1→60 / **2→-1**）
+            //   把它映射成 `Application.targetFrameRate = -1` ⇒ **真包默认档就是 -1**
+            //   （我们自己也照抄了这条映射：`Shell/LocalPlayerData.TargetFramerateFor`，出厂 2 ⇒ −1）。
+            //   ⇒ 原式 `OneFrameSlack / -1 + t < 0` ⇔ **`t < 1`：剩不到 1 秒就当帧收尾**。
+            //   ⛔ **这一档本轮【没有】照抄**，停手交调度台裁 —— 反证：现读 `cardanim_clips.json`
+            //   1067 条卡体动画里 **881 条 ≤ 1.0 s（82.6%）**（`vd+ts+tm+te`，中位数 0.75）
+            //   ⇒ 照抄会让它们**在第一次 `Update` 就当帧收尾**（= 整层卡体动画不播），其余 186 条也一律被砍掉 1 秒。
+            //   完整反证与两个候选方案 → `资料/完全复刻/报告/B120_W10_执行.md` §Q7。
+            // 🔶 自己设计（非原版）：`fps <= 0` 时的「一帧裕量」按 **60 fps** 算（= 1/60 s）· 为什么必须自己定：
+            //    照抄原版那一档会让 82.6% 的卡体动画当帧收尾（见上），本格**待调度台裁定** · B120-W10 2026-11-02
+            //   ⚠️ **2026-10-23（第六十六会话实跑红的）**：初稿为了防除零写成 `Mathf.Max(1, fps)` ⇒ 裕量被放大成
+            //   **1.0 秒**，一条 0.2 s 的 clip 推 0.33 s 还**不会收尾**（`BattleScene.Run` 当场红：
+            //   「回调 False · enabled True · 剩 clip 1 · 收尾 0 次」）⇒ ⛔ 别把它写成 `Mathf.Max(1, fps)`。
             int fps = Application.targetFrameRate;
             if (fps <= 0) fps = 60;
-            if (OneFrameSlack / fps + _currentAnimationTime >= 0f) return;
+            if (!FrameSlackExpired(fps, _currentAnimationTime)) return;
 
             if (_unitWasFlying)
             {
@@ -486,6 +496,19 @@ namespace CardPresentation
             if (!string.IsNullOrEmpty(a.Label)) return a.Label;
             if (a.Clip != null) return a.Clip.name;
             return a.Prefab;
+        }
+
+        /// <summary>原版 `Update` 的「到期」判据，**逐字照抄**
+        /// `decomp_full/Card3DAnimationController__Update.c:22-23`：
+        /// `Application.targetFrameRate → OneFrameSlack / (float)fps + remaining &lt; 0`。
+        /// <para>⚠️ 这里**不加任何钳制** —— `fps = -1` 就按原版算成 `-1 + remaining`（⇒ `remaining &lt; 1` 即到期）；
+        /// `fps = 0` 时 `1.0f / 0f` = `+∞` ⇒ 永不收尾（原版同，⛔ 别给它加特判）。钳制在调用点
+        /// （<see cref="Update"/> 的 🔶 标记：本轮 `fps &lt;= 0` 按 60 算，**待调度台裁定**）。</para>
+        /// <para>把这条式子单独拎出来，是为了让自检能**把「照抄原版会怎样」直接断出来**
+        /// （`Editor/B120_W10_Assert.cs` C 组）—— 否则反证只是一段散文、下个会话无法机检。</para></summary>
+        public static bool FrameSlackExpired(int targetFrameRate, float remaining)
+        {
+            return OneFrameSlack / (float)targetFrameRate + remaining < 0f;
         }
     }
 }

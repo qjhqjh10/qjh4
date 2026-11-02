@@ -174,11 +174,23 @@ namespace CardPresentation
         }
 
         // ---- 三根滑块的入口（值都是线性 0..1）----
+        // 🔴 **2026-11-02（`B120-W17` · `B120-F20`）：三个 setter 都顺手同步 `GameStaticData` 的镜像。**
+        //   原版口径 = **静态量是唯一真相、mixer 由它派生**（不是一个镜像）：
+        //     · `MediaTab.MusicValueChange / SoundFXValueChange / VoiceOversValueChange`
+        //       （`out_cpp2il_dev_ilspy/MediaTab.cs:131-147`）= `GameStaticData.<X>Volume = newValue;`
+        //       → `PlayerDataManager.SetMusicAndFxVolumes()`；
+        //     · `PlayerDataManager.cs:10438-10439` = `SetMixerVolume(FX, GameStaticData.SoundFxVolume)` /
+        //       `SetMixerVolume(Jingles, 同一个静态量)` ⇒ **滑块写静态量、mixer 读静态量**；
+        //     · `BattleSettingsWindow.cs:240` / `MediaTab.cs:23` 打开窗时也**读那个静态量**回填滑块。
+        //   我们的单源在 `WarpforgeAudio`（`GameStaticData` 那三格只当镜像，见 `Shell/GameStaticData.cs` 文件头），
+        //   而镜像原来**只在 `LocalPlayerData.Apply`（读档 / 关窗写档）时刷** ⇒ 滑块拖完到下次 Apply 之间，
+        //   `GameStaticData.SoundFxVolume` 是**旧值**（`B120-W10` §六·2 记过这条）。⇒ 在滑块这一拍同步过来。
 
         public static void SetMusic(float v)
         {
             Ensure();
             _music = Mathf.Clamp01(v);
+            GameStaticData.MusicVolume = _music;            // 镜像（判据见上面那段：原版滑块写的就是这个静态量）
             Write("VolumeMusic", _music * MusicVolumeMultiplier);
             PlayerPrefs.SetFloat(MusicPrefKey, _music);     // 原版只存这一个
             PlayerPrefs.Save();
@@ -188,6 +200,7 @@ namespace CardPresentation
         {
             Ensure();
             _fx = Mathf.Clamp01(v);
+            GameStaticData.SoundFxVolume = _fx;              // 镜像（原版 `MediaTab.SoundFXValueChange` 先写它、mixer 再读它）
             Write("VolumeFX", _fx);
             Write("VolumeJingles", _fx);                    // 原版：与 FX 同值，且**不落盘**
         }
@@ -196,6 +209,7 @@ namespace CardPresentation
         {
             Ensure();
             _vo = Mathf.Clamp01(v);
+            GameStaticData.VoiceOversVolume = _vo;           // 镜像（`MediaTab.VoiceOversValueChange` 同一形状）
             Write("VolumeVoices", _vo);                     // 原版：**不落盘**
         }
 
@@ -407,8 +421,8 @@ namespace CardPresentation
         //  🆕 **2026-11-02（`B117-WCOOL3`）：Jingles 冷却的读数口**
         //  判据 = 原版 `SoundManager.Play2D(AudioCue, MixerType.Jingles)` 与 FX 那条走**同一个**
         //  `AudioCue.ConfigAudioSource`（`decomp_full/AudioCue__ConfigAudioSource.c:19-21`）⇒ Jingles 也得有
-        //  `timeToPlayAgain` 闸。壳侧 Jingles 消费点 = `WindowSounds.PlayJingles`（开包拆包声 / 稀有度声 /
-        //  段位升降），⛔ 别以为「Jingles 音量与 FX 同值」就等于可以走 FX 那条（那正是接错的保护色）。
+        //  `timeToPlayAgain` 闸。壳侧 Jingles 消费点 = `WindowSounds`（开包拆包声 / 稀有度声 / 段位升降）；2026-11-02（`B120-W5b`）：它现在**自己判完冷却**再走 `WFSoundPlayer.PlayWithoutCooldown(…, JinglesGroup)`（原版 `SoundManager.Play` 只判一次）⇒ `WarpforgeAudio.PlayJingle` 目前**零生产调用方**（API 保留）。
+        //  ⛔ 别以为「Jingles 音量与 FX 同值」就等于可以走 FX 那条（那正是接错的保护色）。
         //  ⚠️ 冷却表与 FX **共用一张**（`WFSoundPlayer._lastAt`，按 cue 资产实例计 —— 原版 `lastTimePlayed`
         //     就住在 `AudioCue` 上，与从哪条路播无关）⇒ 清表请走 `WFSoundPlayer.ResetThrottle()`。
         // ══════════════════════════════════════════════════════════════════════════════════════

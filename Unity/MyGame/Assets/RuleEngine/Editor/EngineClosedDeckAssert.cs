@@ -110,8 +110,8 @@ public static class EngineClosedDeckAssert
         Ok(cd.IsSkirmish,
            "A2 `IsSkirmish = true`（判据 = `deckSize < 30`）—— ⚠️ 这只说明「吃的是 12 张那套参数」，"
          + "**不是模式号**（本局模式仍是 `ClosedDeck 7`）");
-        Ok(cd.overtimeTurn.HasValue && cd.overtimeTurn.Value == 10,
-           $"A2 `overtimeTurn = 10` —— 【推断】（本地没有服务端真值；实得 "
+        Ok(cd.overtimeTurn.HasValue && cd.overtimeTurn.Value == 8,
+           $"A2 `overtimeTurn = 8` —— 【🔶 自定】（官方文案只说「earlier」；实得 "
          + $"{(cd.overtimeTurn.HasValue ? cd.overtimeTurn.Value.ToString() : "null")}）");
 
         // ---- A3 · 幂等：同一档反复取必须是同一份（`For` 是全仓唯一的「模式 → 参数」入口）----

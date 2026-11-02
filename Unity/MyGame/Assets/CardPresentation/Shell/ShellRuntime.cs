@@ -900,7 +900,7 @@ namespace CardPresentation
             //    玩家的音乐滑块同样只由 mixer 施加 ⇒ **两处都乘就是 0.2 × 滑块²**，滑块一拉小音乐就消失。
             src.volume = MusicSourceVolume;
             src.enabled = false;                  // 原版 `m_Enabled: 0`（出厂停用，`Init` 也只把 second 关掉、first 由 PlayMusic 打开）
-            if (WarpforgeAudio.Ready) src.outputAudioMixerGroup = WarpforgeAudio.MusicGroup;
+            if (WarpforgeAudio.Ready) AudioSourceMixerGroupFixerInstaller.Attach(src, MixerType.Music);   // 2026-11-02 `B120-W11`：走 fixer 唯一映射口
             return src;
         }
 

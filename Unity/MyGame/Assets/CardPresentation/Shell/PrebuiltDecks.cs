@@ -660,8 +660,8 @@ namespace CardPresentation
         /// ⚠️ **与原版唯一的机制差异**：原版 `UnityEngine.Random`，我们收 `System.Random`
         ///   （工程铁律「引擎里只用 `System.Random(seed)`」）⇒ 形状与「同 seed 同结果」一致，**具体抽到哪一副不同**。
         /// ⚠️ 过滤后为空 / 下标越界 ⇒ 返回 null（原版 `ElementAtOrDefault` 也是 null，**不是**我们把错吞了）。
-        /// ⚠️ 本机**没有活调用点**：原版唯一调用者是排行 bot（`MatchData.cs:1385`，难度取自远端 ranked 事件），
-        ///   我们离线没有排位事件 ⇒ 这条只作为**判据齐备的等价实现**存在（账 `卡组:285`）。</summary>
+        /// ⚠️ **本机没有活调用点**（🔴 2026-11-02 `B120-E09` 现核 · 铁律 5 订正「原版唯一调用者是排行 bot」这句）：原版唯一调用者 = `GetRankedBotPrebuiltDeck`
+        ///   （`il2csharp/MatchData.cs:1395`），而它**只**在 `GetBotDeck` 的 6 处 **unknown-matchType 兜底**里被调（`:1200/1237/1295/1325/1358/1389`，每处先打 `Can't get bot deck for match type`）⇒ 正常局**到不了这里**。账 `卡组:285`。</summary>
         public static Deck GetDeckByDifficulty(int difficulty, int playMode, System.Random rng)
         {
             if (rng == null) { Debug.LogError("[Prebuilt] GetDeckByDifficulty 没给 rng —— 返回 null"); return null; }

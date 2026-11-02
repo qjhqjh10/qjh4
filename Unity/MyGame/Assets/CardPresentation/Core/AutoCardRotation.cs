@@ -125,7 +125,7 @@ namespace CardPresentation
             Vector3 position = cacheTransform.position;
             // 原版是**两次 `GetRotation` 相乘**（不是欧拉角相加，顺序也不能反）：
             //   `GetRotation(dx, maxXAngle, Vector3.down) * GetRotation(dy, maxYAngle, Vector3.right)`
-            targetRotation = TargetRotationFor(position.x - lastPosition.x, position.y - lastPosition.y);
+            targetRotation = TargetRotationFor((position.x - lastPosition.x) * OriginalUnitsPerOurUnit, (position.y - lastPosition.y) * OriginalUnitsPerOurUnit);   // 🔴 2026-11-02（`B120-W1`）：位移先过量纲桥（我们的世界单位 → 原版世界单位），判据见类尾 `OriginalUnitsPerOurUnit`
             cacheTransform.localRotation = Quaternion.Lerp(cacheTransform.localRotation, targetRotation,
                                                           rotationSpeed * dt);
             lastPosition = position;
@@ -163,5 +163,16 @@ namespace CardPresentation
             float angle = Mathf.Clamp(translation * maxAngle, -maxAngle, maxAngle);
             return Quaternion.AngleAxis(angle, rotationAxis) * Quaternion.identity;
         }
+
+        // ── 🔴 2026-11-02（`B120-W1`）：位移 → 角度的**量纲桥** ──
+        //  判据：原版 `AutoCardRotation__Update.c` 取 `Transform.get_position()`（**世界**坐标）做差，再喂
+        //    `GetRotation(translation, maxAngle, axis)`（`.c`：`clamp(translation × maxAngle, ±maxAngle)`）
+        //    ⇒ `translation` 是**原版世界单位**（手牌层 1 单位 = 14.835 px）⇒ 位移 **14.835 px** 就饱和 10°。
+        //  我们：同样取 `transform.position`（世界），但我们的世界是 **108 px/单位**（`Core/LayoutSpace.cs:36/79/208`）
+        //    ⇒ 不过桥就要 108 px 才饱和（差 **7.28×**，日常重排/拖拽只歪 1–2°）。
+        //  ⇒ 桥 = `1 / HandLayout.OurUnitsPerWorldUnit` = 108/14.835 = **7.2801**。⚠️ 只对**手牌层**成立；
+        //    场上那张 `_tilt.enabled = false`（`CardView.SetFace`），竞技场层同尺度、不吃这个桥。
+        /// <summary>`1 原版世界单位 = 多少我们的世界单位` 的倒数（= **7.2801**）。判据见上面那段。</summary>
+        public static readonly float OriginalUnitsPerOurUnit = 1f / HandLayout.OurUnitsPerWorldUnit;
     }
 }

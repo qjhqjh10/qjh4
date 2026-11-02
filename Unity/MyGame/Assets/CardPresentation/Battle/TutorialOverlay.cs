@@ -884,7 +884,7 @@ namespace CardPresentation
             if (_tipGo != null) _tipGo.SetActive(false);
             if (_initGo != null) _initGo.SetActive(false);
             // 🔴 2026-10-31（`B105_W1`）：原来这里收 `_arrowL/_arrowR` 两颗 —— 整层删除后没有它们了。
-            if (_highlight != null) _highlight.gameObject.SetActive(false);
+            if (_highlight != null) { HlCancelFade(); _highlight.gameObject.SetActive(false); }   // `B-8`：`HideAll` 是「立刻全收」，不补间（原版 `InstantToggle`）
             if (_pointer != null) _pointer.gameObject.SetActive(false);
             if (_annoGo != null) _annoGo.SetActive(false);
             // 🔴 **2026-10-18（A991）**：这里原来还有 `if (_skipGo != null) _skipGo.SetActive(false);`
@@ -999,14 +999,14 @@ namespace CardPresentation
         }
 
         /// <summary>高亮（`shouldHighlightElement`，6 关 39 条；原版 `ScreenHighlightPosition`）。</summary>
-        public void SetHighlight(bool on, Vector3 center, Vector2 size)
+        public void SetHighlight(bool on, Vector3 center, Vector2 size, TutRelation rel = TutRelation.Exact, float dx = 0f)
         {
             if (_highlight == null) return;
             if (on)
             {
                 // 🔴 **2026-10-16（`T09` 批 3）**：世界档那一句**逐字不变**（含那个 `0.04f`）；
                 //    画布档走 `CvPlace`（它独占一块 `HandMoving`/601 的子画布，见文件头 ②）。
-                var c = new Vector3(center.x, center.y, ZHighlight);
+                var c = HighlightPos(center, rel, dx);   // 🆕 2026-11-02（`B120-W3` · 账 `B-3`）：原版 `AiScripted__GetTipPosition.c` 末段那三条 relation 偏移（见类尾 `HighlightPos`）
                 if (UguiMode) CvPlace(_highlight.gameObject, _cvHl, c);
                 else _highlight.transform.position = c;
                 // ✅ **2026-11-02（`B117-G10-23`）就地订正（铁律 5）—— 高亮尺寸改回原版**：
@@ -1019,10 +1019,10 @@ namespace CardPresentation
                 //    世界单位下 = (`LayoutSpace.DesignHeight`/1.48, /2.0) = (6.7568, 5.0) —— 可见高恒 10。
                 //    ⛔ 原来那版（`size` = 锚点元素尺寸 + `HighlightPad`）是**我们自己挑的**，不属 §18·0 允许的「服务器相关」
                 //    门类 ⇒ 已删；形参 `size` **保留但不再参与**（调用点在 `BattleDriver`）。
-                //    ⚠️ 位置仍取 `center`（原版 `GetTipPosition` 的结果）；**relation 偏移那一半还差**（原版高亮也过
-                //    `GetTipPosition(..., positionRelation, ...)`，我们的调用点没传 ⇒ 要改 `BattleDriver`，已记进报告）。
-                //    ⚠️ 淡入/淡出（`fadeTime = 0.1`：显示**瞬开**、收起 0.1 s 淡出）**本轮不做** —— 收起会推迟
-                //    `activeSelf=false`，而 `Editor/BattleScene.cs` 的断言按即时隐藏写（宿主不在白名单）⇒ 记进报告。判据正本 → `判据/B117-G10-23_教程与战役脚本.md`
+                //    ✅ 2026-11-02（`B120-W3` · 账 `B-3`）：位置 = `HighlightPos(center, rel, dx)` —— 原版高亮与提示文案
+                //    过的是**同一个** `GetTipPosition(..., positionRelation, ...)` ⇒ `LeftOf / RightOf / Above` 三档偏移现在都有了。
+                //    ⚠️ 驱动要**显式传** `rel` / `dx`（`BattleDriver` 那一句由 W2 改，补丁见 `报告/B120_W3_执行.md` §B-3）。
+                //    ✅ 2026-11-02（`B120-W3` · 账 `B-8`）：收起的 0.1 s 淡出现在**做了**（`TickHighlightFade`，判据 `ScreenHighlightPosition__.ctor.c` 的 `fadeTime = 0.1`）
                 float w = LayoutSpace.DesignHeight / HlUvScaleX;
                 float h = LayoutSpace.DesignHeight / HlUvScaleY;
                 if (UguiMode)
@@ -1038,7 +1038,7 @@ namespace CardPresentation
                     if (haveW > 0f) _highlight.transform.localScale = new Vector3(w / haveW, 1f, 1f);
                 }
             }
-            if (_highlight.gameObject.activeSelf != on) _highlight.gameObject.SetActive(on);
+            if (on) { HlCancelFade(); if (!_highlight.gameObject.activeSelf) _highlight.gameObject.SetActive(true); } else if (_highlight.gameObject.activeSelf && _hlFadeT < 0f) _hlFadeT = 0f;   // 🆕 `B-8`：收起 = 0.1 s 淡出后再 `SetActive(false)`（原版 `ScreenHighlightPosition__Fade/Toggle`）；显示仍瞬开
         }
 
         /// <summary>指点光标（原版 `CheckForTutorialPointer`，只在 `playerAction == 1` 的时候走）。</summary>
@@ -1173,7 +1173,7 @@ namespace CardPresentation
         /// 由 `BattleDriver.Update` 与自检**显式喂 dt**。</summary>
         public void Tick(float dt)
         {
-            _shownFor += Mathf.Max(0f, dt); TickPointer(dt);   // 🆕 2026-10-29（Y5）：指针状态机按 dt 步进
+            _shownFor += Mathf.Max(0f, dt); TickPointer(dt); TickHighlightFade(dt);   // 🆕 2026-10-29（Y5）：指针状态机按 dt 步进｜🆕 2026-11-02（`B-8`）：高亮收起淡出按 dt 步进
             float target = _wantVisible ? 1f : 0f;
             if (Mathf.Approximately(_fade, target)) return;
             float step = FadeDuration <= 0f ? 1f : Mathf.Max(0f, dt) / FadeDuration;
@@ -1714,5 +1714,88 @@ namespace CardPresentation
                            + "本件的 `AnnotationsVisible` 恒 false、`AnnoLabel(i)` 恒 null。");
         }
         static bool _annoGoneLogged;
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B120-W3`）：账 `B-3`（高亮的 relation 偏移）与 `B-8`（收起 0.1 s 淡出）
+        //  ⛔ 追加在类尾（本文件被账按 `文件:行号` 引用，插在中间会整片漂）
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>高亮收起时**淡出**的时长（秒）—— ✅ 判据 = `ScreenHighlightPosition__.ctor.c` 现读
+        /// `*(undefined4 *)(param_1 + 0x38) = 0x3dcccccd` = **0.1f**（`__Toggle.c` / `__Fade.c` 都用这一格）。
+        /// 收起 = `DOFade(0, 0.1)` → **`OnComplete` 才** `InstantToggle(false)`（= 透明 + `SetActive(false)`）。</summary>
+        public const float HighlightFadeSeconds = 0.1f;
+
+        /// <summary>高亮的静止 α —— 原版 `Image.m_Color` 白 **α 0.8235294 = 210/255**（与 `Build()` 里那一格同值；⛔ 别改两份）。</summary>
+        const float HlRestAlpha = 210f / 255f;
+
+        /// <summary>收起淡出的计时；**`&lt; 0` = 没在淡**（同 `_rewardsFadeT` 那一族的写法）。</summary>
+        float _hlFadeT = -1f;
+
+        /// <summary>原版 `GetTipPosition` 末段那三条 relation 偏移（`AiScripted__GetTipPosition.c` 现读）：
+        /// `relation == 10 (LeftOf) ⇒ x -= d` · `== 20 (RightOf) ⇒ x += d` · `== 30 (Above) ⇒ y += d × 0.5`
+        /// （那个 0.5 = `DAT_1834b2bb4` 实读，见 <see cref="TutTipAboveFactor"/>）。其余关系**不加偏移**。
+        /// <para>`center` = 锚点元素的世界坐标（`BattleDriver.TutorialAnchor`）；`d` = 原版那个 `fVar9`
+        /// （= 锚点元素的一半宽 / 高，由驱动按 `TutorialTipOffset` 给 —— 提示条那一侧已经在用同一个数）。</para></summary>
+        static Vector3 HighlightPos(Vector3 center, TutRelation rel, float d)
+        {
+            float x = center.x, y = center.y;
+            if (rel == TutRelation.LeftOf) x -= d;
+            else if (rel == TutRelation.RightOf) x += d;
+            else if (rel == TutRelation.Above) y += d * TutTipAboveFactor;
+            return new Vector3(x, y, ZHighlight);
+        }
+
+        /// <summary>取消正在跑的高亮淡出并把 α 恢复到静止值（原版 `InstantToggle(true)` 的那一半）。</summary>
+        void HlCancelFade()
+        {
+            _hlFadeT = -1f;
+            if (_highlight == null) return;
+            if (Mathf.Abs(_hlTint.a - HlRestAlpha) > 1e-6f)
+            {
+                var c = _hlTint; c.a = HlRestAlpha; _hlTint = c;
+            }
+            _highlight.SetTint(_hlTint);
+        }
+
+        /// <summary>高亮收起的淡出（由 <see cref="Tick"/> 按显式 dt 步进 —— 批处理没有帧循环）。
+        /// 走**手搓插值**而不是 DOTween：本件 `Tick` 是唯一驱动口（同 tip 那一族的 `_fade` / `MoveTowards`）。</summary>
+        void TickHighlightFade(float dt)
+        {
+            if (_hlFadeT < 0f || _highlight == null) return;
+            _hlFadeT += Mathf.Max(0f, dt);
+            float k = HighlightFadeSeconds <= 0f ? 1f : Mathf.Clamp01(_hlFadeT / HighlightFadeSeconds);
+            var c = _hlTint;
+            c.a = Mathf.Lerp(HlRestAlpha, 0f, k);
+            _hlTint = c;
+            _highlight.SetTint(_hlTint);
+            if (k < 1f) return;
+            _hlFadeT = -1f;
+            _highlight.gameObject.SetActive(false);
+            c.a = HlRestAlpha; _hlTint = c;          // 收完就复位（原版 `InstantToggle(true)` 恢复原色）
+        }
+
+        /// <summary>自检用：高亮淡出是否还在跑（`false` = 没在淡）。</summary>
+        public bool HighlightFadeRunningForTest { get { return _hlFadeT >= 0f; } }
+
+        /// <summary>自检用：高亮那一层**当前**的世界位置（没建出来 ⇒ `NaN` 那三个分量）。
+        /// ⚠️ 只读；用它验 relation 偏移（`B-3`），⛔ 别在生产路径里调。</summary>
+        public Vector3 HighlightPosForTest
+        {
+            get { return _highlight != null ? _highlight.transform.position : new Vector3(float.NaN, float.NaN, float.NaN); }
+        }
+
+        // ── 🆕 2026-11-02（`B120-W3` · 账 `B-11`）：设置窗那颗「跳过教程」**没有**时间门 ────────────────────
+        /// <summary>设置窗「Skip tutorial」那一下 —— **原版那颗钮没有 `minTimeBeforeSkip` 闸**。
+        /// <para>判据（现读）：`BattleSettingsWindow__SkipTutorialButtonOnClick.c` 全文只有两句 ——
+        /// `WindowsManager.CloseWindow(...)` + `BattleManager__ClickSkip(bm)`；而 `minTimeBeforeSkip`
+        /// 是 **`TutorialTipScript`** 的字段，只由 `TutorialTipScript__Update.c` 用来判「提示弹出后
+        /// `minTimeBeforeSkip` 秒内的**点击**算不算「继续」」—— 与设置窗那颗钮**无关**。</para>
+        /// <para>⇒ 这条路径**不查 <see cref="SkipAllowed"/>**。<see cref="TrySkip"/> 保留原语义
+        /// （它那个闸被 `Editor/BattleScene.cs` 的两条断言钉着），驱动应改调本方法（补丁 → 报告 §B-11）。</para></summary>
+        public bool TrySkipFromSettings()
+        {
+            _skippedByPlayer = true;
+            return true;
+        }
     }
 }
