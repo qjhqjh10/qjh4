@@ -10377,9 +10377,9 @@ namespace RuleEngine
             //    「每个」当然就是**全部**。不认它的话会落回 `Count = 1` ⇒ **只给一个单位加**
             //    （卡面写的是一整批，而且是**静默少给**）。
             //    实测全卡池以 `Each ` 开头的分句只有 **4 句**，另 3 句各自有专门的 handler 在更前面领走
-            //    （`eachunitdeal` / 「正在祈祷」归一 / `Each player deploys`）⇒ 这一条**只对 `Let Loose` 生效**。
+            //    （`eachunitdeal` / 「正在祈祷」归一 / `Each player deploys`）⇒ 这一条**只对 `Let Loose` 生效**。🔴 2026-11-02（`B117-10` · `B117-WGB`）：**具名卡的己方目标 = 全体**（`NameFilter` 非空 + `Side=own` ⇒ `Count=0`）—— 判据 = `BattleManager__CanPlayCard.c`（`IsSpellType` 假 **或** `get_targeted` 假 ⇒ 直接 `return 1`、不进找目标格；`UM64` 原版 SO `targeted=0`）＋ `AbilityLogic__GetTargets.c:972-987`（`targetsAffected==10 allFiltered` = 场上**全部**匹配者）⇒ 改前给 `Count=1` ⇒ 要求点格 ⇒ `ErrNoTargetAvailable`（全池只命中 `UM64`/`SAU52`，后者本就 0）。
             bool pluralOwn = !spec.Adjacent && RePluralOwn.IsMatch(t);
-            if (pluralOwn || t.StartsWith("all ") || t.Contains(" all ") || t.StartsWith("each ")) spec.Count = 0;
+            if (pluralOwn || t.StartsWith("all ") || t.Contains(" all ") || t.StartsWith("each ") || (!string.IsNullOrEmpty(spec.NameFilter) && spec.Side == "own")) spec.Count = 0;
             else
             {
                 var mc = Regex.Match(t, @"\b(\d+|two|three|four|five)\b");

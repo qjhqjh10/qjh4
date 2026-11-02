@@ -52,8 +52,8 @@ namespace CardPresentation
         /// <summary>自检用：最后一次播的是哪一档。</summary>
         public static Moment LastMoment { get; private set; }
 
-        /// <summary>把计数清零（自检每段之前调）。</summary>
-        public static void ResetCounters() { Played = 0; LastClip = null; }
+        /// <summary>把**读口**清零（自检每段之前调）：`Played` / `LastClip` / `LastPitch` / `LastVolume`。⚠️ `LastMoment` **没有 null 档** ⇒ 读它之前先看 `Played`；节流表走 `ResetThrottle`（与 `B117-57` 同族：原来只清前两项）。</summary>
+        public static void ResetCounters() { Played = 0; LastClip = null; LastPitch = 0f; LastVolume = 0f; }
 
         // ==================================================================
         //  🆕 2026-09-29 **原版 `AudioCue` 的随机区间**（音高 / 音量 / 重播间隔）
@@ -184,16 +184,16 @@ namespace CardPresentation
             //    调用方**别把它当失败报警**；要看节流了几次有 `Throttled`。
             var cue = PropsOf(m, aeldari);
             string key = (aeldari ? "Aeldari/" : "Necrons/") + MomentKey(m);
-            if (cue != null && cue.timeToPlayAgain > 0f)
+            // 🆕 2026-11-02（`B117-WCOOL3`）：冷却公式收口到 `WFSoundPlayer.CanPlayByCooldown`（全项目唯一实现，铁律 6）
+            //   判据 = `AudioCue__ConfigAudioSource.c:19-21` 的闸 + `:31` 的「先写戳、再挑 clip」次序，两半都在那一处；
+            //   `last != 0` 那半句也在那里（0 = 从没播过，漏掉它会把 `Time.time` 还小时的第一次也拦掉）。
+            //   ⚠️ `cue` 取不到（区间表缺失）或 `timeToPlayAgain == 0` ⇒ 传 0 ⇒ 天然永远放行（与原版一致）。
+            float ttpa = cue != null ? cue.timeToPlayAgain : 0f;
+            if (!WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(_lastAt, key, ttpa))
             {
-                float last;
-                if (_lastAt.TryGetValue(key, out last) && Time.time - last < cue.timeToPlayAgain)
-                {
-                    Throttled++;
-                    return false;
-                }
+                Throttled++;
+                return false;
             }
-            _lastAt[key] = Time.time;
 
             // ⚠️ 用 `UnityEngine.Random`（**表现层**的随机，不进引擎状态）—— 引擎那边那条
             //    「只用 `System.Random(seed)`」管的是**对局可复现**，音高不参与。

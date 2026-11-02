@@ -225,8 +225,8 @@ namespace WarpforgeVFX
                         host.gameObject.AddComponent<WarpforgeParticleForceFieldController>();
                     break;
                 default:
-                    // 🔴 **已知会丢**的那几种（`ShakeAndSoundObject` / `MaterialFlickerEffect` /
-                    //    `SpriteFlickerEffect` / 未来新增）：**出声 + 计数**，⛔ 不静默。
+                    // 🔴 走到这里 = **`effect_extras.json` 里出现了本类还没实现的新 kind**（`Attach` 的 case 已经覆盖
+                    //    原版全部 11 种：`ShakeAndSoundObject`/`MaterialFlickerEffect`/`SpriteFlickerEffect` 都在上面）：出声 + 计数，⛔ 不静默。
                     Unimplemented++;
                     if (_warnedUnimpl.Add(e.kind))
                         Debug.LogWarning($"[WarpforgeVFX] 🔴 未实现：《{p.EffectName}》上的 `{e.kind}`"

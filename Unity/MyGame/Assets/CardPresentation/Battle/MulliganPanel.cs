@@ -964,7 +964,7 @@ namespace CardPresentation
         /// <summary>开面板：把「换」按钮贴到每张起手牌上</summary>
         public void Open(IReadOnlyList<CardView> hand)
         {
-            _marked.Clear();
+            _marked.Clear(); _contentHidden = false;   // 🆕 2026-11-02（`B117-G10-17`）：每局重开都回到「全显」（原版 `ActivateMulligan` 每次都把 `buttonsGroup`/文字打开，眼睛的收起态不带进下一局）。同一物理行追加 ⇒ 零行数漂移
             BuildCardButtons(hand);
             WriteMulliganCardStates();          // 🆕 账 907：进换牌区那一刻统一置 13（= 原版 `SetStateAsMulligan(false)`）
             SetVisible(true);
@@ -972,8 +972,8 @@ namespace CardPresentation
 
         public void Close()
         {
-            ClearCardButtons();
-            SetVisible(false);
+            RestoreHiddenCardsBeforeClose(); ClearCardButtons();   // 🆕 2026-11-02（`B117-G10-17`）：关面板前先把内容放回来 —— 原版 `ProcessMulliganDone` 第一句就是 `ShowMulliganElements(true)`；**必须放回**，否则玩家按过眼睛再点完成 ⇒ 那几张起手牌一直是 `inactive`（它们是**手牌本体**、不是面板自带件）。🔴 **`B117-FIXD` 订正**：还原必须在 `ClearCardButtons()` **之前**（它会 `_cards.Clear()`，之后 `SetContentHidden(false)` 里的 `for (_cards)` 一张都碰不到 = 等于没还原）
+            SetContentHidden(false); SetVisible(false);
         }
 
         void SetVisible(bool v)
@@ -1533,9 +1533,9 @@ namespace CardPresentation
                 //   （判据 → `BuildSelectedMarkers`）。⚠️ 原版是「选中才 Instantiate / 取消就 Destroy」，
                 //   我们建一次 + `SetActive` —— 等价，少一次实例化。
                 if (i < _selBgs.Count && _selBgs[i] != null)
-                    _selBgs[i].gameObject.SetActive(m);
+                    _selBgs[i].gameObject.SetActive(m && !_contentHidden);   // 🆕 2026-11-02（`B117-G10-17`）：眼睛收起来时红标记一并藏（原版那枚标记是 `MulliganFrame` 的子件，跟着 `ShowMulliganCards(false)` 一起 inactive）
                 if (i < _selTexts.Count && _selTexts[i] != null)
-                    _selTexts[i].gameObject.SetActive(m);
+                    _selTexts[i].gameObject.SetActive(m && !_contentHidden);
             }
         }
 
@@ -1551,7 +1551,8 @@ namespace CardPresentation
         {
             if (!Visible) return false;
 
-            if (HitDone(world))
+            // 🔴 **2026-11-02（`B117-FIXD`）就地订正（铁律 5）**：原来先判 `HitDone`、后判 `_contentHidden` ⇒ 收起后点「完成」那枚坐标**照样提交**（`HitDone` 走常量框、不看 `activeSelf`；原版那颗 `Button` 的 GO 已 inactive）⇒ 必须先闸（`B117G1017` A9）。
+            if (!_contentHidden && HitDone(world))
             {
                 var marks = Marked;
                 if (OnDone != null) OnDone(marks);
@@ -1560,21 +1561,19 @@ namespace CardPresentation
             if (HitEye(world))
             {
                 // 「眼睛」= 原版 `HideMulliganButton` → `MulliganManager.ToggleMulliganVisibility`
-                // → `ShowMulliganElements(bool)`。**2026-09-17 照反编译核实过**：
-                //   · **是开关不是按住** —— 它读 `activeInHierarchy` 再取反（`ToggleMulliganVisibility`）
-                //     ⇒ 原来这句写「原版到底是按住还是开关**没查到**」已更正。
-                //   · 一次收**四样**：两个 GameObject（`SetActive`×2）+ **每张卡的换牌按钮**
-                //     （`ShowMulliganCards` 是个循环）+ **压暗层**（`Shade.SwitchShade(show)`）。
-                // 🔴 我们原来只收了按钮、**压暗还盖着** —— 这是**漏做**：玩家按眼睛就是为了看战场，
-                //    原版这时屏幕是亮的（`MulliganManager__ShowMulliganElements.c:6-17`）。
-                bool show = !CardButtonsShown;
-                for (int i = 0; i < _cardBtns.Count; i++)
-                    if (_cardBtns[i] != null) _cardBtns[i].gameObject.SetActive(show);
-                for (int i = 0; i < _cardTexts.Count; i++)
-                    if (_cardTexts[i] != null) _cardTexts[i].gameObject.SetActive(show);
-                if (_shade != null) _shade.gameObject.SetActive(show);
+                // → `ShowMulliganElements(bool)`：**是开关不是按住**（读 `activeInHierarchy` 取反）。
+                // 🔴 **2026-11-02（`B117-G10-17`）就地订正（铁律 5）**：原来这里只收「卡钮 + 钮上的字 + 压暗层」
+                //   三样 —— 而原版 `ShowMulliganElements` 收**四组**：`mulliganTextObj`（提示行）·
+                //   `mulliganButton`（完成钮）· `ShowMulliganCards`（**卡体本身** + 每份 `MulliganFrame` = 钮/字/红标记）·
+                //   `Shade`。⇒ 提示行、完成钮、卡体、红标记**原来都还留在屏幕上**（玩家按眼睛就是为了看战场）。
+                //   收/放的名单与判据全文 → `SetContentHidden` 那条 doc（⛔ 别在这儿抄第二份）。
+                SetContentHidden(!_contentHidden);
                 return true;
             }
+            // 内容被眼睛收起来了 ⇒ 原版那几件全是 `inactive`、收不到射线 ⇒ 其它一律**吃掉但不动作**。
+            // ⚠️ 必须显式闸住：`ButtonIndexAt` / `HitDone` 走的是**矩形与常量**（不看 `activeSelf`），
+            //    卡那一条走 `Physics2D`（`inactive` 自然查不到）—— 三条路口径不一致，这里统一挡掉。
+            if (_contentHidden) return true;
 
             int hit = ButtonIndexAt(world);
             if (hit >= 0) { ToggleMark(hit); return true; }
@@ -1847,5 +1846,138 @@ namespace CardPresentation
         /// 将来接敌方行时：`queue = 该行基队列 + RowSortRankFor(i, n)`，⚠️ 基队列必须选在 **3007 之下**或另开一段 ——
         /// `3007 + rank` 会直接撞 `CardFan.QCardBase`(3009)（点卡放大那扇窗的地盘，见 <see cref="QMulliganCard"/> 的上界那条）。</para></summary>
         public static int RowSortRankFor(int i, int n) { return (n - 1) - i; }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（执行代理 `B117-G10-17` · 战斗域第 17 部分「换牌 Mulligan」）：
+        //     眼睛那颗钮 = **整组**显/隐（原版 `MulliganManager.ShowMulliganElements`）
+        //
+        //  **判据（🥇 `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/MulliganManager.cs`，方法体全文四句）**
+        //    `ShowMulliganElements(bool showY)`：
+        //      ① `mulliganTextObj.SetActive(showY)`  —— 提示行（`MulliganText`，里面还含一行 `TurnText`）
+        //      ② `mulliganButton.SetActive(showY)`   —— 「完成换牌」那颗钮（底条 + 圆钮 + 字）
+        //      ③ `ShowMulliganCards(showY)`          —— 逐张 `currentMulligan[i].gameObject.SetActive` **+
+        //         每一份 `MulliganFrame`**（`mulliganFrameButtons` 循环 ⇒ 卡下那颗钮、钮上的字、那枚红标记一起走）
+        //      ④ `manager.shade.SwitchShade(showY, useAnim: false)` —— 压暗层（**硬切**，不带动画）
+        //    `ToggleMulliganVisibility()`（`:183`）= 读 `mulliganTextObj.activeInHierarchy` **取反** ⇒ 开关。
+        //    **不动** `buttonsGroup`（`+0x40`）—— 眼睛自己（`HideMulliganButton`）就挂在它下面
+        //    （运行期 dump：`Mulligan/ButtonsGroup/{MulliganContinueButton, HideMulliganButton}`）⇒ 收完还能点回来。
+        //
+        //  🔴 **改前**：只收「卡钮 + 钮上的字 + 压暗层」三样 ⇒ 提示行 / 完成钮 / 卡体本身 / 红标记
+        //     **都还画在屏幕上**，与「按眼睛看战场」的用途不符（玩家看不到战场、只少了几颗钮）。
+        //  ⚠️ 与同批的 `B117-G10-14`（`CardChoicePanel.SetContentHidden`，那扇收五样）**同一形状** —— 两棵原版树
+        //     是两份克隆，两边的「收」也应当同形；⛔ 别把其中一边改成另一套。
+        //  ⚠️ **新成员追加在类尾**：本文件在账里有 A 行落点（`战斗界面_HUD.tsv` / `战斗逻辑驱动.tsv` 最深到
+        //     `MulliganPanel.cs:1550` = `HandleClick` 的签名行）⇒ 这里之后没有落点，插在中间会让它们整片漂。
+        // ══════════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>面板内容被眼睛收起来了吗（= 原版 `ShowMulliganElements(false)` 那一档）。
+        /// ⚠️ 与 <see cref="Visible"/> 是**两个独立状态**：收起来时窗还开着、`HandleClick` 仍然吃点击，
+        /// 玩家再点一下眼睛就放回来。</summary>
+        bool _contentHidden;
+
+        /// <summary>自检用：内容此刻被眼睛收起来了没有。</summary>
+        public bool ContentHiddenForTest { get { return _contentHidden; } }
+
+        /// <summary>自检用：**提示行**此刻显示着没有（原版 `mulliganTextObj` = `MulliganText` + 其中的 `TurnText`）。
+        /// ⚠️ 读**实件**的 `activeSelf`（⛔ 不读 `_contentHidden` —— 那等于拿实现证明实现）。</summary>
+        public bool PromptRowActiveForTest
+        {
+            get { return _prompt != null && _prompt.gameObject.activeSelf
+                      && _turnText != null && _turnText.gameObject.activeSelf; }
+        }
+
+        /// <summary>自检用：**完成钮**此刻显示着没有（原版 `mulliganButton` = 底条 + 圆钮 + 字三件同属一颗钮）。</summary>
+        public bool DoneActiveForTest
+        {
+            get { return _bar != null && _bar.gameObject.activeSelf
+                      && _play != null && _play.gameObject.activeSelf
+                      && _doneText != null && _doneText.gameObject.activeSelf; }
+        }
+
+        /// <summary>自检用：第 <paramref name="i"/> 张换牌卡**自己**此刻显示着没有
+        /// （原版 `ShowMulliganCards` 收的就是 `cardScript.gameObject`）。</summary>
+        public bool CardActiveForTest(int i)
+        {
+            return i >= 0 && i < _cards.Count && _cards[i] != null && _cards[i].gameObject.activeSelf;
+        }
+
+        /// <summary>自检用：第 <paramref name="i"/> 张那枚「已标记」红条此刻显示着没有
+        /// （原版它是 `MulliganFrame` 的子件 ⇒ 跟着 `ShowMulliganCards` 一起进出）。</summary>
+        public bool MarkerActiveForTest(int i)
+        {
+            return i >= 0 && i < _selBgs.Count && _selBgs[i] != null && _selBgs[i].gameObject.activeSelf;
+        }
+
+        /// <summary>自检用：眼睛那颗钮**自己**此刻显示着没有 —— 原版收内容时**不动** `buttonsGroup`
+        /// （眼睛挂在它下面）⇒ 收起之后这一条必须仍是 `true`，否则玩家再也点不回来。</summary>
+        public bool EyeActiveForTest { get { return _eye != null && _eye.gameObject.activeSelf; } }
+
+        /// <summary>把换牌面板的内容整组显/隐（= 原版 `MulliganManager.ShowMulliganElements(bool)`）。
+        /// <para>收的名单 = 原版那四组（判据 → 上面那段文件尾注释）：
+        /// 提示行 / 完成钮 / **每张换牌卡** / 每张卡的钮与字与红标记 / 压暗层。</para>
+        /// <para>⛔ **不收眼睛自己**（原版 `HideMulliganButton` 在 `buttonsGroup` 下，那个节点不在收的名单里）。</para>
+        /// <para>⚠️ `_cards` 是**调用方（驱动层）持有的世界物件**：这里只切 `activeSelf`、**不销毁**；
+        /// 真正的清理仍在 `ClearCardButtons`。⚠️ 所以 `Close()` 里必须先 `SetContentHidden(false)`，
+        /// 否则那几张**起手牌本体**会带着 `inactive` 回到手牌。</para></summary>
+        void SetContentHidden(bool hidden)
+        {
+            _contentHidden = hidden;
+            bool show = !hidden;
+            if (_prompt != null) _prompt.gameObject.SetActive(show);        // ① 提示行
+            if (_turnText != null) _turnText.gameObject.SetActive(show);    //    先手/后手那行
+            if (_bar != null) _bar.gameObject.SetActive(show);              // ② 完成钮：底条
+            if (_play != null) _play.gameObject.SetActive(show);            //    圆钮
+            if (_doneText != null) _doneText.gameObject.SetActive(show);    //    钮上的字
+            if (_shade != null) _shade.gameObject.SetActive(show);          // ④ 压暗层（硬切）
+            // 🔴 2026-11-02（`B117-FIXF` 现核）：**收完再放开之后必须重盖队列**。卡体 `SetActive(false)→(true)` 会让
+            //   TMP 走 `OnEnable → SetAllDirty` 把文本标脏，而**真正的重建是延迟一拍的**（`Canvas.willRenderCanvases
+            //   → TMP_UpdateManager.DoRebuilds`，`TMP_UpdateManager.cs:52`）；重建里 `SetArraySizes`
+            //   （`TextMeshPro.cs:1947`）会把每颗**子网格**的 `sharedMaterial` 换回它自己的材质参考表
+            //   （字体图集 / sprite 材质，队列 3000）⇒ 低于压暗层 3006、卡被压暗。
+            //   实测：按两次「眼睛」之后 `BattleScene` 的 `D6⑦` 红，**违规的 9 颗全是 `TMP SubMesh`**（主网格没事）。
+            //   🔴 **2026-11-02（`B117-FIXH`）就地订正（铁律 5）**：上一版把这个机制写成「`UpdateMaterial` 把渲染器
+            //   换回 3000」—— 那是**主网格**那条路，且发生在 `OnEnable` 的**同步段**（= 在我们盖章**之前**），
+            //   所以它不可能是本缺陷的成因；真凶是上面那条**延迟重建**。根因修复在 `CardView` 那一侧
+            //   （`StampQueue → SyncTmpSharedMaterial` ＋ `RestampQueuesAfterEnable`「先逼重建、再盖章」），
+            //   ⛔ 别在这里再写第二份材质同步。
+            for (int i = 0; i < _cards.Count; i++)                          // ③ 卡体本身
+                if (_cards[i] != null)
+                {
+                    _cards[i].gameObject.SetActive(show);
+                    // 🔴 2026-11-02（`B117-FIXH`）：**先设队列、再「逼 TMP 重建 + 重盖」**（判据与源码依据 →
+                    //   `CardView.RestampQueuesAfterEnable` 的 doc）。只 `SetQueue` 一次不够 —— 卡体重新启用后
+                    //   TMP 的文本重建是**延迟一拍**的，它会把子网格材质刷回 3000（实测 9 颗全中、`D6⑦` 红）。
+                    if (show) { _cards[i].SetQueue(QMulliganCard); _cards[i].RestampQueuesAfterEnable(); }
+                }
+            for (int i = 0; i < _cardBtns.Count; i++)                       // ③ 卡下那颗钮
+                if (_cardBtns[i] != null) _cardBtns[i].gameObject.SetActive(show);
+            for (int i = 0; i < _cardTexts.Count; i++)                      // ③ 钮上的字
+                if (_cardTexts[i] != null) _cardTexts[i].gameObject.SetActive(show);
+            // ③ 红标记（`MulliganFrame` 的子件）：**显隐跟着 `_marked` 且乘 `_contentHidden`**（见 `ApplyMarks`）。
+            // 🔴 只在**标记件还在**时调（`_selBgs.Count > 0`）：`Close()` 那条路是 `ClearCardButtons()` 之后才走到
+            //    这里，那时标记件已销毁、`ApplyMarks` 的 `SetActive` 目标已经没了。
+            // 🔴 **2026-11-02（`B117-FIXD`）就地订正（铁律 5）**：原来只有 `show` 那一支调 `ApplyMarks()` ——
+            //    **收的时候红标记一件都没动**（`ApplyMarks` 里那句 `SetActive(m && !_contentHidden)` 根本没被调到）
+            //    ⇒ 按眼睛收起内容后红标记还挂在屏幕上（`B117G1017` A6 红）。收/放**两边都要**按 `_marked` 复原。
+            if (_selBgs.Count > 0) ApplyMarks();
+        }
+
+        // ==================================================================
+        //  收尾还原（`B117-FIXD` · 2026-11-02 · 追加在类尾）
+        // ==================================================================
+        /// <summary>关面板前把「被眼睛收起」那一态还原到**卡体本身**上（原版 `ProcessMulliganDone` 第一句 =
+        /// `ShowMulliganElements(true)`）。
+        /// <para>🔴 **为什么必须单独成一个方法、而且必须在 `ClearCardButtons()` 之前调**：那条会 `_cards.Clear()`，
+        /// 之后再走 <see cref="SetContentHidden"/> 的 `for (_cards)` 就是空转 —— 原来 `Close()` 里的
+        /// 「先放回来」注释与实际执行顺序正好相反，等于**从来没还原过**（`B117G1017` A16 红）。
+        /// ⚠️ 这里**只还原 `activeSelf`、不走 `ApplyMarks`**：那会把刚标记过的那几张按 `_marked` 再刷成
+        /// `Unplayable`（去饱和），换牌结束后手牌里那几张一直是灰的（理由同 <see cref="SetContentHidden"/> 末段）。</para></summary>
+        void RestoreHiddenCardsBeforeClose()
+        {
+            if (!_contentHidden) return;
+            _contentHidden = false;
+            for (int i = 0; i < _cards.Count; i++)
+                if (_cards[i] != null) _cards[i].gameObject.SetActive(true);
+        }
     }
 }

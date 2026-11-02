@@ -446,7 +446,7 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>
-        /// 换掉第 `player` 方手里的 `handIndices` 那几张牌：**弃回牌库 → 洗牌 → 补抽同样张数**。
+        /// 换掉第 `player` 方手里的 `handIndices` 那几张牌：**弃回牌库（表尾）→ 补抽同样张数（表头）**；洗牌**不在**这儿（`EndMulligan`）。
         /// 返回真正换掉的张数（-1 = 不在换牌阶段，调用方该把它报出来，别当成功）。
         ///
         /// ⚠️ 用 `ctx.GetRandomInt`（原版预烧表）—— 2026-10-27 `E1RNG` 起结算不再走 `ctx.Rng`。
@@ -486,20 +486,20 @@ namespace RuleEngine
             if (idx.Count == 0) return 0;
             idx.Sort();
 
-            for (int i = idx.Count - 1; i >= 0; i--)
-            {
-                ps.Deck.Add(ps.Hand[idx[i]]);
-                ps.Hand.RemoveAt(idx[i]);
-            }
-
-            // 重洗：换回去的牌要**洗匀**，不然对手能从牌库顺序推出你换掉了什么
-            //（原版是 `FinishMulliganFinalPhase` 里统一 `ShuffleDeck`，我们在这里洗同一件事）
-            Shuffle(ps.Deck, ctx);
-
-            // 补抽同样张数
+            // 🔴 **2026-11-02（`B117-WMULL` · 判据 → `判据/B117-G10-17_换牌Mulligan.md` §二·A）**：原版
+            //   `PlayerHand__ReplaceMulliganCard.c` 是 `List.Add` = **追加到牌库表尾**；补抽走
+            //   `BattleManager__GetMulliganCard.c` = **表头 `GetItem(0)` + `RemoveAt(0)`**；**换牌期一次都不洗**
+            //   （`_FinishMulliganFinalPhase_d__351__MoveNext.c` 的 case 3 才洗，那时双方补牌都已完成）。
+            //   镜像换算：我们 `Count-1` = 牌堆顶（`MoveDeckTopToHand`）⇒ 原版「表尾」= **`Insert(0, …)`**；
+            //   原版「表头取」= 我们 `Draw`（取 `Count-1`）✓。⛔ 别写 `Deck.Add`（= 加到牌堆顶 ⇒ 当次就抽回来）。
+            var moved = new List<CardInstance>(idx.Count);
+            for (int i = 0; i < idx.Count; i++) moved.Add(ps.Hand[idx[i]]);      // 升序 = 原版扫描序
+            for (int i = idx.Count - 1; i >= 0; i--) ps.Hand.RemoveAt(idx[i]);
+            for (int i = 0; i < moved.Count; i++) ps.Deck.Insert(0, moved[i]);   // ← 原版 `List.Add` 的镜像
+            // 补抽同样张数（原版从表头取 ⇒ 我们 `Draw` 取 `Count-1`；洗牌挪去 `EndMulligan`，见那儿）
             for (int i = 0; i < idx.Count; i++) Draw(ctx, player);
 
-            ctx.Log($"{ps.Name} 换牌 {idx.Count} 张（弃回牌库 → 重洗 → 补抽）");
+            ctx.Log($"{ps.Name} 换牌 {idx.Count} 张（弃回牌库表尾 → 补抽表头；洗牌在 EndMulligan）");
             return idx.Count;
         }
 
@@ -519,8 +519,8 @@ namespace RuleEngine
             if (ctx == null || !ctx.MulliganOpen) return;
             ctx.MulliganOpen = false;
             ctx.Log("换牌阶段结束");
-            // 防御卡那一步（原版 `AddGoesSecondCardToDeck`）：**发完才真正开打** ——
-            // 就在这一行之后，调用方接着走 `BeginTurn`（`BattleDriver.BeginBattleAfterSetup`）。
+            Shuffle(ctx.Players[ctx.FirstSeat].Deck, ctx); Shuffle(ctx.Players[1 - ctx.FirstSeat].Deck, ctx);   // 🔴 2026-11-02（`B117-WMULL`）：判据 = 原版 `_FinishMulliganFinalPhase_d__351__MoveNext.c` 的 **case 3**（此刻双方补牌都已完成，`:159-160` 两副各 `ShuffleDeck` 一次；两个实参是 `playerGoesFirst` 与取反 ⇒ **先手那副先洗**）。⛔ 别挪回 `Mulligan`：换牌期一次都不洗（否则换掉的牌会被当次抽回来）· ⚠️ 原版那两个实参里 `GetDeck(...)` 那一跳被反编译吃掉了（`ShuffleDeck` 的 `.c` 第二参直接当 List 用），「先手那副在前」是按 `playerGoesFirst`/取反这一对推的
+            // 防御卡那一步（原版 `AddGoesSecondCardToDeck`，排在 case 3 洗牌**之后**）：**发完才真正开打** —— 调用方接着走 `BeginTurn`（`BattleDriver.BeginBattleAfterSetup`）。
             if (PendingDefence.TryGetValue(ctx, out var pending) && pending != null)
             {
                 PendingDefence.Remove(ctx);
@@ -642,7 +642,7 @@ namespace RuleEngine
             p.Warlord.Exhausted = false;        // 督军不受「部署当回合不可行动」约束
             // 🆕 2026-09-26：**督军生命增减**（遭遇模式 −10）。原版文案逐字：
             //   `Warlords start with 10 less Health`（`资料/加时与冲突模式_原版规格.md` §2.2）。
-            //   走 `GameplayVariables.warlordLifeChange`（经典 0 ⇒ 这一段一次都不走，老行为逐字不变）。
+            //   走 `GameplayVariables.warlordLifeChange`（🔴 2026-11-03 `B117-WREPLAY` 就地订正：**经典现读 +10 ⇒ 这一段会走**、冲突 Skirmish 现读 0 ⇒ 不走；原写「经典 0 ⇒ 这一段一次都不走」**已过期**，见 `GameplayVariables.cs:141/162` 的 `ClassicWarlordLifeChange`）。
             //  ⚠️ `MaxHealth` 与 `Health` **都要改** —— 只改 `Health` 的话第一个回合结束的
             //     「回复到上限」那类效果会把它加回去。
             if (ctx.Vars.warlordLifeChange != 0)
@@ -2374,31 +2374,31 @@ namespace RuleEngine
         ///
         /// <para>⚠️ 自己开一个 `BeginAction` 作用域：原版这一拍是协程续跑，我们这边必须有自己的泵点，
         /// 否则这一段入队的动作没人结算（`ActionScope` 嵌套安全，见它的 doc）。</para></summary>
-        public static void ResolvePendingTurnDraw(BattleContext ctx)
+        public static bool ResolvePendingTurnDraw(BattleContext ctx)
         {
-            if (ctx == null || !ctx.PendingTurnDraw) return;
-            using (BeginAction(ctx)) { ResolvePendingTurnDrawCore(ctx); return; }
+            if (ctx == null || !ctx.PendingTurnDraw) return false;
+            using (BeginAction(ctx)) { return ResolvePendingTurnDrawCore(ctx); }
         }
 
         /// <summary><see cref="RuleCore.ResolvePendingTurnDraw"/> 包住的原文（照同族「入口 / Core」形状）。</summary>
-        static void ResolvePendingTurnDrawCore(BattleContext ctx)
+        static bool ResolvePendingTurnDrawCore(BattleContext ctx)
         {
             ctx.PendingTurnDraw = false;
             if (ctx.IsOver)
             {
                 ctx.Log("（推迟的回合初抽牌作废：这一局已经结束）");
-                return;
+                return false;
             }
             if (ctx.Active != ctx.DeferSeat)
             {
                 // ⛔ 不静默：这一格说明「换边发生在 1.5 s 之内」，是排期/闸的缺陷，要能被看见。
                 ctx.Log($"⚠️ 推迟的回合初抽牌**没补上**：排期时的行动方是 {ctx.DeferSeat}，"
                       + $"现在是 {ctx.Active} —— 抬头那 1.5 s 与回合切换撞了（⛔ 原版不会走到这里，请查排期）");
-                return;
+                return false;
             }
             ctx.Log($"回合 {ctx.Turn}（{ctx.ActivePlayer.Name}）：抬头 1.5 s 到了 ⇒ 补上回合初的抽牌与 `turn_start` 相位"
                   + "（原版 `_NextTurn:76-78 case 2` → `:360-385`）");
-            BeginTurnTail(ctx, CurrentTurnScriptedData(ctx));
+            BeginTurnTail(ctx, CurrentTurnScriptedData(ctx)); return true;
         }
 
         /// <summary>回合结束：能量作废 → 移交。返回 <see cref="CheckWinner"/> 的结果。</summary>
@@ -3711,7 +3711,7 @@ namespace RuleEngine
         /// **调用点**：`TutorialScript.PlaceTroops`（唯一）。⛔ 别把它接到普通部署入口上 ——
         /// 那两条路的 trait 激活已经在 `ApplyDeployTurnState` 里了（同一份判据的两次求值）。
         /// </summary>
-        public static void ActivateTraitsOnSummonOrEnchantment(UnitState u)
+        public static void ActivateTraitsOnSummonOrEnchantment(UnitState u, bool onSummon = true)
         {
             if (u == null) return;
             // `fast` / `flank`：只抬 `canAct`（`ActivateTraitsOnSummonOrEnchantment.c:75-88`）。
@@ -3722,7 +3722,7 @@ namespace RuleEngine
             {
                 u.Exhausted = false;
                 u.CannotAttackThisTurn = true;
-            }
+            } if (onSummon) u.ApplyDropPodOnSummon();   // 🔴 2026-11-02（`B117_WDROPPOD` · 活状态表 `B117-47`）：原版 `.c:70-78` 的 `0xe6`（dropPod）支 —— 遍历当前 trait 表时，**只有**「`trait == dropPod` ∧ `onSummon != 0`」才走 `.c:102-135`（`+0xcc/+0xe0` ← `GameStaticData` 的 2 / 0）。附魔那条路传 0 ⇒ **不进**（见 `Enchantment.cs` 同口径注）。⚠️ 零行数：本文件 400+ 处账落点按行号引。
         }
 
         /// <summary>
@@ -3813,7 +3813,7 @@ namespace RuleEngine
             //    ⚠️ 形状上的唯一差别：那个方法还带 `+0x48`（= 我们的 `AttacksThisTurn`）那道闸 ——
             //    **在四个部署入口上该闸恒假**（`AttacksThisTurn == 0`）—— 🔴 2026-10-26（`W12MN`）订正：
             //    原写「`UnitState` 都是新造的」，对「残骸翻回」已不成立（`W10WR` 起那一路是 `ReanimateRemnantInPlace` **原地翻**、复用同一实例；归零点 = `ResetToValuesInHand` 里那句 `AttacksThisTurn = 0`）⇒ 所以本入口的行为逐字不变。
-            RecomputeActAndAttack(u);
+            RecomputeActAndAttack(u); u.ApplyDropPodOnSummon();   // 🔴 2026-11-02（`B117_WDROPPOD`）：原版 `CardScript._MinionPlayedIntoField_d__314__MoveNext.c:69-71`（写 `+0x58`）→ `UpdateSummonSicknessAnims().ActivateMinion()`（= 上面那一跳 `RecomputeActAndAttack`）→ **`ActivateTraitsOnSummonOrEnchantment(card, 1, 1, 0)`**（= 本句，`onSummon = 1`）。⚠️ 零行数。
         }
 
         /// <summary>

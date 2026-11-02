@@ -8,7 +8,7 @@
 //    `card_anim_map.json`（506 条）·`animfx_components.json`（2346 个组件）——
 //    能拿到的只有**单个特效内部**的 `delay`/`duration`。
 //    但**真反编译的方法体也在本地**（`d:/2/Warpforge_tools/data/decomp_il2cpp_0827/`，1800 个），
-//    从里面挖到了两条**真正的动作间隔**（见 `AttackWindUp` 和 `TriggerHold`）。
+//    从里面挖到了**真正的动作间隔**（见 `AttackWindUp`）—— `TriggerHold` 已判**死值**（2026-11-02 `B117-39`：原版 Trigger 前置 0）。
 //    每条都标了出处；**以「拍的」结尾的是估的，不是原版的数**。
 //
 // 唯一一处「事件之间要互相等」的**显式**标记：`UnitTweenSO.waitAnimation = 1`
@@ -110,7 +110,7 @@ namespace CardPresentation
 
         /// <summary>🆕 **2026-10-25（`AU1` · `J1` §5）：这一条 `Hit` 打的是**易伤伤害**（`DamageType 7/8`）吗。
         /// `null` = 没挂钩（⇒ 一律按普通命中 1.0 s）。判据与等价物 → <see cref="HitHoldOf"/>。</summary>
-        public static System.Func<BattleEvent, bool> HitIsVulnerable;
+        public static System.Func<BattleEvent, bool> HitIsVulnerable; public static System.Func<bool> ReplaySkipAnims; static float SkipScaled(float seconds) { return (ReplaySkipAnims != null && ReplaySkipAnims()) ? seconds / ReplaySkipAnimDivisor : seconds; }   // 🔴 2026-11-03（`B117-WREPLAY` · `B117-40`）回放「跳过动画」档 = 原版 `BattleManager.ReplaySkipAnims()`（`matchType==0xA0` ∧ `+0x521`；`ClickPauseReplay` 置 1 / `ClickPlayReplay` 清 0）。真时「攻击前摇」÷ `ReplaySkipAnimDivisor`（3 = `CardScript.get_AttackStepTime` 那个常量）；`ReplaySkipAnims` 的 `null` = 没挂钩（⇒ 原样返回、逐位不变），由 `BattleDriver.Begin`（`HookEventTimingCardSource`）绑到 `ReplaySkipAnimsNow`。⚠️ 与 `HitIsVulnerable` 挤同一物理行 = **刻意零行数变化**（本文件有账按行号引 `:301/:323/:328/:1024/:1408`）
 
         /// <summary>🆕 **2026-10-25（`AU1` · `J1` §6）：这一次「发动能力」原版走的是**替代支**吗。
         /// `true` = `alternativeAbility`（SW21 那类）· `false` = `activeAbility`。`null` = 没挂钩。
@@ -142,9 +142,9 @@ namespace CardPresentation
             //   ⇒ 原来 441 个（卡,件）组合全落回 0.75 兜底）。契约：**≥ 0 = 真值（0 也是真值）**、
             //   **&lt; 0 = 判据为空** ⇒ 才走 `RangedVfxFallback` 并出声。
             float chain = CardAnimClips.RangedChainDuration(VfxMap.AttackRanged, faction, retaliation.CardId, times);
-            if (chain >= 0f) return AttackStepRanged + chain;
+            if (chain >= 0f) return SkipScaled(AttackStepRanged) + chain;
             WarnRetaliationFallback(retaliation.CardId);
-            return AttackStepRanged + RangedVfxFallback;
+            return SkipScaled(AttackStepRanged) + RangedVfxFallback;
         }
 
         static readonly System.Collections.Generic.HashSet<string> _retaliationFallbackWarned =
@@ -324,7 +324,7 @@ namespace CardPresentation
 
         /// <summary>🆕 2026-10-25（`AU1` · `J3` §4）：`ReplaySkipAnims()` 为真时上面那 0.5 要**除以 3**
         /// （`BattleManager__GetTargettingTime.c` 的 `÷ DAT_1834b2e8c`，实读 **3.0**）⇒ **0.1667**。
-        /// 我们的等价门 = `BattleDriver._replaySession`（回放局）。消费点 → `PlayBucketOffsetOf`。</summary>
+        /// 我们的等价门 = `EventTiming.ReplaySkipAnims`（由 `BattleDriver.Begin` 绑到 `ReplaySkipAnimsNow` = `_replaySession && _replayPaused`）。消费点 → 本类 `SkipScaled` 那一族 + `BattleDriver.PlayBucketOffsetOf`。</summary>
         public const float ReplaySkipAnimDivisor = 3f;
 
         /// <summary>🆕 **2026-10-25（`AU1` · `J1` §5 + `J3` §3 + `E4`）：这一条 `Hit` 占多久** —— 普通 **1.0**、易伤第二拍 **1.4**。
@@ -402,7 +402,7 @@ namespace CardPresentation
                 //   👉 命中帧的**手感**（后坐/震屏/命中粒子/命中音）不在这一拍 —— 见 <see cref="HitFrameLag"/>。
                 case EvtKind.Hit:
                     if (prev.Kind != EvtKind.Attack) return 0f;
-                    if (!prev.Ranged) return MeleeDamageLag - AttackStepMelee;
+                    if (!prev.Ranged) return SkipScaled(MeleeDamageLag) - SkipScaled(AttackStepMelee);
                     return rangedVfxDuration >= 0f ? rangedVfxDuration : RangedVfxFallback;
 
                 // 阵亡：链路查到了（`_DestroyUnitsAfterBattleEnd_d__392__MoveNext.c` 里
@@ -635,7 +635,7 @@ namespace CardPresentation
                 //    （只在 `CardScript__OrientToTargetingDirection.c:62` 当朝向插值）；
                 //    ② 出手那一下的真判据是 `attackStepTime`(0.1)，**位移完成即命中帧**。
                 //    规格·出处见 `资料/普查产出_0918/第18行_UI三小条_规格.md` §③。
-                case EvtKind.Attack: return AttackStepMelee;
+                case EvtKind.Attack: return SkipScaled(AttackStepMelee);
 
                 // 🔴 **2026-10-24（`W16`）判据已闭合 ⇒ 就地改值（铁律 5）：0.75 → 1.0。**
                 //   0.75 的旧出处 = `Impact Light Tween` 的 Punch 0.5 + ResetBody 0.25 —— 已被
@@ -704,7 +704,7 @@ namespace CardPresentation
                 //   远程打法守方才 `ResolveAttackRangedAnim`；近战那一支 `:1132-1150` 守方什么都不播 ⇒ 0）。
                 //   本重载**拿不到 `Ranged` / 卡** ⇒ 回「远程档的兜底」（前摇 + `RangedVfxFallback`），
                 //   ⛔ 别把它当成生产值：生产走 `DurationOf(BattleEvent)` → `RetaliationHoldOf`。
-                case EvtKind.Retaliation: return AttackStepRanged + RangedVfxFallback; case EvtKind.DiscardReveal: return CardFeel.DiscardRevealStepTime; case EvtKind.StealReveal: return CardFeel.StealRevealStepTime; case EvtKind.SabotageCreated: return CardFeel.CardCenterBlockingSeconds(CardFeel.CardCenterSabotageStepTime);   // 🔴 2026-10-30（`B103_R5` · 账 `战斗逻辑驱动:1383`）**破坏卡中央展示是【真阻塞】**：原版 `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-107` = `yield return StartCoroutine(...)`；`CardScript._DisplayEnemyCardInCenter_d__263__MoveNext.c:25-119` 的三处 `WaitForSeconds` 之和 = `0.1`（`DAT_1834b2dc4`）+ `stepTime×0.66`（`_DAT_1834b3184`）+ `stepTime×2.6`（`_DAT_1834b3190`），本调用点 `stepTime = 0.3f`（`DAT_1834b2dc8`）⇒ **1.078 s**（`DOMove` 的 0.15 是并行补间、不计）。⛔ 别在这里另写常量（只此一处 = `CardFeel`）｜🆕 2026-10-30（`B100_F11`）**揭示那一拍按 `CardFeel.ShowCardBeingDrawn` 的 `stepTime` 排**（弃牌 0.2 / 偷牌 0.4，两档**不同值、⛔ 别统一**）—— 消费口 `BattleDriver.PlayCardBeingDrawn:37859` 用的就是同一对常量；⛔ 别退回 0（那会让下一拍在揭示动画中途就开场）。挤在同一物理行 = **刻意零行数变化**（本文件 `:1014` 有账落点，铁律 18·b）
+                case EvtKind.Retaliation: return SkipScaled(AttackStepRanged) + RangedVfxFallback; case EvtKind.DiscardReveal: return CardFeel.DiscardRevealStepTime; case EvtKind.StealReveal: return CardFeel.StealRevealStepTime; case EvtKind.SabotageCreated: return CardFeel.CardCenterBlockingSeconds(CardFeel.CardCenterSabotageStepTime);   // 🔴 2026-10-30（`B103_R5` · 账 `战斗逻辑驱动:1383`）**破坏卡中央展示是【真阻塞】**：原版 `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-107` = `yield return StartCoroutine(...)`；`CardScript._DisplayEnemyCardInCenter_d__263__MoveNext.c:25-119` 的三处 `WaitForSeconds` 之和 = `0.1`（`DAT_1834b2dc4`）+ `stepTime×0.66`（`_DAT_1834b3184`）+ `stepTime×2.6`（`_DAT_1834b3190`），本调用点 `stepTime = 0.3f`（`DAT_1834b2dc8`）⇒ **1.078 s**（`DOMove` 的 0.15 是并行补间、不计）。⛔ 别在这里另写常量（只此一处 = `CardFeel`）｜🆕 2026-10-30（`B100_F11`）**揭示那一拍按 `CardFeel.ShowCardBeingDrawn` 的 `stepTime` 排**（弃牌 0.2 / 偷牌 0.4，两档**不同值、⛔ 别统一**）—— 消费口 `BattleDriver.PlayCardBeingDrawn:37859` 用的就是同一对常量；⛔ 别退回 0（那会让下一拍在揭示动画中途就开场）。挤在同一物理行 = **刻意零行数变化**（本文件 `:1014` 有账落点，铁律 18·b）
 
                 // 🆕 2026-10-24（`A2` · `J2` 顺手发现 3）：**不再一把兜住** —— 只有登记成
                 // 「零时长」的那一档才静默回 0；没登记的**出声 + 计数**（见 `ZeroDurationKinds` 上面那段）。
@@ -740,7 +740,7 @@ namespace CardPresentation
             //   ⛔ 别退回 `DurationOf(EvtKind.Hit)`（那条只给普通档 1.0，易伤目标会早 0.4 s 放行）。
             if (e.Kind == EvtKind.Hit) return HitHoldOf(e);
             if (e.Kind == EvtKind.Attack)
-                return e.Ranged ? AttackStepRanged : AttackStepMelee;
+                return SkipScaled(e.Ranged ? AttackStepRanged : AttackStepMelee);
             // 🔴 **2026-10-21（W61 第 2 批 · 第 3 条）**：`Deploy` **按「怎么进来的」分档** ——
             //    判据见 <see cref="DeployHoldOf"/>。⛔ 别退回 `DurationOf(EvtKind.Deploy)`（那是兜底 1.3，
             //    手牌出牌会被它多排 0.9 s —— 正是这条账要修的那 0.9）。
@@ -802,7 +802,7 @@ namespace CardPresentation
         public static float HitFrameLag(BattleEvent attack)
         {
             if (attack == null) return 0f;
-            return attack.Ranged ? AttackStepRanged : AttackStepMelee;
+            return SkipScaled(attack.Ranged ? AttackStepRanged : AttackStepMelee);
         }
 
         /// <summary>**出手 → 伤害结算**的间隔（近战档）= **0.4 s** —— 原版整条近战动画：
@@ -934,8 +934,8 @@ namespace CardPresentation
         {
             switch (from)
             {
-                case DeploySource.HandPlayed:       return AttackStepMelee + DeployLandHold;   // 0.4
-                case DeploySource.AutoPlayFromHand: return AttackStepMelee;                    // 0.1
+                case DeploySource.HandPlayed:       return SkipScaled(AttackStepMelee) + DeployLandHold;   // 0.4
+                case DeploySource.AutoPlayFromHand: return SkipScaled(AttackStepMelee);                    // 0.1
                 case DeploySource.Summon:
                 case DeploySource.Reanimate:        return DeploySummonHold;                   // 1.0
                 default:                            return DeploySummonHold + DeployLandHold;   // 1.3（老口径）
@@ -950,7 +950,7 @@ namespace CardPresentation
         public const float DeathHold = 0.1f;
 
         /// <summary>
-        /// 🔴 **2026-11-03（`B117-39`）：本常量【不再】用作触发前置** —— `DelayBetween(next: Trigger)` 已改 0（原版那条协程无前置）。保留只为记账 / 别的通用节拍引用。
+        /// 🔴 **死值 · 无任何生产消费者**（2026-11-02 `B117-39`）：`DelayBetween(next: Trigger)` 已改 0（原版那条协程无前置），全仓只剩本定义与注释引用。⛔ 别拿它当「Trigger 前置」。
         /// 出处：`BattleManager` 构造函数里那两个命名延迟常量 —— `sec3FractionDelay = 0.3`
         /// （`BattleManager__.ctor.c`，数值从 `GameAssembly.dll` 读出）。
         /// ⚠️ 它是引擎里反复出现的**通用「等一拍」粒度，不是 Trigger 专用**。

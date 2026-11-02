@@ -319,6 +319,11 @@ namespace CardPresentation
             var go = new GameObject("Video Image", typeof(RectTransform));
             go.transform.SetParent(panelRoot, false);
             HudCanvas.SetPxSize((RectTransform)go.transform, ScreenWidthPx, ScreenHeightPx);
+            // 🔴 **2026-11-02（`B117-FIXD`）**：`(−6, +64)` 这**一对偏移属于 `Video Image` 自己**（原版那颗节点
+            //   `RT` 的 `ap` 就是 (−6, 64)，见 EndPanel 文件头表 · `runtime_ui_dump_Battle_Arena_1.tsv:1147-1164`）。
+            //   原来它写在**子件** `video_screen` 上（`SetupDoor` 里），画面虽然逐位一样，但**节点结构对不上原版**
+            //   （`B117_G10_19` A8 量 `Video Image.anchoredPosition` 读到 (0,0)）。子件改成 (0,0)。
+            ((RectTransform)go.transform).anchoredPosition = new Vector2(-6f, 64f);
             // 兄弟序：压暗(Background, −0.50) → 视频(−0.55) → 奖励/内容(−0.60) ⇒ 画出来
             // 「压暗在底、视频居中、内容在最上」（与改之前那三层同值，见 `ZDim/ZVideo/ZContent`）。
             HudCanvas.Add((RectTransform)go.transform, ZVideo);
@@ -378,22 +383,23 @@ namespace CardPresentation
             //    ⚠️ 旧那句 `SetAspect(1920/1080)` **不需要了**：旧 quad 是「按 **RT** 的比例（3840/1080）定宽」才要盖掉，
             //       uGUI 的 `sizeDelta` 本来就是**显式写死**的 1920×1080。父件那一级 `localScale 1.06647`
             //       ⇒ 画出来仍是**原版的 2048×1152**（`A2105②`）。
-            const float cxPx = ScreenWidthPx * 0.5f - 6f;    // 954（dump：`Video Image` @ x = −6）
-            const float cyPx = 540f - 64f;                   // 476（dump：@ y = +64）
+            // ⚠️ 那一对 `(−6, +64)` 现在写在**父件 `Video Image` 自己**的 `anchoredPosition` 上（见 `BuildVideo`）
+            //   ⇒ 显示层停在父件中心；`cxPx/cyPx` 两个常量随之下线（⛔ 别再加回来）。
             var sgo = new GameObject("video_screen", typeof(RectTransform));
             // 🔴 **2026-10-24（`B-26`）**：挂到原版 `Video Image` 那一颗下面（它 = `VideoPlayer` 宿主）。
-            //   位置是「相对**父中心**的 (−6, +64) px」，父件本身就是中心锚、1920×1080 ⇒ 与挂在
-            //   `EndBattlePanel` 上**逐位同址**（父件的中心就是面板中心），画面不动。
+            //   🔴 **2026-11-02（`B117-FIXD`）订正**：原来这里写「位置是相对父中心的 (−6,+64) px」——
+            //   那一对偏移**属于 `Video Image` 自己**（原版 RT `ap` 就是它）⇒ 已上移一层，子件 = (0,0)。
             sgo.transform.SetParent(_player != null ? _player.transform : transform, false);
             _screenRt = (RectTransform)sgo.transform;
-            // 🔴 **2026-10-16（修波 `FD` · `G5` 报的）：原来这里内联了这个式子的【中心锚特化形】**
-            //   `new Vector2(cxPx − 960f, 540f − cyPx)`（`0.5 × 1920` 与 `1080 × 0.5` 都**精确可表示**
-            //   ⇒ 与 `HudCanvas.AnchorApPx(…, 0.5, 0.5)` **逐位等价**，本波已复算，见报告 §④）。
-            //   ⇒ 改走那个口（铁律：两处写同一条规则 = 迟早不一致）。
+            // 🔴 **2026-10-16（修波 `FD` · `G5` 报的）：原来这里内联过锚点换算的【中心锚特化形】**
+            //   ⇒ 改走 `HudCanvas.AnchorApPx` 那个口（铁律：两处写同一条规则 = 迟早不一致）。
             // ⚠️ `HudCanvas.SetAnchorPx` **只管锚点与位置、⛔ 不碰 `pivot`**（见它的 doc）⇒ 枢轴仍在这里
             //   显式写；`anchorMin/anchorMax` 由它一并设成 `(0.5, 0.5)`，与改写前同一对值。
             _screenRt.pivot = new Vector2(0.5f, 0.5f);
-            HudCanvas.SetAnchorPx(_screenRt, 0.5f, 0.5f, cxPx, cyPx);   // = (−6, +64)
+            // 🔴 **2026-11-02（`B117-FIXD`）**：那一对 `(−6, +64)` 已挪到**父件 `Video Image` 自己**身上
+            //   （见 `BuildVideo` 里那句 `anchoredPosition`）⇒ 显示层现在停在父件中心 = `ap (0,0)`。
+            //   画面逐位不变（父件中心仍是面板中心），但**节点值与结构**跟原版一致（`B117_G10_19` A8）。
+            HudCanvas.SetAnchorPx(_screenRt, 0.5f, 0.5f, ScreenWidthPx * 0.5f, 540f);   // = (0, 0)
             _screenRt.sizeDelta = new Vector2(ScreenWidthPx, ScreenHeightPx);
             _screen = sgo.AddComponent<RawImage>();
             _screen.texture = _rt;

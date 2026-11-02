@@ -256,6 +256,19 @@ namespace CardPresentation
         /// ⚠️ **商店页签那 5 个实例（`m_fontSize=16`）不用这一档** —— 它们的 `m_fontSizeMax = 19` 与标准档相同
         /// ⇒ 有效字号本来就一样。判据全文 → `资料/完全复刻/报告/B106_W9.md`。</summary>
         Booster = 2,
+        /// <summary>🆕 2026-11-02（`B117-WPOPUP`）**菜单 / 收藏的卡片详情窗**
+        /// （`Card Displayer Menu For Menu / Card Display / Cards / CardUI …`，宿主 `Shell/CardDetailPopup.cs`）。
+        /// 判据（一手，YAML 亲解 `ExportedProject/Assets/Data/Scenes/MainMenu Warpforge.unity`，5 张卡逐张同值）：
+        /// 单位卡四行**全是 16 / max 16** —— `NameTextUnit` · `DescTextUnit` · `MinionOrWarlord Container/RaceText` ·
+        /// `ArmyTextUnit`（对照标准档 `19/19` · `23.55/24` · `18/18` · `15/15`）；战术卡三行与标准档**同值**
+        /// （`NameTextTactic` 21.5/**24** · `DescTextTactic` 19/19 · `ArmyTextTactc` 14/**15**）⇒ 本档不给 tactic 分支。
+        /// ⚠️ **「无描述」那两颗不跟着降**：`NameTextUnit No description` = **19/19**、`Army No Desciption` = **15/15**
+        /// （⇒ `NameUnitBandMaxForUse` 的 `noDescName` 那一支**保持** `NameUnitBandMax`；阵营行走 `ArmyFontSizeForUse(unit, noDesc)`）。
+        /// 阴影 = `CardDisplayWindow__InitializeCardForDisplay.c:46-51` 运行时**无条件**写 `(0,0,0,0.8)`（同放大窗）。
+        /// 🔴 **与 `ZoomWindow` 不是同一档**：那份原版是 `16 / max 19`（13 arena × 5 张现读），本档是 **16 / max 16**；
+        /// 而且放大窗的效果 / 兵种 / 阵营三行**走标准档**、本档要降到 16。⇒ 必须另立一档，⛔ 别合并。
+        /// 判据全文 → `资料/完全复刻/判据/B117-WPOPUP_菜单详情窗卡档.md`。</summary>
+        MenuDetail = 3,
     }
 
     /// <summary>原版 `CardTextsController` 的**九个文字态**（2026-10-25 `CF-6`）。
@@ -1860,7 +1873,7 @@ namespace CardPresentation
                        ? st.Origin : QueueMaterial(st.Origin, _queue);
             if (cached == null) return;
             mr.sharedMaterial = cached;              // ⛔ 不写 `mr.material`（见 doc）
-            st.Assigned = cached;
+            st.Assigned = cached; SyncTmpSharedMaterial(mr, cached);   // 🆕 `B117-FIXH`：TMP 内部那份也指过来（见类尾 doc；同一行追加 = 行数守恒，本行原来没有 `//`）
             _stampState[mr] = st;
         }
 
@@ -2180,7 +2193,7 @@ namespace CardPresentation
         /// 传 `clip: null` **不等于**跟节点走（那是「不裁」，见 `SetClipFromTree` 的注释）。</param>
         /// <param name="use">🆕 2026-10-15（`A2110`）：**可选**「建在哪棵树里」那一档（判据 / 两处被它改掉的
         /// 值全在 <see cref="CardUse"/> 的注释里）。默认 `CardUse.Standard` ⇒ **既有 20 个调用点零影响**。
-        /// 🔴 **只有战斗放大窗要传 `CardUse.ZoomWindow`**（`Battle/CardDisplayWindow.cs` 那一处）。</param>
+        /// 🔴 **战斗放大窗传 `CardUse.ZoomWindow`**（`Battle/CardDisplayWindow.cs` 那一处）；**菜单 / 收藏的卡片详情窗传 `CardUse.MenuDetail`**（`Shell/CardDetailPopup.cs`）。</param>
         /// <param name="artOverdraw">🆕 2026-10-24（`E5`）：**可选**「这一格是不是前台」那条 overDraw 轴
         /// （原版 `SetImageOverDraw` 的第一条轴；`null` = 不传 = 保持出厂 `true`，**既有 20 个调用点逐位不变**）。
         /// 判据与语义见 <see cref="ArtOverdraw"/>。</param>
@@ -2224,7 +2237,7 @@ namespace CardPresentation
         ///  ① `use == CardUse.ZoomWindow` —— 战斗那扇详情窗显式传（`Battle/CardDisplayWindow.cs:1092`）；
         ///  ② 卡名是原版 prefab 的扇形槽名（`CardUI` / `CardUI (1..8)`，判据 = `Core/CardFan.SlotName`）
         ///     **且父链上有一级叫 `Card Display`** —— 菜单那扇详情窗
-        ///     （`Shell/CardDetailPopup.cs:766`）不传 `use`（走默认 `Standard`），只能靠这条认；
+        ///     （`Shell/CardDetailPopup.cs:766`）传 `CardUse.MenuDetail`（2026-11-02 起；此前不传 `use`、走默认 `Standard`）；
         ///     两级条件缺一不可：**抽卡包**那扇窗也把自己的卡格命名为 `CardUI`
         ///     （`Shell/BoosterPackOpenWindow.cs:607`），但它挂在 `Booster Animation Parent/Cards` 下、
         ///     **没有 `Card Display` 祖先** ⇒ 不会被误判成大图档。
@@ -2234,7 +2247,7 @@ namespace CardPresentation
         /// </summary>
         static bool IsBigCardView(Transform parent, string name, CardUse use)
         {
-            if (use == CardUse.ZoomWindow) return true;
+            if (use == CardUse.ZoomWindow || use == CardUse.MenuDetail) return true;
             if (name != "CardUI" && (name == null || !name.StartsWith("CardUI ("))) return false;
             for (var t = parent; t != null; t = t.parent)
                 if (t.name == "Card Display") return true;
@@ -2380,7 +2393,7 @@ namespace CardPresentation
                                + "（没有 2D 立绘层）⇒ 会没有立绘。本工程目前没有这条路径"
                                + "（`SetFace` 只用于「手牌 → 场上」），出现了就是有新的入口，要补层。");
 
-            Show(_frame, !board);
+            Show(_frame, !board); SetCardShadow(!board, CardHighlight.OutlineAnimTime);   // B117-53：原版 inPlay 系把整棵 `2DCard` 关掉 ⇒ 这层**不 SetActive(false)**（与描边同材质同节点），改 0.2 s 淡 `_ShadowColor.a`（`Card2DController__ToggleCardShadow.c`；`DAT_1834b2bb0` = `HIGHLIGHT_COLOR_CHANGE_TIME`）
             // 🔴 **2026-10-24（L1 · `C1-B03` 并层）：描边不再是独立 GameObject** —— 它与落地阴影
             //    同层同材质（原版 `2DCard.prefab` 只有 1 颗 `Card Highlight And Shadow`）。
             //    ⇒ 场上「不画描边」**不能再靠藏那一层**（藏了连阴影也没了，那是落地感的来源），
@@ -4393,7 +4406,7 @@ namespace CardPresentation
                     _shadowLayer = AddLayer("shadow", sdfTex, ShadowZ, sdfTex, ShadowMesh(), mat: sdfMat);
                     // 🔴 **建完立刻按本档刷一次** —— 基材质上那份是「材质默认 0.604」，
                     //    而放大窗那一档原版运行时显式设成 0.8（`A2111` 表三·2，判据见 `ShadowAlpha`）。
-                    ApplyShadowColor();
+                    _shadowMul = _faceMode == CardFace.Board ? 0f : 1f; ApplyShadowColor();   // B117-53 出生入口（铁律 10 第 5 条）：场上出生的卡这层从头就没有（`SetFace` 是另一个入口）
                     // 🔴 **2026-10-24（L1 · `C1-B03` 并层）：描边与阴影是【同一颗件、同一份材质】**
                     //    —— 原版 `2DCard.prefab` 全文件只有 **1 颗** `Card Highlight And Shadow`，材质
                     //    `Card Frame SDF` **同时**带 `_Outline*`（绿光）与 `_ShadowColor`（阴影）
@@ -5095,7 +5108,7 @@ namespace CardPresentation
             //    ② 效果文字那块版面**本来就给阵营行留了位置**（上面 `avail01` 用 `armyAt.y` 算的）
             //       ⇒ 关掉它只是空出那一行，**别的层一个都不动**（手牌版面与这一行启用之前逐字相同）。
             // 对照组：`RaceText`（兵种行）在 **state0/2 是被 `objectsToActivate` 激活的** ⇒ 兵种行照印（见 ④）。
-            _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSizeForUse(unit), InkArmy, false,
+            _army = Fill(_army, "army", CardText.Faction(d.faction), armyAt, nameW, ArmyFontSizeForUse(unit, noDescName), InkArmy, false,
                          face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body,
                          // 原版 `ArmyTextUnit` = 1/15（档位照抄；⚠️ 这一层**没有框高** ⇒ 目前不跑 `FitToBox`）
                          bandMin: ArmyBandMin, bandMax: ArmyBandMaxForUse(unit));
@@ -5548,34 +5561,34 @@ namespace CardPresentation
         //  逐层对照表（节点名 · 实例 MB · fs/fsBase/min/max · wrap · em）→
         //  `资料/完全复刻/判据/B99_R4a_近似改原版值_卡牌界面.md` §1·2。
         //  ⚠️ **本表 `min` 是「原版 pt ÷ 10」**（我们这套字号 = 原版 pt ÷ 10，判据 `TmpFont.TrueEmPerFontSize`
-        //     与 `TmpFont.FontSizeForEm`）⇒ ⛔ 别把原版的 24/19 原样写进来。🔴 `B117_F14`/`UI-21`：**卡名/效果文字的 `max` 再乘 shipped 实拍（×0.75/×0.78）** —— prefab 与我们逐像素一致、但发行版实拍小 24%/22%，按铁律 4 采实况（效果文字的名义没动，渲染尺寸完全由上界定）。
+        //     与 `TmpFont.FontSizeForEm`）⇒ ⛔ 别把原版的 24/19 原样写进来。🔴 `B117_F14`/`UI-21`：**卡名/效果文字的 `max` 再乘 shipped 实拍（×0.75/×0.78）** —— prefab 与我们逐像素一致、但发行版实拍小 24%/22%，按铁律 4 采实况（效果文字的名义没动，渲染尺寸完全由上界定）。🔴 **2026-11-02 `B117_WCARD`**：F14 那两个**倍率幅度不对**（实跑 6.13% / 4.94%）⇒ 六档 `max` 再按「目标 ÷ 实测」校正：卡名 ×1.1193、效果 ×0.8333（表见 `资料/完全复刻/判据/B117-WCARD_卡面字号与场上层.md` §1·2）。
         //  ⚠️ **原版每一层的 `m_fontSizeBase` 都是 0.145~0.16**（我们单位 0.0145~0.016），
         //     `TextMeshPro.cs:2149` 的 `clamp(base, min, max)` 恒落到 **min** ⇒ 运行时那趟搜索
         //     **从 min 起、一路往上试**（不是从作者填的 `m_fontSize` 起）。落点见 `FitToBox`。
         //  ⛔ 别把这些值改回「按名义字号 ±5%」那套近似（那是 `B99_R4a` 点名的 5 条近似之一）。
 
-        /// <summary>`DescTextUnit` —— `m_fontSizeMin/Max = 1 / 24`。🔴 `B117_F14`：max 按 shipped 实拍 ×0.78</summary>
-        const float DescUnitBandMin = 0.10f, DescUnitBandMax = 1.872f;
-        /// <summary>`DescTextTactic` 与 `DescTacticSmall` —— 两件都是 `1 / 19`（max ×0.78）。</summary>
-        const float DescTacticBandMin = 0.10f, DescTacticBandMax = 1.482f;
-        /// <summary>`NameTextUnit`（含放大窗那档 fs16、含 `…No description`）—— 三件都是 `1 / 19`（max ×0.75）。</summary>
-        const float NameUnitBandMin = 0.10f, NameUnitBandMax = 1.425f;
-        /// <summary>`NameTextTactic` —— `m_fontSize = 21.5` 而 **`m_fontSizeMax = 24`**（⇒ 运行时 24；max ×0.75）。</summary>
-        const float NameTacticBandMin = 0.10f, NameTacticBandMax = 1.800f;
+        /// <summary>`DescTextUnit` —— `m_fontSizeMin/Max = 1 / 24`。🔴 `B117_F14` 先按实拍 ×0.78；🔴 `B117_WCARD`（2026-11-02）按**实跑读数**再 ×0.8333（F14 幅度不对：实跑 4.94% vs 判据 4.12%）⇒ **1.560**（预计 4.11%）。</summary>
+        const float DescUnitBandMin = 0.10f, DescUnitBandMax = 1.560f;
+        /// <summary>`DescTextTactic` 与 `DescTacticSmall` —— 两件都是 `1 / 19`（🔴 `B117_WCARD`：同比例 ×0.8333 ⇒ 1.235）。</summary>
+        const float DescTacticBandMin = 0.10f, DescTacticBandMax = 1.235f;
+        /// <summary>`NameTextUnit`（含放大窗那档 fs16、含 `…No description`）—— 三件都是 `1 / 19`（🔴 `B117_F14` ×0.75；🔴 `B117_WCARD` 按实跑读数再 ×1.1193：6.13% → 目标 6.86% ⇒ **1.595**）。</summary>
+        const float NameUnitBandMin = 0.10f, NameUnitBandMax = 1.595f;
+        /// <summary>`NameTextTactic` —— `m_fontSize = 21.5` 而 **`m_fontSizeMax = 24`**（⇒ 运行时 24；🔴 `B117_WCARD`：同比例 ×1.1193 ⇒ 2.015）。</summary>
+        const float NameTacticBandMin = 0.10f, NameTacticBandMax = 2.015f;
         /// <summary>`ArmyTextUnit` —— `1 / 15`。⚠️ 我们的阵营行**没有框高**（`Fill` 传 `maxHeight = 0`）
         /// ⇒ 这一档目前**不会**跑到 `FitToBox`；留着是为了「给框高那天不用再查一遍」。</summary>
         const float ArmyBandMin = 0.10f, ArmyBandMax = 1.50f;
         /// <summary>`RaceText` —— **`m_fontSizeMin = 3.0`**（全表唯一一个下界不是 1 的）· `max = 18`。
         /// ⚠️ 同 `ArmyTextUnit`：我们没给兵种行框高 ⇒ 目前不走 `FitToBox`。</summary>
         const float RaceBandMin = 0.30f, RaceBandMax = 1.80f;
-        /// <summary>`DescTextUnit Big`（手牌简化态 5）—— `1 / 26`（max ×0.78）。</summary>
-        const float DescUnitBigBandMin = 0.10f, DescUnitBigBandMax = 2.028f;
-        /// <summary>`DescTextTactic Big`（手牌简化态 8）—— fs 25.2 但 `max = 26`（×0.78）。</summary>
-        const float DescTacticBigBandMin = 0.10f, DescTacticBigBandMax = 2.028f;
-        /// <summary>`NameTextUnit No Description Big`（手牌简化态 6）—— `1 / 24`（max ×0.75）。</summary>
-        const float NameUnitBigBandMin = 0.10f, NameUnitBigBandMax = 1.800f;
-        /// <summary>`NameTextTacticBig`（手牌简化态 7）—— `1 / 24`（max ×0.75）。</summary>
-        const float NameTacticBigBandMin = 0.10f, NameTacticBigBandMax = 1.800f;
+        /// <summary>`DescTextUnit Big`（手牌简化态 5）—— `1 / 26`（🔴 `B117_WCARD`：同比例 ×0.8333 ⇒ 1.690）。</summary>
+        const float DescUnitBigBandMin = 0.10f, DescUnitBigBandMax = 1.690f;
+        /// <summary>`DescTextTactic Big`（手牌简化态 8）—— fs 25.2 但 `max = 26`（🔴 `B117_WCARD`：同比例 ⇒ 1.690）。</summary>
+        const float DescTacticBigBandMin = 0.10f, DescTacticBigBandMax = 1.690f;
+        /// <summary>`NameTextUnit No Description Big`（手牌简化态 6）—— `1 / 24`（🔴 `B117_WCARD`：同比例 ×1.1193 ⇒ 2.015）。</summary>
+        const float NameUnitBigBandMin = 0.10f, NameUnitBigBandMax = 2.015f;
+        /// <summary>`NameTextTacticBig`（手牌简化态 7）—— `1 / 24`（🔴 `B117_WCARD`：同比例 ⇒ 2.015）。</summary>
+        const float NameTacticBigBandMin = 0.10f, NameTacticBigBandMax = 2.015f;
 
         /// <summary>
         /// 建或**原地更新**一层 TMP 文字，返回它（文字为空时返回 null 并把旧的清掉）。
@@ -6020,7 +6033,7 @@ namespace CardPresentation
         //   「单字 advance / 卡宽 = **6.86%**」；我们 `_tmp_view/shots/20261103_s117/08_pool2.png`
         //   （2560×1440 · 卡宽 283 px）量得 **9.09%** ⇒ 6.86 ÷ 9.09 = **0.75** ⇒ 本值 = 0.0570 × 0.75。
         //   🔴 **`NameUnitBandMax` 等 autosize 上界必须同比例一起缩放** —— `FitToBox` 装得下时会一路涨到那个
-        //   max（`B99_G1` 复刻的原版 autosize），**只改名义字号根本不会变小**；这是**按实况复刻**（⛔ 不是自设计），
+        //   max（`B99_G1` 复刻的原版 autosize），**只改名义字号根本不会变小**；这是**按实况复刻**（⛔ 不是自设计）。🔴 **2026-11-02（`B117_WCARD`）**：F14 的 ×0.75 **幅度不对**（实跑 6.13% vs 判据 6.86%）⇒ 有效字号（= `NameUnitBandMax`）再 ×1.1193 ⇒ **1.595**；⚠️ 本常量只是名义/兜底（四层都传了框高 ⇒ 渲染尺寸恒由 `bandMax` 定，`FitToBox` 快路 `:5949` 第一句就是 `t.fontSize = bandMax`），本次**不动它**（它还钉着 `CardFaceProbe.CheckLayers` 的 W62/T2 名义口径 14.25）。
         //   ⚠️ 这是**字号（em）**对卡高，不是文字框对卡高（框 0.2973 = 8.92%，是版面空间）；卡尺寸不动（1.634 vs 1.619）。
         const float TitleEmOfCard = 0.04275f;
 
@@ -6028,7 +6041,7 @@ namespace CardPresentation
         /// `16 × 0.01 ÷ 3.3313 = 0.0480`（两位都取到小数点后 4 位时，`0.0480 ÷ 0.0570` **恰好** = `16 ÷ 19`）。
         /// 出处 = `资料/普查产出_1015战斗/C1_逐格对账_卡面放大窗与卡面渲染.md` 表三·1
         /// （`Card Display/Cards/CardUI (4)/…/NameTextUnit` 的 TMP：`m_fontSize=16` · `min=1` · `max=19`
-        /// · `enableAutoSizing=1`；扫 13 arena × 8 实例 = 104 个里 `fs=16` 恰好 65 个 = 每场那 5 张）。
+        /// · `enableAutoSizing=1`；扫 13 arena × 8 实例 = 104 个里 `fs=16` 恰好 65 个 = 每场那 5 张）。⚠️ 这是【战斗 arena】那一棵；菜单详情窗那一棵是 16/**16**，见 `CardUse.MenuDetail`。
         /// ⚠️ 原版这 5 张也开着 `enableAutoSizing`（`m_fontSizeMax = 19`）⇒ **16 是起始值、不是硬顶**；
         ///    我们只有 `FitToWidth` 固定回缩，同构。🔴 `B117_F14`/`UI-21`：与 `TitleEmOfCard` **同比例 ×0.75**（shipped 实拍口径）。</summary>
         const float TitleEmOfCardZoom = 0.0360f;
@@ -6058,14 +6071,14 @@ namespace CardPresentation
             get
             {
                 return TmpFont.FontSizeForEm(TmpFont.Face.LatinUi,
-                    Height * (_use == CardUse.ZoomWindow ? TitleEmOfCardZoom : TitleEmOfCard));
+                    Height * ((_use == CardUse.ZoomWindow || _use == CardUse.MenuDetail) ? TitleEmOfCardZoom : TitleEmOfCard));
             }
         }
 
         /// <summary>
         /// 效果文字的字号。**2026-09-12 改：之前这条是我们挑的，现在按原版来。**
         /// 原版 `DescTextUnit`：`m_fontSize = 23.55`、`m_LocalScale = 0.01` → em = 0.2355 卡单位
-        /// → 0.2355 ÷ 3.3313 = **7.07%** 卡高。🔴 `B117_F14`/`UI-21`（铁律 4）：shipped 实拍 4.12% vs 我们 5.03% ⇒ **×0.78**，落点是 autosize 上界 `DescUnitBandMax`（2.40 → 1.872），名义值仍是 prefab 事实 23.55。
+        /// → 0.2355 ÷ 3.3313 = **7.07%** 卡高。🔴 `B117_F14`/`UI-21`（铁律 4）：shipped 实拍 4.12% vs 我们 5.03% ⇒ **×0.78**，落点是 autosize 上界 `DescUnitBandMax`（2.40 → 1.872）；🔴 **2026-11-02（`B117_WCARD`）**：实跑 4.94% 仍偏大 ⇒ 上界再 **×0.8333 ⇒ 1.560**（预计 4.11%），名义值仍是 prefab 事实 23.55。
         /// ⚠️ 原版同时开着 `m_enableAutoSizing`（`m_fontSizeMax = 24`），长描述运行时会被缩下来 ——
         ///    所以 7.07% 是**上限**；我们靠 `FitToBox` 按 `DescBoxH`（原版那块版面框高）收缩，同构。
         /// 出处：`子代理读报_2dcard_0827.md` A3 表 `DescTextUnit`。
@@ -6394,7 +6407,7 @@ namespace CardPresentation
         /// `CardDisplayWindow.InitializeCardForDisplay` 运行时**显式**设成 **(0,0,0,0.8)**
         /// （`_DAT_1834b3310`，2026-10-15 现解；属性名我当天也解出来了 = `_ShadowColor` —— 全过程见 <see cref="CardUse"/> 注释）。
         /// ⚠️ 第三个值 `0.53333336` 是**卡背**那份材质（`Card Backs SDF`），与这里无关，别混。</summary>
-        float ShadowAlpha { get { return _use == CardUse.ZoomWindow ? 0.8f : 0.604f; } }
+        float ShadowAlpha { get { return (_use == CardUse.ZoomWindow || _use == CardUse.MenuDetail) ? 0.8f : 0.604f; } }
 
         /// <summary>把本档的阴影色（只乘整卡淡出 `_alpha`）刷进这一层的**实例材质**
         /// （`AddLayer` 每层都 `new Material(...)` 克隆过 ⇒ 改它不会串到别的卡）。
@@ -6404,7 +6417,7 @@ namespace CardPresentation
             if (_shadowLayer == null || _shadowLayer.sharedMaterial == null) return;
             var sm = _shadowLayer.sharedMaterial;
             if (sm.HasProperty("_ShadowColor"))
-                sm.SetColor("_ShadowColor", new Color(0f, 0f, 0f, ShadowAlpha * _alpha));
+                sm.SetColor("_ShadowColor", new Color(0f, 0f, 0f, ShadowAlpha * _alpha * _shadowMul));   // B117-53：`_shadowMul` = 原版 `ToggleCardShadow` 那条 0.2 s 淡出的系数（唯一写点）
         }
 
         static Material _sdfMat;
@@ -9559,8 +9572,8 @@ namespace CardPresentation
         /// `CardCollider2D__SetColliderNotInHand.c:11-24`）。
         /// <para>⚠️ 开关只管**两条命中判据**（<see cref="Contains"/> / <see cref="HitByCollider"/>）——
         /// **不动几何**（`HitRect` 照旧，几何归常态档）。</para>
-        /// <para>🔴 **2026-10-25（第 3 轮）：只有 helper、还没有调用方** —— 接线点在上游状态机
-        /// （`BattleDriver` 收到 `removedFromGame` 时），那一半不在本批白名单。⛔ 别在这里猜状态。</para></summary>
+        /// <para>🔴 **2026-11-02（`B117-54` 现核 · 铁律 5 就地订正）**：本文档原来写「只有 helper、没有调用方」——**已过期**：
+        /// 已接线 `Battle/BattleDriver.cs:25623`（阵亡 → 进墓地那一档，`W9K01`）· `:35469`（战术卡 `DissolveWholeCard` ①），恢复口 `:35499` + `Core/CardFeel.cs:3630/3679/3682`；`removedFromGame(11)` 那一档我们引擎**没有对应状态**（全链未建）⇒ 只做 6 那一半。⛔ 别在这里猜状态。</para></summary>
         public bool HitEnabled { get { return _hitEnabled; } }
 
         /// <summary>开/关这张卡的命中（缺省 **true**）。已建 collider ⇒ 当场生效；没建 ⇒ 由 `SyncHitCollider` 落。</summary>
@@ -15560,12 +15573,12 @@ namespace CardPresentation
         //     补丁与调用链自证 → `资料/完全复刻/报告/B106_W9.md` §二·3。
 
         /// <summary>`NameTextUnit` 的 autosize 上界（原版 `m_fontSizeMax` ÷10）：标准/放大窗 1.90、开包族 2.00，
-        /// 🔴 `B117_F14`/`UI-21` 两档**都按 shipped 实拍 ×0.75**（1.425 / 1.500）。判据见 `<see cref="TitleEmOfCard"/>` 那一段。</summary>
-        float NameUnitBandMaxForUse { get { return _use == CardUse.Booster ? 1.500f : NameUnitBandMax; } }
+        /// 🔴 `B117_F14` 先按 shipped 实拍 ×0.75，🔴 `B117_WCARD` 再按**实跑读数** ×1.1193（6.13% → 目标 6.86%）⇒ **1.595 / 1.679**。判据见 `<see cref="TitleEmOfCard"/>` 那一段。</summary>
+        float NameUnitBandMaxForUse { get { return _use == CardUse.Booster ? 1.679f : (_use == CardUse.MenuDetail ? NameUnitBandMax * 16f / 19f : NameUnitBandMax); } }
 
-        /// <summary>`DescTextUnit` 的 autosize 上界：标准/放大窗 2.40、开包族 1.90 ⇒ 🔴 都按实拍 **×0.78**（1.872 / 1.482）。
+        /// <summary>`DescTextUnit` 的 autosize 上界：标准/放大窗 2.40、开包族 1.90 ⇒ 🔴 `B117_F14` ×0.78、`B117_WCARD` 再 ×0.8333（4.94% → 目标 4.12%）⇒ **1.560 / 1.235**。
         /// ⚠️ 只作用于**单位卡**那一支；战术卡的效果文字两档都是 `DescTacticBandMax`，不走这里。</summary>
-        float DescUnitBandMaxForUse { get { return _use == CardUse.Booster ? 1.482f : DescUnitBandMax; } }
+        float DescUnitBandMaxForUse { get { return _use == CardUse.Booster ? 1.235f : (_use == CardUse.MenuDetail ? DescUnitBandMax * 16f / 24f : DescUnitBandMax); } }
 
         /// <summary>`ArmyTextUnit` 的 autosize 上界（原版 `m_fontSizeMax` ÷10）：
         /// 标准 **1.50**（15 pt）· 开包族的**单位卡** **1.70**（17 pt）。
@@ -15573,13 +15586,13 @@ namespace CardPresentation
         /// **都是 `14 / max 15`**（现读两棵 prefab 树）⇒ 战术行两档同值。
         /// ⚠️ 这一行**没有框高**（`Fill` 的 `maxHeight` 传 0）⇒ 今天不跑 `FitToBox`，字号取
         /// <see cref="ArmyFontSizeForUse"/>（= 同一组 max 值折成 em）；这里留着是为了「补框高那天不用再查」。</summary>
-        float ArmyBandMaxForUse(bool unit) { return (_use == CardUse.Booster && unit) ? 1.70f : ArmyBandMax; }
+        float ArmyBandMaxForUse(bool unit) { return (_use == CardUse.Booster && unit) ? 1.70f : ((_use == CardUse.MenuDetail && unit) ? 1.60f : ArmyBandMax); }
 
         /// <summary>`RaceText` 的 autosize 上界：标准 **1.80**（18 pt，下界 3.0 是全表唯一例外）·
         /// 开包族的**单位卡** **1.70**（17 pt）。⚠️ 同阵营行：开包族的**战术卡** `RaceText` 仍是 18/18
         /// （`Tactic Container/RaceText` 那一条在两棵 prefab 里都是 18）⇒ 只有单位卡那一支换成 17。
         /// ⚠️ 这一层没有框高 ⇒ 今天只当文档；字号取 <see cref="RaceFontSizeForUse"/>。</summary>
-        float RaceBandMaxForUse(bool unit) { return (_use == CardUse.Booster && unit) ? 1.70f : RaceBandMax; }
+        float RaceBandMaxForUse(bool unit) { return (_use == CardUse.Booster && unit) ? 1.70f : ((_use == CardUse.MenuDetail && unit) ? 1.60f : RaceBandMax); }
 
         /// <summary>开包族的阵营行 em 对卡高比 —— 原版 `CardUI`（开包）的 `ArmyTextUnit`
         /// `m_fontSize = m_fontSizeMax = 17`（× `m_LocalScale` 0.01）⇒ **0.17** 卡单位。
@@ -15591,10 +15604,10 @@ namespace CardPresentation
 
         /// <summary>本卡实际用的**阵营行**字号（按 <see cref="CardUse"/> + 单位/战术 分档 —— 判据见本节那一段）。
         /// ⛔ 别改回静态的 <see cref="ArmyFontSize"/>：那会让开包 / 轮抽的**单位卡**阵营行小 11.8%。</summary>
-        float ArmyFontSizeForUse(bool unit)
+        float ArmyFontSizeForUse(bool unit, bool noDesc = false)
         {
             return TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody,
-                Height * ((_use == CardUse.Booster && unit) ? ArmyEmOfCardBooster : ArmyEmOfCard));
+                Height * ((_use == CardUse.Booster && unit) ? ArmyEmOfCardBooster : ((_use == CardUse.MenuDetail && unit) ? (noDesc ? 0.1500f : 0.1600f) / 3.3313f : ArmyEmOfCard)));
         }
 
         /// <summary>本卡实际用的**兵种行**字号（按 <see cref="CardUse"/> + 单位/战术 分档）。
@@ -15602,7 +15615,7 @@ namespace CardPresentation
         float RaceFontSizeForUse(bool unit)
         {
             return TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody,
-                Height * ((_use == CardUse.Booster && unit) ? RaceEmOfCardBooster : RaceEmOfCard));
+                Height * ((_use == CardUse.Booster && unit) ? RaceEmOfCardBooster : ((_use == CardUse.MenuDetail && unit) ? 0.1600f / 3.3313f : RaceEmOfCard)));
         }
 
         // ---- 新卡角标 = 原版的 Sliced（九宫格）--------------------
@@ -15889,5 +15902,133 @@ namespace CardPresentation
         public Transform StatLayerParent(int s) { var mr = _stats[s]; return mr != null ? mr.transform.parent : null; }
         /// <summary>自检读口：状态环（原版 `MinionLight`）的父节点（没建 = `null`）。</summary>
         public Transform RimParent { get { return _rim != null ? _rim.transform.parent : null; } }
+
+        // ==================================================================
+        //  🆕 2026-11-02（`B117-53`）**软光/影那层的开关 = 原版 `Card2DController.ToggleCardShadow(bool)`**
+        // ==================================================================
+        //
+        //  **判据（一手）**：原版 inPlay 系状态把整棵 `2DCard` 关掉（`Card2DController.Toggle(false)`），
+        //  其中那颗 `Card Highlight And Shadow` 走的是 `ToggleCardShadow(false)` = 把 `_ShadowColor.a`
+        //  在 **0.2 s** 内淡到 0（`decomp_full/Card2DController__ToggleCardShadow.c`；时长常量
+        //  `DAT_1834b2bb0` 实读 = 0.2 = `HIGHLIGHT_COLOR_CHANGE_TIME`，与 `CardHighlight.OutlineAnimTime` 同一个数）。
+        //  ⇒ **⛔ 不是 `SetActive(false)`**：这一层与描边是**同一颗件、同一份材质**（`C1-B03` 并层），
+        //  关掉节点会连描边一起没、也丢掉回手时「淡回来」的那一段。
+        //  ⚠️ 与 `MinionManager.HideCardShadow`（落点指示影）**不是同一条**，⛔ 别拿它当判据。
+        //
+        //  **两个入口各显式设一次**（铁律 10 第 5 条）：出生在 `Build` 建层处（按 `_faceMode` 直接落值）、
+        //  换形态在 `SetFace`（补 0.2 s 补间）。
+
+        /// <summary>`_ShadowColor.a` 的**内容门**：1 = 原版满阴影、0 = 关（`ToggleCardShadow(false)` 的终态）。
+        /// 补间只改它，材质写入仍然只走 `ApplyShadowColor()` 一处。</summary>
+        float _shadowMul = 1f;
+        DG.Tweening.Tween _shadowTween;
+
+        /// <summary>开/关这层的阴影（原版 `Card2DController.ToggleCardShadow(bool)` 的等价物）。
+        /// <paramref name="time"/> = 补间时长（秒）；传 **0** ⇒ 当场落值（批处理/自检要确定性时用）。
+        /// ⚠️ **不改层节点的 active**（见上面那段判据）；与 `_alpha` 相乘 ⇒ 整卡淡出时阴影照样跟着淡。</summary>
+        public void SetCardShadow(bool on, float time)
+        {
+            float to = on ? 1f : 0f;
+            if (_shadowTween != null && _shadowTween.IsActive()) _shadowTween.Kill();
+            if (time <= 0f || _shadowLayer == null || _shadowLayer.sharedMaterial == null)
+            {
+                _shadowMul = to;
+                ApplyShadowColor();
+                return;
+            }
+            // `DOTween.To` 用 getter 读**当前值**当起点 ⇒ 补间中途再叫一次是接力，不是跳回 0/1（同 `SetOutline`）
+            var t = DG.Tweening.DOTween.To(() => _shadowMul, v => { _shadowMul = v; ApplyShadowColor(); }, to, time);
+            _shadowTween = CardTween.Use(t, DG.Tweening.Ease.Linear, this);
+        }
+
+        /// <summary>自检读口（`B117_WCARD`）：阴影门当前值（1 = 满 / 0 = 关，补间中途是中间值）。</summary>
+        public float CardShadowMulForTest { get { return _shadowMul; } }
+        /// <summary>自检读口：那层 SDF 建出来了没有（shader/贴图取不到时是 `false` —— 那时断言要报「前提不成立」）。</summary>
+        public bool CardShadowLayerBuilt { get { return _shadowLayer != null && _shadowLayer.sharedMaterial != null; } }
+        /// <summary>自检读口：那层**节点**现在还 active 吗（原版是淡 α、⛔ 不是关节点）。</summary>
+        public bool CardShadowLayerActiveForTest { get { return _shadowLayer != null && _shadowLayer.gameObject.activeSelf; } }
+        /// <summary>自检读口：材质上 `_ShadowColor.a` 的当前值（量不到 = `NaN`）。</summary>
+        public float CardShadowAlphaForTest
+        {
+            get
+            {
+                var m = _shadowLayer != null ? _shadowLayer.sharedMaterial : null;
+                return (m != null && m.HasProperty("_ShadowColor")) ? m.GetColor("_ShadowColor").a : float.NaN;
+            }
+        }
+        /// <summary>自检读口（`B117-54`）：真 `BoxCollider2D` 现在开没开（原版 `CardCollider2D.Toggle` 写的就是它）。</summary>
+        public bool HitColliderEnabledForTest { get { return _hitCollider != null && _hitCollider.enabled; } }
+
+        /// <summary>自检读口（`B117_WCARD` ①）：**三档 × 两类**的 autosize 上界，按层名取。
+        /// ⚠️ 只给断言读**实现常量**用；「渲染出来多大」必须另有量法（`B117_F14_Assert.CjkMetrics` 那一套）。</summary>
+        public static float BandMaxForTest(string layer)
+        {
+            switch (layer)
+            {
+                case "NameUnit":      return NameUnitBandMax;
+                case "NameTactic":    return NameTacticBandMax;
+                case "NameUnitBig":   return NameUnitBigBandMax;
+                case "NameTacticBig": return NameTacticBigBandMax;
+                case "DescUnit":      return DescUnitBandMax;
+                case "DescTactic":    return DescTacticBandMax;
+                case "DescUnitBig":   return DescUnitBigBandMax;
+                case "DescTacticBig": return DescTacticBigBandMax;
+            }
+            return float.NaN;
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-02（`B117-FIXH`）「TMP 内部材质」与「渲染器材质」同步 + 重启用后重盖章
+        //  （追加在类尾：`CardView.cs` 在账里有 A 行落点，最深 `:15640` ⇒ 这里之后没有落点）
+        // ==================================================================
+        /// <summary>把**主 TMP 组件内部记着的那份共享材质**（`TMP_Text.m_sharedMaterial`）指到渲染器上这一份。
+        /// <para>🔴 **为什么必须同步**：<see cref="StampQueue"/> 只换 `renderer.sharedMaterial`，而 TMP 自己另存了
+        /// 一份 `m_sharedMaterial`（字体资产那一份，队列 3000）。`TMP_Text.UpdateMaterial()`
+        /// （`PackageCache/com.unity.ugui@*/Runtime/TMP/TextMeshPro.cs:307-320`）在「渲染器那份」与
+        /// 「`m_sharedMaterial`」**不是同一个实例**时，会把渲染器**换回 `m_sharedMaterial`** ——
+        /// 也就是说每一次 `SetAllDirty`（`OnEnable` / 改文本 / 改字号 …）都会把队列**静默刷回 3000**。
+        /// 同步之后那句 `GetInstanceID()` 比较**相等** ⇒ `UpdateMaterial` 变成无操作，盖章能活到下一次 `SetQueue`。</para>
+        /// <para>⚠️ **不会新建材质实例**：`fontSharedMaterial` 的 setter 是 `SetSharedMaterial`
+        /// （同文件 `:1233-1245`），只做「存引用 + 重算 padding + `SetMaterialDirty`」；
+        /// 会造实例的是 `fontMaterial`（`GetMaterial`，`:1182-1201`）—— ⛔ 这里不许用它。
+        /// 赋的就是 <see cref="QueueMaterial"/> 那份**按 (源材质, 队列) 共享的克隆**，没有任何额外开销。</para>
+        /// <para>⚠️ **不动子网格**（`TMP_SubMesh`）：它的 `sharedMaterial` 在**每次文本重建**时都会被
+        /// `SetArraySizes`（`TextMeshPro.cs:1947`）按它自己的材质参考表**整份重写**，同步了也留不住；
+        /// 而且它的 setter 在编辑器下会把 GameObject **改名**（`TMP_SubMesh.cs:527-530`）—— 白改还制造噪声。
+        /// 子网格那一半只能靠 <see cref="RestampQueuesAfterEnable"/>「**先逼重建、再盖章**」收口。</para></summary>
+        static void SyncTmpSharedMaterial(Renderer mr, Material m)
+        {
+            if (mr == null || m == null) return;
+            var t = mr.GetComponent<TextMeshPro>();
+            if (t == null) return;                       // 子网格 / 粒子：没有 TMP 主组件，跳过
+            if (t.fontSharedMaterial != m) t.fontSharedMaterial = m;
+        }
+
+        /// <summary>🆕 2026-11-02（`B117-FIXH`）：**被 `SetActive(false) → (true)` 重新启用之后**再盖一遍队列
+        /// （换牌面板那颗「眼睛」就是这条路：`MulliganPanel.SetContentHidden`）。
+        /// <para>🔴 **为什么「重新启用之后调一次 `SetQueue`」不够**：`TMP_Text.OnEnable`
+        /// （`TextMeshPro.cs:630-668`）会 `SetAllDirty()` 把文本标脏，而**真正的重建是延迟的** ——
+        /// 由 `Canvas.willRenderCanvases → TMP_UpdateManager.DoRebuilds`（`TMP_UpdateManager.cs:52`）在
+        /// **下一拍**才跑。重建里 `SetArraySizes`（`TextMeshPro.cs:1947`）会把每颗**子网格**的 `sharedMaterial`
+        /// 换回它自己的材质参考表（字体图集 / `&lt;sprite&gt;` 的 sprite 材质，队列 **3000**）——
+        /// 只要重建发生在盖章**之后**，子网格那几颗就会被静默刷回 3000。
+        /// （2026-11-02 实测：按两次「眼睛」后换牌卡**全部 9 颗子网格**都是 3000，`D6⑦` 红。）
+        /// 做法 = **先把重建逼出来**：`ForceMeshUpdate()` 走 `OnPreRenderObject`，并在
+        /// `TextMeshPro.cs:2158-2159` 清掉 `m_havePropertiesChanged` / `m_isLayoutDirty`
+        /// ⇒ 之后那一拍**不会再重建**；**再** <see cref="SetQueue"/> ⇒ 最后落到渲染器上的就是我们盖的那一份。</para>
+        /// <para>⚠️ **只给「重新启用」这一类入口用**（目前唯一调用方 = 换牌面板的眼睛）。普通布局刷新照旧走
+        /// <see cref="SetQueue"/> —— `ForceMeshUpdate` 是一次**真文本重建**，⛔ 别挂到逐帧 / 悬停那类路径上。
+        /// ⚠️ 未激活的 TMP 不调（`ForceMeshUpdate` 在未激活下会早退，`TextMeshPro.cs:2119`），照旧由
+        /// `SetQueue` 直接盖章。</para></summary>
+        public void RestampQueuesAfterEnable()
+        {
+            // ⚠️ 只对**有子网格**（`materialCount > 1`，= 回退字体 / `<sprite>` 材质那几路）的 TMP 逼重建：
+            //    没子网格时重建**不会**动渲染器材质（`GenerateTextMesh` 不碰材质，碰材质的只有 `UpdateMaterial`
+            //    且它已由 `SyncTmpSharedMaterial` 拉平），白逼一次只是浪费。
+            foreach (var t in GetComponentsInChildren<TextMeshPro>(true))
+                if (t != null && t.gameObject.activeInHierarchy && t.textInfo != null && t.textInfo.materialCount > 1)
+                    t.ForceMeshUpdate();
+            SetQueue(_queue);
+        }
     }
 }

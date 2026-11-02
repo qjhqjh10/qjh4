@@ -328,22 +328,22 @@ namespace CardPresentation
             tr.localScale = Vector3.one * CardFeel.PopScaleFrom;
 
             var seq = DOTween.Sequence();
-            seq.Append(DOTween.To(() => 0f, a => SetLabelAlpha(lbl, a), 1f, CardFeel.PopIn).SetEase(Ease.Linear));
+            seq.Append(DOTween.To(() => 0f, a => SetLabelAlpha(lbl, a), 1f, CardFeel.PopIn).SetEase(CardFeel.ClipSmoothStep));
             // ⚠️ 用 `Insert(0f, …)` 而不是 `Join` —— `Join` 会接在**当前游标**（0.1167）后面，
             //    这一条 0.2s 的缩放就会拖到 0.3167，把后面整条时间轴往后推 0.12s。
             //    时间轴要**严格照 clip**：0.2 缩完 → 停到 1.6667 → 1.8333 消失。
-            seq.Insert(0f, tr.DOScale(Vector3.one, CardFeel.PopScaleIn).SetEase(Ease.OutQuad));
+            seq.Insert(0f, tr.DOScale(Vector3.one, CardFeel.PopScaleIn).SetEase(CardFeel.ClipSmoothStep));
             seq.AppendInterval(CardFeel.PopHoldUntil - CardFeel.PopScaleIn);
             seq.Append(DOTween.To(() => 1f, a => SetLabelAlpha(lbl, a), 0f,
-                                  CardFeel.PopOut - CardFeel.PopHoldUntil).SetEase(Ease.Linear));
+                                  CardFeel.PopOut - CardFeel.PopHoldUntil).SetEase(CardFeel.ClipSmoothStep));
             // 血痕：α 0→0.8235（原 clip）→ 保持 → PopOut 段淡到 0。
             if (hitIcon != null)
             {
                 seq.Insert(0f, DOTween.To(() => 0f, a => SetIconAlpha(hitIcon, a * 0.8235f), 1f,
-                                          CardFeel.PopIn).SetEase(Ease.Linear));
+                                          CardFeel.PopIn).SetEase(CardFeel.ClipSmoothStep));
                 seq.Insert(CardFeel.PopHoldUntil,
                            DOTween.To(() => 1f, a => SetIconAlpha(hitIcon, a * 0.8235f), 0f,
-                                      CardFeel.PopOut - CardFeel.PopHoldUntil).SetEase(Ease.Linear));
+                                      CardFeel.PopOut - CardFeel.PopHoldUntil).SetEase(CardFeel.ClipSmoothStep));
                 // 🔴 2026-10-21（W61 第 1 批 · 第 5 条）：**血痕自己的缩放曲线** ——
                 //   clip 的 `DamageIcon`：0.5763 @0.1167 → 0.7 @0.2（0.0833 s）。
                 //   ⚠️ 用 **`Insert(PopIn, …)`（绝对时刻）**，⛔ 别用 `Join`/`Append` ——
@@ -356,7 +356,7 @@ namespace CardPresentation
                                       k => iconTr.localScale = Vector3.one * (k * bridge),
                                       DamageIconScaleTo,
                                       Mathf.Max(1e-4f, CardFeel.PopScaleIn - CardFeel.PopIn))
-                                  .SetEase(Ease.OutQuad));
+                                  .SetEase(IconScaleRamp));
             }
             seq.OnComplete(() => { KillLabel(lbl); KillIcon(hitIcon); });
             LastPopTween = CardTween.Use(seq, Ease.Linear, tr);
@@ -403,6 +403,46 @@ namespace CardPresentation
             if (sr == null) return;
             if (Application.isPlaying) Object.Destroy(sr.gameObject);
             else Object.DestroyImmediate(sr.gameObject);
+        }
+
+        // ============ 原版 clip 的**缓动形状**（⛔ 别再用 `Ease.Linear` / `Ease.OutQuad` 顶）============
+        //  判据 = clip `InBattleDamageCounter Variation 1`
+        //  （`bundle_battleprefabs_vfxandmisc_assets_all/AnimationClip/AnimationClip_-3234148433819516763.json`）
+        //  的 `m_FloatCurves` / `m_ScaleCurves` **每个关键帧的 `inSlope` / `outSlope`**（2026-11-03 现读）：
+        //    · `DamageText.m_fontColor.a` 0→1 @[0, 0.1167]：两端切线 **都是 0.0**；
+        //    · 保持 1.0 到 1.6667、再 →0 @1.8333：两端切线 **都是 0.0**；
+        //    · 根 `ScaleCurves` 0.6641 @0 → 1.0 @0.2：两端切线 **都是 0.0**；
+        //    · `DamageIcon` 的 `m_fontColor.a` 0→0.8235 @[0, 0.1167]：两端切线 0.0；
+        //    · `DamageIcon` 的 `ScaleCurves` 0.5763 @0.1167 → 0.7 @0.2：首端 `inSlope = 0.0628`、末端 0.0。
+        //  ⇒ Unity 的 `AnimationCurve.Evaluate` 是 **Hermite**：两端切线为 0 时那条曲线**不是直线**，
+        //    而是 `3t² − 2t³`（平滑阶跃）；只有「切线 == 弦斜率」时退化才成直线（本 clip 一条都没有）。
+        //    ⚠️ 2026-11-03 之前这里写的是 `Ease.Linear`（透明度两条 + 血痕 α 两条）与 `Ease.OutQuad`
+        //    （两条缩放），**都不是原版的形状** —— `OutQuad` 前段比原版快、`Linear` 两端有折角（铁律 5 留痕）。
+        //  做法：直接喂 `AnimationCurve` 给 `SetEase` —— 求值语义（Hermite）与原版**逐位同一套**，
+        //  ⛔ 别自己写一份「差不多的」缓动函数。四条零切线段**复用现成的那条** =
+        //  `CardFeel.ClipSmoothStep`（`Core/CardFeel.cs:2011`，同一个「两端切线 0 ⇒ Hermite 退化成 smoothstep」判据，
+        //  铁律 6：判据只留一处，⛔ 别在这里再造第二条同样的曲线）。归一的端点仍是 0/1 ⇒ DOTween 那侧归一化是恒等。
+        static AnimationCurve _iconRamp;
+        /// <summary>`DamageIcon` 缩放那一段（首端 `inSlope = 0.0628`/秒）。换算到归一化单位
+        /// = `0.0628 ÷ 弦斜率`，弦斜率 = `(0.7 − 0.5763395) ÷ (0.2 − 0.1167)` = **1.4847**/秒
+        /// ⇒ 归一化切线 = **0.0423**（末端 0）。⚠️ **必须换算**：`AnimationCurve` 的切线是「值/秒」，
+        /// 而这条曲线归一化后横轴是 0~1 的进度，两者不是同一量纲。</summary>
+        static AnimationCurve IconScaleRamp
+        {
+            get
+            {
+                if (_iconRamp == null)
+                {
+                    const float chordSlope = (DamageIconScaleTo - DamageIconScaleFrom)
+                                           / (CardFeel.PopScaleIn - CardFeel.PopIn);
+                    const float inSlope = 0.0628f;                 // clip 实读（`DamageIcon` ScaleCurves 首键）
+                    float m0 = chordSlope > 1e-6f ? inSlope / chordSlope : 0f;
+                    var c = new AnimationCurve(new Keyframe(0f, 0f, m0, m0), new Keyframe(1f, 1f, 0f, 0f));
+                    c.preWrapMode = WrapMode.Clamp; c.postWrapMode = WrapMode.Clamp;
+                    _iconRamp = c;
+                }
+                return _iconRamp;
+            }
         }
     }
 }

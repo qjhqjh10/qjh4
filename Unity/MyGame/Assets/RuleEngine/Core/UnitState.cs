@@ -3905,7 +3905,9 @@ namespace RuleEngine
         public void SetupDropPodStats()
         {
             if (Card == null || Card.CardType != CardDef.CardTypeHero) return;
-            if (!Has(KeywordTable.DropPod)) return;
+            // 🔴 2026-11-02（`B117-WDROPPOD` 判据 · 原版 `CardSetup.c:159` 读的是**当前 trait 表**）：
+            //    原来用 `Has`（只读 `keywords`）⇒ `dropPod` 落在 `cardTraits` 列时会漏判（`B117-24` 同族）。
+            if (!HasCurrentTrait(KeywordTable.DropPod)) return;
             CurrentDropPodHealth = DropPodMaxHealthDefault;
             CurrentDropPodAttack = DropPodAttackDefault;
         }

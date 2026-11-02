@@ -119,9 +119,9 @@ namespace CardPresentation
 
         void Awake()
         {
-            // 原版 `Awake` 里先按 Default 走一遍（instant）——但我们**没有**「本场 Default 是哪条」的运行时来源
-            // （那是建场期写进 `ArenaEnvGlobal` / `RenderSettings` 的）⇒ **这里不动**，
-            // 免得把 §28 那批已验收的逐场雾/环境光值覆盖掉。第一次 `Apply()` 才接管。
+            // 原版 `Awake` = `ApplyEnvironment(defaultEnvironment, instant:true)`（`ScenarioEnvironmentConditionsManager.Awake` 现读）。🔴 2026-11-02（`B117-G10-02a`）就地订正：原来这里写「我们**没有**本场 Default 是哪条的运行时来源」——**不成立**：那条 SO 就在本场 arena 场景的 manager 上（PPtr，已核 `Battle Arena 1` ⇒ `Ultramarines Default Enviromental Condition` · `Battle Arena Aeldari` ⇒ `Saim Hann Default …`，恰好是该场阵营的 default），
+            //   而这些值建场期 `ArenaSceneState.Apply` 已逐项落好（`ambientSky = defaultEnv.ambientColor` · `ambientBlend` · `fogRunColor/Density` · `fog = fogRunDensity > 0`）⇒ 这里不再走一遍是**等价**的（差只差原版还会把场景侧 blendable 按 direction=1/duration=0 刷一次，而我们那批 FX 出生就是「开」态）。
+            //   第一次 `Apply()` 才接管，免得把 §28 那批已验收的逐场值再算一遍。
         }
 
         void Update()
@@ -145,7 +145,7 @@ namespace CardPresentation
             // ---- ③ 物件：**先撤旧的（淡出 + 全回调到齐才销毁）**，再起新的（原版 `DisableEnvironment` → `Instantiate`）----
             if (CurrentInstance != null)
             {
-                BeginFadeOut(CurrentInstance, oldSo, _currentBlendables, _curSpawners, _curControllers);
+                BeginFadeOut(CurrentInstance, oldSo, _currentBlendables, _curSpawners, _curControllers, BlendTimeFor(instant, CurrentItem != null ? CurrentItem.blendTime : 0f));   // 🔴 2026-11-02（`B117-FIXF` 现核）：撤旧的时长 = **本次 apply 的 instant 位 × 旧 SO 的 blendTime**（`ScenarioEnvironmentConditionSO__DisableEnvironment.c`：`uVar10 = param_3==0 ? *(float*)(旧SO+0x18) : 0`；`ApplyEnvironment` 把**新一次**的 `instant` 传下去）—— ⛔ 不能再用 `BlendDuration`（那是**上一次** apply 留下的值：上一次若是 `instant:true` 它是 0 ⇒ 每个 blendable 同步回调 ⇒ `FadingCount` 立刻归零，旧实例被**当拍销毁**，`BattleScene` 的「换环境先进淡出」断言红）
                 CurrentInstance = null; InstanceBlendableCount = 0; _currentBlendables = null;
                 InstanceSpawnerCount = 0; InstanceControllerCount = 0;      // 🆕 A137
                 _curSpawners = new List<ParticleSystemAreaSpawner>();
@@ -153,7 +153,7 @@ namespace CardPresentation
             }
             // 🔴 **顺序不能挪**：原版 `ApplyEnvironment` 是「DisableEnvironment(旧) → CurrentEnvironment = 新」
             //   ⇒ 撤环境那一程里 `ScenarioAnimationBlend` 读到的还是**旧 SO**（判据见 `CurrentItem` 的注释）。
-            CurrentItem = it;
+            CurrentItem = it; BlendDuration = BlendTimeFor(instant, it != null ? it.blendTime : 0f);   // 🔴 必须在建实例**之前**算：③ 里 `AttachBlendables` 的 options 要用它（原来这一句在 ③ 之后 ⇒ 实例侧拿到的是**上一条** SO 的时长、首次应用拿到字段默认 0 ⇒ 新实例的 blendable **瞬间到位**；原版 `EnableEnvironment` 用的是**本条** `blendTime`）。⚠️ 这一句**不能**挪到 `BeginFadeOut` 之前 —— 撤旧实例那一路的 `timeout` 用的是**旧 SO** 的时长。
             if (EnvironmentConditions.HasPrefab(it))
             {
                 var prefab = FindPrefab(it.prefabName);
@@ -164,13 +164,13 @@ namespace CardPresentation
                 }
                 else
                 {
-                    var cam = Camera.main;
-                    var pos = cam != null ? cam.transform.position : Vector3.zero;
-                    var rot = cam != null ? cam.transform.rotation : Quaternion.identity;
+                    // 原版 `EnableEnvironment` 现读（`out_il2csharp/ScenarioEnvironmentConditionSO.cs`）：`Instantiate(obj, BattleManager.Instance.battleCenterAnchor.position, Quaternion.identity)` —— **不是相机**位置/朝向
+                    var pos = EnvAnchorPosition();
+                    var rot = Quaternion.identity;                      // ⛔ 原版是**单位**旋转（同上那条判据）；原来我们传相机旋转 = 环境件的朝向随相机变
                     CurrentInstance = Instantiate(prefab, pos, rot);
                     CurrentInstance.name = "Env_" + it.prefabName; RelocateGrabLayer(CurrentInstance);
                     // 原版 `EnableEnvironment` ③：对**新实例子树里每个** blendable 调 `DoScenarioBlend(lVar7)`
-                    _currentBlendables = AttachBlendables(CurrentInstance, it.prefabName, it);
+                    _currentBlendables = AttachBlendables(CurrentInstance, it.prefabName, it, BlendTimeFor(instant, BlendDuration));
                     InstanceBlendableCount = _currentBlendables.Length;
                     // 🆕 2026-10-07（A137）: **同一棵树里那批 standalone 生成器**（它们不是 blendable，
                     //   旁挂单开了一节）—— 原版它们在 prefab 实例化时就自己 `OnEnable` 起循环 / 被 controller 驱动。
@@ -187,7 +187,7 @@ namespace CardPresentation
                 _den1 = it.fogDensity;
                 _amb1 = ToColor(it.ambientColor, _amb0);
                 _blend1 = it.ambientBlend;
-                RenderSettings.fog = true;          // 判据：`ScenarioEnvironmentConditionSO__ToggleFog`（**只切开关**）
+                if (FogOnForDensity(_den1)) RenderSettings.fog = true;   // 判据 `ScenarioEnvironmentConditionSO__ApplyFog` **非 instant 支**：`if (fogDensity > 0) fog = true`（这里**只开不关**）；收尾那一句由 `_ApplyFog_b__20_4` 按**新密度**重判 ⇒ 见 `Push`。⚠️ 原来写死 `fog = true` ⇒ 目标密度 0 的条目（55 条里 34 条）也会把雾打开（线性雾的两场画面上真会出现）
             }
             else
             {
@@ -195,7 +195,7 @@ namespace CardPresentation
                 _fog1 = _fog0; _den1 = _den0; _amb1 = _amb0; _blend1 = 0f;
             }
             Applied = true;
-            BlendDuration = (it != null) ? Mathf.Max(0f, it.blendTime) : 0f;
+            // `BlendDuration` 已在 `CurrentItem = it` 那一行算好 —— ⛔ **别再写回这里**（那会让 ③ 建实例时读到旧值/0，见那条注释）。
             Elapsed = 0f;
             if (instant || BlendDuration <= 0f) { BlendT = 1f; Push(); }
             else { BlendT = 0f; }
@@ -206,7 +206,7 @@ namespace CardPresentation
             bool dir = (it != null) ? (it.defaultScenarioObjectsState != 0) : true;
             var opts = new ScenarioBlendOptions
             {
-                duration = BlendDuration, direction = dir, targetValue = dir ? 1f : 0f, onComplete = null,
+                duration = BlendTimeFor(instant, BlendDuration), direction = dir, targetValue = dir ? 1f : 0f, onComplete = null,
                 // 🆕 2026-10-07（A135）：原版 `EnableEnvironment` 把它建的**第二份** options 也带上 `SO.filterOptions`
                 //   （`…__EnableEnvironment.c`：`uVar9 = *(param_1 + 0x58)` 灌进 `lVar8`），再由
                 //   `SetRegisteredBlendeablesState` 原样转给场景里已登记的那批 ⇒ 这里照做。
@@ -275,7 +275,7 @@ namespace CardPresentation
 
         /// <summary>把旁挂里那几个 blendable 组件挂到 prefab 实例上，并立刻按原版 `lVar7`（direction=true）驱动一次。
         /// prefab 侧的目标按**层级路径**在实例里找（旁挂的 path 从 prefab 根开始 ⇒ 去掉第一段）。</summary>
-        ScenarioBlendable[] AttachBlendables(GameObject host, string prefabName, EnvironmentConditions.Item so)
+        ScenarioBlendable[] AttachBlendables(GameObject host, string prefabName, EnvironmentConditions.Item so, float dur)
         {
             var items = EnvBlendables.ForPrefab(prefabName);
             var made = new List<ScenarioBlendable>(items.Length);
@@ -287,7 +287,7 @@ namespace CardPresentation
                 c.manager = this;          // 🆕 原版这个类自己去问管理器；我们的「管理器」= 执行器
                 c.DoScenarioBlend(new ScenarioBlendOptions
                 {
-                    duration = BlendDuration, direction = true, targetValue = 1f, onComplete = null,
+                    duration = dur, direction = true, targetValue = 1f, onComplete = null,
                     // 🆕 2026-10-07（A135）：原版 `EnableEnvironment` 那份 `lVar7` 也带 `SO.filterOptions`
                     filterOptions = FilterOf(so),
                 });
@@ -863,9 +863,9 @@ namespace CardPresentation
         }
 
         void BeginFadeOut(GameObject go, string so, ScenarioBlendable[] mine,
-                          List<ParticleSystemAreaSpawner> sp, List<ParticleSystemAreaSpawnerController> ct)
+                          List<ParticleSystemAreaSpawner> sp, List<ParticleSystemAreaSpawnerController> ct, float dur)
         {
-            var f = new FadeOut { go = go, so = so, timeout = BlendDuration, mine = mine,
+            var f = new FadeOut { go = go, so = so, timeout = dur, mine = mine,
                                   spawners = sp, controllers = ct };      // 🆕 A137
             f.pending = 0;
             // 🆕 2026-10-07（A135）：原版 `ScenarioEnvironmentConditionSO__DisableEnvironment.c` 建 options 时
@@ -885,7 +885,7 @@ namespace CardPresentation
                     if (counts) f.pending++;
                     b.DoScenarioBlend(new ScenarioBlendOptions
                     {
-                        duration = BlendDuration, direction = false, targetValue = 0f,
+                        duration = dur, direction = false, targetValue = 0f,
                         onComplete = counts ? (Action)(() => { f.pending--; }) : null,
                         filterOptions = filt,
                     });
@@ -907,10 +907,14 @@ namespace CardPresentation
 
         void Push()
         {
-            RenderSettings.fogColor = Color.Lerp(_fog0, _fog1, BlendT);
-            RenderSettings.fogDensity = Mathf.Lerp(_den0, _den1, BlendT);
-            RenderSettings.ambientLight = Color.Lerp(_amb0, _amb1, BlendT);
-            Shader.SetGlobalFloat("_AmbientColorBlend", Mathf.Lerp(_blend0, _blend1, BlendT));
+            // 缓动（判据 `ScenarioEnvironmentConditionSO__ApplyAmbientColor` / `__ApplyFog` 现读）：ambientLight · `_AmbientColorBlend`
+            // · fogColor **三路 DOTween 都没设 `SetEase`** ⇒ 走 DOTween 默认 = **OutQuad**；只有 fogDensity 显式 `SetEase(Ease.Linear)`。
+            float e = OutQuad(BlendT);
+            RenderSettings.fogColor = Color.Lerp(_fog0, _fog1, e);
+            RenderSettings.fogDensity = Mathf.Lerp(_den0, _den1, BlendT);   // ⛔ 这一路原版是 Linear（别跟着上面那三路改成 e）
+            RenderSettings.ambientLight = Color.Lerp(_amb0, _amb1, e);
+            Shader.SetGlobalFloat("_AmbientColorBlend", Mathf.Lerp(_blend0, _blend1, e));   // 原版是 SO 字段 `ambientColorBlendPropertyId`，ctor = `Shader.PropertyToID("_AmbientColorBlend")`（同名 ⇒ 按名取等价）
+            if (BlendT >= 1f) RenderSettings.fog = FogOnForDensity(_den1);   // 判据 `_ApplyFog_b__20_4`（补间完成回调）= `fog = 0 < fogDensity` ⇒ 目标密度 0 时**收尾要关雾**
         }
 
         static Color ToColor(float[] a, Color fallback)
@@ -946,6 +950,43 @@ namespace CardPresentation
             int layer = WarpforgeVFX.GrabScreen501.FinalLayer(go, -1);
             if (layer >= 0) WarpforgeVFX.WarpforgeEffectPlayer.SetLayerRec(go, layer);
             return layer;
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-02（`B117-G10-02a`）：下面四个 = 本次三条判据的**唯一实现处**（自检只读它们，别抄第二份）
+        // ==================================================================
+
+        /// <summary>DOTween 默认缓动 **`Ease.OutQuad`** = `2x − x²`。
+        /// <para>判据：原版 `ScenarioEnvironmentConditionSO__ApplyAmbientColor` / `__ApplyFog` 的六路 `DOTween.To`
+        /// **只有 fogDensity 那一路传了 `SetEase(Ease.Linear)`**，其余（ambientLight · `_AmbientColorBlend` · fogColor）**都没设**
+        /// ⇒ 走 `DOTweenSettings.defaultEaseType`，而**这一份资产本地就有**：`ExportedProject/Assets/Resources/DOTweenSettings.asset` 的 `defaultEaseType: 6`
+        /// = `Ease.OutQuad`（枚举序 `0 Unset/1 Linear/2 InSine/3 OutSine/4 InOutSine/5 InQuad/**6 OutQuad**`；游戏里没有任何 `SetDefaultEaseType` 调用）。⚠️ 我们原来四路一律线性 ⇒ 补间前 40% 的观感明显偏「慢」。</para></summary>
+        public static float OutQuad(float x01) { float x = Mathf.Clamp01(x01); return 2f * x - x * x; }
+
+        /// <summary>原版开/关雾的**唯一判据**：`RenderSettings.fog = 0 < fogDensity`
+        /// —— `ApplyFog` 的 instant 支与完成回调 `_ApplyFog_b__20_4` 是**同一句**（`__ApplyFog.c` 现读）。
+        /// ⚠️ 非 instant 支另有一句「密度>0 就先开」（只开不关），见 `Apply` 的 fog 段。</summary>
+        public static bool FogOnForDensity(float density) { return density > 0f; }
+
+        /// <summary>blendable 那一程的时长 —— 原版 `EnableEnvironment` / `DisableEnvironment` 两处都是
+        /// `instant ? 0 : blendTime`（`out_il2csharp/ScenarioEnvironmentConditionSO.cs` 的 `real1` / `real2` / `real1`）。
+        /// ⚠️ instant 档**不是**「按 blendTime 补间」而是「一步到位」。</summary>
+        public static float BlendTimeFor(bool instant, float blendTime)
+        { return instant ? 0f : Mathf.Max(0f, blendTime); }
+
+        /// <summary>环境 prefab 实例的**落点** —— 原版 `EnableEnvironment` 现读：
+        /// `Instantiate(obj, BattleManager.Instance.battleCenterAnchor.position, Quaternion.identity)`
+        /// （`out_il2csharp/ScenarioEnvironmentConditionSO.cs`；ILSpy 版那几行同样）。
+        /// <para>`battleCenterAnchor` = 场景节点 **`Board Center`**（判据链 → `BattleDriver.EnsureBoardCenterAnchor`
+        /// 头上那一整段：原版 `MonoBehaviour_4569.json` 的 PPtr 1490 ⇒ `GameObject/Board Center.json`；
+        /// 换算到我们这套坐标 = `(0, 0, -2.8108)` = `BattleDriver.BoardCenterZ`，**判据只留那一处**）。</para>
+        /// <para>⚠️ 那颗节点是 `BattleDriver` **按需**建的（动画档才建）⇒ 这里先 `Find`，找不到就按同一个 z 落点
+        /// **不建对象**（⛔ 别在这儿再建一颗同名节点 —— 会和 `EnsureBoardCenterAnchor` 撞成两颗）。</para></summary>
+        public static Vector3 EnvAnchorPosition()
+        {
+            var go = GameObject.Find("Board Center");
+            if (go != null) return go.transform.position;
+            return new Vector3(0f, 0f, BattleDriver.BoardCenterZ);
         }
     }
 }

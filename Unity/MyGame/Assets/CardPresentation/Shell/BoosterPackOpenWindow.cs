@@ -86,10 +86,10 @@
 //     它触发的就是 `CardInBoosterPack.ChangeState(4)` 的**卡抖动**（抖完才翻）。
 //   · **快速开包 = 只有内部 API**（`QuickOpenAll()`）：原版 prefab 的整棵树**没有任何 skip / open-all 件**
 //     （`menu_dump --depth 6` 实读；MB 字段里也只有 `useQuickOpenProtection`）⇒ **入口判据未定**，⛔ 不造按钮。
-//   · **翻开之后再点卡 → 卡详情窗（原版 `CardInBoosterPack.CardClicked`）没接**：它在
-//     `_WaitForSpinAnimationEnd` 收尾时给 `uiCollider.onClick` **再加**一个 `CardClicked` 监听，
-//     `CardDisplayWindow.ShowCard(card, …, true, …)`。我们的卡翻开后把命中区关掉了（`SlotHits` 失效）——
-//     ⇒ 这一条**没复刻**（缺口），要接得先决定用哪扇详情窗（`Shell/CardDetailPopup` 还是战斗那扇）。
+//   · ✅ **翻开之后再点卡 → 卡详情窗（原版 `CardInBoosterPack.CardClicked`）【已接】（2026-10-17 · T19 收尾）** —— 🔴 就地订正（铁律 5）：
+//     本行原来写「**没接**（缺口）：我们的卡翻开后把命中区关掉了（`SlotHits` 失效）」—— **不成立**：现在 `Reveal` / `QuickOpenAll` 都**不再关** `SlotHits[i]`（那两句 `SetActive(false)` 已删）。
+//     `OnSlotClick` 按状态分流：`Ready(2)` → `Reveal`、`Open(5)` → `OpenCardDetail`（原版 `CardClicked`）。
+//     `OpenCardDetail` 走 `CardDetailPopup.Create(Manager)` + `ShowCard(Cards[i])`（= 菜单场景里那扇 `CardDisplayWindow`）；判据 → `判据/B117-WCARDTIER_开包卡档与点击.md`。
 //   · ✅ **`OpenCardbacks` 那条 clip 不接是【对的】** —— 已查清（2026-10-27 `B9_W34FEED` 订正「用途未查清」）= `DeckGeneralInfoDemo.cardbacksAnimation`（0.25 s · Once · 卡背两层入场），消费者 = `Shell/PracticeModePopup.BuildCardbacks`（⛔ 与开包窗无关）。
 //   · ✅ **背景 `Booster Window - Background Shake On Open`（0.9167 s）已接（2026-10-27 `B9_W20WIRE`）** —— 🔴 就地订正（铁律 5）：
 //     原写「只动 `floatProperty1/2`、原版 shader 逻辑本地没有 ⇒ 没有等价物可依」**不成立**（`B8_AS` 已解出 `Shader Graphs/Nebula` 的 `_Distort_*`）。

@@ -18,7 +18,7 @@
 //   ⑦ **`!Input.GetMouseButtonDown(0)` ⇒ return（按下沿，不是松手）**
 //   ⑧ `Camera.main` 取不到 ⇒ return
 //   ⑨ `ray = cam.ScreenPointToRay(mousePosition)`
-//   ⑩ **`Physics.RaycastNonAlloc(ray, hits[3], float.MaxValue, 0x40000001)`**
+//   ⑩ **`Physics.RaycastNonAlloc(ray, hits[3], float.MaxValue, 0x40000C01)`**（本工程掩码含 bit8 ⇒ `0x40000D01`，见常量处）
 //   ⑪ `n < 1` ⇒ return
 //   ⑫ 挑 **`hit.distance` 最小**那条（`RaycastNonAlloc` 不排序）；**不按组件过滤**
 //   ⑬ 那条身上的 `TapHitMaterialDefinition`；**取不到 ⇒ return（⛔ 不顺延到下一条）**
@@ -30,9 +30,9 @@
 //     自己读输入**。本类自己读 `Mouse.current.leftButton.wasPressedThisFrame`（本工程只有新输入系统，
 //     `ProjectSettings.asset activeInputHandler: 1`）。
 //   · ⛔ **不要给死字段补逻辑**（`useTargetAnchor` / `instancedParticle`）。
-//   · ⛔ **不要为了让「点棋盘」有反馈去改层**：掩码 = 原版 `0x40000001` = layer 0 + 30；
-//     棋盘那颗 `CardLowBoardLimit` 在原版是 **layer 11** ⇒ **原版射线本来就打不到它**。
-//     照原版建、照原版设层，别自己发明。
+//   · 掩码 = **`0x40000C01`**（`1073744897`，13/13 场景序列化同值）= layer 0 `Default` + **10 `BoardElements`**
+//     + **11 `BoardCardLimit`** + 30 `GroundCollider` ⇒ **棋盘那颗 `CardLowBoardLimit`（layer 11）是【打得到】的**。
+//     🔴 2026-11-02 订正：原来写「`0x40000001` = 0+30，打不到棋盘」是**十进制算错**；另**本工程加了 bit8**（见常量处 🔶）。
 //
 // 【与 `BattleDriver` 的接口（只读，不共享边沿）】
 //   · `BattleDriver.Ctx.MatchType` / `Ctx.IsOver` / `InMulligan` —— 对局模式与战斗阶段那两道闸
@@ -57,9 +57,9 @@ namespace CardPresentation
     [DisallowMultipleComponent]
     public class TapParticleController : MonoBehaviour
     {
-        /// <summary>原版 `collisionMask.m_Bits = 1073744897`（13 个场景逐份同值）=
-        /// layer **0**（Default）+ layer **30**（`GroundCollider`，见原版 `TagManager`）。</summary>
-        public const int CollisionMask = 0x40000001;
+        /// <summary>原版 `collisionMask.m_Bits = 1073744897` = **`0x40000C01`**（13 场景逐份同值）= layer **0** `Default` + **10** `BoardElements` + **11** `BoardCardLimit` + **30** `GroundCollider`（原版 `TagManager`）。
+        /// 🔶 自己设计（非原版）：**本工程再把 bit8 `ArenaSlots.ArenaLayer` 加进来**（= `0x40000D01`）—— 原版把场上道具/棋盘分在 0/10/11 三层，而我们的 arena prefab 整树刷 `ArenaLayer(8)`（`ArenaBuilder.BuildOneArenaPrefab`），原版那套 0/11 在本地渲不出来 ⇒ 掩码必须认 8，否则 **165 条 tap 宿主一条都命不中**（产物实测 165/165 都是 layer 8）· 调度台 2026-11-02 裁定</summary>
+        public const int CollisionMask = 0x40000D01;
 
         /// <summary>原版 `new RaycastHit[3]`（构造函数里定的上限）。</summary>
         public const int MaxHits = 3;
@@ -192,10 +192,8 @@ namespace CardPresentation
                 return;
             }
 
-            // ⑥ 指针压在 uGUI 射线靶上 ⇒ 不算点地面（原版 `IsPointerOverGameObject(pointerId)`，桌面 −1）
-            if (PointerOverUi()) return;
-
             // ⑦ 按下沿（⛔ 不是松手；⛔ 不用 `BattleDriver` 的那条一次性边沿）
+            //     🔴 顺序照原版：先 `GetMouseButtonDown(0)`、再 `IsPointerOverGameObject`（`TapParticleController__Update.c` 那两句）
             var mouse = Mouse.current;
             if (mouse == null)
             {
@@ -208,6 +206,8 @@ namespace CardPresentation
                 return;
             }
             if (!mouse.leftButton.wasPressedThisFrame) return;
+            // ⑥ 指针压在 uGUI 射线靶上 ⇒ 不算点地面（原版 `IsPointerOverGameObject(pointerId)`，桌面 −1）
+            if (PointerOverUi()) return;
 
             // ⑧ 相机：**照原版取 `Camera.main`**；取不到退 `BattleDriver.cam` 并出声（⛔ 不静默）
             var cam = Camera.main;

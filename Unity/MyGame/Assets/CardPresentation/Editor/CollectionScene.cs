@@ -5458,20 +5458,20 @@ public static class CollectionScene
                 var cc0 = win.CardsCells[0];
                 CheckNear(MenuCheck.DesignPx(cc0).x, 468.8f, 1.5f,
                           "第 1 格中心 x = **468.8**（贴左但整体居中：330.2 + 7.35 + 262.5/2）");
-                // 🔴 **2026-10-26 就地订正（铁律 5）**：这条的 `W11`（2026-10-18）口径**已被 2026-10-25 裁定推翻**。
-                //   判据（prefab 现读，`menu_dump.py bundle_menus_assets_all "Collection Card" --depth 4`）：
-                //   `CardUI/2DCard` 在 **350×512** 原型里是 **y 6.2 → 505.8**（上下各 6.2 ⇒ **整格里居中**），
-                //   张数条 `/Counter` = y 461→511 **画在卡下缘之上**（原版长相，不是「卡不压条」）。
-                //   ⇒ 卡体**位置框 = 整格**（`CardsCardRect(cell) == cell`）、按原版公式缩放后在整格里居中
-                //     ⇒ `win.CardsCells` 存的那颗 `CardView` transform 中心 = **格心 347.9**。
-                //   ⛔ 别再改回 328.764（`W11` 那版「格心 − 张数条/2」，已推翻；判据 → `Shell/CollectionWindow.cs` 的 `CardsCardRect` doc · `Editor/HandAssertE8.cs` §D）。
-                CheckNear(MenuCheck.DesignPx(cc0).y, 347.9f, 1.5f,
-                          "第 1 格**卡块**中心 y = **347.9**（= 格心；原版 `2DCard` 在整格里居中）");
+                // 🔴 **2026-11-03（`B117-WCOLL`）就地订正（铁律 5）**：本条 2026-10-26 那版（「卡块 == 整格、卡心 = 格心 347.9」）已被实拍推翻。
+                //   判据（prefab `Collection Card/Content/Counter`：`m_AnchorMax.y = 0.09966714` ⇒ 条顶距格底 38.272）
+                //   ＋ 原版实拍（`桌面/warpforge参考图/收藏—张牌的界面参考图（打开过滤器按钮后）.png`：卡框金属底边露在红条之上）：
+                //   ⇒ 卡体**位置框 = 格子去掉底下那条张数**（`CardsCardRect(cell).y2 = cell.y2 − CardsCounterH`），
+                //     卡体正好铺满这块卡位 ⇒ 卡心 = **卡位中心 = 格心 − 条顶/2** = 347.9 − 38.272/2 = 328.764。
+                //   ⛔ 别再改回 347.9（`CardsCardRect == cell` 那版，卡底会压条 38.272px）。
+                //   判据全文 → `Shell/CollectionWindow.cs` 的 `CardsCardRect` doc · `Editor/B117_WCOLL_Assert.cs` · `判据/B117-WCOLL_收藏卡格.md`。
+                CheckNear(MenuCheck.DesignPx(cc0).y, 328.764f, 1.5f,
+                          "第 1 格**卡块**中心 y = **328.764**（= 格心 347.9 − 条顶 38.272/2；卡底贴条顶）");
             }
             // 🆕 **2026-10-24（`E6`）**：卡池小卡的**格子几何**逐条钉给原版
-            //   （格/间距/列数/居中偏移 = 原版 RSR 序列化字段 + 反编译算法；卡体宽/高占比 = 原版 prefab
-            //    `CardUI/2DCard` 的 313.91/350 与 499.70/512；卡底压条 33.62px = 原版长相）。
-            //   🔴 **2026-10-26**：`E6` 原来那三条 `W11` 口径（345.728 / 不压条 / 实拍 81.7%）已按 2026-10-25 裁定就地订正（判据见 `Editor/PoolCardGridAssertE6.cs` 文件头）。
+            //   （格/间距/列数/居中偏移 = 原版 RSR 序列化字段 + 反编译算法；卡体占比 = 卡位高比 0.90033、宽比 0.8274）。
+            //   🔴 **2026-11-03**：卡底**正好落在条顶**（压条 0），卡位 = 格子去掉底下那条张数（2026-10-25 那版「整格 / 压条 33.62」已推翻）。
+            //   判据见 `Editor/PoolCardGridAssertE6.cs` 文件头 ＋ `判据/B117-WCOLL_收藏卡格.md`。
             //   🔴 顺带把 `A2` §Q6 那条错判据挡在门外：它引的 225×364.5 / spacing 20 是**卡组列表**的格
             //   （那两份 MB 的 `PrototypeCell` = `Collection Deck[ With Highlight]`），不是卡池。
             //   判据与逐条出处 → `Editor/PoolCardGridAssertE6.cs` 文件头 + `资料/普查产出_1024c/E6_收藏卡池格子几何.md`。
@@ -5869,14 +5869,14 @@ public static class CollectionScene
                              + (nBad == 0 ? "" : "｜第一位不一致：" + firstBad));
             }
 
-            // ============================================================ 🆕 2026-10-25（`C` 域 · 调度台裁定）
-            //   卡体缩放 = **原版公式**（`CollectionCard__OnRectTransformDimensionsChange`：
-            //   `cardUI.localScale = sizeDelta.y × initialCardScale(150) / initialHeight(512)`）
-            //   ⇒ 384 × 150 / 512 ÷ 108 = **1.0417**；prefab 实测 `CardUI/2DCard` = 313.91×**499.70**（350×512 原型）
-            //   ⇒ 高 **97.6%**、宽 **89.7%**（与公式逐位吻合）。
-            //   ⚠️ **重叠是原版长相**：卡体 `y 6.2→505.8`、张数条 `y 461→511`（同一 512 帧）⇒ 叠 44.8px（折 384 = 33.6px）。
-            //   🧨 改坏法：退回 `(格高−张数条高)/…` ⇒ ① 变 90% ⇒ 红；把缩放的分子换成 `(384−37.5)` ⇒ 同上。
-            Section("Cards 页：卡体缩放 = 原版公式 + 张数条与 prefab 逐值（`W11` 裁定后）");
+            // ============================================================ 🆕 2026-11-03（`B117-WCOLL`）
+            //   卡体缩放 = **卡位高 ÷ 卡高**（与卡组编辑窗 `DeckRuntime.Pool` 同一条式子）：
+            //   `scale = (CardsCellH − CardsCounterH) ÷ (CardView.Height × 108)`。
+            //   ⇒ 桌面 = (384 − 0.09966714×384) ÷ (3.3313 × 108) = 345.7278 ÷ 359.7804 = **0.960938**（卡高 345.728 = 条顶）。
+            //   ⚠️ 2026-10-25 那版（`格高 × 150/512 ÷ 108` = 1.0417、卡体占格高 97.6%、「压条 33.6 是原版长相」）**已被实拍推翻**
+            //      —— 错因是拿 `2DCard` 的**含投影外框**（y 6.2→505.8）当可见卡框底。
+            //   🧨 改坏法：退回 `格高 × 150/512 ÷ 108`（1.0417）⇒ 卡高变 374.77、卡底压条 33.6px ⇒ 下面两条都红。
+            Section("Cards 页：卡体缩放 = 卡位高 ÷ 卡高（与卡组编辑窗同式）+ 张数条与 prefab 逐值");
             {
                 CardView cv0 = null;
                 for (int ci = 0; ci < win.CardsCells.Count && cv0 == null; ci++)
@@ -5884,14 +5884,14 @@ public static class CollectionScene
                 CheckTrue(cv0 != null, "（前提）卡池里至少建出一张 `CardView`");
                 if (cv0 != null)
                 {
-                    float wantScale = CollectionWindow.CardsCellH * 150f / 512f / 108f;
+                    float wantScale = (CollectionWindow.CardsCellH - CollectionWindow.CardsCounterH) / (CardView.Height * 108f);
                     CheckNear(cv0.BaseScale, wantScale, 1e-3f,
-                              $"★ 卡体缩放 = **原版公式** `384×150/512 ÷ 108` = **{wantScale:F4}**"
-                            + "（⛔ 不是 `(格高−张数条高)/…` 那一版 = 0.9609）");
+                              $"★ 卡体缩放 = **(格高 − 条顶) ÷ (卡高 × 108)** = **{wantScale:F4}**"
+                            + "（与卡组编辑窗 `DeckRuntime.Pool.CardScale` 同一条式子；⛔ 不是 2026-10-25 那版的 `384×150/512 ÷108` = 1.0417）");
                     float cardH = CardView.Height * cv0.BaseScale * 108f;
-                    CheckNear(cardH / CollectionWindow.CardsCellH, 499.70f / 512f, 5e-3f,
-                              $"★ 卡体高 ÷ 格高 = **97.6%**（prefab `2DCard` 499.70 / 512；实测 {cardH:F1}px）"
-                            + " —— **断言的是「等于公式值」，⛔ 不是「不重叠」**（重叠 33.6px 是原版长相）");
+                    CheckNear(cardH / CollectionWindow.CardsCellH, 1f - 0.09966714f, 5e-3f,
+                              $"★ 卡体高 ÷ 格高 = **0.90033**（= 1 − 原版 `/Counter` 的 `m_AnchorMax.y`；实测 {cardH:F1}px）"
+                            + " —— 卡底**正好落在条顶**（压条 0；⛔ 不是 97.6% 那版压条 33.6px）");
                 }
                 // 张数条：prefab `Content/Counter` 的 `Image.m_Color = (1,1,1,1)`、画在卡**之上**
                 {
@@ -13279,7 +13279,7 @@ public static class CollectionScene
                 CheckNear(win.WildcardShineRate, 0f, 1e-4f, "（收尾）重开又从 **0** 起"); win.tabButtons.Click(0);   // 复原：本节进来时是 Deck 页（同 `:12087` 的口径，不给后面的段留状态）
             }
 
-            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B107_W14_Assert.RunCollection(win); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B108A4_Assert.Run(); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; CheckUI21Measure(win); CheckB326Uv1(win); B108A4_Assert.RunCollectionCloseScrolls(win); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; B117F14_Assert.Run(); _sink.Pass += B117F14_Assert.Pass; _sink.Fail += B117F14_Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md ｜ 🆕 2026-10-31（B107_W27）：同一物理行再追加 `B107_W14_Assert.RunCollection(win)`（N84 关窗重开回初值；**必须排在所有筛选断言之后** —— 它会复位三份 static 筛选；判据 → 报告/B107_W14.md §四·1）
+            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B107_W14_Assert.RunCollection(win); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B108A4_Assert.Run(); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; CheckUI21Measure(win); CheckB326Uv1(win); B117_WCOLL_Assert.Run(); _sink.Pass += B117_WCOLL_Assert.Pass; _sink.Fail += B117_WCOLL_Assert.Fail; B108A4_Assert.RunCollectionCloseScrolls(win); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; B117F14_Assert.Run(); _sink.Pass += B117F14_Assert.Pass; _sink.Fail += B117F14_Assert.Fail; B117_WPOPUP_Assert.Run(); _sink.Pass += B117_WPOPUP_Assert.Pass; _sink.Fail += B117_WPOPUP_Assert.Fail; B117_WCARD_Assert.Run(); _sink.Pass += B117_WCARD_Assert.Pass; _sink.Fail += B117_WCARD_Assert.Fail;   // 🆕 2026-11-02（调度台代接线 · B117-WWIREB）：收藏窗卡格几何 `B117_WCOLL`（**接在 `B108A4_Assert.RunCollectionCloseScrolls(win)` 之前** —— 那样 D 组才可能量到活窗；A/B/C 是纯几何、随时可跑，D 组无活窗 / 卡池没画时印「未验」并计入 `Unverified`，不静默）· 菜单详情窗卡档 `B117_WPOPUP` · 卡面字号/阴影/命中 `B117_WCARD`（**`B117_WCARD` 放最后** —— 它会临时 `Loc.PersistOverride = true` + `SetLanguage(Chinese)`，`finally` 还原）。同一物理行追加 ⇒ 行数零变化   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md ｜ 🆕 2026-10-31（B107_W27）：同一物理行再追加 `B107_W14_Assert.RunCollection(win)`（N84 关窗重开回初值；**必须排在所有筛选断言之后** —— 它会复位三份 static 筛选；判据 → 报告/B107_W14.md §四·1）
             Q2_Assert.Run(); _sink.Pass += Q2_Assert.Pass; _sink.Fail += Q2_Assert.Fail; B110_F1_Assert.Run(); _sink.Pass += B110_F1_Assert.Pass; _sink.Fail += B110_F1_Assert.Fail; B110_F2_Assert.Run(); _sink.Pass += B110_F2_Assert.Pass; _sink.Fail += B110_F2_Assert.Fail; B111_S2_Assert.Run(); _sink.Pass += B111_S2_Assert.Pass; _sink.Fail += B111_S2_Assert.Fail; B112_G_Assert.Run(); _sink.Pass += B112_G_Assert.Pass; _sink.Fail += B112_G_Assert.Fail; B113_G3_Assert.Run(); _sink.Pass += B113_G3_Assert.Pass; _sink.Fail += B113_G3_Assert.Fail; int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else
@@ -13587,8 +13587,8 @@ public static class CollectionScene
                     if (cv != null)
                     {
                         cv.gameObject.SetActive(true);   // TMP 在未激活对象上量不出尺寸
-                        // 与卡池同一档缩放（原版公式 `格高×150/512 ÷ 108`）—— 只为「还原同一张画面」，⛔ 不当期望值
-                        cv.transform.localScale = Vector3.one * (CollectionWindow.CardsCellH * 150f / 512f / 108f);
+                        // 与卡池同一档缩放（`CollectionWindow.CardsCardScale` = 卡位高 ÷ 卡高）—— 只为「还原同一张画面」，⛔ 不当期望值
+                        cv.transform.localScale = Vector3.one * CollectionWindow.CardsCardScale;
                         src = "自建探针 `" + bestName + "`（正文 " + bestLen + " 字；卡池那张取不到）";
                     }
                 }

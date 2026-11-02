@@ -16,15 +16,15 @@
 //     `CollectionCard__OnRectTransformDimensionsChange` @ VA `0x1806D9980`（`localScale = sizeDelta.y × 150/512`）
 //   · 原版**实拍**（用户 `C:/Users/qjh36/Desktop/warpforge参考图/收藏—张牌的界面参考图（打开过滤器按钮后）.png`）：
 //     行距/列距 = **1.465**（= 384/262.5 = 1.4629 ⇒ 反证**不是** 225×364.5）
-//   · 🔴 **2026-10-25 裁定 + 2026-10-26 现读 prefab**（`menu_dump.py bundle_menus_assets_all "Collection Card" --depth 4`）：
-//     `Collection Card` 根 = **350×512**；`CardUI/2DCard` = **x 18→332 / y 6.2→505.8**（**313.91×499.70**），
-//     上下各留 6.2 ⇒ 卡体**在整格里居中**、**压住张数条 ≈33.6px**（张数条 `/Counter` y 461→511 画在卡下缘之上）。
-//     ⇒ 下面 ② / ③ 那四条原来钉的「卡块 = 格高 − 张数条 345.728 · 不压条 · 实拍宽 81.7%」是
-//       **`W11`（2026-10-18）那版口径，已被 2026-10-25 裁定推翻**（裁决与判据 →
-//       `Shell/CollectionWindow.cs` 的 `CardsCardRect` doc、`Editor/HandAssertE8.cs` §D、
-//       `Editor/CollectionScene.cs` 的「卡体缩放 = 原版公式」那一节）。**现按原版公式与 prefab 字面量**。
-//     ⚠️ 81.7% 那条的错因不是「量错了」而是**量纲不同**：实拍里看得见的那一圈是 `CardFrame`，
+//   · 🔴 **2026-11-03（`B117-WCOLL`）订正：卡位 = 格子去掉底下那条张数**（`menu_dump.py bundle_menus_assets_all "Collection Card" --depth 4`）：
+//     `Collection Card` 根 = **350×512**；`CardUI/2DCard` = x 18→332 / y 6.2→505.8 是**含投影的外框**（同树 `Front` 到 523.7）⇒ ⛔ 不能当可见卡框底。
+//     `/Counter` 的 `m_AnchorMax.y = 0.09966714` ⇒ 条顶距格底 **38.272** ⇒ 卡位高 = 384 − 38.272 = **345.728**（卡底**正好落在条顶**）。
+//     实拍（`桌面/warpforge参考图/收藏—张牌的界面参考图（打开过滤器按钮后）.png`）与卡组编辑窗 `DeckRuntime.Pool` 都是这条几何：
+//       `CardH = CellH − CounterH`、`CardScale = CardH ÷ (CardView.Height × PxPerUnit)`（两页**同一条式子**）。
+//     ⚠️ 2026-10-25 那版（`CardsCardRect == cell`、压条 33.6「是原版长相」）**已被实拍推翻**：错因是拿 `2DCard` 的**含投影外框**当卡框。
+//     ⚠️ 更早的 81.7% 那条错因是**量纲不同**：实拍里看得见的那一圈是 `CardFrame`，
 //       而我们的 quad 铺的是**卡本体**（`CardView.Width/Height` = 2.0927/3.3313 ≈ `2DCard` 的 313.91/499.70）。
+//     📌 判据全文 → `判据/B117-WCOLL_收藏卡格.md` · `判据/B117-GC_界面四条.md` §GC-2；断言 → `Editor/B117_WCOLL_Assert.cs`。
 //
 // ⛔ **别把期望值改成读我们自己的常量再和自己比**（自证）：下面的 `Orig*` 全是**原版字面量**，
 //    改实现不改本文件 ⇒ 必红；`A2` §Q6 那套「225×364.5 / spacing 20 / 卡占格 61.3%」**是错的**
@@ -61,18 +61,18 @@ public static class PoolCardGridAssertE6
     const float OrigProtoW = 350f, OrigProtoH = 512f;             // `Collection Card` 根
     const float OrigCardBodyX1 = 18f, OrigCardBodyX2 = 332f;      // `2DCard` x ⇒ 宽 313.91
     const float OrigCardBodyY1 = 6.2f, OrigCardBodyY2 = 505.8f;   // `2DCard` y ⇒ 高 499.70
-    /// <summary>卡体渲染宽 ÷ 格宽 = **313.91 ÷ 350 = 0.8969**（与「`384 × 150/512`」公式直译的
-    /// `2.0927 × 112.5 ÷ 262.5` **逐位吻合** ⇒ 两条独立来源互证）。</summary>
-    const float OrigCardWRatio = (OrigCardBodyX2 - OrigCardBodyX1) / OrigProtoW;   // 0.8969
-    /// <summary>卡体渲染高 ÷ 格高 = **499.70 ÷ 512 = 0.9760**（= `3.3313 × 384 × 150/512` = 374.77px）。</summary>
-    const float OrigCardHRatio = (OrigCardBodyY2 - OrigCardBodyY1) / OrigProtoH;   // 0.9760
-    /// <summary>卡底距格底 = `(512 − 505.8) ÷ 512 × 384` = **4.65px**（上下各 6.2 的一半 ⇒ **居中**）。</summary>
-    const float OrigCardBottomGap = (OrigProtoH - OrigCardBodyY2) / OrigProtoH * OrigCellH;  // 4.65
-    /// <summary>卡底**压进张数条**的高度 = 38.272 − 4.65 = **33.62px** —— 🔴 **这是原版长相**
-    /// （`/Counter` 的 y 461→511 在 512 帧里就画在卡下缘之上）。</summary>
-    const float OrigCardOverlap = OrigCounterH - OrigCardBottomGap;                         // 33.62
-    /// <summary>比值容差：**必须窄** —— 「按整格反解」那版错缩放（1.0677）会给 0.9189 / 1.0000
-    /// （与 0.8969 / 0.9760 差 0.022 / 0.024）⇒ 容差 0.005 才分得开。</summary>
+    /// <summary>卡位高 ÷ 格高 = **1 − 0.09966714 = 0.90033**（`/Counter` 的 `m_AnchorMax.y` = 条顶 ⇒ 卡位 = 格减条顶）。</summary>
+    /// <summary>⚠️ `2DCard` 的 499.70/512 = 0.9760 是**含投影外框**占格高的比，⛔ 不能当可见卡高（2026-10-25 那版就是拿它当卡框）。</summary>
+    const float OrigCardBoxRatio = 1f - OrigCntMaxY;   // 0.90033
+    /// <summary>卡体渲染宽 ÷ 格宽 = 原版 `2DCard` 的宽高比（x 18→332 ÷ y 6.2→505.8 = 314 ÷ 499.6）× 卡位高 ÷ 格宽 ⇒ **≈0.8278**（实测卡体 0.8274，差 0.0004 来自 `CardView` 宽高比的第 4 位）。</summary>
+    const float OrigCardWRatio = ((OrigCardBodyX2 - OrigCardBodyX1) / (OrigCardBodyY2 - OrigCardBodyY1)) * OrigCardBoxRatio * OrigCellH / OrigCellW;   // 0.8278
+    /// <summary>卡底距格底 = 条顶距 = `0.09966714 × 384` = **38.272px**（卡顶贴格顶、卡底贴条顶）。</summary>
+    const float OrigCardBottomGap = OrigCntMaxY * OrigCellH;   // 38.272
+    /// <summary>卡底**压进张数条**的高度 = 卡底(条顶) − 条顶 = **0** —— 原版实拍：卡框金属底边完整露在红条之上。
+    /// 🧨 判别式：卡位若退回整格（2026-10-25 那版）⇒ 本文件 ②/③ 全红。</summary>
+    const float OrigCardOverlap = 0f;                         // 0（卡底正好落在条顶）
+    /// <summary>比值容差：**必须窄** —— 「按整格」那版会给宽比 0.8969 / 高比 0.9760（本版 0.8274 / 0.90033）
+    /// 两者差 0.070 / 0.076 ⇒ 容差 0.005 只吸收取整与 `CardView` 宽高比的第 5 位。</summary>
     const float RatioTol = 0.005f;
 
     /// <summary>随宿主跑（`CollectionScene.Run` 里接的那一行）：断言失败记进**宿主自己的** `CheckSink`。</summary>
@@ -120,20 +120,20 @@ public static class PoolCardGridAssertE6
         MenuCheck.Near(s, c0.y2 - cnt.y2, OrigCntMinY * OrigCellH, 0.02f,
                        "张数条**贴格底**：条底距格底 = 0.002 × 384 = **0.768**（原版 `anchorMin.y`）");
         var cardR = CollectionWindow.CardsCardRect(c0);
-        MenuCheck.Near(s, cardR.H, OrigCellH, 0.01f,
-                       "卡块**位置框**高 = **整格 384**（原版 `CardUI/2DCard` 在 350×512 原型里 y 6.2→505.8，"
-                       + "上下各 6.2 ⇒ **整格里居中**）");
-        // 🔴 **2026-10-26（本代理）就地订正（铁律 5）**：本处原来钉两条 `W11`（2026-10-18）口径的断言
-        //   ——「卡块高 = 格高 − 张数条 = 345.728」与「★ 卡块下沿 ≤ 张数条上沿（⛔ 别改回整格）」。
-        //   **那两条已被 2026-10-25 裁定推翻**（判据 = 上面 prefab 那两行 + `Shell/CollectionWindow.cs`
-        //   的 `CardsCardRect` doc + `Editor/HandAssertE8.cs` §D）：
-        //   · 卡体**位置框** = 整格（`CardsCardRect(cell) == cell`）；
-        //   · 画出来的那一块（渲染高 374.77、居中）**压住张数条 33.62px** —— **那是原版长相**；
-        //   · `W11` 当时量到的「重叠」根因是**缩放口径**（按整格反解），**不是**「卡不该压条」。
-        //   🧨 灭自证：把 `CardsCardRect` 改回 `W11` 那版（格高 − 张数条）⇒ 本条回 345.73 ⇒ 红；
-        //      把卡缩到条上面（③ 那条会变 0）⇒ ③ 红。两条**结构互斥**，不可能一起改绿。
-        MenuCheck.True(s, Mathf.Abs(cardR.y1 - c0.y1) < 1e-3f && Mathf.Abs(cardR.y2 - c0.y2) < 1e-3f,
-                       "★ 卡块位置框的**上下沿 = 格的上下沿**（= 整格居中；⛔ 不是「格高 − 张数条」那版）");
+        MenuCheck.Near(s, cardR.H, OrigCellH * OrigCardBoxRatio, 0.01f,
+                       "卡块**位置框**高 = 格高 384 − 条顶 38.272 = **345.728**（判据 = 原版 `/Counter` 的 `m_AnchorMax.y` 0.09966714，"
+                       + "⛔ 不是 `2DCard` 那个**含投影外框**的 499.70/512）");
+        // 🔴 **2026-11-03（`B117-WCOLL`）就地订正（铁律 5）**：本处 2026-10-26 那版（「卡块 == 整格、压条 33.62 是原版长相」）
+        //   **已被实拍推翻** —— 错因是拿 `2DCard` 的**含投影外框**（y 6.2→505.8）当可见卡框底。判据 = 文件头那几行 +
+        //   `判据/B117-WCOLL_收藏卡格.md` + 卡组编辑窗 `DeckRuntime.Pool`（同一格 262.5×384，`CardH = CellH − CounterH`）：
+        //   · 卡体**位置框** = 格子去掉底下那条张数（上/左/右沿 == 格，下沿 == 条顶）；
+        //   · 画出来的那一块**正好铺满**这块卡位（渲染高 345.728）⇒ 卡底**正好落在条顶**（压条 0）；
+        //   · 实拍：卡框金属底边完整露在红条之上 —— 「压条」那版是错结论，不是原版长相。
+        //   🧨 灭自证：把 `CardsCardRect` 改回 `return cell;`（2026-10-25 那版）⇒ 本条下沿回格底 ⇒ 红；
+        //      只把卡缩小而位置框仍整格（卡心在格心）⇒ ③ 的「卡底 = 条顶」同样红。两条**结构互斥**，不可能一起改绿。
+        //   卡心随位置框落在卡位中心（= 格心 − 条顶/2）—— `SetPose` 按这块框摆，⛔ 别再按整格算。
+        MenuCheck.True(s, Mathf.Abs(cardR.y1 - c0.y1) < 1e-3f && Mathf.Abs(cardR.y2 - (c0.y2 - OrigCounterH)) < 1e-3f,
+                       "★ 卡块位置框的**上沿 = 格上沿、下沿 = 条顶**（= 格高 − 张数条；⛔ 不是 2026-10-25 那版「整格」）");
 
         // ---------------------------------------------------------------- ③ 活对象（只在有窗口时）
         if (win == null) return;
@@ -153,29 +153,29 @@ public static class PoolCardGridAssertE6
         float sc = cv0.BaseScale;                       // SetPose 写进去的**基础缩放**（不含高亮系数）
         float rendW = CardView.Width * 108f * sc;       // 卡体渲染宽（px；108 = 每卡单位 px）
         float rendH = CardView.Height * 108f * sc;
-        // 🔴 **2026-10-26 就地订正（铁律 5）**：原两条（实拍 81.7% ±3%）已推翻 —— 错因是**量纲不同**
-        //   （实拍那圈是 `CardFrame`，我们铺的是**卡本体** quad）。现改成**原版 prefab 的 2DCard 占比**：
-        //   宽 313.91/350 = 0.8969、高 499.70/512 = 0.9760；两者与「`384 × 150/512` ⇒ 112.5px/卡单位」逐位吻合。
+        // 🔴 **2026-11-03 就地订正（铁律 5）**：2026-10-26 那两条（宽 0.8969 / 高 0.9760，按**整格**算）**已随卡位改动失效**。
+        //   （更早那版实拍 81.7% 的错因是**量纲不同**：实拍那圈是 `CardFrame`，我们铺的是**卡本体** quad。）
+        //   现按**卡位 = 格子去掉条顶**重算：宽 0.8274（= 2DCard 宽高比 × 0.90033 × 384/262.5）、高 0.90033（= 1 − 条顶比）。
         MenuCheck.Near(s, rendW / OrigCellW, OrigCardWRatio, RatioTol,
-                       "★ 卡体渲染宽 ÷ 格宽 = **原版 `2DCard` 的 89.69%**（313.91 ÷ 350；"
+                       "★ 卡体渲染宽 ÷ 格宽 = **0.8274**（原版 `2DCard` 宽高比 314/499.6 × 卡位高比 0.90033 × 384/262.5；"
                        + "⛔ 旧的 81.7% 是拿实拍里带 `CardFrame` 的视觉宽比我们的卡本体 = 量纲不同）");
-        MenuCheck.Near(s, rendH / OrigCellH, OrigCardHRatio, RatioTol,
-                       "★ 卡体渲染高 ÷ 格高 = **原版 `2DCard` 的 97.60%**（499.70 ÷ 512 = "
-                       + "`3.3313 × 384 × 150/512` = 374.77px ⇒ 原版公式直译）"
-                       + "｜🧨 按整格反解那版错缩放（1.0677）⇒ 100% ⇒ 红");
+        MenuCheck.Near(s, rendH / OrigCellH, OrigCardBoxRatio, RatioTol,
+                       "★ 卡体渲染高 ÷ 格高 = **0.90033**（= 1 − `/Counter` 的 `m_AnchorMax.y` 0.09966714 = 345.728px；"
+                       + "与卡组编辑窗 `Pool` 同一条式子）"
+                       + "｜🧨 按整格 × 150/512 反解那版（缩放出 0.9760）⇒ 红");
 
-        // 竖直：卡底**压进张数条 ≈33.62px** —— 🔴 **这是原版长相**（用活对象的中心 + 渲染高现算，
-        //   ⛔ 不读 `CardsCardRect`；判据 = prefab `2DCard` y 505.8 vs `/Counter` 上锚 461，同一 512 帧）
+        // 竖直：卡底**正好落在条顶**（压条 0）—— 用活对象的中心 + 渲染高现算，
+        //   ⛔ 不读 `CardsCardRect`；判据 = prefab `/Counter` 的 `m_AnchorMax.y` 0.09966714（条顶距格底）
         var cellD = CollectionWindow.CardsCellRect(0);  // 设计 px（格位数学；与建窗同一份）
         var cardC = MenuCheck.DesignPx(cv0.transform);
         float cardBottom = cardC.y + rendH * 0.5f;
         float counterTop = cellD.y2 - OrigCounterH;
         MenuCheck.Near(s, cardBottom, cellD.y2 - OrigCardBottomGap, 0.6f,
-                       $"★ 活对象：卡底 {cardBottom:F2} = 格底 − **4.65**"
-                       + $"（{cellD.y2 - OrigCardBottomGap:F2}；原版 `2DCard` 距原型底 6.2/512 ⇒ 整格里**居中**）");
+                       $"★ 活对象：卡底 {cardBottom:F2} = 格底 − **38.272**"
+                       + $"（{cellD.y2 - OrigCardBottomGap:F2}；= 条顶距格底 ⇒ 卡底贴条顶、卡顶贴格顶）");
         MenuCheck.Near(s, cardBottom - counterTop, OrigCardOverlap, 0.6f,
-                       $"★ 活对象：卡底**压进张数条 {cardBottom - counterTop:F2}px**（原版 33.62；条顶 {counterTop:F2}）"
-                       + " —— 原版长相，⛔ 别再为了「不压条」把卡缩到条上面（W11 那版过度修正 ⇒ 本条变 0 ⇒ 红）");
+                       $"★ 活对象：卡底**压进张数条 {cardBottom - counterTop:F2}px**（原版 0；条顶 {counterTop:F2}）"
+                       + " —— 卡底与条顶严丝合缝，⛔ 别把卡位改回整格（2026-10-25 那版 ⇒ 压条 33.6 ⇒ 本条红）");
         // 横向：卡心必须落在格中线上（`SetPose` 的矩形左右对称）
         MenuCheck.Near(s, cardC.x, (cellD.x1 + cellD.x2) * 0.5f, 0.5f,
                        "活对象：卡心 x 落在格中线上（左右对称，不是贴左）");

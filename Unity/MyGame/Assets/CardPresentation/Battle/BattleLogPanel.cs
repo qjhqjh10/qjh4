@@ -237,9 +237,9 @@ namespace CardPresentation
         /// ⛔ 再 `.linear` 就是**乘了两遍**（底板黑到看不见）。
         /// ⚠️ **这一处是判断、不是实读**：现行口径不许起 player（`T09` §五 五）⇒ **没在真机上比过色**；
         /// 判据链 = ① 原版序列化的原值 + ② uGUI 顶点色那条 sRGB 约定 + ③ 旧材质路当初为什么要 `.linear`。</summary>
-        static readonly Color BgColor = new Color(0f, 0.08f, 0.01f, 1f);
+        static readonly Color BgColor = new Color(0f, 0.07547170f, 0.008201491f, 1f);   // 🔴 2026-11-03（`B117-G10-15`）：原值逐位 = `MonoBehaviour_4620.json` 的 `m_Color`（原来是四舍五入的 0.08 / 0.01）
         /// <summary>压暗：原版 `shade` 黑 55%</summary>
-        static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.55f);
+        static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.5529412f);   // 🔴 2026-11-03（`B117-G10-15`）：原值逐位 = `MonoBehaviour_4611.json` 的 `m_Color.a`（原来写成 0.55）
 
         // ---- 层级（🔴 2026-10-16 `T09` 批 2：**这组数现在是【兄弟序】的档位，不是世界 z**）----
         // ⚠️ 第一版把 `ZBg` 写得比 `ZRowBg` 还小 —— 于是底板压住了所有行（截图里只看得到一行）。
@@ -622,7 +622,7 @@ namespace CardPresentation
         {
             _bgDownCount++;
             var ped = data as PointerEventData;
-            int row = ped != null ? RowAtScreen(ped.position, ped.pressEventCamera) : -1;
+            int row = ped != null ? LinkRowAtScreen(ped.position, ped.pressEventCamera) : -1;   // 🔴 2026-11-03（执行代理 `B117-WBD` · 账 `B117-49`）：**只认行内那个 TMP 链接**（原版 `CemeteryManager__ClickCardLink.c:56-70` 先 `FindIntersectingLink`、未命中直接 return）；`RowAtScreen` 那条「整行矩形」只留作探针不可用时的降级（见 `LinkRowAt`）
             _lastBgRow = row;
             _lastBgKey = row >= 0 ? RowCardKey(row) : null;
             if (row < 0) return;      // 原版 `ClickCardLink` 没扫到链接 ⇒ 直接 return（**不**关面板）
@@ -1087,8 +1087,8 @@ namespace CardPresentation
 
         // ==================================================================
         //  滑动（原版 `CemeteryManager`：`DOAnchorPosX(rt, initialX = −1200 ⇒ finalX = 87, 0.3 s)`）
-        //  判据（逐行读过 `CemeteryManager__ShowCemeteryLogBtn.c`）：开 = `:17`、合 = `:51`——
-        //  两条**都先** `TweenExtensions.Complete(+0x98)`（把飞行中的补间**一把推到底**）再起新的；
+        //  判据（逐行读过 `CemeteryManager__ShowCemeteryLogBtn.c`）：开 = `:17`、合 = `:51` —— **同一个方法的两支**；
+        //  🔴 `IsPlaying → Complete(+0x98)` 只在 `ShowCemeteryLogBtn.c:10-15`，`HideCemeteryLogBtn.c` **没有那两句** ⇒ 关的时候是从当前位置往回滑；
         //  时长 `DAT_1834b2dc8` = **0.3f**（`GameAssembly.dll` 浮点池实读，与 `CardFeel` 同一只常量）；
         //  调用点是 DOTween 快捷式、**没有 `SetEase`** ⇒ 默认缓动 **OutQuad**。
         //  ⚠️ 压暗层**不跟着滑**：原版在开/合那一刻直接 `shade.SetActive(±1)`（不是补间）——
@@ -1132,7 +1132,7 @@ namespace CardPresentation
         public void Hide()
         {
             _visible = false;
-            SnapSlide();
+            // 🔴 2026-11-03（`B117-G10-15`）**这里不再 `SnapSlide()`**：原版 `HideCemeteryLogBtn.c` 开头**没有** `IsPlaying/Complete`（那两句只在 `ShowCemeteryLogBtn.c:10-15`）⇒ 关面板是从**当前位置**滑回去，不先推到终点。
             _slideDir = -1;
             if (_shade != null) _shade.gameObject.SetActive(false);
             ApplySlide();
@@ -1179,8 +1179,8 @@ namespace CardPresentation
         void ApplySlide()
         {
             if (_root == null) return;
-            float u = 1f - _slideT;
-            float xPx = Mathf.Lerp(PanelClosedX, PanelOpenX, 1f - u * u);
+            float xPx = SlidePxAt(_slideT);
+            //（`SlidePxAt` = `Lerp(closed, open, 1−(1−t)²)` = OutQuad，定义在类尾；自检直接调它验曲线形状）
             _slidePx = xPx - PanelOpenX;
             var rt = _root as RectTransform;
             if (rt != null) rt.anchoredPosition = new Vector2(_slidePx, 0f);
@@ -1254,6 +1254,112 @@ namespace CardPresentation
         {
             float rowTopPx = RowsCyTopPx - RowsH * 0.5f;
             return 1f - (rowTopPx + (i + 0.5f) * RowH) / 1080f;
+        }
+
+        // ============================================================================================
+        //  🆕 2026-11-03（执行代理 `B117-WBD` · 账 `B117-49`）：**命中区收窄成「行内那个 TMP 链接」**
+        // ============================================================================================
+        //  判据（一手，`d:/2/tools/decomp_full/CemeteryManager__ClickCardLink.c:56-70`，逐行读过）：
+        //    逐颗 `cemeteryActions[]` 取它的 TMP → `TMP_TextUtilities.FindIntersectingLink` →
+        //    `uVar4 == 0xffffffff`（**没命中**）⇒ 直接扫下一行；10 行都没命中 ⇒ 方法 return（⛔ 不弹卡、⛔ 不关面板）。
+        //  ⇒ 我们改前认的是**整行底板矩形**（`RowAt` / `RowAtScreen`），比原版宽（点行的空白处也会弹卡）。
+        //     本节把它收窄成「行内链接」，与**悬停**那条路（`LinkKeyAt`，同一个 `TMP` 判据）逐字同源。
+        //
+        //  ⚠️ **降级路径（必须可测）**：`Core/TmpFont.LinkAt` 第一句就是 `if (tmp == null || cam == null) return null`
+        //     ⇒ 批处理 / Overlay 子画布取不到 `worldCamera` 时，**「没命中」与「测不了」长得一模一样**。
+        //     这一档不能当成「玩家点空了」（那会把整条交互在批处理里判死）⇒ 降级成**整行矩形命中**
+        //     （`RowAt`），并置 `LastLinkProbeDegraded` 让调用方出声。
+        //     自检可以用 `ForceLinkProbeUnavailableForTest` 直接把这条路摆出来（不依赖环境）。
+        //  ⚠️ 追加在类尾（本文件被账按行号引，插中间会让落点漂移）。
+        // ============================================================================================
+
+        /// <summary>自检口：把「链接命中探测不可用」摆成真（模拟批处理 / 无渲染档 TMP 量不出字形）。
+        /// ⚠️ 只影响 <see cref="LinkRowAt"/> 的**降级**分支，⛔ 不改任何生产判据。</summary>
+        public bool ForceLinkProbeUnavailableForTest { get; set; }
+
+        /// <summary>上一次 <see cref="LinkRowAt"/> 是不是**走了降级**（= TMP 那一路答不出来）。
+        /// 自检口：证明「降级真的发生了」—— ⛔ 不是「反正点中了」。</summary>
+        public bool LastLinkProbeDegraded { get; private set; }
+
+        /// <summary>世界坐标落在哪一行的**卡名链接**上（`-1` = 没落在任何链接上）。
+        /// <para>判据 = `CemeteryManager__ClickCardLink.c:56-70`（见本节头注）：逐行 `FindIntersectingLink`，
+        /// 未命中就继续扫；全没命中 ⇒ `-1`（调用方**不接手**这一下）。</para>
+        /// <para>⚠️ **降级**：`cam == null`（或自检强制）时 TMP 那一路恒返 null ⇒ 退回整行矩形命中
+        /// （<see cref="RowAt"/>）并置 <see cref="LastLinkProbeDegraded"/>。</para></summary>
+        public int LinkRowAt(Vector3 wp, Camera cam)
+        {
+            LastLinkProbeDegraded = false;
+            if (!_visible || _rowTexts == null) return -1;
+            for (int i = 0; i < _rowTexts.Length; i++)
+            {
+                if (_rowTexts[i] == null) continue;
+                if (!string.IsNullOrEmpty(_rowTexts[i].LinkAt(wp, cam))) return i;
+            }
+            // TMP 那一路答不出来（无相机 / 未生成字形）⇒ 这是「测不了」，不是「点空了」
+            if (ForceLinkProbeUnavailableForTest || cam == null)
+            {
+                LastLinkProbeDegraded = true;
+                return RowAt(wp);
+            }
+            return -1;
+        }
+
+        /// <summary>屏幕点落在哪一行的**卡名链接**上（uGUI 那条路的换算口）。`-1` = 没落在任何链接上。
+        /// 换算与降级规则与 <see cref="RowAtScreen"/> / <see cref="LinkRowAt"/> 逐字相同
+        /// （同一套 `RectTransformUtility` 口 —— ⛔ 别在这里混 `LayoutSpace.ToPixel` 那一族）。</summary>
+        public int LinkRowAtScreen(Vector2 screen, Camera cam)
+        {
+            if (!_visible || _rowBgs == null) return -1;
+            RectTransform rect = _bg != null ? _bg.Rect : _root as RectTransform;
+            if (rect == null) return -1;
+            if (cam == null)          // Overlay 档 cam 本来就该是 null；Camera 档才需要兜底
+            {
+                var cv = SubCanvas;
+                if (cv != null) cam = cv.worldCamera;
+            }
+            Vector3 wp;
+            if (!RectTransformUtility.ScreenPointToWorldPointInRectangle(rect, screen, cam, out wp)) return -1;
+            return LinkRowAt(wp, cam);
+        }
+
+        // ============================================================================================
+        //  🆕 2026-11-03（执行代理 `B117-G10-15` · 账 `B117-G10-15`）：滑窗曲线的**纯函数** + 四个自检读口
+        //  ⚠️ **追加在类尾** —— 本文件被账按行号引（`:398` `LinkKeyAt` / `:809` `Build` / `:1120` `Toggle` /
+        //     `:1121` / `:1134` `Hide` / `:1156` `TickSlide`）⇒ 插在中间会让这些落点整体漂移。
+        // ============================================================================================
+
+        /// <summary>滑动**曲线本体**（纯函数：`t` = 进度，`0` = 收起 · `1` = 拉开 ⇒ 面板左缘的屏幕 px）。
+        /// <para>判据：`CemeteryManager__ShowCemeteryLogBtn.c:17/51` 是 `DOAnchorPosX(rt, finalX/initialX, DAT_1834b2dc8)`，
+        /// **没有 `SetEase`** ⇒ DOTween 默认缓动 **OutQuad** ⇒ `p(t) = 1 − (1−t)²`；
+        /// `DAT_1834b2dc8` 用 `工具/read_literal.py` 从 `GameAssembly.dll` 实读 = **0.3f**。</para>
+        /// <para>⛔ 本函数只是把 `ApplySlide` 里那条算式**抽出来共用**（生产路径与自检同一份）—— 所有调用点行为逐位不变。</para></summary>
+        public static float SlidePxAt(float t) { float u = 1f - t; return Mathf.Lerp(PanelClosedX, PanelOpenX, 1f - u * u); }
+
+        /// <summary>自检用：收起位 = 原版 `initialX` **−1200**（`MonoBehaviour_4491.json` 的 `initialX`）。</summary>
+        public static float SlideClosedXPx { get { return PanelClosedX; } }
+        /// <summary>自检用：拉开位 = 原版 `finalX` **87**（同上 `MonoBehaviour_4491.json` 的 `finalX`）。</summary>
+        public static float SlideOpenXPx { get { return PanelOpenX; } }
+        /// <summary>自检用：滑动时长（原版 `DAT_1834b2dc8` 实读 **0.3 s**）。</summary>
+        public static float SlideDurationForTest { get { return SlideDur; } }
+        /// <summary>自检用：当前滑动方向（`0` = 停着 · `+1` = 正拉开 · `−1` = 正收起）。</summary>
+        public int SlideDirForTest { get { return _slideDir; } }
+
+        /// <summary>🆕 **2026-11-02（`B117-FIXD`）自检用**：把各行 TMP 的字形**真的生成一遍**（再交给 `FindLinkProbe`）。
+        /// <para>为什么需要：`-executeMethod` 批处理**没有帧循环** —— `Show()` 的同一拍里 TMP 还没走到
+        /// `OnPreRenderCanvas` 的 `GenerateTextMesh`，而 `FindIntersectingLink` 判的就是 `textInfo.characterInfo`
+        /// ⇒ 那一拍扫出来**恒 −1**（`B117_WBD` 的「扫得到一个压在链接字形上的点」就是这么红的；
+        /// 同族已记在 `Editor/BattleScene.cs:37198` 那条 `B117-FIXC` 的注释里）。生产路径不受影响
+        /// （真实帧循环里 TMP 自己会生成）⇒ ⛔ 别把它接进生产调用链。</para></summary>
+        public void ForceRowTextLayoutForTest()
+        {
+            Canvas.ForceUpdateCanvases();
+            if (_rowTexts == null) return;
+            for (int i = 0; i < _rowTexts.Length; i++)
+            {
+                if (_rowTexts[i] == null) continue;
+                var t = _rowTexts[i].GetComponentInChildren<TMPro.TMP_Text>(true);
+                if (t != null && t.isActiveAndEnabled) t.ForceMeshUpdate();
+            }
         }
     }
 }

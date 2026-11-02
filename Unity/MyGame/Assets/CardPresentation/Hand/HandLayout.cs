@@ -710,7 +710,7 @@ namespace CardPresentation
             _lastPose.Clear();          // 只保证「最近一趟」的结果（见 `_lastPose` 的注释）
             if (cards == null) return;
             int n = cards.Count;
-            if (n == 0) { _lastSeen.Clear(); return; }   // 空手牌也要清 —— 否则下一趟会拿旧名单判「谁被拿起来了」
+            if (n == 0) { _lastSeen.Clear(); _hoverNow = null; return; }   // 空手牌也要清 —— 否则下一趟会拿旧名单判「谁被拿起来了」
 
             bool hole = insertIndex >= 0;
             int slots = hole ? n + 1 : n;
@@ -757,7 +757,7 @@ namespace CardPresentation
 
             // 被选中/展示的那一张**在槽位空间里**是第几号 —— 原版比的是同一个索引空间里的两个序号
             // （`GetPosition(cardIndex, total, selectedCardIndex)`），带着空位时 `slot` 会整体错开 1。
-            int selSlot = (hole && hoveredIndex >= insertIndex) ? hoveredIndex + 1 : hoveredIndex;
+            int selSlot = (hole && hoveredIndex >= insertIndex) ? hoveredIndex + 1 : hoveredIndex; _hoverPrev = _hoverNow; _hoverNow = (hoveredIndex >= 0 && hoveredIndex < n) ? cards[hoveredIndex] : null;   // 🆕 2026-11-02（`B117-G10-06`）：记「这一趟 / 上一趟谁被抬起」—— 撤悬停的那一张也要**瞬切**（判据见类尾 `_hoverPrev` 的 doc）
 
             for (int i = 0; i < n; i++)
             {
@@ -796,7 +796,7 @@ namespace CardPresentation
                 if (i == hoveredIndex)
                 {
                     pos.y += hoverLift;
-                    scale *= hoverScale;
+                    scale *= hoverScale; angle = 0f;   // 🆕 2026-11-02（`B117-G10-06`）：原版 `ShowCardInHand` 的第二句是 `transform.rotation = Internal_FromEulerRad(Vector3.zero × Deg2Rad)` ⇒ **抬起来那张是正的**（取消扇形角）；撤悬停时 `StopShowingCardInHand` 再把 `originalRotInHand` 写回去 ⇒ 又变回扇形角
                 }
 
                 // 层序：相机在 -Z 看 +Z，**z 越小越靠前**。原版「左卡 z < 右卡 z」= 左边压上面。
@@ -831,7 +831,7 @@ namespace CardPresentation
                 }
                 c.SetQueue(q);
 
-                Place(c, pos, angle, scale, i == hoveredIndex);
+                Place(c, pos, angle, scale, i == hoveredIndex || c == _hoverPrev);   // `c == _hoverPrev` = **刚被撤掉悬停的那一张也瞬切**（原版 `StopShowingCardInHand` 三句直写）
             }
         }
 
@@ -1038,5 +1038,27 @@ namespace CardPresentation
         {
             get { return ScreenUtilities.GetScreenPhysicalSize() > 7.0f ? 20f : 30f; }
         }
+
+        // ==================================================================
+        //  🆕 2026-11-02（`B117-G10-06` · 执行代理）：**撤掉悬停的那一张也要瞬切**
+        // ==================================================================
+        //  判据（`d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/CardScript.cs`，**真方法体**那份）：
+        //   · `OnTouchExit`（`:4346-4356`）→ `cardState == inHandShowing` ⇒ `StopShowingCardInHand(true)`；
+        //   · `StopShowingCardInHand`（`:5124-5152`）**三句直写**（无补间、无时长）：
+        //       `transform.position = originalPosInHand` ·
+        //       `transform.rotation = originalRotInHand` ·
+        //       `transform.localScale = GetCardInHandScale()`
+        //     —— 与 `ShowCardInHand`（`:4893-4975`）那三句**成对**，是同一条「抬起 / 放回」的两半；
+        //   · 另有一条同源证据：`UpdateMinionInHandPosition`（`:3675-3705`）开头是
+        //       `if (cardState == CardStateOptions.inHand)` —— **抬起态（state 8 = inHandShowing）整条布局补间被跳过**
+        //     ⇒ 原版对抬起那张**根本不开 0.2 s 补间**，放回时也是①硬写 ②`SetStateInHand()` ③再跑一趟
+        //       `MoveCardsInHandToPosition(-1, null)`（起点 == 终点 ⇒ 看不出移动）。
+        //   ⇒ 我们的等价物：`Refresh` 里**「上一趟被抬起、这一趟不再被抬起」的那一张**走 `Place(..., snap: true)`。
+        //   ⚠️ 补这一半之前，`B117-32` 只覆盖了**进入**（悬停那张瞬切）；**退出**仍走 0.2 s `OutQuad` ⇒
+        //      松手/挪开时那张牌会**自己滑回手牌**，而原版是「当场落回」。
+        //   🧨 灭自证：把 `Place` 那一句的 `|| c == _hoverPrev` 删掉 ⇒ `B117_G10_06_Assert` 的 A2 红。
+        //   ⚠️ 声明在类尾（同 `SelectedExtraFor` 的理由）：`HandLayout.cs` 在账里有 `文件:行号` 落点
+        //      （最大 `:1037`），插进字段区会让下游整段漂移（铁律 18·b）。
+        CardView _hoverNow, _hoverPrev;
     }
 }

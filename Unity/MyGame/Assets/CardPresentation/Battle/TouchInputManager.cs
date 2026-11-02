@@ -81,9 +81,9 @@ namespace CardPresentation
     /// <summary>
     /// 指针/触摸的**唯一输入源**（原版 `TouchInputManager`，TypeDefIndex 2299）：每帧把
     /// 鼠标位置 / 按下 / 滚轮 / 拖拽增量收成一组静态属性，供战场各系统读。
-    /// <para>⚠️ 原版的 12 个消费者里，我们**只有 `CombatCameraZoom` 一条真的接上了**（见文件头）；
-    /// 其余各家我们都有自己的一条路（`BattleDriver.WorldPointer` / `PointerHeld` 等），
-    /// 逐条对照写在 `资料/普查产出_1013/WB5_两件组件.md` §二。</para>
+    /// <para>⚠️ 原版的 12 个消费者里，我们**接上了 2 条**（🔴 2026-11-02 现读订正：原来写「只有 `CombatCameraZoom`」）：
+    /// `CombatCameraZoom`（`ScrollDelta` / `TouchPressedSecondary` / `TouchDragDelta`）与 **`AttackSelector.PushDrag`**
+    /// （`TouchDragDeltaViewport`，`Battle/AttackSelector.cs:430`）；其余各家走自己的一条路（`BattleDriver.WorldPointer` / `PointerHeld`）。</para>
     /// </summary>
     public class TouchInputManager : MonoBehaviour
     {

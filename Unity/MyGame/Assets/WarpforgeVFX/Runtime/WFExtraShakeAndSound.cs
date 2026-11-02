@@ -47,8 +47,8 @@ namespace WarpforgeVFX
             {
                 var s = sounds[i];
                 if (s == null || s.total <= 0 || string.IsNullOrEmpty(s.cue)) continue;
-                // `while` 而不是 `if` —— 一帧跨过好几个区间时不丢拍（与 `WarpforgeEffectPlayer.TickSounds` 同口径）
-                while (_played[i] < s.total && _t >= s.time + _played[i] * s.interval)
+                // **一次 Tick 每条槽位最多播一条**（原版 `PlaySoundOnTime__Update.c:68-70` 末尾 `numberOfTimesPlayed += 1; return;`；与 `WarpforgeEffectPlayer.TickSounds` 同口径。2026-11-02 B117-G10-10b 订正：原为 `while`，与同仓那条 2026-10-29 的订正打架）
+                if (_played[i] < s.total && _t >= s.time + _played[i] * s.interval)
                 {
                     _played[i]++;
                     WFSoundCue cue;

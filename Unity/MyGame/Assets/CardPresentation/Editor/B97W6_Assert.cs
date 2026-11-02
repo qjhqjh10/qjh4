@@ -8,10 +8,15 @@
 // 判据（⛔ 别在这里抄第二份）→ `资料/完全复刻/判据/B97_藏卡ban徽标_施工单.md` ＋ 本轮报告 `资料/完全复刻/报告/B97_W6.md`。
 //
 // ============================ 三条断言 ============================
-//   ① 几何：`Ban Icon 0` 的实绘框 = **196.875 × 196.875 px**（±0.5），中心 = 格中心，队列 > 卡(3000)。
-//      期望值**从原版 prefab 字段推**（1.75 卡单位 × `CardUI.localScale 150` × 本页 0.75 缩），
-//      ⛔ 不读我们实现里的 `side` 常量（那是自证）。
-//   ② 字框 = 方叉的 **0.8 × 0.2**（157.5 × 39.375 px）、字号 base ≈ **27 px**、文案 = `Loc.T("MenuDeck/Banned")`。
+//   ① 几何：`Ban Icon 0` 的实绘框 = **181.62 × 181.62 px**（±0.5），中心 = **卡心**，队列 > 卡(3000)。
+//      期望值**从原版 prefab 字段推**：方叉 = 1.75 **卡单位**、卡体 = `2DCard.sizeDelta.y 3.3313` 卡单位
+//      ⇒ 方叉/卡体 = 0.5253；本页卡体渲染高 = 格高 × (1 − `Counter.anchorMax.y 0.09966714`) = 345.728 px
+//      ⇒ **1.75 ÷ 3.3313 × 345.728 = 181.62 px**。⛔ 不读我们实现里的 `side` / `pxPerUnit`（那是自证）。
+//      🔴 **2026-11-02（B117-FIXD）就地订正**：原来这里写的是「1.75 × 150 × 0.75 = 196.875、中心 = 格中心」——
+//      那两个数把 `Collection Card` 根高 **512**（含底下那条 Counter）当成了卡体高，而且中心取的是**整格**心。
+//      原版方叉挂在 `CardUI`（`2DCard` 的兄弟）、中心锚 ⇒ 它跟的是**卡体**；卡体在格里已被让到条之上
+//      （`CardsCardRect` = 格 − 条）⇒ 尺寸随卡一起缩、中心 = 卡心。判据 → `判据/B117-WCOLL_收藏卡格.md`。
+//   ② 字框 = 方叉的 **0.8 × 0.2**（145.30 × 36.32 px）、字号 base ≈ **24.91 px**、文案 = `Loc.T("MenuDeck/Banned")`。
 //   ③ 显隐：默认（无活动）**图标与文字都关**；造一个带禁卡表的活动事件后 **两者都开**（灭自证：两条都要）。
 //
 // ============================ 怎么用（宿主）============================
@@ -46,17 +51,24 @@ public static class B97W6Assert
 
     // ---------------------------------------------------------------- 原版 prefab 真值（逐字段现读）
     // `d:/2/tools/assetripper_out/ExportedProject/Assets/GameObject/Collection Card.prefab`
-    const float OrigCardH = 512f;          // `Collection Card` 原型高
-    const float OrigCardUiScale = 150f;    // `CardUI.m_LocalScale`
-    const float OrigBanUnits = 1.75f;      // `Ban Icon.sizeDelta`（**卡单位**）
-    const float OrigBanPx = OrigBanUnits * OrigCardUiScale;   // = 262.5（原版 350×512 卡里的方叉）
-    const float OrigFontBase = 36f;        // `Banned Text` TMP `m_fontSizeBase`
+    //   · `Collection Card` 根 `m_SizeDelta` = 350 × 512（**整格**，含底下那条 Counter）—— ⛔ 不是卡体高
+    //   · `CardUI.m_LocalScale` = 150 · 子件 `2DCard.m_SizeDelta` = 2.0927 × **3.3313**（= `CardView.Height`）
+    //   · `Counter.m_AnchorMax.y` = **0.09966714** ⇒ 条占格高的 9.9667%（我们 = `CardsCounterH`）
+    //   · `Ban Icon.m_SizeDelta` = 1.75 × 1.75（**卡单位**；挂 `CardUI` 下 ⇒ 原版 = 1.75 × 150 = 262.5 px）
+    const float OrigCardUnits = 3.3313f;         // `2DCard.m_SizeDelta.y`（卡体高 = `CardView.Height`）
+    const float OrigCounterMaxY = 0.09966714f;   // `Counter.m_AnchorMax.y`
+    const float OrigBanUnits = 1.75f;            // `Ban Icon.m_SizeDelta`（**卡单位**）
+    const float OrigBanPx = OrigBanUnits * 150f; // = 262.5（原版 `CardUI.m_LocalScale = 150`）
+    const float OrigFontBase = 36f;              // `Banned Text` TMP `m_fontSizeBase`（在 262.5 px 方叉里定的）
     const float OrigTextW = 0.8f, OrigTextH = 0.2f;           // `Banned Text` 框 = 方叉的 0.8 × 0.2
 
-    /// <summary>本页格子 = 原版 350×512 × **0.75**（`CollectionWindow.CardsCellH = 384` = 512 × 0.75）。</summary>
-    static float PageScale { get { return CollectionWindow.CardsCellH / OrigCardH; } }
-    /// <summary>方叉边长 = 1.75 × 150 × 0.75 = **196.875 px**（期望值不从实现的 `side` 读）。</summary>
-    static float ExpectSidePx { get { return OrigBanUnits * OrigCardUiScale * PageScale; } }
+    /// <summary>底下那条 Counter 占掉的高度 = `Counter.m_AnchorMax.y` × 格高 = **38.272 px**。</summary>
+    static float CounterH { get { return OrigCounterMaxY * CollectionWindow.CardsCellH; } }
+    /// <summary>卡体渲染高 = 格高 − 条 = **345.728 px**（`CollectionWindow.CardsCardRect` 同一条几何）。</summary>
+    static float CardVisualH { get { return CollectionWindow.CardsCellH - CounterH; } }
+    /// <summary>方叉边长 = 1.75 卡单位 ÷ 3.3313 卡单位 × 卡体渲染高 345.728 = **181.62 px**。
+    /// ⛔ 期望值不从实现的 `side` / `pxPerUnit` 读 —— 这里只用原版 prefab 的两个卡单位比值 × 本页卡体渲染高。</summary>
+    static float ExpectSidePx { get { return OrigBanUnits / OrigCardUnits * CardVisualH; } }
 
     /// <summary>测试用 `PlayEventData` 子类（原版那个是 `abstract`；我们只借 `bannedCardIds` + `IsCardBanned`，无其它抽象成员）。</summary>
     sealed class TestEvent : PlayEventData { }
@@ -123,28 +135,30 @@ public static class B97W6Assert
                 if (rt != null)
                 {
                     // `SetWrapWidth` 把 sizeDelta.x 写成折行宽、`SetAutoFitBox` 写 sizeDelta.y = 框高（都是世界单位）
-                    Near(rt.sizeDelta.x * 108f, ExpectSidePx * OrigTextW, 0.6f, "字框宽 = 方叉 × 0.8（157.5 px）");
-                    Near(rt.sizeDelta.y * 108f, ExpectSidePx * OrigTextH, 0.6f, "字框高 = 方叉 × 0.2（39.375 px）");
+                    Near(rt.sizeDelta.x * 108f, ExpectSidePx * OrigTextW, 0.6f, "字框宽 = 方叉 × 0.8（145.30 px）");
+                    Near(rt.sizeDelta.y * 108f, ExpectSidePx * OrigTextH, 0.6f, "字框高 = 方叉 × 0.2（36.32 px）");
                 }
                 float basePx = lb.FontSizeToPxNow(lb.FontSizeBase, lb.ActualFace);
                 Near(basePx, ExpectSidePx * (OrigFontBase / OrigBanPx), 0.6f,
-                     "字号 base = 方叉 × 36 / 262.5 ≈ 27 px");
+                     "字号 base = 方叉 × 36 / 262.5 ≈ 24.91 px");
                 var want = Loc.T("MenuDeck/Banned");
                 Tr(lb.Text == want, "文案 = 本地化 `MenuDeck/Banned`（en Banned / zh 禁止）；实际 `" + lb.Text + "`，期望 `" + want + "`");
             }
 
-            // ---------- ① 几何：方叉边长 196.875 px、中心 = 格中心、队列 > 卡 ----------
+            // ---------- ① 几何：方叉边长 181.62 px、中心 = 卡心、队列 > 卡 ----------
             var q = icon0.GetComponent<ImageQuad>();
             Tr(q != null, "`Ban Icon 0` 上有 `ImageQuad`（图标是真图，不是空节点）");
             if (q != null)
             {
                 var rr = MenuDraw.QuadRectPx(q);
-                Near(rr.W, ExpectSidePx, 0.5f, "方叉实绘宽 = 196.875 px（原版 1.75 卡单位 × 150 × 0.75）");
-                Near(rr.H, ExpectSidePx, 0.5f, "方叉实绘高 = 196.875 px");
+                Near(rr.W, ExpectSidePx, 0.5f, "方叉实绘宽 = 181.62 px（1.75 ÷ 3.3313 卡单位 × 卡体渲染高 345.728）");
+                Near(rr.H, ExpectSidePx, 0.5f, "方叉实绘高 = 181.62 px");
                 var cell = win.CardsScroll != null ? win.CardsScroll.Shift(CollectionWindow.CardsCellRect(0))
                                                    : CollectionWindow.CardsCellRect(0);
-                Near(rr.CX, cell.CX, 0.5f, "方叉中心 x = 格中心 x");
-                Near(rr.CY, cell.CY, 0.5f, "方叉中心 y = 格中心 y");
+                // 卡心 y = 格心 − 条高/2（卡体 = 格 − 条，见 `CollectionWindow.CardsCardRect`）
+                float cardCy = cell.CY - CounterH * 0.5f;
+                Near(rr.CX, cell.CX, 0.5f, "方叉中心 x = 卡心 x（= 格中心 x）");
+                Near(rr.CY, cardCy, 0.5f, "方叉中心 y = 卡心 y（格心 − 条高/2 ≈ " + cardCy.ToString("F2") + "）");
                 Tr(q.RenderQueue > 3000, "图标渲染队列 > 卡(3000)（实际 " + q.RenderQueue + "）");
                 if (lb != null) Tr(lb.RenderQueue > 3000, "文字渲染队列 > 卡(3000)（实际 " + lb.RenderQueue + "）");
             }

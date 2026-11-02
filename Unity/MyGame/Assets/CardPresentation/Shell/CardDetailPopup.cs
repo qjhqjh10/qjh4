@@ -1200,7 +1200,7 @@ namespace CardPresentation
                     var alt = AltArtTexture();
                     if (alt != null) cd.artOverride = alt;
                 }
-                var v = CardView.Create(node, cd, SlotName(i),
+                var v = CardView.Create(node, cd, SlotName(i), use: PopupCardUse,
                                         artOverdraw: i == 0,
                                         useOverDraw: def != null ? def.UseOverDraw : true);
                 if (v == null)
@@ -3408,6 +3408,13 @@ namespace CardPresentation
             anim.clip = anim.GetClip(UpgradeAnimClipName);   // `Play()` 无参时报的就是它
             fx.myAnimation = anim;
         }
+
+        /// <summary>🔴 **本窗建卡用的卡面档位**（判据 → `资料/完全复刻/判据/B117-WPOPUP_菜单详情窗卡档.md`）。
+        /// 原版 `Card Displayer Menu For Menu` 那 5 张 = 单位卡四行全 `16/16` + 阴影 `0.8`，
+        /// 与战斗放大窗（`16/max 19`）**不是同一档** ⇒ 单独一档 `CardUse.MenuDetail`。
+        /// ⚠️ 别改回 `Standard`（那是 19 / 23.55 / 18 / 15 + 0.604 ⇒ 卡名大 18.75%、效果大 ~47%）。
+        /// 📌 追加在**类尾**（⛔ 别插进常量区）：本文件被账按行号引用 177 + 69 处。</summary>
+        public const CardUse PopupCardUse = CardUse.MenuDetail;
     }
 
     // ============================================================ 卖多余副本（原版 `PlayerDataManager.SellSpareCards` 一族）

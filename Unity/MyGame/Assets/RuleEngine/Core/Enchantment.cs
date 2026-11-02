@@ -1013,7 +1013,7 @@ namespace RuleEngine
             if (owner < 0 || slot < 0) return;
             var u = ctx.Players[owner].Board[slot];
             if (u == null) return;
-            RuleCore.ActivateTraitsOnSummonOrEnchantment(u);
+            RuleCore.ActivateTraitsOnSummonOrEnchantment(u, onSummon: false);   // 原版 `CardScript__AddEnchantment.c:91` 传的是 0 ⇒ dropPod 支**不进**
         }
 
         /// <summary>这张牌此刻在**哪一格**（找不到 ⇒ 两个都 `-1`）。

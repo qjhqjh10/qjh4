@@ -417,6 +417,11 @@ namespace CardPresentation
             public Label text;                  // `ErrorMesage Text`
             public float t;                     // 本条的存活时间（秒）
             public bool active;                 // 这一条正在演吗
+            /// <summary>🆕 2026-11-02（`B117-G10-21`）：这条**第几次被 Show**（单调递增，⛔ 不是池下标）。
+            /// 原版 `Show` 第一句是 `SetAsLastSibling()`，而容器那个 `VerticalLayoutGroup` 按**兄弟序**
+            /// 从上往下堆（`LayoutGroup.GetChildList` 只排活动子件）⇒「谁堆在最下面」由**显示先后**定，
+            /// ⛔ 不是池下标（池绕回去之后两者会分叉）。判据 → 类尾 ⑬。</summary>
+            public int shownSeq;
         }
 
         readonly List<Item> _items = new List<Item>();
@@ -612,6 +617,7 @@ namespace CardPresentation
                 //    定字号按 `ActualFace` 的 em 换算（判据 → `Label.TmpFontSize`）。
                 t.text.SetFace(TmpFont.Face.LatinCardBody);
                 t.text.SetScriptHeight("ERROR MESSAGE CONTENT", _preset.FontPx, _ugui ? 1f : 108f);
+                ApplyBannerOutline(t.text);                     // 原版那块字材质（判据 → 类尾 ⑬）
                 t.text.SetRenderQueue(_preset.Queue + 1);       // uGUI 档是有注释的空操作（层级归画布管）
             }
         }
@@ -692,6 +698,7 @@ namespace CardPresentation
             it.root.gameObject.SetActive(true);         // 原版第 2 句
             it.active = true;
             it.t = 0f;                                  // 两条 tween 从 0 开始（`From()` 的起点见文件头 ⑦）
+            it.shownSeq = ++_showSeq;                   // 原版 `SetAsLastSibling()`：刚弹的这条恒在**兄弟序最后** ⇒ 堆在最下面（类尾 ⑬）
 
             // ---- 文字：换文案 + 按语种定字号（`SetScriptHeight` 是全工程唯一那份语种判据） ----
             if (it.text == null)
@@ -710,6 +717,9 @@ namespace CardPresentation
             {
                 it.text.SetScriptHeight(text, _preset.FontPx, _ugui ? 1f : 108f);   // 战斗 60 / 菜单 36（文件头 ⑪）
                 it.text.SetColor(color);
+                // 每次 Show 都要重贴一遍：`SetText` 里的 `SyncFace` 可能把**整颗**字换面（材质跟着换），
+                // 换过之后实例材质上的描边就没了。判据与做法 → 类尾 ⑬ / `ApplyBannerOutline`。
+                if (!Loc.HasCjk(text)) ApplyBannerOutline(it.text);
             }
 
             // ---- 底条：按【文字实测】重建（等价物 A：原版是 ContentSizeFitter 的 Hug） ----
@@ -806,15 +816,21 @@ namespace CardPresentation
         void RelayoutActive()
         {
             if (_container == null) return;
-            int n = VisibleCount;
-            if (n == 0) return;
+            if (VisibleCount == 0) return;
             float itemH = _preset.ItemHPx;
             float contTopY = _preset.RootTopPx + ContTopFromRootTop;
-            int j = 0;
+            // 🔴 2026-11-02（`B117-G10-21`）：按**显示先后**排，⛔ 不是池下标 —— 原版 `Show` 第一句是
+            //   `SetAsLastSibling()`，布局组再按**兄弟序**从上往下堆（类尾 ⑬）。池绕回去之后两者会分叉
+            //   （例：池 5 条，第 6 次 Show 又落回第 0 格 ⇒ 原版它在**最下面**，按下标排会把它顶到最上面）。
+            if (_layoutBuf == null) _layoutBuf = new List<Item>(NumberOfMessages);
+            _layoutBuf.Clear();
             for (int i = 0; i < _items.Count; i++)
+                if (_items[i].active && _items[i].root != null) _layoutBuf.Add(_items[i]);
+            _layoutBuf.Sort((a, b) => a.shownSeq.CompareTo(b.shownSeq));
+            int n = _layoutBuf.Count;
+            for (int j = 0; j < n; j++)
             {
-                var it = _items[i];
-                if (!it.active || it.root == null) continue;
+                var it = _layoutBuf[j];
                 // pos = (容器高 − 项高×N) + 项高×j（从容器**上缘**往下量）
                 float pos = (ContH - itemH * n) + itemH * j;
                 float centerY = contTopY + pos + itemH * 0.5f;      // 自上而下的 px
@@ -825,7 +841,6 @@ namespace CardPresentation
                       - new Vector3(transform.localPosition.x + _container.localPosition.x,
                                     transform.localPosition.y + _container.localPosition.y, 0f)
                     : _container.InverseTransformPoint(PxPos(ContLeftX + ContW * 0.5f, centerY));
-                j++;
             }
         }
 
@@ -1149,5 +1164,71 @@ namespace CardPresentation
         /// —— 那句在「自己正在被销毁」时是幂等的、没有别的可观察效果；等价物 = **把槽位放回去**
         /// （原版没有显式清槽，靠 `Object.op_Implicit` 把已销毁对象判成空；我们显式清，可观察语义一致）。</summary>
         void OnDestroy() { if (ReferenceEquals(Instance, this)) Instance = null; }
+
+        // ==================================================================
+        //  🆕 2026-11-02（`B117-G10-21` · 战斗域第 21 分片）—— 池序记账 + 原版那块**字材质**
+        // ==================================================================
+        //
+        //  【为什么这两件都追加在类尾】本文件被账按行号引用 9 处（旧→新对照表 →
+        //    `资料/完全复刻/判据/B117-G10-21_错误提示与疲劳横幅.md` §六）⇒ 新成员一律追加到 `OnDestroy`
+        //    **之后**，⛔ 别插进既有成员之间（`CLAUDE.md` §三 那条）。
+        //
+        //  【⑬ 字材质 —— 判据是实读，不是推断】
+        //    ① 原版横幅文字那颗 TMP：`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_3740.json`
+        //       的 `m_sharedMaterial = {m_FileID 2, m_PathID -455814643003338116}`。
+        //    ② 那份材质：`bundle_fonts_assets_all/Material/Material_-455814643003338116.json`
+        //       = **`Pragati-Regular Atlas Material Thick Outline`**，逐值实读：
+        //       `_OutlineWidth 0.097` · `_OutlineColor (0,0,0, **0.7882353**)` · `_FaceDilate 0.105` ·
+        //       `_OutlineSoftness 0` · `_GradientScale 21` · `_ScaleRatioA 0.95238096` · `_FaceColor` 白 ·
+        //       `_UnderlayDilate 0`。⚠️ 资产名里的 "White" 指的是**面**色（`_FaceColor` 白），
+        //       **描边本身是黑的**（α 0.788）—— 别按名字猜。
+        //    ③ 同一份材质**本工程已经导入**：`WarpforgeVFX/Materials/Pragati-Regular Atlas Material Thick Outline.mat`
+        //       （逐值同上）。它**不在 `Resources/` 下** ⇒ 运行时 `Resources.Load` 取不到；
+        //       而我们的底材质 `Pragati-Regular Atlas Material.mat` 的 `_GradientScale/_ScaleRatioA`
+        //       与它**逐位相同**（21 / 0.95238096，且字体资产的 `m_AtlasPadding = 20` ⇒ TMP 现算的
+        //       `_GradientScale` 也是 21），差别只有上面那三个数
+        //       ⇒ **按值贴到实例材质上 = 与原版同一份材质**（做法同 `TmpFont.ApplyOutline`：
+        //         改 `fontMaterial` 实例 + `EnableKeyword("OUTLINE_ON")` + 末尾 `UpdateMeshPadding()`）。
+        //       ⛔ 别碰共享材质（那会让全工程的字一起变 —— `TmpFont.ApplyOutline` 的注释里也记着这条）。
+        //    ④ **为什么只在拉丁面上贴**：汉字那条路 `Label.SyncFace` 会把**整颗**字换成 CJK 面（材质也换）；
+        //       原版那颗 TMP 是 Pragati，汉字由 fallback 面出、**吃不到这条 Pragati 材质** ⇒ 汉字档不贴，
+        //       与 `SetScriptHeight` 的「按语种二选一」同一口径。
+        //    ⑤ **淡出仍然正确**：TMP 片元末句 `return faceColor * input.color.a;`
+        //       （`Assets/TextMesh Pro/Shaders/TMP_SDF.shader:318`；`GetColor()` 已把描边 lerp 进 `faceColor`）
+        //       ⇒ 我们按顶点色 α 淡出时**描边一起淡**（原版是 `CanvasGroup` 淡，可观察效果相同）。
+
+        /// <summary>原版字材质的 `_OutlineWidth`（`Material_-455814643003338116.json` 实读）。</summary>
+        public const float OutlineWidth = 0.097f;
+        /// <summary>原版字材质的 `_OutlineColor` —— **黑、α 0.7882353**（同上，⛔ 不是白）。</summary>
+        public static readonly Color OutlineColor = new Color(0f, 0f, 0f, 0.7882353f);
+        /// <summary>原版字材质的 `_FaceDilate`（同上）。</summary>
+        public const float OutlineFaceDilate = 0.105f;
+
+        /// <summary>把原版那块**字材质**贴到这一条的字上（判据与做法 → 上面 ⑬）。
+        /// 幂等；拿不到 TMP（点阵后端）时**什么都不做也不出声** —— `Label` 自己已经为「没字体资产」出过声。</summary>
+        public static void ApplyBannerOutline(Label l)
+        {
+            if (l == null) return;
+            var tmp = l.GetComponentInChildren<TMPro.TMP_Text>(true);
+            if (tmp == null) return;
+            var mat = tmp.fontMaterial;                     // ⚠️ 实例材质（`TMP_Text` 会给这一份单独造一个）
+            if (mat == null) return;
+            mat.EnableKeyword("OUTLINE_ON");
+            if (mat.HasProperty(TMPro.ShaderUtilities.ID_OutlineWidth))
+                mat.SetFloat(TMPro.ShaderUtilities.ID_OutlineWidth, OutlineWidth);
+            if (mat.HasProperty(TMPro.ShaderUtilities.ID_OutlineColor))
+                mat.SetColor(TMPro.ShaderUtilities.ID_OutlineColor, OutlineColor);
+            if (mat.HasProperty(TMPro.ShaderUtilities.ID_FaceDilate))
+                mat.SetFloat(TMPro.ShaderUtilities.ID_FaceDilate, OutlineFaceDilate);
+            tmp.UpdateMeshPadding();                        // 描边会画到字形 quad 之外 ⇒ 重算留白（同 `TmpFont.ApplyOutline`）
+            tmp.ForceMeshUpdate();                          // 批处理没有帧循环，网格得手动推
+            l.RefreshBounds();                              // 尺寸/摆位按新网格再量一次（`Label` 的 `WorldW/H` 是缓存）
+        }
+
+        /// <summary>池里被 Show 过的累计次数（`shownSeq` 的发放器）。⛔ 不是 `ShowCount`
+        /// （那个能溢出回绕、而且 `HideAll` 不清它；这里只比大小）。</summary>
+        int _showSeq;
+        /// <summary>`RelayoutActive` 的排序缓冲（池容量 5 ⇒ 预分配，避免每次 Show 都 new）。</summary>
+        List<Item> _layoutBuf;
     }
 }

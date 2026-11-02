@@ -155,7 +155,7 @@ namespace RuleEngine
                     NoteCardAbilityRowGateUnknown(card, trigger, row, gateWhy);   // B8：判不了 ⇒ **放行 + 出声**
                 if (ca == 380) { fired += DispatchCardAbility380(ctx, card, inst, row, owner, actingCard, targetCard); continue; }
                 if (ca == 320) { fired += DispatchCardAbility320(ctx, card, row, owner, slot, targetCard, tacticSide); continue; }
-                NoteCardAbilityRowPending(card, trigger, row);               // 325 / 360 / 480：出声不跑
+                NoteCardAbilityRowPending(card, trigger, row);               // 325 / 360 / 480：出声不跑。🔴 2026-11-02（`B117-WSMALL` · 判据 `判据/B117_逐卡核验_C_DarkAngels_Goff.md` §五·5）：**`ca 360`（`chooseOne`）这一支的效果已由正文层 `Choose one:` → `chooseone` op 承担**（`EffectText.cs:3958/5948` → 动词表 `chooseone` 1132；判据点名的例子 = `DA46 The Rock`，现读池内 `ca 360` 共 18 张卡）⇒ 现在**不是缺口**；⛔ **将来谁给 360 补卡级执行器，就会与正文双发** —— 补之前必须先让这些卡的正文 `chooseone` op 让路或去重
             }
             return fired;
         }

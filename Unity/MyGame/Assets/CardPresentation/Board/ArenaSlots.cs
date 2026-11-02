@@ -237,7 +237,7 @@ namespace CardPresentation
         //     （`defence` 39 张 / `enchantment` 2 张）**还没进 Board** ⇒ 这一支接上也不会有画面差异。
         //     仍按铁律 11 建出来（只分先后、不分做不做），验收只能靠**算式断言**。
         //  ⚠️ **接线是别人的活**：真消费者 `BattleDriver.ArenaCardScale` 按 `u.Card.Type` 分派的
-        //     `else` 支要改成调 `InPlayScale(enemy)`，那是 `BattleDriver.cs`（本波归 E5）⇒ 见报告 §1·713 的待接点。
+        //     ✅ **已接线**（2026-11-02 `B117-G10-07` 现核）：`BattleDriver.ArenaCardScale`（`:22128`）= `!u.Card.IsUnit ? InPlayScale(foe) : CardScale(foe)`。
         // ════════════════════════════════════════════════════════════════════════════════════
 
         /// <summary>原版 `VarsGlobal.minionInPlayScale`（`+0x68`）= **0.75**（`资料/VarsGlobal_原版数值.md` 同表，

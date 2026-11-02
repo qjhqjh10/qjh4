@@ -109,10 +109,10 @@ namespace CardPresentation
         public int mv;
         /// <summary>`orientToVelocity`（0x48）—— 见上面那一段（我们卡池当前 0 条为 1，机制照写）。</summary>
         public int otv;
-        /// <summary>`easeCurve`(0x40) 的关键帧，**扁平存放**：`[t0,v0,t1,v1,…]`（升序）。
+        /// <summary>`easeCurve`(0x40) 的关键帧，**扁平存放**：线性 = `[t0,v0,t1,v1,…]`（升序）；
+        /// 非线性 = 4 数格式 `[-1,t0,v0,inSlope0,outSlope0,…]`（2026-11-02 `B117-WCURVE` 起，见 `HasSlopes`）。
         /// 空 / null = 原版默认曲线 = 线性（`AnimInfo..ctor` 就是 `AnimationCurve.Linear(0,0,1,1)`）。
-        /// ⚠️ 我们按**分段线性**求值（原版 Evaluator 带切线；实测本表 `mv=1` 的 7 条拍曲线
-        /// 全是 (0,0)→(1,1) 的直线 ⇒ 今天逐值等价；如实记，见 <see cref="Ease"/>）。</summary>
+        /// ⚠️ 原版 `Evaluate` 带切线（Hermite）⇒ 有斜率的走 <see cref="Ease"/> 的 Hermite 分支；旧的 2 数格式逐值不变。</summary>
         public float[] ease;
 
         // ── 🆕 2026-10-19（W · 偏差 6 的第 1 条）：`applyMovementOffsets` / `offsetMovementAxis` ──
@@ -192,16 +192,19 @@ namespace CardPresentation
     {
         /// <summary>位移进度曲线求值（`AnimationCurve` 扁平关键帧 → 0~1）。**判据只此一处**：
         /// `CardAnimController__Update.c` 的 `Evaluate((t−timeAtStartPos)/timeMoving)` + `clamp`。
-        /// ⚠️ 我们按**分段线性**（原版 Evaluator 带切线）—— 实测本表 7 条 movers 的曲线全是
-        /// `(0,0)→(1,1)` 的直线 ⇒ 今天逐值等价；如实记（铁律 3）。曲线为空 ⇒ 线性（原版默认曲线）。</summary>
+        /// ✅ **2026-11-02（`B117-WCURVE`）已改成 Hermite**（原版 `Evaluate` 带切线）；数据侧由两个生成器
+        /// `_curve_flat(..., with_slopes=True)` 每键补写 `inSlope/outSlope`（4 数格式，见 <see cref="HasSlopes"/>）。
+        /// 🔴 **旧行为/根因**：2026-11-03 现读订正过——本表 movers 13 条、其中 `Atk_BulletImpact_MissileToTarget_warlord`
+        /// 的切线全是 0 ⇒ 原版是平滑阶跃、不是直线（按分段线性读最大偏 **0.096**）；其余 12 条切线 == 弦斜率 ⇒ 逐值等价。
+        /// **旧的两数格式仍然可用**（盘上旧数据 / 别处构造的数组）⇒ 走原来的分段线性，逐值不变。</summary>
         public static float EaseAt(float[] ease, float p)
         {
             float x = Mathf.Clamp01(p);
             if (ease == null || ease.Length < 4) return x;
+            if (HasSlopes(ease)) return Mathf.Clamp01(HermiteAt(ease, x));
             for (int i = 0; i + 3 < ease.Length; i += 2)
             {
-                float t0 = ease[i], v0 = ease[i + 1];
-                float t1 = ease[i + 2], v1 = ease[i + 3];
+                float t0 = ease[i], v0 = ease[i + 1], t1 = ease[i + 2], v1 = ease[i + 3];
                 if (x <= t1)
                 {
                     if (t1 - t0 <= 1e-6f) return Mathf.Clamp01(v1);
@@ -211,7 +214,7 @@ namespace CardPresentation
             return Mathf.Clamp01(ease[ease.Length - 1]);
         }
 
-        /// <summary>🆕 W：**偏移曲线**的求值 —— 与 <see cref="EaseAt"/> 同一套分段线性，但：
+        /// <summary>🆕 W：**偏移曲线**的求值 —— 与 <see cref="EaseAt"/> 同一套 Hermite/分段线性，但：
         /// ① 空曲线返回 **0**（偏移曲线的默认是「无偏移」；位移进度曲线的默认才是线性恒等）；
         /// ② 输出**不** clamp 到 [0,1]（`CurveRange(0,-1,1,1)` 允许负值 —— 原版的偏移曲线就会往两边摆）。
         /// 判据 → `CardAnimController__Update.c` 那三句 `AnimationCurve.Evaluate`（没有 clamp）。</summary>
@@ -219,10 +222,10 @@ namespace CardPresentation
         {
             float x = Mathf.Clamp01(p);
             if (curve == null || curve.Length < 4) return 0f;
+            if (HasSlopes(curve)) return HermiteAt(curve, x);
             for (int i = 0; i + 3 < curve.Length; i += 2)
             {
-                float t0 = curve[i], v0 = curve[i + 1];
-                float t1 = curve[i + 2], v1 = curve[i + 3];
+                float t0 = curve[i], v0 = curve[i + 1], t1 = curve[i + 2], v1 = curve[i + 3];
                 if (x <= t1)
                 {
                     if (t1 - t0 <= 1e-6f) return v1;
@@ -356,6 +359,54 @@ namespace CardPresentation
         public static void ResetCounters()
         {
             FallbackHits = 0; LastFallbackCard = null; _warned.Clear();
+        }
+
+        // ── 🆕 2026-11-02（执行代理 `B117-WCURVE`）：带斜率的关键帧格式（Hermite） ──
+        //   数据（两个生成器的 `_curve_flat(..., with_slopes=True)`）：
+        //     · 旧的 2 数格式 `[t0,v0,t1,v1,…]`（**线性曲线仍然用它**，逐字节不变）；
+        //     · 新的 4 数格式 `[-1, t0,v0,inSlope0,outSlope0, t1,v1,inSlope1,outSlope1, …]`
+        //       —— **只在曲线非线性时**才有（线性曲线两种求值逐值相同，没必要多存 4 格）。
+        //   判据（第一权威）：原版 `CardAnimController__Update.c:36-97` 的
+        //     `easeCurve.Evaluate((t−timeAtStartPos)/timeMoving)` / 三轴 `Evaluate(...)` ——
+        //     Unity `AnimationCurve.Evaluate` 是**分段三次 Hermite**（`weightedMode` 全 0 ⇒ 直接取
+        //     `inSlope/outSlope`，`assets_full` 逐键现读：`weightedMode=0` 全表；`m_PreInfinity/PostInfinity=2`）。
+        //   🔴 **首格 `-1` 是标记、不是时间**（时间永远 ≥ 0）。它把两种格式做成**长度奇偶互斥**：
+        //     4 数格式 = `1 + 4n`（`% 4 == 1`），旧的 2 数格式 = `2m`（`% 4 ∈ {0,2}`）⇒ **两个集合不可能相交**，
+        //     所以不需要额外版本列（`BattleDriver` 直接拿 `float[]` 调 `EaseAt`，没有地方传版本号）。
+        //   ⚠️ 这里**只多做一件事**：把 `CardAnimOrder` 自己写的格式判对；⛔ 别拿它去读
+        //     `minionMovementInfo` 那族曲线（它们仍是 2 数格式、消费方是 `BattleDriver.MinionCurve`）。
+
+        /// <summary>4 数格式的首格标记（见上面那段）。</summary>
+        const float SlopeTag = -1f;
+
+        /// <summary>这个扁平数组是不是 4 数格式（每键 `t,v,inSlope,outSlope` + 首格 `-1`）。
+        /// 两个条件同时成立才算：**长度 = `1+4n`**（`% 4 == 1`，与旧格式的偶数长度互斥）且首格 == <see cref="SlopeTag"/>。</summary>
+        public static bool HasSlopes(float[] a)
+        {
+            return a != null && a.Length >= 9 && (a.Length % 4) == 1 && a[0] == SlopeTag;
+        }
+
+        /// <summary>4 数格式的 Hermite 求值（Unity `AnimationCurve.Evaluate` 的分段形状）：
+        /// `h00·v0 + h10·dt·out0 + h01·v1 + h11·dt·in1`（`u = (x−t0)/dt`）。
+        /// ⚠️ **切线必须乘以段长 `dt`** —— 原版的斜率单位是「每秒」，不是「每段」；漏乘 `dt` 只在
+        /// `dt ≠ 1` 的曲线上才露馅（本表绝大多数 `dt = 1`，那正是它最容易静默错的地方）。
+        /// 调用方：<see cref="EaseAt"/>（输出 clamp）与 <see cref="EaseAtRaw"/>（**不** clamp）。</summary>
+        static float HermiteAt(float[] a, float x)
+        {
+            for (int o = 1; o + 6 < a.Length; o += 4)          // 每键 4 格、从第 2 格（index 1）起
+            {
+                float t0 = a[o], v0 = a[o + 1], out0 = a[o + 3];
+                float t1 = a[o + 4], v1 = a[o + 5], in1 = a[o + 6];
+                if (x <= t1)
+                {
+                    float dt = t1 - t0;
+                    if (dt <= 1e-6f) return v1;                // 零长段（同时刻两键）⇒ 取右键值（同旧行为）
+                    float u = (x - t0) / dt, u2 = u * u, u3 = u2 * u;
+                    return (2f * u3 - 3f * u2 + 1f) * v0 + (u3 - 2f * u2 + u) * dt * out0
+                         + (-2f * u3 + 3f * u2) * v1 + (u3 - u2) * dt * in1;
+                }
+            }
+            return a[a.Length - 3];                            // 末键的 `value`（末键布局 t,v,in,out ⇒ out 在最后一格）
         }
     }
 }

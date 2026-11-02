@@ -63,15 +63,15 @@
 //      与「卡片详情窗」（`CardDisplayWindow`，卡体 **832.825 px**）**不是同一个尺寸**
 //      —— 2026-09-28 订正，判据 → `资料/阶段二_卡片详情窗_原版规格.md` §十·4。
 //   ③ **滚动**：🔴 **2026-10-24（`W64·B-25`）已照原版做横向滚动**（原来是「装不下就等比缩到 45%」）。
-//      原版判据 → `C1_战斗线判据_布置与层级.md` **C1-B05**：`Generic Multi Card Display Combat` 根上
-//      uGUI `ScrollRect` —— `m_Horizontal=1` · `m_Vertical=0` · **`m_MovementType=1 (Clamped)`** ·
-//      `m_Elasticity=0.1` · `m_Inertia=1` · **`m_DecelerationRate=0.135`** · `m_ScrollSensitivity=1.0` ·
-//      无滚动条；`Content` = `HorizontalLayoutGroup(m_Spacing 500, MiddleCenter)` + `ContentSizeFitter`
-//      （宽运行时算）。⚠️ **我们这套 HUD 的卡是世界空间 `MeshRenderer`（不是 uGUI），
-//      所以「滚动」= 自己记一个横向偏移、逐帧重摆卡的位置**，视口裁切走 `CardView.SetPose(..., PxRect)`
-//      （= `RectMask2D` 的等效物，`Core/CardView.cs` 的「视口裁切」那一节）。
-//      ⚠️ **如实标的偏离**：原版 `Clamped` 档还带 `m_Elasticity=0.1` 的**越界回弹**，我们**硬夹**（不回弹）；
-//      滚动条原版就没有 ⇒ 一致。
+//      原版判据 → `C1_战斗线判据_布置与层级.md` **C1-B05**：根上 uGUI `ScrollRect` —— `m_Horizontal=1` ·
+//      `m_Vertical=0` · **`m_MovementType=1`**（🔴 2026-11-02 订正：Unity 枚举 `Unrestricted=0/Elastic=1/
+//      Clamped=2` ⇒ **这一格是 `Elastic`**、账里原来写的 `(Clamped)` 是错的；现读 `MonoBehaviour_4823.json`）·
+//      `m_Elasticity=0.1` · `m_Inertia=1` · **`m_DecelerationRate=0.135`** · `m_ScrollSensitivity=1.0` · 无滚动条；
+//      `Content` = `HorizontalLayoutGroup(m_Spacing 500, MiddleCenter)` + `ContentSizeFitter`（宽运行时算）。
+//      ⚠️ **我们这套 HUD 的卡是世界空间 `MeshRenderer`（不是 uGUI），所以「滚动」= 自己记一个横向偏移、逐帧重摆卡的位置**，
+//      视口裁切走 `CardView.SetPose(..., PxRect)`（= `RectMask2D` 的等效物，`Core/CardView.cs` 的「视口裁切」一节）。
+//      ⚠️ **如实标的偏离**：原版是 `Elastic` 档、`m_Elasticity=0.1` 是回弹的 `SmoothDamp` 时间常数 ⇒ **拖出边界会回弹**；
+//      我们**硬夹**在 `[0, MaxScroll]`（不回弹）—— 判据已定、**未做**（改它要连 `Editor/BattleScene.cs` 的 `B-25⑤`「夹回 0」那条既有断言一起改）；滚动条一致。
 //   ④ **「继续」文字右对齐**：✅ **2026-10-24（`W64·B-24`）已按原版量真字宽**（原来是「中心点右移 60 px」的近似）。
 //      原版 `Text`（`RT_3020`）框 `287.33 × 44.856`、TMP **`m_HorizontalAlignment = 4 (Right)`** ·
 //      `m_margin = 0` ⇒ **字形右沿 = 框右沿**；框右沿由五元组现算 = 组内 **−223.362**
@@ -679,8 +679,8 @@ namespace CardPresentation
             if (_bar != null) _bar.gameObject.SetActive(on);
             if (_circle != null) _circle.gameObject.SetActive(on);
             if (_barText != null) _barText.gameObject.SetActive(on);
-            // 🔴 2026-10-22：`_hint`（底部自拟提示）已删。
-            if (_header != null) _header.gameObject.SetActive(on);
+            // 🔴 2026-10-22：`_hint`（自拟提示）已删。🔴 2026-11-02（`B117-G10-14`）：**标题为空就整颗关掉**（原版 `UIMultiCardDisplay__Initialize.c` 收尾 `headerText.gameObject.SetActive(!string.IsNullOrEmpty(header))` —— 空标题不留空 TMP：那颗 TMP `m_RaycastTarget = 1`，留着会在整条 1192×63 上白吃射线）。
+            if (_header != null) _header.gameObject.SetActive(on && !string.IsNullOrEmpty(HeaderShown));
             // 🆕 2026-10-20（A3-e2）：背景关闭件**必须跟着开关** —— 漏了它 = 一块全屏射线靶
             //   在窗口关着时继续挡着整个屏幕（`SetActive(false)` 会把它移出 `GraphicRegistry`）。
             if (_bgClose != null) _bgClose.gameObject.SetActive(on);
@@ -881,8 +881,9 @@ namespace CardPresentation
         //  我们：卡是世界空间 `MeshRenderer`（不是 uGUI 元素）⇒ **自己记一个横向偏移 `_scrollPx`**，
         //    每帧重摆一次（<see cref="ApplyCardLayout"/>），裁切交给 `CardView.SetPose(..., PxRect)`。
         //  ⚠️ 如实标的偏离：
-        //    ① **`m_Elasticity` 的越界回弹没做** —— 我们硬夹在 `[0, MaxScroll]`（原版 Clamped 档越界时
-        //       会回弹一下再夹）。原版那条曲线本地没有逐值判据 ⇒ 不猜。
+        //    ① **`m_Elasticity` 的越界回弹没做** —— 我们硬夹在 `[0, MaxScroll]`（原版是 `Elastic` 档：
+        //       越界后按 `m_Elasticity = 0.1` 的 `SmoothDamp` 弹回来）。波形参数在 Unity 那套里是确定的
+        //       （`SmoothDamp` + `smoothTime = 0.1`），但**改它会撞既有断言** ⇒ 见文件头 ③ 那条，判据已定、未做。
         //    ② **拖拽阈值 6 px 是我们加的**（<see cref="DragSlopPx"/>）：原版由 `ScrollRect` 自己分派
         //       「点 / 拖」，而我们抬手那一下会被全屏背景关闭件吃掉 ⇒ 必须自己分开两种手势。
         //    ③ 原版 `CardCollider.sendEventsToScrollRect` 把**卡片上的拖拽**转给 `ScrollRect`；
@@ -1262,5 +1263,11 @@ namespace CardPresentation
             if (o == null) return;
             if (Application.isPlaying) Destroy(o); else DestroyImmediate(o);
         }
+
+        /// <summary>🆕 **2026-11-02（`B117-G10-14`）自检用**：标题那行字此刻显示着没有。
+        /// 判据 = 原版 `UIMultiCardDisplay__Initialize.c` 收尾那句
+        /// `headerText.gameObject.SetActive(!string.IsNullOrEmpty(header))`（空标题 ⇒ 关掉）。
+        /// ⚠️ 读**实件**的 `activeSelf`，⛔ 不读 `HeaderShown`（那是我们自己记的字符串，不是显示状态）。</summary>
+        public bool HeaderActiveForTest { get { return _header != null && _header.gameObject.activeSelf; } }
     }
 }

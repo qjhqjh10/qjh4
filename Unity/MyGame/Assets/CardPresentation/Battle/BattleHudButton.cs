@@ -23,6 +23,12 @@
 //   · `ClickCountForTest`       —— 这个动作被触发了几次（**灭自证**：uGUI 点一次 = 1；再喂不经过
 //                                  `EventSystem` 的按下/松开 ⇒ 仍是 1）。
 //   · `ResetClickCountForTest()` —— 清计数（自检按段用）。
+//   · `LastClickCueForTest`     —— 🆕 2026-11-02（`B117-G10-03`）上一次真播的 cue（`null` = 没播）。
+//                                  自检**不读音频系统**（批处理没有声卡），只认这个记账位。
+//
+// 🆕 **2026-11-02（`B117-G10-03`）：点击音**（原版 `EverguildButton.OnPointerClick` 的
+//   `m_onClickSound` / `useDefaultAudioClipIfNull`）。字段 = `clickCue`（`null` = 静音，**默认**），
+//   逐颗表与「为什么默认静音」写在 `clickCue` 的 doc 里（⛔ 别整族一刀切：原版有 2 颗是静的）。
 //
 // 【建不出来时**出声**】`Attach` 的三种失败（件是 null / 件还在世界空间 / 动作是 null）都 `LogError`
 //   并返回 null；调用点必须把「这颗钮点不动」说出来（⛔ 不许静默半迁移）。
@@ -41,6 +47,22 @@ namespace CardPresentation
     {
         Action _onClick;
         int _clickCount;
+        string _lastCue;
+
+        /// <summary>🆕 **2026-11-02（`B117-G10-03`）：点中时播哪条 cue**（原版 `EverguildButton.m_onClickSound`
+        /// 的等价物）。`null` = **不播**（默认）。
+        /// <para>🔴 **判据（`Battle Arena 1.unity` 的 39 颗 `EverguildButton` 逐颗现读）**：
+        /// `useDefaultAudioClipIfNull = 1` 的 **37 颗**在 `OnPointerClick` 里播
+        /// `SoundManager.defaultButtonSound`（= 我们的 `WindowSounds.DefaultButtonCue`，cue `ButtonClick`）；
+        /// 4 颗带自己的 cue；**2 颗静音**（`Voice Over Button` / `Continue Button`，`useDefault… = 0` 且无 cue）。
+        /// 反编译：`cpp2il/out_il2csharp/Assembly-CSharp/EverguildButton.cs:1008-1080`（`OnPointerClick` 后半段）。</para>
+        /// <para>⚠️ **为什么默认是「不播」而不是「播默认音」**：本适配器不只服务 `EverguildButton`
+        /// （42 处挂载里有纯命中面，例如详情窗那层铺满全屏的 `cdw_background_close` —— 原版 `BackgroundCloseButton`
+        /// 是**纯 MonoBehaviour、没有按钮音**）⇒ 统一打开会**凭空多一声**。由调用点按上表逐颗给值。</para></summary>
+        public string clickCue;
+
+        /// <summary>上一次 `Fire()` 播的 cue（`null` = 没播）。自检用 —— ⛔ 不去读音频系统（批处理里没有声卡）。</summary>
+        public string LastClickCueForTest { get { return _lastCue; } }
 
         /// <summary>这个动作被触发了几次（自检口；见文件头「测试口」）。</summary>
         public int ClickCountForTest { get { return _clickCount; } }
@@ -91,6 +113,17 @@ namespace CardPresentation
             return btn;
         }
 
+        /// <summary>🆕 **2026-11-02（`B117-G10-03`）**：同上 + **指定点击音**。
+        /// <para>`cue` = 原版那一颗的 `m_onClickSound` 名；要「默认按钮音」就传
+        /// <see cref="WindowSounds.DefaultButtonCue"/>（cue `ButtonClick`）；`null` = 静音（与旧签名逐位相同）。</para>
+        /// <para>逐颗判据 = 文件头那段 37/4/2 的表（⛔ 别整族一刀切）。</para></summary>
+        public static BattleHudButton Attach(HudPiece piece, Action onClick, string cue)
+        {
+            var btn = Attach(piece, onClick);
+            if (btn != null) btn.clickCue = cue;
+            return btn;
+        }
+
         /// <summary>uGUI 点击（**松手那一帧**由 `EventSystem` 派发；与 `Button.onClick` 同一条链）。</summary>
         public void OnPointerClick(PointerEventData eventData)
         {
@@ -118,7 +151,20 @@ namespace CardPresentation
                 return;
             }
             _clickCount++;
+            // 🔴 先取名字：`_onClick` 里可能**把这一件拆了**（关窗 / 重建列表），拆完再读 `name`
+            //   会抛 `MissingReferenceException`（同 `Shell/WindowButton.Click` 那条已记的坑）。
+            string nm = name;
+            // 原版次序（`EverguildButton.OnPointerClick`）：先 `base.OnPointerClick`（派 `m_OnClick` 那一路）
+            // 再 `PlayButtonSound()` ⇒ 我们照它写成「先动作、后音」。⚠️ 只响一声（cue 为 null 就不响）。
             _onClick();
+            if (this == null) return;           // 已销毁：连音也不再放（护栏，⛔ 不吞别的异常）
+            if (!string.IsNullOrEmpty(clickCue))
+            {
+                _lastCue = clickCue;
+                // 播放口与外壳同一条（`Shell/WindowSounds.PlayFx` → `WFSoundPlayer` 的 FX 组）——
+                // ⛔ 别在这里另开一条音频路。取不到 cue 时 `PlayFx` 自己会出声（它有一条「表里查不到」的告警）。
+                WindowSounds.PlayFx(clickCue, "战斗按钮 `" + nm + "`");
+            }
         }
     }
 }

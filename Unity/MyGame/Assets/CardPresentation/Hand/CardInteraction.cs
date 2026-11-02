@@ -985,27 +985,27 @@ namespace CardPresentation
             var t = _dragging.transform;
             var target = world + _grabOffset + new Vector3(0f, 0f, -dragLiftZ);
             var prevPos = t.position;
-            t.position = Vector3.Lerp(prevPos, target, 1f - Mathf.Exp(-20f * dt));
-            // 账 767/768（第二批）：**拖卡倾斜**（原版 `CardScript__SetCardMovement.c:69-96`，每帧写）。
-            //   原版：`rotationTarget.x = (max.x − min.x) × clamp01(Δy / movingRotationReduction + 0.5) + min.x`；
-            //         `rotationTarget.y` 用 **|Δx|**（原文对 Δx 做了清符号位）；
-            //         `transform.rotation = Quaternion.Euler((rotationTarget + forcedExtraRotation) × Deg2Rad)`；
-            //         另有「距离过小 / 过大 ⇒ position 直接吸附、rotationTarget 归零」那一支（我们不抄 ——
-            //         我们的跟手是平滑，没有那条硬吸附，见下面 🔶）。
-            //   数值判据 = `CardScript` **构造函数默认值**（`decomp_full/CardScript__.ctor.c:41-45`：
-            //     0x41A00000 = 20 · 0xC1A00000 = −20 · 0x41200000 = 10）—— 这三个字段
-            //     （`maxCardRotation` / `minCardRotation` / `movingRotationReduction`）在
-            //     `CardScript.cs:1437-1443` 里**没有 `[SerializeField]`** ⇒ 预制体不会覆盖，ctor 值就是真值。
-            //   🔶 自己设计（非原版）：原版写**世界**四元数（3D 卡的 X/Y 俯仰）；我们是 2D 卡 ⇒ 只写**局部 X/Y**、
-            //      **保留原 Z 角**（否则手牌扇形那点倾角会被抹平），`forcedExtraRotation` 取零（手牌路径的
-            //      原版实参我们没有对应物）。
-            //   ⚠️ 收手时 `CardView.SetPose` 会把 `localRotation` 整体写成 `Euler(0,0,rotZ)` ⇒ 倾斜**自动复位**，
-            //      所以这里不需要另写「松手复原」（那是 SetPose 的既有语义，⛔ 别在这儿再抄一份）。
+            var delta = target - prevPos;
+            float d2 = delta.sqrMagnitude;
+            // 🔴 2026-11-02（`B117-35` · 执行代理 `B117-WGB`）：跟手 = 原版 `CardScript.SetCardMovement` 的两档。判据 = `decomp_full/CardScript__SetCardMovement.c` + VA `0x1805FC4E0`；
+            //   `d2 < 0.01`(0x1834B2DBC) 或 `> 1000`(0x1834B3124) ⇒ `position = target`（硬吸附）；否则 `pos += (target−pos) × (cardMovementSpeed × dt)`，
+            //   **原版没有 `Clamp01`**（`0x1805FC619 movss [rbx+0x2E8]` → `mulss`）⇒ ⛔ 别用 `Vector3.Lerp`；`cardMovementSpeed` = **10.8**
+            //   （ctor `0x412ccccd` / `CardPrefab.prefab:2855` 两源一致 ⇒ 60fps 系数 **0.18**，改前 `1−exp(−20dt)` = 0.2835）。⚠️ 单位不用换算（手牌 108 px/单位）
+            bool snap = d2 < 0.01f || d2 > 1000f;
+            if (snap) t.position = target;
+            else t.position = prevPos + delta * (10.8f * dt);
+            // 账 767/768（第二批）：**拖卡倾斜**（原版 `CardScript__SetCardMovement.c:69-96`，每帧写）。原版 `rx = (max.x − min.x) × clamp01(Δy/reduction + 0.5) + min.x`、
+            //   `ry` 用 **−Δx**（⚠️ 2026-11-02 就地订正：原文写「|Δx|」—— 错，`.c` 那一句是 `fVar9 = (float)((uint)fVar9 ^ DAT_1834b2c80);` = **翻转符号位** ⇒ 右移为负、左移为正；`DAT_1834b2c80` 与 `GetPosition.c:195` 那个「把让位量取反」用的是同一个字面量）、`transform.rotation = Euler((rotationTarget + forcedExtraRotation) × Deg2Rad)`。
+            //   🔴 `B117-35`：上面那条硬吸附支还把 `rotationTarget` 整块拷成静态 `Vector3`（`0x1805FC7A6..0x1805FC7BC`）—— 那个静态度**没落地核**，
+            //      按「与 ctor 的 `targetPosDuringAnim` 同源」**推断 = `Vector3.zero`** ⇒ 硬吸附那一档 **rx/ry 写 0**（⚠️ 推断强度：未 100% 钉死）。
+            //   数值判据 = `CardScript` **构造函数默认值**（`decomp_full/CardScript__.ctor.c:41-45`：20 / −20 / 10）；这三个字段在 `CardScript.cs:1437-1443` 没有 `[SerializeField]` ⇒ ctor 就是真值。
+            //   🔶 自己设计（非原版）：原版写**世界**四元数（3D 卡的 X/Y 俯仰）；我们是 2D 卡 ⇒ 只写**局部 X/Y**、保留原 Z 角（否则手牌扇形倾角会被抹平），
+            //      `forcedExtraRotation` 取零；收手时 `CardView.SetPose` 会把 `localRotation` 写成 `Euler(0,0,rotZ)` ⇒ 倾斜自动复位（⛔ 别在这再抄一份）。
             {
                 float dy = target.y - prevPos.y;
-                float dx = Mathf.Abs(target.x - prevPos.x);
-                float rx = (DragTiltMaxDeg - DragTiltMinDeg) * Mathf.Clamp01(dy / DragTiltReduction + 0.5f) + DragTiltMinDeg;
-                float ry = (DragTiltMaxDeg - DragTiltMinDeg) * Mathf.Clamp01(dx / DragTiltReduction + 0.5f) + DragTiltMinDeg;
+                float dx = prevPos.x - target.x;   // = **−Δx**（`.c` 的 `^ DAT_1834b2c80` 翻符号位；⛔ 不是 |Δx| —— 见上面那条 2026-11-02 订正）
+                float rx = snap ? 0f : (DragTiltMaxDeg - DragTiltMinDeg) * Mathf.Clamp01(dy / DragTiltReduction + 0.5f) + DragTiltMinDeg;
+                float ry = snap ? 0f : (DragTiltMaxDeg - DragTiltMinDeg) * Mathf.Clamp01(dx / DragTiltReduction + 0.5f) + DragTiltMinDeg;
                 t.localRotation = Quaternion.Euler(rx, ry, t.localEulerAngles.z);
             }
 
@@ -1057,7 +1057,7 @@ namespace CardPresentation
                 //       写进字段 `+0x434`/`+0x43c`；
                 //     `:214` 把**那个字段**读回来 → `:220` 直接喂给 `GetClosestInHandSlot` ——
                 //       全程没有经过任何「卡跟到哪」的量。
-                //   ⚠️ 卡的位置是**带平滑**的（上面那句 `Lerp(…, 1f − Mathf.Exp(−20f·dt))`）⇒ 滞后于指针
+                //   ⚠️ 卡的位置是**带平滑**的（上面那句 `pos += (target−pos) × (10.8 × dt)`，原版不 clamp）⇒ 滞后于指针
                 //      （手会「让位慢半拍」）。坐标系两边是同一个：`world` 走 `PointerWorldSafe()` →
                 //      `LayoutSpace.ScreenToWorld`，而 `GetClosestInHandSlot` 的 `slotX` 也是
                 //      `LayoutSpace.VisibleWidth` 量的**世界 x**（见 `Hand/HandLayout.cs` 那个方法）。
@@ -1074,7 +1074,7 @@ namespace CardPresentation
             //   原版：`MinionManager.GetClosestAvailableSlot(MinionManager*, TouchInputManager.TouchPosition)`
             //     （`BattleManager__Update.c:428/588` ⇒ 第二实参就是 `FUN_180789a30` = `TouchInputManager.get_TouchPosition`，
             //      B3 §一 用机器码证实过；`GetClosestAvailableSlot` 把每个槽 `WorldToScreenPoint` 后比**屏幕距离**）。
-            //   我们原来传 `t.position`（卡中心），而卡是**带平滑跟手**的（下面 `UpdateDrag` 那句 `Lerp`）
+            //   我们原来传 `t.position`（卡中心），而卡是**带平滑跟手**的（下面 `UpdateDrag` 那句 `pos += (target−pos) × (10.8 × dt)`）
             //   ⇒ 卡恒**滞后**于指针 ⇒ 指针已经停在格上、卡还在半路，判的是**旧落点**。
             //   ⇒ 现在与「推上线」那道守卫（同文件、2026-10-18 已改）**同一口径 = 指针**（`world` = `PointerWorldSafe()`）。
             //   ⚠️ 量纲不用换：`BoardLayout.TryResolveSlot` 收的就是**世界坐标**，3D 那条路它自己换屏幕点

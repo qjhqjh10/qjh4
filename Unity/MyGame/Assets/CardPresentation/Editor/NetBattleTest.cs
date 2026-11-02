@@ -639,7 +639,7 @@ public static class NetBattleTest
                            $"★ R3-N2：**平版 ⇒ 本机只扣卡费**（{eBefore} → {actCtx.Players[a].Energy}，卡费 {oathCard.Cost}）");
                         Eq(otherCtx.Players[a].Energy, eBefore - oathCard.Cost,
                            $"★ R3-N3：**对面也只扣卡费**（{eBefore} → {otherCtx.Players[a].Energy}）—— 答案真的过了网"
-                         + "｜🧨 删掉 `NetApply` 里那两行注入 ⇒ 对面按「付得起就付」多扣誓约 ⇒ 本条红");
+                         + "｜🧨 删掉 `NetApply` 里那两行注入 ⇒ 对面不再用答案、改走引擎兜底掷骰（掷到誓约版就多扣）⇒ 本条红");
                         Eq(NetProtocol.Fingerprint(otherCtx), NetProtocol.Fingerprint(actCtx),
                            "★ R3-N4：两端指纹一致"
                          + "｜🧨 只让本机认答案、线上不带 ⇒ 本条红");
@@ -679,7 +679,7 @@ public static class NetBattleTest
                         }
                     }
 
-                    // —— 负例：**没记**（老报文 / AI 那一手）⇒ 兜底「付得起就付」= 加这一格之前逐字相同 ——
+                    // —— 负例：**没记**（老报文 / 旧回放）⇒ 引擎兜底 = 原版 `GetChoiceOptions` 掷一张（`B111_E1B`，两端同种子同顺序 ⇒ 同一张）——
                     if (!actCtx.IsOver && !otherCtx.IsOver && actCtx.Active == otherCtx.Active)
                     {
                         a = actCtx.Active;
@@ -689,7 +689,7 @@ public static class NetBattleTest
                         actCtx.Players[a].Energy = 20; otherCtx.Players[a].Energy = 20;
                         int hIdx3 = actCtx.Players[a].Hand.Count - 1;
                         int slot3 = SimpleAI.FirstFreeSlot(actCtx.Players[a]);
-                        var actN = new AiAction { Kind = AiActionKind.PlayCard, HandIdx = hIdx3, Slot = slot3 };
+                        var actN = new AiAction { Kind = AiActionKind.PlayCard, HandIdx = hIdx3, Slot = slot3 }; actCtx.ClearOathDecisionRecord(); otherCtx.ClearOathDecisionRecord();   // 出牌前清一次：残答不许报到这一手（同 `SimpleAIPartial_B111E2.cs:155` 的生产口径）
                         int canN = RuleCore.CanPlayCard(actCtx, a, hIdx3, slot3);
                         Ok(canN == RuleCodes.OK, $"（R3 前提③）第三张 oath 卡打得出去（{RuleCodes.Describe(canN)}）");
                         if (canN == RuleCodes.OK)
@@ -701,10 +701,10 @@ public static class NetBattleTest
                             actNb.OnLocalAction(actN);
                             PumpBoth(hs2, cs2, na, nc, 12);
                             Eq(rcN, RuleCodes.OK, "（R3 前提③）没带答案那一手落地成功");
-                            Eq(actCtx.Players[a].Energy, eB3 - oathCard.Cost - oathVal,
-                               "★ R3-N6：没带答案 ⇒ 按原兜底**付誓约**（= 加这一格之前的行为，逐字不变）");
-                            Eq(otherCtx.Players[a].Energy, eB3 - oathCard.Cost - oathVal,
-                               "★ R3-N6b：对面同一条兜底 ⇒ 两端一致");
+                            Eq(actCtx.Players[a].Energy, eB3 - oathCard.Cost - (LastOathPaid(actCtx, a) ? oathVal : 0),
+                               "★ R3-N6：没带答案 ⇒ 按**引擎兜底掷出的那一张**结算（誓约版才多扣誓约费；`B111_E1B` 起不再恒付）");
+                            Eq(otherCtx.Players[a].Energy, eB3 - oathCard.Cost - (LastOathPaid(actCtx, a) ? oathVal : 0),
+                               "★ R3-N6b：对面按**同一条兜底**结算 ⇒ 两端一致（同一张）");
                             Eq(NetProtocol.Fingerprint(otherCtx), NetProtocol.Fingerprint(actCtx),
                                "★ R3-N6c：两端指纹一致");
                         }
@@ -2151,4 +2151,17 @@ public static class NetBattleTest
     }
     static void Fail(string msg) { _fail++; Debug.LogError(P + " ✗ " + msg); }
     static void Eq(int got, int want, string msg) { Ok(got == want, $"{msg}（实际 {got}，应为 {want}）"); }
+
+    /// <summary>上一次出牌时引擎**实际用了**的「平 / 誓」结论（`BattleContext.TryPeekLastOathDecision`，
+    /// 写点 = `RuleCore.DecideOathChoice` 的 `NoteOathDecision`）。
+    /// <para>⚠️ 为什么 R3-N6 要读它而不是写死「付誓约」：`B111_E1B` 起「没人回答」那一支 = **原版
+    /// `GetChoiceOptions` 掷一张**（判据 → `EffectResolverPartial_B111E1B.cs` 头注 + `B88_R3_oath二选一_判据.md`）
+    /// ⇒ 结果取决于预烧随机表的游标，**写死 = 只要上游多/少消费一格随机数就翻**（本条 2026-11-02 就是这么红的：
+    /// `WMULL` 把换牌期的洗牌挪到 `EndMulligan` 之后，游标变了）。断言要钉的是「按掷出的那一张结算」。</para>
+    /// <para>`false` = 没记过（这次根本没走到掷骰那一支，或座位对不上）⇒ 按「只扣卡费」算。</para></summary>
+    static bool LastOathPaid(BattleContext ctx, int seat)
+    {
+        bool pay;
+        return ctx != null && ctx.TryPeekLastOathDecision(seat, out pay) && pay;
+    }
 }

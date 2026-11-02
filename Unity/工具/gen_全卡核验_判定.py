@@ -92,9 +92,33 @@ def build_engine():
     return pool, dump
 
 
-def engine_cols(cid, sk_row, engine_by_id, pool, dump):
-    rows = pool.get(cid)
+def engine_cols(cid, sk_row, engine_by_id, pool, dump, raw_by_id):
+    # 🆕 2026-11-02（`B117-WSMALL` · 判据 `判据/B117_逐卡核验_E_Leviathan_Tau_SW_GS.md` §五·3/§五·4
+    #   与 `判据/B117_逐卡核验_B_Ultramarines_EC.md` §五·1）：
+    #   ① **`activeAbility` 行而 `hasActiveAbility` ≠ 1 ⇒ 原版自己也不消费**（`CardScript__ResolveActiveAbilityPlayed.c:26-31`
+    #      早退；我们同口径 `Core/CardDefActiveAbility.cs:25-31`、执行层 `RuleCore.cs:15573` 的 `row.Gate != 1` 跳过）
+    #      ⇒ 该行**不参与判定**（`pool_effect_check` 已出「不适用」，老夹具里仍是「未验到」⇒ 两种都吃掉）。
+    #   ② **无效果树**（`triggerAbilityIndices=[]` ∧ 一条 ability 行都没有）⇒ 判 **`免测`**，⛔ 别标成「未验到」
+    #      ——「未验到」的语义是「有东西该验但夹具没验到」，这类卡原版本来就没有可执行效果。
+    rows_all = pool.get(cid) or []
+    haa = (raw_by_id.get(cid) or {}).get("hasActiveAbility", None)
+    #   只认**显式 `0`**（判据就是「为 0 早退」）；`None`/缺列 ⇒ 不剔除（⛔ 不把「不知道」当「不适用」）。
+    rows = [r for r in rows_all
+            if r[7] != "不适用"
+            and not (len(r) > 10 and r[10] == "activeAbility" and haa == 0)]
+    excluded = len(rows_all) - len(rows)
     if not rows:
+        if excluded:
+            return "免测", ("S3 pool_diff4 的 %d 行全部是 `activeAbility` 行且 `hasActiveAbility`≠1"
+                            "⇒ 原版自己也不消费（例外①，判据 `CardDefActiveAbility.cs:25-31`）⇒ 免测" % excluded)
+        tai = (engine_by_id.get(cid) or {}).get("triggerAbilityIndices") or []
+        if not tai and (sk_row[5] in ("", "0")):
+            # 无效果树 ⇒ 免测（⛔ 不是「未验到」）
+            kws = (engine_by_id.get(cid) or {}).get("keywords") or []
+            kwtxt = "/".join(kws) if kws else "无关键词"
+            return "免测", ("无效果树（abilities/activeAbility/alternativeAbility 全空 ∧ `triggerAbilityIndices=[]`）"
+                            "⇒ 免测：本维只测 ability/trigger 分支，该类卡的玩法全在关键词（%s），"
+                            "关键词分支不属本表口径（判据 `B117_逐卡核验_E` §五·3）" % kwtxt)
         # 无 S3 行：S3 只覆盖 ability/trigger 分支，关键词分支未纳入
         ability = sk_row[5]
         kws = (engine_by_id.get(cid) or {}).get("keywords") or []
@@ -106,6 +130,7 @@ def engine_cols(cid, sk_row, engine_by_id, pool, dump):
     n = len(rows)
     ok = sum(1 for r in rows if r[7] == "对")
     bad = n - ok
+    excl_clause = ("；另 `activeAbility` 行 %d 条 `hasActiveAbility`≠1 ⇒ 原版不消费（例外①）" % excluded) if excluded else ""
     d = dump.get(cid) or []
     played = d[7] if len(d) > 7 else ""
     rc = d[5] if len(d) > 5 else ""
@@ -124,15 +149,15 @@ def engine_cols(cid, sk_row, engine_by_id, pool, dump):
             channels = sorted(explicit) if explicit else ["主档"]
             ev = "S3 pool_diff4 %d行全对（通道=%s）；play all played=%s" % (
                 n, "/".join(channels), played)
-            return "对", ev
+            return "对", ev + excl_clause
         # 全对但打不出
         ev = ("S3 pool_diff4 %d行全对，但 play all played=0（playRc=%s %s）"
               "⇒ 打出那一拍未成立" % (n, rc, rcname))
-        return "未验到", ev
+        return "未验到", ev + excl_clause
 
     fams = sorted({"%s(%s)" % (r[11], r[10]) for r in rows if r[7] == "未验到"})
     ev = "S3 pool_diff4 %d行：对%d/未验到%d；未验到族=%s" % (n, ok, bad, "、".join(fams))
-    return "未验到", ev
+    return "未验到", ev + excl_clause
 
 
 # ---------------------------------------------------------------- ② 特效
@@ -275,7 +300,7 @@ def generate():
     out_rows = []
     for sr in sk_rows:
         cid = sr[0]
-        e_j, e_ev = engine_cols(cid, sr, engine_by_id, pool, dump)
+        e_j, e_ev = engine_cols(cid, sr, engine_by_id, pool, dump, raw_by_id)
         f_j, f_ev = vfx_cols(cid, sr, vfx_by_card, raw_by_id, proj)
         a_j, a_ev, a_ability_excluded = anim_cols(cid, engine_by_id, raw_by_id, pool, dump, proj)
         v_j, v_ev = voice_cols(cid, sr, voice_by_cf, total_lines)

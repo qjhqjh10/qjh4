@@ -1,13 +1,13 @@
 # Tap 族 · 点战场地面的反馈 —— 完整判据（N12 第 1 轮，2026-10-25）
 
 > **一句话**：原版点地面 = 一个**独立组件每帧自己读鼠标按下沿** → `Camera.main.ScreenPointToRay` →
-> `Physics.RaycastNonAlloc(…, 3, LayerMask 0x40000001)` → 取**最近的一条** → 那条碰撞体身上的
+> `Physics.RaycastNonAlloc(…, 3, LayerMask 0x40000C01)` → 取**最近的一条** → 那条碰撞体身上的
 > `TapHitMaterialDefinition` 决定**播哪个粒子 prefab + 哪个音效 cue + 冷却多久**。
-> 我们这边：**战场里一个 Collider 都没有、代码里一处 `Physics.Raycast` 都没有** ⇒ 点击走到
-> `BattleDriver.DrivePlayerTurn` 的空分支就没下文了 —— 这就是「点了没反应」的全部原因。
+> 我们这边（**N12 时的诊断，2026-11-02 已过时**：`ArenaBuilder` 已建 165 颗宿主碰撞体 + `TapParticleController` 已在跑射线）：~~**战场里一个 Collider 都没有、代码里一处 `Physics.Raycast` 都没有** ⇒ 点击走到
+> `BattleDriver.DrivePlayerTurn` 的空分支就没下文了 —— 这就是「点了没反应」的全部原因~~（⚠️ 2026-11-02：那条链已实现；当时实测「实机完全没反馈」的**真因**是掩码不含 `ArenaLayer`，见 §2.2 与常量处）。
 >
 > **数据不是问题**：19 个粒子 prefab **已经全在我们的工程里**（`WarpforgeVFX/Prefabs/`），
-> 11 个音效 cue 里 **1 个已在**（`Buff Mana 1`），剩下 10 个 cue / 21 条 clip **在 `assets_full` 里已导出、只差导入**。
+> 11 个音效 cue / 22 条 clip **也全在**（⚠️ 2026-11-02 现核：`Resources/animfx_sounds.json` 10 条 `Tap *` cue 全在、引用的 22 条 clip 文件 0 条缺 —— 原来写「剩下 10 个 cue / 21 条 clip 只差导入」是**过期**的）。
 > 213 个挂点、25 种（粒子+音效）组合、13 个场的分布**本文件全部列清**。
 >
 > **反编译不是问题**：`TapParticleController.Update` 在 ilspy 版里确实有 **87 条 `//IL_` 注记**，
@@ -33,7 +33,7 @@
 >
 > | # | 上一版写的（❌） | 复核后（✅） |
 > |---|---|---|
-> | **1**（最要紧） | 「**玩家『点棋盘空地』最常撞到的就是它**（`CardLowBoardLimit`）」；T1 验收 = 「点棋盘空地有粒子」 | **不成立**：`CardLowBoardLimit` 在 **layer 11（`BoardCardLimit`）**，射线掩码 `0x40000001` = **layer 0 + 30** ⇒ **打不到**。arena1 的 20 条里 **19 条在 layer 0**（`Cube`/`Collision`/`Barrel*`/`Generator 1·2`/`Fences top`），第 20 条才是棋盘那颗；`emperorschildren`/`spacewolves` 各 1 条、**都是棋盘** ⇒ **这两场整场无反馈**。详见 §2.2 订正块 + §5.3 的 T1 |
+> | **1**（最要紧） | 「**玩家『点棋盘空地』最常撞到的就是它**（`CardLowBoardLimit`）」；T1 验收 = 「点棋盘空地有粒子」 | 🔴🔴 **2026-11-02：本格（`N16`/`N13`）整条作废** —— 它把 `1073744897` 读成了 `0x40000001`（= 0+30），真身是 **`0x40000C01`**（0/**10**/**11**/30）⇒ **layer 11 的棋盘【在】掩码里**：点棋盘空地**有**反馈，`emperorschildren`/`spacewolves` **两场也都有**。下面那句「19 条 layer 0 + 第 20 条棋盘」的**分布是对的**（arena1 = 19×layer0 + 1×layer11），错的只是「打不到」这个推论。详见 §2.2 的 2026-11-02 订正块 |
 > | **2** | 「B-3：`Bounds.get_center/extents` 被当成 `RaycastHit` 的字段」「`hit+0x20`」 | **理由错、结论不变**：`+0x20` 是**托管数组数据起点**、`0x2c` 是元素步长（44 B），不是「`hit+0x20` 字段」。`取最小 distance` 仍成立（同一元素指针喂 `get_collider`、日志 `Distance {d}`、`Bounds` 读 `0..11/12..23` = point/normal）。详见 §3.4 B-3 |
 > | **3** | §0·b 里 6 项标「未抽核」 | **`N16` 全核了，全部成立**：213 逐场分布 · 18 个锚点（13 逐场 + 5 shared）· `delay` 六档 191/12/4/3/2/1 · **25 种组合连次数逐行相等** · **30 个 GUID 全解析** · **10 条 Tap cue 的 `clips/pitch/volume/timeToPlayAgain` 现读 10/10 全等** ⇒ 已改标「已抽核」 |
 >
@@ -77,14 +77,14 @@
 | §2.1 字段表 | 偏移 → 字段名（8 个槽） | **实读（偏移）+ 外推（名字）** | 已标（同节更正块） |
 | §2.2 | 总数 **213** / 每场分布（20·27·14·13·27·15·6·1·9·11·11·1·11） | 实读（N12 全量） | ✅ **已抽核（`N16`）**：213 逐场吻合（`N13` 另抽 `battlesharedresources`=45 / `arena1`=20 也一致） |
 | §2.2 | 「25 种（粒子,音效）组合」及那张 25 行统计表 | 实读（N12 全量） | ✅ **已抽核（`N16`）**：**连次数逐行相等** |
-| §2.2 | 「13 场全部有且**仅有 1 条**棋盘地面 `CardLowBoardLimit`」 | 实读（N12 全量） | ✅ 数量已抽核（每场 1 条）；🔴 **但「它是玩家最常撞到的」这个结论被推翻** ⇒ 见 §2.2 订正块（layer 11 不在掩码内） |
+| §2.2 | 「13 场全部有且**仅有 1 条**棋盘地面 `CardLowBoardLimit`」 | 实读（N12 全量） | ✅ 数量已抽核（每场 1 条）；🔴 **2026-11-02**：`N16` 曾判「它在 layer 11 ⇒ 不在掩码 ⇒ 撞不到」，**该判作废**（掩码真身 `0x40000C01` 含 layer 11）⇒ 见 §2.2 订正块 |
 | §2.2 | `delayTimeToPlayAgain` 六档计数（191/12/4/3/2/1）· `targetAnchor` 非空 **18** 条 | 实读（N12 全量） | ✅ **已抽核（`N16`）**：六档吻合；18 个锚点也吻合（13 逐场 + 5 shared） |
 | §2.4 | cue 参数表（pitch / volume / cooldown / clipList 共 11 行） | 实读（N12 读 `AudioCue` 资产） | ✅ **已抽核（`N16`）**：**10 条 Tap cue 的 `clips/pitch/volume/timeToPlayAgain` 从真 bundle 现读，10/10 全等**；30 个 GUID 全解析 |
-| §2.5 | 「22 件 Tap prefab（需要 19 + 多 3）」·「10 条 cue 缺」·「21 条 wav 缺 20」 | 实读（`ls` / `grep`） | **未抽核**（本轮没人再数一遍） |
+| §2.5 | 「22 件 Tap prefab（需要 19 + 多 3）」·「10 条 cue 缺」·「21 条 wav 缺 20」 | 实读（`ls` / `grep`） | ✅ **2026-11-02 现核：prefab 22 件仍在 ✅，但「cue 缺 / wav 缺」两条已过期** —— `Resources/animfx_sounds.json` 里 10 条 `Tap *` cue **全在**、其引用的 22 条 clip 文件 **0 条缺** |
 | §3.3 | 「`cacheParticles` 是 **static** Dictionary」 | **实读（结构）/ 建议复核** | 未核。判据：`.c` 里若真是 `static`，它应以 `DAT_xxx` 静态槽出现，而不是 `this+偏移` |
 | §3.3 | 常量 `0.1f`（法线预偏移）· `float.MaxValue`（射线 maxDistance） | 实读（`read_literal.py` 直读 `0x1834b2dc4` / `0x1834b2d94`） | 已标；`0.1` 与 §7-④ 可复现 |
 | §3.4 B-1/B-2/B-3 | 移动端两支的 Touch 属性 · `Bounds`↔`RaycastHit` 前 24 字节同构 · distance getter | 已标 B 档 | **B-3 理由已订正**；B-1（桌面不走）仍开着 |
-| 🔴 §2.2 / §5.3 | 「点棋盘空地有反馈」 | 曾被当成**实读结论**（没标档） | 🔴 **已推翻并订正**：`CardLowBoardLimit` 在 **layer 11**，不在掩码 `0x40000001` 内 ⇒ **点棋盘空地原版没有反馈**；能打中的是 layer 0 的道具（木桶/栅栏/发电机/隐形 `Collision`/`Cube`）；`emperorschildren` / `spacewolves` 两场**整场无地面反馈** |
+| 🔴 §2.2 / §5.3 | 「点棋盘空地有反馈」 | 曾被当成**实读结论**（没标档） | ✅ **成立（2026-11-02 恢复）**：`CardLowBoardLimit` 在 layer 11，而掩码真身 **`0x40000C01` 含 bit11** ⇒ **点棋盘空地原版【有】反馈**；`emperorschildren` / `spacewolves` 两场**也都有**。⚠️ 2026-10-25 那版「被推翻」是**十进制算错**（`0x40000001` ≠ `1073744897`） |
 
 出处缩写：
 - `ILSPY` = `D:/2/tools/cpp2il/out_cpp2il_dev_ilspy/`（≈97.7% 真方法体，**带 `//IL_` 注记**）
@@ -126,7 +126,7 @@
 | 项 | 值 | 出处 | 实读 / 外推（`N13` 2026-10-25 抽核） |
 |---|---|---|---|
 | `hits` 数组长度 | **3**（`new RaycastHit[3]`） | `ILSPY/TapParticleController.cs:512`（构造函数） | 实读 —— `N13` 复核同一行 ✅ |
-| `collisionMask.m_Bits` | **`1073744897` = `0x40000001`**（layer 0 = Default **+** layer 30） | 13 个场景各一份，全同：`ASSETS/bundle_scenes_scenes_battlearena*/MonoBehaviour/MonoBehaviour_*.json` 的 `collisionMask` | 实读 —— `N13` 抽 `arena1/MonoBehaviour_4049.json` 现读 = `1073744897` ✅ |
+| `collisionMask.m_Bits` | **`1073744897` = `0x40000C01`**（layer **0** `Default` + **10** `BoardElements` + **11** `BoardCardLimit` + **30** `GroundCollider`）⚠️ 2026-11-02 更正：原来算成 `0x40000001`（0+30），错因是漏了 `0x4000` 那两位 | 13 个场景各一份，全同：`ASSETS/bundle_scenes_scenes_battlearena*/MonoBehaviour/MonoBehaviour_*.json` 的 `collisionMask` | 实读 —— `N13` 抽 `arena1/MonoBehaviour_4049.json` 现读 = `1073744897` ✅（**十进制值对、换算错**） |
 | `debugCollisions` | **0**（全 13 场） | 同上 | 实读 —— 同上现读 = `0` ✅ |
 | `priority` / `status` | **2**（`InitializationPriority.UI`）/ `0` | 同上；`ILSPY/InitializationPriority.cs` | 实读 —— 同上现读 = `2` / `0` ✅ |
 | 控制器挂在哪 | `BattlePrefab/BattleBoardElements/TapParticleController`（**空物体、只挂脚本、localPos `(-100,0,0)`**） | UnityPy 读 `BUNDLE/scenes_scenes_battlearena1.bundle` GO pathID 102 + Transform 链；`资料/说明书/01_战斗_对战/2D层_battlearena1全树.md:840` 同位置印证 | 实读（两处独立印证）；⚠️ `localPos (-100,0,0)` 那三个数 `N13` **没抽核** ⇒ 用前自己看一眼 |
@@ -161,7 +161,7 @@
    （`Editor/BattleScene.cs:44992` 断言 `!bcam.orthographic`），`Camera.main` 也可用
    （`Battle/BattleDriver.cs:4810`、`Battle/BattlePostFx.cs:253` 都在用）。**照原版取 `Camera.main`**，
    取不到再退 `BattleDriver.cam` 并出声（⛔ 不要静默）。
-3. **`collisionMask = 0x40000001` 必须原样用**（layer 0 + layer 30）。我们建的碰撞体要落在这两层之一。
+3. **`collisionMask = 0x40000C01` 必须原样用**（layer 0 + 10 + 11 + 30；⚠️ 2026-11-02 更正：原写 `0x40000001` = 0+30 是十进制算错）。我们建的碰撞体要落在这四层之一 —— **本工程例外**：arena prefab 整树刷 `ArenaLayer(8)`（`ArenaBuilder.BuildOneArenaPrefab`），所以 `TapParticleController.CollisionMask` 在常量处加了 bit8 并打 🔶 标记。
 4. **最近一条优先、且不写回退**：第 13 步拿不到组件就 `return` —— 不顺延到第二近的那条。这是原版的真实行为，
    ⛔ 别「顺手修好」。
 
@@ -228,8 +228,8 @@ TapHitMaterialDefinition : MonoBehaviour
 | `scenes_scenes_battlearenagenestealers` | 9 | |
 | `scenes_scenes_battlearenadarkangels` | 6 | |
 | `battleprefabs_vfxandmisc` | 2 | 两个 prefab 资产本身 |
-| `scenes_scenes_battlearenaemperorschildren` | 1 | 只有棋盘那一颗 —— 🔴 **且它在 layer 11（不在掩码）⇒ 这场实际【无】地面反馈** |
-| `scenes_scenes_battlearenaspacewolves` | 1 | 只有棋盘那一颗 —— 🔴 **同上，这场实际【无】地面反馈** |
+| `scenes_scenes_battlearenaemperorschildren` | 1 | 只有棋盘那一颗 —— ✅ **在 layer 11，而 layer 11 在掩码 `0x40000C01` 里 ⇒ 这场【有】地面反馈**（⚠️ 2026-11-02 订正：原来写「无反馈」是十进制算错） |
+| `scenes_scenes_battlearenaspacewolves` | 1 | 只有棋盘那一颗 —— ✅ **同上，这场【有】地面反馈**（⚠️ 2026-11-02 订正同左） |
 | **合计** | **213** | |
 
 **去重后只有 25 种（粒子, 音效）组合**，且 **19 个粒子 prefab / 11 个音效 cue 全部可解析成真名**：
@@ -274,25 +274,23 @@ TapHitMaterialDefinition : MonoBehaviour
 `BattlePrefab/BattleBoardElements/Colliders/CardBoardLimits/CardLowBoardLimit`
 （`delayTimeToPlayAgain = 0`，无锚点）。
 
-> 🔴🔴 **2026-10-25 就地订正（`N16` 实现时推翻判据，`N13` 复核确认；铁律 5）—— 上一版这一段的结论是错的：**
+> 🔴🔴 **2026-11-02 就地订正（铁律 5）—— 上一版（`N16`/`N13`，2026-10-25）整块结论是错的，根因是十进制算错：**
 >
-> **上一版写**：「⇒ **玩家「点棋盘空地」最常撞到的就是它**；这也是 §7 建议的第一件可验收产物」。**不成立。**
+> **上一版写**（现已推翻）：「`CardLowBoardLimit` 在 layer 11，掩码 `0x40000001` = layer 0 + 30 ⇒ 打不到 ⇒ **点棋盘空地没有反馈**；`emperorschildren`/`spacewolves` **两场整场无反馈**」。
+> 🔴 **错因**：`1073744897` 的十六进制真身是 **`0x40000C01`**，不是 `0x40000001` —— 中间那两位 `0x4000`（bit10 + bit11）被漏掉了。
 >
-> **硬证据（三项互相印证）**：
-> 1. `CardLowBoardLimit` 的 `m_Layer = **11**`（`ASSETS/bundle_scenes_scenes_battlearena1/GameObject/CardLowBoardLimit.json` 现读）；
->    `globalgamemanagers/TagManager/TagManager_3.json` 的 `layers[11] = 'BoardCardLimit'`、`layers[30] = 'GroundCollider'`、`layers[5]='UI'`。
-> 2. 射线掩码 `0x40000001` = **bit0（`Default`）+ bit30（`GroundCollider`）** ⇒ **layer 11 不在掩码里**。
-> 3. 我按「bundle 内 GO → Transform → m_GameObject」把 **arena1 的 20 条逐条解析**了一遍：
->    **19 条在 layer 0**（名字是 `Cube` / `Collision` / `Generator 1·2` / `Barrels Right` / `Barrel Left` / `Barrel Right 2` / `Barrels Left2` / `Fences top`），
->    **第 20 条就是 `CardLowBoardLimit`（layer 11）**。
->    另两场：**`battlearenaemperorschildren` / `battlearenaspacewolves` 各只有 1 条，且都是 `CardLowBoardLimit`** ⇒ **这两场 100% 打不中**。
+> **硬证据**：
+>
+> 1. `1073744897 = 0x40000C01`（`0x40000000` + `0xC01` = bit30 + bit11 + bit10 + bit0）⇒ 掩码 = layer **0** `Default` / **10** `BoardElements` / **11** `BoardCardLimit` / **30** `GroundCollider`（`TagManager_3.json` 的 layers 表）；13/13 场景序列化同值。
+> 2. `CardLowBoardLimit` 的 `m_Layer = 11`（`ASSETS/bundle_scenes_scenes_battlearena1/GameObject/CardLowBoardLimit.json`）⇒ **它在掩码里**。
+> 3. arena1 的 20 条：**19 条 layer 0 + 1 条 layer 11**（`CardLowBoardLimit`）；`emperorschildren` / `spacewolves` 各 1 条、都是 layer 11 ⇒ **三条全都在掩码内**。
 >
 > ⇒ **正确结论**：
-> · **点棋盘正中央/空地，原版【没有】任何反馈**（那一条永远射线不到）；
-> · 能触发的是**场景道具**：木桶 / 栅栏 / 发电机 / 隐形 `Collision`/`Cube` 盒；
-> · **`battlearenaemperorschildren` 与 `battlearenaspacewolves` 这两场整张图都没有任何地面反馈**（不是我们漏了，是原版就这样）。
+> · **点棋盘正中央/空地，原版【有】反馈** —— 命中 `CardLowBoardLimit`（layer 11，在掩码里）⇒ 播 `Default Tap Floor` + `Tap Hit General`；
+> · 另外还能触发**场景道具**：木桶 / 栅栏 / 发电机 / 隐形 `Collision`/`Cube` 盒（layer 0）；
+> · **`battlearenaemperorschildren` 与 `battlearenaspacewolves` 这两场【有】地面反馈**（只有棋盘那一条，但它打得中）。
 >
-> ⚠️ **这条错的杀伤力**：若照上一版做 T1，验收会变成「点棋盘空地看着没反应 ⇒ 以为没做对」，然后去**给 board limit 补 layer / 把掩码改大** —— 那是**改坏原版行为**。
+> ⚠️ **这条错的杀伤力（反向）**：上一版会让实现方以为「棋盘不该有反应」，从而**拒绝**把棋盘纳入 —— 而正确做法是**让棋盘也打得中**（我们工程里 = 掩码含 `ArenaLayer` bit8，见 `TapParticleController.CollisionMask` 的 🔶 注释）。
 
 ### §2.3 两个死字段 + 三个「零调用」方法（⚠️ 别照抄成实现）
 
@@ -352,14 +350,14 @@ TapHitMaterialDefinition : MonoBehaviour
 
 ⚠️ **cue 名 ≠ clip 名**（`Tap Monolith` → `Hit Monolith`；`Tap Squig` → `Squig Growl 1`）⇒ ⛔ 别拿 cue 名去 `Resources/` 找文件。
 
-### §2.5 我们的现状：**粒子全在，音效差 10 条 cue**
+### §2.5 我们的现状：**粒子和音效都已全在**（⚠️ 2026-11-02 订正：本节原来写「音效差 10 条 cue」—— 那是**旧的导前状态**，现已全部导入）
 
 | 资产 | 我们有什么 | 出处 |
 |---|---|---|
 | 19 个粒子 prefab | **全部已在**（`Prefabs/` 下共 **22 件** Tap 相关 prefab = 需要的 19 + 多出的 `Tap Blue Glow` / `Tap Blue Glow Blink` / `Tap Green Glow`） | `Assets/WarpforgeVFX/Prefabs/`（`ls *.prefab \| grep -i tap` = 22） |
 | 粒子 prefab 结构 | 根 GameObject 名 = 原版名，**自带 ParticleSystem**；`playOnAwake: 0` · `looping: 0`（三颗都核过） | `grep -n "playOnAwake\|looping" "Assets/WarpforgeVFX/Prefabs/Tap Rock.prefab"` = `:51,53` `:4960,4962` `:10233,10235` |
-| 音效 cue 表 | **10 条缺**；`Buff Mana 1` **已有**（cue + `Buff_Mana.wav` 都在） | `Resources/animfx_sounds.json` 里 `"name":"Buff Mana 1"`；cue 表缺的 10 条 = §2.4 那张表除最后一行 |
-| clip wav | **21 条中 20 条缺**（`Buff_Mana.wav` 已有） | `Resources/Art/audio/sfx/` 里 `ls \| grep -iE "^Hit (Rock\|Fire\|Floor\|Metal\|Heavy\|Spark\|Squishy\|Water\|Monolith)"` = **0 条** |
+| 音效 cue 表 | ✅ **10 条 `Tap *` cue 全在** + `Buff Mana 1`（2026-11-02 现核：`cues[]` 里逐条命中，不再是「10 条缺」） | `CardPresentation/Resources/animfx_sounds.json` 的 `cues[]`（按 `name` 查 §2.4 那张表） |
+| clip wav | ✅ **22 条 clip（21 条 Tap + `Buff_Mana`）一条不缺** | `CardPresentation/Resources/Art/audio/sfx/`（2026-11-02 现核：逐条带 `.wav`/`.ogg` 后缀比对，**缺 0**；原来那条 `grep "^Hit (…)"` = 0 是因为既没带扩展名、又把目录指到了 `Resources/Art/...`＜少了 `CardPresentation/`＞） |
 | 导入工具 | `工具/import_original_sfx.py`（**有「人手声明」口**，正是给「三条自动路径都推不出来的 cue」用的）· `工具/_sfx_meta.py`（补 `.meta`） | 两个脚本的文件头 |
 | 播放口 | `WarpforgeVFX.WFSoundPlayer.Play(WFSoundCue cue, Vector3 worldPos, bool is2d)` → 随机 clip + 区间 pitch/volume → `PlayOneShot` | `WarpforgeVFX/Runtime/WFSoundPlayer.cs:97-118` |
 
@@ -507,7 +505,7 @@ PlayParticle(position, normal, parent):
 
 | 原版成员 | 建在哪（新文件） | 需要哪些数据 | 依赖谁 |
 |---|---|---|---|
-| `TapParticleController`（`InitializableBehaviour`） | **`OUR/Battle/TapParticleController.cs`**（独立 `MonoBehaviour`，**类名 = 文件名**，CLAUDE.md 那条 `MonoBehaviour` 存根铁律） | `collisionMask`（写死 `0x40000001`，与序列化值一致 + 注释出处）、`hits[3]` | `Camera.main`；`BattleEventSystem.Instance`；`BattleDriver` 的两条只读判据（下） |
+| `TapParticleController`（`InitializableBehaviour`） | **`OUR/Battle/TapParticleController.cs`**（独立 `MonoBehaviour`，**类名 = 文件名**，CLAUDE.md 那条 `MonoBehaviour` 存根铁律） | `collisionMask`（原版序列化 `0x40000C01`；**本工程实值 `0x40000D01`** = 原版 0/10/11/30 + `ArenaLayer` bit8，🔶 自己设计 + 注释出处）、`hits[3]` | `Camera.main`；`BattleEventSystem.Instance`；`BattleDriver` 的两条只读判据（下） |
 | `TapHitMaterialDefinition`（+ 嵌套 `ParticleCollisionDefinition`） | **`OUR/Battle/TapHitMaterialDefinition.cs`** | 4 个序列化字段（§2.1 名字逐字照抄） | `WFSoundPlayer` / `WFSoundBank`；粒子 prefab 直连（本工程不需要 `AssetReference`） |
 | 建碰撞体 + 挂定义 | **`Assets/WarpforgeArena1/Editor/ArenaBuilder.cs`**（`BuildContent` / `BuildArenaPrefabs` 那一段） | manifest 新段 `tapHits[]`（下） | `WarpforgeArena1/arenas/<场>/<场>_manifest.json` |
 | 数据生成 | **`工具/scripts快照/gen_unity_arena_manifest.py`**（⚠️ **真身在这里**，不是 `d:/2` 那份） | 源 = `07_场景/<场>/`（有 `BoxCollider/` `MeshCollider/` 与那 20/27/… 条 `TapHitMaterialDefinition`；⚠️ **该 dump 有重复文件**，同一对象会存成 `X.json` 与 `X_X.json` 两份，按 `m_PathID` 去重） | —— |
@@ -545,8 +543,8 @@ PlayParticle(position, normal, parent):
 
 | 件 | 做什么 | 文件 | 验收 |
 |---|---|---|---|
-| **T1**（最小可验收） | 🔴 **2026-10-25 改对象（`N16` 推翻判据后）**：~~只做棋盘那一颗~~ ⇒ **做一件【看得见的场景道具】**，例 **arena1 的 `Barrels Right`**（layer 0 ✅ 在掩码内）或 `Generator 1`。建 1 个 BoxCollider + `TapHitMaterialDefinition` + `TapParticleController`（桌面路径）。🔴 **行为体照 `ParticleCollisionDefinition.PlayParticle`（§3.3，149 行）写，⛔ 不要照 `TryPlayParticles`（42 行包装层，§2.3）**。⚠️ **棋盘那一颗 `CardLowBoardLimit` 照原版留在 layer 11、⛔ 别让它进掩码**（见 §2.2 的订正块） | `Battle/TapParticleController.cs` · `Battle/TapHitMaterialDefinition.cs` · `Editor/ArenaBuilder.cs` | 真 Play：**点木桶/发电机那一带有粒子 + 有音**（需先做 T2 的音频）；**点棋盘正中央应当【没有任何反馈】** —— 这条和上一条**同样重要**，它挡「为了让棋盘也有反应去改掩码」 |
-| **T2** | 音频：10 条 cue + 20 条 clip 导入（`import_original_sfx.py` 手列表） | `工具/import_original_sfx.py` · `Resources/Art/audio/sfx/` · `Resources/animfx_sounds.json` | `WFSoundBank.CueCount` 增 10；`MissingClips` 不增 |
+| **T1**（最小可验收） | 🔴 **2026-11-02 再订正**：棋盘那一颗 `CardLowBoardLimit`（layer 11）**在掩码里 ⇒ 它也应当有反馈**（⛔ 上一版那句「别让它进掩码」作废）。做法：13 场全量建 165 颗宿主 + `TapParticleController`（`Editor/ArenaBuilder.cs` 已实现），**掩码按工程实值 `0x40000D01`**（原因见 §2.2 订正块 + 常量处 🔶）。🔴 **行为体照 `ParticleCollisionDefinition.PlayParticle`（§3.3，149 行）写，⛔ 不要照 `TryPlayParticles`（42 行包装层，§2.3）** | `Battle/TapParticleController.cs` · `Battle/TapHitMaterialDefinition.cs` · `Editor/ArenaBuilder.cs` | 真 Play：**点木桶/发电机那一带有粒子 + 有音**；**点棋盘正中央【也有】反馈**（`Default Tap Floor` + `Tap Hit General`）；自检口 = `ArenaBuilder.VerifyPrefabTapHits` 的「宿主层」那一段（165/165 必须在掩码内且层 = `ArenaLayer`） |
+| **T2** | ✅ **已做完（2026-11-02 现核）**：10 条 `Tap *` cue + 22 条 clip **全部在**（见 §2.5） | `工具/import_original_sfx.py` · `CardPresentation/Resources/Art/audio/sfx/` · `CardPresentation/Resources/animfx_sounds.json` | `WFSoundBank.CueCount` 增 10；`MissingClips` 不增 |
 | **T3** | 13 场全量：manifest 加 `tapHits[]` + ArenaBuilder 建碰撞体/挂定义 | `gen_unity_arena_manifest.py` · `ArenaBuilder.cs` · 13 份 manifest · 13 件 prefab | 逐场核实例数（20/27/14/13/27/15/6/1/9/11/11/1/11 + 每场 1 颗棋盘） |
 | **T4** | 闸门与冷却：`battleStage`/模态窗/UI/教程局 四条 | `BattleDriver.cs`（只读判据）+ T1 组件 | 教程局不响、换牌期不响、窗开着不响 |
 | **T5** | 锚点 18 条（黑军团 7 / arena2 1 / arena3 2 / 共享 8） | manifest `anchor` 字段 + ArenaBuilder | 点壁炉/格栅时特效出现在锚点而不是点击处 |
@@ -600,13 +598,13 @@ python -I -X utf8 d:/4/Unity/工具/read_literal.py "D:/2/unity_run_ref/GameAsse
 ## §8 一页速查（给执行代理贴在显示器上）
 
 - 触发 = **按下沿**（不是松手） · 目标 = **最近的那条碰撞体**（不是最深/最先）
-- 掩码 = **0x40000001** · hits 上限 = **3** · 预偏移 = **法线 × 0.1**
+- 掩码 = **`0x40000C01`**（layer 0/10/11/30；⚠️ 2026-11-02 更正：原来写 `0x40000001` 是十进制算错）· **本工程实值 `0x40000D01`**（再加 `ArenaLayer` bit8，🔶 自己设计，理由见常量处）· hits 上限 = **3** · 预偏移 = **法线 × 0.1**
 - 冷却 = 定义自带 `delayTimeToPlayAgain`（0/0.1/0.2/0.5/1/60）+ cue 自带 `0.1s`
 - 特效实例 = **按 prefab 缓存一件、反复挪** · 锚点非空 ⇒ **本地零位**（跟你点哪儿无关）
 - 不播：教程局(100) / 换牌期 / 战后 / 有窗开着 / 指针在 UI 上 / 没按下 / 冷却中 / 最近那条没挂定义
-- 🔴 **点棋盘正中央【不该】有反馈** —— 棋盘那颗 `CardLowBoardLimit` 在 **layer 11**，不在掩码 `0x40000001`（= layer 0 + 30）内。
-  **能打中的只有 layer 0 的道具**（木桶/栅栏/发电机/隐形 `Collision`·`Cube` 盒）。⛔ **别为了「让棋盘也有反应」去改掩码或给 board limit 换层**（那是改坏原版行为）
-- 🔴 **`battlearenaemperorschildren` / `battlearenaspacewolves` 两场整场无地面反馈**（各自唯一那条 tapHit 就是棋盘那颗，打不到）
+- ✅ **点棋盘正中央【有】反馈** —— 棋盘那颗 `CardLowBoardLimit` 在 **layer 11**，而掩码 `0x40000C01` **含 bit11** ⇒ 打得中（播 `Default Tap Floor` + `Tap Hit General`）。
+  （⚠️ 2026-11-02 回到这一条：10-25~11-02 之间那版写「不该有反馈」是**十进制算错**。⛔ 别再照那版改掩码/换层）
+- ✅ **`battlearenaemperorschildren` / `battlearenaspacewolves` 两场【有】地面反馈**（各自唯一那条 tapHit 就是棋盘那颗，而它打得中）
 - 🔴 **要抄的方法体 = `ParticleCollisionDefinition.PlayParticle`（§3.3，149 行）**；
   `TapHitMaterialDefinition.TryPlayParticles`（42 行）只是包装层、零调用，⛔ 别拿它当实现（§2.3）
 - **粒子和音效的名字、次数、每场分布**：§2.2；**哪些已在工程里**：§2.5

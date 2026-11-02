@@ -519,7 +519,7 @@ public static class ArenaBuilder
         public string go;              // 叶子名（与 `meshes[].go` 同一套）
         public string path;            // 原版那棵树的完整路径（审计/定位用）
         public int layer;              // 原版 GameObject 的 layer（**照抄**，别改）
-        public bool inMask;            // layer 在射线掩码（0 / 30）里吗 —— 只作审计
+        public bool inMask;            // ⚠️ 生成器按**旧掩码 0x40000001**（0/30）算的 ⇒ 已不可信（13 条 layer 11 被误标 false）；⛔ 别用，按 `layer` + `TapParticleController.CollisionMask` 现算
         public bool hasMesh;           // 这颗宿主是不是已被 `meshes[]` 建过（决定「挂上去」还是「新建」）
         public float[] pos, rot, scale;// 世界 TRS（与 `meshes[]` 同口径）
         public TapColliderEntry collider;   // null = 原版这条**永远不触发**（宿主没碰撞体，arena3 场根）。🔴 判「在不在」用 `TapColliderPresent()`，⛔ 别写 `!= null`（JsonUtility 会把 null 物化）
@@ -752,7 +752,7 @@ public static class ArenaBuilder
         // 🔴 **层要在这里刷** —— 原来这一步是 `BattleScene` 对**烘进场景**的内容做的
         //   （`SetLayerRecursive(arenaGo, ArenaLayer)` + 把 Volume 还原到 `Default` 层）。
         //   §27 改成运行时实例化之后，场景里没有内容可刷 ⇒ **必须烘进 prefab**：
-        //   · 整棵树 → `ArenaSlots.ArenaLayer`（HUD 相机不吃这一层，透视相机专画它）；
+        //   · 整棵树 → `ArenaSlots.ArenaLayer`（HUD 相机不吃这一层，透视相机专画它）；⚠️ 这一步**也**把 `BuildTapHits` 按原版设的 0/11 刷成了 8 ⇒ 射线掩码必须含 bit8（`TapParticleController.CollisionMask` = `0x40000D01`，🔶 自己设计，见该常量处）；
         //   · **Volume 子物体回 `Default` 层** —— 原版那是 Default 层、只被 `BoardCamera` 的
         //     `m_VolumeLayerMask = 1` 够得着；不还原的话**后处理会静默失效**（不报错、只是没效果）。
         int nLayer = 0;
@@ -4411,10 +4411,10 @@ public static class ArenaBuilder
     //    ③ `TapParticleController`：一颗空物体（原版 `BattlePrefab/BattleBoardElements/TapParticleController`，
     //       localPos `(-100,0,0)`、只挂脚本）。
     //
-    //  ⚠️ **两条「照原版的不完美」都别改**：
+    //  ⚠️ **两条别改**：
     //    · `CardLowBoardLimit`（每场那颗棋盘）在原版是 **layer 11（`BoardCardLimit`）** ——
-    //      **不在射线掩码 `0x40000001`（layer 0 + 30）里** ⇒ 原版点棋盘空地**本来就不触发**它。
-    //      ⛔ 别为了「点棋盘有反馈」把它改成 layer 0（那是自己发明）。
+    //      **它【在】掩码 `0x40000C01` 里**（bit0+bit10+bit11+bit30；⚠️ 2026-11-02 订正：原来算成 0+30 是十进制算错）。
+    //      ⇒ 原版点棋盘空地**是有反馈的**；⛔ 别再写「点棋盘没有反馈」。
     //    · arena3 的场根上挂了一条定义、但**宿主没有碰撞体** ⇒ 原版**永远不触发**；
     //      清单里 `collider == null` 就是这一条，本方法**跳过**（⛔ 别顺手补一个碰撞体）。
     // ==================================================================
@@ -4473,8 +4473,8 @@ public static class ArenaBuilder
                 nBuilt--;                     // 建不出碰撞体 ⇒ 这条没有意义，别硬挂定义
                 continue;
             }
-            go.layer = e.layer;               // 🔴 照原版设层（掩码 = layer 0 + 30，见判据 §1.1）
-            if (!e.inMask) nOutMask++;
+            go.layer = e.layer;               // 🔴 照原版设层（掩码 = 0x40000D01：原版 0/10/11/30 + 本工程 bit8，见常量处）
+            if (e.layer < 0 || e.layer >= 32 || ((CardPresentation.TapParticleController.CollisionMask >> e.layer) & 1) == 0) nOutMask++;
 
             // ② 定义
             var def = go.GetComponent<CardPresentation.TapHitMaterialDefinition>();
@@ -4587,12 +4587,12 @@ public static class ArenaBuilder
         Debug.Log($"[Arena] Tap（点地面反馈）：{mf.scene} 清单 {mf.tapHits.Length} 条"
                 + $" ⇒ 建碰撞体 {nBuilt} 颗（其中另建空宿主 {nHostNew}）· 挂定义 {nDef} 个"
                 + $" · 控制器 {nControl} 颗"
-                + $" · **掩码外（layer 0/30 之外，原版射线打不到）{nOutMask} 条**"
+                + $" · **掩码外（不在 `CollisionMask` 里 ⇒ 射线永远打不到）{nOutMask} 条**"
                 + $" · 无碰撞体跳过 {nNoCollider} 条 · 锚点 接上 {nAnchorOk} / 失败 {nAnchorFail}"
                 + $"（本场带锚点 {nAnchorOk + nAnchorFail} 条，其中自建 {nAnchorRebuilt} 条）");
         if (nOutMask > 0)
-            Debug.Log($"[Arena] Tap：那 {nOutMask} 条是**照原版**设在别的 layer 上的（每场 1 条 `CardLowBoardLimit`，"
-                    + "原版 layer 11 `BoardCardLimit`）—— 原版点棋盘空地**本来就不触发**，⛔ 别改成 layer 0");
+            Debug.LogWarning($"[Arena] Tap：{nOutMask} 条宿主的 layer 不在 `TapParticleController.CollisionMask` 里 ⇒ "
+                    + "那几条永远命不中；掩码 = 原版 0/10/11/30 + 本工程 bit8(ArenaLayer)");
         return nBuilt;
     }
 
@@ -4631,7 +4631,7 @@ public static class ArenaBuilder
         Debug.Log($"[Arena] Tap 自检：{scene} 建场时挂定义 **{wantDef}** 个 / 控制器 **{wantCtrl}** 颗 vs "
                 + $"prefab 产物里 `TapHitMaterialDefinition` **{gotDef}** 处 / `TapParticleController` **{gotCtrl}** 处 —— "
                 + ((gotDef == wantDef && gotCtrl == wantCtrl) ? "**相等 ✅**"
-                                                             : "**不等 🔴**：挂了但没落进 prefab，这一条没做完"));
+                                                             : "**不等 🔴**：挂了但没落进 prefab，这一条没做完") + $"｜**宿主层**：{VerifyTapHostLayers(scene, txt, defGuid)}");
     }
 
     /// <summary>在整棵树里按「名字 + 世界坐标」找已建出来的宿主/锚点。
@@ -6346,4 +6346,102 @@ public static class ArenaBuilder
     /// <para>⛔ 别改成复制一份到 `WarpforgeArena1/Textures/LUT/` —— 那会让 `LUT Battle Arena 1/2/3/4`
     ///   这几个**原版不存在**的名字出现，下一个会话会以为原版各有一张专属 LUT。</para></summary>
     public const string SharedIdentityLutPath = "Assets/Resources/WarpforgeVFX/LUT/LUT Normal.png";
+
+    // ---- 🆕 2026-11-02（`B117-WTAP`）：Tap 宿主的**层**自检 ----
+    /// <summary>逐颗 tap 宿主断言「射线打得中它」—— 🔴 **只数组件不数层，正是这条链全死一个月没人发现的原因**
+    /// （`BuildOneArenaPrefab` 末尾把整棵树刷成 `ArenaLayer(8)`，而掩码原来不认 8 ⇒ 165 颗宿主一颗都命不中，
+    /// 而旧自检只比「定义数 / 控制器数」，全绿）。
+    /// <para>两个条件（缺一即报红）：① `(CollisionMask &amp; (1 &lt;&lt; layer)) != 0` —— 掩码打得中；
+    /// ② `layer == ArenaSlots.ArenaLayer` —— **本工程的硬约束**（arena prefab 整树刷 8、透视相机 `cullingMask = 1&lt;&lt;8`；
+    /// 165 颗宿主里 **109 颗的子树里有 MeshRenderer**（木桶/坦克/雕像…），按原版回 0/11 会被 3D 相机整颗丢掉）。</para>
+    /// <para>⚠️ 读**产物文本**（与 `VerifyPrefabVertexStreams` 同一手法），不加载 prefab 资产。
+    /// ⛔ 别把它降级成「数 `m_Layer: 8` 出现几次」—— 那样任何一颗宿主漏刷都发现不了。
+    /// 灭自证：把 `BuildOneArenaPrefab` 那次刷层去掉（宿主回 0/11）⇒ 条件②红；把 bit8 从掩码拿掉 ⇒ 条件①红。</para></summary>
+    static string VerifyTapHostLayers(string scene, string txt, string defGuid)
+    {
+        if (string.IsNullOrEmpty(defGuid))
+            return "**没验**（`TapHitMaterialDefinition.cs.meta` 取不到 guid）";
+
+        var goLayer = new Dictionary<string, int>();
+        var goName = new Dictionary<string, string>();
+        var defGo = new List<string>();
+        string cls = null, id = null, name = null, goRef = null;
+        int layer = -1;
+        bool isDef = false;
+        var lines = txt.Split('\n');
+        for (int i = 0; i <= lines.Length; i++)
+        {
+            bool end = i == lines.Length;
+            string ln = end ? "" : lines[i];
+            if (end || ln.StartsWith("--- !u!", System.StringComparison.Ordinal))
+            {
+                if (!end)
+                {
+                    // 收上一块
+                    if (cls == "1" && !string.IsNullOrEmpty(id)) { goLayer[id] = layer; if (name != null) goName[id] = name; }
+                    else if (cls == "114" && isDef && !string.IsNullOrEmpty(goRef)) defGo.Add(goRef);
+                    int up = ln.IndexOf("!u!", System.StringComparison.Ordinal);
+                    int amp = ln.IndexOf(" &", System.StringComparison.Ordinal);
+                    if (up >= 0 && amp > up)
+                    {
+                        cls = ln.Substring(up + 3, amp - up - 3).Trim();
+                        id = ln.Substring(amp + 2).Trim();
+                    }
+                    else { cls = null; id = null; }
+                    layer = -1; name = null; goRef = null; isDef = false;
+                    continue;
+                }
+                if (cls == "1" && !string.IsNullOrEmpty(id)) { goLayer[id] = layer; if (name != null) goName[id] = name; }
+                else if (cls == "114" && isDef && !string.IsNullOrEmpty(goRef)) defGo.Add(goRef);
+                break;
+            }
+            string t = ln.Trim();
+            if (t.StartsWith("m_Layer: ", System.StringComparison.Ordinal))
+            {
+                int v; if (int.TryParse(t.Substring(9).Trim(), out v)) layer = v;
+            }
+            else if (t.StartsWith("m_Name: ", System.StringComparison.Ordinal))
+                name = t.Substring(8).Trim().Trim('\'');
+            else if (t.StartsWith("m_GameObject: {fileID: ", System.StringComparison.Ordinal))
+            {
+                int a = t.IndexOf("{fileID: ", System.StringComparison.Ordinal) + 9;
+                int b = t.IndexOf('}', a);
+                if (b > a) goRef = t.Substring(a, b - a).Trim();
+            }
+            else if (t.StartsWith("m_Script:", System.StringComparison.Ordinal) && t.Contains(defGuid)) isDef = true;
+        }
+
+        int mask = CardPresentation.TapParticleController.CollisionMask;
+        int arenaLayer = CardPresentation.ArenaSlots.ArenaLayer;
+        int nOut = 0, nGone = 0;
+        var bad = new List<string>();
+        for (int i = 0; i < defGo.Count; i++)
+        {
+            int L; string nm;
+            if (!goLayer.TryGetValue(defGo[i], out L))
+            {
+                nGone++;
+                bad.Add($"`{defGo[i]}`（**在 prefab 里找不到它的 GameObject 块**）");
+                continue;
+            }
+            goName.TryGetValue(defGo[i], out nm);
+            string who = "`" + (nm ?? defGo[i]) + "`";
+            if (L < 0 || L >= 32 || ((mask >> L) & 1) == 0)
+            {
+                nOut++;
+                bad.Add($"{who}：layer {L} **不在掩码 `0x{mask:X8}` 里** ⇒ 点它没有反馈");
+            }
+            else if (L != arenaLayer)
+            {
+                nOut++;
+                bad.Add($"{who}：layer {L} ≠ `ArenaLayer({arenaLayer})` ⇒ **透视相机不画它**（原版 0/11 在本地渲不出来）");
+            }
+        }
+        for (int i = 0; i < bad.Count; i++) Debug.LogError($"[Arena] Tap 层自检 🔴 {scene}：{bad[i]}");
+        if (defGo.Count == 0) return "**没验**（产物里 0 个 `TapHitMaterialDefinition`，见左边那两条计数）";
+        int nOk = defGo.Count - nOut - nGone;
+        return (nOut == 0 && nGone == 0 && defGo.Count > 0)
+             ? $"**{defGo.Count} 颗宿主全部 {nOk}/{defGo.Count} 在掩码内且层 = {arenaLayer} ✅**"
+             : $"**🔴 {nOut + nGone} 条不合格**（在掩码内且层对的 {nOk}/{defGo.Count}；掩码 `0x{mask:X8}`、要求层 {arenaLayer}）";
+    }
 }

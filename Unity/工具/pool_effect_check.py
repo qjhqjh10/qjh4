@@ -19,13 +19,17 @@ B9 · 全池效果对拍驱动（P1 · 第八十三会话）
    本脚本**只做一件事**：把卡面/真值推出的**期望形状**与这两条口的读数**逐行比**，
    并给一个**保守**的判定（见下 `§判定`）。判据仍是卡面英文原文 + `cards_truth.json` 的结构化真值。
 
-============================ 判定（三档 + 两条铁律） ============================
+============================ 判定（四档 + 两条铁律） ============================
 
 * `对`     —— 该族要求的**可观察签名**在读数里出现了。
 * `错`     —— **同时**满足：① 该行 `trigger == 0`（打出即结算，主档一定会走到）
                 ② 卡真的打出去了（`playRc == 0`）③ 卡不是督军（督军走对照局，不是「打出」）
                 ④ 没有任何「夹具看不到 / 条件不成立」的档（见下）⑤ 整张卡**一条变化都没有**。
 * `未验到` —— 其余全部。**必须**在 `备注` 里写明是哪一档闸挡住的（不许只写「未验到」）。
+* `不适用` —— 🆕 2026-11-02（`B117-WSMALL`）：**原版自己就不消费这一行** ⇒ 既不是「对」也不是
+                「待验」。现只有一支：`activeAbility` / `alternativeAbility` 行而卡数据
+                `hasActiveAbility`（`alternativeAbility` 还要 `hasAlternativeAbility`）≠ 1 ——
+                原版 `CardScript__ResolveActiveAbilityPlayed.c:26-31` 早退（判据与实测规模见 `judge` 顶部那段）。
 
 🔴 两条防假缺陷的铁律（照 `B8_BE` 的教训）：
    ① **`unitsToSummon` 25% 是惰性遗留值** —— 只有 `chosenAbility ∈ {70,71,72,75,77,90,100,101,270}`
@@ -755,6 +759,26 @@ def judge(row, main_row, bat_row, name_of, ctype, wake=None, picked=False, pick_
     🆕 `B9_W41S3B`（2026-10-27）：`hero_row` = 这一行的 **`H|` 督军档电池行**（`preset hero=1`）；
     `sweep` = 这一行实际读的是哪一套（`"sd"` / `"big"` / `None`），只用来把通道写进备注。
     """
+    # 🔴 2026-11-02（`B117-WSMALL` · 判据 `资料/完全复刻/判据/B117_逐卡核验_B_Ultramarines_EC.md` §五·1）：
+    #   **原版自己就不消费的 `activeAbility` 行 ⇒ 判「不适用」**，⛔ 不进「未验到」。
+    #   为什么：`未验到` 的语义是「夹具没验到 / 条件不成立」，把它和「原版同样不执行」混在一档，
+    #   会让「该跑的没跑」被当成「本来就没事」而静默漏过。
+    #   闸 = 卡数据 `hasActiveAbility`：为 0 时原版 `CardScript__ResolveActiveAbilityPlayed.c:26-31`
+    #   先 `LogWarning` 再 `return`，整条路不跑（我们同口径 → `Core/CardDefActiveAbility.cs:25-31`；
+    #   执行层还有 `RuleCore.cs:15573` 的 `if (row == null || row.Gate != 1) continue;`）。
+    #   `alternativeAbility` 的闸 = `hasActiveAbility ∧ hasAlternativeAbility`（`gen_cards_engine.py:1818-1819`）。
+    #   数据侧自洽：全池 `hasActiveAbility == 1` ⟺「有 `gate=1` 的 `activeAbilityLogic` 行」87⟺87
+    #   （`CardDefActiveAbility.cs:37-39`）⇒ 用 `hasActiveAbility` 判与用 `gate` 判等价。
+    #   现测（2026-11-02）：池内 45 张督军 / 52 行（`UM46`/`UM87`/`UM48` 就是判据点名的那三张）。
+    #   只认**显式 `0`**（判据就是「为 0 早退」）；`None`/缺列 ⇒ 不剔除（⛔ 不把「不知道」当「不适用」）。
+    if row.get("src") == "activeAbility" and row.get("hasAA") == 0:
+        return ("不适用", "不适用（hasActiveAbility=0）", "",
+                "原版不消费：`hasActiveAbility=0` ⇒ `CardScript__ResolveActiveAbilityPlayed.c:26-31` 早退"
+                "（我们同口径 `CardDefActiveAbility.cs:25-31` · `RuleCore.cs:15573`）⇒ 本行不参与对拍")
+    if row.get("src") == "alternativeAbility" and (row.get("hasAA") == 0 or row.get("hasAlt") == 0):
+        return ("不适用", "不适用（hasAlternativeAbility=0）", "",
+                "原版不消费：`alternativeAbility` 的闸 = `hasActiveAbility ∧ hasAlternativeAbility`"
+                "（`gen_cards_engine.py:1818-1819`；原版 `RawCardScript__ResolveActiveAbility.c:16-38`）⇒ 本行不参与对拍")
     fid = row["ca"]
     trig = row["trigger"]
     fam = FAM.get(fid)
@@ -1149,6 +1173,8 @@ def iter_rows(truth, engine_by_id, stats=None):
                         "lg": lg, "tc": lg.get("targetCriteria") or {},
                         "desc": e.get("desc") or "", "descZh": e.get("descZh") or "",
                         "faction": e.get("faction") or "",
+                        # 🆕 2026-11-02（`B117-WSMALL`）：原版入口闸（`judge` 判「不适用」用）
+                        "hasAA": c.get("hasActiveAbility"), "hasAlt": c.get("hasAlternativeAbility"),
                     })
     return out
 
@@ -1348,7 +1374,7 @@ def main():
 
     print("=== B9 全池效果对拍 ===")
     print("  行数（卡×族×触发，逐字重复已并掉 %d 行）: %d" % (dup, len(out)))
-    print("  判定: " + " · ".join("%s=%d" % (k, stat[k]) for k in ("对", "错", "未验到")))
+    print("  判定: " + " · ".join("%s=%d" % (k, stat[k]) for k in ("对", "错", "未验到", "不适用")))
     print("  其中「候选缺陷」（软闸，未判错）: %d" % sum(1 for r in out if r[-1] == "是"))
     # 🆕 `P3`：第二/第三套夹具（`preset …`）覆盖了多少行 —— ⛔ 缺读数必须出声。
     print("  读第二套夹具（preset dead=1,pick=1）的行: %d%s"

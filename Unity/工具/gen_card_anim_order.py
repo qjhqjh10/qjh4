@@ -34,7 +34,7 @@ gen_card_anim_order.py — 逐卡逐技能演出表的生成器（**全量件** 
 - 两次 `--write` 逐字节相同（无时间戳、无随机；所有集合迭代前 `sorted`；字典插入序来自固定文件）。
 - `--check` 只比对不写盘；`--probe-base` 只验证「基底是否仍能复现盘上那 897 卡」。
 
-## 用法（🔴 不带参 = 只打印本用法并退出，**绝不写盘**）
+## 用法（🔴 不带参 = 只打印本用法并以**退出码 2**退出，**绝不写盘**）
     python -I -X utf8 工具/gen_card_anim_order.py --check         # 全量件：只对账（不写盘）
     python -I -X utf8 工具/gen_card_anim_order.py --write         # 全量件：重新生成（写盘）
     python -I -X utf8 工具/gen_card_anim_order.py --probe-base    # 只验证基底可复现（不写盘）
@@ -443,18 +443,57 @@ def _bundle_key_cov(rows, byguid):
 # ======================================================================
 # 运行期瘦身版（既有口径，未改）
 # ======================================================================
-def _curve_flat(curve):
-    """`AnimationCurve`（全量件里的序列化形状）→ 扁平 `[t0,v0,t1,v1,…]`（按 time 升序）。"""
-    cur = ((curve or {}).get("m_Curve") or [])
+# 🔴 2026-11-02（执行代理 `B117-WCURVE`）：4 数关键帧格式的标记（与 `gen_cardanim_clips.py` **同一套约定**）。
+#   原版 `AnimationCurve.Evaluate` 是分段 Hermite（每键带 `inSlope`/`outSlope`），本表原来只写 `[t,v]`
+#   ⇒ 非线性曲线（先快后慢 / 弧线 / 飞出去再飞回来）的形状被丢掉。现格式（**只在曲线确实非线性时才用**）：
+#       [-1, t0, v0, inSlope0, outSlope0, t1, v1, inSlope1, outSlope1, …]
+#   首格 `-1` 是标记 ⇒ 4 数格式长度 = `1+4n`（% 4 == 1），旧的 2 数格式 = `2m`（% 4 ∈ {0,2}）⇒ **奇偶互斥**，
+#   运行期 `CardAnimOrder.HasSlopes` 只靠长度判（`BattleDriver` 拿 `float[]` 直接调，没有地方传版本号）。
+CURVE_SLOPE_TAG = -1.0
+
+
+def _curve_needs_slopes(keys):
+    """这条曲线用 Hermite 与用分段线性的求值是否不同（逐段：两端切线 ≠ 弦斜率 ⇒ 非线性）。"""
+    for i in range(len(keys) - 1):
+        a, b = keys[i], keys[i + 1]
+        dt = float(b.get("time") or 0.0) - float(a.get("time") or 0.0)
+        if abs(dt) < 1e-9:
+            continue
+        chord = (float(b.get("value") or 0.0) - float(a.get("value") or 0.0)) / dt
+        if abs(float(a.get("outSlope") or 0.0) - chord) > 1e-6:
+            return True
+        if abs(float(b.get("inSlope") or 0.0) - chord) > 1e-6:
+            return True
+    return False
+
+
+def _curve_flat(curve, with_slopes=False):
+    """`AnimationCurve`（全量件里的序列化形状）→ 扁平格式（按 time 升序）。
+
+    🔴 2026-11-02（`B117-WCURVE`）：`with_slopes=True` **且**这条曲线非线性 ⇒ 4 数格式
+    `[-1,t,v,inSlope,outSlope,…]`；否则旧的 2 数格式 `[t,v,…]`（**逐字节不变**）。
+    ⚠️ 哪些用 `with_slopes=True`：`easeCurve`（`CardAnimOrder.EaseAt`）与
+    `offsetMovementAxis.{x,y,z}Axis`（`CardAnimOrder.EaseAtRaw`）—— 原版两处都走 `AnimationCurve.Evaluate`。
+    """
+    keys = sorted(((curve or {}).get("m_Curve") or []), key=lambda x: x.get("time", 0.0))
     out = []
-    for k in sorted(cur, key=lambda x: x.get("time", 0.0)):
+    if with_slopes and _curve_needs_slopes(keys):
+        out.append(CURVE_SLOPE_TAG)
+        for k in keys:
+            out.append(round(float(k.get("time") or 0.0), 4))
+            out.append(round(float(k.get("value") or 0.0), 4))
+            out.append(round(float(k.get("inSlope") or 0.0), 4))
+            out.append(round(float(k.get("outSlope") or 0.0), 4))
+        return out
+    for k in keys:
         out.append(round(float(k.get("time") or 0.0), 4))
         out.append(round(float(k.get("value") or 0.0), 4))
     return out
 
 
 def _ease_flat(ai):
-    return _curve_flat(ai.get("easeCurve"))
+    # 🔴 2026-11-02（`B117-WCURVE`）：位移进度曲线带斜率（原版是 Hermite）。
+    return _curve_flat(ai.get("easeCurve"), with_slopes=True)
 
 
 def slim_beat(step, anims, stats):
@@ -495,9 +534,10 @@ def slim_beat(step, anims, stats):
         om = ai.get("offsetMovementAxis") or {}
         b["ao"] = 1
         b["ont"] = 1 if om.get("useNonModifiedAnimTime") else 0
-        b["ofx"] = _curve_flat(om.get("xAxis"))
-        b["ofy"] = _curve_flat(om.get("yAxis"))
-        b["ofz"] = _curve_flat(om.get("zAxis"))
+        # 🔴 2026-11-02（`B117-WCURVE`）：三轴偏移曲线同样带斜率（原版 `AnimationCurve.Evaluate`）。
+        b["ofx"] = _curve_flat(om.get("xAxis"), with_slopes=True)
+        b["ofy"] = _curve_flat(om.get("yAxis"), with_slopes=True)
+        b["ofz"] = _curve_flat(om.get("zAxis"), with_slopes=True)
         for mn_key, mx_key, range_key in (("mnx", "mxx", "minMaxXOffset"),
                                           ("mny", "mxy", "minMaxYOffset"),
                                           ("mnz", "mxz", "minMaxZOffset")):
@@ -574,13 +614,13 @@ def build():
 # ======================================================================
 # CLI（🔴 不带参 = 只打印用法并退出，绝不写盘）
 # ======================================================================
-USAGE = """用法（🔴 不带参 = 只打印本用法并退出，绝不写盘）：
+USAGE = """用法（🔴 不带参 = 只打印本用法并以**退出码 2**退出，绝不写盘）：
     python -I -X utf8 工具/gen_card_anim_order.py --check         # 全量件：只对账（不写盘）
     python -I -X utf8 工具/gen_card_anim_order.py --write         # 全量件：重新生成（写盘）
     python -I -X utf8 工具/gen_card_anim_order.py --probe-base    # 只验证基底可复现（不写盘）
     python -I -X utf8 工具/gen_card_anim_order.py --check-slim    # 运行期瘦身版：只对账
     python -I -X utf8 工具/gen_card_anim_order.py --write-slim    # 运行期瘦身版：重新生成
-    -h, --help  同「不带参」：只打印本用法并退出（退出码 0）。"""
+    -h, --help  只打印本用法并退出（退出码 0）。"""
 
 
 def _read_text(p):
@@ -619,9 +659,14 @@ def _summary(o):
 
 def main(argv):
     args = [a for a in argv[1:]]
-    if not args or any(a in ("-h", "--help") for a in args):
+    # 🔴 2026-11-02（`B117-WCURVE`）：**不带参 = 用法 + 退出码 2**（本仓纪律：写盘类脚本裸跑绝不做事、
+    #   且要用非零退出码让调用方一眼看出「什么也没干」）；`-h/--help` 仍是 0。
+    if any(a in ("-h", "--help") for a in args):
         print(USAGE)
         return 0
+    if not args:
+        print(USAGE)
+        return 2
 
     known = {"--check", "--write", "--probe-base", "--check-slim", "--write-slim"}
     unknown = [a for a in args if a not in known]

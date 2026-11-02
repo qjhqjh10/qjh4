@@ -209,8 +209,19 @@ namespace CardPresentation
         }
 
         /// <summary>开面板。`title` 传 null 就用调用方/原版兜底文案 `选择一张牌`。
-        /// ⚠️ 「选效果」复用同一个面板（原版靠 `isEnviromental` 分叉）——**我们靠标题区分**，
-        ///    因为原版 `isEnviromental` 到底改了哪些视觉/文案**查不到**（那个方法体没有反编译产物）。
+        /// ⚠️ 「选效果」复用同一个面板（原版靠 `isEnviromental` 分叉）——**我们靠标题区分**。
+        /// 🔴 **2026-11-02（`B117-G10-14`）就地订正（铁律 5）：原来这里写「`isEnviromental` 到底改了哪些
+        ///    视觉/文案**查不到**（那个方法体没有反编译产物）」—— **不成立**，逐句现读如下
+        ///    （`cpp2il/out_cpp2il_dev_ilspy/ChooseCardMenu.cs:597-616` + `decomp_full/ChooseCardMenu__Setup.c:66-78`）：
+        ///    · `isEnviromental` 只在 `actingCardId == "offensive"` 或 `"defensive"` 时为真；
+        ///    · 它的**唯一**直接后果 = `chooseMenuAnchor.gameObject.SetActive(false)`（把候选卡那一行先关掉）；
+        ///    · 但 `SetupChooseCardsUi` 协程建完卡、`WaitForSeconds` 之后会 `ShowChooseCardElements(true)`，
+        ///      且 `isEnviromental` 为真时再 `chooseMenuAnchor.SetActive(true)`（`…_d__22__MoveNext.c:148-165`）
+        ///      ⇒ **只是「建卡期间先藏一下」的时序**，不是另一套版面/文案（我们一次建完即可，差别只在那一瞬的淡入）；
+        ///    · `CreateCardUI` 里那个同名形参**只用来调一次虚方法（`+0x268`）**，即
+        ///      `FadeCard(0,0)` 把卡**先淡到 0**（`decomp_full/ChooseCardMenu__CreateCardUI.c:59`），
+        ///      由协程后面再淡进来 —— 仍然属于同一段时序。
+        ///    ⇒ **结论：本面板的「选效果」档与原版在稳态上没有差异**，不需要额外分叉（⛔ 别再原文照抄那句「查不到」）。
         /// `uniqueId` = 原版 `SetUpTitleText(string uniqueId)` 的入参：**卡定义 id**（`RawCardScript.uniqueId`
         /// 是 `string`、偏移 +0x38，`dump.cs:18813`；我们的 `CardDef.Id` 与原版同一 id 空间 —— 旁证
         /// `资料/全量反编译复核_靠推断的清单.md` §一 第 9 条：原版预组卡资产里逐字写着 `"AM1"`）。

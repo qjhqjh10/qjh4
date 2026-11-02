@@ -17021,7 +17021,18 @@ public static class MainMenuScene
             CheckTrue(c1OffKeys.Length >= 10000,
                       $"（前提）官方 13 语言表读得到：{c1OffKeys.Length} 键（应 ≥ 10000）"
                     + "｜🧨 读不到 ⇒ 下面那条等于没验");
-            int c1Covered = 0, c1Bad = 0;
+            // 🔶 自己设计（非原版）：白名单 —— 手写表允许**恰好一条**已知偏离，且只允许这一条。
+            //   为什么必须偏离：用户 2026-11-03 亲自裁定「改为游戏，官方翻译太差了」（账 `B117-R12`）；
+            //   官方 zh 列 `MainMenu/NavigationPanel/HomeButton` 仍是「玩」、原版实拍也是「玩」
+            //   ⇒ 这是我们**主动**偏离原版，**不是**原版值变了。取值落点 = `Core/Loc.cs:501`（`B117_F10`）。
+            //   三个值写死在这里（⛔ 不从 `Loc` 读回来 —— 读回来就是拿表证明表），构成三向灭自证：
+            //     ① 偏离的键**必须**是这一条、值**必须**是「游戏」⇒ 下面 `c1WhiteHits == 1`；
+            //     ② 把它改回官方「玩」⇒ 命中 **0** 条 ⇒ 红（⛔ 「没有偏离」不等于「白名单通过」）；
+            //     ③ 偏离的键换成**另一条** ⇒ 那条不进白名单 ⇒ 下面 `c1Bad == 0` 红。
+            const string c1WhiteKey = "MainMenu/NavigationPanel/HomeButton";
+            const string c1WhiteOurs = "游戏";
+            const string c1WhiteOfficial = "玩";
+            int c1Covered = 0, c1Bad = 0, c1WhiteHits = 0;
             var c1BadKeys = new System.Text.StringBuilder();
             foreach (var k in c1OffKeys)
             {
@@ -17029,6 +17040,8 @@ public static class MainMenuScene
                 c1Covered++;
                 string ours = Loc.ZhOf(k), theirs = Loc.Lang13Of(k, "zh");
                 if (!string.IsNullOrEmpty(ours) && ours == theirs) continue;
+                // 🔶 唯一一条白名单（用户 2026-11-03 裁定）：**键 + 值**都对得上才放过，否则照旧算偏离
+                if (k == c1WhiteKey && ours == c1WhiteOurs) { c1WhiteHits++; continue; }
                 c1Bad++;
                 if (c1BadKeys.Length < 600)
                     c1BadKeys.Append((c1BadKeys.Length == 0 ? "" : " · ") + k
@@ -17037,10 +17050,22 @@ public static class MainMenuScene
             CheckTrue(c1Covered >= 447,
                       $"★（C1）官方键覆盖：手写表里命中官方表的 **{c1Covered}** 条（下限 **447** = 2026-10-23 实测基线）"
                     + "｜🧨 删表里的条目想绕过下面那条 ⇒ 这条红");
+            // 🔶 白名单自证（对应上面注释的三向灭自证；期望值是**写死的裁定值**，不来自 `Loc`）
+            CheckTrue(c1WhiteHits == 1,
+                      $"★（C1·白名单自证）恰好放过**一条**已知偏离（实得 {c1WhiteHits} 条）：`{c1WhiteKey}`"
+                    + $" 我们「{c1WhiteOurs}」≠ 官方「{c1WhiteOfficial}」（🔶 用户 2026-11-03 裁定「改为游戏，官方翻译太差了」）"
+                    + "｜🧨 把它改回官方「玩」/ 把这条从表里删掉 ⇒ 命中 0 条 ⇒ 本条红");
+            string c1WhiteTheirs = Loc.Lang13Of(c1WhiteKey, "zh");
+            CheckTrue(c1WhiteTheirs == c1WhiteOfficial,
+                      $"★（C1·白名单自证）官方 zh 列 `{c1WhiteKey}` **仍是**「{c1WhiteOfficial}」（实得「"
+                    + (c1WhiteTheirs ?? "<null>") + "」）"
+                    + "｜🧨 官方表若也变了，这条白名单的前提（我们是主动偏离）就不成立 ⇒ 红");
             CheckTrue(c1Bad == 0,
-                      $"★（C1）**手写表中文列逐条 = 官方 zh 列**：{c1Covered} 条全一致（不一致 {c1Bad} 条"
+                      $"★（C1）**手写表中文列逐条 = 官方 zh 列**：{c1Covered} 条里除**白名单 1 条**"
+                    + $"（`{c1WhiteKey}` 我们「{c1WhiteOurs}」≠ 官方「{c1WhiteOfficial}」，🔶 用户 2026-11-03 裁定）外全一致"
+                    + $"（不一致 {c1Bad} 条"
                     + (c1Bad == 0 ? "" : "：前若干 = " + c1BadKeys) + "）"
-                    + "｜🧨 把任一条改回旧译 ⇒ 红");
+                    + "｜🧨 把任一条改回旧译 / 把偏离换成另一条键 ⇒ 红");
         }
 
         // ============================================================ 🆕 2026-10-17（界面线 T18 收尾）
@@ -18621,7 +18646,7 @@ public static class MainMenuScene
             LiveOpsClock.ResetForTest();
             LiveOpsLocalHandler.ResetForTest();
             menu.SetEventNavIdsForTest();
-            if (ParentEventWindow.LastOpened != null) ParentEventWindow.LastOpened.Close();
+            if (ParentEventWindow.LastOpened != null) ParentEventWindow.LastOpened.Close(); B117_WMENUICON_Assert.Run(); _sink.Pass += B117_WMENUICON_Assert.Pass; _sink.Fail += B117_WMENUICON_Assert.Fail; B117_WMASKCLIP_Assert.Run(); _sink.Pass += B117_WMASKCLIP_Assert.Pass; _sink.Fail += B117_WMASKCLIP_Assert.Fail; B117_WCARDTIER_Assert.Run(); _sink.Pass += B117_WCARDTIER_Assert.Pass; _sink.Fail += B117_WCARDTIER_Assert.Fail;   // 🆕 2026-11-02（调度台代接线 · B117-WWIREB）：三件此前**全仓 0 宿主**的断言，接在合计行之前、同一物理行追加 ⇒ 行数零变化 —— `B117_WMENUICON`（主界面三枚阵营图标：必须跟着卡走、且全在屏外）· `B117_WMASKCLIP`（奖励活动卡的 `RectMask2D` 裁切 + 溢出量）· `B117_WCARDTIER`（A 段轮抽选将格 = `CardUse.Booster`；B 段开包翻牌后命中区仍开着 ⇒ 点卡进详情）。三件都**自建探测根 / 自建窗**、跑完自己销毁，不需要本场景任何节点；⚠️ `B117_WCARDTIER.Run()` 一趟跑完 A+B 两个宿主域（断言类**只有一个 `Run()`**、⛔ 不改断言类）⇒ 只挂在这一处，取 MainMenuScene（A 段 `DraftModeWindow` 是本宿主原生窗口；B 段 `BoosterPackOpenWindow.Create(wm0)` 自建自销毁）
         }
         Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");
         // 🔴 **2026-10-12（A443 · 调度台裁定）**：这一串是**失败表的【重列】**（每条失败在 `Check()` 里

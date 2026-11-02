@@ -34,9 +34,9 @@
 //   · 原版 `particles` 是 `AssetReferenceTyped<GameObject>`、`audio` 是 `AssetReferenceTyped<AudioCue>`；
 //     我们：`particles` = **prefab 直连**（建场侧 `ArenaBuilder` 从 `WarpforgeVFX/Prefabs/<名>.prefab` 赋），
 //     `audio` = **cue 名**（走 `WFSoundBank.TryGetCue`，同一张表）。
-//   · 原版 cue 的 `timeToPlayAgain` 冷却按 **cue 资产实例**计（`AudioCue.CanPlay` 读 `+0x30/+0x34`）；
-//     `WFSoundPlayer.Play` **没有**这层冷却 ⇒ 本类用 `static Dictionary<WFSoundCue,float>` **逐 cue** 补上
-//     （⛔ 不改 `WFSoundPlayer` —— 那是全项目共用件）。
+//   · 原版 cue 的 `timeToPlayAgain` 冷却按 **cue 资产实例**计（`AudioCue.CanPlay` 读 `+0x30/+0x34`）。
+//     🔴 **2026-11-02 `B117-WSOUNDCOOL` 订正**：本类原来自己补了一张 `Dictionary<WFSoundCue,float>`
+//     （理由写的是「`WFSoundPlayer.Play` 没有这层冷却」）—— 现在闸已收进 `WFSoundPlayer.Play`，本类不判。
 // ─────────────────────────────────────────────────────────────────────────────
 using System.Collections.Generic;
 using UnityEngine;
@@ -65,9 +65,9 @@ namespace CardPresentation
             static readonly Dictionary<GameObject, ParticleSystem> CacheParticles =
                 new Dictionary<GameObject, ParticleSystem>();
 
-            /// <summary>cue 的「上次播放时刻」（原版 `AudioCue.lastTimePlayed`，**按 cue 资产算**）。</summary>
-            static readonly Dictionary<WFSoundCue, float> LastCuePlayed =
-                new Dictionary<WFSoundCue, float>();
+            // 🔴 2026-11-02 `B117-WSOUNDCOOL`：这里原有 `LastCuePlayed`（cue → 上次播放时刻），已删 ——
+            //   冷却已统一到 `WFSoundPlayer.Play(cue, …)`（原版 `AudioCue.ConfigAudioSource` 就是那一处）；
+            //   同一条闸写两处 = 迟早不一致（第三份在 `BattleSfx`，同批删除）。
 
             /// <summary>自检/诊断：当前缓存了几件粒子实例。</summary>
             public static int CacheCountForTest { get { return CacheParticles.Count; } }
@@ -140,25 +140,25 @@ namespace CardPresentation
                 lastInstance = ps;
 
                 // ⑤ 音效：**在射线命中点**响 3D（原版 `AudioCue.Play3D(position, 0)`，第 4 实参 0 = FX）
-                if (CanPlayCue(cue))
-                    WFSoundPlayer.Play(cue, position, is2d: false);
+                // 冷却由 `WFSoundPlayer.Play` 内部统一判（原版 `AudioCue.ConfigAudioSource.c:19-21` 那道闸）
+                WFSoundPlayer.Play(cue, position, is2d: false);
             }
 
-            /// <summary>原版 `AudioCue.CanPlay`（`.c` 直读）：
-            /// `(Time.time - lastTimePlayed &lt; timeToPlayAgain) &amp;&amp; lastTimePlayed != 0` ⇒ 不许播；
-            /// 否则记下 `lastTimePlayed = Time.time` 并放行。
-            /// <para>⚠️ 状态**按 cue 资产算**（原版就存在 cue 资产自己身上）⇒ 这里用静态表键到 `WFSoundCue`。</para></summary>
-            static bool CanPlayCue(WFSoundCue cue)
-            {
-                if (cue == null) return false;
-                float now = Time.time;
-                float last;
-                if (LastCuePlayed.TryGetValue(cue, out last) && last != 0f
-                    && now - last < cue.timeToPlayAgain)
-                    return false;
-                LastCuePlayed[cue] = now;
-                return true;
-            }
+            // ── 本类原来在这里有一个 `CanPlayCue(cue)`（`static bool`，15 行）—— **2026-11-02 `B117-WSOUNDCOOL` 已删**。
+            //   它逐行照抄原版 `AudioCue__CanPlay.c`：`(Time.time - lastTimePlayed < timeToPlayAgain) && lastTimePlayed != 0`
+            //   ⇒ 不许播；否则 `lastTimePlayed = Time.time` 并放行。
+            //   删它的理由 = **原版这道闸只有一处**（`SoundManager__Play` → `AudioCue__ConfigAudioSource.c:19-21`，
+            //   键 = cue 资产实例）；我们却写了三份（本类按 cue · `BattleSfx` 按**字段名** · `WFSoundPlayer` 没有），
+            //   而按字段名那份与原版**语义不同**（两字段指向同一条 cue 时原版一起冷却、我们各算各的）。
+            //   ⇒ 已全部收进 `WarpforgeVFX.WFSoundPlayer` 的 `CanPlayByCooldown(cue)`（类尾，附判据注释）：
+            //     键 = cue 引用身份、**先写戳再挑 clip**（原版 `ConfigAudioSource.c:31` 的次序）、
+            //     `last != 0` 那个「从没播过」哨兵也照样保留。
+            //   ⚠️ 对本类的行为**零变化**：这里从来就是「cue 解得出就调 `WFSoundPlayer.Play(cue, …)`」，
+            //     闸挪进 `Play` 之后仍是在同一时刻、按同一条 cue 判。
+            //   ⚠️ 下面那 15 行是**行号占位**（本文件有 12 个账落点在 `:164` 之后，⛔ 别删这段空行注释去「清理」）。
+            //   ⚠️ 要改冷却语义 → 只改 `WFSoundPlayer`，⛔ 别在这里再长出一份副本。
+            //   ⚠️ 同理 `BattleSfx.DrainOne` 那份（按字段名）也已删，改成只读 `WFSoundPlayer.LastCueThrottled` 记账。
+            //   （出处：`d:/2/tools/decomp_full/AudioCue__CanPlay.c` · `AudioCue__ConfigAudioSource.c:19-21,31`）
 
             void WarnOnce(string msg)
             {
@@ -173,7 +173,7 @@ namespace CardPresentation
             public static void ClearCache()
             {
                 CacheParticles.Clear();
-                LastCuePlayed.Clear();
+                // （冷却表已迁到 `WFSoundPlayer`，这里不再有第二张要清的表）
             }
         }
 

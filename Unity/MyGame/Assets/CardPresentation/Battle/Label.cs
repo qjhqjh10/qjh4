@@ -2755,5 +2755,41 @@ namespace CardPresentation
             get { return _cjkFallbackFace; }
             set { _cjkFallbackFace = value; SyncFace(); }
         }
+
+        // ---- 类尾 · B117_29（`B117-WLABEL2` · 2026-11-02）：uGUI 标签「左对齐 + 量不到尺寸」时整块偏半个框宽
+        //   判据 → `资料/完全复刻/判据/B117-WLABEL2_Label左对齐.md`
+        //   根因：`TmpFont.NewTextUgui` 给 TMP 子节点的枢轴是出厂 (0.5,0.5)，而 `RefreshBounds` 只在**量到**
+        //   `textBounds` 时才把子节点摆到 `-anchor.x*W - b.min.x`；空文本 / 未激活（`GetTextBounds` 只统计
+        //   `isVisible` 的字 ⇒ 空集哨兵 ±4.29e9）时它在 `:1663` 早退 ⇒ 子节点留在 `(0,0)`、矩形按枢轴居中
+        //   ⇒ 左锚（`anchor.x = 0`）的标签整块**从框左沿外半个框宽起笔**（真机实证 → `UnitChatPanel` 的 pivot 注）。
+        //   修法 = 把 TMP 子节点的枢轴钉成 `Label.anchor`，并把横向对齐落到同一侧（量不到尺寸时 TMP 按矩形几何排）。
+        //   ⚠️ 只对 **uGUI 档**有意义（世界档同理，但那里没人调）；点阵后端出声。
+        /// <summary>🔴 **2026-11-02（`B117-29`）**：把 **TMP 子节点**的枢轴钉成 <see cref="anchor"/>，
+        /// 并把 TMP 的横向对齐落到**同一侧** —— 这一对必须同时成立。
+        /// <para>**为什么两者必须一起**：量得到尺寸时 `RefreshBounds` 用 `-anchor.x*W - b.min.x` 自己摆正，
+        /// 与枢轴无关；但**量不到**（空文本 / 未激活）时它早退，矩形就按「枢轴 + 对齐」的几何排
+        /// ⇒ 枢轴居中而锚在左，整块文字从框左沿外**半个框宽**起笔（真机实证 → `Battle/UnitChatPanel.cs` 的 pivot 注）。
+        /// 只改枢轴、不改对齐 ⇒ 文字回到矩形内居中，仍偏半个**字**宽。两个一起才是「文字起点 = 框左沿」。</para>
+        /// <para>⚠️ 量得到的路径**逐位不变**：`textBounds` 是相对枢轴的，`RefreshBounds` 的 `-b.min.x` 会把
+        /// 枢轴带来的偏移整项抵消（两个式子相加恒等于 `-anchor.x*W`）⇒ 有文本且量得到时，改与不改落在同一处。</para>
+        /// <para>⛔ **别把它接到「先建在 0、后由调用方摆位」的站点上**（`ChatPopupPanel:471` / `UnitChatPanel:706` /
+        /// `BattleLogPanel:923`）：那几处的节点坐标建完就会被改，加了反而把既有摆位挪走。</para>
+        /// <para>点阵后端：出声后返回（红线：不许静默失败），口名 / key 头段 = `左缘枢轴` —— ⛔ 别与 `逐行左对齐` 合并
+        /// （`_dotAlignNoted` 同 key 只响一次，撞了就是后面那一口再也不出声）。</para></summary>
+        public void AlignTmpPivotToAnchor()
+        {
+            if (_tmp == null)
+            {
+                NoteDotBackendLacks("左缘枢轴", "没有 RectTransform 枢轴 / 对齐这回事",
+                                    "TMP 子节点枢轴 = anchor(" + anchor.x + ", " + anchor.y + ")",
+                                    "没生效（这一块文字仍按点阵的矩形居中）");
+                return;
+            }
+            var rt = _tmp.rectTransform;
+            if (rt != null) rt.pivot = new Vector2(anchor.x, anchor.y);
+            // 横向对齐必须与枢轴同侧（见方法头）。左锚复用 `SetAlignLeft` —— 那是「逐行左对齐」的唯一实现。
+            if (anchor.x <= 0f) SetAlignLeft();
+            else if (anchor.x >= 1f) _tmp.alignment = TextAlignmentOptions.Right;
+        }
     }
 }

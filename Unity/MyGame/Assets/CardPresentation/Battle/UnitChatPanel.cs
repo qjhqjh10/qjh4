@@ -8,10 +8,10 @@
 //     · Background  铺满气泡         图 `40k_voicelines_radio`（766×280，`m_Type=0` 纯拉伸）
 //     · 卡图        中心 (104.5,113.15) 尺寸 144.46×157.46
 //                   —— 原版是 `Mask`(RectMask2D) + `CardImage` 176×176（**画得比遮罩大、被裁**），
-//                      ⚠️ 我们**不裁**，直接画成遮罩那个尺寸（差别只在边缘，如实记着）
+//                      🔴 **2026-11-03（`B117-G10-22`）就地订正**：原来这里写「我们**不裁**，差别**只在边缘**」——**不成立**。原版 `CardImage` 是 **176×176**、中心偏移 **(−2.48, −5.00)**、`m_PreserveAspect = 0`、`m_Maskable = 1`，被 `Mask`（**RectMask2D**，padding 0 / softness 0 = 硬边）**144.457×157.465** 裁掉 ⇒ 可见内容是那张方图的 **~82%×89% 中心块**；我们是把整张图**压到 0.9175** 画满遮罩 ⇒ 多看到两边、且横向压 8%。**判据已定、未修**（要真嵌套一层 `RectMask2D` + 176×176 子图，属结构性改动且当前无法跑 Unity 验收 → 判据表 `B117-G10-22_战斗内聊天与语音条.md` 第 5 行）
 //     · wave        中心 (435.5,68.65) 尺寸 387.95×62.60 · 色 (0.6988,0.9811,0.9265)
 //                   图 `40k_voicelines_radio_wave equalizer`（708×96，**非等比拉伸**）
-//     · ChatText    区域 (188.5,93.7)–(631.6,175.4) · 原版 TMP **fontSize 33、纯白**
+//     · ChatText    区域 (188.55,94.69)–(629.47,176.36)（🔴 `B117-G10-22` 2026-11-03 按 `RectTransform_3566` 的 aMin/aMax/ap/sd 重算；旧记 `(188.5,93.7)–(631.6,175.4)` **漏算了 `m_SizeDelta`**）· 原版 TMP **fontSize 33、纯白**
 //                   ⚠️ 2026-09-25 补全：这层原版是 `m_TextWrappingMode=1` + `m_enableAutoSizing=1`（**10~33**）
 //                   + `H=1 (Left)`；**框 440.9×81.7 px**。我们原来只给了「一个点」+ 全工程默认的 `NoWrap`
 //                   ⇒ 61% 的台词出框（`项目任务.md` §三 第 12 条 第 2 项）。逐值见 `TextW/TextH` 的注释。
@@ -124,7 +124,7 @@ namespace CardPresentation
         const float BubbleW = 648.77f, BubbleH = 236.50f;
         const float PortraitW = 144.46f, PortraitH = 157.46f, PortraitCx = 104.5f, PortraitCy = 113.15f;
         const float WaveW = 387.95f, WaveH = 62.60f, WaveCx = 435.5f, WaveCy = 68.65f;
-        const float TextLeft = 188.5f, TextCy = 134.55f;    // 文本区左沿 / 中线（相对气泡左上角）
+        const float TextLeft = 188.55f, TextCy = 135.53f;   // 文本区左沿 / 中线（相对气泡左上角）；🔴 `B117-G10-22`（2026-11-03）按 `RectTransform_3566` 的 aMin/aMax/ap/sd 逐字段重算：左沿 188.55 · 中线 135.53（原 188.5 / **134.55 差 1 px** —— 旧值漏算了 `m_SizeDelta`）
         static readonly Color WaveTint = new Color(0.6988f, 0.9811f, 0.9265f);
         static readonly Color TextColor = Color.white;
         /// <summary>原版 `ChatText` 的 TMP 字号（em）。英文文案按**拉丁大写高度** ≈ 0.72 em 折算。</summary>
@@ -134,7 +134,7 @@ namespace CardPresentation
         // 出处：`d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_3894.json`
         //   （ChatText 的 TMP 组件；RT 3566 / GO 306）+ 权威表 `资料/战斗规格/战斗重建_0827/战斗界面JSON权威表_0827.md:261`。
         //   · RT 锚点 anchor(0.2906,0.2582)-(0.9736,0.6036)、**绝对矩形 x[201.2,642.1] y[738.2,819.9]**
-        //     ⇒ **440.9 × 81.7 px**（相对气泡左上角：左沿 188.59、中线 135.55）。
+        //     ⇒ **440.93 × 81.67 px**（相对气泡左上角：左沿 188.55、中线 135.53 —— `B117-G10-22` 2026-11-03 重算，旧记 188.59/135.55 是四舍五入前的抄写）。
         //   · `m_TextWrappingMode = 1`（自动换行）· `m_enableAutoSizing = 1` · `m_fontSizeMin = 10` · `m_fontSizeMax = 33`
         //   · `m_HorizontalAlignment = 1 (Left)` · `m_VerticalAlignment = 512 (Middle)`
         //   · `m_fontSize = 33`（= `m_fontSizeMax`，即**一行放得下时就是 33**）
@@ -757,7 +757,7 @@ namespace CardPresentation
                                         : gameObject.AddComponent<AudioSource>();
             b.audio.playOnAwake = false;
             b.audio.spatialBlend = 0f;            // 2D（原版也挂在 UI 上）
-            b.audio.volume = 0.85f;   // 🔶 自己设计（非原版）：台词音量系数 0.85 · 原版逐 source 的音量没查到（原版判据拿不到） · TODO(谁定的)｜原注：⚠️ 这个系数是**我们自己定的**（原版逐 source 的音量没查到）
+            b.audio.volume = 1f; b.audio.priority = 154;   // 🔴 `B117-G10-22`（2026-11-03）· 判据 = 原版气泡自己那颗 `AudioSource`（`bundle_scenes_scenes_battlearena{1,2,aeldari,darkangels}/AudioSource/` 现读 4 场逐值相同）：`m_Volume = 1.0` · `Priority = 154` · `Spatialize = false` · `m_PlayOnAwake = false` · `mixerType = 2 = MixerType.Voices` ⇒ 原来那句「原版逐 source 的音量查不到 / 0.85 是自己设计」**不成立**（铁律 5 就地订正）
             // 🆕 2026-09-19：挂到 `Voices` 通道 ⇒ 受设置面板那根「语音」滑块控制（原版就是这么分的）
             // 🆕 2026-10-21（`新账-63` 诊断）：`WF_VOICE_NO_MIXER=1` 时**不挂 Voices 组**，
             //   用来判定「Play 后立刻 isPlaying=false」是不是 mixer 组造成的。生产默认不变。

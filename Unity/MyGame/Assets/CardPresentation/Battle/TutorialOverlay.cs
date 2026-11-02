@@ -243,8 +243,8 @@ namespace CardPresentation
         /// ⛔ 这个常量从此**不再参与摆位**（留着只为不让「删掉它」变成一次无谓的 diff）。
         /// 判据与实读值 → `SetTip` 与 `TutTipAboveFactor` 的注释。</summary>
         const float Gap = 0.14f;
-        /// 🔶 自己设计（非原版）：教学高亮层在锚点矩形外扩的边距 `HighlightPad = 0.06f` · 原版没有这个参数 · TODO(谁定的)｜原注：<summary>🔴 **我们挑的**：高亮层在锚点矩形外扩的边距（世界单位）。</summary>
-        const float HighlightPad = 0.06f;
+        /// <summary>高亮贴图的**屏幕尺寸系数** —— ✅ 判据 = 原版材质 `Tutorial Highlight` 的 `_UVScale = (1.48, 2.0)`（`bundle_duplicateassetisolation_assets_all/Material/Material_509935442048338405.json`）＋ VS 反汇编的算式 `uv = _UVScale*(screenUV - _ViewportPoint)*(…)+0.5` ⇒ 贴图恒占 **(屏高/1.48) × (屏高/2.0)** 像素、**与锚点元素多大无关**；⛔ 原来这里是 `HighlightPad = 0.06f`（🔶 自己设计、无判据），2026-11-02（`B117-G10-23`）按 §18·0 删除。</summary>
+        const float HlUvScaleX = 1.48f, HlUvScaleY = 2.0f;
         // 🔴 **2026-10-18（A991）删掉了 `SkipAt01`**（原来是 `new Vector2(0.5f, 0.075f)`，
         //   注释写着「原版那个 `[22,1375]` 的父链偏移没能标定 ⇒ 摆位是我们挑的」）。
         //   **那一句现在有确切答案了**：在**面板坐标系**里它是 `(+171.7, −310.5)`、300×90
@@ -798,7 +798,7 @@ namespace CardPresentation
                 _highlight = MakeImg(hlParent, hlTex, "Tutorial highlight", 1f, ZHighlight);
                 if (_highlight != null)
                 {
-                    _highlight.SetTint(new Color(1f, 1f, 1f, 0.85f));
+                    _hlTint = new Color(1f, 1f, 1f, 210f / 255f); _highlight.SetTint(_hlTint);   // ✅ 判据 = 原版 `Image.m_Color` 白 α **0.8235**（`bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_5145.json`，13 场同值）—— 2026-11-02（`B117-G10-23`）由我们原来挑的 0.85 改回原值（同一行改写 ⇒ 零行数漂移）
                     // 🔴 **原版就是 601**（R2 §4：`Overlay Canvas + Image，sortingOrder 601`）——
                     //    它必须压在**所有**战斗 HUD 之上（那一层是全屏 Overlay）。
                     // 🔴 2026-10-16（`T09` 批 3）：画布档下这**是空操作** —— 它那一整块子画布就是
@@ -1009,22 +1009,22 @@ namespace CardPresentation
                 var c = new Vector3(center.x, center.y, ZHighlight);
                 if (UguiMode) CvPlace(_highlight.gameObject, _cvHl, c);
                 else _highlight.transform.position = c;
-                float w = Mathf.Max(size.x, 0.3f) + HighlightPad * 2f;
-                float h = Mathf.Max(size.y, 0.3f) + HighlightPad * 2f;
-                // 高亮框要**跟着锚点元素的形状**：`ImageQuad` 是等比缩放（按贴图比例给高度）
-                // ⇒ 这里按「宽/高哪个更受限」内接 —— 与 `AttackSelector` 那套同一口径。
-                // 🔴🔴 **2026-10-16（`T09` 批 3）就地订正（铁律 5）—— 本行原写的是**
-                //    「画布档**别调 `SetWorldHeight`**（它内部写死 ×108、批处理下 y 会偏 0.75）」，
-                //    而**同一段代码自己写的 `w * Px` 就是同一个 ×108** ⇒ **那半句自相矛盾、也不成立**：
-                //    换不换那个口不是问题所在，**问题在「这个 `w/h` 该乘谁」**。
-                // 🔑 **真判据 = 看 `w/h` 的【来路】**（全文 → `CvSizePx` 的 doc）：
-                //    它俩是 `size`（**量出来的世界尺寸**：`BattleDriver.TutAnchor` 取已迁件的 `WorldW/H`）
-                //    ＋ 我们挑的那个 `HighlightPad` ⇒ 画布档要取**各轴实测系数的逆**（`CvSizePx` 的
-                //    `InverseTransformVector`），⛔ **不是一刀切 ×108**（那会「16:9 下刚好、别的宽高比下
-                //    y 只有该有的 0.75 倍」—— `EW2` 实测 `80.4` px 的高亮框算成 `60.3` px）；⚠️ 16:9 下两者**同值**
-                //    （两轴系数都 = 1/108）。
-                // ⚠️ 世界档那一支**一个字都没动**（那里的 `w/h` 就是世界单位本身，不需要换算，
-                //    `SetWorldHeight` + `localScale.x` 也照旧）。
+                // ✅ **2026-11-02（`B117-G10-23`）就地订正（铁律 5）—— 高亮尺寸改回原版**：
+                //    原版那一层 = **全屏 Image + 自定义 shader**（`Tutorial highlight`，RT 是 stretch；
+                //    `Image.m_Sprite` = `Tutorial Highlight`、材质 `Everguild/FX/Tutorial Highlight`、`m_Color` 白 α **0.8235**），
+                //    shader 把贴图按**固定屏幕尺寸**画在 `_ViewportPoint` 上。判据 = 反汇编（`工具/disasm_dxbc.py "Tutorial Highlight" --stage vs`）：
+                //      `uv.x = _UVScale.x*(screenUV.x - _ViewportPoint.x)*(w/h) + 0.5`
+                //      `uv.y = _UVScale.y*(screenUV.y - _ViewportPoint.y) + 0.5`
+                //    ⇒ 贴图在屏上恒为 **(屏高/1.48) × (屏高/2.0)** px（1080p = 730×540），**与元素多大无关**。
+                //    世界单位下 = (`LayoutSpace.DesignHeight`/1.48, /2.0) = (6.7568, 5.0) —— 可见高恒 10。
+                //    ⛔ 原来那版（`size` = 锚点元素尺寸 + `HighlightPad`）是**我们自己挑的**，不属 §18·0 允许的「服务器相关」
+                //    门类 ⇒ 已删；形参 `size` **保留但不再参与**（调用点在 `BattleDriver`）。
+                //    ⚠️ 位置仍取 `center`（原版 `GetTipPosition` 的结果）；**relation 偏移那一半还差**（原版高亮也过
+                //    `GetTipPosition(..., positionRelation, ...)`，我们的调用点没传 ⇒ 要改 `BattleDriver`，已记进报告）。
+                //    ⚠️ 淡入/淡出（`fadeTime = 0.1`：显示**瞬开**、收起 0.1 s 淡出）**本轮不做** —— 收起会推迟
+                //    `activeSelf=false`，而 `Editor/BattleScene.cs` 的断言按即时隐藏写（宿主不在白名单）⇒ 记进报告。判据正本 → `判据/B117-G10-23_教程与战役脚本.md`
+                float w = LayoutSpace.DesignHeight / HlUvScaleX;
+                float h = LayoutSpace.DesignHeight / HlUvScaleY;
                 if (UguiMode)
                 {
                     var rt = _highlight.transform as RectTransform;
@@ -1675,5 +1675,29 @@ namespace CardPresentation
             for (int i = 0; i < t.childCount; i++) n += CountNamed(t.GetChild(i), name);
             return n;
         }
+
+        // ==================================================================
+        //  🆕 2026-11-02（执行代理 `B117-G10-23`）：**高亮尺寸 / 染色**的自检读口
+        //  为什么单开：`SetHighlight` 这一天从「锚点元素尺寸 + `HighlightPad`」（🔶 自己设计、无判据）
+        //    改回原版 —— 原版那一层是**全屏 Image + shader**，贴图恒占 `(屏高/1.48) × (屏高/2.0)` px。
+        //    断言里的期望值是**常量/字面量**，⛔ 不从被测实现里读回来（否则就是自证）。
+        //  （**追加在类尾** —— 账按行号引用本文件 40+ 处，⛔ 别插到中间）
+        // ==================================================================
+        /// <summary>高亮贴图**画出来的**世界高（没建出来 ⇒ **-1**，⛔ 不是 0 —— 防「空转绿」）。
+        /// <para>🔴 必须乘 `lossyScale`：`HudPiece.WorldW/H`/`ImageQuad.WorldW/H` 是**件自己的局部长度**，
+        /// ⛔ 不含 transform 缩放 —— 而世界档的宽度就是靠 `localScale.x` 拉出来的（见 `SetHighlight`）；
+        /// 不乘会把 6.7568 读成 5.0（正是「量了但量错一个乘数」那一族）。</para></summary>
+        public float HighlightWorldHForTest
+        {
+            get { return _highlight == null ? -1f : _highlight.WorldH * Mathf.Abs(_highlight.transform.lossyScale.y); }
+        }
+        /// <summary>高亮贴图**画出来的**世界宽（没建出来 ⇒ **-1**；`lossyScale` 口径见上一个读口）。</summary>
+        public float HighlightWorldWForTest
+        {
+            get { return _highlight == null ? -1f : _highlight.WorldW * Mathf.Abs(_highlight.transform.lossyScale.x); }
+        }
+        /// <summary>高亮层的染色（原版 `Image.m_Color`）；没建出来 ⇒ `clear`。</summary>
+        public Color HighlightTintForTest { get { return _hlTint; } }
+        Color _hlTint;
     }
 }

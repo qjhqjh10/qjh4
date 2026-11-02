@@ -119,25 +119,25 @@ namespace CardPresentation
 
         /// <summary>自检用：一共喊过几次（**不受 `Enabled` 影响**）。</summary>
         public static int Played { get; private set; }
-        /// <summary>自检用：因为 `timeToPlayAgain` 被挡掉几次（**不是错**，原版就这么节流）。</summary>
+        /// <summary>自检用：经本类出队、被 `WFSoundPlayer` 的冷却挡掉几次（**不是错**，原版就这么节流）。</summary>
         public static int Throttled { get; private set; }
         /// <summary>自检用：最后一次喊的字段名（没喊过 = null）。</summary>
         public static string LastField { get; private set; }
         /// <summary>自检用：最后一次真的播出去的 clip 名（没播 = null）。</summary>
         public static string LastClip { get; private set; }
 
-        /// <summary>自检用：清零（每一段之前调）。</summary>
+        /// <summary>自检用：把**全部读口**清零（计数 / 出队日志 / 节流表）。⚠️ **不碰待播队列** —— 那是 `ResetQueueForTest` 的活（`B117-57`：原来这里连 `Log`/`Drained` 都不清，名字与行为不符）。</summary>
         public static void ResetCounters()
         {
             Played = 0;
             Throttled = 0;
             LastField = null;
             LastClip = null;
-            _lastAt.Clear();
+            Drained = 0; Log.Clear(); WarpforgeVFX.WFSoundPlayer.ResetThrottle();
         }
 
-        /// <summary>各字段上一次播的时刻（`Time.time`）—— 实现原版 `AudioCue.timeToPlayAgain`。</summary>
-        static readonly Dictionary<string, float> _lastAt = new Dictionary<string, float>();
+        // 🔴 2026-11-02 `B117-WSOUNDCOOL`：这里原有 `_lastAt`（**字段名** → 上次播的时刻）—— 已删。
+        //   冷却表现在住在 `WFSoundPlayer`（键 = **cue 资产**，原版 `AudioCue.lastTimePlayed` 的位置）。
         /// <summary>取不到 cue 的字段（**只警告一次** —— 逐次刷屏会把别的告警淹掉）。</summary>
         static readonly HashSet<string> _warnedMissing = new HashSet<string>();
 
@@ -173,7 +173,7 @@ namespace CardPresentation
             //    判据 → `decomp_full/BattleManager__PlaySoundAsset.c:26-46`（`soundAsset != null && clip != null`
             //    ⇒ 往 `soundsToPlay(+0x428)` 尾部 append，**整支没有第二句**）。
             //    ⚠️ `AudioCue.timeToPlayAgain` 那道闸**不属于**这一跳 —— 原版它落在 `SoundManager` 播放那一刻
-            //    ⇒ 我们跟着挪到 `DrainOne`（见文件尾「音效 FIFO」那一节）。
+            //    ⇒ 我们跟着挪到 `DrainOne` 调 `WFSoundPlayer.Play` 那一刻（2026-11-02 起闸住在 `WFSoundPlayer`）。
             Enqueue(field, cue, worldPos, is2d);
             return true;
         }
@@ -237,7 +237,7 @@ namespace CardPresentation
             public bool is2d;
         }
 
-        /// <summary>已经**真的播出去**的一条（自检读口：队列归 0 / 间隔 ≈ clip 时长都靠这张表）。</summary>
+        /// <summary>**出队**的一条（自检读口：队列归 0 / 间隔 ≈ clip 时长都靠这张表）。⚠️ `clip == null` = 这一条**没播出去**（被 `timeToPlayAgain` 挡掉）—— 原版「播不播都出队」，所以这张表是**出队记录**、不是「响过几次」；要数真响的用非 null 的条目（`B117-57` 同族）。</summary>
         public struct PlayRecord
         {
             public string field;      // 原版字段名
@@ -250,7 +250,7 @@ namespace CardPresentation
         public static int QueueLength { get { return _queue.Count; } }
         /// <summary>自检：本次共出队几条（**含被 `timeToPlayAgain` 挡掉的**）。</summary>
         public static int Drained { get; private set; }
-        /// <summary>自检：按出队顺序记下的播放记录（最多保留 <see cref="MaxLog"/> 条）。</summary>
+        /// <summary>自检：按**出队**顺序记下的记录（最多保留 <see cref="MaxLog"/> 条）。⚠️ 含被 `timeToPlayAgain` 挡掉的那些（`clip == null`）⇒ 它是「出队日志」、**不是**「播放次数」（播放次数看 `Played`；`B117-57` 同族）。</summary>
         public static readonly List<PlayRecord> Log = new List<PlayRecord>();
         /// <summary>日志上限（只防无界增长；正常一局几千条）。</summary>
         public const int MaxLog = 512;
@@ -301,20 +301,20 @@ namespace CardPresentation
             // 原版 `.c:64-65`：**播不播都出队** —— 所以「clip 取不到 / 静音 / 节流」这三种都不留队。
             float length = 0f;
             string clipName = null;
-            if (p.cue != null && p.cue.timeToPlayAgain > 0f)   // ⚠️ 原版这一闸在 `SoundManager`，见本节头
-            {
-                float last;
-                if (_lastAt.TryGetValue(p.field, out last) && Time.time - last < p.cue.timeToPlayAgain)
-                {
-                    Throttled++;
-                    LogAdd(p.field, null, 0f);
-                    ScheduleNext(0f);
-                    return true;
-                }
-            }
-            if (p.cue != null) _lastAt[p.field] = Time.time;
+            // 🔴 2026-11-02 `B117-WSOUNDCOOL`：`timeToPlayAgain` 那道闸**已收进 `WFSoundPlayer.Play(cue, …)`**
+            //    （原版只有一处：`SoundManager.Play` → `AudioCue.ConfigAudioSource.c:19-21`；键 = **cue 资产**）。
+            //    这里原来按**字段名**自己判一遍（`_lastAt` + `Time.time`）⇒ 已删，两条理由：
+            //      ① 原版按 cue 不是按字段名 —— 两个字段指向同一条 cue 时，原版是**一起**冷却的；
+            //      ② 同一道闸写两份 = 迟早不一致（`TapHitMaterialDefinition` 那时还有第三份）。
+            //    ⇒ 本侧只**观察**结果，三件时序与旧写法逐位相同：`LogAdd(字段, null, 0)` 照旧（`Log` 是**出队**
+            //    日志、不是播放次数）· `ScheduleNext(0f)` 照旧（⛔ 别改成别的值 —— 那会改出队节奏）。
+            //    ⚠️ 闸排在 `WFSoundPlayer` 的 `!Enabled` **之外** ⇒ 批处理关掉出声时仍旧冷却（旧写法、原版都
+            //    这样；也是 `B117_G10_12` 的 A2 能过的前提）。冷却状态只有一份，`ResetCounters()` 会一并清。
 
             var played = p.cue != null ? WarpforgeVFX.WFSoundPlayer.Play(p.cue, p.pos, p.is2d) : null;
+            // 被冷却挡掉 = `Play` 返回 null 且它把 `LastCueThrottled` 置真（本侧只观察、不在这里判）
+            if (played == null && p.cue != null && WarpforgeVFX.WFSoundPlayer.LastCueThrottled) Throttled++;
+
             if (played != null)
             {
                 clipName = played.name;
@@ -357,16 +357,15 @@ namespace CardPresentation
             return n;
         }
 
-        /// <summary>清空队列 + 播放记录 + 时钟（自检每一段之前调）。
-        /// ⚠️ 与 <see cref="ResetCounters"/> 分开：那个只管计数（既有调用点 / 账的落点都在它身上，⛔ 别改它的语义）。</summary>
+        /// <summary>**整场重来**：清空待播队列 + 时钟，**并**把全部读口清零（`B117-57`：原来这里不清计数）。
+        /// 与 <see cref="ResetCounters"/> 的分工 = 那个只清读口、**不碰队列**；要一次清干净就用本方法。</summary>
         public static void ResetQueueForTest()
         {
             _queue.Clear();
-            Log.Clear();
-            Drained = 0;
             Clock = 0f;
             _nextAt = 0f;
             _queueOverflowWarned = false;
+            ResetCounters();
         }
 
         // ---- 每帧泵（原版 = `BattleManager.Update` 里那一句；我们没有帧循环，挂 Unity 的 PlayerLoop）----

@@ -796,7 +796,7 @@ namespace CardPresentation
 
         void SetVisible(bool v)
         {
-            Visible = v;
+            Visible = v; _contentHidden = false;   // 开/关都回到「内容全显」（原版 `Setup` 自己 `SetActive(true)` 那几件）
             // 🆕 2026-10-25（`E`）：关面板时把确认钮文案**还原**成真文案（否则下次开面板会先露出
             //   上一次的 `0:02`，直到下一次 `SetTimer`）—— 原版每次 `Setup` 都重写那颗字，等价。
             if (!v && _confirm != null) _confirm.SetText(_confirmText);
@@ -1015,7 +1015,7 @@ namespace CardPresentation
                 // 🔴 **2026-10-20（W57 · `T09`）**：原版 `SelectCard` 选中一张就把确认钮启用
                 //    （`ChooseCardMenu__SelectCard.c:29` 的 `set_interactable(chooseButton, 1)`）。
                 //    **只加不撤** —— 原版没有「再点取消」，换选另一张也还是同一句 `set_interactable(1)`。
-                if (Mode == PickMode.Single) SetConfirmInteractable(true);
+                if (Mode == PickMode.Single) { SetConfirmInteractable(true); PlaySelectCue(); }   // 判据 → `PlaySelectCue` 的 doc
             }
             ApplyPicks();
         }
@@ -1117,7 +1117,7 @@ namespace CardPresentation
         /// ⛔ 别用 `LayoutSpace.ToPixel`（世界帧的逆，非 16:9 下与画布帧分家）。</para></summary>
         public bool HitDone(Vector3 world)
         {
-            if (_panel == null) return false;                    // 面板没建出来 ⇒ 不认（⛔ 不拿 (0,0) 当命中）
+            if (_panel == null || _contentHidden) return false;   // 没建出来 / 眼睛收起内容（原版那颗 `Button` 的 GO 已 inactive，`ShowChooseCardElements.c:18`）⇒ 不认
             var l = _panel.InverseTransformPoint(world);
             float px = l.x + 960f, py = 540f - l.y;              // 设计 px（左上原点、y 向下）
             // ① 父 `Continue Button`（548.015×75.905 @ (BarCx−65.196, BarCy−5.749)）
@@ -1177,20 +1177,20 @@ namespace CardPresentation
             return (i >= 0 && i < _cards.Count && _cards[i] != null) ? _cards[i].transform.position : Vector3.zero;
         }
 
-        /// <summary>眼睛钮 = 把卡片上的按钮收起来看战场（原版 `ToogleChooseMenuVisibility`）。
-        /// 🔴 **2026-09-17 更新**：原版**这个方法本身没被反编译**（`decomp_out*` 里没有它），
-        ///    但**换牌面板那颗同款眼睛**（`MulliganManager.ToggleMulliganVisibility`）反编译了，
-        ///    而且**是开关不是按住**（读 `activeInHierarchy` 取反 → `ShowMulliganElements`），
-        ///    而且连**压暗层**一起收（`Shade.SwitchShade`）。
-        ///    ⇒ 我们按同一套做成开关（**同一作者同一 UI 语言的推断，不是直接证据**，如实标着）。
-        ///    ⚠️ 我们这里**没有把压暗层也收起来** —— 换牌面板那边补了，这一处**还没补**（原版那个方法看不到）。</summary>
+        /// <summary>眼睛钮 = **整组**收/放面板内容（原版 `ChooseCardMenu.ToogleChooseMenuVisibility`）。
+        /// 🔴 **2026-11-02（`B117-G10-14`）就地订正（铁律 5）：原来写「原版那个方法看不到」—— 不成立，两个方法体都在：
+        ///  ① `__ToogleChooseMenuVisibility.c:8-13` 读 `titleTextLocalize` 那个 GO 的 `activeInHierarchy` 取反 ⇒ **开关**；
+        ///  ② `__ShowChooseCardElements.c:10/14/18/19/22` 一次收**五样**：标题（`titleTextLocalize` + `titleTextField`）/
+        ///     `chooseButton`（= `Continue Button`，子树 = 底部横条 + 圆钮 + 确认字）/ 逐张 `cardUI.gameObject` / `Shade.SwitchShade`；
+        ///  ③ **不动** `buttonsGroup`（`+0x48`）—— 眼睛自己挂在它下面（RT_3051 的 `m_Father = RT_3448`）⇒ 收完还能点回来。
+        /// ⇒ 我们照此整组收（标题/底条/圆钮/确认字/父命中面/压暗层/每张卡/卡钮与字），眼睛不动。</summary>
         public void ToggleEye()
         {
-            bool show = !(_cardBtns.Count > 0 && _cardBtns[0] != null && _cardBtns[0].gameObject.activeSelf);
-            for (int i = 0; i < _cardBtns.Count; i++)
-                if (_cardBtns[i] != null) _cardBtns[i].gameObject.SetActive(show);
-            for (int i = 0; i < _cardTexts.Count; i++)
-                if (_cardTexts[i] != null) _cardTexts[i].gameObject.SetActive(show);
+            // 收/放一次。「收哪五样」与字段映射 → 上面那条 doc 与 `SetContentHidden` 的 doc（⛔ 别在这儿抄第二份）。
+            // ⚠️ `_contentHidden` 是**本类自己的**显隐状态，与 `Visible`（窗开没开）是两个独立的状态：
+            //    收起来时窗还开着、`HandleClick` 仍然吃掉点击，玩家再点一下眼睛就放回来。
+            bool hidden = _contentHidden;
+            SetContentHidden(!hidden);
         }
 
         /// <summary>
@@ -1200,6 +1200,12 @@ namespace CardPresentation
         public virtual bool HandleClick(Vector3 world)
         {
             if (!Visible) return false;
+
+            // 🆕 **2026-11-02（`B117-G10-14`）**：眼睛**永远可点** —— 原版它挂在 `ButtonsGroup` 下，
+            //   而 `ShowChooseCardElements` **不动** `buttonsGroup`（判据 → `ToggleEye` 那条 doc）。
+            if (HitEye(world)) { ToggleEye(); return true; }
+            // 内容被眼睛收起来了 ⇒ 原版那几件都是 `inactive`、收不到射线 ⇒ 其它一律**吃掉但不动作**。
+            if (_contentHidden) return true;
 
             if (HitDone(world))
             {
@@ -1215,7 +1221,6 @@ namespace CardPresentation
                 }
                 return true;
             }
-            if (HitEye(world)) { ToggleEye(); return true; }
 
             int hit = ButtonIndexAt(world);
             if (hit >= 0) { TogglePick(hit); return true; }
@@ -1422,6 +1427,75 @@ namespace CardPresentation
         public string Describe()
         {
             return $"选卡面板 开着={Visible} 模式={Mode} 卡 {_cards.Count} 张 选中 [{string.Join(",", Picked.ConvertAll(x => x.ToString()).ToArray())}]";
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B117-G10-14`）：眼睛「把面板内容整组收起来」那一档
+        //
+        //  **判据（逐句现读 `decomp_full`）** —— 全文与字段映射写在 `ToggleEye` 那条 doc 里，⛔ 别在这儿抄第二份。
+        //  一句话：原版 `ShowChooseCardElements(bool)` 收的是
+        //  「标题两颗 + `Continue Button` + 每张候选卡 + 压暗层」，**不动** `ButtonsGroup`（眼睛就在它下面）。
+        //
+        //  ⚠️ **新成员追加在类尾**（`Describe()` 之后）：账里 `CardChoicePanel.cs` 的 A 行落点最深到 `HandleClick`
+        //     那一块，插在中间会让它们整片漂（CLAUDE.md 那条「新成员追加到类尾」）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        /// <summary>内容被眼睛收起来了吗（= 原版 `ShowChooseCardElements(false)` 那一档）。</summary>
+        bool _contentHidden = false;
+
+        /// <summary>自检用：面板内容此刻是不是被眼睛收起来了（⛔ 与 `Visible` 是**两个状态** ——
+        /// 收起来时窗还开着、还能再点眼睛放回来）。</summary>
+        public bool ContentHiddenForTest { get { return _contentHidden; } }
+
+        /// <summary>自检用：标题那一行此刻显示着没有（原版 `ShowChooseCardElements` 的 ①②）。
+        /// ⚠️ 读的是**实件**的 `activeSelf`（⛔ 不读 `_contentHidden` —— 那等于拿实现证明实现）。</summary>
+        public bool TitleActiveForTest { get { return _title != null && _title.gameObject.activeSelf; } }
+
+        /// <summary>自检用：整屏压暗（`ChoiceShade`）此刻显示着没有（原版 `Shade.SwitchShade(bool)`）。</summary>
+        public bool ShadeActiveForTest { get { return _shade != null && _shade.gameObject.activeSelf; } }
+
+        /// <summary>自检用：眼睛那颗钮**自己**此刻显示着没有 —— 原版收内容时**不动** `ButtonsGroup`
+        /// （眼睛挂在它下面）⇒ 收起内容之后这一条必须仍是 `true`，否则玩家再也点不回来。</summary>
+        public bool EyeActiveForTest { get { return _eye != null && _eye.gameObject.activeSelf; } }
+
+        /// <summary>选中一张牌那一下的音效（原版 `ChooseCardMenu__SelectCard.c:24-40`：
+        /// `SoundManager.Play2D(selectCardSound)`）。
+        /// <para>**cue 名 = `CardExpand`** —— `selectCardSound` 是 PPtr
+        /// （`battlearena1/MonoBehaviour/MonoBehaviour_4353.json` 的 `m_PathID 4006604330728631164`），
+        /// 导出工程 `Battle Arena 1.unity:236733` 把同一颗引用记成
+        /// `guid 8d495f12d0537b14e859f3c0141e1e34`，而那个 guid 的 `.meta` 正是 `CardExpand.asset.meta`
+        /// ⇒ 与 `Shell/WindowSounds.cs:80` 的 `CardExpandCue` 是**同一颗 cue**（它也是放大窗的开窗音）。</para>
+        /// <para>⚠️ 只有 `Single`（= 本类唯一使用者 `ChoosePanel`）有这条判据；`Multi` 是换牌那一族的样子，
+        /// 原版 `Mulligan*` 里**没有** `selectCardSound`。⚠️ 原版只在**真的选中了一张**时播
+        /// （`SelectCard` 的第一句是 `if (card != null)`）⇒ 再点同一张（`Single` 单向、直接 `return`）**不响**。</para></summary>
+        void PlaySelectCue()
+        {
+            WindowSounds.PlayFx(WindowSounds.CardExpandCue,
+                                "[选卡面板] 选中一张牌（原版 `ChooseCardMenu.selectCardSound`）");
+        }
+
+        /// <summary>把面板内容整组显/隐（= 原版 `ChooseCardMenu.ShowChooseCardElements(bool)`）。
+        /// <para>收的都是**原版那一份**（判据 → <see cref="ToggleEye"/>）：标题 / 底条 / 圆钮 / 确认字 /
+        /// 父命中面 / **压暗层** / **每张候选卡** / 卡钮与它们的字。</para>
+        /// <para>⛔ **不收眼睛自己**（原版 `HideChooseButton` 在 `ButtonsGroup` 下，那个节点不在收的名单里）
+        /// —— 收了就再也点不回来。</para>
+        /// <para>⚠️ `_cards` 是**调用方建的世界物件**（`CardView`）：这里只切 `activeSelf`，
+        /// **不销毁**；真正的清理仍在 `ClearCardDecor()` / 调用方的 `ClearChooseViews`。</para></summary>
+        void SetContentHidden(bool hidden)
+        {
+            _contentHidden = hidden;
+            bool show = !hidden;
+            if (_title != null) _title.gameObject.SetActive(show);
+            if (_bar != null) _bar.gameObject.SetActive(show);
+            if (_play != null) _play.gameObject.SetActive(show);
+            if (_confirm != null) _confirm.gameObject.SetActive(show);
+            if (_doneParentHit != null) _doneParentHit.gameObject.SetActive(show);
+            if (_shade != null) _shade.gameObject.SetActive(show);
+            for (int i = 0; i < _cards.Count; i++)
+                if (_cards[i] != null) _cards[i].gameObject.SetActive(show);
+            for (int i = 0; i < _cardBtns.Count; i++)
+                if (_cardBtns[i] != null) _cardBtns[i].gameObject.SetActive(show);
+            for (int i = 0; i < _cardTexts.Count; i++)
+                if (_cardTexts[i] != null) _cardTexts[i].gameObject.SetActive(show);
         }
     }
 }

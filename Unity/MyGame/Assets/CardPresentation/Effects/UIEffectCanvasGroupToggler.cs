@@ -18,7 +18,7 @@
 //      `ImageQuad.SetTint(a) / Tint` · `Label.SetColor(c) / color` · uGUI `Graphic.color`（兜底分支）。
 //    ⇒ 每件渲染件在**第一次**被这个组件接管时记下自己的**原 α**，之后一律 `原α × fade`
 //      （原版 `CanvasGroup.alpha` 是独立乘子，不动子件自己的 α —— 这里用「乘原值」等价实现）。
-//    ⚠️ 若某个渲染件的 α 在这期间被**别人**改（例如整卡淡出），本组件不知情 ⇒ 以它记的原值为基。
+//    ⚠️ 若某个渲染件的 α 在这期间被**别人**改（例如整卡淡出），本组件不知情 ⇒ 以它记的原 α 为基（**只对 α**；🔴 **RGB 一律取当前值**，2026-11-02 `B117-G10-10a`：原版 `decomp_full/UIEffectCanvasGroupToggler__DoUpdate.c:31` **只有** `CanvasGroup__set_alpha`、从不写子件 RGB ⇒ 写回 Capture 时的 RGB 会把这期间别人设的颜色静默 revert；同族 `UIEffectTogglerImage.DoUpdate` 也是「RGB 取当前值」）。
 //       当前唯一消费点（Forge 的 `Ready for level up`）没有别的 α 写手。
 using System.Collections.Generic;
 using UnityEngine;
@@ -116,13 +116,13 @@ namespace CardPresentation
             {
                 var l = _labels[i];
                 if (l == null) continue;
-                var c = _labelBase[i]; c.a = _labelBase[i].a * CurrentFade; l.SetColor(c);
+                var c = l.color; c.a = _labelBase[i].a * CurrentFade; l.SetColor(c);
             }
             for (int i = 0; i < _graphics.Count; i++)
             {
                 var g = _graphics[i];
                 if (g == null) continue;
-                var c = _graphicBase[i]; c.a = _graphicBase[i].a * CurrentFade; g.color = c;
+                var c = g.color; c.a = _graphicBase[i].a * CurrentFade; g.color = c;
             }
         }
 

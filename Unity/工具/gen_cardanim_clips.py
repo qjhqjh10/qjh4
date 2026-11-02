@@ -29,7 +29,7 @@ CardAnim 名 → prefab 名（GUID → 资产名）这一跳**不在本脚本里
 形状（`JsonUtility` 只吃**数组**，不吃字典）：
     { "schema": 1, "count": N, "rows": [ {"n": prefab 名, "a": CardAnim 名,
                                           "sp":0,"ep":0,"pt":0,"mv":0,"vd":0,"ts":0,"tm":0,"te":0,
-                                          "otv":0, "ease":[t,v,…],
+                                          "otv":0, "ease":[t,v,…] 或 4 数格式 [-1,t,v,in,out,…],
                                           "ao":0/1,"ont":0/1,"ofx":[…],"ofy":[…],"ofz":[…],
                                           "mnx":0,"mxx":0,"mny":0,"mxy":0,"mnz":0,"mxz":0,
                                           "mvt":0,"mvd":0,"mva":0,"mvvis":0,"mvxz":0,"mvy":0,
@@ -40,6 +40,11 @@ CardAnim 名 → prefab 名（GUID → 资产名）这一跳**不在本脚本里
   🆕 2026-10-23（`新账-83`）：`otv` 每行都有；`ease` 只写 `mv==1` 的行；
   `ao/ont/ofx/ofy/ofz/mn*/mx*` 只写 `ao==1` 的行（其余行缺省 = 0 / 空）—— 与
   `Resources/card_anim_order.json` 的 `CardAnimBeat` 同一套短名与同一份曲线格式。
+  🔴 2026-11-02（执行代理 `B117-WCURVE`）：**`ease` / `ofx` / `ofy` / `ofz` 四列会带上关键帧斜率**
+  （原版 `AnimationCurve.Evaluate` 是 Hermite）：非线性曲线写 4 数格式 `[-1,t,v,inSlope,outSlope,…]`
+  （前置 `-1` 标记 ⇒ 长度 `1+4n`，与旧的 2 数格式 `2m` 长度奇偶互斥）；**线性曲线仍写 `[t,v]`、逐字节不变**。
+  🆕 2026-11-02（执行代理 `B117-WMINIONCURVE`）：`minionMovementInfo` 那几条曲线（`mmC*`/`mvc*`/`mmR*C`）
+  **也改成带斜率**了（同一套 4 数格式）；消费方 `BattleDriver.MinionCurve` 用 `CardAnimOrder.HasSlopes` 先判格式。
   🆕 2026-10-25（执行代理 `TL`）：**`minionMovementInfo` 12 列 + `screenShake` 6 列**（见下一条）。
   🆕 2026-10-27（执行代理 `B9_W12USHK`）：**`unitsShake` → `ush`（数组列，259 行 / 273 条）** 与
   **`minionAnimationClipInfo` → `mac*`（2 行，`enable` 全 0 / clip 全 null）**。两族原来**一整片零数据**；
@@ -91,11 +96,12 @@ CardAnim 名 → prefab 名（GUID → 资产名）这一跳**不在本脚本里
 **不合并**：每个 `CardAnim` 各一行（键是 `a`）⇒ 215 组「同 prefab 名不同参数」在这张表里**各行其是**，
 运行期按 `a` 查，一个字都不会串。脚本只会把「同一个 `n` 出现几次」打进统计（诊断用，不是冲突）。
 
-用法
+用法（🔴 不带参 = 只打印用法 + 退出码 2，**绝不写盘** —— 2026-11-02 `B117-WCURVE` 起）
 ----
     PY=D:/2/Warpforge_tools/py312/python.exe
-    $PY d:/4/Unity/工具/gen_cardanim_clips.py            # 生成 + 打印统计
+    $PY d:/4/Unity/工具/gen_cardanim_clips.py --write    # 生成 + 打印统计（写两份产物）
     $PY d:/4/Unity/工具/gen_cardanim_clips.py --check    # 只比对，不写（CI 用：退出码 1 = 与盘上不一致）
+    $PY d:/4/Unity/工具/gen_cardanim_clips.py --dry      # 只打印统计，不写、不比对
 """
 
 import argparse
@@ -143,17 +149,63 @@ UNIT_TWEENS_JSON = r"d:/4/Unity/MyGame/Assets/CardPresentation/Resources/UnitTwe
 TWEEN_DATA_DIR = r"d:/4/Unity/数据/游戏数据/tween"
 
 
-def _curve_flat(curve):
-    """`AnimationCurve`（全量件里的序列化形状）→ 扁平 `[t0,v0,t1,v1,…]`（按 time 升序、4 位小数）。
+# 🔴 2026-11-02（执行代理 `B117-WCURVE`）：**4 数关键帧格式的标记**。
+#   原版 `AnimationCurve.Evaluate` 是**分段 Hermite**（每键带 `inSlope`/`outSlope`），
+#   而本表原来只写 `[t,v]` ⇒ 运行期按分段线性读，非线性的曲线（弧线 / 先快后慢）**形状被丢掉**。
+#   现格式（**只在曲线确实非线性时才用**，线性曲线仍是旧的 2 数格式、逐字节不变）：
+#       [-1, t0, v0, inSlope0, outSlope0, t1, v1, inSlope1, outSlope1, …]
+#   首格 `-1` 是标记（时间永远 ≥ 0 ⇒ 不可能是真的时间）。它的作用是把两种格式做成
+#   **长度奇偶互斥**：4 数格式 = `1 + 4n`（长度 % 4 == 1），旧的 2 数格式 = `2m`（% 4 ∈ {0,2}）
+#   ⇒ 运行期 `CardAnimOrder.HasSlopes` 只靠长度就能判，**不需要额外的版本列**
+#   （`BattleDriver` 直接拿 `float[]` 调 `EaseAt`，没有地方传版本号）。
+CURVE_SLOPE_TAG = -1.0
+
+
+def _curve_needs_slopes(keys):
+    """这条曲线**用 Hermite 求值与用分段线性求值是否不同**。
+    判据（逐段）：某一段两端切线（左键 `outSlope` / 右键 `inSlope`）≠ 弦斜率 ⇒ 非线性。
+    相等的段（原版大量曲线就是 `(0,0)→(1,1)` 且两端切线 1.0）⇒ 两种求值**逐值相同** ⇒ 不写斜率。
+    """
+    for i in range(len(keys) - 1):
+        a, b = keys[i], keys[i + 1]
+        dt = float(b.get("time") or 0.0) - float(a.get("time") or 0.0)
+        if abs(dt) < 1e-9:
+            continue
+        chord = (float(b.get("value") or 0.0) - float(a.get("value") or 0.0)) / dt
+        if abs(float(a.get("outSlope") or 0.0) - chord) > 1e-6:
+            return True
+        if abs(float(b.get("inSlope") or 0.0) - chord) > 1e-6:
+            return True
+    return False
+
+
+def _curve_flat(curve, with_slopes=False):
+    """`AnimationCurve`（全量件里的序列化形状）→ 扁平格式（按 time 升序、4 位小数）。
 
     🆕 2026-10-23（`新账-83`）：与 `gen_card_anim_order.py` 的 `_curve_flat` **同一个格式约定**
-    （运行期 `CardAnimOrder.EaseAt` / `EaseAtRaw` 按分段线性读它）。两处是**同一个数据格式**，
+    （运行期 `CardAnimOrder.EaseAt` / `EaseAtRaw` 读它）。两处是**同一个数据格式**，
     不是同一条业务规则 —— 但**改约定要两边一起改**（C# 只有一份读取实现）。
+
+    🔴 2026-11-02（`B117-WCURVE`）：
+      · `with_slopes=True` **且**这条曲线非线性 ⇒ 4 数格式 `[t,v,inSlope,outSlope] ×n`（前置标记 `-1`）；
+      · 其余（线性曲线 / `with_slopes=False` 的消费方）⇒ **旧的 2 数格式 `[t,v]`，逐字节不变**。
+      ⚠️ **哪些用 `with_slopes=True`**：① `CardAnimOrder.EaseAt/EaseAtRaw` 读的两族 ——
+        `easeCurve`（位移进度）与 `offsetMovementAxis.{x,y,z}Axis`（三轴偏移弧线，原版同样走 `Evaluate`）；
+        ② 🆕 2026-11-02（`B117-WMINIONCURVE`）`minionMovementInfo` 的三族（`mmC*`/`mvc*`/`mmR*C`）——
+        消费方 `BattleDriver.MinionCurve` 已改成先调 `CardAnimOrder.HasSlopes` 判格式（原先按 `Length/2` 硬读）。
     没有键 / 曲线是 null ⇒ 空列表。
     """
-    cur = ((curve or {}).get("m_Curve") or [])
+    keys = sorted(((curve or {}).get("m_Curve") or []), key=lambda x: x.get("time", 0.0))
     out = []
-    for k in sorted(cur, key=lambda x: x.get("time", 0.0)):
+    if with_slopes and _curve_needs_slopes(keys):
+        out.append(CURVE_SLOPE_TAG)
+        for k in keys:
+            out.append(round(float(k.get("time") or 0.0), 4))
+            out.append(round(float(k.get("value") or 0.0), 4))
+            out.append(round(float(k.get("inSlope") or 0.0), 4))
+            out.append(round(float(k.get("outSlope") or 0.0), 4))
+        return out
+    for k in keys:
         out.append(round(float(k.get("time") or 0.0), 4))
         out.append(round(float(k.get("value") or 0.0), 4))
     return out
@@ -303,7 +355,7 @@ def _minion_move_block(ai):
         `minionMovementAnimCurve{X,Y,Z}`(0x18/0x20/0x28) · `useXZCurve`(0x30) · `useYCurve`(0x31) ·
         `yOffset`(0x34) / `xOffset`(0x38) / `zOffset`(0x3C) ·
         `rotate{X,Y,Z}Axis`(0x40/0x48/0x50) = `{enable, curve, maxValue}` · `animTime`(0x58)
-    短名（`mm` 前缀 = **全量记录**；曲线格式与 `ease` 同一套 `[t,v,…]`）：
+    短名（`mm` 前缀 = **全量记录**；曲线 2026-11-02 起与 `ease` 同一套斜率格式 `[-1,t,v,in,out,…]`/`[t,v,…]`）：
         `mmDelay` `mmAct` `mmVis` `mmUseXZ` `mmUseY` `mmX/Y/Z`（偏移）
         `mmCx/mmCy/mmCz`（三条位移曲线，**非空才写**）
         `mmRxE/mmRxM/mmRxC`（旋转 X 的 enable / maxValue / 曲线），Y、Z 同形。
@@ -323,9 +375,9 @@ def _minion_move_block(ai):
     if not m:
         return {}
     rot = {k: (m.get(k) or {}) for k in ("rotateXAxis", "rotateYAxis", "rotateZAxis")}
-    curves = {k: _curve_flat(m.get(k)) for k in ("minionMovementAnimCurveX",
-                                                 "minionMovementAnimCurveY",
-                                                 "minionMovementAnimCurveZ")}
+    curves = {k: _curve_flat(m.get(k), with_slopes=True) for k in ("minionMovementAnimCurveX",
+                                                                  "minionMovementAnimCurveY",
+                                                                  "minionMovementAnimCurveZ")}
     act = int(m.get("shouldActivateMinionMovement") or 0)
     vis = int(m.get("visibilityStateAfterFinish") or 0)
     dly = float(m.get("delay") or 0.0)
@@ -374,7 +426,7 @@ def _minion_move_block(ai):
         r = rot[ax]
         out[short + "E"] = int(r.get("enable") or 0)
         out[short + "M"] = round(float(r.get("maxValue") or 0.0), 6)
-        c = _curve_flat(r.get("curve"))
+        c = _curve_flat(r.get("curve"), with_slopes=True)
         if c:
             out[short + "C"] = c
     return out
@@ -700,15 +752,17 @@ def build():
         #      其余行缺省（`JsonUtility` 给默认 0 / 空数组）。
         row["otv"] = 1 if ai.get("orientToVelocity") else 0
         if mv:
-            row["ease"] = _curve_flat(ai.get("easeCurve"))
+            # 🔴 2026-11-02（`B117-WCURVE`）：`ease` 带斜率（非线性时才用 4 数格式）—— 原版是 Hermite。
+            row["ease"] = _curve_flat(ai.get("easeCurve"), with_slopes=True)
         ao = 1 if ai.get("applyMovementOffsets") else 0
         if ao:
             om = ai.get("offsetMovementAxis") or {}
             row["ao"] = 1
             row["ont"] = 1 if om.get("useNonModifiedAnimTime") else 0
-            row["ofx"] = _curve_flat(om.get("xAxis"))
-            row["ofy"] = _curve_flat(om.get("yAxis"))
-            row["ofz"] = _curve_flat(om.get("zAxis"))
+            # 🔴 同一笔：三轴偏移曲线也是原版 `AnimationCurve.Evaluate` ⇒ 同样要斜率（非线性时）。
+            row["ofx"] = _curve_flat(om.get("xAxis"), with_slopes=True)
+            row["ofy"] = _curve_flat(om.get("yAxis"), with_slopes=True)
+            row["ofz"] = _curve_flat(om.get("zAxis"), with_slopes=True)
             for mn_key, mx_key, range_key in (("mnx", "mxx", "minMaxXOffset"),
                                               ("mny", "mxy", "minMaxYOffset"),
                                               ("mnz", "mxz", "minMaxZOffset")):
@@ -777,10 +831,25 @@ def dump_bytes(obj):
     return (json.dumps(obj, ensure_ascii=False, indent=1, sort_keys=False) + "\n").encode("utf-8")
 
 
+USAGE = """用法（🔴 不带参 = 只打印本用法并以退出码 2 退出，**绝不写盘**）：
+    python -I -X utf8 工具/gen_cardanim_clips.py --write   # 重新生成（写两份产物）
+    python -I -X utf8 工具/gen_cardanim_clips.py --check   # 只比对盘上那两份，不写（退出码 1 = 不一致）
+    python -I -X utf8 工具/gen_cardanim_clips.py --dry     # 只打印统计，不写、不比对
+    -h, --help   同「不带参」：只打印本用法（退出码 0）。
+
+🔴 为什么要显式 --write：本仓发生过「脚本裸跑即真写盘、把数据冲掉」的事故 ⇒
+   写盘类脚本的默认行为必须是「打印用法 + 非零退出」，真动作一律显式。"""
+
+
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--write", action="store_true", help="重新生成并写两份产物")
     ap.add_argument("--check", action="store_true", help="只比对盘上那份，不写")
+    ap.add_argument("--dry", action="store_true", help="只打印统计，不写")
     args = ap.parse_args()
+    if not (args.write or args.check or args.dry):
+        print(USAGE)
+        return 2
 
     out, conflicts, missing = build()
     b = dump_bytes(out)
@@ -851,6 +920,10 @@ def main():
                 bad += 1
         print("check: %s" % ("OK" if bad == 0 else "%d 处不一致" % bad))
         return 1 if bad else 0
+
+    if args.dry:
+        print("dry: 未写盘（加 --write 才写）")
+        return 0
 
     for p in (OUT_FULL, OUT_RUNTIME):
         os.makedirs(os.path.dirname(p), exist_ok=True)

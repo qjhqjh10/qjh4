@@ -84,7 +84,7 @@
 // B. **指针闸门换了源**：原版 `EventSystemController.Instance.IsPointerOverUIObject(fingerId)` +
 //    `EventSystem.current.m_HasFocus`(+0x48)。🔴 **本仓没有 UGUI `EventSystem` / `EventSystemController`**
 //    （`Editor/ShellScene.cs` 的 `Run` 里那条 `EventSystemController` 等价物注 记过），`m_HasFocus` 的等价物是 **`Application.isFocused`**（那一格就是
-//    `EventSystem.OnApplicationFocus` 写的）；「指针在不在 UI 上」**没有等价物** ⇒ 见 <see cref="PointerOverUi"/>（**待接线**）。
+//    `EventSystem.OnApplicationFocus` 写的）；「指针在不在 UI 上」的等价物 = <see cref="PointerOverUi"/>（**✅ 2026-10-28 `B90_B2` 起已接线**：`BattleDriver.cs:3722` 接成 `PointerOverAnyUi`）。
 // C. **双指那一路（移动端）**：原版 `Input.GetTouch(0)`；我们这台是桌面 ⇒ 那一段**照原版写出来**，
 //    但**没有真机验过**（如实记，不进断言）。滚轮/右键拖拽那两条是桌面主路。
 //
@@ -238,7 +238,7 @@ namespace CardPresentation
         /// <summary>「指针现在压在我们自己的 UI 上吗」—— 原版这一问是
         /// `EventSystemController.Instance.IsPointerOverUIObject(fingerId)`（拿 UGUI 的 EventSystem 做射线）。
         /// 🔴 **本仓没有 UGUI `EventSystem` / `EventSystemController`**（`Editor/ShellScene.cs` 的 `Run` 里那条 `EventSystemController` 等价物注 记过；
-        /// `ProjectSettings` 的 `activeInputHandler: 1` = 只用新输入系统）⇒ **由驱动层接一个**（**待接线**）。
+        /// `ProjectSettings` 的 `activeInputHandler: 1` = 只用新输入系统）⇒ 由驱动层接一个（**✅ 2026-10-28 `B90_B2` 起已接**：`BattleDriver.cs:3722` → `PointerOverAnyUi`）。
         /// ⛔ 没人接时按 `false`（= 不在 UI 上）**并出声一次** —— 默认成 `true` 就等于「手动缩放永远不生效」，
         /// 那是**静默失败**（本仓红线）。</summary>
         [System.NonSerialized] public System.Func<bool> PointerOverUi;
@@ -625,7 +625,7 @@ namespace CardPresentation
         /// <para>三道门（顺序原版就是这样）：① 双指（移动端，见文件头 C）⇒ 取 `fingerId`；
         /// ② `EventSystemController.Instance != null &amp;&amp; EventSystem.current != null
         /// &amp;&amp; !IsPointerOverUIObject(fingerId)`；③ `EventSystem.current.m_HasFocus`。
-        /// 🔴 我们的等价物见文件头 B：② 的 `IsPointerOverUIObject` 走 <see cref="PointerOverUi"/>（待接线），
+        /// 🔴 我们的等价物见文件头 B：② 的 `IsPointerOverUIObject` 走 <see cref="PointerOverUi"/>（✅ `B90_B2` 起已接线），
         /// ③ 走 `Application.isFocused`。</para>
         /// <para>门内两件事：**滚轮改 zoom**（`ZoomSensitivity` 分桌面/移动两档 · 桌面且
         /// `invertMouseScrollWheel` 时**翻符号**）→ `ZoomChange` 那两句；然后 `ApplyZoom(HandleDrag())`。</para>

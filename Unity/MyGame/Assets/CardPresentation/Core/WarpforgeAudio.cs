@@ -149,9 +149,9 @@ namespace CardPresentation
         public static AudioClip PlayJingle(WarpforgeVFX.WFSoundCue cue)
         {
             if (cue == null) return null;
-            var clip = WarpforgeVFX.WFSoundBank.PickClip(cue, _jingleRng);
-            if (clip == null) return null;                     // 已经警告过，这里不刷屏
-            if (!WarpforgeVFX.WFSoundPlayer.Enabled) return null;   // 批处理自检：不出声、不建对象
+            // 冷却闸 → `WFSoundPlayer.CanPlayByCooldown`（原版 `AudioCue__ConfigAudioSource.c:19-21` 的闸 + `:31` 先写戳、再挑 clip）
+            if (!WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(cue)) { JingleThrottled++; return null; }
+            var clip = WarpforgeVFX.WFSoundBank.PickClip(cue, _jingleRng); if (clip == null || !WarpforgeVFX.WFSoundPlayer.Enabled) return null;   // 挑不到已警告 / 批处理自检不出声
 
             if (_jingle == null)
             {
@@ -402,5 +402,20 @@ namespace CardPresentation
                     && _musicMixer.GetFloat("TrackHighVolume", out v);
             }
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 **2026-11-02（`B117-WCOOL3`）：Jingles 冷却的读数口**
+        //  判据 = 原版 `SoundManager.Play2D(AudioCue, MixerType.Jingles)` 与 FX 那条走**同一个**
+        //  `AudioCue.ConfigAudioSource`（`decomp_full/AudioCue__ConfigAudioSource.c:19-21`）⇒ Jingles 也得有
+        //  `timeToPlayAgain` 闸。壳侧 Jingles 消费点 = `WindowSounds.PlayJingles`（开包拆包声 / 稀有度声 /
+        //  段位升降），⛔ 别以为「Jingles 音量与 FX 同值」就等于可以走 FX 那条（那正是接错的保护色）。
+        //  ⚠️ 冷却表与 FX **共用一张**（`WFSoundPlayer._lastAt`，按 cue 资产实例计 —— 原版 `lastTimePlayed`
+        //     就住在 `AudioCue` 上，与从哪条路播无关）⇒ 清表请走 `WFSoundPlayer.ResetThrottle()`。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        /// <summary>自检用：`PlayJingle` 被 `timeToPlayAgain` 挡掉几次（**不是错** —— 原版就是这么节流）。</summary>
+        public static int JingleThrottled { get; private set; }
+
+        /// <summary>自检用：把 Jingles 的节流计数清零（冷却表不在这里 —— 见上面那段注释）。</summary>
+        public static void ResetJingleThrottle() { JingleThrottled = 0; }
     }
 }

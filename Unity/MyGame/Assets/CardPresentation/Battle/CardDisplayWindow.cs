@@ -1019,8 +1019,8 @@ namespace CardPresentation
         void SetChrome(bool on)
         {
             if (_mask != null) _mask.gameObject.SetActive(on);
-            // 🔴 2026-10-22：`_hint`（底部自拟提示）已删。
-            if (_voiceBtn != null) _voiceBtn.gameObject.SetActive(on);
+            // 🔴 2026-10-22：`_hint`（底部自拟提示）已删。 🔴 2026-11-03（`B117-G10-13`）就地订正：**开窗时⛔ 不许在这儿点亮语音钮** —— 原版那颗钮的唯一写者是 `SetCardVoiceOver`（`SetActive(sounds.Count>0)`，`decomp_full/CardDisplayWindow__SetCardVoiceOver.c:60-66`），窗整棵靠 `GameWindow` 的 activeSelf 开关、**没有任何一处按「窗开没开」动它**；这里原来写 `SetActive(on)` ⇒ 开窗一律点亮 ⇒ 把排在它前面的 `RefreshButtons()` 刚按卡算出来的「没语音就不建」整个覆盖掉（战术卡语音覆盖 4/484 ⇒ 其余几百张开窗后多一颗按了没反应的钮）。⇒ 现在**只在关窗时收**（`!on`），开窗那一侧由 `RefreshButtons` 说了算。
+            if (_voiceBtn != null && !on) _voiceBtn.gameObject.SetActive(false);
             // 🆕 2026-10-20（A3-e）：背景关闭区**必须跟着开关** —— 漏了它 = 一块全屏射线靶在窗关着时
             //   继续挡着整个屏幕（`SetActive(false)` 会把它移出 `GraphicRegistry`，同 `MultiCardDisplay` 那条）。
             if (_backdrop != null) _backdrop.gameObject.SetActive(on);

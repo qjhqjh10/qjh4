@@ -459,7 +459,7 @@ namespace CardPresentation
                 LastSavedBytes = new System.Text.UTF8Encoding(false).GetByteCount(json);
                 LastSavedFile = name;
                 Debug.Log($"[Replay] 已存：`{path}`（{LastSavedBytes / 1024f:F1} KB · "
-                        + $"{rec.actions.Count} 条动作 · {rec.myHero} vs {rec.foeHero}）");
+                        + $"{(rec.actions != null ? rec.actions.Count : 0)} 条动作 · {rec.myHero} vs {rec.foeHero}）");   // 🆕 2026-11-02（`B117-G10-16`）：`actions` 为 null 时原来会在这里 NRE ⇒ 被下面的 `catch` 吞成「写盘失败」，而**文件其实已经写好了**（方法自己 doc 写的是「返回文件名 / 失败返回 null」）⇒ 补空判定
                 TrimToLast(MaxKept);
                 return name;
             }

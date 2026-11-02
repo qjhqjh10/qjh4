@@ -489,9 +489,9 @@ public static partial class RuleEngineTest
                         if (ct[i].Raw != null && ct[i].Raw.Trim().Replace(" ", "").ToLowerInvariant().StartsWith("oathdouble")) rawHit = true;
                 CheckTrue(ct != null && rawHit,
                           "★★ ③-a：`UM100` 的 `cardTraits` 列里有 `oathDouble`（原版 `DefinedTrait.oathDouble = 1277 = 0x4fd`；这里是按 `CardTraitEntry.Raw` 精确判的**前提**断言 —— 本行不验归一化，归一化由下面 ⑤ 段单独验）");
-                CheckTrue(!cassius.OathDouble,
-                          "前提：那个**文本解析**出来的 bool `CardDef.OathDouble` 为**假**"
-                        + "（全池 0 张正文写「誓约加倍」⇒ 旧判据恒 false，这正是缺口）");
+                CheckTrue(cassius.OathDouble,
+                          "前提：`UM100` 的正文**会**解析出 `CardDef.OathDouble = true`（desc = `Friendly Oath abilities apply an additional time.` ⇒ `MatchStaticBattleRule` 的「誓约加倍」）"
+                        + "—— 旧实现**不是**「恒 false」：真正的缺口是它读的是【被激活的那张 oath 卡】而不是【来源卡】（旧 `RuleCore.OathExtraReplays` 读 `u.Card.OathDouble`，`u` 是被激活的 `UM101`，不是 `UM100`）");
                 CheckTrue(oathUnit.HasTrait("oath"),
                           "前提：`UM101`（`cardTraits=[\"oath 2\"]`）确实是「带 oath 的卡」—— 用来验前缀撞名那一档");
 

@@ -461,13 +461,13 @@ namespace CardPresentation
             return true;
         }
 
-        /// <summary>无帧循环那一档的落点：让 `CombatCameraZoom` 把当前 `targetZoomLevel` **当成一帧收敛完**
-        /// 写进相机（出处 → `CombatCameraZoom.SettleFraming` 的注释与那份文件头 A）。
-        /// <para>⚠️ `manualCamera` 为真 ⇒ 原版那道 `if (!manualCamera)` 闸 ⇒ `SettleFraming()` 返回 false，
-        /// 这里**什么都不写**（`FramingApplyCount` 也不涨 —— 那个计数钉的是「真的写进相机几次」）。</para></summary>
+        /// <summary>无帧循环那一档的落点：让 `CombatCameraZoom` 把当前 `targetZoomLevel` **当成一帧收敛完**写进相机。
+        /// 🔴 **2026-11-02（`B117-G10-25`）补闸：只在【没有帧循环】时生效** —— 原版 `CombatAutoZoom.SetZoomLevel` **从不写相机**（只 `set_TargetZoomLevel`），
+        /// 收敛全在 `CombatCameraZoom.LateUpdate` 的 `SmoothDamp`（`smoothTime = dt × 12.5`）；真机也走 settle ⇒ 「人数一变、镜头瞬移（约 0.08 s 的平滑被抹掉）」。`manualCamera` ⇒ 原版那道闸 ⇒ 返 false。</summary>
         void ApplyFraming()
         {
             if (_cameraZoom == null) return;                    // 还没建（`ResetForBattle` 会建）
+            if (Application.isPlaying) return;                  // 真机有帧循环 ⇒ 交给 `LateUpdate` 逐帧收敛（原版行为）
             if (_cameraZoom.SettleFraming()) FramingApplyCount++;
         }
 
@@ -727,16 +727,16 @@ namespace CardPresentation
 
         /// <summary>= 原版 `PlayerHand.get_CurrentSizeMultiplier()`（`PlayerHand__get_CurrentSizeMultiplier.c` 逐句）：
         /// `GameStaticData.smallScreenUI`(+0x11c) 假 ⇒ 常量 `DAT_1834b2bb8` = **1.0**；
-        /// 真 ⇒ `PlayerHand+0x3c`（那一档把手牌区放大 M 倍）。
-        /// <para>🔴 **我们这一档恒 1.0，如实记（不是「照抄了那一档」）**：原版那一位的作用是把
-        /// `playerCardAreaSizeHelper.sizeDelta.y` 设成 `playerCardAreaSizeHelperOriginal.rect.height × M`
-        /// ⇒ 手牌区**上沿抬高 M 倍**、`bounds` 跟着变小。而**我们的战斗 HUD 没有那个放大档**
-        /// （`Shell/TransformScalerBySmallScreenUI.cs` 的 `AddComponent` 生产调用点只在菜单窗口那两处）
-        /// ⇒ 两个分支都取 1.0。</para>
-        /// <para>⛔ **别把 `SmallScreenUI.Enabled` 直接当 M 乘进来** —— 那会凭空放大手牌区、`bounds` 与
-        /// `sensorSize.x` 跟着错，而 M 的真值（`PlayerHand` 那个字段谁写、写多少）**还没查到**。
-        /// 它进「没查清」那一栏，等查到再补。</para></summary>
-        public static float CurrentSizeMultiplier { get { return 1f; } }
+        /// 真 ⇒ `PlayerHand+0x3c` = 序列化字段 `smallScreenSizeMultiplier`（见 <see cref="PlayerHandSmallScreenSizeMultiplier"/>）。
+        /// <para>🔴 **2026-11-02（`B117-G10-25`）就地订正**：原注写「我们这一档恒 1.0 …… M 的真值**还没查到**」。**现在查到了**：
+        /// `framer+0x60 playerHand` 在 **13/13 个战场**都指向**玩家那一件**（`isPlayer = 1`；逐场 `MonoBehaviour_4697/4904/4820/…` 的
+        /// `playerHand.m_PathID` → 那件 `PlayerHand`），其 `smallScreenSizeMultiplier` **13/13 = 1.365**（敌方那件 1.2，但 `+0x60` 从不指它）；
+        /// `PlayerHand.Initialize` 只**读**该字段、全反编译**写点 = 0** ⇒ 运行期恒 1.365 ⇒ 两个分支照原版取 `smallScreenUI ? 1.365 : 1.0`
+        /// （原版那一位把 `playerCardAreaSizeHelper.sizeDelta.y` 设成 `Original.rect.height × M` ⇒ 手牌区上沿抬高 M 倍）。</para>
+        /// <para>⚠️ **仍然如实记的第二条**：我们自己的战斗 HUD **没有**「手牌区放大 1.365 倍」那一档（`TransformScalerBySmallScreenUI`
+        /// 的 `AddComponent` 生产调用点只在菜单窗口那两处）⇒ 开着 Small Screen UI 时「取景按原版大手牌算、画面按我们小手牌画」。
+        /// 公式**照抄原版**（铁律 11）；这是**另一条**待办（HUD 侧），⛔ 不许为掩盖它把这里的 M 改回 1.0。</para></summary>
+        public static float CurrentSizeMultiplier { get { return SmallScreenUI.Enabled ? PlayerHandSmallScreenSizeMultiplier : 1f; } }
 
         /// <summary>最近一次量到的「世界系高差」（自检用）。</summary>
         public float MeasuredWorldDeltaY { get; private set; }
@@ -803,5 +803,16 @@ namespace CardPresentation
         }
 
         bool _noUiCameraNoted;
+
+        /// <summary>原版 `PlayerHand.smallScreenSizeMultiplier`（`PlayerHand` 字段 `+0x3c`）= **1.365f**
+        /// —— 就是 `get_CurrentSizeMultiplier()` 在 `GameStaticData.smallScreenUI` 为真时返回的那一格。
+        /// <para>判据（2026-11-02 `B117-G10-25` 逐场亲读）：`bundle_scenes_scenes_battlearena*/MonoBehaviour/` 里
+        /// 每个战场的 `CameraVerticalFramer`（`MonoBehaviour_4697` 等）的 `playerHand` 都指向**玩家那件**
+        /// `PlayerHand`（`isPlayer = 1`），其 `smallScreenSizeMultiplier` 序列化值 **13/13 = 1.365**
+        /// （`4350/4547/4470/…` 那批敌方件是 1.2，`+0x60` 从不指它们）。
+        /// `PlayerHand.Initialize` 只读该字段、全反编译**写点 = 0** ⇒ 运行期就是这个序列化值。
+        /// ⚠️ 它与 `smallScreenSizeMultiplierBigMobiles`(1.4/1.365) 的插值只用于**手牌自身缩放**
+        /// （`PlayerHand.Initialize` 里那一跳），**不进** `get_CurrentSizeMultiplier` —— 别把两者混了。</para></summary>
+        public const float PlayerHandSmallScreenSizeMultiplier = 1.365f;
     }
 }

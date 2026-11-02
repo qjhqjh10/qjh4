@@ -543,7 +543,7 @@ namespace CardPresentation.Net
             //   那一支**没有倒计时**（`StartReconnectCountdown` 只报信），说秒数也是一句假话。
             SayPeerGone(hasCtx ? ReconnectHint(IAmDisconnectedEnd, _countdownLeft)
                                : (IAmDisconnectedEnd ? "本机掉线了 —— 正在重连" : "对手掉线了 —— 正在等他回来"),
-                        hasCtx ? ReconnectPopup(IAmDisconnectedEnd, _countdownLeft)
+                        hasCtx ? ReconnectPopupInitial(IAmDisconnectedEnd)   // 🔴 2026-11-02（G10-26）：开窗那一刻**不带秒**（原版 `ShowDisconnectionPopUp` 只拼表头）
                                : (IAmDisconnectedEnd
                                   ? "本机掉线了 —— 正在重连。\n（这一档只报信：本机没有对局状态，没有结果可判。）"
                                   : "对手掉线了 —— 正在等他回来。\n（这一档只报信：本机没有对局状态，没有弃权可判。）"));
@@ -752,6 +752,27 @@ namespace CardPresentation.Net
                                    MaxSecToReconnect - ReconnectSecondsStep * enemyDisconnects);
         }
 
+        /// <summary>🆕 **2026-11-02（`B117-G10-26`）**：**本机**掉线那条重连倒计时的地板
+        /// （原版 `Math.Max(10, …)`，`BattleManager._AttemptReconnect_d__320__MoveNext.c:29-31`）。
+        /// ⚠️ 与对手那条的地板 **15** 不是同一个数（`ReconnectSecondsFloor`）。</summary>
+        public const int SelfReconnectSecondsFloor = 10;
+
+        /// <summary>原版 `AttemptReconnect` 的秒数：**`Math.Max(10, maxSecToReconnect − 3 × (playerDisconnects + 1))`**
+        /// （`BattleManager._AttemptReconnect_d__320__MoveNext.c:29-31`；`playerDisconnects` = `+0x448`，
+        /// 取的时候**还没自增** ⇒ 第一次掉线 = `30 − 3×1` = **27**）。
+        /// ⚠️ 与 <see cref="ReconnectSecondsFor"/> **不是同一个函数**（那条地板 15、且不带 `+1`）——
+        /// 原版两端各有一条协程、各有一个计数器，⛔ 别把两条合并。</summary>
+        public static int SelfReconnectSecondsFor(int playerDisconnects)
+        {
+            if (playerDisconnects < 0) playerDisconnects = 0;
+            return System.Math.Max(SelfReconnectSecondsFloor,
+                                   MaxSecToReconnect - ReconnectSecondsStep * (playerDisconnects + 1));
+        }
+
+        /// <summary>本局**本机**掉线过几次（原版 `BattleManager.playerDisconnects`，`+0x448`）。
+        /// 与 <see cref="EnemyDisconnects"/> 是两个独立的计数器（原版也是两个字段）。</summary>
+        public int PlayerDisconnects { get { return _playerDisconnects; } }
+
         /// <summary>本局对手掉线过几次（原版 `BattleManager.enemyDisconnects`，`+0x45C`）。</summary>
         public int EnemyDisconnects { get { return _enemyDisconnects; } }
         /// <summary>🔴 **A901**：对手掉线期间为真 ⇒ 对局时钟停走（原版 `ClockManager+0x85`）。
@@ -773,6 +794,7 @@ namespace CardPresentation.Net
         static float NowSec() { return _nowOverride != null ? _nowOverride() : _wall.ElapsedMilliseconds * 0.001f; }
 
         int _enemyDisconnects;          // 原版 `BattleManager.enemyDisconnects`（`+0x45C`）
+        int _playerDisconnects;         // 🆕 2026-11-02（G10-26）原版 `BattleManager.playerDisconnects`（`+0x448`）
         bool _countdownOn;
         int _countdownLeft;             // 上一次报出去的秒数
         float _countdownNextAt;         // 下一拍该报数的时刻（秒表刻度）
@@ -798,14 +820,36 @@ namespace CardPresentation.Net
                 _countdownOn = false;
                 return;
             }
-            _countdownLeft = ReconnectSecondsFor(_enemyDisconnects);
-            _enemyDisconnects++;                       // 原版 `:63`：**算完就自增**（先取值再 ++）
+            // 🔴 **2026-11-02（`B117-G10-26`）**：**两端的秒数公式不是同一个**（原来一律用对手那条）：
+            //   · 对手掉线 = `ForfeitDisconnectedEnemy`：`max(15, 30 − 3 × enemyDisconnects)`（`.c:61`，地板 15）；
+            //   · **本机掉线** = `AttemptReconnect`：`max(10, 30 − 3 × (playerDisconnects + 1))`
+            //     （`BattleManager._AttemptReconnect_d__320__MoveNext.c:29-31`，地板 **10**、且带 `+1`）。
+            //   ⚠️ 两个计数器在原版也是分开的：`enemyDisconnects`(+0x45C) / `playerDisconnects`(+0x448)。
+            //   ⚠️ 如实记：原版本机那条的循环是「最多 6 次尝试、每次 1 秒」（`:96` `playerDisconnects < 6`），
+            //      我们这边的重连退避在 `NetSession` 里、没有对应的「第几次尝试」计数 ⇒ 我们这 27 秒是
+            //      **墙钟预算**，不是尝试次数预算（这一格差异写进报告，⛔ 不在这里造假计数）。
+            if (IAmDisconnectedEnd)
+            {
+                _countdownLeft = SelfReconnectSecondsFor(_playerDisconnects);
+                _playerDisconnects++;                  // 原版 `:29-31` 取完再自增
+            }
+            else
+            {
+                _countdownLeft = ReconnectSecondsFor(_enemyDisconnects);
+                _enemyDisconnects++;                   // 原版 `:63`：**算完就自增**（先取值再 ++）
+            }
             _countdownOn = true;
             _countdownNextAt = NowSec() + 1f;           // 原版 `:120`：报完数**等 1 秒**再减
-            Debug.Log($"[Net] 对手掉线：**{_countdownLeft} 秒**倒计时开始"
-                    + $"（原版 `max(15, maxSecToReconnect {MaxSecToReconnect} − {ReconnectSecondsStep} × "
-                    + $"{_enemyDisconnects - 1})`；本局对手第 {_enemyDisconnects} 次掉线）"
-                    + " ⇒ 到点判他弃权");
+            if (IAmDisconnectedEnd)
+                Debug.Log($"[Net] 本机掉线：**{_countdownLeft} 秒**倒计时开始"
+                        + $"（原版 `max(10, maxSecToReconnect {MaxSecToReconnect} − {ReconnectSecondsStep} × "
+                        + $"({_playerDisconnects - 1} + 1))`；本机第 {_playerDisconnects} 次掉线）"
+                        + " ⇒ 到点判**本机**负");
+            else
+                Debug.Log($"[Net] 对手掉线：**{_countdownLeft} 秒**倒计时开始"
+                        + $"（原版 `max(15, maxSecToReconnect {MaxSecToReconnect} − {ReconnectSecondsStep} × "
+                        + $"{_enemyDisconnects - 1})`；本局对手第 {_enemyDisconnects} 次掉线）"
+                        + " ⇒ 到点判他弃权");
         }
 
         /// <summary>每帧推倒计时（`Tick` 里调）。节奏照原版：**报 N → 等 1 秒 → 报 N−1 → … → 报 1 → 等 1 秒 → 判弃权**
@@ -937,19 +981,36 @@ namespace CardPresentation.Net
         }
 
         /// <summary>倒计时那一句**弹窗正文**。🆕 **2026-10-26（批次 6 · G15）**：改走**原版词条**
-        /// （`Core/Loc.cs` 里那 4 条 `Battle/HUD/*`，值是从官方表录入的），两档的拼法逐句照原版：
+        /// （`Core/Loc.cs` 里那 4 条 `Battle/HUD/*`，值是从官方表录入的）。
+        /// 🔴 **2026-11-02（`B117-G10-26`）**：**开窗那一刻**的正文（原版
+        /// `ShowDisconnectionPopUp`）与**每秒那一拍**的正文（原版 `UpdateReconnectWindow`）**不是同一个拼法** ——
+        /// 原来我们用同一个函数拼两处，两个细节都错了，逐句判据如下：
         /// <list type="bullet">
-        /// <item>`ShowDisconnectionPopUp(true)`（本机掉线）= `LostConnection` **换行** `WaitForConnection`
-        ///   （`decomp_full/…__ShowDisconnectionPopUp.c:30-58`：`param_2 != 0` 走 `+0x30`，再 `AppendLine(+0x60)`）；</item>
-        /// <item>`ShowDisconnectionPopUp(false)`（对面掉线）= `WaitingForOpponent` 一行（同文件 `+0x48` 那一支）；</item>
-        /// <item>每秒那一拍 `UpdateReconnectWindow(sec)` 两条都**再换行拼 `mm:ss`**（`…__UpdateReconnectWindow.c:27-30`）。</item>
+        /// <item>**开窗那一刻**（`…__ShowDisconnectionPopUp.c:30-58`）：本机掉线 = `+0x30` 那颗 **+**
+        ///   `AppendLine(+0x60)` ⇒ **两行**；对面掉线 = `+0x48` 那一颗 ⇒ **一行**。**⚠️ 没有 `mm:ss`**
+        ///   （那个函数体里根本没调 `TimeSpan`）。</item>
+        /// <item>**每秒那一拍**（`…__UpdateReconnectWindow.c:27-30`）：**只取第一颗** `LocalizedString`
+        ///   （`isPlayer ? +0x30 : +0x48`）→ `AppendLine(head)` → `AppendLine(TimeSpan)` ⇒
+        ///   **两行，且【没有】** 第二颗（`PleaseWaitConnection`）。</item>
         /// </list>
-        /// ⚠️ **与原版的一处措辞差（如实记）**：原版那两句是「与**服务器**断开」，我们是 P2P（没有服务器）——
-        /// 但**用的是原版词条本身**（复刻优先，⛔ 别自己改写成「与对手断开」：那会让两列文案与官方表不一致）。</summary>
-        static string ReconnectPopup(bool iAmDisconnectedEnd, int sec)
+        /// ⇒ 我们原来的 `head(+PleaseWait) + "\n" + mm:ss` 把两条的**并集**画了出来：
+        /// 开窗就带秒（原版不带）、每秒那一拍还留着「请等待」（原版那一拍只重写第一行）。
+        /// ⛔ 别再把两个拼法合并成一个函数 —— 它们本来就不同。
+        /// <para>⚠️ **与原版的一处措辞差（如实记）**：原版那两句是「与**服务器**断开」，我们是 P2P（没有服务器）——
+        /// 但**用的是原版词条本身**（复刻优先，⛔ 别自己改写成「与对手断开」：那会让两列文案与官方表不一致）。</para></summary>
+        public static string ReconnectPopupInitial(bool iAmDisconnectedEnd)
+        {
+            return iAmDisconnectedEnd
+                ? Loc.T("Battle/HUD/LostConnectionMsg") + "\n" + Loc.T("Battle/HUD/PleaseWaitConnection")
+                : Loc.T("Battle/HUD/WaitOpponentConnectionMsg");
+        }
+
+        /// <summary>**每秒那一拍**的弹窗正文（原版 `UpdateReconnectWindow`，判据见
+        /// <see cref="ReconnectPopupInitial"/> 的 summary）：**单行表头 + 换行 + `mm:ss`**。</summary>
+        public static string ReconnectPopup(bool iAmDisconnectedEnd, int sec)
         {
             string head = iAmDisconnectedEnd
-                ? Loc.T("Battle/HUD/LostConnectionMsg") + "\n" + Loc.T("Battle/HUD/PleaseWaitConnection")
+                ? Loc.T("Battle/HUD/LostConnectionMsg")
                 : Loc.T("Battle/HUD/WaitOpponentConnectionMsg");
             return head + "\n" + ReconnectClock(sec);
         }

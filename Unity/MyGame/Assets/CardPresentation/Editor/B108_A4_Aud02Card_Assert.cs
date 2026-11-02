@@ -3,8 +3,8 @@
 // ============================ 覆盖（逐条对上判据表）============================
 //  A 段 `Run()`（自包含，只要一个空 GameObject）—— **AUD02 卡 UI 的 9 条 ❌**
 //    （判据表 `资料/完全复刻/判据/AUD02_裁定_卡UI.tsv` 的 88 / 103 / 117 / 133 / 178 / 205 / 213 / 390 / 417）
-//      A1  ★ 行 88 + 213：`NameTextUnit` 的 autosize 上界 —— 标准/商店页签 **1.90（19 pt）** · 开包族 **2.00（20 pt）**
-//      A2  ★ 行 103：`DescTextUnit` 上界 —— 标准 **2.40（24 pt）** · 开包族 **1.90（19 pt）**
+//      A1  ★ 行 88 + 213：`NameTextUnit` 的 autosize 上界 —— 标准/商店页签 **1.595**（19 pt → ×0.75 ×1.1193）· 开包族 **1.679**（20 pt → 同倍率）
+//      A2  ★ 行 103：`DescTextUnit` 上界 —— 标准 **1.560**（24 pt → ×0.78 ×0.8333）· 开包族 **1.235**（19 pt → 同倍率）
 //      A3  ★ 行 133：`ArmyTextUnit`（单位卡阵营行）—— 开包族 / 标准 = **17/15**
 //      A4  ★ 行 117：`RaceText`（单位卡兵种行）—— 开包族 / 标准 = **17/18**（方向相反！）
 //      A5  ★ 行 178 + 390：`ArmyTextTactc`（战术卡阵营行）—— 两档**同值**（原版 `14 / max 15` ⇒ 有效 15）
@@ -101,18 +101,18 @@ public static class B108A4_Assert
             if (std == null || boost == null || tacticStd == null || tacticBoost == null) return;
 
             // ---- 行 88 + 213：卡名上界 ----
-            Near(std.NameBandMaxForTest, 1.425f, 1e-3f,
-                 "A1 ★ 行 213 标准档 / 商店页签的卡名 autosize 上界 = 1.425（原版 `NameTextUnit` 19 pt ÷10 × shipped 实拍 0.75；`B117_F14`，判据 → `CardView.TitleEmOfCard`）；"
+            Near(std.NameBandMaxForTest, 1.595f, 1e-3f,
+                 "A1 ★ 行 213 标准档 / 商店页签的卡名 autosize 上界 = 1.595（原版 `NameTextUnit` `m_fontSizeMax` 19 pt ÷10 × shipped 实拍 0.75 × `B117_WCARD` 实跑校正 1.1193；判据 → `CardView.NameUnitBandMax` / `TitleEmOfCard` ＝ `判据/B117-WCARD_卡面字号与场上层.md` §1·2）；"
                + "商店页签那 5 个实例虽 `m_fontSize = 16`，但 `m_fontSizeMax = 19` ⇒ 有效字号同标准档 ⇒ 不单开一档）");
-            Near(boost.NameBandMaxForTest, 1.500f, 1e-3f,
-                 "A1b ★ 行 88 开包族卡名上界 = 1.500（原版开包实例 `16.3 / max 20` × 0.75）"
+            Near(boost.NameBandMaxForTest, 1.679f, 1e-3f,
+                 "A1b ★ 行 88 开包族卡名上界 = 1.679（原版开包实例 `16.3 / max 20` × 0.75 × 1.1193）"
                + "｜🧨 把 `NameUnitBandMaxForUse` 改回恒 `NameUnitBandMax` ⇒ 本行红");
 
             // ---- 行 103：效果文字上界 ----
-            Near(std.DescBandMaxForTest, 1.872f, 1e-3f,
-                 "A2 ★ 行 103 标准档效果文字上界 = 1.872（原版 `DescTextUnit` 23.55 / max 24 × 实拍 0.78；`B117_F14`）");
-            Near(boost.DescBandMaxForTest, 1.482f, 1e-3f,
-                 "A2b ★ 行 103 开包族效果文字上界 = 1.482（原版开包实例 `19 / max 19` × 0.78）"
+            Near(std.DescBandMaxForTest, 1.560f, 1e-3f,
+                 "A2 ★ 行 103 标准档效果文字上界 = 1.560（原版 `DescTextUnit` 23.55 / max 24 × 实拍 0.78 × `B117_WCARD` 实跑校正 0.8333；判据 → `CardView.DescUnitBandMax` ＝ `判据/B117-WCARD_卡面字号与场上层.md` §1·2）");
+            Near(boost.DescBandMaxForTest, 1.235f, 1e-3f,
+                 "A2b ★ 行 103 开包族效果文字上界 = 1.235（原版开包实例 `19 / max 19` × 0.78 × 0.8333）"
                + "｜🧨 把 `DescUnitBandMaxForUse` 改回恒 `DescUnitBandMax` ⇒ 本行红");
 
             // ---- 行 133 / 117：阵营行 / 兵种行（两条**方向相反**）----

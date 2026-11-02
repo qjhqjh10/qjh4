@@ -762,5 +762,15 @@ namespace CardPresentation
             if (_shade != null) _shade.gameObject.SetActive(on);
             if (_text != null) _text.gameObject.SetActive(on);
         }
+
+        /// <summary>自检用：压暗层那颗 `Image` 的 `RectTransform`（**画布档才非 null**；世界档是 `ImageQuad` ⇒ null）。
+        /// <para>🔴 **2026-11-02（`B117-G10-18`）**：本件在**画布档**下**不挂在自己节点下** —— 三层
+        /// （压暗 / 框 / 字）都是**根画布的直接子件**（见文件头那条「并进根画布那一组」）⇒
+        /// `GetComponentsInChildren` 在 `WaitBanner` 自己身上**一个都找不到**。要量压暗层的几何就得走这个口。
+        /// 世界档读得到 `ImageQuad` 那个节点，但它没有 `Image` ⇒ 本口回 null（那是**正确的信号**，不是缺陷）。</para></summary>
+        public RectTransform ShadeRect
+        {
+            get { var im = ImageOf(_shade != null ? _shade.gameObject : null); return im != null ? (RectTransform)im.transform : null; }
+        }
     }
 }

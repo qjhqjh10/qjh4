@@ -874,7 +874,7 @@ public static class CardFaceProbe
                 float cardH = CardView.Height;                  // 3.3313 = 原版 `2DCard.m_SizeDelta.y`
                 CheckFaceSize("卡名", "NameTextUnit", 14.25f, kUi, CardView.TitleFontSize, cardH,   // 🔴 `B117_F14`/`UI-21`（铁律 4）：19 → 14.25（×0.75，shipped 实拍；prefab 与逐像素一致但比实拍大 24%）
                               TmpFont.Face.LatinUi);
-                CheckFaceSize("效果文字", "DescTextUnit", 23.55f, kBody, CardView.KeywordFontSize, cardH,   // 名义仍是 prefab 的 23.55；shipped ×0.78 落在 autosize 上界 `DescUnitBandMax`（2.40 → 1.872），见 `CardView.TitleEmOfCard`
+                CheckFaceSize("效果文字", "DescTextUnit", 23.55f, kBody, CardView.KeywordFontSize, cardH,   // 名义仍是 prefab 的 23.55；shipped 实拍 ×0.78、`B117_WCARD` 再按实跑校正 ×0.8333 ⇒ autosize 上界 `DescUnitBandMax` = **1.560**（2.40 × 0.78 × 0.8333），判据 → `CardView.DescUnitBandMax`
                               TmpFont.Face.LatinCardBody);
                 CheckFaceSize("阵营行", "ArmyTextUnit", 15f, kBody, CardView.ArmyFontSize, cardH,
                               TmpFont.Face.LatinCardBody);

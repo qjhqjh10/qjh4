@@ -335,10 +335,15 @@ public static class HandAssertE8
             Check(layout.TryLastPose(card, out wantWorld, out wantAng, out wantScale),
                   "前提：`HandLayout._lastPose` 里有这张牌的落点（回弹补间的终点就是它）");
             Check(wantScale > 0f, "前提：落点缩放有效（" + wantScale.ToString("F4") + "）");
-            Check(Mathf.Abs(Mathf.DeltaAngle(angBefore, wantAng)) > 1.5f,
+            // 🔴 **2026-11-02（`B117-FIXD`）就地订正（铁律 5）**：门槛从 `1.5°` 降到 `1.0°` ——
+            //   2026-11-02（`B117-G10-06`）按原版 `ShowCardInHand` 第二句（`transform.rotation = 欧拉 0`）
+            //   把**被悬停/抬起那张的角度强制归零**，而本夹具先 hover 再按下 ⇒ 拖拽期 `angBefore` 恒 **0°**
+            //   （原来它是槽 2 的扇形角 ≈ −1.15°）⇒ 角度差从「两端之差 ≈2.3°」变成「单边 ≈1.15°」。
+            //   `1.15° > 1.0°` 仍保证下面 ④（`|终值 − wantAng| < 0.5°`）**有判别力**：丢掉角度那一跳 ⇒ 停在 0° ⇒ 差 1.15° ⇒ 红。
+            Check(Mathf.Abs(Mathf.DeltaAngle(angBefore, wantAng)) > 1.0f,
                   "前提：回弹前后**角度真的变了**（拖拽期 " + angBefore.ToString("F2") + "° ⇒ 落位 "
                   + wantAng.ToString("F2") + "°）"
-                + "｜不足 1.5° ⇒ 下面「带角度」那条**空验**（牌回的是原位）");
+                + "｜不足 1.0° ⇒ 下面「带角度」那条**空验**（牌回的是原位）");
 
             Vector3 a = card.transform.position;       // ⚠️ 松手这一帧补间已经建好 ⇒ 读到的就是**起点**
             Check(Vector3.Distance(a, wantWorld) > 1.0f,
@@ -394,18 +399,18 @@ public static class HandAssertE8
     //     `m_SizeDelta = (−350, −512)`、父 `Content` 已 stretch 到 `Collection Card` 的 350×512
     //     ⇒ 算出 **0×0**；`localScale` 出厂就是 150。⇒ 卡的真尺寸/位置是**运行时**设的
     //     （同族结论见 `资料/普查产出_0923/A4_装饰页与驱动链.md:149,223` 的「查不到」）。
-    //   · 🔴 **2026-10-26（`G21`）就地订正（铁律 5）—— 上面那条「最终判据 = 用户实拍」的结论【已被推翻】**：
-    //     `W11` 那版（`CardsCardRect` = 格高 − `CardsCounterH`、卡只占条顶以上）**不是原版长相**。
-    //     2026-10-25 裁定（判据 = prefab 现读 `Collection Card/CardUI/2DCard`：350×512 原型里
-    //     y **6.2 → 505.8**，上下各 6.2 ⇒ **在整格里居中**、高 374.8）：
-    //       · `CardsCardRect(cell)` == **整格**（`CollectionWindow.cs:278-293` 现在就是 `return cell;`）；
-    //       · 卡体按原版公式缩放后在整格里**居中** ⇒ 上下各 ≈4.6 px；
-    //       · ⇒ 卡底**压住张数条 ≈33.6 px**，**那是原版长相**（张数条画在卡下缘之上）。
-    //     ⚠️ `W11` 当时量到的「重叠」根因是**缩放口径**（按整格反解、没有公式给的居中），
-    //       不是「卡不该压条」；用户 2026-10-18 报的那一版**重叠得更多**（卡按整格撑满）。
+    //   · 🔴 **2026-11-03（`B117-WCOLL`）就地订正（铁律 5）—— 2026-10-25 那版「`CardsCardRect` = 整格、压条 33.6 是原版长相」【已被推翻】**：
+    //     错因：prefab `CardUI/2DCard` 的 y **6.2 → 505.8** 是**含投影的外框**（同树 `Front` 甚至到 523.7），不是可见卡框底。
+    //     实拍（铁律 4）= `桌面/warpforge参考图/收藏—张牌的界面参考图（打开过滤器按钮后）.png`：
+    //     卡框金属底边**完整露在红条之上** ⇒ 卡位 = **格子去掉底下那条张数**（条顶 = 格底 − `CardsCounterH` 38.272）。
+    //       · `CardsCardRect(cell).y2` == `cell.y2 − CardsCounterH`（左/右/上沿 == 格）；
+    //       · 卡体**正好铺满**这块卡位 ⇒ 卡顶贴格顶、卡底贴条顶（不留缝、不压条）；
+    //       · 缩放 = `(CardsCellH − CardsCounterH) ÷ (CardView.Height × 108)` = **0.960938**（与 `DeckRuntime.Pool` 同一条式子）。
+    //     ⚠️ `W11`（2026-10-18）的**几何**是对的，错的是它当时那版**缩放**（按整格反解）—— 那才是「压条」的真正来路；
+    //       2026-10-25 拿「含投影的外框」当卡框，把错结论扶正了一版，本次再纠正回来。判据 → `判据/B117-WCOLL_收藏卡格.md` · `判据/B117-GC_界面四条.md` §GC-2。
     //
-    // 这一组钉的是**口径本身**（`Shell/CollectionWindow.cs` 那条 public 几何 + 原版缩放公式），不是在断实现：
-    //   🧨 把 `CardsCardRect` 改回「格高 − 张数条」（`W11` 那版）⇒ ① ② ③ 一起变红。
+    // 这一组钉的是**口径本身**（`Shell/CollectionWindow.cs` 那条 public 几何 + 卡组编辑窗同一条式子），不是在断实现：
+    //   🧨 把那版整套改回来（`CardsCardRect => cell` ＋ 缩放 `格高×150/512÷108`）⇒ ① ② ③ 一起变红。
     static void D_InitialCardScale()
     {
         // 一格（相对坐标即可，两条几何都只吃相对量）
@@ -415,34 +420,34 @@ public static class HandAssertE8
         float barH = cell.y2 - barRect.y1;             // 张数条占掉的高度（原版锚点 `CardsCntMaxY`）= 38.272
 
         Check(Mathf.Abs(cardRect.x1 - cell.x1) < 1e-3f && Mathf.Abs(cardRect.y1 - cell.y1) < 1e-3f
-              && Mathf.Abs(cardRect.x2 - cell.x2) < 1e-3f && Mathf.Abs(cardRect.y2 - cell.y2) < 1e-3f,
-              $"★① 卡体**位置框 = 整格**（`CardsCardRect(cell)` 逐字段等于 `cell`：{cardRect}）"
-            + "｜判据 = prefab `Collection Card/CardUI/2DCard` 在 350×512 原型里 y 6.2→505.8（上下各 6.2 ⇒ **居中**）"
-            + "｜🧨 改回 `W11` 那版「格高 − 张数条」⇒ 红");
+              && Mathf.Abs(cardRect.x2 - cell.x2) < 1e-3f && Mathf.Abs(cardRect.y2 - (cell.y2 - barH)) < 1e-3f,
+              $"★① 卡体**位置框 = 整格去掉底下那条张数**（`CardsCardRect(cell)`：左/右/上沿==格、下沿==条顶 {cell.y2 - barH:F3}：{cardRect}）"
+            + "｜判据 = prefab `Collection Card/Content/Counter` 的 `m_AnchorMax.y = 0.09966714`（条顶距格底）＋ 原版实拍（卡框金属底边露在红条之上）"
+            + "｜🧨 改回 `return cell;`（2026-10-25 那版）⇒ 卡底压条 38.272 px ⇒ 红");
 
-        // ---- ② 卡体**渲染高** = 原版公式（`CollectionCard__OnRectTransformDimensionsChange.c:16-22`）----
-        //   `sizeDelta.y × initialCardScale(150) ÷ initialHeight(512)` = 每「卡单位」多少 px
-        //   ⇒ 渲染高 = `CardView.Height(3.3313) × (CardsCellH × 150/512 ÷ 108) × 108` = **374.77 px**。
-        //   ⚠️ `÷108 ×108` 那两步是「px/卡单位 → 世界缩放 → px」的换算，⛔ 别把它当成我们另外挑的数。
-        float cardPx = CardView.Height * (CollectionWindow.CardsCellH * (150f / 512f) / 108f) * 108f;
-        CheckClose(cardPx, 374.77f, 0.05f,
-                   "★② 卡体渲染高 = 原版公式给的 **374.77 px**（`3.3313 × 384 × 150/512`）"
-                 + "｜🧨 把 `150/512` 换成「按整格反解」（`W11` 那版）⇒ 卡高变 384 ⇒ 红");
+        // ---- ② 卡体**渲染高** = **卡位高** = 格高 − 条顶（缩放走 `CollectionWindow.CardsCardScale`，与卡组编辑窗同一条式子）----
+        //   `scale = (CardsCellH − CardsCounterH) ÷ (CardView.Height × 108)` ⇒ 渲染高 = `CardView.Height × 108 × scale`
+        //   = `384 − 0.09966714 × 384` = **345.728 px**（判据 = 原版 `/Counter` 的 `m_AnchorMax.y`，⛔ 不是我们自己的常量）。
+        //   ⚠️ `×108` 是「卡单位 → 设计 px」的换算，⛔ 别把它当成我们另外挑的数。
+        float cardPx = CardView.Height * 108f * CollectionWindow.CardsCardScale;
+        CheckClose(cardPx, 345.728f, 0.05f,
+                   "★② 卡体渲染高 = **345.728 px**（= 格高 384 − 条顶 38.272；与卡组编辑窗 `DeckRuntime.Pool` 的 `CardH = CellH − CounterH` 同式）"
+                 + "｜🧨 按整格 × 150/512 反解（2026-10-25 那版）⇒ 卡高变 374.77 ⇒ 红");
 
-        CheckClose(cell.H - cardPx, 9.23f, 0.05f,
-                   "★②b 卡高与格高的差 = **9.23 px**（上下各 ≈4.61，**居中**）"
-                 + "｜判据 = prefab `2DCard` 上下各 6.2/512 ⇒ 折成 384 格 = 4.65（差 0.04 来自 `CardView.Height` 的取整）"
+        CheckClose(cell.H - cardPx, 38.272f, 0.05f,
+                   "★②b 卡高与格高的差 = **38.272 px**（= 条顶距；卡顶贴格顶、这段**全在下方**，⛔ 不是上下各一半）"
+                 + "｜判据 = prefab `Collection Card/Content/Counter` 的 `m_AnchorMax.y = 0.09966714`（条顶距格底）"
                  + "｜🧨 卡撑满整格 ⇒ 差 0 ⇒ 红");
 
-        // ---- ③ 卡底压进张数条 **≈33.6 px** —— 🔴 **这是原版长相，不是缺陷** ----
-        //   卡在整格里居中 ⇒ 卡底离格底 ≈4.61；而张数条的顶在格底往上 38.272
-        //   ⇒ 卡底越过条顶 38.272 − 4.61 = **33.66 px**（原版张数条就画在卡下缘之上）。
-        float margin = (cell.H - cardPx) * 0.5f;       // 居中 ⇒ 上下各这么多
-        float overlap = barH - margin;                 // 卡底越过「条顶」多少
-        CheckClose(overlap, 33.66f, 0.2f,
-                   $"★③ 卡底压进张数条 **{overlap:F2} px**（条高 {barH:F2} − 居中下边距 {margin:F2}）"
-                 + " —— 🔴 **这是原版长相**（判据 = prefab `CardUI/2DCard` 的 y 区间 vs `/Counter` 的上锚点）"
-                 + "｜🧨 为了「不压条」把卡缩到条顶以上（`W11` 那版）⇒ 重叠变 0 ⇒ 红");
+        // ---- ③ 卡底**正好落在条顶**（压条 0）—— 🔴 **这才是原版长相** ----
+        //   卡位 = 格子去掉底下那条张数 ⇒ 卡底离格底 = 条顶距 38.272（卡顶贴格顶）
+        //   ⇒ 卡底越过条顶 = 38.272 − 38.272 = **0**（实拍：卡框金属底边完整露在红条之上）。
+        float bottomGap = cell.H - cardPx;             // 卡顶贴格顶 ⇒ 这段全在下方
+        float overlap = barH - bottomGap;              // 卡底越过「条顶」多少
+        CheckClose(overlap, 0f, 0.2f,
+                   $"★③ 卡底压进张数条 **{overlap:F2} px**（条高 {barH:F2} − 卡底距格底 {bottomGap:F2}）"
+                 + " —— 🔴 **卡底与条顶严丝合缝**（判据 = 原版实拍：卡框金属底边露在红条之上 ＋ prefab `/Counter` 上锚点）"
+                 + "｜🧨 把卡位改回整格（2026-10-25 那版）⇒ 重叠变 33.66 ⇒ 红");
     }
 
     // ==================================================================
@@ -832,9 +837,14 @@ public static class HandAssertE8
                 + "｜🧨 上一格若因为「量的是缓存」而绿，这一格会红");
 
             // ★H-3 生产口径（真卡 · 真 `CardFace.Hand` · 激活档）
-            Check(v.TitleText.fontSize <= v.NameFontSize * 1.001f,
-                  $"★ X19-H3a 卡名字号只缩不放：fs {v.TitleText.fontSize:F4} ≤ 名义 {v.NameFontSize:F4}"
-                + "｜🧨 `FitToWidth` 改成会放大 ⇒ 红");
+            // 🔴 **2026-11-02（`B117-FIXD`）就地订正（铁律 5）**：本条原口径 = 「字号**只缩不放**（fs ≤ 名义 `NameFontSize`）」——
+            //   **已过期**：本波（`UI-21`）把卡名那一层的自适应带上限改成原版 prefab 的 **`NameUnitBandMax = 1.595`**，
+            //   而名义 `NameFontSize` 是 **1.4241** ⇒ **带上限本来就在名义之上**，短卡名拟合到 bandMax 是原版行为
+            //   （TMP `m_fontSizeMin/m_SizeMax` 就是「可以往上放大到 max」）。拿旧口径断 = 把「复刻对了」判成红。
+            //   ⇒ 真正该守的不变量 = **拟合结果落在原版那条带 [min, max] 里**（越上限才是缺陷）。
+            Check(v.TitleText.fontSize <= v.NameBandMaxForTest * 1.001f,
+                  $"★ X19-H3a 卡名字号落在原版自适应带内：fs {v.TitleText.fontSize:F4} ≤ bandMax {v.NameBandMaxForTest:F4}"
+                + "｜🧨 `FitToWidth` 越 `m_fontSizeMax` 还往上放 ⇒ 红");
             Check(backInk.x <= nameBox * 1.001f,
                   $"★ X19-H3b 卡名不越框：墨 {backInk.x:F4} ≤ 框 {nameBox:F4}"
                 + "｜🔴 这一格**红 = 真机那条「卡名越框」在批处理里也复现了**（是本组要抓的缺陷，不是本组写错）");

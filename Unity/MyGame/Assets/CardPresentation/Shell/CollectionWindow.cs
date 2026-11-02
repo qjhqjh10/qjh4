@@ -275,21 +275,21 @@ namespace CardPresentation
         /// 卡只许占**它上面那一段**：`CardsCellH − 这个` = **345.728**。</summary>
         public static float CardsCounterH { get { return CardsCntMaxY * CardsCellH; } }
 
-        /// <summary>卡体在格里的位置框 = **整格**（卡体按原版公式缩放后**在整格里居中**）。
+        /// <summary>卡体在格里的位置框 = **整格去掉底下那条张数**（卡体按同一条式子缩放后**贴着条顶**）。
         ///
-        /// <para>🔴 **2026-10-25（`C` 域 · 调度台裁定）改正：原来这里返回「格高 − 张数条」。**
-        /// 判据（prefab 现读，`menu_dump.py bundle_menus_assets_all "Collection Card" --depth 4`）：
-        /// 卡体 `CardUI/2DCard` 在 **350×512** 原型里是 **y 6.2 → 505.8**（上下各 6.2 边距 ⇒ **居中**）
-        /// ⇒ 折成 384 格 = 上下各 **4.65**、高 **374.8** ⇒ **它压住张数条（从 461/512 = 345.7/384 起）约 33.6px**，
-        /// 而**那是原版长相**（张数条画在卡下缘之上）。</para>
-        ///
-        /// <para>⚠️ `W11`（用户 2026-10-18 报「张数与卡牌重叠」）当时量到的重叠，**根因是缩放口径**
-        /// （按整格反解、没有公式给的居中），**不是「卡不该压条」**。真正修法见
-        /// `RebuildCardsCells` 里 `scale` 那一段（改成原版公式），⛔ 不是把卡缩到条上面。</para>
-        /// <para>判据全文 → `资料/普查产出_1018/W11_卡组编辑计数重叠.md`（旧结论）+ 本段（2026-10-25 裁定后的口径）。</para></summary>
+        /// <para>🔴 **2026-11-03（`B117-WCOLL`）改正：`2026-10-25` 那版「返回整格」已被实拍推翻。**
+        /// 错因：prefab 里 `CardUI/2DCard` = y **6.2 → 505.8** 是**含投影的外框**，不是可见卡框底
+        /// （同树的 `Front` 甚至到 523.7）⇒ 拿它当「可见卡框」就会推出「卡压条 33.6px 是原版长相」这个错结论。
+        /// 实拍判据（铁律 4）：`桌面/warpforge参考图/收藏—张牌的界面参考图（打开过滤器按钮后）.png` ——
+        /// **卡框的金属底边完整露在红条之上**，红条顶沿在卡框底边**之下**。
+        /// 同族做对的样板 = 卡组编辑窗 `Deck/DeckRuntime.cs` 的 `Pool`：`CardH = CellH − CounterH`、卡底正好落在条顶。</para>
+        /// <para>⇒ 这里回到 `W11` 那条几何（**不是**退回 W11 的错缩放 —— 缩放见 `RebuildCardsCells`，
+        /// 取 `(CardsCellH − CardsCounterH) ÷ (CardView.Height × 108)`，与 `DeckRuntime.Pool.CardScale` **同一条**）。
+        /// ⛔ 别再把这一句改回 `return cell;`：那会让卡底压进红条 33.6px（真机 2026-11-03 实证）。</para>
+        /// <para>判据全文 → `资料/完全复刻/判据/B117-GC_界面四条.md` §GC-2 ＋ `判据/B117-WCOLL_收藏卡格.md`。</para></summary>
         public static PxRect CardsCardRect(PxRect cell)
         {
-            return cell;
+            return new PxRect(cell.x1, cell.y1, cell.x2, cell.y2 - CardsCounterH);
         }
 
         /// <summary>`/Counter/Text (TMP)` 的矩形（相对**画布**；输入 = 上面那条的矩形）。</summary>
@@ -1563,37 +1563,37 @@ namespace CardPresentation
             //   `ViewportClip` 上（`BuildCardsPage` 里 `ViewportClip.Hang` 建的），本循环里所有件
             //   （`CardView` 的 `SetPose` 实参、`AddHit` 转发的裸 `Clip`）都挂在它下面 ⇒ 沿父链解析得到同一份。
             var list = CardsState.VisibleCards();
-            // 🔴 **2026-10-18（`W11`）**：卡的缩放按「**格高 − 张数条**」反解（原来是整格 384 ⇒ 卡底压住张数条，
-            //   见 `CardsCardRect` 的 doc）。式子与卡组编辑窗 `DeckRuntime.Pool.CardH` **同一条**：
-            //   345.728 ÷ (`CardView.Height` × 108) = **0.9609**。
+            // 🔴 **2026-11-03（`B117-WCOLL`）改正：缩放回到「卡位高 − 张数条」反解 —— 与卡组编辑窗 `DeckRuntime.Pool.CardScale` 同一条式子**
+            //   （`m.CardScale = m.CardH / (CardView.Height * PxPerUnit)`，`m.CardH = CellH − CounterH`）。
+            //   桌面 = `(384 − 38.2722) ÷ (3.3313 × 108)` = **0.960938**（卡高 345.728 = 条顶）。
             //
-            // ⚠️ **2026-10-24（`E6`）补记：原版 prefab 那条式子与本式【不是同一条】—— 如实记在这里**。
-            //   原版（反汇编逐条，`CollectionCard__OnRectTransformDimensionsChange` @ VA `0x1806D9980`）：
-            //       `cardUI.localScale = sizeDelta.**y** × initialCardScale / initialHeight`
-            //   其中 `initialCardScale = 150`、`initialHeight = 512`（`MonoBehaviour_40971030049256792.json`），
-            //   作用对象是 `Content/CardUI`（其子 `2DCard` = 2.0927 × 3.3313 卡单位；出厂 `CardUI.scale = 150`
-            //   对应出厂格高 512 ⇒ 自洽）。**读的是 `sizeDelta.y`（高度）不是 x** ——
-            //   指令流是 `mov [rsp+0x70], rax`（Vector2 8 字节：x 在 +0x70 / y 在 +0x74）后
-            //   `movss xmm6,[rsp+0x74]`，即取 y。据此刻度 = 384 × 150/512 = **112.5 px/卡单位**
-            //   ⇒ 折成我们的世界缩放 = 112.5 ÷ 108 = **1.0417**（比本式大 8.4%）。
-            //   ✅ **2026-10-25（`C` 域 · 调度台裁定）：改成按原版公式算，判据升级成 prefab 实测。**
-            //   `menu_dump.py bundle_menus_assets_all "Collection Card" --depth 4` 现读（2026-10-25）：
-            //     · 原型 `Collection Card` = **350×512**；
-            //     · 卡体 `CardUI/2DCard` = **18, 6.2 → 332, 505.8**（313.91 × **499.70**）⇒ 高 **499.70/512 = 97.6%**、
-            //       宽 **313.91/350 = 89.7%** —— 与公式推出的 **1.0417** 逐位吻合 ⇒ 公式就是原版卡体的真实大小；
-            //     · 张数条 `Content/Counter` = **100, 461 → 250, 511**（150 × 50.01，`Image` `Simple (1,1,1,1)`
-            //       + `preserveAspect`）⇒ 与我们的 `CardsCounterRect`（锚 `0.2857..0.7143 / 0.002..0.09967`）**逐位一致**；
-            //     · ⇒ **卡体（到 505.8）与张数条（从 461 起）在 512 帧里本来就重叠 44.8px**（折成 384 格 = **33.6px**）
-            //       —— **这是原版长相，不是缺陷**。张数条是**画在卡下缘之上**的一条。
-            //   ⚠️ **实拍不能当尺子**（调度台 2026-10-25 明确）：用户参考图量的 81.7% / 82.8% 量的是**立绘/边框内沿**、
-            //     不是 `CardUI` 外框；2DCard 外框是 **89.7% × 97.6%**。
-            //   ⚠️ **`W11` 的真凶**是「按整格反解 + 没有公式给的居中口径」，不是「卡不该压条」；
-            //     所以修法是**改缩放**，⛔ 不是把卡缩到条上面。全过程 → `资料/普查产出_1018/W11_卡组编辑计数重叠.md`。
-            // 🔴 **原版 `CollectionCard.OnRectTransformDimensionsChange` 的直译**：
-            //    `cardUI.localScale = sizeDelta.y * initialCardScale / initialHeight`
-            //    = `384 × 150 / 512 = 112.5` px/卡单位 ⇒ 世界缩放 `112.5 / 108 = 1.0417`。
-            //    ⛔ **不要再退回 `(格高 − 张数条高) / …` 那一版**（那是 W11 的过度修正，判据见上面那一段）。
-            float scale = CardsCellH * 150f / 512f / 108f;
+            //   ❌ **2026-10-25 那版「按原版公式 `sizeDelta.y × 150/512`」已被推翻**，三条理由：
+            //     ① prefab 里 `CardUI/2DCard` = 18,6.2→332,**505.8** 是**含投影的外框**，不是可见卡框底
+            //        （同树的 `Front` 甚至到 523.7）⇒ 拿它反推「卡体真高」会偏大 8.4%；
+            //     ② 实拍（铁律 4）显示**卡框金属底边完整露在红条之上**，红条只压到那颗护甲菱形一带；
+            //     ③ 同族已做对的卡组编辑窗就是 `CellH − CounterH`：卡底 494.75 / 条顶 503.0 = 1.2px 缝，
+            //        与原版实拍 510.1/511.3 同一条间距（`Deck/DeckRuntime.cs` `Pool` 的 `CardH`/`CardScale`）。
+            //     实据 → `资料/完全复刻/判据/B117-GC_界面四条.md` §GC-2（并排图 `_gc2_side.png` 左=原版/右=我们）。
+            //
+            //   ⚠️ **`CollectionCard.OnRectTransformDimensionsChange` 那条式子仍然真实存在**（反汇编
+            //     `@ VA 0x1806D9980`：`cardUI.localScale = sizeDelta.y × initialCardScale(150) / initialHeight(512)`）——
+            //     但它作用在**含投影的 `CardUI`** 上，而我们的 `CardView` 画的是**可见卡体**（`CardView.Height`）
+            //     ⇒ 两者不是同一个量，不能直译（原版那条式在 stretch 锚下输入算出 0×0，`A4` 已记「查不到」）。
+            //
+            //   ⛔ 也**不是**把卡缩到条上面就算完 —— 位置框必须一起让出来（`CardsCardRect` 去掉 `CardsCounterH`），
+            //     否则卡心仍在格心、卡底照样压条 33.6px。两句必须同改（断言 `★②` 在 `Editor/B117_WCOLL_Assert.cs`）。
+            //
+            //   式子（⛔ 别写死 0.9609）：`scale = (CardsCellH − CardsCounterH) / (CardView.Height × 108)`。
+            //   桌面代入：`(384 − 0.09966714 × 384) / (3.3313 × 108)` = 345.7278 / 359.7804 = **0.960938**；
+            //   小屏（格 ×1.5）：576 → 卡高 518.592 ⇒ 同一比值 **0.960938**（分子分母同时 ×1.5）。
+            //
+            //   📌 判据链：`CardsCounterH = CardsCntMaxY × CardsCellH` = 原版 `/Counter` 的**上锚点**
+            //     （`m_AnchorMax.y = 0.09966714`，`menu_dump.py bundle_menus_assets_all "Collection Card"`）⇒ 条顶。
+            //     卡底 = 卡心 + 卡高/2 = (格心 − 38.2722/2) + 345.7278/2 = 格底 − 38.2722 = **条顶**。
+            //
+            //   `W11` 的旧账 → `资料/普查产出_1018/W11_卡组编辑计数重叠.md`（「卡不该压条」那半结论仍成立）。
+            //   ⚠️ 本条只动缩放与位置框；条本身的矩形（`CardsCounterRect`）**一个像素都不许动**。
+            float scale = CardsCardScale;
             for (int i = 0; i < list.Count; i++)
             {
                 var content = CardsCellRect(i);
@@ -6634,7 +6634,7 @@ namespace CardPresentation
         //     / Center·Middle / style 17(Bold+UpperCase) / 白 / 本地化键 `MenuDeck/Banned`（官方表 en `Banned` · zh `禁止`）。
         //   · 显隐：`BasicCardUI.ToggleBanned` = `banIcon.gameObject.SetActive(banned)` ⇒ **默认关、banned 才开**。
         //     banned 源 = `PlayEventData.IsCardBanned(cardId)`（无活动 ⇒ false ⇒ 放行，见 `IsCardBanned`）。
-        // 我方格子 262.5×384 = 原版 350×512 × 0.75 ⇒ 方叉 = 262.5×0.75 = **196.875 px**，中心 = 格中心。
+        // 我方卡体渲染高 345.728（= 格高 − 张数条，见 `CardsCardRect`）⇒ 每卡单位 345.728 ÷ 3.3313 = 103.78 px ⇒ 方叉 = 1.75 × 103.78 = **181.6 px**，中心 = 卡心（格心 − `CardsCounterH`/2）。
         // ⚠️ 徽标作 `cellT`（`Content <i>`）的子件 ⇒ 随容器一起建/销毁，**不会残留到别的卡**（判据 §三·1）。
         // 判据全文 → `资料/完全复刻/判据/B97_藏卡ban徽标_施工单.md`。对照实现 → `Deck/DeckRuntime.cs` 的 `SetPoolBanIcon`。
         void BuildCardsBanBadge(Transform parent, int i, PxRect cell, CardDef def)
@@ -6647,9 +6647,9 @@ namespace CardPresentation
                 return;
             }
 
-            float pxPerUnit = CardsCellH * 150f / 512f;   // = 112.5（原版 1 卡单位 = 150 px，×0.75）
-            float side      = 1.75f * pxPerUnit;          // = 196.875 px（原版 1.75 卡单位 × 150 × 0.75）
-            float cx = cell.CX, cy = cell.CY;             // 卡体居中于整格（CardsCardRect = cell）⇒ 方叉中心 = 格中心
+            var cardR = CardsCardRect(cell);              // 卡心 / 卡高都从这条几何来（⛔ 别再按整格算）
+            float pxPerUnit = cardR.H / CardView.Height;  // = 345.728 ÷ 3.3313 = 103.78 px/卡单位（随卡一起缩）
+            float side = 1.75f * pxPerUnit, cx = cardR.CX, cy = cardR.CY;   // 方叉 = 1.75 卡单位 = **181.6 px**；中心 = 卡心
             var iconR = new PxRect(cx - side * 0.5f, cy - side * 0.5f, cx + side * 0.5f, cy + side * 0.5f);
 
             // keepAspect = 原版 `m_PreserveAspect = 1`（512² 方图 ⇒ 在正方框里正好铺满）。
@@ -6997,6 +6997,15 @@ namespace CardPresentation
 
         /// <summary>自检读口：卡背包事件真的推着我们重建了几次（生产路径 = 每次卡数量变化一次）。</summary>
         public int CardsCollectionRefreshCountForTest { get { return _cardsInvRefreshes; } }
+
+        /// <summary>🆕 **2026-11-03（`B117-WCOLL`）· 追加在类尾**：卡池（本页 Cards）每张卡的**世界缩放**。
+        /// <para>= `(格高 − 张数条) ÷ (CardView.Height × 108)`，与 `Deck/DeckRuntime.cs` 的
+        /// `Pool.CardScale`（`m.CardH / (CardView.Height * PxPerUnit)`，`m.CardH = CellH − CounterH`）
+        /// **同一条式子** —— 两页共用一份口径，⛔ 别再各写一个数（那正是 2026-10-25 分家的由来）。</para>
+        /// <para>桌面 = `345.7278 ÷ 359.7804` = **0.960938**；小屏（格与条同时 ×1.5）**同值**。</para>
+        /// <para>判据 → `资料/完全复刻/判据/B117-GC_界面四条.md` §GC-2 ＋ `判据/B117-WCOLL_收藏卡格.md`；
+        /// 断言 → `Editor/B117_WCOLL_Assert.cs`（`★②`）。</para></summary>
+        public static float CardsCardScale { get { return (CardsCellH - CardsCounterH) / (CardView.Height * 108f); } }
     }
 
 }

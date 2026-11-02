@@ -225,9 +225,9 @@ namespace CardPresentation
         /// 见 `CardView.cs` 里那几处 `renderQueue = 3000`）。透明队列里同队列是**按到相机的距离**排的，而拖拽中的卡被抬高了
         /// (`dragLiftZ`) ⇒ 它离相机更近、永远后画 ⇒ 同队列的指示**一定被它盖住**。
         /// 取 **3100**：在卡之上、在战斗日志面板（4000）与各式窗口（3600+）之下。
-        /// 🔶 自己设计（非原版）：落点指示的渲染队列 `MarkerQ = 3100` · 原版那枚影子画在卡下面、图在这个 build 里是空的，没有可照抄的观感（原版判据拿不到） · TODO(谁定的)｜原注：⚠️ 这条是**我们挑的**（原版那枚影子是画在卡**下面**的，但它的图在这个 build 里是空的、
-        /// 没有可照抄的观感）—— 判据与两条弯路 → `资料/已知的坑.md` 那条「断言验得到亮没亮、
-        /// 验不到看不看得见」。</summary>
+        /// 🔶 自己设计（非原版）：落点指示的**渲染队列** `MarkerQ = 3100` —— 卡在 3000，而透明队列同号是**按到相机的距离**排的、
+        /// 被拖的那张卡又被抬高（`dragLiftZ`）⇒ 同号的指示**一定被它盖住**，所以必须更大。为什么必须自己定：原版那枚落点影子
+        /// （`MinionManager.cardShadow`）的图在这个 build 里是空的（`m_Sprite` **13 场全 null**），没有可照抄的观感。项目 2026-10-01 定 · 2026-11-02 补齐标记（原残留 `TODO(谁定的)`）。</summary>
         public const int MarkerQ = 3100;
 
         public void EnsureMarkers()
@@ -325,7 +325,7 @@ namespace CardPresentation
                 //    透视相机下场卡的屏幕尺寸随行不同（我方 137.2 px / 敌 124.5 px）。
                 if (use3D && boardCam != null)
                 {
-                    float sc = ArenaSlots.CardScale(mirror);
+                    float sc = ProjectionScale(i);   // 2026-11-02（`B117-G10-07`）：督军位是 `HeroScale`，与 `DropTargetWorld` 同源（原用 `CardScale` ⇒ 督军格底片比真卡小 11%）
                     var c = ArenaSlots.CardCenter(i, mirror, sc);
                     float halfW = CardView.CardUnitW * sc * 0.5f;
                     float pxW = Mathf.Abs(boardCam.WorldToScreenPoint(c + Vector3.right * halfW).x
@@ -455,8 +455,10 @@ namespace CardPresentation
             return (r != null && r.sharedMaterial != null) ? r.sharedMaterial.renderQueue : -1;
         }
 
-        /// <summary>自检用：某一格那块底片所在的**层** —— 盯「相机画不画得到它」
-        /// （3D 时必须 = `ArenaSlots.ArenaLayer`，见 `EnsureMarkers`）。</summary>
+        /// <summary>自检用：某一格那块底片所在的**层** —— 盯「相机画不画得到它」。
+        /// 🔴 **2026-11-02 就地订正（`B117-G10-07` · 铁律 5）**：本行原写「3D 时必须 = `ArenaSlots.ArenaLayer`」——
+        /// **不成立**：底片的位置是按 **HUD 平面**算的（`DropTargetWorld` → `LayoutSpace.ScreenToWorld`），
+        /// 必须留在**默认层**由 HUD 正交相机画；挂 `ArenaLayer` 会被透视相机投到左边 600 px 外（见 `EnsureMarkers` 的实拍结论）。</summary>
         public int SlotMarkerLayer(int i)
         {
             var r = (i >= 0 && i < _markers.Count) ? _markers[i] : null;

@@ -81,7 +81,7 @@ namespace CardPresentation
 
         /// <summary>`easeCurve`(0x40) 的扁平关键帧 `[t0,v0,t1,v1,…]`（升序）。空 / null = 线性
         /// （原版默认曲线 `(0,0)→(1,1)`）。⚠️ **不飞的件（`Move == false`）这一列不写**（读它没意义）。
-        /// 唯一非线性的是 `Jain Zar / Atk_JainasMor_Throw_Return`（飞出去再飞回来）。</summary>
+        /// 🔴 **「唯一非线性 = Jain Zar」不成立**（2026-11-03 现读推翻）：136 个 mover 里 **14 条**的 Hermite 不是直线（`Atk_JainasMor_Throw_Return` · `Atk_Rokkit_Harpoon big/small` · `Atk_StikkaThrow` 四件 · `Atk_Deathspinner_arc_alt` · `Atk_BulletImpact_MissileToTarget_warlord(_instant/_quick)` · `Atk_MissileToTarget_Orks` · `DelightfulAgonies` · `UnholySmite_random`）；根因 = 本列**只存 (t,v)、不存 `inSlope/outSlope`**（生成器 `_curve_flat`），而原版是 Hermite ⇒ 那 14 条按分段线性读会偏（实测最大 **0.25**）。修法（未做，落点在生成器 + 数据）：每键多写两格斜率 + `CardAnimOrder.EaseAt` 改 Hermite。</summary>
         public float[] Ease;
 
         /// <summary>`orientToVelocity`(0x48) —— 移动期间**每帧**把特效转向速度方向

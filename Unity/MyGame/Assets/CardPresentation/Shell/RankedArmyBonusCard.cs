@@ -234,11 +234,11 @@ namespace CardPresentation
                 Debug.LogWarning("[RankedArmyBonus] 取不到 `UI_Army_Selection_Featured` ⇒ `Feature Badge` **不建**");
             }
 
-            // ⑤ Dynamic Content ▸ Viewport ▸ Content（`armyContentAnchor`，HLG spacing 20）
+            // ⑤ Dynamic Content ▸ Viewport ▸ Content（`armyContentAnchor`，HLG spacing 20）—— 🆕 2026-11-02（`B117-WMASKCLIP`）：`Dynamic Content` 上那颗 `RectMask2D` 走 `ViewportClip.Hang`（判据 = prefab 现读，见类尾 `MaskPadding` 的注释）；框的基准在 `Initialize` 里换成**摆放后**的 `ContentAbsNow()`（`Build` 时卡在屏幕中心，那份是错帧）
             var contentAbs = Abs(cardAbs, ScrollRel);
             _contentAbs = contentAbs;
-            var scroll = MenuDraw.Node(t, "Dynamic Content", contentAbs);
-            var view = MenuDraw.Node(scroll, "Viewport", contentAbs);
+            _clip = ViewportClip.Hang(t, "Dynamic Content", contentAbs, MaskPadding, Vector2Int.zero);
+            var view = MenuDraw.Node(_clip.transform, "Viewport", contentAbs);
             _content = MenuDraw.Node(view, "Content", contentAbs);
         }
 
@@ -270,7 +270,7 @@ namespace CardPresentation
             if (_timerText != null) _timerText.SetText(TimerTextValue);
 
             AffectedArmies = (int[])evt.affectedArmies.Clone();
-            var contentAbs = _contentAbs;
+            var contentAbs = ContentAbsNow(); if (_clip != null) _clip.SetBaseRect(contentAbs);   // ⛔ 不用建树那份 `_contentAbs`（那时卡在屏幕中心，见方法注释）；🔴 遮罩框必须与图标同一帧：`Hang` 记的是建树那份，宿主摆放后才由这一句改成实际位置
             float h = contentAbs.H;
             float total = AffectedArmies.Length * ArmyIconW + (AffectedArmies.Length - 1) * ArmySpacing;
             float x0 = contentAbs.CX - total * 0.5f;
@@ -335,5 +335,55 @@ namespace CardPresentation
 #endif
             Destroy(go);
         }
+
+        // ============================================================================================
+        //  🆕 2026-11-02（`B117-WMENUICON`）：图标要按**卡根【此刻】的矩形**算 `Content`，⛔ 不是建树那份
+        // ============================================================================================
+        /// <summary>`Content`（= 原版 `armyContentAnchor`）**此刻**的绝对矩形（设计 px，左上原点 y 向下）。
+        ///
+        /// <para>🔴 **为什么不直接用 `_contentAbs`**：`Build()` 建树时把卡根摆在**屏幕中心**
+        /// （原版 prefab 的 `anchoredPosition (0,−43.8868)`/`sizeDelta 535×414` 是**相对窗口**说的），
+        /// 而宿主随后用 `MenuDraw.ApplyPxRect` 把卡根挪到 first-fit 网格的格子里
+        /// （`Shell/MainMenuRuntime.cs:5221`，今天 = 第 5 列 ⇒ x 2425…2960 = **屏外**）。
+        /// 子件都跟着父件走，唯独 `_contentAbs` 是**建树那一刻的绝对坐标** ——
+        /// `MenuDraw.Local` 的式子是 `localPosition = RectCenter(abs) − PosInDesignSpace(Content)`，
+        /// 拿屏幕中心那份 abs 去算，图标的局部坐标就会**恰好把父件的位移抵消掉** ⇒ 图标落回屏幕中心，
+        /// 与人眼看到的「三枚阵营徽记浮在两张模式卡上方」一致（真机 2026-11-03 实证，判据 `B117-GC` §GC-1）。
+        /// 用卡根**实际位置**反算，就与「卡在哪一格 / 滚到哪 / 什么分辨率」全部无关。</para>
+        ///
+        /// <para>⚠️ **矩形尺寸仍用本类的 `CardW/CardH`**（535 × 414）：宿主摆放用的是 535 × 414.4，
+        /// 0.4px 的差只让 `Content` 中线偏 **0.2px**，远小于本壳断言 1px 的容差（且 `ScrollRel` 本身就是按
+        /// 「卡左上角 + 相对矩形」定义的，同一帧自洽）。</para>
+        ///
+        /// <para>⚠️ 卡根还没建 / 已被销毁 ⇒ 回落 `_contentAbs`（建树那份），⛔ 不抛 NRE、也不静默改用别的算法规。</para></summary>
+        PxRect ContentAbsNow()
+        {
+            if (_card == null) return _contentAbs;                                  // 卡还没建 / 已销毁 ⇒ 回落建树那份
+            var c = LayoutSpace.ToDesignPixel(MenuDraw.PosInDesignSpace(_card));    // 卡根中心（设计 px）
+            var cardAbs = new PxRect(c.x - CardW * 0.5f, c.y - CardH * 0.5f,
+                                     c.x + CardW * 0.5f, c.y + CardH * 0.5f);
+            return Abs(cardAbs, ScrollRel);
+        }
+
+        // ============================================================================================
+        //  🆕 2026-11-02（`B117-WMASKCLIP`）：`Dynamic Content` 那颗 `RectMask2D`（裁掉溢出的两枚图标）
+        // ============================================================================================
+        /// <summary>`Dynamic Content` 上的 `ViewportClip`（= 原版那颗 `RectMask2D` 的等效物）。
+        /// <para>🔴 **原版判据（prefab 现读）**：`d:/2/tools/assetripper_out/ExportedProject/Assets/Reward Event Container 1x1.prefab`
+        /// —— MB `&114571718729274231` 的 `m_GameObject: {fileID: 1709867586078768}`（名字 = **`Dynamic Content`**），
+        /// `m_Padding: {x: 0, y: -15, z: 0, w: 0}` · `m_Softness: {x: 0, y: 0}`（判据索引：
+        /// `判据/B90_C2b_远端prefab几何.md:207`）。⇒ 走本工程既有的那一套（`ViewportClip.Hang` + `MenuDraw.Rect`
+        /// 的父链解析），⛔ 不新造裁切设施。</para>
+        /// <para>⚠️ **框的基准（`BaseRect`）在 `Initialize` 里重设**：`Build()` 那一刻卡根还在屏幕中心，
+        /// 而图标是按 `ContentAbsNow()`（宿主摆放后的矩形）烘焙的 —— 两者必须同一帧，否则框留在屏幕中心、
+        /// 三枚图标会被整块裁没（静默）。`MenuDraw.ApplyPxRect` 那条自动记框只作用于**它自己那个节点**
+        /// （宿主只对卡根调它），所以这里必须显式写一句。</para></summary>
+        ViewportClip _clip;
+
+        /// <summary>原版 `Dynamic Content` 的 `RectMask2D.m_Padding`（**逐字**：`{x:0, y:-15, z:0, w:0}`）。
+        /// <para>`Vector4` 的字段序 = X = Left · Y = Bottom · Z = Right · W = Top（判据 → `Shell/ViewportClip.cs` 文件头；
+        /// 本工程的符号约定 **正 = 缩小、负 = 扩大**）⇒ **下边外扩 15px**，其余三边 0。
+        /// 判据文件/对象 → <see cref="_clip"/> 的 doc。</para></summary>
+        static readonly Vector4 MaskPadding = new Vector4(0f, -15f, 0f, 0f);
     }
 }

@@ -1,5 +1,11 @@
 # B117_G5 · 战斗 HUD 层差异（第一份）
 
+> 🔴🔴 **2026-11-02 就地订正（`G10-04` 现核 · 铁律 5）：下面那份 7,889 行的 `.tsv` 的「我们值」列【不是我们的值】。**
+> 它取自 `资料/原版参照图/Unity参照管线_0825/data/runtime_ui_dump_Battle_Arena_1.tsv`，而那份是**原版自己跑的运行时 dump**
+> （表里 0 命中我们独有的 `HandLabel` / `MyPileLabel` / `EndTurnButton`，却有 `CardsPlayedInTurn1` / `Player Deck Size Tex`）。
+> ⇒ 那 7,359 行「一致」是因为**两边都是原版**。它**仍有用**（它证伪了 `Player Deck Size Container.sizeDelta` 那两条「不一致」只是 `AspectRatioFitter` 在运行时把高撑成 59.1/52.05），
+> 但 ⛔ **不能当「我们 vs 原版」的基线**。要「我们 vs 原版」必须用**我们侧**的 dump（`Editor/NodeDump.cs` + `prefab_layer_diff.py --ours-dead-cols ""`）。
+
 工具 = `d:/4/Unity/工具/prefab_layer_diff.py`（可复跑，裸跑只打用法）
 表 = `判据/B117_G5_战斗HUD层差异.tsv`（7 列 · 7,888 行 · 1.9 MB） · 报告 = `报告/B117_G5_层差异工具.md`
 

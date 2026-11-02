@@ -962,9 +962,13 @@ namespace CardPresentation
             }
             else Debug.LogWarning("[Settings] 整屏压暗（`settings_shade`）没建起来");
             // 🔴 **2026-10-20（W57 · `T09` A3-b）**：这块压暗同时是**全屏 Blocker**（原版 `Dark Shade`：
-            //   `MB_4739` 的 `m_RaycastTarget = 1`；`MB_4927` 的 `BackgroundCloseButton` 两个字段都空
-            //   ⇒ **吃射线、点了不关窗**）。它是「点面板空白不穿透到背后 HUD 钮」的**唯一手段**
+            //   `MB_4739` 的 `m_RaycastTarget = 1`）。它是「点面板空白不穿透到背后 HUD 钮」的**唯一手段**
             //   （`T09` §四 R3）—— ⛔ 别把它改回 `raycastTarget = false`。
+            // 🔴🔴 **2026-11-02（`B117-G10-20`）就地订正（铁律 5）**：原来这里接写「`MB_4927` 的
+            //   `BackgroundCloseButton` 两个字段都空 ⇒ 点了**不关窗**」——**错**（只读了序列化
+            //   `m_PersistentCalls`；监听是 `BattleSettingsWindow.Awake:67-69` 运行期 `AddListener` 加的
+            //   → `CloseBackgroundButton()` `:126-129` → `CloseWindow()` `:131-137`）⇒ 点它 **= 关设置窗**。
+            //   详见 `资料/完全复刻/判据/B117-G10-20_战斗内设置投降退出.md` §一 #1。
             _btnShade = AttachClick(_shade, OnShadeClicked, "Dark Shade");
 
             // 面板底：原版是 `Mask` + `Background fill`（图 `40k_popup_texture`，128×128 的九宫格填充）。
@@ -1166,7 +1170,7 @@ namespace CardPresentation
             // ⛔ 换语言时要跟着刷 ⇒ 同一条也进了 `RefreshTexts()`（本面板**自己**就能换语言）。
             string azText = Loc.T(AutoZoomTermKey);
             _azLabel = HudCanvas.MakeText(_panel, azText, U(AzLabelLeftPx), U(AzLabelCyPx),
-                                          4, Color.white, new Vector2(0f, 0.5f), Z - 0.02f, "settings_autozoom_label");
+                                          4, Color.white, new Vector2(0f, 0.5f), Z - 0.02f, "settings_autozoom_label"); if (_azLabel != null) { _azLabel.SetAlignLeft(); _azLabel.AlignTmpPivotToAnchor(); }   // 🔴 **`B117-29`（2026-11-02）**：左缘枢轴 + 逐行左对齐 —— 量不到尺寸（空文本 / 未激活）时 TMP 子节点不再按居中矩形排（否则整块从框左沿外半个框宽起笔）。判据 → `Battle/Label.AlignTmpPivotToAnchor`
             // A1024③ 判不出（我们加的自动缩放标签）⇒ 保持 `Face.Cjk`
             ApplyLangFont(_azLabel, azText, AzFontPx);
             // 🆕 **2026-10-17（`A1213③`）**：原版 `Auto Zoom Toggle ▸ Label` 的自适应四格
@@ -1338,17 +1342,26 @@ namespace CardPresentation
         /// 开着时那颗全屏 `Blocker` 压在框上面 ⇒ 再点一下框 = 收起，见 `ToggleLangList` 的 doc）。</summary>
         void OnLangFieldClicked() { if (Visible) ToggleLangList(); }
 
-        /// <summary>🔴 **全屏暗底（原版 `Dark Shade`）**。判据（`bundle_scenes_scenes_battlearena1` 亲读）：
-        /// `MB_4739` = 全屏 `Image (0,0,0,0.612)` + **`m_RaycastTarget = 1`**；同 GO 上 `MB_4927` =
-        /// `BackgroundCloseButton`，它的 `window = null`、`onClick` 的 `m_PersistentCalls` **空**
-        /// ⇒ **原版点它什么也不做**（不关设置窗）。⛔ 别在这儿 `Hide()`。
-        /// <para>列表开着时那一下归**原版 `TMP_Dropdown.CreateBlocker`**（它在那颗 `Dark Shade` 之上）——
-        /// 我们的 `_langBlocker` **铺满整块画布**、兄弟序在面板其余件之上 ⇒ 列表开着时它把这一块也盖住；
-        /// 下面那一句只是**兜底**（万一 `Blocker` 没建出来，点外面仍能收起列表）。</para></summary>
+        /// <summary>🔴 **全屏暗底（原版 `Dark Shade`）** —— **点它 = 关设置窗**。
+        /// <para>判据（2026-11-02 `B117-G10-20` 亲读）：`MB_4739` = 全屏 `Image (0,0,0,0.612)` +
+        /// **`m_RaycastTarget = 1`**；同 GO 上 `MB_4927` = `BackgroundCloseButton`（窗口字段
+        /// `backgroundCloseButton = 4927`）。它的 `window` 序列化是 null，但
+        /// **`BattleSettingsWindow.Awake` 运行期把 `CloseBackgroundButton` 挂上了 `onClick`**
+        /// （`out_cpp2il_dev_ilspy/BattleSettingsWindow.cs:67-69`）→ `CloseBackgroundButton()` `:126-129`
+        /// → `CloseWindow()` `:131-137`（存盘 + `WindowsManager.CloseWindow(this)` + 恢复触控输入）。
+        /// ⇒ **点面板外那块压暗 = 关窗**。⚠️ 序列化 `m_PersistentCalls` 空**不能**当「没有监听」的判据。</para>
+        /// <para>列表开着时那一下归**原版 `TMP_Dropdown.CreateBlocker`**（它在那颗 `Dark Shade` 之上，
+        /// `Button.onClick → Hide`）—— 我们的 `_langBlocker` **铺满整块画布**、兄弟序在面板其余件之上
+        /// ⇒ 列表开着时它把这一块也盖住；下面那一句是**兜底**（万一 `Blocker` 没建出来，
+        /// 点外面仍能收起列表 —— 原版那一刻同样是「先收列表、窗不关」）。</para></summary>
         void OnShadeClicked()
         {
             if (!Visible) return;
-            if (LangListOpen) HideLangList();      // = 原版 DropdownBlocker.onClick → Hide()（兜底）
+            if (LangListOpen) { HideLangList(); return; }   // = 原版 DropdownBlocker.onClick → Hide()（窗不关）
+            Hide();                                        // = 原版 CloseBackgroundButton → CloseWindow()
+            Debug.Log("[Settings] 点了面板外的压暗 ⇒ **关设置窗**"
+                    + "（原版 `BattleSettingsWindow.Awake` 把 `CloseBackgroundButton` 挂在 `backgroundCloseButton.onClick`"
+                    + " → `CloseWindow()`）");
         }
 
         /// <summary>TMP `CreateBlocker` 那颗的点击：**收起列表**（`Button.onClick → Hide`）。</summary>
@@ -1534,7 +1547,7 @@ namespace CardPresentation
                                           U(LangFieldX1Px + LangCapInsetPx),
                                           U(LangRowTopPx - LangCapTopPx - LangCapHPx * 0.5f),
                                           4, LangCapColor, new Vector2(0f, 0.5f), z - 0.02f, "settings_lang_caption",
-                                          face: TmpFont.Face.LatinCardBody);
+                                          face: TmpFont.Face.LatinCardBody); if (_langCap != null) { _langCap.SetAlignLeft(); _langCap.AlignTmpPivotToAnchor(); }   // 🔴 **`B117-29`（2026-11-02）**：左缘枢轴 + 逐行左对齐（判据 → `Label.AlignTmpPivotToAnchor`）
             ApplyLangFont(_langCap, Loc.LanguageName(Loc.Current), LangCapFontPx);
             // 🆕 **2026-10-17（`A1213③`）**：原版 `LanguagesDropdown ▸ Label` 的四格
             //   `18 / 14 / [18, 40] / 折行 0`。⚠️ `min == fs`（18）—— 那道 `MenuDraw` 闸挡的是它自己那条路，
@@ -1555,7 +1568,7 @@ namespace CardPresentation
             // 左边那颗标签（原版 `SelectLanguageText`，fs42 / Left/Middle / 白；框 335×57.53 ⇒ 框中 y = 316.95）
             _langSelText = HudCanvas.MakeText(_panel, Loc.T(LangLabelTermKey), U(LangRowX1Px), U(LangSelCyPx),
                                               4, Color.white, new Vector2(0f, 0.5f), z - 0.02f, "settings_lang_label",
-                                              face: TmpFont.Face.LatinCardBody);
+                                              face: TmpFont.Face.LatinCardBody); if (_langSelText != null) { _langSelText.SetAlignLeft(); _langSelText.AlignTmpPivotToAnchor(); }   // 🔴 **`B117-29`（2026-11-02）**：左缘枢轴 + 逐行左对齐（判据 → `Label.AlignTmpPivotToAnchor`）
             ApplyLangFont(_langSelText, Loc.T(LangLabelTermKey), LangSelFontPx);
 
             // 🆕 2026-10-18（A921）：`Template` 子树 —— 挂在**那颗框**下面（原版 `Template` 的父就是
@@ -1791,7 +1804,7 @@ namespace CardPresentation
             string txt = real ? Loc.LanguageName(Loc.Languages[i]) : "Option A";
             var lb = HudCanvas.MakeText(item, txt, U(bl - rowCx), U((bt + bb) * 0.5f - rowCy),
                                         4, LstLblColor, new Vector2(0f, 0.5f), z, "Item Label",
-                                        face: TmpFont.Face.LatinCardBody);
+                                        face: TmpFont.Face.LatinCardBody); if (lb != null) { lb.SetAlignLeft(); lb.AlignTmpPivotToAnchor(); }   // 🔴 **`B117-29`（2026-11-02）**：左缘枢轴 + 逐行左对齐（判据 → `Label.AlignTmpPivotToAnchor`）
             // 🔴 **队列（旧那套）**：行底图在 `QLangItem`(3142)、字在 `QLangText`(3143) —— uGUI 档这一句
             //   **是有注释的空操作**（层级归画布的兄弟序：三件都按同一个 z 登记 ⇒ 创建顺序 = 底图 → 勾 → 字 ✓，
             //   见 `Img`/`Node`/`MakeText` 里那次 `HudCanvas.Add`）。
@@ -1953,24 +1966,43 @@ namespace CardPresentation
         //   它的角色现在由两颗**真射线靶**承担：`_langBlocker`（面板内 / 全屏透明，点击 → `HideLangList`）
         //   ＋ `_shade`（原版 `Dark Shade`，面板外，点击 → 列表开着就收）。
 
-        /// <summary>ESC —— **列表开着先收列表**（原版 `TMP_Dropdown.OnCancel:763 → Hide()`：UGUI 把 `Cancel`
-        /// 事件按「当前选中对象 → 父链」派发，列表开着时那颗全屏 `Blocker`（内部类 `DropdownBlocker`）先吃到它）。
-        /// 返回 `true` = 这一下**被用掉了**（⛔ 窗不关、也不做别的事）—— 与主菜单那扇
-        /// （`Shell/SettingsWindow.ESCPressed`：抢在 `base` 之前判一次、返回 true 就不再往下走）**同一条口径**。
+        /// <summary>ESC —— **列表开着先收列表，否则关窗**（两条判据都在下面）。
+        /// 返回 `true` = 这一下**被本件用掉了**。
+        /// <para>① **列表开着 ⇒ 只收列表、窗不关**：原版 `TMP_Dropdown.OnCancel:763 → Hide()`
+        /// （UGUI 把 `Cancel` 事件按「当前选中对象 → 父链」派发，列表开着时那颗全屏 `Blocker`
+        /// （内部类 `DropdownBlocker`）先吃到它）。</para>
+        /// <para>② **列表没开 ⇒ 关窗**（🔴 **2026-11-02（`B117-G10-20`）就地订正 —— 原来这里写的是
+        /// 「本件不吃、窗不关」，**不成立****）：原版 `WindowsManager.Update`
+        /// （`out_cpp2il_dev_ilspy/WindowsManager.cs:995-1006`）`if (GetKeyDown(Escape) &amp;&amp; currentWindow &amp;&amp;
+        /// currentWindow.IsOpen()) currentWindow.ESCPressed();` → `BattleSettingsWindow.ESCPressed()`
+        /// `:139-151` → `base.ESCPressed()` → `GameWindow.cs:318-330` `if (closeOnESC) Close()`
+        /// → 关窗；该窗 **`closeOnESC = 1`**（`battlearena1/MonoBehaviour_4034.json` 实读）。
+        /// 错因：原来只读到「本件不是 `GameWindow`」就收手，**没往 ESC 的派发链上游读**。
+        /// 同族先例：主菜单那扇 `Shell/SettingsWindow.ESCPressed` 判完列表就 `return base.ESCPressed()`
+        /// —— `base` 那一步**就是关窗**。</para>
         /// <para>🔴 **接线**：本件每帧都被驱动层调一次 `PointerFrame`（`BattleDriver.HandleSettings` 里那句
         /// `_settingsPanel.PointerFrame(...)`，面板开着时恒走）⇒ **ESC 就在那个每帧入口读一次**。
         /// ⛔ 别把这句挪进「按下/抬起」那两支 —— 它是**帧级**边沿、与指针无关。
-        /// ⚠️ 本件不在 `BattleDriver.cs` 的白名单里（那份文件另有写手）⇒ **没有**在驱动层加一行。</para></summary>
+        /// ⚠️ 本件不在 `BattleDriver.cs` 的白名单里（那份文件另有写手）⇒ **没有**在驱动层加一行。</para>
+        /// <para>⚠️ 关窗那一支**不改对局结果**（只是 `Hide()`；投降仍只由 `Resign` 钮那条链触发）。</para>
+        /// <para>🔴 **本方法自己判「这一帧到底有没有 ESC」（`EscDown()`）**：它是「处理一次 ESC 按下」的口，
+        /// 不是「你现在要不要关窗」的查询口 —— 谁直接调它、而这一帧**根本没按键**，就什么都不该发生。
+        /// （生产那条路 `PointerFrame` 也是先 `if (EscDown())` 才进来，多判一次无副作用；`EscapePressedForTest`
+        /// 是**电平**，自检据此驱动。）</para></summary>
         public bool EscPressed()
         {
             if (!Visible) return false;
+            if (!EscDown()) return false;    // 这一帧没有 ESC 按下 ⇒ 没有「这一下」可处理（见上面那段 doc）
             if (LangListOpen)
             {
                 HideLangList();
                 Debug.Log("[Settings] ESC：**先收语言下拉列表**（原版 `TMP_Dropdown.OnCancel → Hide()`）—— 窗不关");
                 return true;
             }
-            return false;    // 列表没开 ⇒ 本件不吃（原版那一路归 `GameWindow.ESCPressed`；本件不是 `GameWindow`）
+            Hide();      // = 原版 `GameWindow.ESCPressed` 的 `if (closeOnESC) Close()`（该窗 `closeOnESC = 1`）
+            Debug.Log("[Settings] ESC：**关设置窗**（原版 `WindowsManager.Update` → `BattleSettingsWindow.ESCPressed`"
+                    + " → `base.ESCPressed` → `GameWindow.Close`；该窗 `closeOnESC = 1`）");
+            return true;
         }
 
         static bool EscDown()
@@ -2142,7 +2174,7 @@ namespace CardPresentation
             string lab = Loc.T(MuteLabelTermKey);
             _muteLabel = HudCanvas.MakeText(_panel, lab, U(MuteLabelLeftPx), U(MuteLabelCyPx),
                                             4, Color.white, new Vector2(0f, 0.5f), z - 0.05f,
-                                            "settings_mute_label", face: TmpFont.Face.LatinCardBody);
+                                            "settings_mute_label", face: TmpFont.Face.LatinCardBody); if (_muteLabel != null) { _muteLabel.SetAlignLeft(); _muteLabel.AlignTmpPivotToAnchor(); }   // 🔴 **`B117-29`（2026-11-02）**：左缘枢轴 + 逐行左对齐（判据 → `Label.AlignTmpPivotToAnchor`）
             // 字号按语种选（`ApplyLangFont` → `Label.SetScriptHeight` → `Loc.HasCjk` 那条唯一判据），
             // ⚠️ 顺序照 `SliderLabel`：**先**定字体高度、**再** `SetAutoFitBox`（后者会重排 mesh）。
             ApplyLangFont(_muteLabel, lab, MuteFontPx);
@@ -2269,7 +2301,7 @@ namespace CardPresentation
             //    **同一把尺（px）、同一个父节点**（先后由 `HudCanvas.Add` 的 z 定）。
             var l = HudCanvas.MakeText(_panel, text, U(LabelLeftX), U(LabelBoxCy[i]),
                                        4, Color.white, new Vector2(0f, 0.5f), z - 0.01f,
-                                       "settings_slider_label_" + i, face: TmpFont.Face.LatinCardBody);
+                                       "settings_slider_label_" + i, face: TmpFont.Face.LatinCardBody); if (l != null) { l.SetAlignLeft(); l.AlignTmpPivotToAnchor(); }   // 🔴 **`B117-29`（2026-11-02）**：左缘枢轴 + 逐行左对齐（判据 → `Label.AlignTmpPivotToAnchor`）
             // 🔴 **字号按语种选**（唯一一份实现 = `ApplyLangFont`）：fs42 是 TMP 的 font size，
             //    拉丁大写只占约 **0.72 em**（em 口径）、汉字墨高 ≈ 1 em —— 两条路的实测换算比是
             //    `Label.CapOverGlyph` ≈ **0.8217**，写死一种就会让另一档差 22%/18%（`A1235`）。
@@ -2329,7 +2361,8 @@ namespace CardPresentation
             //   （`BattleDriver.HandleSettings` 里那句 `_settingsPanel.PointerFrame(...)`），而
             //   `BattleDriver.cs` 不在本件的白名单里 ⇒ 这里是本件唯一「每帧必到」的入口。
             //   ⛔ 别把这句挪进别处（它是**帧级**边沿、与指针无关）。
-            if (EscDown()) EscPressed();
+            // 🔴 **2026-11-02（`B117-G10-20`）**：列表**没开**时 `EscPressed()` 现在会**关窗**（见它的 doc）⇒ 关了就当场返回。
+            if (EscDown()) { EscPressed(); if (!Visible) return down; }
             // 语言行的悬停 / 按下 / 选中三档：**只换贴图、不派发动作**（判据与优先级在 `RefreshLangRowFx` 一份）。
             //   `down` 是「按住」—— 按下从按下的那一帧起算、抬手才回到悬停/选中/常态。
             RefreshLangHover(world, down);
@@ -2519,7 +2552,7 @@ namespace CardPresentation
                 var m = MatchTypeSource();
                 if (m.HasValue) { _matchType = m.Value; _matchTypeKnown = true; }
             }
-            ApplyMatchTypeUI();
+            ApplyMatchTypeUI(); SyncFromOpen();     // 🔴 2026-11-02（`B117-G10-20`）：打开即回填 —— 判据在 `SyncFromOpen` 的 doc
             if (!_matchTypeKnown && !_matchTypeWarned)
             {
                 _matchTypeWarned = true;
@@ -2842,5 +2875,32 @@ namespace CardPresentation
         }
         int _langPressRow = -1, _langPressShown = -1, _langSelRow = -1;
         bool _langDownPrev;
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B117-G10-20`）：**打开时回填** —— 本类最后一个成员（⛔ 别往中间插）
+        //  ⚠️ 追加在**类尾**是纪律：本文件被 `账/*.tsv` 按 `文件:行号` 引用，插在中间会让整片账漂移。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>= 原版 `BattleSettingsWindow.Open()`（`out_cpp2il_dev_ilspy/BattleSettingsWindow.cs:239-249`）
+        /// 每次打开都做的那几件：**三根音量滑块回填当前值** + **语言那一行对回当前语言**。
+        /// <para>判据逐句：`:239-241` `musicSlider.value = GameStaticData.MusicVolume` /
+        /// `soundFXSlider.value` / `voiceOverSlider.value`；`:242-247` `autoZoom.SetIsOnWithoutNotify` 与
+        /// `muteChatToggle.isOn = chatMuted`；`:249` `languageSelector.Initialize()` →
+        /// `ResetLanguagesDropdown()`（把下拉的 `value` 对回**当前语言**）。</para>
+        /// <para>**为什么必须有**：本面板 `Create` 一次、跨局复用（`BattleDriver.BuildHud` 被 `_hudBuilt` 闩住）
+        /// ⇒ 玩家在**主菜单设置**里改过音量/语言之后进下一局，三根滑块与「当前语言名」会停在
+        /// **建面板那一刻**的值上（原版每次 `Open` 都重读，所以看不出来）。</para>
+        /// <para>⚠️ 回填走 `WfSlider.SetValue(v, fire: false)` —— **不回写音量**（回填不该触发一次
+        /// 「用户改了音量」；原版 `slider.value =` 的 notify 版对这三个 listener 同义）。</para>
+        /// <para>⚠️ `autoZoom` / `muteChat` **不在这里补**：`Show()` 上面那句 `SetActive(true)` 已经调过
+        /// `RefreshAutoZoomCheck()`（读 `AutoZoom.Enabled` 的**活值**）与 `RefreshMuteChat()`（读 `_muteChatOn`）。</para>
+        /// <para>⚠️ 语言那一行只重设**字**（本仓 `Loc` 不做「自动满地找 Label」）。</para></summary>
+        void SyncFromOpen()
+        {
+            if (_musicSlider != null) _musicSlider.SetValue(WarpforgeAudio.Music, false);
+            if (_fxSlider != null) _fxSlider.SetValue(WarpforgeAudio.SoundFx, false);
+            if (_voiceSlider != null) _voiceSlider.SetValue(WarpforgeAudio.VoiceOver, false);
+            RefreshTexts();      // = 语言那一行（框里那颗「当前语言名」+ 左边标签）+ 其余跟着语言走的字
+        }
     }
 }

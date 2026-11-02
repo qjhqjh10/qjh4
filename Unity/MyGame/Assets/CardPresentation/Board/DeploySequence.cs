@@ -35,20 +35,20 @@
 //    `defaultEaseType` = `OutQuad`（本工程 `Assets/Resources/DOTweenSettings.asset` 实读 `defaultEaseType: 6`）
 //
 // ---- 时长们为什么是这几个数（一次说清，别再拆开抄）----------------------
-//  🆕 2026-10-19（`W57` · `T05(c)(d)`）：原版是**五段**（前四段中间还夹着一次「换成 3D 体」的交接；
-//    第五段「落地尾拍」2026-10-27 由 `E3CMP` 补，见下面 🔴 那条）：
+//  🆕 2026-10-19（`W57` · `T05(c)(d)`）：原版是**五段**（前四段中间还夹着一次「换成 3D 体」的交接；第五段「落地尾拍」2026-10-27 由 `E3CMP` 补）；
+//    🔴 2026-11-02（`B117-R15`）补回**漏掉的 0.55 s**（`GetHandToBoardAnimEventTime`）⇒ 五段共 1.3 s：
 //    0 → 0.3      飞向「槽位 + up × `minionConversionHeight`」
-//    0.3 → 0.4    🔴 `WaitForSeconds(timeToScaleIntoMoving = 0.1)` —— **纯等待**
-//                 （`CardScript._MinionPlayedIntoField_d__314__MoveNext.c:60-79`，`:75` 的 `WaitForSeconds`）
-//    **0.4**      🔴 **交接**：`SetUnitInPlayLayer()`（手牌卡面 → 场上 3D 体）+ `DefaultScale` + `HideCardShadow`
-//                 （同上 `:87` / `:108` / `:121`）—— 从这里起是**竞技场空间**、由透视相机画
-//    0.4 → 0.45   `WaitForSeconds(timeBeforeLand = 0.05)`
-//    0.45 → 0.65  `UpdateMinionInPlayPosition`（一句 `DOLocalMove`，**竞技场局部坐标**）
-//    0.65         **落地反馈**（`LandOnGround`）
-//    🆕 0.65 → 0.75  🔴 **落地后的尾拍** `WaitForSeconds(AttackStepTime = 0.1)`（d__314 **state 3**，`:186-205`）
-//  ⇒ 总长 = 0.3 + **0.1** + 0.05 + 0.2 + **0.1** = **0.75 s**（`TotalTime`）。
-//    🔴 **2026-10-27（`E3CMP` · 账 804 ④）**：尾拍那 0.1 s 原来漏了 ⇒ 我们 0.65 s 就交 `onDone`，
-//       而原版是「等整条协程（0.75）跑完」才 `ResolveCardPlayed` ⇒ **引擎早结算 0.1 s**。已补。
+//    0.3 → 0.95   🔴 `WaitForSeconds(GetMinionConversionTime = 0.3 + 0.55)` 再加 `timeToScaleIntoMoving` 0.1
+//                 · 0.55 = clip `Card Hand To Board` 的 `m_Events[0].time`（`MinionManager__GetMinionConversionTime.c` · `CardScript__GetHandToBoardAnimEventTime.c`）
+//                 · 0.1 = `_MinionPlayedIntoField_d__314__MoveNext.c:60-79`（`timeToScaleIntoMoving`）
+//    **0.95**     🔴 **交接**：`SetUnitInPlayLayer()`（手牌卡面 → 场上 3D 体）+ `DefaultScale` + `HideCardShadow`
+//                 （d__314 `:87` / `:108` / `:121`）—— 从这里起是**竞技场空间**、由透视相机画
+//    0.95 → 1.0   `WaitForSeconds(timeBeforeLand = 0.05)`
+//    1.0 → 1.2    `UpdateMinionInPlayPosition`（一句 `DOLocalMove`，**竞技场局部坐标**）
+//    1.2          **落地反馈**（`LandOnGround`）
+//    🆕 1.2 → 1.3  🔴 **落地后的尾拍** `WaitForSeconds(AttackStepTime = 0.1)`（d__314 **state 3**，`:186-205`）
+//  ⇒ 总长 = 0.3 + **0.55** + **0.1** + 0.05 + 0.2 + **0.1** = **1.3 s**（`TotalTime`）。
+//    🔴 2026-10-27（`E3CMP` · 账 804 ④）尾拍 0.1 s；🔴 2026-11-02（`B117-R15`）交接前那 0.55 s —— 漏了它 ⇒ 卡在 0.65 s 就落完并让引擎结算，而 `Board Elements` 要到绝对 1.0→1.2167 才浮回 0 ⇒ **落地之后还要再浮 0.35 s**。
 //  `onDone` 挂在**序列末尾**：
 //  原版「真正出牌」的那一半（`CardScript.ResolveCardPlayed` + 广播 + 墓地记账）在
 //  `BattleManager._ResolvePlayCardFromHand_d__447__MoveNext.c` 里是**等 `_MinionPlayedIntoField`
@@ -56,7 +56,7 @@
 //  不是「先出后演」。⚠️ 代价（如实记）：我们的引擎事件只有一条 `Deploy` ⇒ 登场那两件
 //  （`Invoke Minion Card Fade Default` + 阵营召唤法阵）也跟着挪到了落地那一拍。🆕 **2026-10-26（`B9_E3P13`）**：账 `CardScript.MinionPlayedIntoField` 的 ① `orderInPlay`（原版 `EntityScript.orderInPlay` = 召唤序号，唯一消费者是 `MinionManager.GetMinionList()` 的 `OrderBy`）在本仓的等价物 = **引擎 `UnitState.PlayOrder`**（`BattleContext.TakePlayOrder()` 在部署那一刻发号；排序消费点 `RuleCore.StableSortByPlayOrder` / `EffectResolver` 那一族）⇒ **视图侧不另存一份**（我们的棋盘次序由槽位定）——⛔ 别为它加 `CardView.inPlayOrder` 那种没人读的字段（原版有、我们无消费者 = 死数据）。
 //  ⚠️ **交接动作本身不在这里拼**：由 `BattleDriver.OnDeployHandoff` 一处给出（`Handoff.Apply`），
-//     本类只负责「在 0.4 s 调它、然后让 3D 体在竞技场空间里落下 0.2 s」（铁律 6：判据只留一处）。
+//     本类只负责「在 0.95 s 调它、然后让 3D 体在竞技场空间里落下 0.2 s」（铁律 6：判据只留一处）。
 //
 // ---- 权威实例（两个 `MinionManager` 的定性，别再翻案）-------------------
 //  `MonoBehaviour_4372/4373.json` **不是「新的/旧的」，是 玩家 / 敌方 两份**
@@ -107,22 +107,22 @@ namespace CardPresentation
         /// （autoPlay 那条路，已落地）—— 那次是补间、这里是**纯等待**，⛔ 别拿那处当成这一处已做。</para></summary>
         public const float TimeToScaleIntoMoving = 0.1f;
 
-        /// <summary>交接时刻（秒）= 飞行 + 等待 = **0.4**：手牌卡面换成场上 3D 体、切进竞技场空间。
-        /// 判据 → 文件头那段（`_MoveNext.c` state 1 开头）。</summary>
-        public const float HandoffTime = MoveTime + TimeToScaleIntoMoving;
+        /// <summary>交接时刻（秒）= 飞行 0.3 + `GetHandToBoardAnimEventTime` 0.55 + 等待 0.1 = **0.95**：手牌卡面换成场上 3D 体、切进竞技场空间。
+        /// 判据 → `MinionManager__GetMinionConversionTime.c`（`minionToConversionPointTime + GetHandToBoardAnimEventTime`）＋ 文件头（`_MoveNext.c` state 1 开头）。</summary>
+        public const float HandoffTime = MoveTime + CardFeel.HandToBoardDone + TimeToScaleIntoMoving;
 
-        /// <summary>整条序列的真实长度 = 五段之和（秒）= **0.75**
-        /// （飞 0.3 + 等待 0.1 + 悬停 0.05 + 落下 0.2 + **落地后尾拍 0.1**）。
+        /// <summary>整条序列的真实长度 = 五段之和（秒）= **1.3**
+        /// （飞 0.3 + 交接前等 0.65 + 悬停 0.05 + 落下 0.2 + **落地后尾拍 0.1**）。
         /// ⚠️ **别在别处再算一遍** —— `Editor/BattleScene.cs` 的断言、
         /// `CardInteraction.Release` 报给驱动层的闸宽都引用它。
-        /// <para>🔴 2026-10-27（`E3CMP` · 账 804 ④）：原来是 **0.65**（四段），漏了原版 state 3 末尾那一次
-        /// `WaitForSeconds(AttackStepTime)` —— 见 <see cref="LandTailTime"/> 的 doc。
-        /// ⚠️ `Editor/BattleScene.cs` 那条断言比的是「`Dur(Play(...))` == `TotalTime`」（两侧同源），
-        /// 所以**数值自动跟上、不必改断言**；但那条断言的**文案**里还写着「四段共 …」——
-        /// 那是 `Editor/BattleScene.cs` 的事（本波不归我改），如实记在这里。</para></summary>
+        /// <para>🔴 2026-10-27（`E3CMP` · 账 804 ④）：尾拍 0.1 s = 原版 state 3 末尾那一次 `WaitForSeconds(AttackStepTime)`。
+        /// 🔴 2026-11-02（`B117-R15`）：交接前那 0.65 = `GetHandToBoardAnimEventTime` 0.55 + `timeToScaleIntoMoving` 0.1
+        /// —— 原来只等了 0.1 ⇒ 交接 0.4 / 总长 0.75，比原版**早 0.55 s**（卡落地后 `Board Elements` 还要再浮 0.35 s）。
+        /// ⚠️ `Editor/BattleScene.cs` 那条断言比的是「`Dur(Play(...))` == `TotalTime`」（两侧同源）⇒ 数值自动跟上；
+        /// 另几条比的是**原版关系式**（交接 = 飞 + clip 事件 + 等 · 落下起点 = 飞 + 形态切换），改了本值它们会红。</para></summary>
         public const float TotalTime = HandoffTime + HoldTime + LandTime + LandTailTime;
 
-        /// <summary>🆕 2026-10-19（`W57` · `T05(c)`）：**0.4 s 那一刻的交接** ——
+        /// <summary>🆕 2026-10-19（`W57` · `T05(c)`）：**0.95 s 那一刻的交接** ——
         /// 「手牌卡面」换成「场上 3D 体」并把卡摆到竞技场空间的「槽位正上方」，
         /// 之后最后 0.2 s 由 <see cref="FallTarget"/> 在**竞技场局部坐标**里落下。
         ///
@@ -135,9 +135,9 @@ namespace CardPresentation
         /// 那条只给「没有驱动层」的自检 / 纯时长探针用。</para></summary>
         public struct Handoff
         {
-            /// <summary>0.4 s 那一刻执行一次（幂等；⛔ 不要在里面开局新的补间）。</summary>
+            /// <summary>0.95 s 那一刻执行一次（幂等；⛔ 不要在里面开局新的补间）。</summary>
             public Action Apply;
-            /// <summary>0.45 → 0.65 s 做 `DOLocalMove` 的那个 transform（玩家 = 卡本体；AI = 场上视图）。</summary>
+            /// <summary>1.0 → 1.2 s 做 `DOLocalMove` 的那个 transform（玩家 = 卡本体；AI = 场上视图）。</summary>
             public Transform FallTarget;
             /// <summary>竞技场局部坐标（`boardRoot` 的局部系）里的落点 = 落地后 `PoseFor` 那个位姿。</summary>
             public Vector3 LandLocal;
@@ -160,16 +160,16 @@ namespace CardPresentation
             return card != null && !card.Data.isUnit;
         }
 
-        /// <summary>这张卡这一次落位**整条序列的真实长度**（秒）—— 单位卡 = <see cref="TotalTime"/>（0.75），
+        /// <summary>这张卡这一次落位**整条序列的真实长度**（秒）—— 单位卡 = <see cref="TotalTime"/>（1.3），
         /// 非单位卡 = <see cref="InlineCompleteEpsilon"/>。与 <see cref="Play"/> 的分支**同源**
-        /// （都问 `IsInline`），⛔ 别写第二份「战术卡 0.001 / 单位卡 0.75」的字面量。</summary>
+        /// （都问 `IsInline`），⛔ 别写第二份「战术卡 0.001 / 单位卡 1.3」的字面量。</summary>
         public static float DurationFor(CardView card)
         {
             return IsInline(card) ? InlineCompleteEpsilon : TotalTime;
         }
 
         /// <summary>🆕 2026-10-19（战斗线 B3 · 偏差 8 的载体那一半）：**敌方手牌那张卡背**（`ImageQuad`）
-        /// 走**同一条五段**（0.3 飞向格位上方 → **0.1 等** → 0.4 交接 → 0.05 悬停 → 0.2 竞技场空间落下 → **0.1 落地尾拍**）。
+        /// 走**同一条五段**（0.3 飞向格位上方 → **0.65 等** → 0.95 交接 → 0.05 悬停 → 0.2 竞技场空间落下 → **0.1 落地尾拍**）。
         ///
         /// <para>判据（同一份）：原版 `MinionManager.PlayMinionFromHand` / `MoveMinionToConversionPoint` /
         /// `CardScript.UpdateMinionInPlayPosition` 搬的**就是手牌那张卡对象本体**
@@ -182,8 +182,8 @@ namespace CardPresentation
         /// · **起点就是它现在的手牌位姿**（不另设 `SetPose`）；
         /// · 缩放从**当前**（手牌卡背恒 1）补到 <paramref name="endScale"/> —— 那个数由调用方按
         ///   「场上那张卡的宽度 ÷ 卡背画出来的宽度」换算，判据在 `BattleDriver.StartAiDeployFlight`。</para>
-        /// <para>`onDone` 同样挂在**序列末尾**（= 落地**再等完尾拍**，0.75 s）。
-        /// 🆕 交接（0.4 s）那一版同 <see cref="Play"/>：<paramref name="handoff"/> 由调用方给，
+        /// <para>`onDone` 同样挂在**序列末尾**（= 落地**再等完尾拍**，1.3 s）。
+        /// 🆕 交接（0.95 s）那一版同 <see cref="Play"/>：<paramref name="handoff"/> 由调用方给，
         /// ⚠️ **交接之后落体换成了场上视图**（卡背在 `Apply` 里藏起来、落地拍再销毁）⇒
         /// <see cref="Handoff.FallTarget"/> 必须是那张场上视图的 transform。</para></summary>
         public static Tween PlayQuad(Transform tr, Vector3 abovePos, Vector3 landPos,
@@ -192,7 +192,7 @@ namespace CardPresentation
             return PlayQuad(tr, abovePos, landPos, endScale, default(Handoff), onDone);
         }
 
-        /// <summary>同 <see cref="PlayQuad(Transform, Vector3, Vector3, float, Action)"/>，带 0.4 s 交接。</summary>
+        /// <summary>同 <see cref="PlayQuad(Transform, Vector3, Vector3, float, Action)"/>，带 0.95 s 交接。</summary>
         public static Tween PlayQuad(Transform tr, Vector3 abovePos, Vector3 landPos,
                                      float endScale, Handoff handoff, Action onDone = null)
         {
@@ -202,11 +202,11 @@ namespace CardPresentation
             tr.localScale = Vector3.one * Mathf.Max(1e-4f, endScale);
             var seq = DOTween.Sequence();
             seq.Append(tr.DOMove(abovePos, MoveTime).SetEase(Ease.OutQuad));
-            // 🆕 (d)：原版 state 0 末尾的 `WaitForSeconds(timeToScaleIntoMoving)` —— 纯等待
-            seq.AppendInterval(TimeToScaleIntoMoving);
+            // 🆕 (d) + 🔴 2026-11-02（`B117-R15`）：这里等的是原版 `GetMinionConversionTime`（飞 0.3 + clip 事件 0.55）**再加** `timeToScaleIntoMoving` 0.1 ⇒ 交接落在 0.95 s
+            seq.AppendInterval(TimeToScaleIntoMoving + CardFeel.HandToBoardDone);
             if (handoff.IsValid)
             {
-                // 0.4 s：换成 3D 体（由驱动层一处给出），然后落体在竞技场空间里落下
+                // 0.95 s：换成 3D 体（由驱动层一处给出），然后落体在竞技场空间里落下
                 seq.InsertCallback(HandoffTime, () => handoff.Apply());
                 seq.AppendInterval(HoldTime);
                 seq.Append(handoff.FallTarget.DOLocalMove(handoff.LandLocal, LandTime).SetEase(Ease.OutQuad));
@@ -218,9 +218,9 @@ namespace CardPresentation
                 seq.Append(tr.DOMove(landPos, LandTime).SetEase(Ease.OutQuad));
             }
             // 同 <see cref="Play"/>：旋转用 `Insert(0f, …)`（⛔ 不是 `Join`，那会从 0.3 s 才起算）
-            seq.Insert(0f, tr.DORotate(Vector3.zero, MoveTime).SetEase(RotateEase));
+            seq.Insert(0f, tr.DOLocalRotate(Vector3.zero, MoveTime).SetEase(RotateEase));
             // 🆕 2026-10-27（`E3CMP` · 账 804 ④）：落地后的尾拍 —— 原版 d__314 **state 3** 的
-            //   `LandOnGround()` → `WaitForSeconds(AttackStepTime)`（`.c:186-205`）。`onDone` 因此落在 0.75 s。
+            //   `LandOnGround()` → `WaitForSeconds(AttackStepTime)`（`.c:186-205`）。`onDone` 因此落在 1.3 s。
             seq.AppendInterval(LandTailTime);
             CardTween.Use(seq, Ease.Linear, tr);
             if (onDone != null) seq.OnComplete(() => onDone());
@@ -241,9 +241,9 @@ namespace CardPresentation
         }
 
         /// <summary>同 <see cref="Play(CardView, Vector3, Vector3, float, Action)"/>，
-        /// 🆕 带 0.4 s 的**交接**（`T05(c)(d)`）：0.3 飞 → 0.1 等 → **0.4 `handoff.Apply()` 换成 3D 体** →
-        /// 0.05 悬停 → 0.2 `DOLocalMove`（竞技场局部坐标）→ **0.1 落地尾拍** → 0.75 `onDone`。
-        /// <para>⚠️ `handoff` 传 `default` 时退回旧的三段形状（HUD 平面直落、总长仍是 0.75 —— 那 0.1 的等待
+        /// 🆕 带 0.95 s 的**交接**（`T05(c)(d)`）：0.3 飞 → 0.65 等 → **0.95 `handoff.Apply()` 换成 3D 体** →
+        /// 0.05 悬停 → 0.2 `DOLocalMove`（竞技场局部坐标）→ **0.1 落地尾拍** → 1.3 `onDone`。
+        /// <para>⚠️ `handoff` 传 `default` 时退回旧的三段形状（HUD 平面直落、总长仍是 1.3 —— 那 0.65 的等待
         /// 与 0.1 的尾拍对单位卡恒定存在）—— 那条只给「没有驱动层」的纯时长探针 / `CardBaseDemo` 用。</para>
         /// </summary>
         public static Tween Play(CardView card, Vector3 abovePos, Vector3 landPos, float slotScale,
@@ -280,11 +280,11 @@ namespace CardPresentation
             var seq = DOTween.Sequence();
             // ② 飞到「槽位 + up × minionConversionHeight」—— 时长 = 原版 `minionToConversionPointTime`
             seq.Append(tr.DOMove(abovePos, MoveTime).SetEase(Ease.OutQuad));
-            // 🆕 (d)：原版 state 0 末尾的 `WaitForSeconds(timeToScaleIntoMoving)` —— **纯等待** 0.1 s
-            seq.AppendInterval(TimeToScaleIntoMoving);
+            // 🆕 (d) + 🔴 2026-11-02（`B117-R15`）：`WaitForSeconds(GetMinionConversionTime)` 0.3+0.55 **再加** `timeToScaleIntoMoving` 0.1 ⇒ 交接 0.95 s
+            seq.AppendInterval(TimeToScaleIntoMoving + CardFeel.HandToBoardDone);
             if (handoff.IsValid)
             {
-                // 🔴 **0.4 s = 交接**：原版 state 1 开头 `SetUnitInPlayLayer()` + `DefaultScale` + `HideCardShadow`
+                // 🔴 **0.95 s = 交接**：原版 state 1 开头 `SetUnitInPlayLayer()` + `DefaultScale` + `HideCardShadow`
                 //    —— 手牌卡面换成场上 3D 体、切进竞技场空间。⚠️ 动作由驱动层一处给（见 `Handoff` 的 doc）。
                 seq.InsertCallback(HandoffTime, () => handoff.Apply());
                 // 悬停（原版 d__314 state 1 的 `WaitForSeconds(timeBeforeLand)` = 0.05）
@@ -306,17 +306,17 @@ namespace CardPresentation
             //    （旧版更离谱：0.92s 的那两条从 0.18s 起算 → 实际 1.10s）。
             //    ⚠️ 跨度仍是 `MoveTime`（0.3）—— 原版的旋转补间吃 `minionToConversionPointTime`，
             //    即**只覆盖飞行那一段**，落下那 0.2s 里它已经归位。
-            //    🔴 缩放**不在这里**：`B07` 起改成**起飞前瞬时赋值**（见上面那一句 + 原版判据）。
-            seq.Insert(0f, tr.DORotate(Vector3.zero, MoveTime).SetEase(RotateEase));
+            //    🔴 缩放**不在这里**：`B07` 起改成**起飞前瞬时赋值**（见上面那一句 + 原版判据）。🔴 2026-11-02（`B117-R15` · `B117-GD` A2）：旋转改 **`DOLocalRotate`**（原版 `MinionManager__MoveMinionToConversionPoint.c:41-47` 吃的是局部角；父链今天无旋转 ⇒ 零可见差，`Hand/CardInteraction.cs:929-935` 已踩过同坑）。
+            seq.Insert(0f, tr.DOLocalRotate(Vector3.zero, MoveTime).SetEase(RotateEase));
             // 🆕 2026-10-27（`E3CMP` · 账 804 ④）：落地后的尾拍 —— 原版 d__314 **state 3** 的
             //   `LandOnGround()` → `WaitForSeconds(AttackStepTime)`（`.c:186-205`，`:199` 就是那一句）。
-            //   原版「真出牌」（`_ResolvePlayCardFromHand` 等整条协程跑完）因此在 **0.75 s**，
-            //   不是我们原来的 0.65 s。⛔ 别删：「画面看着也落了」看不出这 0.1 s。
+            //   原版「真出牌」（`_ResolvePlayCardFromHand` 等整条协程跑完）因此在 **1.3 s**，
+            //   不是旧版的 0.75 s。⛔ 别删：「画面看着也落了」看不出这 0.1 s。
             seq.AppendInterval(LandTailTime);
             CardTween.Use(seq, Ease.Linear, tr);  // 各段自己带了缓动，序列层用线性串起来
 
             // 🔴 **这一段就是「引擎真正出牌」那一拍**（`onDone` → `BattleDriver.OnCardDeployed` → `DoPlay`
-            //    → `RuleCore.PlayCard`）。**挂在序列末尾**（= 落地**再等完尾拍**，0.75 s），判据见文件头：
+            //    → `RuleCore.PlayCard`）。**挂在序列末尾**（= 落地**再等完尾拍**，1.3 s），判据见文件头：
             //    原版 `_ResolvePlayCardFromHand` 是 `WaitForSeconds(收敛时长)` → `yield MinionPlayedIntoField`
             //    整条跑完 → 才 `ResolveCardPlayed`。
             //    🧨 **改坏法**：把 `TimeToScaleIntoMoving` / `HoldTime` / `LandTime` 从序列里删掉（只留 0.3）

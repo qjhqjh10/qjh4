@@ -211,6 +211,13 @@ namespace CardPresentation
         /// ⇒ 画在最底下 ✓ —— 与旧那套「`_light` 最靠前、`_bg` 最靠后」逐件一致。
         /// ⛔ **别把它们写进画布件的 `localPosition.z`**（那会把件推离画布平面）。</summary>
         const float ZBg = 0.02f, ZText = 0f, ZLight = -0.02f;
+        /// <summary>🆕 **2026-11-02（`B117-G10-09`）：`TargetsAvailableText` 的兄弟序** —— 必须**画在 `Lights` 之上**。
+        /// <para>判据 = 原版 `ActiveSkillDesc`（`Battle Arena 1.unity` RT `2911`）的 `m_Children` 次序：
+        /// `HideAbilityButton(2860)` → `AbilityContainer(3128)` → **`Lights(3121)`** → **`TargetsAvailableText(2625)`**
+        /// ⇒ 目标是 `ActiveSkillDesc` 的**最后一个**子件 = **盖在色片之上**；而 `NameText`/`CostText`/`DescText`
+        /// 是 `AbilityContainer` 的子件（比 `Lights` 早）⇒ **在色片之下**（我们现在就是这样）。
+        /// ⛔ 别把它改回 `ZText`：`HudCanvas.Add` 的 z 是「**大的先画 = 在底下**」⇒ 与 `Lights` 同档时它会落到色片**下面**。</para></summary>
+        const float ZTargets = ZLight - 0.02f;
         /// <summary>🆕 **2026-10-20（`T09` A3-e）：原版 `HideAbilityButton` 那块全屏透明捕获区的兄弟序**。
         /// **比 `_bg` 再大 0.02** ⇒ 排在它**后面**（`HudCanvas.Group.Add`：z 大的排前面 = 画在**底下**）。
         /// 🔴 **2026-10-20（W58）**：捕获区现在挂在**面板节点** `_panelRt` 下 ⇒ 真正决定它在子画布里
@@ -288,8 +295,11 @@ namespace CardPresentation
         //      `CostIcon  1071.80,792.92→1112.53,860.95  40.73×68.03`（无图 · `preserveAspect`）
         //    归一化（口径与那五颗**逐字相同**：x ÷ 面板宽、y 从**面板顶部**起算）：
         //      `(x−671.80)/576.41` · `(y−698.42)/324.82`
-        //    ⚠️ `CostIcon` 自身在原版 prefab 里是 **`m_IsActive = 0`**（`menu_dump` 那一列的 `act=F`）——
-        //      但它的**矩形是真的**，`_manaIcon` 就按它摆；改后 `min(w,h)` = 40.73 ⇒ 方图边长 = 原版图宽 ✓。
+        //    ⚠️ `CostIcon` 自身在原版 prefab 里是 **`m_IsActive = 0`**（`menu_dump` 那一列的 `act=F`；
+        //      2026-11-02 现核：13/13 战场场景 `GameObject 545` 的 `m_IsActive: 0`）——
+        //      ⇒ **那一格原版从来不可见**（2026-11-02 `B117-G10-09` 起我们也不建那一件，见 `BuildWorld`）。
+        //      本常量只剩两个用途：`RectForTest(2)` 的几何回代（`A1284` 那组断言读静态常量，与件建没建无关）
+        //      与「将来原版真给它赋图时」的落点记录 ⛔ 别删。
         static readonly Rect CostIconRect = new Rect(0.6939f, 0.2909f, 0.0707f, 0.2095f);
         static readonly Rect CostTextRect = new Rect(0.7763f, 0.2898f, 0.0975f, 0.2106f);
         static readonly Rect DescRect = new Rect(0.1009f, 0.5004f, 0.7140f, 0.3335f);
@@ -406,22 +416,33 @@ namespace CardPresentation
         /// `actingLight.gameObject.SetActive(true)` 之后 `DOFade(actingLight, 1f, DAT_1834b3158)` +
         /// `SetEase(6)`（= DOTween `Ease.OutQuad`，取值见本工程 `DOTweenSettings.asset` 的 `defaultEaseType: 6`）。
         /// `DAT_1834b3158` 用 `工具/read_literal.py` 现读 = **0.4**（4 字节 float）。
-        /// ⚠️ 起点 α = 序列化值 **0.392**（= `LightActing.a`）—— `DOFade` 从**当前** color.a 出发，不是从 0。</para></summary>
+        /// 🔴 **2026-11-02（`B117-G10-09`）就地订正（铁律 5）**：本行原写「起点 α = 序列化值 0.392」
+        /// —— **不成立**。点亮白层的两条链在 `DOFade` **之前**都先把它归零：
+        /// `OnTouchUpAsButton`（`__OnTouchUpAsButton.c:44`）先 `HideActingLight()`（= `SetSpriteAlpha(actingLight, 0)`），
+        /// `SetupActiveSkill`（`:141-148`）/ `FadeIn` / `FadePower` / `SetAlpha` 收尾也都调它
+        /// ⇒ 面板一弹出来 acting 层恒为 **0**，`DOFade(1,…)` 因此从 **0** 起（不是 0.392）。</para></summary>
         public const float ActingFadeIn = 0.4f;
 
         /// <summary>acting 白层**淡出**用时 = **0.3 s**。
         /// <para>判据：`ActiveSkillDisplay__FinishActing.c:15-24` —— `DOFade(actingLight, 0f, DAT_1834b2dc8)` +
         /// `SetEase(6)`（`Ease.OutQuad`）。`DAT_1834b2dc8` 现读 = **0.3**（4 字节 float）。</para>
         /// ⚠️ 我们三盏灯收在**同一颗** `_light` 上（见 `Light` 枚举），所以 acting 用「α 倍率」表达：
-        /// 淡入 = `_actingA` 0.392 → 1，淡出 = `_actingA` → 0（颜色本身仍是 `LightActing` 的白）。</summary>
+        /// 淡入 = `_actingA` **0 → 1**（起点见 `ActingFadeIn` 的订正），淡出 = `_actingA` → 0（颜色仍是 `LightActing` 的白）。</summary>
         public const float ActingFadeOut = 0.3f;
 
         /// <summary>
         /// 面板上铺哪一层色片。三态的触发条件是**从 IL2CPP dump 里查出来的**：
         ///   · **蓝 `LightPressed`** —— 指针按在面板上（`ClickDown` 点亮、`PointerExit`/`Up` 熄灭）**确定**
         ///   · **白 `LightActing`** —— 技能**正在结算**（`TryUsingActiveAbility` 成功后点亮）**确定**
-        ///   · **黄绿 `LightAvailable`** —— 可用性指示（`DisableUsableLight()` 把它瞬间淡到 0）。
-        ///     这一条是**从函数名推的**，原码里没有一行显式把它设成 1
+        ///   · **黄绿 `LightAvailable`** —— 可用性指示。
+        ///     🔴 **2026-11-02（`B117-G10-09`）就地订正（铁律 5）**：本行原写「这一条是**从函数名推的**，
+        ///     原码里没有一行显式把它设成 1」—— **不成立**：`ActiveSkillDisplay__SetupActiveSkill.c:141-148`
+        ///     白纸黑字 `bgLight.gameObject.SetActive(manager.CanUseActiveAbility(parentCard, true, false))`
+        ///     （ILSpy `ActiveSkillDisplay.cs:193-195` 同），`DisableUsableLight()`（`__DisableUsableLight.c:15`）
+        ///     再把它的 α 单独清 0 ⇒ **显式开关、判据 = `CanUseActiveAbility`**（⛔ 不是「有几个合法目标」）。
+        /// <para>⚠️ 本枚举是我们的**单件抽象**：原版那三层是**三个独立的 Image、可以同时亮**（叠放）。
+        /// 这里它只表达「哪一层是**最上面**那一层」（给 `CurrentLight`/自检读）；
+        /// **真正的 tint 由 `ComposeLightTint()` 按三层叠放复合**（2026-11-02 `B117-G10-09`）。</para>
         /// </summary>
         public enum Light { None, Available, Pressed, Acting }
 
@@ -697,7 +718,9 @@ namespace CardPresentation
         /// 序列化值 **0.392**（= `LightActing.a`），`ShowActingLight` 把它 `DOFade(1, 0.4)`、
         /// `FinishActing` 再 `DOFade(0, 0.3)`（判据 → `ActingFadeIn` / `ActingFadeOut` 那两个常量）。
         /// <para>🔴 **2026-10-25（`N4`）**：我们三盏灯收在**同一颗** `_light` 上（`Light` 枚举），
-        /// ⇒ acting 这一档不能直接写 color.a，只能写成「α 倍率」：`_actingA &gt; 0` ⇒ 铺白层、α = `_actingA`。</para></summary>
+        /// ⇒ acting 这一档不能直接写 color.a，只能写成「α 倍率」：`_actingA &gt; 0` ⇒ 铺白层、α = `_actingA`。</para>
+        /// <para>🔴 **2026-11-02（`B117-G10-09`）**：**起点是 0、不是 0.392**（原版点亮前必先 `HideActingLight()`，
+        /// 判据 → `ActingFadeIn` 那段订正）；而且面板整体淡入淡出（`FadeTo`）会把它直接归零。</para></summary>
         float _actingA;
         /// <summary>acting 白层那一条淡入/淡出补间（原版存在组件字段 `+0xc0` 里的那一条）。
         /// ⚠️ 必须经 `CardTween.Mode` + `SetLink`（同本文件 `_fade` 的理由：批处理 Manual 档 / 防销毁后还在跑）。</summary>
@@ -746,12 +769,18 @@ namespace CardPresentation
             _desc = MakeLabel("DescText", DescPx, DescColor, new Vector2(0f, 0.5f), face: TmpFont.Face.LatinUi);
             _targets = MakeLabel("TargetsAvailableText", TargetsPx, TargetsColor, face: TmpFont.Face.LatinCardBody);
 
-            // 原版那格的图标是 `manaIcon`（原件里 `costSprite` 是 null，运行时才赋）——
-            // 用 HUD 那颗能量宝石那张图占位，方图居中放进它的矩形
-            // ⚠️ `ImageQuad.Create` 在贴图为空时**返回 null**（`HudPiece.Of(null)` 也返 null）——
-            //    各读口都有空判，照旧。
-            _manaIcon = HudPiece.Of(ImageQuad.Create(transform, CardArt.Ui("UI_Energy_Eldar"), Vector3.zero, 0.2f,
-                                                     new Vector2(0.5f, 0.5f), "manaIcon"));
+            // 🔴🔴 **2026-11-02（`B117-G10-09`）就地订正（铁律 5）：费用图标那块【不画】—— 原版这一格永远是空的。**
+            //    本行原来写「原件里 `costSprite` 是 null，**运行时才赋**」—— **那句是猜的、已证伪**：
+            //    ① `costSprite` 在全量反编译里**只有读点、没有写点**
+            //       （`grep -rn costSprite decomp_full/ cpp2il/out_cpp2il_dev_ilspy/` ⇒ 仅 `ActiveSkillDisplay.cs:31` 声明 + `:156` 读）；
+            //    ② 13 个战场场景的 `ActiveSkillDisplay` 实例 `costSprite: {fileID: 0}` **13/13 全 null**
+            //       （`python` 逐场现读 `_tmp_view/orig_ui_proj/Assets/Data/Scenes/Battle Scenarios/*.unity`）；
+            //    ③ `manaIcon` 那颗 Image 自己的 `m_Sprite` 也是 **0**（`Image 4131`）；
+            //    ④ 它的 GameObject `CostIcon`（`GameObject 545`）**`m_IsActive: 0`**（13/13）。
+            //    ⇒ `SetupActiveSkill` 里 `manaIcon.sprite = costSprite` 只是把 null 赋回去，那一格**从来不可见**。
+            //    我们原来画的那颗 `UI_Energy_Eldar` 宝石是**我们自己加的**，已按铁律 18·0 撤掉。
+            //    ⚠️ `CostIconRect` 常量与 `PlaceManaIcon` 保留（几何判据仍在账上；`RectForTest(2)` 是静态常量口，不受影响）。
+            _manaIcon = null;
         }
 
         /// <summary>🔴 **2026-10-16（`T09` 批 3）画布档建件。**
@@ -775,13 +804,12 @@ namespace CardPresentation
             _cost = MakeLabel("CostText", CostPx, CostColor, face: TmpFont.Face.LatinUi);
             // 原版 `DescText` 是**左对齐**（H=1）+ `m_margin.x = 7.4727` → 锚点在左边
             _desc = MakeLabel("DescText", DescPx, DescColor, new Vector2(0f, 0.5f), face: TmpFont.Face.LatinUi);
-            _targets = MakeLabel("TargetsAvailableText", TargetsPx, TargetsColor, face: TmpFont.Face.LatinCardBody);
+            _targets = MakeLabel("TargetsAvailableText", TargetsPx, TargetsColor, face: TmpFont.Face.LatinCardBody, z: ZTargets);
 
-            var gem = CardArt.Ui("UI_Energy_Eldar");
-            _manaIcon = MakeCv(gem, "manaIcon", ZText);
-            if (_manaIcon == null)
-                Debug.LogWarning("[Battle] 技能面板：费用图标那张图 `UI_Energy_Eldar` 取不到"
-                               + " ⇒ 那一格**不画**（照旧出声，不静默；⛔ 也不为此退回世界空间 quad）");
+            // 🔴🔴 **2026-11-02（`B117-G10-09`）：费用图标那块【不画】** —— 判据与订正痕见 `BuildWorld` 同位置那一段
+            //   （原版 `CostIcon` 的 GameObject `m_IsActive: 0` + `costSprite`/`m_Sprite` 双 null + 全量反编译里
+            //    `costSprite` 零写点）。世界档与画布档**同一条判据** ⇒ ⛔ 别只撤一边。
+            _manaIcon = null;
 
             // 🆕 2026-10-20（`T09` A3-e）：输入层（原版 `AbilityContainer` + `HideAbilityButton` 两口）。
             //   ⚠️ 必须排在件建完之后（它要用 `_bg` / `_targets`）；显隐由 `SetInputEnabled` 跟着走。
@@ -1064,13 +1092,16 @@ namespace CardPresentation
         /// <para>🆕 **2026-10-17（`A1024`③ 批 2–4）**：可选字体面，默认 `Cjk` ⇒ 旧调用点零行为变化。
         /// ⚠️ 必须排在 `SetGlyphHeight` **之前** —— 那个口按 `ActualFace` 的 em 比例折字号
         /// （判据 → `Label.TmpFontSize`）；两档都过这一处，⛔ 别在调用点各写一遍。</para></summary>
-        Label MakeLabel(string name, float px, Color c, Vector2? anchor = null, TmpFont.Face face = TmpFont.Face.Cjk)
+        Label MakeLabel(string name, float px, Color c, Vector2? anchor = null, TmpFont.Face face = TmpFont.Face.Cjk, float z = ZText)
         {
             var a = anchor ?? new Vector2(0.5f, 0.5f);
             if (UguiMode)
             {
                 // 位置由 `RefreshLayout` 写（建的时候先落在子画布中心）
-                var u = HudCanvas.MakeText(_cv, "", 0f, 0f, 1, c, a, ZText, name, face);
+                // 🔴 **2026-11-02（`B117-FIXD`）**：`z` 现在可传（默认 `ZText` ⇒ 旧调用点零行为变化）——
+                //   `TargetsAvailableText` 必须拿 `ZTargets`：画布档决定「谁压谁」的是**建件这一刻**登记的兄弟序
+                //   （`HudCanvas.Add`），`Place()` 只写位置、**不改兄弟序** ⇒ 原来那颗恒 `ZText` ⇒ 落到色片下面（E2 红）。
+                var u = HudCanvas.MakeText(_cv, "", 0f, 0f, 1, c, a, z, name, face);
                 if (u != null) u.SetGlyphHeight(px);          // ⚠️ **设计 px**（⛔ 不除 108）
                 return u;
             }
@@ -1156,7 +1187,8 @@ namespace CardPresentation
             // 卡名 / 费用 / 目标数：居中放进各自的矩形
             Place(_name, NameRect, ZText);
             Place(_cost, CostTextRect, ZText);
-            Place(_targets, TargetsRect, ZText);
+            // 🔴 2026-11-02（`B117-G10-09`）：目标数那一行**画在色片之上**（原版兄弟序，见 `ZTargets`）
+            Place(_targets, TargetsRect, ZTargets);
 
             // 说明：**左对齐**，起笔位置 = 矩形左边 + 原版那个 margin
             // 🔴 **2026-10-16（锚点补正）**：那一格改用 `MarginX01()` —— 画布档的**面板宽**现在会随
@@ -1607,9 +1639,15 @@ namespace CardPresentation
         public void SetActing()
         {
             _acting = true;
-            // 🔴 起点取 `max(当前 α, 0.392)`：原版 `DOFade` 是「从当前 color.a 出发」⇒
-            //   重复点亮（例如确认释放后又走执行那一跳）**不会先掉回 0.392 再涨回去**（那是可见的闪一下）。
-            _actingA = Mathf.Max(_actingA, LightActing.a);
+            // 🔴🔴 **2026-11-02（`B117-G10-09`）就地订正（铁律 5）—— 淡入起点是【0】，不是 0.392。**
+            //   2026-10-25（`N4`）那一版写的是 `_actingA = Mathf.Max(_actingA, LightActing.a)`，
+            //   理由「原版 `DOFade` 从当前 color.a 出发」—— **只读了 `ShowActingLight` 那一支**。
+            //   真正点亮白层的那条链 `ActiveSkillDisplay__OnTouchUpAsButton.c:44-56`（= `ClickUp` 的落点）
+            //   **先调 `HideActingLight()`**（`__HideActingLight.c:20-30` = 杀补间 + `SetSpriteAlpha(actingLight, 0)`）
+            //   **再** `SetActive(true)` + `DOFade(1, DAT_1834b3158=0.4)` ⇒ 起点 = **0**。
+            //   而且 `SetupActiveSkill.c:141-148` 收尾也调 `HideActingLight()`（`FadeIn`/`FadePower`/`SetAlpha` 同样）
+            //   ⇒ 面板一弹出来 acting 层就恒为 0 ⇒ 两条点亮路（`ClickUp` / `OnTouchDrag`）实际都从 0 起。
+            _actingA = 0f;
             ApplyColors();
             FadeActingTo(1f, ActingFadeIn, false);
         }
@@ -1651,25 +1689,16 @@ namespace CardPresentation
         {
             // 🔴 2026-10-25（`N4`）：acting 那一档按**补间的当前 α**（`_actingA`）判，⛔ 不只看 `_acting` ——
             //   原版白层在 `FinishActing` 里是「0.3 s 淡到 0」，那 0.3 s 里灯**仍然是白的**（只是越来越淡）。
-            CurrentLight = _actingA > 1e-4f ? Light.Acting
+            // 🔴 2026-11-02（`B117-G10-09`）：加 `|| _acting` —— 白层现在的淡入**起点是 0**
+            //   （原版 `OnTouchUpAsButton` 先 `HideActingLight()` 再 `DOFade(1,…)`，见 `SetActing` 的 doc）
+            //   ⇒ 只看 `_actingA` 的话，补间起步那一帧会退成 `Available`/`Pressed`。
+            CurrentLight = (_acting || _actingA > 1e-4f) ? Light.Acting
                          : _pressed ? Light.Pressed
                          : (ShownTargets > 0 ? Light.Available : Light.None);
 
-            if (_light != null)
-            {
-                Color c;
-                switch (CurrentLight)
-                {
-                    case Light.Acting:
-                        c = LightActing;
-                        c.a = _actingA;              // 白层的 α 由补间说了算（0.392 → 1 淡入 / → 0 淡出）
-                        break;
-                    case Light.Pressed: c = LightPressed; break;
-                    case Light.Available: c = LightAvailable; break;
-                    default: c = new Color(0, 0, 0, 0); break;
-                }
-                _light.SetTint(WithAlpha(c, Alpha));
-            }
+            // 🔴 2026-11-02（`B117-G10-09`）：`_light` 的 tint 改由 `ComposeLightTint()` 算 ——
+            //   原版那是**三层独立的 Image 叠放**，⛔ 不是「三选一」（判据 → `ComposeLightTint` 的 doc）。
+            if (_light != null) _light.SetTint(ComposeLightTint());
 
             if (_bg != null) _bg.SetTint(WithAlpha(BgColor, Alpha));
             if (_name != null) _name.SetColor(WithAlpha(NameColor, Alpha));
@@ -1691,7 +1720,14 @@ namespace CardPresentation
             // 🆕 2026-10-20（`T09` A3-e）：原版 `FadeOut` 一进来就把捕获区 `SetActive(false)`（`FadeOut.c` 0x20），
             //   而且 `beingDisplayed = false` ⇒ 淡出期间的点击**不算**。同构：这里就把输入层整组关掉。
             SetInputEnabled(false);
+            // 🆕 2026-11-02（`B117-G10-09`）：原版 `FadeOut` 在淡出**一开始**就 `pressingLight.SetActive(false)`
+            //   （`ActiveSkillDisplay__FadeOut.c:40-56`）⇒ 蓝层不等补间、当场熄。我们这里清 `_pressed`
+            //   （`ApplyColors` 随即把它从 tint 里拿掉）；原版 `FadePower` 的 `HideActingLight` 由 `FadeTo` 承担。
+            _pressed = false;
             FadeTo(0f, FadeOutTime);        // 原版 `fadeTime × 0.5` = 0.1 s（⛔ 不是 0.2）
+            // 立刻生效一次：`FadeTo` 的补间只改 `Alpha`（批处理 Manual 档下要 `Step` 才动），
+            // 而原版这两层是**当场** `SetActive(false)` / α 清 0 的 ⇒ 别等补间第一帧。
+            ApplyColors();
         }
 
         /// <summary>
@@ -1728,6 +1764,13 @@ namespace CardPresentation
         void FadeTo(float target, float duration)
         {
             if (!_built) return;
+            // 🔴 2026-11-02（`B117-G10-09`）：原版 `FadePower`（`__FadePower.c:20`）与 `SetAlpha`（`__SetAlpha.c:11`）
+            //   **第一件事都是 `HideActingLight()`** —— 杀 acting 补间 + `SetSpriteAlpha(actingLight, 0)`。
+            //   `FadeIn` / `FadeOut` 都经 `FadePower` ⇒ **面板整体淡入淡出时白层一定先熄**。
+            //   改前我们只压 `Alpha`、白层跟着一起淡 ⇒ 收起那 0.1 s 里还会看到一层白（原版没有）。
+            _acting = false;
+            if (_actingFade != null) { _actingFade.Kill(); _actingFade = null; }
+            _actingA = 0f;
             if (_fade != null) _fade.Kill();
             _fade = DOTween.To(() => Alpha, SetAlpha, target, duration)
                            .SetUpdate(CardTween.Mode)
@@ -2257,5 +2300,79 @@ namespace CardPresentation
         {
             return string.IsNullOrEmpty(activeAbilityTextReferenceId) ? uniqueId : activeAbilityTextReferenceId;
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B117-G10-09`）：**三层色片按原版【叠放】复合**（⛔ 不是「三选一」）
+        //  ───────────────────────────────────────────────────────────────────────────────────────────
+        //  判据（🥇 prefab 原件，13 个战场场景逐值相同；现读 `Battle Arena 1.unity`）：
+        //    · `ActiveSkillDesc`(RT `2911`) 的 `m_Children` = `HideAbilityButton(2860)` ·
+        //      `AbilityContainer(3128)` · **`Lights(3121)`** · `TargetsAvailableText(2625)`；
+        //      `Lights` 自己的 `m_Children` = **`LightActing(3000)` · `LightAvailable(2771)` · `LightPressed(2606)`**
+        //      ⇒ **画序（从底到顶）= Acting → Available → Pressed**；
+        //    · 三层都是 `aMin(0,0) / aMax(1,1)`、`sd (0,0)`、`ap (0,0)` ⇒ **同一块矩形完全重叠**
+        //      （= `LightRect`），所以可以合成**一个** tint 再交给单件 `_light` 画；
+        //    · 三颗 Image 的 `m_Color`（现读 `Image 4313/4521/4225`）：
+        //      `LightActing = (1,1,1,0.392)` · `LightAvailable = (0.9254298,1,0,0.392)` ·
+        //      `LightPressed = (0.006026745,0,1,0.392)`；`m_RaycastTarget = 0`（三颗）。
+        //  判据（🥇 反编译，谁开谁关）：
+        //    · `SetupActiveSkill.c:141-148` 只动 `bgLight`（= Available）：`SetActive(CanUseActiveAbility(...))`；
+        //    · `ClickDown.c:41-46` 只动 `pressingLight`（= Pressed）：`SetActive(true)`；
+        //      `OnTouchUpAsButton.c:22-30` / `OnTouchExit.c` / `PointerExit.c` / `FadeOut.c:40-56` 把它 `SetActive(false)`；
+        //    · `ShowActingLight.c` / `OnTouchDrag.c` 只动 `actingLight`（= Acting）；`HideActingLight.c` 把它的 α 清 0。
+        //    ⇒ **没有任何一处**在点亮某一层时把别的层关掉 ⇒ 三层**可以同时可见、按 `SrcAlpha OneMinusSrcAlpha` 叠加**。
+        //    我们原来按 `CurrentLight` **三选一**（只画最上面那一层）⇒ 同时命中两层时颜色明显不同
+        //    （例：可用 + 按下 ⇒ 原版 ≈ 0.775 α 的灰蓝，我们只有 0.392 的纯蓝）。
+        //  判据（面板整体淡入淡出动了哪几件）：`FadePower.c:20-42` / `SetAlpha.c:40-49` 的**六件**是
+        //    `cardFrame(+0x28)` · `manaIcon(+0x60)` · **`bgLight(+0x30)`** · `nameText(+0x48)` · `descText(+0x58)` · `costText(+0x50)`
+        //    ⇒ **只有 Available 那一层吃面板 `Alpha`**；`actingLight(+0x38)` / `pressingLight(+0x40)` **不在里面**。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>按原版**叠放次序**把三层色片合成一个 tint（`_light` 只有一件，这样与三件叠画等价）。
+        /// <para>次序 = `Lights.m_Children` 从底到顶：**Acting → Available → Pressed**。
+        /// 每层 α：Acting = `_actingA`（补间值）· Available = `0.392 × Alpha`（唯一吃面板 α 的那一层）·
+        /// Pressed = `0.392`（不吃面板 α）。</para>
+        /// <para>⚠️ `CurrentLight`（三选一）**不影响**这里 —— 它只回答「最上面那层是谁」，给自检读。</para></summary>
+        Color ComposeLightTint()
+        {
+            var acc = new Color(0f, 0f, 0f, 0f);                  // 透明底
+            if (_actingA > 1e-5f) acc = OverLayer(LightActing, _actingA, acc);
+            if (ShownTargets > 0) acc = OverLayer(LightAvailable, LightAvailable.a * Mathf.Clamp01(Alpha), acc);
+            if (_pressed) acc = OverLayer(LightPressed, LightPressed.a, acc);
+            return acc;
+        }
+
+        /// <summary>`src` 以 α <paramref name="a"/> 叠在 `dst` 之上（**直通 alpha 的 over 合成**，
+        /// 与 uGUI 的 `Blend SrcAlpha OneMinusSrcAlpha` 逐位等价）。
+        /// <para>⚠️ 返回的是**直通 alpha**（rgb 未预乘）—— `Image.color` 就是这个口径，⛔ 别返回预乘值。</para></summary>
+        static Color OverLayer(Color src, float a, Color dst)
+        {
+            a = Mathf.Clamp01(a);
+            float outA = a + dst.a * (1f - a);
+            if (outA <= 1e-6f) return new Color(0f, 0f, 0f, 0f);
+            float k = dst.a * (1f - a);
+            return new Color((src.r * a + dst.r * k) / outA,
+                             (src.g * a + dst.g * k) / outA,
+                             (src.b * a + dst.b * k) / outA,
+                             outA);
+        }
+
+        // ── 🆕 2026-11-02（`B117-G10-09`）：断言口（只读；⛔ 生产路径不经过）────────────────────────
+        /// <summary>`Lights` 那件（tint 读回用；世界档/画布档都是同一件）。</summary>
+        public HudPiece LightForTest { get { return _light; } }
+        /// <summary>费用图标那件 —— **恒为 `null`**（原版 `CostIcon` 13/13 `m_IsActive: 0`，见 `BuildWorld` 的订正）。</summary>
+        public HudPiece ManaIconForTest { get { return _manaIcon; } }
+        /// <summary>acting 白层当前 α（0~1）。</summary>
+        public float ActingAlphaForTest { get { return _actingA; } }
+        /// <summary>acting 标志位（`ShowActingLight` 之后为真，直到 `FinishActing` 走完 / 面板淡入淡出）。</summary>
+        public bool ActingFlagForTest { get { return _acting; } }
+        /// <summary>`_pressed`（蓝层）标志位。</summary>
+        public bool PressedForTest { get { return _pressed; } }
+        /// <summary>原版 `LightAvailable` / `LightPressed` / `LightActing` 的**序列化值**（只读口，
+        /// 给断言当「我们没跑偏」的旁证；⚠️ 期望值仍应取**原版 prefab 字面量**，⛔ 别反过来读这里）。</summary>
+        public static Color LightAvailableColor { get { return LightAvailable; } }
+        /// <inheritdoc cref="LightAvailableColor"/>
+        public static Color LightPressedColor { get { return LightPressed; } }
+        /// <inheritdoc cref="LightAvailableColor"/>
+        public static Color LightActingColor { get { return LightActing; } }
     }
 }

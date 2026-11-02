@@ -685,7 +685,7 @@ namespace CardPresentation
             // 🆕 **2026-10-20（A3-e）**：这七颗在原版是 **`m_RaycastTarget = 1`**（`MB_4073` / `4118` / `4646` /
             //    `4901` / `4098` / `5236` / `4475`，全部 pad 0）⇒ 画布档显式打开（**零处理器**：挡射线、不响应）。
             //    ⚠️ 我们的 TMP 只占文字 bbox（见文件头），挡射线的那块比原版节点 rect 小。
-            BlockRaycasts(Txt(nameRow, NameRowR, NameLabelR, LocOr(NameLabelTerm, NameLabelEn), Color.white,
+            BlockRaycasts(_nameLabelLb = Txt(nameRow, NameRowR, NameLabelR, LocOr(NameLabelTerm, NameLabelEn), Color.white,
                               "PlayerLabel", NameLabelPx, Label.VAlign.Capline, face: TmpFont.Face.LatinUi));
             // ⚠️ **只有这一颗**原版 `m_fontSizeMax` 是 **40**（其余六颗都是 35）⇒ 显式给上限，⛔ 别一刀切
             _nameLb = Txt(nameRow, NameRowR, NameTextR, "", Color.white, "Name Text", NameTextPx,
@@ -693,7 +693,7 @@ namespace CardPresentation
             BlockRaycasts(_nameLb);
 
             _titleHolder = Node(_root, RootR, "TitleHolder", TitleRowR, QText);
-            BlockRaycasts(Txt(_titleHolder, TitleRowR, TitleLabelR, LocOr(TitleLabelTerm, TitleLabelEn),
+            BlockRaycasts(_titleLabelLb = Txt(_titleHolder, TitleRowR, TitleLabelR, LocOr(TitleLabelTerm, TitleLabelEn),
                               Color.white, "TitleLabel", TitleLabelPx, Label.VAlign.Capline,
                               face: TmpFont.Face.LatinUi));
             _titleLb = Txt(_titleHolder, TitleRowR, TitleTextR, "", Color.white, "Title Text", TitleTextPx,
@@ -711,7 +711,7 @@ namespace CardPresentation
             //  ⚠️ 组里的 `Alliance Badge Drawer/{Frame,Badge}` 两张图 `m_Sprite` 也是 `0`（`AllianceBadgeDrawer.Draw`
             //     运行期灌）⇒ 🆕 **2026-10-28（B88-B7 · 账 187③）：这两层现在建了**（原版第 3 子件，见下）。
             _allianceGo = Node(_root, RootR, "Alliance", AllianceGroupR, QText);
-            BlockRaycasts(Txt(_allianceGo, AllianceGroupR, AllianceLabelR, LocOr(AllianceLabelTerm, AllianceLabelEn),
+            BlockRaycasts(_allianceLabelLb = Txt(_allianceGo, AllianceGroupR, AllianceLabelR, LocOr(AllianceLabelTerm, AllianceLabelEn),
                               Color.white, "Alliance Label", AllianceLabelPx, Label.VAlign.Capline,
                               face: TmpFont.Face.LatinUi));
             _allianceLb = Txt(_allianceGo, AllianceGroupR, AllianceNameR, "", Color.white, "Alliance Name",
@@ -724,12 +724,12 @@ namespace CardPresentation
             //   （`AllianceBadgeDrawer__Draw.c`：徽章取不到 ⇒ `get_DefaultTrophy()`）；
             //   有真 id 时由 `Apply(..., badgeId, tier)` 换图（⛔ 不再重建节点）。
             var badgeGo = Node(_allianceGo, AllianceGroupR, "Alliance Badge Drawer", AllianceBadgeDrawerR, QAvatar);
-            _allyBadgeFrame = Img(badgeGo, AllianceTrophyArt.GetTierFrame(1), AllianceBadgeDrawerR, AllianceGroupR,
-                                  "Frame", QAvatar, null, true);
-            if (_allyBadgeFrame == null) Node(badgeGo, AllianceGroupR, "Frame", AllianceBadgeDrawerR, QAvatar);
-            _allyBadge = Img(badgeGo, AllianceBadgeArt.Get(null), AllianceBadgeDrawerR, AllianceGroupR,
-                             "Badge", QAvatar + 1, null, true);
-            if (_allyBadge == null) Node(badgeGo, AllianceGroupR, "Badge", AllianceBadgeDrawerR, QAvatar + 1);
+            // 🔴 两件都要 ① `parentR` = **抽屉自己的 rect**（画布档 `LocalIn` 是「相对父**中心**」；原来传 `AllianceGroupR` ⇒ 又把抽屉那 (−197.45,+8.97) 叠了一次、徽章整块飞出抽屉。世界档不吃这个实参 ⇒ 只有画布档错）；
+            //    ② `Frame` pivot **(0,0)** / `Badge` pivot **(0,0.5)** ⇒ 收窄后**贴左边**（见类尾 `PivotFit`；恒居中会各偏右 4.301 px）。
+            var frameTex = AllianceTrophyArt.GetTierFrame(1); var frameR = PivotFit(frameTex, AllianceBadgeDrawerR, 0f, 0f);
+            _allyBadgeFrame = Img(badgeGo, frameTex, frameR, AllianceBadgeDrawerR, "Frame", QAvatar, null); if (_allyBadgeFrame == null) Node(badgeGo, AllianceBadgeDrawerR, "Frame", AllianceBadgeDrawerR, QAvatar);
+            var badgeTex = AllianceBadgeArt.Get(null); var badgeR = PivotFit(badgeTex, AllianceBadgeDrawerR, 0f, 0.5f); _allyBadge = Img(badgeGo, badgeTex, badgeR, AllianceBadgeDrawerR, "Badge", QAvatar + 1, null);
+            if (_allyBadge == null) Node(badgeGo, AllianceBadgeDrawerR, "Badge", AllianceBadgeDrawerR, QAvatar + 1);
             // 🆕 2026-10-19（`R01`）：`Alliance Rating Display` —— 原版 `Alliance` 组的**第 4 个子件**
             //  （我们原来排第 3，因为 `Alliance Badge Drawer` 没建；2026-10-28 起本件补上 ⇒ 恢复第 4）。
             //  ⚠️ 原版只在**联盟名非空**时 `Initialize` 这一格（`BattleAlliancePanel__Open.c` 的 `if (bVar9)` 支）
@@ -742,7 +742,7 @@ namespace CardPresentation
                           new Color(1f, 1f, 1f, NotInAllianceAlpha), "NotInaAllianceText",
                           NotInAlliancePx, Label.VAlign.Midline, face: TmpFont.Face.LatinUi);
             BlockRaycasts(msg);            // 原版 `MB_4475` rt=1（见文件头那一节）
-            _notInAlliance = msg != null ? msg.transform : null;
+            _notInAllianceLb = msg; _notInAlliance = msg != null ? msg.transform : null;
 
             // 🆕 2026-10-19（`R01`）：两格评级的**数值/活动图标**在远端 ⇒ 出厂空态 + **出声一次**（⛔ 不静默）
             WarnRatingOnce();
@@ -1117,7 +1117,7 @@ namespace CardPresentation
                     else Debug.LogWarning("[AlliancePanel] 头像立绘节点建不出来（`Img` 返回 null）—— 如实说，不静默");
                 }
             }
-            if (_nameLb != null) _nameLb.SetText(playerName ?? "");
+            if (_nameLb != null) _nameLb.SetText(playerName ?? ""); RefreshStaticLabels();
             bool hasTitle = !string.IsNullOrEmpty(title);
             if (_titleHolder != null) _titleHolder.gameObject.SetActive(hasTitle);
             if (_titleLb != null) _titleLb.SetText(title ?? "");
@@ -1309,7 +1309,7 @@ namespace CardPresentation
             //    🆕 2026-10-19（`R01`）两处评级的 `Individual rating value` 原版是 **`折行=1`** ⇒ 传 `wrap: true`。
             //    ⚠️ `SetAutoFitBox` 内部会**无条件**开成 `Normal` ⇒ 这里必须显式回写调用方那一档。
             lb.SetWrapping(wrap);               // ⓪ 原版折行档（见上）
-            lb.SetAlignLeft();                  // ① 逐行左对齐（真折行时才看得见）
+            lb.SetAlignLeft();                  if (_ugui) lb.AlignTmpPivotToAnchor();   // ① 逐行左对齐（真折行时才看得见）｜🔴 **`B117-29`（2026-11-02）**：画布档再把 TMP 子节点枢轴钉成 `anchor=(0,0.5)` —— 量不到尺寸（空文本 / 未激活）时左锚标签整块不会再偏半个框宽（判据 → `Label.AlignTmpPivotToAnchor`）；世界档**不接**（它没有 `SetAutoFitBox` 的矩形、量不到时 `sizeDelta` 恒 0，改了零收益）
             // ② 垂直档（⚠️ 必须排在 ① 后面：`Left` 自带 V=Middle）。框高两个单位的换算是**两个口**
             //    （世界档走 `MenuDraw.SetVAlign` 折 ÷108；画布档直接给设计 px），⛔ 别互相套用。
             if (_ugui) lb.SetVAlign(v, r.H);
@@ -1413,6 +1413,46 @@ namespace CardPresentation
         //   ⚠️ 追加在**类尾**（铁律：新成员别插在已有成员之间 —— 会让下游账的落点整体漂）。
         HudPiece _allyBadgeFrame;              // `Frame`（`Alliance_Trophies_TIER1..4`）
         HudPiece _allyBadge;                   // `Badge`（`Alliance_Trophies_<阵营>`，见 `AllianceBadgeArt`）
+        // 🆕 2026-11-02（`B117-G10-05`）：四颗**静态标签**的引用（⛔ 不是数据）——
+        //   `Name:` / `Title:` / `Alliance:` 三颗原版身上挂 `Localize`（换语言由 I2 自动换词），
+        //   `NotInaAllianceText` 是**每次 `Open` 现取** `GetTranslation(...)`（`BattleAlliancePanel__Open.c`
+        //   那个 `else` 支）⇒ 本扇窗只 `Build` 一次，战斗内设置里换语言后重开面板必须跟着换，
+        //   `Apply` 每次重落一遍（见类尾 `RefreshStaticLabels`）。
+        Label _nameLabelLb, _titleLabelLb, _allianceLabelLb, _notInAllianceLb;
+
+        /// <summary>把四颗**静态文案**按当前语言重落一遍（`Apply` 每帧的 `Open` 走一次）。
+        /// <para>判据：① 三颗标签原版带 `Localize` 组件（`menu_dump` 的 `PlayerLabel` / `TitleLabel` /
+        /// `Alliance Label` 都是 `EverguildTextMeshPro,Localize`）；② `NotInaAllianceText` 在
+        /// `BattleAlliancePanel__Open.c` 的「无联盟」支里**每次都** `GetTranslation("Battle/AlliancePanel/NotInAlliance")`。
+        /// ⚠️ 语言切换发生在**面板关着**的时候（开着时它模态、玩家点不到设置窗）⇒ 重开时重落 = 与原版同观感。</para>
+        /// <para>⚠️ 取词走既有 `LocOr`（三档兜底 → prefab 英文原文），⛔ 别在这里另写一份回落表。</para></summary>
+        void RefreshStaticLabels()
+        {
+            if (_nameLabelLb != null) _nameLabelLb.SetText(LocOr(NameLabelTerm, NameLabelEn));
+            if (_titleLabelLb != null) _titleLabelLb.SetText(LocOr(TitleLabelTerm, TitleLabelEn));
+            if (_allianceLabelLb != null) _allianceLabelLb.SetText(LocOr(AllianceLabelTerm, AllianceLabelEn));
+            if (_notInAllianceLb != null) _notInAllianceLb.SetText(LocOr(NotInAllianceTerm, NotInAllianceEn));
+        }
+
+        /// <summary>原版 `Image` 在 `m_PreserveAspect = 1` 下的**真实画框** —— uGUI
+        /// `Image.PreserveSpriteAspectRatio` 收窄之后**按 pivot 偏移**（`rect.x += (oldW − w) × pivot.x` ·
+        /// `rect.y += (oldH − h) × pivot.y`，`rect.y` 是**下边**），⛔ **不是**恒居中。
+        /// <para>本仓同族口径 → `普查产出_0927/PA普查_五块汇总.md:25-26`（Unity 按 pivot 偏移 / `MenuDraw.Rect` 恒居中）；
+        /// 先例 = 活状态表 `B117-R12`（顶栏图标低 3 px，根因同一条）。</para>
+        /// <para>⚠️ 本函数**只给本扇窗那两件**（`Frame` pivot (0,0) · `Badge` pivot (0,0.5)）用；
+        /// 其余 `keepAspect` 件 pivot 都是 (0.5,0.5) ⇒ 居中就是对的，⛔ 别顺手改它们。</para>
+        /// <para>`pivotY` 是 **uGUI 的 y 向上口径**（0 = 下边）；本文件 `PxRect` 是 y 向下 ⇒ 这里已翻过。
+        /// 贴图比例取 `tex.width/height`（`m_Sprite` 在 prefab 里是 null，运行期灌的就是整张图）。</para></summary>
+        static PxRect PivotFit(Texture2D tex, PxRect box, float pivotX, float pivotY)
+        {
+            if (tex == null || tex.width <= 0 || tex.height <= 0) return box;
+            float ratio = (float)tex.width / tex.height, boxRatio = box.W / box.H;
+            float w = box.W, h = box.H;
+            if (ratio > boxRatio) h = box.W / ratio; else w = box.H * ratio;
+            float x1 = box.x1 + (box.W - w) * pivotX;
+            float y1 = box.y1 + (box.H - h) * (1f - pivotY);   // uGUI 的 rect.y 是下边 ⇒ y 向下要反过来
+            return new PxRect(x1, y1, x1 + w, y1 + h);
+        }
     }
 
     // ============================================================ 入口（✅ 2026-10-18 · A985③ 已接）

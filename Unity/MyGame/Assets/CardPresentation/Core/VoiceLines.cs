@@ -143,11 +143,11 @@ namespace CardPresentation
             Debug.Log($"[VoiceLines] 语音表已载入：{_byId.Count} 张卡 / {n} 条台词（{ResourcePath}.json）");
         }
 
-        /// <summary>这张卡有没有语音（自检/报表用）</summary>
+        /// <summary>这张卡有没有语音（自检/报表用）。🔴 2026-11-02（`B117-18` · `B117-WGB`）：判据 = 原版 `RawCardScript.GetAvailableSounds()` 非空 ⇒ **至少一条卡 SO 归属行**（`IsSoAttributed`）；`src` 空 / `orphan` 的孤儿行不算 —— 全表只有 `ASH15` 是这一档。判据细节与落点理由见**类尾** `HasSoRow`。</summary>
         public static bool Has(string cardId)
         {
             EnsureLoaded();
-            return cardId != null && _byId != null && _byId.ContainsKey(cardId);
+            return !string.IsNullOrEmpty(cardId) && _byId != null && HasSoRow(cardId);
         }
 
         // ==================================================================
@@ -919,5 +919,29 @@ namespace CardPresentation
             return clip;
         }
         static readonly HashSet<string> _missingLogged = new HashSet<string>();
+
+        // ==================================================================
+        //  🔴 2026-11-02（`B117-18` · 执行代理 `B117-WGB`）：`Has` 的判据本体
+        // ==================================================================
+        //  判据（第一权威，亲读）：`d:/2/tools/decomp_full/CardDisplayWindow__SetCardVoiceOver.c`
+        //   → `RawCardScript__GetAvailableSounds.c`：把 `defaultChatSound` + 11 个 `*ChatSound`
+        //   + `summon/attack/deathAudio` 逐个收进列表 → `Where(clip != null)` → 末尾 `SetActive(0 < Count)`。
+        //   ⇒ **卡 SO 一条都没指 ⇒ 列表空 ⇒ 语音钮根本不建**（不是「建了但灰色的」）。
+        //  我们的等价判据 = 「这张卡至少有一条 `IsSoAttributed` 行」（`so` 非空 或 `src == "cardSO"`），
+        //  与 `TryPick` 的 `soOnly` 是**同一份**判定（⛔ 别在这儿写第二套）。
+        //  ⚠️ 为什么放类尾：`Has` 那一段（`:147` 附近）之后还有 **6 条账落点**
+        //     （`:423` / `:428` / `:433` / `:437` / `:655` / `:686`）—— 在 `Has` 里展开写会整体漂移。
+        //  ⛔ 别改回「表里有这张卡就算有」：`ASH15` 唯一的 `deploy` 行是**按名字猜的孤儿行**（`src` 空），
+        //     改前详情窗会显示语音钮、点下去播 `VO_CW_SaimHann_Howling Banshee - Shriek.ogg`，
+        //     而原版对这张卡（卡 SO 15 个音频字段全空）是**隐藏**的。
+        //  ⛔ 也别去改 `voice_lines.json`：那条行 `src` 留空是生成器 `工具/import_original_audio.py` 的**正确标法**。
+        static bool HasSoRow(string cardId)
+        {
+            if (_byId == null) return false;
+            Card c;
+            if (!_byId.TryGetValue(cardId, out c) || c.lines == null) return false;
+            for (int i = 0; i < c.lines.Count; i++) if (IsSoAttributed(c.lines[i])) return true;
+            return false;
+        }
     }
 }

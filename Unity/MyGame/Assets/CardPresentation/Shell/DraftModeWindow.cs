@@ -1383,12 +1383,12 @@ namespace CardPresentation
                 var content = MenuDraw.Node(node, "Content", slotR);
 
                 // 卡面（原版 `BasicCardUI` 的 `2DCard`）：**视觉** 386.60×615.42，左上角 = 格视觉框 + (13.1,−19.6)
-                // —— 见 `WlCardBodyH` / `WlCardOff` 那两段（2026-10-24 订正：原版是 386.6×615.42，不是 472×751.4）。
+                // —— 见 `WlCardBodyH` / `WlCardOff` 那两段（2026-10-24 订正：原版是 386.6×615.42，不是 472×751.4）。🆕 2026-11-02（`B117-WCARDTIER`）：**这一格必须传 `CardUse.Booster`** —— `assets_full/bundle_menus_assets_all` 的 `Draft Mode Menu Demo/Draft Mode Select Warlord State/Generic Card Selector Menu/Viewport/Content/Generic Select Card Container/Content/CardUI` 逐节点现读：卡名 `16.3/max 20` · 效果 `19/19` · 兵种 `17/17` · 阵营 `17/17`（标准档是 `19/19` · `23.55/24` · `18/18` · `15/15`）。⚠️ 同一扇窗的另两格**不是**这一档：`CardUI Reference`（包预览）= 标准档、`CardUI-Warlord`（右栏）= 标准档 ⇒ ⛔ 别一起套。判据全文 → `资料/完全复刻/判据/B117-WCARDTIER_开包卡档与点击.md`。
                 float cardScale = WlCardBodyH / (CardView.Height * 108f);
                 float cardW = WlCardBodyH * (CardView.Width / CardView.Height);   // 386.60（卡本体宽高比 = 原版 2DCard）
                 var cardR = new PxRect(slotR.x1 + WlCardOff.x, slotR.y1 + WlCardOff.y,
                                        slotR.x1 + WlCardOff.x + cardW, slotR.y1 + WlCardOff.y + WlCardBodyH);
-                var cv = CardView.Create(content, BattleDriver.ToCardData(def, def.Faction), "CardUI");
+                var cv = CardView.Create(content, BattleDriver.ToCardData(def, def.Faction), "CardUI", CardFace.Full, null, CardUse.Booster);
                 bool sel = !string.IsNullOrEmpty(_warlordId) && def.Id == _warlordId;
                 if (cv != null)
                 {

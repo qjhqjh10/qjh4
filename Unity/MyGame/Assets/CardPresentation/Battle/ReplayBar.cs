@@ -47,7 +47,6 @@
 //
 // ---- 原来那段「我们挑的」留痕（已作废，别照它做） ----
 // 🔴 **两处是「我们挑的」，别当成复刻**（原版查不到，见 `资料/战斗UI_原版对账表.md` §三·〇 :129）：
-// ---- 原来那段「我们挑的」留痕（**已作废，别照它做**） ----
 //   ① **什么时候显示** —— 原版哪个模式才出现（观战？回放？）**查不到**；
 //   ② **这四个按钮接什么** —— 原版语义查不到。我们接的是**本局的时间控制**：
 //        Replay = 重开一局（`BattleDriver.Restart`）—— 🔴 **2026-10-16 就地订正（W22 · 铁律 5）**：
@@ -83,6 +82,7 @@
 //     ⛔ 两条路并存 = 点一下做两遍（`T09` §四 R1）。
 //   · `Holder` 的显隐闸**不变**：`Setup(false)` 关 `Holder` ⇒ 四颗 `activeInHierarchy` 为假 ⇒
 //     uGUI 天然收不到射线（原版普通对局里就是关着 —— `ReplayHud.Setup()`）。
+//   · **点击音**（2026-11-02 `B117-G10-16` 现读）：四颗 `EverguildButton` 逐颗 `m_onClickSound = null` + `useDefaultAudioClipIfNull = 1`（`battlearena2` MB **5394 / 4306 / 4916 / 5483**）⇒ 原版点它们**都响** `SoundManager.defaultButtonSound` = 我们的 `WindowSounds.DefaultButtonCue`（cue `ButtonClick`）⇒ `BindClick` **必须带 cue**（⛔ 两参 `Attach` = 静音，与"原版没有这一声"混淆）。
 using System;
 using UnityEngine;
 
@@ -258,7 +258,7 @@ namespace CardPresentation
                 Debug.LogError($"[ReplayBar] `{which}` 这一枚没建出来 ⇒ 挂不上 uGUI 点击（这一枚点不动）");
                 return;
             }
-            if (BattleHudButton.Attach(piece, () => RaiseClick(which)) == null)
+            if (BattleHudButton.Attach(piece, () => RaiseClick(which), WindowSounds.DefaultButtonCue) == null)
                 Debug.LogError($"[ReplayBar] `{which}` 挂 **uGUI 点击**失败（`BattleHudButton.Attach` 返回 null）"
                              + " ⇒ 这一枚点不动（手搓命中已按 `T09` A4 退场，⛔ 不许静默）");
         }

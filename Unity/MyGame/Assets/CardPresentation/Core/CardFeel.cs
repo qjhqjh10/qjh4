@@ -3491,8 +3491,8 @@ namespace CardPresentation
         //   `CardScript__LandOnGround.c:87-106`），而我们的 `CardEffects.Fire` 钩子**没有 scale 参数**
         //   （`WarpforgeVFX/Runtime/WarpforgeEffectHook.cs` 硬编码 `1f`，那个文件不在本件白名单）⇒ 现在按
         //   prefab 自带尺度播，**多半比原版大**（原版是 0.36 倍）。
-        // · `cardMovementSpeed 10.8` —— 卡的移动速度。⚠️ **用途查不到**：调用点没被反编译，
-        //   拿它算「手牌飞多久」（距离÷速度）会得到 0.12s 这种明显不对的数 —— **别当它是时间基准**
+        // · `cardMovementSpeed 10.8` —— 卡**跟手补间**的系数（🔴 2026-11-02 就地订正：原写「用途查不到、调用点没被反编译」= 不成立）
+        //   判据 = `CardScript__SetCardMovement.c`：`pos += (target − pos) × (卡 +0x2E8 × dt)`、**不 clamp**（`B117-GB` GB-3）⛔ 别当时间基准
         // · ~~`meleeHitCameraShakePreset`（amplitude 2.0）—— 挨打震镜头；要做得先决定
         //   2D 战场怎么表达 3D 的相机抖动（动相机？动整个背景 quad？）~~ —— ✅ **2026-09-17 已接上**：
         //   见上面「① 挨打震镜头」那一节与 `ShakeCamera`。原版问的那个问题**原版自己有答案**：

@@ -17,6 +17,19 @@
 //     换图是**瞬时**的（UGUI `SpriteSwap` 没有补间）。
 //   · 原版**没有** `Animation`/Animator/缩放反馈（全库 0 颗；同普查 §1·1）⇒ ⛔ 别加缩放。
 //
+// 🔴🔴 **2026-11-02（`B117-G10-03`）新取的三条判据**（逐颗现读 `Battle Arena 1.unity` 的 39 颗 `EverguildButton`）：
+//   ① **禁用档有【两族 α】**：`colorTintGreyOnDisable = 1`（33/39）那族运行时 `m_DisabledColor.a = 1`
+//      （19/19 颗 ColorTint 逐颗核过，见 `DisabledOpaque` 的 doc）；`grey = 0` 的 4 颗 ColorTint 才是 0.502
+//      （见 `Disabled` 的 doc）。⇒ **`Tint(...)` 的缺省已改成 α 1.0**，0.502 那一档要显式传。
+//   ② **禁用 ⇒ 还要换灰化材质**（`EverguildButtonHelper.DoMaterialRefresh` → `Everguild/UI/Greyscale`），
+//      与 colorTint **同时**生效 ⇒ 见类尾「变灰」那一节。这一条原来是**完全没做**的。
+//   ③ **点击音**：`EverguildButton.OnPointerClick` 里 `m_onClickSound` 有 clip 就播它、否则
+//      `useDefaultAudioClipIfNull`（37/39 = 1）播 `SoundManager.defaultButtonSound`。**逐颗表**：
+//        · 用自己的 cue 4 颗：`Generic Close Button` / `Auto Zoom Toggle` / `ChatToggle` / `Resign Button`；
+//        · **静音 2 颗**（`useDefaultAudioClipIfNull = 0` 且无 cue）：**`Voice Over Button` · `Continue Button`**；
+//        · 其余 33 颗 = 默认按钮音（我们 `WindowSounds.DefaultButtonCue` = cue `ButtonClick`）。
+//      ⚠️ 我们的点击口在 `Battle/BattleHudButton.cs`（本文件不管点击）—— 那一侧的接口见它的 `clickCue`。
+//
 // 🔴 **2026-10-19（B4）**：本件只是**状态机 + 写色/换图**；命中判定仍在各面板自己那一份
 // （`HitPaddedRect` / `WfSlider.InUnion` / `MulliganPanel.HitDone` …）—— ⛔ 别在这里另写一套命中。
 // 宿主每帧喂 `SetHover/SetPressed`（按下 = 悬停 且 指针按着），并在 Play 里每帧 `Tick()`。
@@ -33,7 +46,24 @@ namespace CardPresentation
         public static readonly Color Highlighted = new Color(0.9607843f, 0.9607843f, 0.9607843f, 1f);
         public static readonly Color Pressed = new Color(0.7843137f, 0.7843137f, 0.7843137f, 1f);
         public static readonly Color Selected = new Color(0.9607843f, 0.9607843f, 0.9607843f, 1f);
+        /// <summary>uGUI **默认** `m_DisabledColor`（α 0.502）—— 只有 `colorTintGreyOnDisable = 0` 那一族用它。
+        /// 判据（2026-11-02 `B117-G10-03` 现读 `Battle Arena 1.unity`，39 颗 `EverguildButton` 逐颗）：
+        /// **`grey = 0` 的 4 颗 ColorTint 全是 α 0.502**（`Auto Zoom Toggle` · `Select Active Skill Button` ·
+        /// `Select Melee Button` · `Select Range Button`）⇒ 这一档**对**，⛔ 别把它当成所有钮的值。
+        /// ⚠️ **今天 `Tint(...)` 的缺省不走它**，走 <see cref="DisabledOpaque"/>（见那条 doc）。</summary>
         public static readonly Color Disabled = new Color(0.7843137f, 0.7843137f, 0.7843137f, 0.502f);
+        /// <summary>`colorTintGreyOnDisable = 1`（**变灰**）那一族的禁用色 = 同样的 RGB、**α 1.0（不透明）**。
+        /// <para>🔴 **判据（2026-11-02 `B117-G10-03` 现读，两处互相印证）**：
+        /// ① **场景表**：`Battle Arena 1.unity` 的 39 颗 `EverguildButton` 里 `grey = 1 & m_Transition = 1(ColorTint)`
+        /// 共 **19 颗**，序列化 `m_DisabledColor.a` **18 颗 = 1**、1 颗（`Views` pid 4630）序列化写 0.502 但
+        /// `colorTintGreyOnDisableAlpha = 1` ⇒ **19/19 运行时 α = 1**；
+        /// ② **机制**：`decomp_full/EverguildButton__Awake.c` 在 `grey != 0 && m_Transition == 1` 时把
+        /// `colorBlock.disabledColor.a` 改写成 **`+0x17C` = `colorTintGreyOnDisableAlpha`**，再 `set_colors`；
+        /// 而 `EverguildButton__.ctor.c` 该字段出厂 = **1.0f**，本场景 39 颗逐颗现读**全是 1**（1 颗写 0）。
+        /// ⇒ 变灰那一族的禁用色是**不透明**的，`α 0.502` 只是 uGUI 出厂值（原版被上面那一跳改掉了）。</para>
+        /// <para>⚠️ `SpriteSwap` 档（`m_Transition = 2`）**根本不看 `m_Colors`** ⇒ 这一档对它们无意义
+        /// （那 14 颗的禁用观感 = `m_DisabledSprite`（全 null ⇒ 回落 Normal）+ 灰化材质）。</para></summary>
+        public static readonly Color DisabledOpaque = new Color(0.7843137f, 0.7843137f, 0.7843137f, 1f);
         /// <summary>原版 `m_Colors.m_FadeDuration`。</summary>
         public const float FadeSeconds = 0.1f;
 
@@ -72,8 +102,12 @@ namespace CardPresentation
             _base = target != null ? target.Tint : Color.white;
         }
 
-        /// <summary>`ColorTint` 族。默认四格 = 原版默认（白 / 0.9608 / 0.7843 / 0.7843-α0.502）。
-        /// 绿开关那一族传 `ToggleNormal/ToggleHighlighted/TogglePressed/ToggleDisabled`。</summary>
+        /// <summary>`ColorTint` 族。默认四格 = 原版默认（白 / 0.9608 / 0.7843 / 0.7843-α**1.0**）。
+        /// 绿开关那一族传 `ToggleNormal/ToggleHighlighted/TogglePressed/ToggleDisabled`。
+        /// <para>🔴 **2026-11-02（`B117-G10-03`）改：禁用档的缺省从 `Disabled`（α 0.502）换成
+        /// <see cref="DisabledOpaque"/>（α 1.0）**。判据 = 本类 `DisabledOpaque` 那条 doc（19/19 颗
+        /// `grey=1` 的 ColorTint 钮运行时 α 都是 1；`Awake` 里那次 `Awake` 改写还用 `+0x17C` 覆盖一次）。
+        /// ⚠️ **只动缺省值，常量一个没删**：需要 `grey = 0` 那一档的调用点显式传 `BattleButtonFx.Disabled`。</para></summary>
         public static BattleButtonFx Tint(HudPiece target, string name = null,
                                           Color? normal = null, Color? highlighted = null,
                                           Color? pressed = null, Color? disabled = null)
@@ -81,7 +115,7 @@ namespace CardPresentation
             if (target == null) return null;
             return new BattleButtonFx(target, name ?? (target.name ?? "fx"), Mode.Tint,
                                       normal ?? Normal, highlighted ?? Highlighted,
-                                      pressed ?? Pressed, disabled ?? Disabled,
+                                      pressed ?? Pressed, disabled ?? DisabledOpaque,
                                       null, null, null);
         }
 
@@ -134,6 +168,10 @@ namespace CardPresentation
             if (_mode == Mode.Swap) { Apply(); return; }
             _targetKey = _disabled ? _d : _pressed ? _p : _hover ? _h : _n;
             if (!Application.isPlaying) { _key = _targetKey; Apply(); }
+            // 🔴 2026-11-02（`B117-G10-03`）：Play 里 `Apply()` 走的是**逐帧 lerp**（颜色要淡），但**灰化材质不淡** ——
+            //   原版 `DoStateTransition` 是**当场**换材质（`DoMaterialRefresh` 没有补间）⇒ 这里即时落一次，
+            //   ⛔ 别等 `Tick()`（那会晚一帧）。`ApplyGray` 幂等（状态没变直接 return）。
+            else ApplyGray(WantGray);
         }
 
         /// <summary>Play 里每帧调（0.1s 逐通道 lerp，与 `WindowButton` 同形）。批处理里幂等。</summary>
@@ -160,6 +198,9 @@ namespace CardPresentation
         void Apply()
         {
             if (_target == null) return;
+            // 🔴 2026-11-02（`B117-G10-03`）：禁用 ⇒ **换灰化材质**（原版 `EverguildButton` 那条，见类尾 `ColorTintGreyOnDisable`）。
+            //    两支（Tint / Swap）都要做 —— 原版那是 `DoStateTransition` 的公共后半段，与 `m_Transition` 无关。
+            ApplyGray(WantGray);
             if (_mode == Mode.Swap)
             {
                 var tex = _disabled ? _nt : _pressed ? (_pt ?? _nt) : _hover ? (_ht ?? _nt) : _nt;
@@ -169,6 +210,99 @@ namespace CardPresentation
             // 原版 `CrossFadeColor` 是**乘**在图形自己的颜色上
             _target.SetTint(new Color(_base.r * _key.r, _base.g * _key.g,
                                       _base.b * _key.b, _base.a * _key.a));
+        }
+
+        // ============================================================================================
+        //  🔴 2026-11-02（`B117-G10-03`）：**变灰**（原版 `EverguildButton.colorTintGreyOnDisable` 那一半）
+        //
+        //  判据链（逐跳实读）：
+        //   ① `decomp_full/EverguildButton__DoStateTransition.c` 末段：
+        //      `flag1 = (state != Disabled) && (softDisabled == 0)` ⇒ `SetToStateActiveOrDisabled(flag1)`
+        //      ⇒ `SwitchMaterial(interactable)` ⇒ `EverguildButtonHelper.DoMaterialRefresh(list, interactable)`；
+        //   ② `EverguildButtonHelper__DoMaterialRefresh.c` 末句 `*(byte*)(modifier + 0x20) = interactable ^ 1;`
+        //      ⇒ 每颗图形件上那颗 `EverguildButtonMaterialModifier.ToogleGreyScale = !interactable`；
+        //   ③ `EverguildButtonMaterialModifier__GetModifiedMaterial.c`：`ToogleGreyScale` 为真时返回
+        //      `EverguildButtonHelper.DisabledMaterial` = **一份静态缓存**的
+        //      `new Material(Shader.Find("Everguild/UI/Greyscale"))`（`EverguildButtonHelper.cs` 属性体）。
+        //   ⇒ **一句话**：禁用 ⇒ 按钮那一组图形件换成同一份灰化材质（**只有一份**，原版就是静态共享的）。
+        //  ⚠️ 与 `colorTint` **同时**生效（那是 `DoStateTransition` 的前半段），⛔ 不是二选一。
+        //  ⚠️ uGUI `Image` 的贴图与颜色由 `CanvasRenderer` 逐件给 ⇒ **一份共享材质在这里也成立**
+        //     （与 `Shell/WindowButton` 给 `ImageQuad` 每颗造一份不同 —— 那一支贴图存在材质上，见那边的 doc）。
+        //  ⛔ 取不到 shader ⇒ **不变灰 + 出声**（同 `WindowButton.RefreshGray`：不拿别的灰顶替）。
+        // ============================================================================================
+
+        /// <summary>原版 `EverguildButton.colorTintGreyOnDisable`（`+0x17A`）—— 「这颗钮到底会不会变灰」的**前置闸**。
+        /// 默认 **true**：`Battle Arena 1.unity` 的 39 颗 `EverguildButton` 里 **33 颗 = 1**（`grey = 0` 只有 6 颗）；
+        /// 本类唯一现役的禁用站点（选牌卡钮 `Generic Simplified UI Button_updated`，
+        /// `bundle_battlesharedresources_assets_all/MonoBehaviour/MonoBehaviour_-5173003275250738388.json`）
+        /// 现读 `colorTintGreyOnDisable = 1` ⇒ 它**该灰**。
+        /// <para>需要不开灰的站点**由调用点显式置 `false`**（判据 = 那一颗自己的 prefab 字段，⛔ 别按族推）。</para></summary>
+        public bool ColorTintGreyOnDisable = true;
+
+        /// <summary>该灰了吗（原版那两条路合成的那一个布尔：`interactable == false` ⇒ 灰）。</summary>
+        bool WantGray { get { return ColorTintGreyOnDisable && _disabled; } }
+
+        /// <summary>现在**真的**灰着吗（取不到 shader 时仍是 `false` —— 那是「想灰没灰成」，见 `GrayShaderMissingForTest`）。</summary>
+        public bool GrayedForTest { get { return _grayOn; } }
+
+        /// <summary>这一颗**想要灰但取不到 shader**（自检要能把它抓出来：静默不变灰是最坏的一档）。</summary>
+        public bool GrayShaderMissingForTest { get { return _grayAskedButUnavailable; } }
+
+        bool _grayOn;
+        bool _grayAskedButUnavailable;
+        Material _savedMat;
+
+        static Material _grayMat;                       // 原版 `EverguildButtonHelper.disabledMaterial`：**全局一份**
+        static bool _saidNoGrayShader;
+
+        /// <summary>原版那张灰化 shader 的内部名 —— **不另写一份字面量**，取 `Shell/WindowButton` 那处唯一出处
+        /// （它自己是从 `EverguildButtonStateFollower.EVERGUILD_UI_GREYSCALE` 实读的；⛔ 别在这里抄第三个副本）。</summary>
+        const string GrayShaderName = WindowButton.GrayShaderName;
+
+        void ApplyGray(bool on)
+        {
+            if (on == _grayOn) return;
+            if (_target == null || !_target.IsUgui)
+            {
+                // 世界空间件（`ImageQuad`）：本类**不换**它的材质 —— 那一族的灰化归 `Shell/WindowButton`
+                // （每颗一份材质、贴图存在材质上，见 `ImageQuadMaterialModifier` 文件头）。如实出声，不假装做了。
+                if (on) Debug.LogWarning("[BattleButtonFx] `" + _name + "` 是世界空间件（`ImageQuad`）⇒ "
+                                       + "**本类不换它的灰化材质**（那一支归 `WindowButton`）；这一颗禁用时只会变色、不会变灰");
+                return;
+            }
+            if (on)
+            {
+                if (!EnsureGrayMaterial()) { _grayAskedButUnavailable = true; return; }
+                _savedMat = _target.Material;                // uGUI：没设过时这里拿到的是**默认 UI 材质**（不是 null）
+                _target.SetMaterial(_grayMat);
+                _grayOn = true;
+            }
+            else
+            {
+                _target.SetMaterial(_savedMat);              // 原样还回去（与 `WindowButton.RefreshGray` 同一语义）
+                _grayOn = false;
+            }
+        }
+
+        static bool EnsureGrayMaterial()
+        {
+            if (_grayMat != null) return true;
+            Shader sh;
+            if (!WarpforgeVFX.WarpforgeShaderLoader.TryGetShader(GrayShaderName, out sh) || sh == null)
+            {
+                if (!_saidNoGrayShader)
+                {
+                    _saidNoGrayShader = true;
+                    Debug.LogWarning("[BattleButtonFx] 取不到原版灰化 shader `" + GrayShaderName + "`"
+                                   + "（随包 shader bundle 在不在？见 `Shell/WindowButton.GrayShaderAvailable`）"
+                                   + " ⇒ **禁用态只变色、不变灰**（⛔ 不拿别的灰顶替 —— 铁律 3）");
+                }
+                return false;
+            }
+            // 原版那一份**一个属性都没写**（shader 自带 `_GreyScale = 1.0`）⇒ 我们也只 new 出来。
+            _grayMat = new Material(sh);
+            _grayMat.name = "UI Greyscale (BattleButtonFx)";
+            return true;
         }
     }
 }

@@ -208,9 +208,9 @@ namespace CardPresentation
         /// 🧨 改坏法：`center` 再减掉一个 42.7485 ⇒ `Editor/BattleScene.cs` 的 `B-21` 两条断言红。</summary>
         const float BgTopAboveAnchorPx = BarH * 0.5f - BgDropY;   // 42.7485
 
-        // 按钮上的数字角标（原版 `Select Active Skill Button/ValueText`）：
-        // 只有**主动技能**那一格有，字号大（base 36 / max 89），贴在中下部
-        const float BadgeDx = 0f, BadgeDy = -8f;
+        // 按钮上的数字角标（原版 `Select Active Skill Button/ValueText`）—— 🔴 逐值判据见文件尾那一段
+        // 只有**主动技能**那一格有；原版是一个**几乎占满按钮**的大数字（`m_fontSize 89.01`）、**纯白**、居中
+        const float BadgeDx = 0.452f, BadgeDy = -1.205f;
 
         /// <summary>拖多远才弹出来：屏高的 8.5%（1080p ≈ 92 px）。
         ///
@@ -772,7 +772,7 @@ namespace CardPresentation
             foreach (var go in doomed) if (go != null) Object.DestroyImmediate(go);
 
             _background = null;
-            for (int i = 0; i < Order.Length; i++) { _icons[i] = null; _rings[i] = null; _captions[i] = null; _hoverTriggers[i] = null; _iconTriggers[i] = null; }
+            for (int i = 0; i < Order.Length; i++) { _icons[i] = null; _rings[i] = null; _captions[i] = null; _hoverTriggers[i] = null; _iconTriggers[i] = null; _badgeSized[i] = false; }   // ⚠️ `_badgeSized` 必须一起清（换档重建后是新标签，字号要重新定）
             _frame = null;
         }
 
@@ -930,7 +930,7 @@ namespace CardPresentation
 
                 // 按钮上的数字角标（原版 `Select Active Skill Button/ValueText`）。
                 // 原版字号很大（base 36 / max 89），配上它那个半透明底图，数字是按钮的主视觉
-                _captions[i] = HudCanvas.MakeText(P, "", 0f, 0f, 4, new Color(1f, 0.96f, 0.80f),
+                _captions[i] = HudCanvas.MakeText(P, "", 0f, 0f, 4, BadgeColor,
                                                   new Vector2(0.5f, 0.5f), ZText, "Badge_" + k, face: TmpFont.Face.LatinCardBody);
             }
             // 位置一律交给 `RefreshLayout`（建在这儿先落 (0,0)，紧随其后的 `Hide()`/`Show()` 会立刻重排一次）
@@ -985,16 +985,16 @@ namespace CardPresentation
                 // 按钮上的数字角标（原版 `Select Active Skill Button/ValueText`）。
                 // 原版字号很大（base 36 / max 89），配上它那个半透明底图，数字是按钮的主视觉
                 _captions[i] = Label.Create(transform, "", Vector3.zero, 4,
-                                            new Color(1f, 0.96f, 0.80f),
+                                            BadgeColor,
                                             new Vector2(0.5f, 0.5f), "Badge_" + k);
                 // 🔴 2026-10-17（A1024③ 逐行对账）：`Label.Create` 没有 face 形参 ⇒ 建完立刻换面
                 //    （原版 `Drag Attack Selector/Select Active Skill Button/ValueText` = Pragati）。
                 //    本函数之后才调 `SetGlyphHeight` ⇒ 换面早于定字号，口径同 `MenuDraw.TextCore`。
                 if (_captions[i] != null) _captions[i].SetFace(TmpFont.Face.LatinCardBody);
-                // 🔴 2026-10-17（A1024③ 第 2 批）：`Label.Create` 没有 face 形参 ⇒ 建完立刻换面
-                //    （原版 `Select Active Skill Button/ValueText` = Pragati）。`SetGlyphHeight` 在本函数之后才调，
-                //    ⇒ 这里换面**早于**定字号，口径与 `MenuDraw.TextCore` 同一条。
-                if (_captions[i] != null) _captions[i].SetFace(TmpFont.Face.LatinCardBody);
+                // 🔴 **2026-11-03（`B117-G10-08`）就地订正（铁律 5）**：本行原来是**第二句重复的** `SetFace`
+                //    （同一行代码在本函数写了两遍），那句「`SetGlyphHeight` 在本函数之后才调」**是假的**（全文件
+                //    一次都没调过）⇒ 角标一直用 `Label` 的 `scale = 4` 默认档（≈30 px）。现在改成**定字号**。
+                if (_captions[i] != null) SetBadgeSizeOnce(i);
             }
         }
 
@@ -1467,7 +1467,7 @@ namespace CardPresentation
                 if (_rings[i] != null) _rings[i].transform.localPosition = p + off + new Vector3(0f, 0f, Z(ZRing));
                 if (_captions[i] != null)
                 {
-                    _captions[i].SetText(opt.Badge);
+                    _captions[i].SetText(opt.Badge); SetBadgeSizeOnce(i);   // 字号按原版 `m_fontSize 89.01` 定一次（幂等，见文件尾）
                     _captions[i].transform.localPosition =
                         p + off + new Vector3(U(BadgeDx), U(BadgeDy), Z(ZText));
                 }
@@ -2046,5 +2046,67 @@ namespace CardPresentation
         /// <summary>🆕 2026-10-31（自检读口）：当前选中档 / 已落档 —— 只给 `B108` 的 FP-HUD-003 诊断用。</summary>
         public AttackKind SelectedForTest { get { return _selected; } }
         public AttackKind PickedAppliedForTest { get { return _pickedApplied; } }
+
+        // ==========================================================================================
+        //  🔴 2026-11-03（`B117-G10-08` · 战斗域第 8 部分「目标选择」）：技能钮**数字角标**的字号 / 颜色 / 位置
+        //  三样都按原版逐值抄，判据全部现读 `bundle_scenes_scenes_battlearena1` 的原始资产：
+        //   · 字号 —— `MonoBehaviour_3755.json`（GO 1042 `ValueText` 上的 `TextMeshProUGUI`）：
+        //     `m_fontSize = 89.01` · `m_fontSizeBase = 36` · `m_enableAutoSizing = 1` ·
+        //     `m_fontSizeMin = 1` · `m_fontSizeMax = 89.01`；配套 `MonoBehaviour_4514.json`
+        //     `m_VerticalFit = 2`（PreferredSize）· `clampHeight = 1` · `heightMin 90 / heightMax 200`
+        //     ⇒ 那个框会自己长到容纳一整行，而一个数字远窄于框宽 91.88 ⇒ **autoSize 的落点就是上限 89.01**。
+        //     ⚠️ 我们原来**一次都没定过字号**（`Label` 按 `scale = 4` 的默认档 ≈ 30 px）⇒ 角标小三倍，
+        //     而那两行「`SetGlyphHeight` 在本函数之后才调」的注释**从头到尾没有兑现过**（铁律 5 已就地订正）。
+        //   · 颜色 —— `m_fontColor = (1,1,1,1)` · `m_fontColor32 = 0xFFFFFFFF` · 其 Graphic `m_Color` 也是白
+        //     ⇒ **纯白**。我们原来是暖白 `(1, 0.96, 0.80)`（没有出处）。
+        //   · 位置 —— `RectTransform_2617.json`（父 `RT_2626` = `Select Active Skill Button`，
+        //     118.372 × 118.806、pivot (0.5,0.5)）：`m_AnchorMin = m_AnchorMax = (0,1)` ·
+        //     `m_AnchoredPosition = (59.638, −60.608)` · `m_Pivot = (0.5, 0.5)`
+        //     ⇒ 相对**钮心** = (−59.186 + 59.638, +59.403 − 60.608) = **(+0.452, −1.205)**
+        //     ⇒ 实质是**居中**（两轴都差不到 1.5 px）。我们原来是 `(0, −8)`（低了 6.8 px，没有出处）。
+        //   ⚠️ 这三档只影响**主动技能那一格**：近战/远程的 `buttonIconValue` 是 null（原版
+        //     `SetButtonValue` 只被 `ToggleAttackTypesSelector` 在 `param_5 > 0` 时调）⇒ 那两格没有角标。
+        // ==========================================================================================
+
+        /// <summary>原版 `ValueText` 的 `m_fontSize`（em px；判据见本节头）。</summary>
+        const float BadgeFontPx = 89.01f;
+
+        /// <summary>原版 `ValueText` 的颜色 = **纯白**（`m_fontColor32 = 0xFFFFFFFF` / Graphic `m_Color` 白）。</summary>
+        static readonly Color BadgeColor = new Color(1f, 1f, 1f, 1f);
+
+        /// <summary>每一格的角标**已经定过字号**了吗 —— `SetScriptHeight` 会重排，⛔ 别每帧调它
+        /// （`RefreshLayout` 每帧都可能来）。`ClearPieces`（换档重建）会把它清回 false。</summary>
+        readonly bool[] _badgeSized = new bool[3];
+
+        /// <summary>把某一格的角标按**原版字号**定一次（幂等）。
+        /// <para>`pxPerUnit`：uGUI 档的局部单位**就是设计 px** ⇒ `1`；世界档 1 世界单位 = 108 px ⇒ `PxPerUnit`。</para>
+        /// <para>⚠️ 走 `Label.SetScriptHeight`（语种二选一那个口）：角标恒为数字 ⇒ 走拉丁大写那一路，
+        /// 换 CJK 语言也不会把字号改掉。必须在**文字写进去之后**调（`RefreshLayout` 里 `SetText` 的下一句）。</para></summary>
+        void SetBadgeSizeOnce(int i)
+        {
+            if (i < 0 || i >= _badgeSized.Length || _badgeSized[i]) return;
+            var cap = _captions[i];
+            if (cap == null) return;
+            _badgeSized[i] = true;
+            cap.SetScriptHeight(cap.Text, BadgeFontPx, _frame != null ? 1f : PxPerUnit);
+        }
+
+        /// <summary>自检用：某一格的角标标签（`null` = 没建出来 / 没这一格）。**只读**。</summary>
+        public Label BadgeForTest(AttackKind k)
+        {
+            int i = SlotOf(k);
+            return (i >= 0 && i < _captions.Length) ? _captions[i] : null;
+        }
+
+        /// <summary>自检用：某一格角标相对**该格按钮中心**的偏移（px，y 向上，两档统一折成 px）。
+        /// uGUI 档局部单位本来就是设计 px；世界档 × `PxPerUnit`。量不到 ⇒ `(NaN, NaN)`（⛔ 别拿 0 冒充「对上了」）。</summary>
+        public Vector2 BadgeOffsetPxForTest(AttackKind k)
+        {
+            int i = SlotOf(k);
+            if (i < 0 || _captions[i] == null || _icons[i] == null) return new Vector2(float.NaN, float.NaN);
+            var d = _captions[i].transform.localPosition - _icons[i].transform.localPosition;
+            float s = _frame != null ? 1f : PxPerUnit;
+            return new Vector2(d.x * s, d.y * s);
+        }
     }
 }

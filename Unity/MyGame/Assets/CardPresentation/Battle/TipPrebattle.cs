@@ -22,6 +22,10 @@
 //  调用时机（谁是调用方）**本地也判不了**：全 26k 个反编译方法里 `TipPrebattle` 只出现在
 //  它自己的文件里 ⇒ 挂接在 prefab / UnityEvent 上。⇒ 本类只提供**原版那套 API**，
 //  接线点写进报告交给战场线（`Battle/**` 不归本次改动）。
+//  🔴 **2026-11-02（执行代理 `B117-G10-18`）复核：上面这条今天仍然成立，而且账里已经裁过** ——
+//     `账/战斗界面_HUD.tsv:654-663` 那 10 行（整族方法）**全部是 D**（「原版 0 实例 ⇒ 客户端不执行」），
+//     裁定（`B8`，2026-10-25 协调台）：**保留不接线、⛔ 不要删**；将来 `PrebattleTips/*` 词条或
+//     `PlayerDataManager.tips` 的赋值点出现时再回来接（那时才是 A）。⇒ ⛔ 别把它接进 `BattleDriver`。
 //
 //  行为摘要（逐条对应原版方法）
 //    SetupClosed  :408→:426  收起态 = 底板横向压扁到 0 + 文字 α0
@@ -30,20 +34,29 @@
 //    GetNextTip   :467       最多试 **6** 次（`object obj = 5`），空串或与上一条相同就重抽
 //    OnTouchUp…   :502       点条 = 换下一条
 //    HideTips     :511       停 OpenTip、杀补间、起 CloseTip **并且**起 DeactivateTip
-//    OpenTip      :541       scaleX 0→1.8（0.3s 线性）→ 等 0.15s → 换字 + 淡入 0.3s → animFlag=false
-//    CloseTip     :552       文字淡出 0.15s + scaleX→0（0.15s）→ 等 0.15s → showingTip=false
+//    OpenTip      :541       scaleX 0→1.8（0.3s 线性，**不等待**）→ 0.15s 后换字 + 淡入 0.3s（**不等待**）
+//                            → 再等 0.3s → animFlag=false（**总 0.45 s**）
+//    CloseTip     :552       文字淡出 0.15s + scaleX→0（0.15s）**同时起播** → 只等 0.15s → showingTip=false（**总 0.15 s**）
 //    RenewTip     :563       CloseTip 走完 → 若还 active 再 OpenTip
-//    DeactivateTip:574       等一小段 → gameObject.SetActive(false)
+//    DeactivateTip:574       等 **`timeToOpenBg`（0.3 s）** → gameObject.SetActive(false)
 //
-//  ⚠️ 两处**反编译没解出来**的地方（照实标，⛔ 别当已定案）
-//    a) `SetupClosed` 里 `transform.localScale = (Vector3)(&obj)`（ILSpy :430-434）是
-//       **by-ref 结构体没解**的产物；结合 `CloseTip` 的 `DOScaleX(…, 0f, …)`，
-//       本类取「**只把 x 压到 0、y/z 保持**」（这是推断，不是直读）。
-//    b) `DeactivateTip` 的等待时长：ILSpy :583 前有一条
-//       `NoteDecompilerIssue("Unmanaged memory load: [v28 @ rcx_v2 (UnityEngine.Component)+34]")`
-//       ⇒ 真实的 `WaitForSeconds(...)` 实参**没解出来**，反编译里是占位的 `0f`。
-//       本类取 **`timeToOpenBg * 0.5f`**（= 收起动画的时长），并用字段 `deactivateDelay`
-//       暴露出来，待有人从 prefab/实机核到真值时改这一个字段。
+//  🔴 **2026-11-02（执行代理 `B117-G10-18` · 铁律 5 就地订正）：下面「两处没解出来」【都已解出】。**
+//     判据 = `d:/2/tools/decomp_full/` 的 `.c`（ILSpy 里那两处 by-ref / 未解析实参，在 `.c` 里是明文）：
+//    a) `SetupClosed`（`TipPrebattle__SetupClosed.c:24-27`）与 `OpenTip` 的 state 0
+//       （`TipPrebattle._OpenTip_d__17__MoveNext.c:37-40`）写的是 **`localScale = (0, y, 0)`** ——
+//       `local_18 = (ulonglong)*(uint *)(lVar3 + 4) << 0x20; local_10 = 0;`
+//       ⇒ **x = 0 · y 保留 · z = 0**。原来这里取「只压 x、y/z 保持」（= z 仍是 1）是**错的**。
+//    b) `DeactivateTip`（`TipPrebattle._DeactivateTip_d__20__MoveNext.c:17-20`）的
+//       `WaitForSeconds` 实参 = **`*(float *)(lVar3 + 0x34)` = `timeToOpenBg`（完整的 0.3 s）**，
+//       **不是一半**。原来取 `timeToOpenBg * 0.5f` 是**错的**。
+//    ⚠️ 另有两处**时间线**也按 `.c` 订正（原来写成了「串行」，原版是**并行**）：
+//       · `OpenTip`：底板展开**起播后立刻** `WaitForSeconds(timeToOpenBg × 0.5)`（乘数
+//         `DAT_1834b2bb4` 用 `工具/read_literal.py` 实读 = **0.5f**）→ 换字 + `DOFade`（0.3）
+//         → **再** `WaitForSeconds(timeToOpenBg)`。两个补间都不等待 ⇒ 总时长 **0.45 s**
+//         （改前串行等成了 **1.05 s**）。而且那两条补间原来**没有存进字段** ⇒ `HideTips` 的
+//         `Kill` 是空操作（下面 `OpenTip` 里已改成存 `_bgScaleAnim` / `_textFadeAnim`）。
+//       · `CloseTip`：淡出与压扁**同时起播**、只 `WaitForSeconds(timeToOpenBg × 0.5)` **一次**
+//         ⇒ 总时长 **0.15 s**（改前多等了一次 ⇒ 0.3 s）。
 // ════════════════════════════════════════════════════════════════════════════════════
 
 using System.Collections;
@@ -65,8 +78,10 @@ namespace CardPresentation
         public float openBgWidth = 1.8f;
         /// <summary>展开/淡入时长（秒，原版 :410 `= 0.3f`）。</summary>
         public float timeToOpenBg = 0.3f;
-        /// <summary>见文件头 ⚠️b：原版这个实参没解出来，本类取收起动画的时长。</summary>
-        public float deactivateDelay = -1f;   // <0 ⇒ 用 timeToOpenBg * 0.5f
+        // 🔴 **2026-11-02（`B117-G10-18`）：原来这里有一格 `public float deactivateDelay = -1f`
+        //     （「原版那个实参没解出来，先留个覆盖口」）—— **判据已解出 = `timeToOpenBg`**
+        //     （`TipPrebattle._DeactivateTip_d__20__MoveNext.c:17-20` 读 `+0x34`）⇒ 已删，
+        //     免得留一个「我们自造的量」在原版没有的地方（铁律 18·0）。
 
         // ── 原版私有状态 ────────────────────────────────────────────────────────
         bool showingTip;
@@ -146,26 +161,28 @@ namespace CardPresentation
         //  原版 API（签名与语义照抄）
         // ════════════════════════════════════════════════════════════════════════════
 
-        /// <summary>收起态（原版 :426 `SetupClosed`）：底板 x 压到 0、文字 α0。<para>
-        /// ⚠️ 原版那句 `localScale = (Vector3)(&obj)` 是反编译 by-ref 未解（见文件头 ⚠️a），
-        /// 这里取「只压 x」。 </para></summary>
+        /// <summary>收起态（原版 :426 `SetupClosed`）：底板 **`localScale = (0, y, 0)`**、文字 α0。
+        /// <para>🔴 **2026-11-02（`B117-G10-18`）**：判据 = `TipPrebattle__SetupClosed.c:24-27`
+        /// —— `local_18 = (ulonglong)*(uint *)(lVar3 + 4) &lt;&lt; 0x20; local_10 = 0;`
+        /// ⇒ **x = 0 · y 保留 · z = 0**（原来是「只压 x、z 保持」，见文件头 ⚠️a 的订正）。</para>
+        /// <para>⚠️ 原版这个方法**只做这两件事**（改 scale + 改文字 α）—— 不碰 `showingTip` / `animFlag`；
+        /// 那两个字段的初值本来就是 `false`（`Create` 建完就是那一档）⇒ 原来这里多写的那两行已删。</para></summary>
         public void SetupClosed()
         {
             if (bg != null)
             {
                 var s = bg.transform.localScale;
-                bg.transform.localScale = new Vector3(0f, s.y, s.z);
+                bg.transform.localScale = new Vector3(0f, s.y, 0f);
             }
             SetTextAlpha(kDisabledFade);
-            showingTip = false;
-            animFlag = false;
         }
 
-        /// <summary>显示一条（原版 :437）。**正在播动画时直接丢弃**（原版的 `if (!animFlag)` 闸）。</summary>
+        /// <summary>显示一条（原版 :437）。**正在播动画时直接丢弃**（原版的 `if (!animFlag)` 闸）。
+        /// <para>⚠️ 原版**没有**「空串就不显示」这道闸（`TipPrebattle__DisplayTip.c:20-46` 只有
+        /// `if (!animFlag)`）⇒ 2026-11-02（`B117-G10-18`）把原来我们自己加的那一道删了，照原版走。</para></summary>
         public void DisplayTip(string tip)
         {
             if (animFlag) return;
-            if (string.IsNullOrEmpty(tip)) return;    // 原版没有这道闸，但空文案会让淡入演一条空白 —— 宁可不演
             newTip = tip;
             StartCoroutine(showingTip ? "RenewTip" : "OpenTip");
         }
@@ -205,10 +222,13 @@ namespace CardPresentation
             return null;
         }
 
-        /// <summary>点提示条 = 换下一条（原版 :502 `OnTouchUpAsButton`）。</summary>
-        public void OnTouchUpAsButton()
+        /// <summary>点提示条 = 换下一条（原版 :502 `OnTouchUpAsButton`）。
+        /// <para>🔴 **2026-11-02（`B117-G10-18`）**：签名照原版带 **`Vector2 originalTouchPosition`**
+        /// （`TipPrebattle__OnTouchUpAsButton.c` / ILSpy `private void OnTouchUpAsButton(Vector2)`）——
+        /// 原版那颗 `EverguildButton`/触摸层把落点传进来，方法体**不用它**，但签名要一致。</para></summary>
+        public void OnTouchUpAsButton(Vector2 originalTouchPosition)
         {
-            if (_pool == null) return;
+            if (_pool == null && _nextRaw == null) return;      // 原版：`playerData == null` ⇒ 什么都不做
             var t = GetNextTip();
             if (t != null) DisplayTip(t);
         }
@@ -229,42 +249,49 @@ namespace CardPresentation
         //  四个协程（逐行照原版状态机）
         // ════════════════════════════════════════════════════════════════════════════
 
-        /// <summary>原版 :541 `OpenTip`：<c>0.3s 展开 → 等 0.15s → 换字+0.3s 淡入 → animFlag=false</c>。</summary>
+        /// <summary>原版 :541 `OpenTip`（判据 → `TipPrebattle._OpenTip_d__17__MoveNext.c`）：
+        /// <c>展开起播(0.3，不等待) → 等 0.15 → 换字 + 淡入(0.3，不等待) → 再等 0.3 → animFlag=false</c>
+        /// ⇒ **总 0.45 s**。两个补间**并行**，而且**存进字段**（`HideTips` 要 Kill 它们）。</summary>
         IEnumerator OpenTip()
         {
             animFlag = true;
             showingTip = true;
 
-            // ① 从「收起」起：x=0、文字 α0
-            if (bg != null) { var s = bg.transform.localScale; bg.transform.localScale = new Vector3(0f, s.y, s.z); }
+            // ① 从「收起」起：**x=0、z=0**（原版 `local_18 = y << 32; local_10 = 0`，见文件头 ⚠️a）、文字 α0
+            if (bg != null) { var s = bg.transform.localScale; bg.transform.localScale = new Vector3(0f, s.y, 0f); }
             SetTextAlpha(kDisabledFade);
 
-            // ② 底板横向展开：0 → openBgWidth，时长 timeToOpenBg，**线性**（原版 SetEase(Linear)）
-            if (bg != null) yield return StartCoroutine(ScaleXTo(openBgWidth, timeToOpenBg));
+            // ② 底板横向展开：0 → openBgWidth，时长 timeToOpenBg，**线性**（原版 `SetEase(Ease.Linear)` = 枚举 1）
+            //    ⚠️ **不等待**：原版 `DOScaleX` 只把 tweener 存进 `bgMoveAnim`，紧接着就是那句 `WaitForSeconds`。
+            if (bg != null) _bgScaleAnim = StartCoroutine(ScaleXTo(openBgWidth, timeToOpenBg));
 
-            // ③ 等到一半时间点才换字（原版 `new WaitForSeconds(timeToOpenBg * 0.5f)`）
-            yield return new WaitForSeconds(timeToOpenBg * 0.5f);
+            // ③ 等到一半时间点才换字（原版 `WaitForSeconds(timeToOpenBg * DAT_1834b2bb4)`，实读 0.5f）
+            yield return new WaitForSeconds(OpenTipTextChangeSeconds);
 
-            // ④ 换字 + 淡入（原版 DOFade(tipText, 1, timeToOpenBg)）
+            // ④ 换字 + 淡入（原版 `DOFade(tipText, 1, timeToOpenBg)`，同样**不等待**）
             if (tipText != null) tipText.SetText(newTip ?? "");
-            yield return StartCoroutine(FadeTextTo(1f, timeToOpenBg));
+            _textFadeAnim = StartCoroutine(FadeTextTo(1f, timeToOpenBg));
 
-            // ⑤ 原版这里 `new WaitForSeconds(timeToOpenBg)`（那半秒在 ②③ 之间已过，这里是完整一段）
+            // ⑤ 原版这里**再** `WaitForSeconds(timeToOpenBg)` 才放 `animFlag`（= 与淡入并行的那一段）
             yield return new WaitForSeconds(timeToOpenBg);
 
             animFlag = false;
         }
 
-        /// <summary>原版 :552 `CloseTip`：<c>文字淡出 0.15s + scaleX→0（0.15s）→ 等 0.15s → showingTip=false</c>。</summary>
+        /// <summary>原版 :552 `CloseTip`（判据 → `TipPrebattle._CloseTip_d__18__MoveNext.c`）：
+        /// <c>文字淡出 0.15 + scaleX→0（0.15）同时起播 → 只等 0.15 → showingTip=false</c> ⇒ **总 0.15 s**。
+        /// <para>⚠️ 原来这里是「等压扁完 + 再等一次 half」= 0.3 s，**多等了一整段**（`.c` 里只有一条
+        /// `WaitForSeconds(timeToOpenBg * 0.5f)`）。</para></summary>
         IEnumerator CloseTip()
         {
             animFlag = true;
-            float half = timeToOpenBg * 0.5f;
+            float half = CloseTipTotalSeconds;
 
-            if (tipText != null) StartCoroutine(FadeTextTo(kDisabledFade, half));
-            if (bg != null) yield return StartCoroutine(ScaleXTo(0f, half));
-            else yield return new WaitForSeconds(half);
+            // ① 两条补间**同时起播**（原版这两句紧挨着，都不等待）
+            if (tipText != null) _textFadeAnim = StartCoroutine(FadeTextTo(kDisabledFade, half));
+            if (bg != null) _bgScaleAnim = StartCoroutine(ScaleXTo(0f, half));
 
+            // ② 只等那一段（原版唯一的一条 `WaitForSeconds`）
             yield return new WaitForSeconds(half);
 
             showingTip = false;
@@ -278,16 +305,44 @@ namespace CardPresentation
             if (gameObject.activeSelf) StartCoroutine("OpenTip");
         }
 
-        /// <summary>原版 :574 `DeactivateTip`：等一小段后 `SetActive(false)`。
-        /// ⚠️ 时长判据缺（见文件头 ⚠️b），取 <see cref="deactivateDelay"/>，默认收起时长。</summary>
+        /// <summary>原版 :574 `DeactivateTip`：等 **`timeToOpenBg`（0.3 s）** 后 `SetActive(false)`。
+        /// <para>🔴 **2026-11-02（`B117-G10-18`）**：判据 = `TipPrebattle._DeactivateTip_d__20__MoveNext.c:17-20`
+        /// —— `WaitForSeconds(*(float *)(lVar3 + 0x34))`，`+0x34` 就是 `timeToOpenBg`（**完整一段，不是一半**）。
+        /// 原来取的一半已订正（见文件头 ⚠️b）。</para></summary>
         IEnumerator DeactivateTip()
         {
-            float d = deactivateDelay >= 0f ? deactivateDelay : timeToOpenBg * 0.5f;
+            float d = DeactivateWaitSeconds;
             if (d > 0f) yield return new WaitForSeconds(d);
-            else yield return null;                 // 反编译里是 WaitForSeconds(0f) ⇒ 下一帧
+            else yield return null;                 // `WaitForSeconds(0)` 的等价物 ⇒ 下一帧
             gameObject.SetActive(false);
             _deactivateRoutine = null;
         }
+
+        // ── 时间线（**判据只此一处**：上面三条协程与断言都读这几个口）─────────────────────────
+        //  判据 → `TipPrebattle._OpenTip_d__17__MoveNext.c` / `…_d__18__MoveNext.c` / `…_d__20__MoveNext.c`
+        //  （乘数 `DAT_1834b2bb4` = **0.5f** / `DAT_1834b2bb8` = **1.0f**，`工具/read_literal.py` 实读）。
+
+        /// <summary>`OpenTip` 里「底板开始展开 → 换字」的那一段 = **`timeToOpenBg × 0.5`**。
+        /// ⚠️ 它**早于**底板展开结束（`< timeToOpenBg`）—— 这是「并行」的结构判据，串行写法必然 `>`。</summary>
+        public float OpenTipTextChangeSeconds { get { return timeToOpenBg * 0.5f; } }
+
+        /// <summary>`OpenTip` 全程 = **`timeToOpenBg × 0.5 + timeToOpenBg`**（两段 `WaitForSeconds` 之和；
+        /// 两条补间都跑在里面，不额外加时间）。`timeToOpenBg = 0.3` ⇒ **0.45 s**。</summary>
+        public static float OpenTipTotalSecondsFor(float timeToOpenBg) { return timeToOpenBg * 0.5f + timeToOpenBg; }
+        /// <summary>见 <see cref="OpenTipTotalSecondsFor"/>（本实例值）。</summary>
+        public float OpenTipTotalSeconds { get { return OpenTipTotalSecondsFor(timeToOpenBg); } }
+
+        /// <summary>`CloseTip` 全程 = **`timeToOpenBg × 0.5`**（只有一条 `WaitForSeconds`）。
+        /// `timeToOpenBg = 0.3` ⇒ **0.15 s**。</summary>
+        public static float CloseTipTotalSecondsFor(float timeToOpenBg) { return timeToOpenBg * 0.5f; }
+        /// <summary>见 <see cref="CloseTipTotalSecondsFor"/>（本实例值）。</summary>
+        public float CloseTipTotalSeconds { get { return CloseTipTotalSecondsFor(timeToOpenBg); } }
+
+        /// <summary>`DeactivateTip` 的等待 = **`timeToOpenBg`**（原版 `+0x34`，完整一段）。
+        /// `timeToOpenBg = 0.3` ⇒ **0.3 s**（改前取一半 = 0.15 s）。</summary>
+        public static float DeactivateWaitSecondsFor(float timeToOpenBg) { return timeToOpenBg; }
+        /// <summary>见 <see cref="DeactivateWaitSecondsFor"/>（本实例值）。</summary>
+        public float DeactivateWaitSeconds { get { return DeactivateWaitSecondsFor(timeToOpenBg); } }
 
         // ── 两个补间的替身（原版用 DOTween；本类不引第三方，用协程手算）────────────
         IEnumerator ScaleXTo(float target, float dur)
@@ -359,15 +414,18 @@ namespace CardPresentation
             return ok;
         }
 
-        /// <summary>【断言 2·前半】按判据的时机「显示」：调一次 <see cref="DisplayTips"/> 之后，
-        /// <c>1.5 × timeToOpenBg</c> 内必须是「已展开」（x == openBgWidth、文字 α1、animFlag=false）；
-        /// 且**中途**（0.75 × timeToOpenBg）应该还在播（animFlag=true）—— 这条挡「一帧到位」。</summary>
+        /// <summary>【断言 2·前半】按判据的时机「显示」：调一次 <see cref="DisplayTips(IReadOnlyList{string})"/> 之后，
+        /// <c>OpenTipTotalSeconds</c>（0.45 s）内必须是「已展开」（x == openBgWidth、文字 α1、animFlag=false）；
+        /// 且**中途**（0.75 × timeToOpenBg = 0.225，那时原版还在淡入）应该还在播（animFlag=true）
+        /// —— 这条挡「一帧到位」，也挡「串行写成 1.05 s」（那样中途仍为 true，但收尾那一格会晚到）。
+        /// <para>⚠️ 池为空时自己塞一条占位文案（本方法要验的是**时机**，不是抽词）。</para></summary>
         public IEnumerator SelfCheckShowTiming(float tolerance = 0.15f)
         {
+            if (_pool == null && _nextRaw == null) _pool = new string[] { "self-check tip" };
             DisplayTips(_pool);
             yield return new WaitForSeconds(timeToOpenBg * 0.75f);
             bool midOk = animFlag;                       // 那时还没播完
-            yield return new WaitForSeconds(timeToOpenBg * 0.75f + tolerance);
+            yield return new WaitForSeconds(OpenTipTotalSeconds - timeToOpenBg * 0.75f + tolerance);
             bool endOk = !animFlag
                          && bg != null && Mathf.Abs(bg.transform.localScale.x - openBgWidth) < 1e-2f
                          && tipText != null && Mathf.Abs(tipText.color.a - 1f) < 1e-2f;
@@ -376,16 +434,17 @@ namespace CardPresentation
         }
 
         /// <summary>【断言 2·后半】按判据的时机「隐藏」：<c>HideTips()</c> 之后
-        /// <c>0.5 × timeToOpenBg</c> 内必须回到 x=0 / α0，并在 <see cref="deactivateDelay"/> 后 inactive。</summary>
+        /// <c>CloseTipTotalSeconds</c>（0.15 s）内必须回到 x=0 / α0，并在
+        /// <see cref="DeactivateWaitSeconds"/>（原版 = <c>timeToOpenBg</c>，0.3 s）后 inactive。</summary>
         public IEnumerator SelfCheckHideTiming(float tolerance = 0.15f)
         {
             HideTips();
-            yield return new WaitForSeconds(timeToOpenBg * 0.5f + tolerance);
+            yield return new WaitForSeconds(CloseTipTotalSeconds + tolerance);
             bool closed = bg == null || Mathf.Abs(bg.transform.localScale.x) < 1e-2f;
             if (!closed)
                 Debug.LogError("[TipPrebattle·断言2·隐藏] 收起后 scaleX = " +
                                (bg != null ? bg.transform.localScale.x : 0f));
-            yield return new WaitForSeconds((deactivateDelay >= 0f ? deactivateDelay : timeToOpenBg * 0.5f) + 0.1f);
+            yield return new WaitForSeconds(DeactivateWaitSeconds + 0.1f);
             if (gameObject.activeSelf)
                 Debug.LogError("[TipPrebattle·断言2·隐藏] DeactivateTip 没有把自己 SetActive(false)");
         }

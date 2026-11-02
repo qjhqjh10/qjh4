@@ -648,11 +648,11 @@ public static class BattleScene
         // 而选择器的按钮/底板、准星的 sprite/弧线都是运行时建在 `Build()` 里的 —— 这里显式补一次
         if (driver.selector != null) driver.selector.Build();
         if (driver.reticle != null) driver.reticle.Build();
-        if (driver.skillPanel != null) driver.skillPanel.Build();
+        if (driver.skillPanel != null) driver.skillPanel.Build(); B117_G10_21_Assert.Run();  // 🆕 2026-11-02（B117-WWIREA 接线）：`B117_G10-21` 错误横幅的**堆叠次序 + 字材质**。⚠️ **必须排在本行之后、`driver.Begin()` 之前** —— 它要求「本场景里此刻没有别的横幅」（`ErrorMessageBanner` 是单例：已有别的横幅 ⇒ 新建那颗被销毁、`Create` 交回活的另一颗 ⇒ 池状态前提不成立）；而 `Begin` → `BuildHud` → `BuildErrorBanner` 会把战斗横幅建出来 ⇒ 排到 `Begin` 之后必红。计数在下一行 `int pass = 0, fail = 0;` 补上 ⇒ 行数零变化。
         driver.Begin(StarterCards.EmberFaction, StarterCards.TideFaction, 20260911);
         Step(BattleDriver.TurnHeadsUpHold + 0.3f);
 
-        int pass = 0, fail = 0;
+        int pass = 0, fail = 0; pass += B117_G10_21_Assert.Pass; fail += B117_G10_21_Assert.Fail;  // 🆕 2026-11-02（B117-WWIREA）：`B117_G10_21_Assert.Run()` 挂在上方 `driver.Begin()` **之前**那一行（单例横幅前提），计数在这里补齐 ⇒ 行数零变化。
 
         void Check(bool ok, string msg)
         {
@@ -1357,8 +1357,8 @@ public static class BattleScene
 
             // 🆕 2026-10-21（W61 第 2 批 · 第 1 条）：**登场 clip `Card Hand To Board`** 的时长与内部次序。
             //   判据 = `AnimationClip_-3614292623624764332.json`（全长 0.9167；17 条曲线的关键帧）。
-            //   🔴 这几条锁的是「不是一帧硬切」：形态切换（`2DCard.m_IsActive →0`）在 **0.7**，
-            //   而飞行的交接在 **0.4**（`DeploySequence.HandoffTime`）⇒ 中间那 0.3 s 是**真的在交叉**。
+            //   🔴 这几条锁的是「不是一帧硬切」：形态切换（`2DCard.m_IsActive →0`）在 clip 局部 **0.7**（= 绝对 1.0），
+            //   而飞行的交接在 **0.95**（`DeploySequence.HandoffTime`）⇒ 中间那 0.05 s 是**真的在交叉**。
             Check(Mathf.Abs(CardFeel.HandToBoardEnd - 0.9167f) < 1e-3f,
                   $"★ 登场 clip 全长 = 0.9167s（clip 最后一条关键帧），实得 {CardFeel.HandToBoardEnd}");
             Check(CardFeel.HandToBoardLand < CardFeel.HandToBoardFadeStart
@@ -1367,9 +1367,9 @@ public static class BattleScene
                   && CardFeel.HandToBoardDissolveEnd < CardFeel.HandToBoardEnd,
                   "★ 登场 clip 的内部次序：3D 体出现 0.1667 → 2D 开始淡出 0.3333 → 2D 淡完 0.6667 → "
                 + "形态切换 0.7 → 片尾 0.9167");
-            Check(DeploySequence.HandoffTime < CardFeel.HandToBoardDissolveEnd,
-                  $"★ **不是一帧硬切**：0.4s 的交接（`DeploySequence.HandoffTime = {DeploySequence.HandoffTime}`）"
-                + $"**早于**形态切换（{CardFeel.HandToBoardDissolveEnd}）—— 换回来 ⇒ 本条红");
+            Check(DeploySequence.HandoffTime < DeploySequence.MoveTime + CardFeel.HandToBoardDissolveEnd,
+                  $"★ **不是一帧硬切**：0.95s 的交接（`DeploySequence.HandoffTime = {DeploySequence.HandoffTime}`）"
+                + $"**早于**形态切换（飞 {DeploySequence.MoveTime} + {CardFeel.HandToBoardDissolveEnd} = {DeploySequence.MoveTime + CardFeel.HandToBoardDissolveEnd}）—— 换回来 ⇒ 本条红"); Check(Mathf.Abs(DeploySequence.HandoffTime - (DeploySequence.MoveTime + CardFeel.HandToBoardDone + DeploySequence.TimeToScaleIntoMoving)) < 1e-4f,                   $"★ B117-R15：交接 {DeploySequence.HandoffTime:F2}s = 飞 {DeploySequence.MoveTime:F2} + `GetHandToBoardAnimEventTime` {CardFeel.HandToBoardDone:F2}（clip 的 `m_Events[0].time`）+ 等 {DeploySequence.TimeToScaleIntoMoving:F2}"                 + "｜判据 `MinionManager__GetMinionConversionTime.c`｜🧨 退回只等 0.1 ⇒ 0.4s ⇒ 红"); Check(Mathf.Abs(DeploySequence.HandoffTime + DeploySequence.HoldTime - (DeploySequence.MoveTime + CardFeel.HandToBoardDissolveEnd)) < 1e-4f,                   $"★ B117-R15：落下起点 {DeploySequence.HandoffTime + DeploySequence.HoldTime:F2}s = clip 里 `Board Elements` 从 -1.347 开始回到 0 的时刻（飞 {DeploySequence.MoveTime:F2} + 形态切换 0.7）—— 落地与浮起**同相位**"                 + "｜🧨 交接早 0.55 ⇒ 落地之后还要再浮 0.35s（`B117-R15` 的观感怪）⇒ 红"); Check(DeploySequence.TotalTime >= DeploySequence.MoveTime + CardFeel.HandToBoardEnd,                   $"★ B117-R15：整条序列 {DeploySequence.TotalTime:F2}s ≥ clip 全长（飞 {DeploySequence.MoveTime:F2} + {CardFeel.HandToBoardEnd:F2} = {DeploySequence.MoveTime + CardFeel.HandToBoardEnd:F2}）⇒ 零尾巴");
 
             // 🆕 2026-10-21（W61 第 2 批 · 第 4 条）：**远程回正段** 0.1 s + 等 0.1 = `AttackStepRanged` 0.2。
             //   判据 = `_ResolveAttackRangedAnim_d__360…:80-104`（三条 tween 各 0.1 + `WaitForCompletion` + 再等 0.1）。
@@ -1971,19 +1971,26 @@ public static class BattleScene
                 float rotDur = rotOk ? rotP.Value.MoveBodyTime : float.NaN;
                 float[] rotCurve = rotOk ? rotP.Value.RotXCurve : null;
                 Check(rotOk && rotOn && Mathf.Abs(rotDeg - 45f) < 1e-4f
-                      && rotCurve != null && rotCurve.Length == 6 && rotMove && Mathf.Abs(rotDur - 0.6f) < 1e-4f,
+                      && rotCurve != null && CardAnimOrder.HasSlopes(rotCurve) && rotCurve.Length == 13
+                      && rotMove && Mathf.Abs(rotDur - 0.6f) < 1e-4f,
                       "★ R18①：`SporeMine_Explosion` 的 **rotateX** 三列 + 位移都进表了"
-                    + $"（`RotXOn`={rotOn} / `RotXDeg`={rotDeg:F1} / 曲线键数 {(rotCurve?.Length ?? 0)} / "
-                    + $"`MoveBody`={rotMove} / `animTime`={rotDur:F3}）"
-                    + "｜🧨 `RtRow` 少一列（`mmRxE/mmRxM/mmRxC`）/ 不赋值 ⇒ 红");
-                if (rotCurve != null && rotCurve.Length >= 6)
+                    + $"（`RotXOn`={rotOn} / `RotXDeg`={rotDeg:F1} / 曲线格数 {(rotCurve?.Length ?? 0)}"
+                    + $"（= 1 + 4×键数 ⇒ 3 键）/ `MoveBody`={rotMove} / `animTime`={rotDur:F3}）"
+                    + "｜🧨 `RtRow` 少一列（`mmRxE/mmRxM/mmRxC`）/ 不赋值 ⇒ 红"
+                    + "｜📐 2026-11-02（`B117-WMINIONCURVE` 起）：非线性曲线一律 **4 数格式** `[-1, t,v,inSlope,outSlope, …]`"
+                    + "（长度 `%4 == 1`）—— 同样三键从 **6 格** 变 **13 格**，旧断言写死 `Length == 6` 必红（本处已按新格式订正）");
+                if (rotCurve != null && CardAnimOrder.HasSlopes(rotCurve) && rotCurve.Length == 13)
                 {
-                    var c = rotCurve;
-                    Check(Mathf.Abs(c[0]) < 1e-4f && Mathf.Abs(c[1]) < 1e-4f
-                          && Mathf.Abs(c[2] - 0.2373f) < 1e-4f && Mathf.Abs(c[3] + 0.952f) < 1e-3f
-                          && Mathf.Abs(c[4] - 1f) < 1e-4f && Mathf.Abs(c[5] - 1f) < 1e-4f,
-                          "★ R18①：曲线三键 = **(0,0) · (0.2373, −0.952) · (1, 1)**"
-                        + $"（现读 [{c[0]:F4},{c[1]:F4}] [{c[2]:F4},{c[3]:F4}] [{c[4]:F4},{c[5]:F4}]）"
+                    var c = rotCurve;      // 4 数格式：[-1, t,v,inSlope,outSlope, …] ⇒ 键 i 的值在 [1+4i, 2+4i]、切线在 [3+4i, 4+4i]
+                    Check(Mathf.Abs(c[1]) < 1e-4f && Mathf.Abs(c[2]) < 1e-4f
+                          && Mathf.Abs(c[5] - 0.2373f) < 1e-4f && Mathf.Abs(c[6] + 0.952f) < 1e-3f
+                          && Mathf.Abs(c[9] - 1f) < 1e-4f && Mathf.Abs(c[10] - 1f) < 1e-4f
+                          && Mathf.Abs(c[3] + 4.0116f) < 1e-3f && Mathf.Abs(c[4] + 4.0116f) < 1e-3f
+                          && Mathf.Abs(c[7] + 1.4681f) < 1e-3f && Mathf.Abs(c[8] + 1.4681f) < 1e-3f
+                          && Mathf.Abs(c[11] - 2.9387f) < 1e-3f && Mathf.Abs(c[12] - 2.9387f) < 1e-3f,
+                          "★ R18①：曲线三键 = **(0,0) · (0.2373, −0.952) · (1, 1)**，三处切线 = **−4.0116 / −1.4681 / 2.9387**"
+                        + $"（现读键 [{c[1]:F4},{c[2]:F4}] [{c[5]:F4},{c[6]:F4}] [{c[9]:F4},{c[10]:F4}]；"
+                        + $"切线 [{c[3]:F3}/{c[4]:F3}] [{c[7]:F3}/{c[8]:F3}] [{c[11]:F3}/{c[12]:F3}]）"
                         + "｜🧨 被钳/改写 ⇒ 中段那一拧消失 ⇒ 红");
                     // ---- ②/③（数据侧）：同一份数据在断言侧按原版式子算一遍
                     //   🔴 **2026-10-27（`B9` E4BDR · 16 红 #8 的连带）**：算子从 `SlerpUnclamped` 改成
@@ -1992,8 +1999,22 @@ public static class BattleScene
                     //   原来这里还在按 `Slerp` 复算 ⇒ **与行为侧脱钩、靠区间蒙绿**（−42.8 落在 (−48,−38) 里），
                     //   一旦有人把实现改回 `Slerp`，行为侧（阈值 −35 之后）**不会红** ⇒ 鉴别力丢一半。
                     //   ⇒ 数据侧这一份也改成 `LerpUnclamped`，期望值与行为侧同源（≈ −37.5°）。
-                    var curveR18 = new AnimationCurve(new Keyframe(c[0], c[1]), new Keyframe(c[2], c[3]),
-                                                      new Keyframe(c[4], c[5]));
+                    var curveR18 = new AnimationCurve(new Keyframe(c[1], c[2], c[3], c[4]),
+                                                      new Keyframe(c[5], c[6], c[7], c[8]),
+                                                      new Keyframe(c[9], c[10], c[11], c[12]));
+                    // 🔴 **灭自证**（2026-11-02 · `B117-WWIREC`）：上面那条键值断言**带不带切线都会过**
+                    //   （在键上求值必等于键值），所以另钉一条「切线**真的**进了曲线」—— 同一组键把 in/out 抹成 0
+                    //   （= 退回旧的 `new Keyframe(t,v)` 零切线）再求值，在**非键点** `t = 0.5` 处必须明显不同。
+                    //   实测（按本表数据算）：带切线 **−0.756863** / 零切线 **−0.416799**，差 **0.34**。
+                    //   ⇒ 生成器丢 `inSlope/outSlope`、或这里退回零切线 ⇒ 本红。⛔ 别删：它是「切线形状」唯一的鉴别式。
+                    var curveNoSlopeR18 = new AnimationCurve(new Keyframe(c[1], c[2]), new Keyframe(c[5], c[6]),
+                                                             new Keyframe(c[9], c[10]));
+                    float kHalfR18 = curveR18.Evaluate(0.5f), kHalfZeroR18 = curveNoSlopeR18.Evaluate(0.5f);
+                    Check(Mathf.Abs(kHalfR18 - (-0.7569f)) < 1e-3f
+                          && Mathf.Abs(kHalfR18 - kHalfZeroR18) > 0.3f,
+                          "★ R18①（灭自证·切线**真的**在用）：`t = 0.5` ⇒ **−0.7569**"
+                        + $"（带切线 {kHalfR18:F4} / 零切线 {kHalfZeroR18:F4} / 差 {Mathf.Abs(kHalfR18 - kHalfZeroR18):F4}）"
+                        + "｜🧨 把 `inSlope/outSlope` 抹成 0（或退回 `new Keyframe(t,v)` 的零切线）⇒ `t = 0.5` 处变 ≈ −0.4168（差 0.34）⇒ 红");
                     float kMid = curveR18.Evaluate(0.2373f);
                     Quaternion qMid = Quaternion.LerpUnclamped(Quaternion.identity,
                                             Quaternion.AngleAxis(rotDeg, Vector3.right), kMid);
@@ -4680,9 +4701,12 @@ public static class BattleScene
                 // ③ 本回合已出牌数（原版 `LeftArea/CardsPlayedInTurnHolder` 里的三枚）
                 Check(drv.PlayedPipTex(0) == "40k_general_bt_yellow" && drv.PlayedPipTex(2) == "40k_general_bt_yellow",
                       $"三枚「已出牌数」用的是 `40k_general_bt_yellow`（现在 `{drv.PlayedPipTex(0)}`）");
-                Check(drv.PlayedPipsOn == Mathf.Min(3, drv.CardsPlayedThisTurn),
-                      $"亮的枚数 = min(3, 本回合已出牌数)（现在亮 {drv.PlayedPipsOn} / 出了 {drv.CardsPlayedThisTurn}）"
-                    + " —— 第 2 节打出牌之后还会再验一次「真的会亮」");
+                // 🔴 2026-11-02 订正（`B117-FIXE` · 判据 `MatchData.GetMilestones` 同族）：原版这 holder 只在
+                //   `offensiveCard != null && HasPlayedThirdCardInTurn()` 时才亮（那张卡自己有 `cardAbilities[].trigger == 15`，
+                //   池内仅 2 张：DA `Asteroid Zone` / EC `Empyric Rift`）⇒ 普通对局**恒 0**。
+                //   ⛔ 精确规则由 `B117_G10_04_Assert` C 组钉着（含「换成 Asteroid Zone ⇒ 亮 2」）；这里只断「不许乱亮」。
+                Check(drv.PlayedPipsOn == 0 || drv.PlayedPipsOn == Mathf.Min(3, drv.CardsPlayedThisTurn),
+                      $"亮的枚数要么 0（普通对局）、要么 = min(3, 本回合已出牌数)（现在亮 {drv.PlayedPipsOn} / 出了 {drv.CardsPlayedThisTurn}）");
 
                 // ---- 🆕 2026-09-29（§25）：**进攻卡（环境效果卡）** 的数据与 HUD 钮 ----
                 //   判据 → `资料/加时与冲突模式_原版规格.md` 的进攻卡那一节 + 判据文件 §三 第 25 条。
@@ -6911,8 +6935,8 @@ public static class BattleScene
                 // 本回合已出牌数：**真打出一张之后第一枚灯要亮**（原版 `CardsPlayedInTurn1..3`）
                 Check(driver.CardsPlayedThisTurn >= 1,
                       $"打出这张牌后本回合已出牌数 = {driver.CardsPlayedThisTurn}");
-                Check(driver.PlayedPipsOn == Mathf.Min(3, driver.CardsPlayedThisTurn),
-                      $"已出牌数的灯亮了 {driver.PlayedPipsOn} 枚（应 = min(3, {driver.CardsPlayedThisTurn})）");
+                Check(driver.PlayedPipsOn == 0 || driver.PlayedPipsOn == Mathf.Min(3, driver.CardsPlayedThisTurn),
+                      $"已出牌数的灯亮了 {driver.PlayedPipsOn} 枚（普通对局恒 0；有「打出第三张」的进攻卡时才 = min(3, {driver.CardsPlayedThisTurn})）");
             }
             else Debug.Log(P + "   （没有付得起的牌，跳过拖拽用例）");
         }
@@ -7166,14 +7190,14 @@ public static class BattleScene
                 //      **发行版**里「点行弹卡」的活判据 = `CemeteryManager__ClickCardLink.c`
                 //      （行内链接 → `BattleManager.DisplayCard` → 一颗 `BasicCardUI` = **一张卡**）。
                 //    ⇒ 本节的断言测的是**我们那条入口的行为**（它沿用上一轮建的 `TryClickLogRow`），
-                //      ⛔ 别把它们读成「原版也这样」：**原版只认行内那个链接**，我们认整行矩形。
+                //      ⛔ 别把它们读成「原版也这样」：**原版只认行内那个链接**（🔴 2026-11-03 `B117-WREPLAY` 就地订正：本段下的 `RowAt` 用例只测**行矩形这条降级口**；生产判据已由 `B117-49` 收窄到 `BattleLogPanel.LinkRowAt`，见 `BattleDriver.TryClickLogRow`）。
                 //    ⚠️ **它和「点面板外 = 关面板」是两条路**：那 10 颗 `CemeterySliderUI` 是 uGUI 按钮、
                 //      画在压暗层**之上** ⇒ 点行传不到 `shade` 那个 `EventTrigger`。
                 //    ⚠️ 整块**跟着 `linkRow` 走**（那一行是这份夹具里唯一确认有卡的）⇒ 外面套 `if`。
                 // ============================================================
                 if (linkRow >= 0)
                 {
-                    // ① **命中区就是行底板那颗 quad 的真实矩形**（不是另立一套常量）
+                    // ① **行矩形这一档**（`RowAt`）= 行底板那颗 quad 的真实矩形（不是另立一套常量）—— `B117-49` 之后生产命中走 `LinkRowAt`（行内 TMP 链接），这里是它的降级 / 判别口。
                     Vector3 rp;
                     Check(log.RowCenterWorld(linkRow, out rp), "（前提）那一行底板的中心取得到");
                     Check(log.RowAt(rp) == linkRow,
@@ -7185,7 +7209,7 @@ public static class BattleScene
                           $"★ **判别式**：换第 {other} 行的中心 ⇒ 命中改成它（同一函数、两种输入两种答案）");
 
                     // ② 点一下 ⇒ 面板**关掉** + 记下选中的行 + 弹那一行的卡
-                    //   🔴 **2026-10-20（W57 · 战斗线 `T09` WIRE）就地订正（铁律 5）**：本条原来断「**面板没被关掉**」
+                    //   🔴 **2026-10-20（W57 · 战斗线 `T09` WIRE）就地订正（铁律 5）**：本条原来断「**面板没被关掉**」（🔴 2026-11-03 `B117-WREPLAY` 补 `B117-48`：点行的终点是**大卡信息窗** `CardDisplayWindow.ShowBattleCard`；小预览卡 `LogHoverCard` 是**悬停**的落点、点击时当场收掉 ⇒ 下面那条断「大卡窗显示那张卡 + 小卡已收」）
                     //   —— 那条判据引用的是**死类**（`CemeteryLogManager`，发行版没有实例；四条证据 →
                     //   `Battle/BattleLogPanel.cs` 的 `Z2`/`Z3`）。**发行版的活判据** =
                     //   `CemeteryManager__ClickCardLink.c` 末尾：`DisplayCard` 之后紧跟 `HideCemeteryLogBtn`
@@ -7200,9 +7224,9 @@ public static class BattleScene
                         + "｜🧨 把 `TryClickLogRow` 里那句 `_logPanel.Hide()` 删掉 ⇒ 本条红");
                     Check(drv.LogSelectedRow == linkRow,
                           $"★ 记下了点中的是**第 {linkRow} 行**（原版 `cemeterySliderActionDisplayed = index`）");
-                    Check(drv.LogHoverCardKey == wantKey,
-                          $"★ 弹的就是**那一行**的卡（`{drv.LogHoverCardKey}`）—— 面板关了、卡还开着"
-                        + "（卡挂在面板壳下、不随 `_root` 滑走；原版收的是**悬停**卡，不是 `DisplayCard` 那张）");
+                    Check(drv.CardDisplay != null && drv.CardDisplay.Visible && drv.CardDisplay.FrontDef != null && drv.CardDisplay.FrontDef.Name == wantKey && !string.IsNullOrEmpty(drv.CardDisplay.ShownTitle) && string.IsNullOrEmpty(drv.LogHoverCardKey),
+                          $"★ 点行 ⇒ **大卡信息窗**显示的就是那一行那张卡（`FrontDef` = `{(drv.CardDisplay != null && drv.CardDisplay.FrontDef != null ? drv.CardDisplay.FrontDef.Name : "(空)")}` / 行链接 = `{wantKey}` · 标题「{(drv.CardDisplay != null ? drv.CardDisplay.ShownTitle : "(窗没建)")}」）—— 小预览卡当场收掉"
+                        + "｜🔴 2026-11-03（`B117-FIXC`）就地订正：原来比的是 `ShownTitle == wantKey`（**显示名 vs 英文键名**）⇒ 中文档下永远不相等（实测「猎鹰」vs「Falcon」）——改比 `FrontDef.Name`（**身份**，与语档无关）+ 标题非空" + "｜🧨 把 `ShowLogCardLarge` 换回 `ShowLogCard`（旧的小预览卡）⇒ 本条红（`CardDisplay.Visible` 变假 · `ShownTitle` 变空 · `LogHoverCardKey` 变回卡名）");
 
                     // ③ 判别式：**同一个点，行外** ⇒ 不接手（那种点击仍旧归「关面板」）
                     Check(log.RowAt(LayoutSpace.FromPixel(1500f, 1000f)) == -1,
@@ -7221,16 +7245,16 @@ public static class BattleScene
                         + "｜🧨 把 `RowCardLocalPos` 写成 `HoverCardLocalPos`（钉在面板中线）⇒ 本条红");
                     // ⚠️ 上一跳已经把面板关掉了（原版同：点行 ⇒ 关面板）⇒ 再点一行之前**必须重开**，
                     //    否则 `ClickLogRowForTest` 会因「面板没开」直接返回 false（= 假红）。
-                    drv.ShowBattleLog();
+                    drv.ShowBattleLog(); int otherClick = -1; for (int i2 = 0; i2 < 8 && otherClick < 0; i2++) if (i2 != linkRow && !string.IsNullOrEmpty(log.RowLinkKey(i2))) otherClick = i2; bool degRow = otherClick < 0; if (degRow) { otherClick = other; log.ForceLinkProbeUnavailableForTest = true; }   // 🔴 B117-FIXC：`B117-49` 之后命中判据 = **行内 TMP 链接**（原版 `ClickCardLink` 只认链接）⇒「换一行」必须换到**另一行也有链接**的；本局只有一行链接时退回**文档化的降级口**（那一档验的是「选行记账跟着换」，链接命中另有 02b-2 / `B117_WBD` 专门断言）
                     Check(log.Visible, "（前提）面板重新打开 —— 下一条要再点一行");
-                    Check(drv.ClickLogRowForTest(other) && drv.LogSelectedRow == other,
-                          $"★ 换一行再点 ⇒ 选中的行跟着换（{linkRow} → {other}），不是「只认第一次」"
-                        + "（⚠️ 关不关面板看那一行**有没有卡**：`ClickCardLink` 在取不到卡时直接 return、"
-                        + "不调 `HideCemeteryLogBtn` —— 我们同）");
+                    Check(drv.ClickLogRowForTest(otherClick) && drv.LogSelectedRow == otherClick,
+                          $"★ 换一行再点 ⇒ 选中的行跟着换（{linkRow} → {otherClick}），不是「只认第一次」"
+                        + (degRow ? "（⚠️ 本局只有一行带卡名链接 ⇒ 走**降级命中口** `ForceLinkProbeUnavailableForTest`；原版只认链接，没链接的行本来就选不中）"
+                                  : "（⚠️ 关不关面板看那一行**有没有卡**：`ClickCardLink` 在取不到卡时直接 return、不调 `HideCemeteryLogBtn` —— 我们同）")); log.ForceLinkProbeUnavailableForTest = false;
                     Shot(cam, "02b3_日志点行弹卡");
                 }
 
-                log.Hide();
+                log.Hide(); if (drv.CardDisplay != null) drv.CardDisplay.Hide();   // 🔴 B117-FIXB：B117-48 之后「点日志行」的终点是大卡窗且留着（原版同），本段收尾必须关回去，否则下游「棋盘轻点」整节每条断言错一位
                 Check(!log.Visible, "关掉之后面板收起来了");
             }
         }
@@ -7744,8 +7768,8 @@ public static class BattleScene
                     //  `WindowsManager.OpenWindow(设置窗)`）。
                     if (drv3c.BattleLog != null && drv3c.BattleLog.Visible) drv3c.BattleLog.Hide();
                     if (drv3c.Settings != null && drv3c.Settings.Visible) drv3c.Settings.Hide();
-                    if (drv3c.ChatPopup != null && drv3c.ChatPopup.Visible) drv3c.ChatPopup.Hide();
-                    Check(drv3c.Settings != null && !drv3c.Settings.Visible, "（前提）设置窗关着");
+                    if (drv3c.ChatPopup != null && drv3c.ChatPopup.Visible) drv3c.ChatPopup.Hide(); drv3c.SimulateDeselect(); drv3c.RefreshAll();   // 🔴 B117-FIXC：`HandleSettingsEsc` 的第二闸是 `!IsTargeting`（原版 `UIstate == normalBattle`），而 `WSEL` 补丁② 之后 `_command` **起手就 = 卡的 attackType** ⇒ 上一段只要留着 `_selectedSlot` 就 `IsTargeting` 为真、ESC 被**正确地**吞掉 ⇒ 先把「无指挥态」摆回去（⛔ 别去放宽生产闸）
+                    Check(drv3c.Settings != null && !drv3c.Settings.Visible && !drv3c.IsTargeting, "（前提）设置窗关着、且**不在选目标态**（原版 `UIstate == normalBattle` 那道闸）");
                     BattleDriver.EscapePressedForTest = false;
                     Check(!drv3c.TickSettingsEscForTest(),
                           "★ **灭自证（反向）**：**没按 ESC** ⇒ 设置窗**不会**自己开（否则下一行就是同义反复）");
@@ -9414,7 +9438,7 @@ public static class BattleScene
             var a1730AtkU = ctx.Players[0].Board[atkSlot];
             _fired.Clear();
             driver.SimulateCommand(AttackKind.Melee); Check(ctx.Players[0].Board[atkSlot].LastAttackType == UnitState.AttackTypeMelee, "★ FP-HUD-003：选完打法**那一刻（结算前）** `LastAttackType` 已写成近战（判别式：🧨 删掉 `BattleDriver.cs:15677` 的 `picked.LastAttackType = pickedType;` ⇒ 本条红；下面 `:23615` 那条在结算后读，照样绿）");
-            Check(!driver.SelectorOpen, "选完打法，选择器收起");
+            Check(driver.SelectorOpen, "选完打法，选择器**仍开着**（原版 `UnitOnBoardAttackTypeSelector__AttackButtonClick.c` 全篇无 `Toggle(false)`，活到 `StopTracking` ⇒ 黄圈 + 1.3× 补间看得见）");
             Check(driver.Command == AttackKind.Melee, "定下来的是近战");
 
             // 🔴 **2026-10-25（`W8`）**：选完打法这一拍，**原版不写任何提示文字** ——
@@ -10155,7 +10179,7 @@ public static class BattleScene
                 driver.SimulateOpenCommand(retAtk);
             }
             driver.SimulateCommand(AttackKind.Melee);
-            Check(!driver.SelectorOpen, "定下打法 → 选择器收起");
+            Check(driver.SelectorOpen, "定下打法 → 选择器**仍开着**（同上：原版只有 `StopTracking` 才收）");
             // 🆕 2026-09-29 照原版改：**进入选目标状态就亮准星**，不需要指针先压到合法目标上
             // （原版六个 `ToggleCrosshair(true,false)` 调用点全在「开始选目标」那几支；
             //  我们原来是「指针压在合法目标上才亮」—— 与原版相反。判据 → `资料/待办判据_战场与战斗视图.md` Q7 第 6 条）。
@@ -13238,8 +13262,16 @@ public static class BattleScene
                 int hp1 = ctx.Players[1].Board[preySlot].Health;
                 int useCode = driver.SimulateUseAbility(casterSlot, preySlot);
                 Check(useCode == RuleCodes.OK, $"点敌方目标 → 放技能（{RuleCodes.Describe(useCode)}）");
-                Check(sp == null || sp.CurrentLight == SkillPanel.Light.Acting,
-                      $"技能结算时面板铺白那层（原版 `ShowActingLight`，{(sp == null ? "无面板" : sp.CurrentLight.ToString())}）");
+                // 🔴 **2026-11-02（`B117-FIXD`）就地订正（铁律 5）**：本条原来断「技能结算**这一刻** `CurrentLight == Acting`」——
+                //   **已过期**。`Resolve` 是 `SetActing()` 之后**同一拍**就 `ClearSelection()`（`BattleDriver.cs:16435`），
+                //   而 `ClearSelection → skillPanel.Hide() → FadeTo` 的**第一件事**就是原版 `FadePower` 的
+                //   `HideActingLight()`（判据 `__FadePower.c:20` / `__SetAlpha.c:11`，2026-11-02 `B117-G10-09` 已接）
+                //   ⇒ 读到这一行时白层**按原版已经熄掉**（实得 `Available`），拿旧口径断 = 拿「没接原文」当判据。
+                //   「`SetActing()` 真能点亮 + 从 0 起 + `Hide()` 当场熄」这三条**已在 `B117_G10_09_Assert` 的 C/D 组**
+                //   逐条钉住 ⇒ 这里改成断**本条真正管的那一件事**：结算之后白层**不许赖在面板上**（面板已淡出还留一层白）。
+                Check(sp == null || sp.CurrentLight != SkillPanel.Light.Acting,
+                      $"技能结算 ⇒ 面板转淡出，白层按原版 `FadePower → HideActingLight` 一起熄（实得 {(sp == null ? "无面板" : sp.CurrentLight.ToString())}）"
+                    + "｜🧨 白层赖着不走 ⇒ 面板淡出后屏幕上还留一层白 ⇒ 红；「能点亮」那一半见 `B117G1009` C/D");
                 var after = ctx.Players[1].Board[preySlot];
                 Check(after == null || after.Health < hp1,
                       $"技能打中了（{hp1} → {(after == null ? "阵亡" : after.Health.ToString())}）");
@@ -16975,7 +17007,7 @@ public static class BattleScene
                         Check(RemnantSfx.PropsLoaded == 6,
                               $"★ 六条 cue 的随机区间表读到了（实得 {RemnantSfx.PropsLoaded} 张；"
                             + "取不到就跑 `工具/import_remnant_sfx.py`）");
-                        var cueAe = RemnantSfx.PropsOf(RemnantSfx.Moment.Death, true);
+                        var cueAe = RemnantSfx.PropsOf(RemnantSfx.Moment.Death, true); RemnantSfx.ResetThrottle(); RemnantSfx.Play(RemnantSfx.Moment.Death, true);   // 🔴 B117-FIXA：下面两条读 `LastPitch/LastVolume`，而上一格 `ResetCounters()` 按契约把这两个值清零、`collectDeath: true` 那次**故意不播** ⇒ 本来读到的是清零值（不是时钟问题）。这里真播一次把值写回来（⛔ 别去改 `ResetCounters` 的清零契约，那会打红 `B117_G10_12` 的 B1）
                         Check(cueAe != null && Mathf.Abs(cueAe.minPitch - 0.8f) < 0.01f
                               && Mathf.Abs(cueAe.maxPitch - 1.24f) < 0.01f
                               && Mathf.Abs(cueAe.maxVolume - 0.3f) < 0.01f,
@@ -22143,7 +22175,7 @@ public static class BattleScene
                                   $"★ 字号落在原版 `m_fontSizeMin/Max` = **[10, 33]** 内（实得 {lb.FontPxNow:F1}）");
                             Shot(cam, "20b_单位语音条_最长台词");   // 实拍一眼：它现在应当**在框里折成几行**
                         }
-                        chat.HideAll(); B117F2_Assert.Run(chat);
+                        chat.HideAll(); B117F2_Assert.Run(chat); chat.HideAll(); B117G1022_Assert.Run(chat); B117G1022_Assert.RunBigChatStub(); pass += B117G1022_Assert.Pass; fail += B117G1022_Assert.Fail;  // 🆕 2026-11-02（B117-WWIREA 接线）：`B117_G10-22` 战斗内聊天（`AudioSource` 三档 / 停留时长 / 文字与语音两档 / 文字框落点 / 大聊天空桩）。⚠️ 必须排在 `B117F2_Assert.Run(chat)` **之后** —— `Run(chat)` 会在第 2 颗（`RadioChat`）上真说两句（临时 `AudioClip`），末尾自己 `HideBox(2)` 收回。
                     }
                 }
                 // ---- 🆕 2026-09-18：`cantdo`（原版 `ChatMessage.ICantDoThat` = 枚举 3）----
@@ -22982,7 +23014,7 @@ public static class BattleScene
                     //    `WaitForSeconds(timeToScaleIntoMoving)`（判据 → `DeploySequence` 文件头）。
                     float dDeploy = Dur(DeploySequence.Play(probe, Vector3.zero, Vector3.zero, 1f));
                     Check(Mathf.Abs(dDeploy - DeploySequence.TotalTime) < 1e-3f,
-                          $"落位序列真实长度 {dDeploy:F3}s == 四段之和 {DeploySequence.TotalTime:F2}s"
+                          $"落位序列真实长度 {dDeploy:F3}s == 五段之和 {DeploySequence.TotalTime:F2}s"
                         + $"（`minionToConversionPointTime` {DeploySequence.MoveTime:F2}"
                         + $" + `timeToScaleIntoMoving` {DeploySequence.TimeToScaleIntoMoving:F2}"
                         + $" + `timeBeforeLand` {DeploySequence.HoldTime:F2}"
@@ -29281,6 +29313,12 @@ public static class BattleScene
                     //    把材质换回 3000（`SetData` / `SetFace` / 换材质/换队列缓存）时，字段照样是「对的」，
                     //    那种缺陷**读不出来**（`A1674`/`A1967` 那一族坑）。
                     int qRealMin = int.MaxValue, qRealMax = int.MinValue, qBad = 0;
+                    // 🔴 2026-11-02（`B117-FIXF`）：**违规件的名字要打出来**（上一版只有「违规 N 颗」⇒ 只能猜）。
+                    //   逐颗列 `#卡下标/层名=队列`；TMP 那几层再标一句「TMP 记着的共享材质 ≠ 渲染器现在这份」——
+                    //   那正是**队列被刷回 3000** 的机制：`CardView.StampTmpQueue` 只换 `renderer.sharedMaterial`，
+                    //   没换 TMP 内部那份 `fontSharedMaterial`；TMP 一旦 `OnEnable`（被 `SetActive` 收起再放开）
+                    //   就走 `UpdateMaterial()` ⇒ `renderer.sharedMaterial = m_sharedMaterial`（= 没盖过章的原件 3000）。
+                    var qBadNames = new List<string>();
                     for (int i = 0; i < mp.RowCardCount; i++)
                     {
                         var rc = mp.RowCard(i);
@@ -29292,10 +29330,24 @@ public static class BattleScene
                             qRealMax = Mathf.Max(qRealMax, qs[k]);
                             if (qs[k] <= qShade) qBad++;
                         }
+                        foreach (var mr in rc.GetComponentsInChildren<MeshRenderer>(true))
+                        {
+                            if (mr == null || mr.sharedMaterial == null) continue;
+                            if (mr.gameObject.name == "body3D") continue;      // `SubtreeQueues` 显式排除的那颗（不透明档 2000）
+                            if (mr.sharedMaterial.renderQueue > qShade) continue;
+                            var tmp = mr.GetComponent<TMPro.TextMeshPro>();
+                            qBadNames.Add($"#{i}/{mr.gameObject.name}={mr.sharedMaterial.renderQueue}"
+                                        + (tmp != null && tmp.fontSharedMaterial != mr.sharedMaterial
+                                           ? "（TMP 记的材质≠渲染器材质 ⇒ 下次 OnEnable 会把队列刷回）" : ""));
+                        }
+                        foreach (var pr in rc.GetComponentsInChildren<ParticleSystemRenderer>(true))
+                            if (pr != null && pr.sharedMaterial != null && pr.sharedMaterial.renderQueue <= qShade)
+                                qBadNames.Add($"#{i}/{pr.gameObject.name}(PS)={pr.sharedMaterial.renderQueue}");
                     }
                     Check(qBad == 0 && qRealMin < int.MaxValue && qShade > 0,
                           $"★ D6⑦（真实材质队列）：换牌卡**每一颗渲染器**的 `sharedMaterial.renderQueue` 都在压暗层之上"
                         + $"（实测 {qRealMin}..{qRealMax} > 压暗层 {qShade}；违规 {qBad} 颗）"
+                        + (qBadNames.Count > 0 ? " —— 违规件：" + string.Join(" · ", qBadNames.ToArray()) : "")
                         + "｜🧨 任何一条路把卡面材质换回 3000 ⇒ 卡被压暗、本条红"
                         + "；⚠️ `qShade > 0` 那一半是防「哨兵当分母」——哨兵比谁都小，不加这一句这条会**假绿**");
 
@@ -31426,7 +31478,7 @@ public static class BattleScene
                         driver.SetMySeat(0, rebuildViews: true); driver.RefreshAll();
                         Check(driver.SimulateOpenCommand(foeSlot),
                               $"（对照）主机视角：同一个槽 {foeSlot} 是**我自己的兵**（且已解行动） ⇒ 弹得出选择器");
-                        if (driver.SelectorOpen) driver.SimulateCommand(AttackKind.Melee);   // 收起，别留给下一节
+                        if (driver.SelectorOpen) driver.SimulateDeselect();   // 收起，别留给下一节（🔴 B117-FIXC：`WSEL` 补丁① 之后 commit **不再关窗**、补丁③ 还会让同档 commit 直接 return ⇒ 必须走 `ClearSelection` 那一口）
                     }
                     else
                         Debug.LogWarning(P + "  ⚠️ **选择器那一层没验**：两个座位在同一个槽上都有兵"
@@ -34517,9 +34569,9 @@ public static class BattleScene
                                           "★ A462：安全窗走完（0.1s，原版 `disableTimeAfterPointerExit` 三颗都是这个数）"
                                         + $" ⇒ 可以发（实得 {sel4.HoverSafeLeft:F3}s）");
                                     wb4.DrivePlayerTurnForTest();
-                                    Check(!wb4.SelectorOpen && wb4.Command == AttackKind.Ranged,
+                                    Check(wb4.SelectorOpen && wb4.Command == AttackKind.Ranged,
                                           $"★ A462：**悬停即选中** —— 指针一直压着「远程」就定下来了"
-                                        + $"（选择器收起 {!wb4.SelectorOpen} / 打法 {wb4.Command}）"
+                                        + $"（选择器仍开着 {wb4.SelectorOpen} / 打法 {wb4.Command}）"
                                         + "（改坏法：改回 `if (ClickedThisFrame())` ⇒ 这两条红）");
                                     wb4.SimulateDeselect();
                                 }
@@ -37174,7 +37226,7 @@ public static class BattleScene
                     driver.ShowBattleLog();
                     Check(driver.CemeteryClickAllowedForTest,
                           "★ `hideCemetery = 0` ⇒ 闸门**放行**（原版 `CanShowCemetery` 读 `stage+0x29`）");
-                    bool ateA = driver.ClickLogRowForTest(0);
+                    driver.BattleLog.ForceLinkProbeUnavailableForTest = true; bool ateA = driver.ClickLogRowForTest(0); driver.BattleLog.ForceLinkProbeUnavailableForTest = false;   // 🔴 B117-FIXC：本段验的是 **`hideCemetery` 闸门 + 选行记账**，⛔ 不是链接命中（那一档在 02b-2 / `B117_WBD` 另有专门断言）；面板刚 `Show()` 的同一拍批处理里 `FindLinkProbe` 扫不到字形 ⇒ 走 `BattleLogPanel.LinkRowAt` 的**文档化降级口**（`LastLinkProbeDegraded` 出声）
                     Check(ateA && driver.LogSelectedRow == 0,
                           "★ 点第 1 行 ⇒ 被吃掉、且**记下了选中的行**"
                         + "（⚠️ 本局日志**不是空的** —— `A985⑥` 之后 `RuleCore.Draw` 会 `Emit(EvtKind.Draw)` ⇒ "
@@ -37222,7 +37274,7 @@ public static class BattleScene
                     driver.BattleLog.SelectRow(-1);
                     Check(driver.LogSelectedRow == -1, "（前提）闸门这一档开始前「还没点过任何一行」");
                     int selBefore = driver.LogSelectedRow;
-                    bool ateB = driver.ClickLogRowForTest(0);
+                    driver.BattleLog.ForceLinkProbeUnavailableForTest = true; bool ateB = driver.ClickLogRowForTest(0); driver.BattleLog.ForceLinkProbeUnavailableForTest = false;   // 🔴 B117-FIXC：同上 —— 验的是闸门（`CanShowCemetery` 假 ⇒ 仍旧吃掉、但不记选中行），命中口走文档化降级
                     Check(ateB && driver.LogSelectedRow == selBefore,
                           "★ 闸门关着时：这一下**仍然被吃掉**（原版就在这颗按钮的处理函数里 return，"
                         + "点击传不到压暗层）—— 但**没有记下选中的行**"
@@ -40449,7 +40501,7 @@ public static class BattleScene
                         {
                             Check(mover.ep != mover.sp && mover.tm > 0f && mover.ease != null && mover.ease.Length >= 4,
                                   $"★ B1·偏差6（数据）：那一拍带齐起≠终（{mover.sp}→{mover.ep}）、`tm` {mover.tm:F2}、"
-                                + $"`ease` {mover.ease.Length / 2} 个关键帧");
+                                + $"`ease` {(CardAnimOrder.HasSlopes(mover.ease) ? (mover.ease.Length - 1) / 4 : mover.ease.Length / 2)} 个关键帧");
                             Check(Mathf.Abs(CardAnimOrder.EaseAt(mover.ease, 0.5f) - 0.5f) < 1e-3f,
                                   "★ B1·偏差6：`EaseAt` 在中点 = 0.5（这几条 mover 的曲线是直线）");
                         }
@@ -40696,7 +40748,7 @@ public static class BattleScene
                                   && Mathf.Abs(plG.Value.Mny - 2.5f) < 1e-3f && Mathf.Abs(plG.Value.Mxy - 2.5f) < 1e-3f
                                   && plG.Value.Ofy != null && plG.Value.Ofy.Length >= 6,
                                   $"★ 新账-83（数据）：`Atk_GrotGrenade` 带 `ao=1` · `otv=1` · y 弧幅度 [{plG.Value.Mny:F2},{plG.Value.Mxy:F2}]"
-                                + $" · `ofy` {(plG.Value.Ofy == null ? 0 : plG.Value.Ofy.Length / 2)} 个关键帧（原版 y 抛物线 2.5）"
+                                + $" · `ofy` {(plG.Value.Ofy == null ? 0 : (CardAnimOrder.HasSlopes(plG.Value.Ofy) ? (plG.Value.Ofy.Length - 1) / 4 : plG.Value.Ofy.Length / 2))} 个关键帧（原版 y 抛物线 2.5）"
                                 + "｜🧨 生成器不烘 `applyMovementOffsets`/`offsetMovementAxis` ⇒ 本条红");
                             var plJZ = CardAnimClips.PlacementOf("Atk_JainasMor_Throw_Return");
                             Check(plJZ.HasValue && plJZ.Value.Ease != null && plJZ.Value.Ease.Length >= 8
@@ -40745,8 +40797,14 @@ public static class BattleScene
                                 Check(otv83 >= 15 && otv83 <= 28,
                                       $"★ 新账-83（普查）：`orientToVelocity=1` **{otv83}** 件（现读 22）"
                                     + "｜🧨 不烘 `otv` ⇒ 0 ⇒ 红");
-                                Check(nonlin83 >= 1 && nonlin83 <= 3,
-                                      $"★ 新账-83（**灭自证**）：非线性 `easeCurve` **{nonlin83}** 件（现读 1 = `Jain Zar`）"
+                                // 🔴 2026-11-02（`B117-FIXF` · 判据 `判据/B117-WCURVE_动画曲线斜率.md` §五）：**上界 3 → 8、现读 1 → 4**。
+                                //   `B117-WCURVE` 把非线性曲线改烘成 **4 数格式（带 in/out 切线）**之后，`EaseAt(·, 0.5) != 0.5` 的
+                                //   (卡,件) 从 1 涨到 **4**（`Atk_Deathspinner_arc_alt` 0.6469 · `Atk_JainasMor_Throw_Return` 1.0076 ·
+                                //   `Atk_Rokkit_Harpoon small` 0.75 · `Atk_StikkaThrow` 0.75）—— 那是**预期后果**，不是回归；
+                                //   同笔复算 `movers83 33 / ao83 26 / otv83 22 / arc83 21` 全部不变。
+                                //   本条的语义（⛔ 不是「全是非线性」、⛔ 不是「一条都没有」）一个字没变，只挪那条「全池 33 件」的阈值。
+                                Check(nonlin83 >= 1 && nonlin83 <= 8,
+                                      $"★ 新账-83（**灭自证**）：非线性 `easeCurve` **{nonlin83}** 件（现读 4：`Jain Zar` / `Deathspinner arc alt` / `Rokkit Harpoon small` / `StikkaThrow`）"
                                     + " —— ⛔ 不是「所有曲线都被当成非线性」；也⛔ 不是「一条都没有」（一条都没有 = 表里没烘 `ease`）");
                             }
 
@@ -41157,7 +41215,13 @@ public static class BattleScene
                     // ---- 残余②：演出没演完 ⇒ **抓牌**也被挡（原来只挡掉线）----
                     StepThrough(driver);
                     { int g = 0; while (driver.WaitingForBlockingAction && g++ < 400) Step(1f / 30f); }
-                    bctx.Emit(EvtKind.Trigger, bme, bws, bUnit.Name);
+                    // 🔴 2026-11-02（`B117-FIXF` · 账 `B117-38` 的连带）：**开闸判据已改成「这一批里有没有真动作」**
+                    //   （`PlaySignals` 的 `if (BatchBlocksPlayerActions(_signalBuf)) BeginBlockingWindow(t);`，
+                    //   判据 = `BattleManager__WaitingForBlockingAction.c:26-40`）⇒ 光发一条 `Trigger`
+                    //   **不再开闸**（那正是本批有意改掉的「手感杀手 #2」），拿它当夹具前提 = 拿旧口径测新实现。
+                    //   ⇒ 换成 `Hit`（`BlocksPlayerActions` = true，时长 = `HitWaitSeconds` 1.0 s）；
+                    //   本段上面「B1·偏差4」那组夹具早就在同一条链上用过 `Hit`，对督军发一条是安全的。
+                    bctx.Emit(EvtKind.Hit, bme, bws, bUnit.Name, null, null, 1);
                     driver.RefreshAll();
                     Check(driver.WaitingForBlockingAction, "★ B1·残余②（前提）：闸起来了");
                     Check(driver.interaction != null && driver.interaction.FrozenNow,
@@ -41519,28 +41583,36 @@ public static class BattleScene
                             Check(Vector3.Distance(fStart, fMid) > 0.01f,
                                   $"★ B2·偏差8：飞行中卡在动（0.2 s 位移 {Vector3.Distance(fStart, fMid):F3}）—— "
                                 + "🧨 删掉 `SyncBoard` 里 `_aiDeployFlights` 那一支 ⇒ 视图直接落在终点、位移 0");
-                            // 0.5 s = **交接（0.4）之后**：手牌卡背那一路此刻在飞的是场上视图（竞技场空间落下）。
-                            // 🔴 **2026-10-25（`R15` · Dg1）**：同样是**落地段的中途快照** ⇒ 只推 0.3 s，**不吃**抬头那 1.5 s。
+                            // 0.5 s = **飞行（0.3）刚结束、悬停交接段（0.3→0.95）里**：手牌卡背停在上方正等 clip。
+                            // 🔴 **2026-11-02（`B117-FIXF` · `B117-R15` 的连带）就地订正**：原来这里写「交接（0.4）之后」
+                            //   —— 交接已按 `MinionManager__GetMinionConversionTime` 改成 **0.95 s**
+                            //   （`DeploySequence.HandoffTime` = 飞 0.3 + clip 事件 0.55 + 缩放 0.1）⇒ 0.5 s 时
+                            //   **还在悬停**。本条量的「0.2 → 0.5 位移」= 飞行补间尾巴（0.2→0.3 那一段），仍然成立。
                             Step(0.3f);
                             Transform cLate = flyingNow2();
                             Vector3 fLate = cLate != null ? cLate.position : fMid;
                             Check(Vector3.Distance(fMid, fLate) > 0.01f,
-                                  $"★ B2·偏差8：落地段还在走（0.2 s → 0.5 s 位移 {Vector3.Distance(fMid, fLate):F3}）");
-                            // 再推 0.1 s（= 0.6 s，仍在 0.45→0.65 的落下段里）⇒ 交接之后那一段**确实在动**
-                            Step(0.1f);
+                                  $"★ B2·偏差8：飞行尾段还在走（0.2 s → 0.5 s 位移 {Vector3.Distance(fMid, fLate):F3}）");
+                            // 🔴 **取样时刻跟着交接挪（2026-11-02 `B117-FIXF`）**：交接 0.95 + `HoldTime` 0.05 ⇒
+                            //   **落下段 = 1.00 → 1.20 s**（`DeploySequence`：`MoveTime 0.3` + `HandoffTime` 0.95
+                            //   起 `DOLocalMove(LandTime 0.2)`）。旧值 0.6 s 落在**悬停段**里 ⇒ 位移必然 0
+                            //   （实测 `0.5 s → 0.6 s 位移 0.000` = 本条红，而卡本来就不该在那一段动）。
+                            //   ⇒ 推 0.6 s 到 **1.1 s**（落下段正中，OutQuad 已走 75%）—— 取中点而不是 1.0/1.2
+                            //   是为了容 ±0.05 s 的起播抖动（起播早/晚都还在落下段里）。
+                            Step(0.6f);
                             Transform cLater = flyingNow2();
                             Vector3 fLater = cLater != null ? cLater.position : fLate;
                             Check(Vector3.Distance(fLate, fLater) > 0.005f,
-                                  $"★ B2·偏差8：**竞技场空间**里那 0.2 s 落下真的在走（0.5 s → 0.6 s 位移 "
-                                + $"{Vector3.Distance(fLate, fLater):F3}）—— 🧨 交接后把落体补间删掉 ⇒ 卡从 0.4 s 起不动 ⇒ 本条红");
+                                  $"★ B2·偏差8：**竞技场空间**里那 0.2 s 落下真的在走（0.5 s → 1.1 s 位移 "
+                                + $"{Vector3.Distance(fLate, fLater):F3}；落下段 1.00→1.20 s）—— 🧨 交接后把落体补间删掉 ⇒ 卡从 0.95 s 起不动 ⇒ 本条红");
                             // 🆕 2026-10-24（`A19` · `C1-B01`）：**起跳前最后一刻**再把请求拨成 true
                             //   （模拟「引擎在飞行途中又发了一次能行动」—— 真机的 `SyncBoard` 不是逐帧跑）。
                             //   ⚠️ 必须放在这里、⛔ 不能放在飞行开头：`AdvanceTimeline` 在 `_syncAfterDeploy`
                             //   那一拍会补一次 `SyncBoard`（`BattleDriver.cs:16365-16372`），它会把这句拨的
                             //   true 重新压回 false ⇒ 落地那条断言就变成「测了闸、没测收口」（假绿）。
                             if (fv2 != null) fv2.SetCanAct(true);
-                            // 推到落地（0.65 s）—— ⚠️ 别写死 0.7 s：交接把总长拉到 0.65，余量只剩 0.05
-                            //   （autoPlay 那条还要先走居中展示），所以按**账清掉**为准。
+                            // 推到落地 —— ⚠️ 别写死时长：交接（0.95）+ 等 0.05 + 落 0.2 ⇒ **落地 cue = 1.20 s**（整条 1.30 s），
+                            //   而且 autoPlay 那条还要先走居中展示 ⇒ 整条更长，所以按**账清掉**为准。
                             int landWait2 = 0;
                             while (driver.AiDeployLandingCuePendingForTest(bfoe2, fslot2) && landWait2++ < 180)
                                 Step(1f / 60f);
@@ -45277,7 +45349,7 @@ public static class BattleScene
                 }
             }
 
-            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; CheckT21TriggerAnchors(driver, Check); RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; CheckCardWinUiStateBlocked(driver, Check); CheckChallengeCounters(Check); CheckManaBuffHud(driver, Check); B115W7_Assert.Run(driver); pass += B115W7_Assert.Pass; fail += B115W7_Assert.Fail; B116W42_Assert.Run(driver); pass += B116W42_Assert.Pass; fail += B116W42_Assert.Fail; B117F11_Assert.RunWithDriver(driver); pass += B117F11_Assert.Pass; fail += B117F11_Assert.Fail; driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
+            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; CheckT21TriggerAnchors(driver, Check); RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; CheckCardWinUiStateBlocked(driver, Check); CheckChallengeCounters(Check); CheckManaBuffHud(driver, Check); B115W7_Assert.Run(driver); pass += B115W7_Assert.Pass; fail += B115W7_Assert.Fail; B116W42_Assert.Run(driver); pass += B116W42_Assert.Pass; fail += B116W42_Assert.Fail; { /* 🔴 2026-11-02（B117-WBT）：E2 的夹具 —— 敌方场上必须 ≥3 个单位，否则 B117F11_Assert 的 E2 组只剩一条「（前提）不够」的红、AoE 并行从没被真验过。这里在调用前把敌方空的可部署格补满 3 个引擎单位（RunWithDriver 第一句 RefreshAll 会把视图同步出来）。勿改成行注释：本行是聚合行，行注释会把后面全部代码吞掉。 */ var _e2ctx = driver.Ctx; int _e2foe = 1 - _e2ctx.Active; int _e2have = 0; for (int _s = 0; _s < BoardSpec.Size; _s++) if (BoardSpec.IsDeployable(_s) && _e2ctx.Players[_e2foe].Board[_s] != null) _e2have++; if (_e2have < 3) { CardDef _e2def = null; var _e2pool = CardDatabase.Load(); for (int _i = 0; _i < _e2pool.Count && _e2def == null; _i++) { var _c = _e2pool[_i]; if (_c != null && _c.Type == "unit") _e2def = _c; } if (_e2def == null) Debug.LogWarning(P + "E2 夹具：卡池里找不到 type==unit 的定义 ⇒ 敌方不足 3 个单位，E2 仍会报前提红"); else for (int _s = 0; _s < BoardSpec.Size && _e2have < 3; _s++) { if (!BoardSpec.IsDeployable(_s) || _e2ctx.Players[_e2foe].Board[_s] != null) continue; var _u = new UnitState(_e2ctx.NewInstance(_e2def), false); _u.DeployedTurn = _e2ctx.Turn; _u.PlayOrder = _e2ctx.TakePlayOrder(); _e2ctx.Players[_e2foe].Board[_s] = _u; _e2have++; } } } B117F11_Assert.RunWithDriver(driver); pass += B117F11_Assert.Pass; fail += B117F11_Assert.Fail; B117_G10_16_Assert.Run(driver); pass += B117_G10_16_Assert.Pass; fail += B117_G10_16_Assert.Fail; B117_G10_09_Assert.Run(); pass += B117_G10_09_Assert.Pass; fail += B117_G10_09_Assert.Fail; B117_G10_15_Assert.Run(); pass += B117_G10_15_Assert.Pass; fail += B117_G10_15_Assert.Fail; B117_WBD_Assert.Run(); pass += B117_WBD_Assert.Pass; fail += B117_WBD_Assert.Fail; B117_G10_04_Assert.RunWithDriver(driver); pass += B117_G10_04_Assert.Pass; fail += B117_G10_04_Assert.Fail; /* 🆕 2026-11-02（B117-WWIREA 接线）：这五件都必须跑在**这台 driver 还活着**的时候（本行随后就 `DetachStaticHooks` + `DestroyImmediate(driver)`）—— G10-16 录像栏四颗钮的 cue 要活 HUD；G10-09 要 `FindObjectOfType<SkillPanel>()`（收起只压 alpha、不 `SetActive(false)`，所以找得到）；G10-15 要 driver 建出的 `BattleLogPanel`；WBD 要 `LayoutSpace.Cam`/`HudCanvas` 才能 `BattleLogPanel.Create(null)`；G10-04 的 `RunWithDriver` 会临时改写 4 个 ctx 字段并**在 finally 原样还原 + 重刷 HUD** ⇒ 按它文件头的要求排在**所有依赖棋盘/HUD 现状的断言之后**、卸 driver 之前（故放在本行最末、`DetachStaticHooks` 之前）。同一物理行追加 ⇒ 行数零变化。 */ driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
             //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：
@@ -46688,7 +46760,7 @@ public static class BattleScene
         // 🔴 **2026-10-24（`E7`）**：联机活局开局收尾那两拍 —— ⚠️ 调用点已上移到
         //   `DestroyImmediate(driver)` **之前**（见那里 2026-10-24 的订正注）；本处只留说明，⛔ 别把调用搬回来。
 
-        Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ===");
+        Debug.Log(P + $"=== 结束：{pass} 通过 / {fail} 失败 ==="); B117G1024Assert.Run(); pass += B117G1024Assert.Pass; fail += B117G1024Assert.Fail;   // 🔴 2026-11-02（`B117-FIXF`）：**必须排在下面 `CheckSavedScene(tail)` 之前** —— 它的 E 组要**运行时实例化**的战场（`ArenaRuntimeLoader`），而 `CheckSavedScene` 第一句 `EditorSceneManager.OpenScene` 会把测试场景整个换掉，战场随之销毁 ⇒ `E0` 找不到任何 `TapHitMaterialDefinition`（实测日志：E0 实得 0 个，就在 OpenScene 之后）。⚠️ 它不依赖 `driver`（自带临时件 + 静态常量组），所以放在 `DestroyImmediate(driver)` 之后也安全。
 
         // 最后验一下**存下来的那个场景**（自检上面的场景是当场建的，不是存的那份）
         var tail = new int[2] { pass, fail };
@@ -46907,7 +46979,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); pass += B99A3_Assert.Pass; fail += B99A3_Assert.Fail; B99A1_Assert.Run(); pass += B99A1_Assert.Pass; fail += B99A1_Assert.Fail; B99B1_Assert.Run(); pass += B99B1_Assert.Pass; fail += B99B1_Assert.Fail; B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; B108_A2_PlayerChain_Assert.Run(); pass += B108_A2_PlayerChain_Assert.Pass; fail += B108_A2_PlayerChain_Assert.Fail; B108_A8_TutorialArrow_Assert.Run(); pass += B108_A8_TutorialArrow_Assert.Pass; fail += B108_A8_TutorialArrow_Assert.Fail; B109_E12_Wiring_Assert.Run(); pass += B109_E12_Wiring_Assert.Pass; fail += B109_E12_Wiring_Assert.Fail; B109_E6_EnchantDispatch_Assert.Run(); pass += B109_E6_EnchantDispatch_Assert.Pass; fail += B109_E6_EnchantDispatch_Assert.Fail; B109_E7_EnchantVfx_Assert.Run(); pass += B109_E7_EnchantVfx_Assert.Pass; fail += B109_E7_EnchantVfx_Assert.Fail; B109_E22_PendingMode_Assert.Run(); pass += B109_E22_PendingMode_Assert.Pass; fail += B109_E22_PendingMode_Assert.Fail; B109_E25_VfxAsset_Assert.Run(); pass += B109_E25_VfxAsset_Assert.Pass; fail += B109_E25_VfxAsset_Assert.Fail; C7_Assert.Run(); pass += C7_Assert.Pass; fail += C7_Assert.Fail; Q1_Assert.Run(); pass += Q1_Assert.Pass; fail += Q1_Assert.Fail; B110R17_Assert.Run(); pass += B110R17_Assert.Pass; fail += B110R17_Assert.Fail; B110_W2_Assert.Run(); pass += B110_W2_Assert.Pass; fail += B110_W2_Assert.Fail; C6_Assert.RunUnit(); pass += C6_Assert.Pass; fail += C6_Assert.Fail; B111E2_Assert.Run(); pass += B111E2_Assert.Pass; fail += B111E2_Assert.Fail; B111E1B_Assert.Run(); pass += B111E1B_Assert.Pass; fail += B111E1B_Assert.Fail; B111R1WC_Assert.Run(); pass += B111R1WC_Assert.Pass; fail += B111R1WC_Assert.Fail; B111_R2W_Assert.Run(); pass += B111_R2W_Assert.Pass; fail += B111_R2W_Assert.Fail; B111_F1E_Assert.Run(); pass += B111_F1E_Assert.Pass; fail += B111_F1E_Assert.Fail; B113W13_Assert.Run(); pass += B113W13_Assert.Pass; fail += B113W13_Assert.Fail; B113W3_Assert.Run(); pass += B113W3_Assert.Pass; fail += B113W3_Assert.Fail; B114_W14_Assert.Run(); pass += B114_W14_Assert.Pass; fail += B114_W14_Assert.Fail; B114_W17_Assert.Run(); pass += B114_W17_Assert.Pass; fail += B114_W17_Assert.Fail; B114_W18_Assert.Run(); pass += B114_W18_Assert.Pass; fail += B114_W18_Assert.Fail; B114_W31_Assert.Run(); pass += B114_W31_Assert.Pass; fail += B114_W31_Assert.Fail; B114_W36_Assert.Run(); pass += B114_W36_Assert.Pass; fail += B114_W36_Assert.Fail; B114_W42_Assert.Run(); pass += B114_W42_Assert.Pass; fail += B114_W42_Assert.Fail; CheckPostFxDetachRoundTrip(Check); B116W23_Assert.Run(); pass += B116W23_Assert.Pass; fail += B116W23_Assert.Fail; B116W29_Assert.Run(); pass += B116W29_Assert.Pass; fail += B116W29_Assert.Fail; B117F11_Assert.Run(); pass += B117F11_Assert.Pass; fail += B117F11_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); pass += B99A3_Assert.Pass; fail += B99A3_Assert.Fail; B99A1_Assert.Run(); pass += B99A1_Assert.Pass; fail += B99A1_Assert.Fail; B99B1_Assert.Run(); pass += B99B1_Assert.Pass; fail += B99B1_Assert.Fail; B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; B108_A2_PlayerChain_Assert.Run(); pass += B108_A2_PlayerChain_Assert.Pass; fail += B108_A2_PlayerChain_Assert.Fail; B108_A8_TutorialArrow_Assert.Run(); pass += B108_A8_TutorialArrow_Assert.Pass; fail += B108_A8_TutorialArrow_Assert.Fail; B109_E12_Wiring_Assert.Run(); pass += B109_E12_Wiring_Assert.Pass; fail += B109_E12_Wiring_Assert.Fail; B109_E6_EnchantDispatch_Assert.Run(); pass += B109_E6_EnchantDispatch_Assert.Pass; fail += B109_E6_EnchantDispatch_Assert.Fail; B109_E7_EnchantVfx_Assert.Run(); pass += B109_E7_EnchantVfx_Assert.Pass; fail += B109_E7_EnchantVfx_Assert.Fail; B109_E22_PendingMode_Assert.Run(); pass += B109_E22_PendingMode_Assert.Pass; fail += B109_E22_PendingMode_Assert.Fail; B109_E25_VfxAsset_Assert.Run(); pass += B109_E25_VfxAsset_Assert.Pass; fail += B109_E25_VfxAsset_Assert.Fail; C7_Assert.Run(); pass += C7_Assert.Pass; fail += C7_Assert.Fail; Q1_Assert.Run(); pass += Q1_Assert.Pass; fail += Q1_Assert.Fail; B110R17_Assert.Run(); pass += B110R17_Assert.Pass; fail += B110R17_Assert.Fail; B110_W2_Assert.Run(); pass += B110_W2_Assert.Pass; fail += B110_W2_Assert.Fail; C6_Assert.RunUnit(); pass += C6_Assert.Pass; fail += C6_Assert.Fail; B111E2_Assert.Run(); pass += B111E2_Assert.Pass; fail += B111E2_Assert.Fail; B111E1B_Assert.Run(); pass += B111E1B_Assert.Pass; fail += B111E1B_Assert.Fail; B111R1WC_Assert.Run(); pass += B111R1WC_Assert.Pass; fail += B111R1WC_Assert.Fail; B111_R2W_Assert.Run(); pass += B111_R2W_Assert.Pass; fail += B111_R2W_Assert.Fail; B111_F1E_Assert.Run(); pass += B111_F1E_Assert.Pass; fail += B111_F1E_Assert.Fail; B113W13_Assert.Run(); pass += B113W13_Assert.Pass; fail += B113W13_Assert.Fail; B113W3_Assert.Run(); pass += B113W3_Assert.Pass; fail += B113W3_Assert.Fail; B114_W14_Assert.Run(); pass += B114_W14_Assert.Pass; fail += B114_W14_Assert.Fail; B114_W17_Assert.Run(); pass += B114_W17_Assert.Pass; fail += B114_W17_Assert.Fail; B114_W18_Assert.Run(); pass += B114_W18_Assert.Pass; fail += B114_W18_Assert.Fail; B114_W31_Assert.Run(); pass += B114_W31_Assert.Pass; fail += B114_W31_Assert.Fail; B114_W36_Assert.Run(); pass += B114_W36_Assert.Pass; fail += B114_W36_Assert.Fail; B114_W42_Assert.Run(); pass += B114_W42_Assert.Pass; fail += B114_W42_Assert.Fail; CheckPostFxDetachRoundTrip(Check); B116W23_Assert.Run(); pass += B116W23_Assert.Pass; fail += B116W23_Assert.Fail; B116W29_Assert.Run(); pass += B116W29_Assert.Pass; fail += B116W29_Assert.Fail; B117F11_Assert.Run(); pass += B117F11_Assert.Pass; fail += B117F11_Assert.Fail; B117G1002a_Assert.Run(); pass += B117G1002a_Assert.Pass; fail += B117G1002a_Assert.Fail; B117_G10_03_Assert.Run(); pass += B117_G10_03_Assert.Pass; fail += B117_G10_03_Assert.Fail; B117_G10_05_Assert.Run(); pass += B117_G10_05_Assert.Pass; fail += B117_G10_05_Assert.Fail; B117_G10_06_Assert.Run(); pass += B117_G10_06_Assert.Pass; fail += B117_G10_06_Assert.Fail; B117_G10_07_Assert.Run(); pass += B117_G10_07_Assert.Pass; fail += B117_G10_07_Assert.Fail; B117_G10_08_Assert.Run(); pass += B117_G10_08_Assert.Pass; fail += B117_G10_08_Assert.Fail; B117_G10_10a_Assert.Run(); pass += B117_G10_10a_Assert.Pass; fail += B117_G10_10a_Assert.Fail; B117G1010bAssert.Run(); pass += B117G1010bAssert.Pass; fail += B117G1010bAssert.Fail; B117G1011Assert.Run(); pass += B117G1011Assert.Pass; fail += B117G1011Assert.Fail; B117_G10_12_Assert.Run(); pass += B117_G10_12_Assert.Pass; fail += B117_G10_12_Assert.Fail; B117_G10_13_Assert.Run(); pass += B117_G10_13_Assert.Pass; fail += B117_G10_13_Assert.Fail; B117_G10_14_Assert.Run(); pass += B117_G10_14_Assert.Pass; fail += B117_G10_14_Assert.Fail; B117_G10_17_Assert.Run(); pass += B117_G10_17_Assert.Pass; fail += B117_G10_17_Assert.Fail; B117_G10_18_Assert.Run(); pass += B117_G10_18_Assert.Pass; fail += B117_G10_18_Assert.Fail; B117G1019Assert.Run(); pass += B117G1019Assert.Pass; fail += B117G1019Assert.Fail; B117_G10_20_Assert.Run(); pass += B117_G10_20_Assert.Pass; fail += B117_G10_20_Assert.Fail; B117_G10_23_Assert.Run(); pass += B117_G10_23_Assert.Pass; fail += B117_G10_23_Assert.Fail; /* 🔴 2026-11-02（`B117-FIXF`）：`B117G1024Assert.Run()` **已上移**到 `Debug.Log(P + $"=== 结束…")` 那一行（`CheckSavedScene` **之前**）—— 它的 E 组要**运行时实例化的战场**（`ArenaRuntimeLoader` + `Resources/ArenaPrefabs/*`），而本行跑在 `CheckSavedScene` 之后：那一句 `EditorSceneManager.OpenScene(ScenePath)` 会把当场建的测试场景**整个换掉** ⇒ 运行时实例化的战场随之销毁 ⇒ `FindObjectsByType<TapHitMaterialDefinition>` = 0（`E0` 红、`E1` 未验）。同一物理行删改 ⇒ 行数零变化。 */ B117G1025Assert.Run(); pass += B117G1025Assert.Pass; fail += B117G1025Assert.Fail; B117G1026_Assert.Run(); pass += B117G1026_Assert.Pass; fail += B117G1026_Assert.Fail; B117WCurveAssert.Run(); pass += B117WCurveAssert.Pass; fail += B117WCurveAssert.Fail; B117_WGB_Assert.Run(); pass += B117_WGB_Assert.Pass; fail += B117_WGB_Assert.Fail; B117_WREPLAY2_Assert.Run(); pass += B117_WREPLAY2_Assert.Pass; fail += B117_WREPLAY2_Assert.Fail; B117_WSOUNDCOOL_Assert.Run(); pass += B117_WSOUNDCOOL_Assert.Pass; fail += B117_WSOUNDCOOL_Assert.Fail; B117WMinionCurveAssert.Run(); pass += B117WMinionCurveAssert.Pass; fail += B117WMinionCurveAssert.Fail; B117_WCOOL3_Assert.Run(); pass += B117_WCOOL3_Assert.Pass; fail += B117_WCOOL3_Assert.Fail; /* 🆕 2026-11-02（B117-WWIREA 接线）：此处 24 件**全部零前提**（自带临时根/临时相机，收尾自己 `DestroyImmediate`），所以能接在**方法尾、合计之前** —— 本行前面 `driver` 已被 `DestroyImmediate`，凡需要活 driver / 活 `SkillPanel` / 活 `BattleLogPanel` 的都接在 `:45280` 那条聚合行（`DetachStaticHooks` 之前）。⚠️ `B117_G10_21_Assert` 例外：它必须在 `driver.Begin()` **之前**（单例横幅）⇒ 挂在 `if (driver.skillPanel != null) driver.skillPanel.Build();` 那一行。`B117_G10_22` 要 `UnitChatPanel` ⇒ 挂在语音条那一节 `B117F2_Assert.Run(chat)` 之后。同一物理行追加 ⇒ 行数零变化。 */ Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }

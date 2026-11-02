@@ -515,11 +515,11 @@ namespace CardPresentation
                                            dx, 0f, SkullW, SkullH, BattleDoors.ZContent);
             }
 
-            BuildRewardsRow();     // 🆕 2026-10-29（`B97_W8`）：原版 `AllRewardsHolder/RewardsHolder`（细节见类尾那段）
+            BuildRewardsRow(); EnsureRewardsGroup(); BuildRatingRow();     // 🆕 2026-10-29（`B97_W8`）：原版 `AllRewardsHolder/RewardsHolder`（细节见类尾那段）；🆕 2026-11-02（`B117_G10_19`）：`CanvasGroup` + `HolderRating` 那一棵（也在类尾）
 
             // 奖励行（原版 `RewardsHolder` 495.2×49.0 + `HolderRating` 187×45 / Trophy 60.1×60 / RatingText）
             // ✅ **2026-10-29（`B97_W8`）：`RewardsHolder` + 各行已建**（= 上面那句 `BuildRewardsRow()`，实现与判据见类尾）；
-            //    ⛔ 仍**不建**的是 `HolderRating` / `Trophy` / `RatingText`（评分那半，账里没有它 —— 见下面 §2/§3 的推导留着给下一步）。
+            //    ✅ **2026-11-02（`B117_G10_19`）就地订正（铁律 5）**：原文写「仍**不建** `HolderRating` / `Trophy` / `RatingText`」—— **已过期**，那三颗（+ `ArmyIcon`）本轮已建，见类尾 `BuildRatingRow` 与它上面那一段判据。
             //
             // 🔴🔴 **2026-10-24（`A32`）：这一行的【布局后】真值算清了**（`RewardRowAnchorY` / `RewardRowPanelY`
             //    那两个常量就是它）。将来真要做奖励行**照这里摆**，⛔ 别抄静态 dump（序列化是 `(0,0)`）
@@ -617,7 +617,7 @@ namespace CardPresentation
         public void Show(int winner, int myIndex, int skullsObtained, int rounds, int forfeitedBy = -1,
                          int minFoeWarlordHealth = -1, bool skipSequence = false)
         {
-            Visible = true;
+            Visible = true; _rating = 0; _seals = 0;   // ⬅ 🆕 2026-11-02（`B117_G10_19`）：原版 `SetupDoor` 先把 `ratingObj` 藏了，评分要 `ShowRewards` 重新喂
             ShownSkulls = skullsObtained;
             // 🔴 **状态与文案在这里分开**（见 `EndOutcome` 的 doc）：先定**枚举**，文案再由它推。
             Outcome = winner == 3 ? EndOutcome.Draw
@@ -715,7 +715,7 @@ namespace CardPresentation
             // 不藏的话同一个词在屏幕上出现两遍。
             SetTitleVisible(!video);
 
-            gameObject.SetActive(true);
+            gameObject.SetActive(true); ApplyPanelVisibility(); BeginRewardsFade(skipSequence);   // ⬅ 🆕 2026-11-02（`B117_G10_19`）：原版 `ShowRewards` 的容器显隐 + `DOFade` 淡入
         }
 
         /// <summary>
@@ -725,8 +725,8 @@ namespace CardPresentation
         /// </summary>
         public void Advance(float dt)
         {
-            if (!Visible || _doors == null || !_doors.Playing) return;
-            _doors.Advance(dt);
+            if (!Visible) return;
+            TickRewardsFade(dt); if (_doors != null && _doors.Playing) _doors.Advance(dt);   // 🆕 2026-11-02（`B117_G10_19`）：奖励块那 1.0 s 淡入同吃这条泵（原版 `DOFade`）
         }
 
         void SetContentVisible(bool v)
@@ -742,7 +742,7 @@ namespace CardPresentation
         /// <summary>自检用：**还剩下的「评分那一半」件数**（`reward_plate` / `trophy` / `rating` 三种节点名）。
         /// <para>🔴 **2026-10-29（`B97_W8`）就地订正（铁律 5）**：本属性原来的语义是「奖励行应当一个都不建」
         /// —— **那个语义已过期**（奖励行 2026-10-29 照原版建出来了，见类尾 `BuildRewardsRow`）。
-        /// 现在它只剩一个用处：数 `HolderRating` / `Trophy` / `RatingText` 那半（**仍未建**，账里没有它）。
+        /// 现在它只剩一个用处：数**小写名**的三种节点（🔴 2026-11-02 `B117_G10_19` 订正：原文说数 `HolderRating`/`Trophy`/`RatingText` 那半「仍未建」**已过期** —— 本轮已建，且它们按原版名**首字母大写** ⇒ 这个小写名计数器仍然是 0）。
         /// ⚠️ 奖励行的底板**不出现在这个计数里**是**结构事实、不是漏建** —— 原版 `RewardsHolder` 的
         /// `Image`（`MB_4801`）就挂在**它自己那个节点上**，我们照抄 ⇒ 没有叫 `reward_plate` 的子节点。</para>
         /// 按**节点名**数。</summary>
@@ -775,7 +775,7 @@ namespace CardPresentation
             gameObject.SetActive(true);
             // 🆕 2026-10-29（`B97_W8`）：奖励行有**自己的**显隐（原版 `ShowRewards`：0 条 ⇒ 整行藏），
             //   ⛔ 别被上面那一刀（把所有子件一起点亮）盖掉。
-            if (v) ApplyRewardVisibility();
+            if (v) { ApplyRewardVisibility(); ApplyRatingVisibility(); } else { ResetRewardsFade(); }   // ⬅ 🆕 2026-11-02（`B117_G10_19`）：评分行 + 淡入复位
         }
 
         /// <summary>🔴 **2026-10-16（`T09` 批 2）：在 `parent` 里按【相对父中心的设计 px】建一枚 uGUI 图**
@@ -789,10 +789,10 @@ namespace CardPresentation
         /// <para>⚠️ `parent` 不是整屏矩形 ⇒ 那四个字段必须**显式**写死（不能沿用 `MakeImage` 按
         /// 1920×1080 算出来的锚点）。</para></summary>
         static HudPiece ImageInParent(Transform parent, Texture2D tex, string name,
-                                      float dxPx, float dyPx, float wPx, float hPx, float z)
+                                      float dxPx, float dyPx, float wPx, float hPx, float z, bool raycast = false)
         {
             if (tex == null) return null;         // 与旧 `ImageQuad.Create` 同一条：贴图取不到就不建（它出声）
-            var p = HudCanvas.MakeImagePiece(parent, tex, name, 0f, 0f, wPx, hPx, Color.white);
+            var p = HudCanvas.MakeImagePiece(parent, tex, name, 0f, 0f, wPx, hPx, Color.white, raycast);
             if (p == null || p.Rect == null) return p;
             var rt = p.Rect;
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
@@ -1074,28 +1074,34 @@ namespace CardPresentation
         /// ChildControl / ForceExpand 全 0）摆各行。
         /// <para>算法判据（本机 uGUI `HorizontalOrVerticalLayoutGroup.cs:182-192`）：**只有 `surplusSpace > 0` 才按
         /// alignment 挪起点**，内容溢出时 `pos` 停在 `padding.left = 0` ⇒ 内容从左边排起。</para>
-        /// <para>⚠️ **与今天原版画面的差异（如实记）**：原版 `RewardsHolder` 里还有第二颗子件 `HolderRating`
-        /// （186.9742×45 · **不在本账范围**）⇒ 我们只有奖励行 ⇒ 单条奖励时我们**居中**、原版**偏左**
-        /// （原版单条时 `RewardHolder` 中心 x = −109.987）。将来补 `HolderRating` 时**两者要一起重排**。</para></summary>
+        /// <para>🔴 **2026-11-02（`B117_G10_19`）**：原版 `RewardsHolder` 里还有第二颗子件 `HolderRating`
+        /// （186.9742×45）—— ✅ 已补，现在它**和奖励行一起排**
+        /// （原版是同一个 `HorizontalLayoutGroup` 的两类子件），单条奖励时中心 x = **−109.987**、评分行 **+86.5**。</para></summary>
         void LayoutRewardRows(int n)
         {
             if (_rewardsRow == null) return;
-            float content = n * RewardRowW + Mathf.Max(0, n - 1) * RewardRowSpacing;
+            int extra = _rating != 0 ? 1 : 0;      // `HolderRating` 与奖励行同属 `RewardsHolder` 那一个布局组（`MB 4113`）
+            float content = n * RewardRowW + extra * RatingW + Mathf.Max(0, n + extra - 1) * RewardRowSpacing;
             float pos = content < RewardsRowW ? (RewardsRowW - content) * 0.5f : 0f;   // surplus > 0 才居中
+            float cursor = pos;
             for (int i = 0; i < n && i < _rewardRows.Count; i++)
             {
                 var rt = _rewardRows[i].Root as RectTransform;
-                if (rt == null) continue;
-                rt.anchoredPosition = new Vector2(
-                    pos + RewardRowW * 0.5f + i * (RewardRowW + RewardRowSpacing) - RewardsRowW * 0.5f, 0f);
+                if (rt != null)
+                    rt.anchoredPosition = new Vector2(cursor + RewardRowW * 0.5f - RewardsRowW * 0.5f, 0f);
+                cursor += RewardRowW + RewardRowSpacing;
             }
+            if (_ratingHolder != null && extra > 0)
+                ((RectTransform)_ratingHolder).anchoredPosition = new Vector2(cursor + RatingW * 0.5f - RewardsRowW * 0.5f, 0f);
         }
 
-        /// <summary>奖励行的显隐（原版 `EndBattleDoors__ShowRewards.c`：**0 条 ⇒ 整行连底板藏**；N 条 ⇒ 露前 N 行）。</summary>
+        /// <summary>奖励行的显隐（原版 `EndBattleDoors__ShowRewards.c`：**0 条 ⇒ 整行连底板藏**；N 条 ⇒ 露前 N 行）。
+        /// 🔴 **2026-11-02（`B117_G10_19`）**：`RewardsHolder` 里装的是**两类**子件（奖励行 + `HolderRating`），
+        /// 原版的显隐条件是「奖励列表非空 **或** `EarnedRating != 0`」（`ShowRewards.c:60-70`）⇒ 这里同步。</summary>
         void ApplyRewardVisibility()
         {
             if (_rewardsRow == null) return;
-            _rewardsRow.gameObject.SetActive(_rewardItems.Count > 0);
+            _rewardsRow.gameObject.SetActive(_rewardItems.Count > 0 || _rating != 0);
             for (int i = 0; i < _rewardRows.Count; i++)
                 if (_rewardRows[i].Root != null)
                     _rewardRows[i].Root.gameObject.SetActive(i < _rewardItems.Count);
@@ -1149,5 +1155,249 @@ namespace CardPresentation
         /// ⚠️ **单位 = TMP 的 `fontSize`**，⛔ 不是画布 px —— `SetAutoFitBox` 那三个实参要先乘 `FontSizeToPxNow(1)`
         /// （见 `FillRewardRow`：那个口内部按 `NominalPx()` 折回 fontSize 单位）。</summary>
         public const float QuantityFsMin = 18f, QuantityFsMax = QuantityFontPx, QuantityFsBase = 36f;
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（执行代理 `B117_G10_19`）：原版 `EndBattlePanel` 里我们原来**没建**的那几颗 ——
+        //  `AllRewardsHolder` 的 `CanvasGroup`（淡入）+ `RewardsHolder/HolderRating` 那一棵（`Trophy` /
+        //  `ArmyIcon` / `RatingText`）。
+        //
+        //  ── 判据（全部现读，出处 → `资料/完全复刻/判据/B117-G10-19_结算面板与战后出口.md` 第二节）──
+        //   · `HolderRating`：`RT_3228` · `m_SizeDelta (186.9742, 45)` · 锚 (0,0) · 轴心 (0.5,0.5)
+        //     · 身上的 `HorizontalLayoutGroup`（`MB_4922`）：`m_Spacing 0` · `m_ChildAlignment 4`(MiddleCenter)
+        //       · ChildControl / ForceExpand 宽全 0 · **`m_ChildForceExpandHeight 1`**
+        //   · `Trophy`：`RT_3441` · `60.0588×60` · `Image`（`MB_4063`）sprite = `40k_UI_icon_ranked_Skirmish`
+        //     · `m_Type 0`(Simple) · **`m_PreserveAspect 1`** · `m_Color` 全 1 · `m_RaycastTarget 1`
+        //   · `ArmyIcon`：`RT_2851` · `64.8399×60` · 锚 (0,1) · `ap (92.478745, −22.5)`
+        //     · `Image`（`MB_4880`）sprite **null** · PA 1 · **`m_IsActive 0`**（原版序列化就是关着的）
+        //   · `RatingText`：`RT_2897` · `65.302×46.865` · TMP（`MB_3964`）`m_fontSize 40` / auto `[18,40]` /
+        //     `m_fontSizeBase 36` · 字色白 · `m_HorizontalAlignment 2` / `m_VerticalAlignment 8192`（Center/Middle）
+        //     · `m_fontAsset` = **`Pragati-Regular SDF`**（guid `2548b731…`）⇒ `TmpFont.Face.LatinCardBody`
+        //   · 显隐/填值 = `EndBattleDoors__ShowRewards.c`：`EarnedRating != 0` 才整块显示；文字 =
+        //     `EarnedSeals != 0 ? EarnedSeals : EarnedRating`；任一为负 ⇒ 红（换 `ratingLoseMaterial`）。
+        //   · 那一块容器的淡入 = `DOFade(allRewardsGroup, 0, **1.0f**, 0).From().SetDelay(**0.15f**)`
+        //     （`ShowRewards.c:192-195`；两个常量实读 `0x1834b2bb8` = 1.0f、`0x1834b2bbc` = 0.15f ——
+        //      后者**就是**本类外面那个 `BattleDoors.CommonAnimationScaleTime`，⛔ 不另立一个 0.15）。
+        //
+        //  🔑 **两颗子件的 x 不是拍的**（同一个布局组 + uGUI「surplus > 0 才挪起点」）：
+        //     内容 = 60.0588 + 65.302 = 125.3608 < 186.9742 ⇒ `pos = (186.9742 − 125.3608) × 0.5 = 30.8067`
+        //     ⇒ `Trophy = 30.8067 + 60.0588/2 − 186.9742/2 = **−32.651**`、
+        //        `RatingText = 30.8067 + 60.0588 + 65.302/2 − 93.4871 = **+30.029**`。
+        //     `ArmyIcon` 的序列化 `ap.x 92.478745` 正是「三颗全开、内容溢出（`pos = 0`）」那一档的结果：
+        //     `60.0588 + 64.8399/2 − 93.4871 = **−1.0084**`（⇒ 那个 `ap` 是**布局前**的值，别拿它当运行值）。
+        //
+        //  ⚠️ **未接的两支（如实记，⛔ 别当成已复刻）**：
+        //     ① 印记（`EarnedSeals`）那一支的图 `sealIconSprite` = `Rank Skull_0` **本地没导入**
+        //        （`find` 0 命中；原版工程里那份是**独立 native sprite 资产**，⛔ 不许拿 `Rank_Skull` 顶）；
+        //     ② `ArmyIcon` 的图来自 `ArmyUtilities.GetArmyIcon` + liveops 资产（判据在远端）⇒ 恒不激活。
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>`HolderRating` 的 rect（原版 `RT_3228.m_SizeDelta`）。</summary>
+        public const float RatingW = 186.9742f, RatingH = 45f;
+        /// <summary>`Trophy` 的 rect（原版 `RT_3441.m_SizeDelta`）。</summary>
+        public const float TrophyW = 60.0588f, TrophyH = 60f;
+        /// <summary>`ArmyIcon` 的 rect（原版 `RT_2851.m_SizeDelta`）。</summary>
+        public const float ArmyIconW = 64.8399f, ArmyIconH = 60f;
+        /// <summary>`RatingText` 的 rect（原版 `RT_2897.m_SizeDelta`）。</summary>
+        public const float RatingTextW = 65.302f, RatingTextH = 46.865f;
+        /// <summary>三颗子件的**中心 x**（相对 `HolderRating` 中心；推导见上面那段）。</summary>
+        public const float TrophyX = -32.651f, RatingTextX = 30.029f, ArmyIconX = -1.0084f;
+        /// <summary>`RatingText` 的 TMP 三档（原版 TMP `MB_3964`：`m_fontSize 40` / auto `[18,40]` / base 36）。</summary>
+        public const float RatingFsMin = 18f, RatingFsMax = 40f, RatingFsBase = 36f;
+
+        /// <summary>原版那块淡入的**时长**（`0x1834b2bb8` 实读 = **1.0f**）。延时**不另立常量**，
+        /// 走 <see cref="RewardsFadeDelay"/>。</summary>
+        public const float RewardsFadeSeconds = 1f;
+
+        /// <summary>淡入的起始延时 = 原版 `SetDelay(0x1834b2bbc)` = **0.15f** ——
+        /// 与 `SetupDoor` 加在 `clip.length` 上的那个是**同一个常量**（`BattleDoors.CommonAnimationScaleTime`）。</summary>
+        public static float RewardsFadeDelay { get { return BattleDoors.CommonAnimationScaleTime; } }
+
+        /// <summary>`AllRewardsHolder` 上那块淡入用的 `CanvasGroup`（原版 `EndBattleDoors.allRewardsGroup`，`+0x70`）。</summary>
+        CanvasGroup _allRewardsGroup;
+        /// <summary>淡入计时；**`< 0` = 没在淡**（同 `BattleDriver._loadingFadeT` 那一族的写法）。</summary>
+        float _rewardsFadeT = -1f;
+        /// <summary>`HolderRating`（`null` = 没建出来）。</summary>
+        Transform _ratingHolder;
+        /// <summary>`Trophy` / `ArmyIcon`（`null` = 取不到图 / 没建出来，都出过声）。</summary>
+        HudPiece _trophy, _armyIcon;
+        /// <summary>`RatingText`（`null` = 拿不到 TMP 字体，已出声）。</summary>
+        Label _ratingText;
+        /// <summary>本局的 `EarnedRating` / `EarnedSeals`（原版 `EndMatchResult +0x18 / +0x1c`）。**0 = 评分行不显示**。</summary>
+        int _rating, _seals;
+
+        /// <summary>负分时那一行字的颜色。原版是换一份材质（`ratingLoseMaterial` = `Pragati-Regular Red_thick`），
+        /// 那份材质**本地没有**（`Resources/Fonts/` 只有 SDF 字体资产）⇒ 按「红」这个**可见结果**取一个红。
+        /// 🔶 自己设计（非原版）：负分用**字色红**代替原版那份材质 · 为什么必须自定：那份 .mat 本地不存在 ·
+        /// 调度台 2026-11-02 裁定（`B117_G10_19`）。</summary>
+        static readonly Color RatingLoseColor = new Color(0.85f, 0.16f, 0.16f, 1f);
+
+        /// <summary>给 `AllRewardsHolder` 挂上原版那块 `CanvasGroup`（幂等）。</summary>
+        void EnsureRewardsGroup()
+        {
+            if (_rewardsHolder == null)
+            {
+                Debug.LogError("[EndPanel] 没有 `AllRewardsHolder` ⇒ 原版那块 `CanvasGroup`（淡入）挂不上");
+                return;
+            }
+            _allRewardsGroup = _rewardsHolder.GetComponent<CanvasGroup>();
+            if (_allRewardsGroup == null) _allRewardsGroup = _rewardsHolder.gameObject.AddComponent<CanvasGroup>();
+            _allRewardsGroup.alpha = 1f;                     // 原版序列化 `m_Alpha 1`
+            _allRewardsGroup.interactable = true;            // 原版 `m_Interactable 1`
+            _allRewardsGroup.blocksRaycasts = true;          // 原版 `m_BlocksRaycasts 1`
+            _allRewardsGroup.ignoreParentGroups = false;     // 原版 `m_IgnoreParentGroups 0`
+        }
+
+        /// <summary>建原版 `RewardsHolder/HolderRating` 那一棵（4 颗）。逐值判据 → 上面那一段长注释。</summary>
+        void BuildRatingRow()
+        {
+            if (_rewardsRow == null)
+            {
+                Debug.LogError("[EndPanel] 没有 `RewardsHolder` ⇒ 评分行（`HolderRating`）建不出来（静默半迁移更坏）");
+                return;
+            }
+            _ratingHolder = new GameObject("HolderRating", typeof(RectTransform)).transform;
+            _ratingHolder.SetParent(_rewardsRow, false);
+            var rt = (RectTransform)_ratingHolder;
+            HudCanvas.SetPxSize(rt, RatingW, RatingH);
+            rt.anchoredPosition = Vector2.zero;       // 位置由 `LayoutRewardRows` 按同一个布局组的口径写
+            HudCanvas.Add(rt, BattleDoors.ZContent);
+
+            // `Trophy`：原版 `Image` 是 Simple + **PA=1**（整框内接）
+            _trophy = ImageInParent(_ratingHolder, CardArt.DeckUi("40k_UI_icon_ranked_Skirmish"), "Trophy",
+                                    TrophyX, 0f, TrophyW, TrophyH, BattleDoors.ZContent, raycast: true);
+            if (_trophy != null) _trophy.SetNodeRect(TrophyW, TrophyH, true);
+            else Debug.LogWarning("[EndPanel] 评分行奖杯图 `40k_UI_icon_ranked_Skirmish` 取不到 ⇒ 评分行只剩数字（⛔ 不静默）");
+
+            // `ArmyIcon`：原版序列化 **sprite 为空 + `m_IsActive 0`**（图由 `ArmyUtilities.GetArmyIcon` 运行时填）
+            var army = HudCanvas.MakeImagePiece(_ratingHolder, null, "ArmyIcon", 0f, 0f,
+                                                ArmyIconW, ArmyIconH, Color.white, true);
+            if (army != null && army.Rect != null)
+            {
+                var art = army.Rect;
+                art.anchorMin = art.anchorMax = new Vector2(0.5f, 0.5f);
+                art.pivot = new Vector2(0.5f, 0.5f);
+                art.anchoredPosition = new Vector2(ArmyIconX, 0f);
+                art.sizeDelta = new Vector2(ArmyIconW, ArmyIconH);
+                HudCanvas.Reorder(art, BattleDoors.ZContent);
+                army.SetNodeRect(ArmyIconW, ArmyIconH, true);
+                army.gameObject.SetActive(false);     // 原版 `m_IsActive 0`
+            }
+            _armyIcon = army;
+
+            // `RatingText`：字体 = **Pragati**（原版 `m_fontAsset` = `Pragati-Regular SDF`）⇒ `Face.LatinCardBody`
+            _ratingText = HudCanvas.MakeText(_ratingHolder, "", RatingTextX, 0f, 2, Color.white,
+                                             new Vector2(0.5f, 0.5f), BattleDoors.ZContent, "RatingText",
+                                             TmpFont.Face.LatinCardBody);
+            if (_ratingText != null)
+            {
+                ((RectTransform)_ratingText.transform).anchoredPosition = new Vector2(RatingTextX, 0f);
+                ApplyRatingFontSpec();
+            }
+            else Debug.LogError("[EndPanel] 评分行的数字字建不出来（拿不到 TMP 字体）—— 这一行只剩奖杯");
+
+            _ratingHolder.gameObject.SetActive(false);   // 生产恒 0（本地没有评分源）⇒ 建完即藏
+        }
+
+        /// <summary>把原版那三档字号写进 `RatingText`。**单位**：`SetAutoFitBox` 的 min/max/base 是「画布 px」，
+        /// 而原版那三个数是 **TMP 的 fontSize** ⇒ 实参先乘 `FontSizeToPxNow(1)`（同 `FillRewardRow` 那一段）。</summary>
+        void ApplyRatingFontSpec()
+        {
+            if (_ratingText == null) return;
+            float k = _ratingText.FontSizeToPxNow(1f, _ratingText.ActualFace);
+            _ratingText.SetAutoFitBox(RatingTextW, RatingTextH, RatingFsMin * k, RatingFsMax * k, RatingFsBase * k);
+            _ratingText.RefreshBounds();     // 字号变了要重新量一次（否则 `WorldW/WorldH` 还是旧值）
+        }
+
+        /// <summary>喂本局的评分（原版 `EndBattleDoors__ShowRewards` 的评分那一半）。
+        /// <para>**显隐照原版**：`EarnedRating != 0` 才亮；文字 = `EarnedSeals != 0 ? EarnedSeals : EarnedRating`；
+        /// 任一为负 ⇒ 红。</para>
+        /// <para>⚠️ **未接的两支**（⛔ 别当成已复刻）：① 印记那一支的图 `Rank Skull_0` 本地没有 ⇒ 仍用奖杯图；
+        /// ② `ArmyIcon` 的图来自 liveops/`ArmyUtilities` ⇒ 恒不激活（原版序列化也是关着的）。</para></summary>
+        public void SetRating(int earnedRating, int earnedSeals = 0)
+        {
+            _rating = earnedRating;
+            _seals = earnedSeals;
+            if (_ratingText != null)
+            {
+                _ratingText.SetText((_seals != 0 ? _seals : _rating).ToString());
+                _ratingText.SetColor(_rating < 0 || _seals < 0 ? RatingLoseColor : Color.white);   // 🔶 见 `RatingLoseColor`
+                ApplyRatingFontSpec();
+            }
+            ApplyRatingVisibility();
+            ApplyRewardVisibility();
+            ApplyPanelVisibility();
+            LayoutRewardRows(_rewardItems.Count);
+        }
+
+        /// <summary>`HolderRating` 那一棵的显隐（原版：`EarnedRating != 0` 才亮）。</summary>
+        void ApplyRatingVisibility()
+        {
+            if (_ratingHolder == null) return;
+            _ratingHolder.gameObject.SetActive(_rating != 0);
+            // 原版 `ArmyIcon` 序列化就是 inactive，且我们没有 liveops 那条填图的路 ⇒ 每趟都钉死关着
+            if (_armyIcon != null) _armyIcon.gameObject.SetActive(false);
+        }
+
+        /// <summary>`AllRewardsHolder` **自身**的显隐（原版 `ShowRewards.c:30-52`）：
+        /// 骷髅 0 **且** 奖励列表空 **且** `EarnedRating == 0` ⇒ 整块藏；否则 `SetActive(true)`。</summary>
+        void ApplyPanelVisibility()
+        {
+            if (_rewardsHolder == null) return;
+            _rewardsHolder.gameObject.SetActive(ShownSkulls > 0 || _rewardItems.Count > 0 || _rating != 0);
+        }
+
+        /// <summary>开始这一轮奖励块的淡入（原版 `DOFade(cg, 0, 1.0).From().SetDelay(0.15)`）。
+        /// <para>🔴 **批处理没有帧循环**（`Application.isPlaying == false`）⇒ 照本项目既有那一档做法
+        /// （`BattleDriver` 里 `Application.isPlaying` 那几处「只记触发、不真的等」）**直接落最终值** ——
+        /// 否则 `EndPanelProbe` 的四张骷髅图和既有断言会看到一块 α=0 的透明面板。</para></summary>
+        void BeginRewardsFade(bool skip)
+        {
+            if (_allRewardsGroup == null) return;
+            if (skip || !Application.isPlaying)
+            {
+                _allRewardsGroup.alpha = 1f;
+                _rewardsFadeT = -1f;
+                return;
+            }
+            _allRewardsGroup.alpha = 0f;
+            _rewardsFadeT = 0f;
+        }
+
+        /// <summary>淡入复位（`Hide()` / 下一局的起点必须是 α=1，⛔ 别把上一局的半透明带过去）。</summary>
+        void ResetRewardsFade()
+        {
+            _rewardsFadeT = -1f;
+            if (_allRewardsGroup != null) _allRewardsGroup.alpha = 1f;
+        }
+
+        /// <summary>推淡入（同 `BattleDriver.TickLoadingFade` 的写法：延时内不动、之后线性补到 1）。</summary>
+        void TickRewardsFade(float dt)
+        {
+            if (_rewardsFadeT < 0f || _allRewardsGroup == null) return;
+            _rewardsFadeT += dt;
+            float p = Mathf.Clamp01((_rewardsFadeT - RewardsFadeDelay) / RewardsFadeSeconds);
+            _allRewardsGroup.alpha = p;
+            if (p >= 1f) _rewardsFadeT = -1f;
+        }
+
+#if UNITY_EDITOR
+        //  ── 🆕 2026-11-02（`B117_G10_19`）：Editor-only 只读探针（断言在 `Editor/B117_G10_19_Assert.cs`）──
+        /// <summary>`AllRewardsHolder` 上那块 `CanvasGroup`（原版 `allRewardsGroup`）。Editor-only。</summary>
+        public CanvasGroup AllRewardsGroupForTest { get { return _allRewardsGroup; } }
+        /// <summary>奖励块当前 α（`-1` = 没有那块 CanvasGroup）。Editor-only。</summary>
+        public float RewardsAlphaForTest { get { return _allRewardsGroup != null ? _allRewardsGroup.alpha : -1f; } }
+        /// <summary>`HolderRating` 那一颗（`null` = 没建出来）。Editor-only。</summary>
+        public Transform RatingHolderForTest { get { return _ratingHolder; } }
+        /// <summary>`Trophy` / `ArmyIcon` / `RatingText` 的件（`null` = 没建出来）。Editor-only。</summary>
+        public HudPiece TrophyForTest { get { return _trophy; } }
+        public HudPiece ArmyIconForTest { get { return _armyIcon; } }
+        public Label RatingTextForTest { get { return _ratingText; } }
+        /// <summary>把淡入**拉回起点**（α=0、计时 0），好让批处理也能验「延时内不动 / 中途 0.25 / 到位 1」。Editor-only。</summary>
+        public void RestartRewardsFadeForTest()
+        {
+            if (_allRewardsGroup != null) _allRewardsGroup.alpha = 0f;
+            _rewardsFadeT = 0f;
+        }
+#endif
     }
 }

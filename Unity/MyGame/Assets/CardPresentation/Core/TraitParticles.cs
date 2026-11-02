@@ -212,7 +212,7 @@ namespace CardPresentation
             if (at == null) return false;
             var name = PrefabFor(trait, ArmyOf(armyFrom));   // 🆕 原版这一档也按卡阵营取 override
             if (string.IsNullOrEmpty(name)) return false;
-            var p = WarpforgeEffectPlayer.Play(name, at, Vector3.zero, 1f);
+            var p = WarpforgeEffectPlayer.Play(name, SpawnAnchor(at), Vector3.zero, 1f);
             if (p == null)
             {
                 Debug.LogWarning($"[TraitParticles] 效果库里没有 `{name}`（trait `{Norm(trait)}` 的 FromCode 粒子）"
@@ -288,5 +288,33 @@ namespace CardPresentation
         // —— 🆕 2026-10-29（`B95_FX` · 账 `特效动画:503`）：`PlayInTarget` 缺触发者时的「出声一次」集合 ——
         //   **追加在类尾**（`EnsureFromCode` / `Play` 这些被账按行号引用的成员位置一律不动）。
         static readonly HashSet<string> _noSourceWarned = new HashSet<string>();
+
+        // ══════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（`B117-G10-07` · 账 `特效动画:503` 那句「既有 6 个 `TraitParticles.Play`
+        //  调用点仍挂 `v.transform`（卡根）……全族统一另开账」的收口）
+        //
+        //  原版挂点（🥇 `decomp_full/CardScript__ActivateTraitParticlesFromCode.c:75` 与
+        //  `…InTarget.c:75` 两处同形）：`ResolveTraitAnim(anim, actingCard, …, actingCard, targetCard, …)`
+        //  → `BattleManager._ResolveTraitAnim_d__465__MoveNext.c:112-118` 把
+        //  `startParent = actingCard.CardUI(+0x290).effectsAnchor(+0x1a0)` 交给 `DelayedVFXPlay`
+        //  ⇒ **实例挂在 `effectsAnchor` 下，⛔ 不是卡根**。
+        //  我们那个锚 = `CardView.EffectAnchorBoard`（= 原版 `CardPrefab/Board Elements/EffectAnchor`，
+        //  prefab 实读 `localPosition (0, 1.34, −0.128)`；本仓已有 `CardView.BoardEffectAnchorLocal` 做换算）。
+        //
+        //  ⚠️ **只在「调用方传的是卡根」时换**：`PlayInTarget` 的调用点（`BattleDriver.PlayDeathFeel`）
+        //  传的已经是**督军的 `EffectAnchorBoard`**（账 `特效动画:503` 的 `B102_R3`）—— 那种 `at` 上没有
+        //  `CardView` 组件 ⇒ 原样返回，**逐字节不变**（`B102TRAIT_Assert` 的 A1 盯着它）。
+        // ⚠️ 卡态取**场上档**（`onBoard: true`）：这条链的 8 个调用点全在场上单位身上（`PlayTraitParticles`
+        //  先判 `ViewAt(…)` 拿到的是棋盘卡）；手牌档原版也不会走到 `ActivateTraitParticlesFromCode`。
+        // ══════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>这条粒子的**挂点**：`at` 是卡根 ⇒ 换成那张卡的 `effectsAnchor`（原版 `startParent`）；
+        /// 否则（已经是锚点 / 不是卡）原样返回。判据见上面那段。</summary>
+        public static Transform SpawnAnchor(Transform at)
+        {
+            if (at == null) return null;
+            var cv = at.GetComponent<CardView>();       // ⚠️ **只认「这一层就是卡」**，⛔ 不用 GetComponentInParent
+            return cv != null ? cv.EffectAnchor(true) : at;   // （否则会把已经传对的锚再包一层）
+        }
     }
 }

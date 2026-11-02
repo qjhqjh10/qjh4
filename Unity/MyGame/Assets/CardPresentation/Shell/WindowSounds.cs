@@ -199,17 +199,17 @@ namespace CardPresentation
 
             // 原版 `AudioCue.timeToPlayAgain`（这批都是 0.1 s，`Booster Open *` 是 1.0 s）：
             // 同一条刚要过就不再播 —— 这是原版行为，**不是失败**。
-            if (cue.timeToPlayAgain > 0f)
+            // 🔴 2026-11-02（`B117-WCOOL3`）：时钟从 `Time.realtimeSinceStartup` 改成 **`Time.time`** ——
+            //    原版 `AudioCue__ConfigAudioSource.c:19` 判的就是 `Time.time`；原来那档是历史遗留，
+            //    与 `SoundManager.Play`（原版**所有**按 cue 播的路径都过它）的实际口径不符，⛔ 别再改回去。
+            //    公式也收口到 `WFSoundPlayer.CanPlayByCooldown`（全项目唯一实现，铁律 6）；
+            //    `last != 0` 那半句（= 从没播过）也在那里 —— 漏掉它就会把第一次也拦掉。
+            //    键 = cue 名（本表的 cue 名与 `WFSoundBank` 的实例一一对应；`ResetCounters` 只清这一张表）。
+            if (!WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(_lastAt, cueName, cue.timeToPlayAgain))
             {
-                float last;
-                if (_lastAt.TryGetValue(cueName, out last) &&
-                    Time.realtimeSinceStartup - last < cue.timeToPlayAgain)
-                {
-                    Throttled++;
-                    return false;
-                }
+                Throttled++;
+                return false;
             }
-            _lastAt[cueName] = Time.realtimeSinceStartup;
 
             if (jingles) WarpforgeAudio.PlayJingle(cue);
             else WFSoundPlayer.Play(cue, Vector3.zero, true);   // is2d = true ⇒ 原版 `Play2D`

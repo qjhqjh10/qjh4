@@ -2278,6 +2278,10 @@ namespace CardPresentation
         {
             if (_eventDeckSlotLoaded) return;
             _eventDeckSlotLoaded = true;                 // 读失败也不重试（`SaveCenter` 已经出过声）
+            // 🔴 2026-11-02（`B117-WR4` 判据）：写口 `SaveEventDeckSlots()` 被 `EventId` 恒 null 挡着（休眠非坏掉），
+            //    ⇒ 这个档**本来就不存在**，直接 `Get` 会在每次启动打一条「缺 key」警告。
+            //    在**调用方**挡掉（`SaveCenter.cs:1289` 的既有先例），⛔ 别去降级 `SaveCenter` 那条 Warn（51 个键共用）。
+            if (!SaveCenter.Exists(EventDeckSlotKey)) return;
             var f = SaveCenter.Get<EventDeckSlotFile>(EventDeckSlotKey);
             if (f == null || f.Items == null) return;    // 第一次跑 / 档丢了 / 坏档 —— `SaveCenter` 各自出过声
             int n = 0;
