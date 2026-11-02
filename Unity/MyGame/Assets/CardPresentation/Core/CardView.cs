@@ -1420,8 +1420,8 @@ namespace CardPresentation
         void PlaceArmourIcon()
         {
             if (_armourIcon == null) return;
-            bool board = _faceMode == CardFace.Board;
-            _armourIcon.transform.localPosition = new Vector3(0f, board ? -FrontAposY : 0f,
+            bool board = _faceMode == CardFace.Board; AttachToBoard3D(_armourIcon.transform, board, _frontRoot != null ? _frontRoot : FaceRoot);   // 🆕 `B117-R22`：原版 `3DBody/Armour Container`
+            _armourIcon.transform.localPosition = new Vector3(0f, 0f,   // 两档 y 都是 0：场上是 3DBody（恒等）⇒ 不再补偿 `Front` 的 +0.08；2D 档本来就不偏
                                                               board ? BoardArmourIconZ : ArmourIconZ);
         }
         /// <summary>🆕 2026-10-12（`A1658`）效果文字底板那层的 z（判据用）。
@@ -3899,7 +3899,7 @@ namespace CardPresentation
             //      ③ **整图内接**：可见板只有 0.2064 宽（还把透明边与右下投影一起画了进去），
             //         原版 Sliced 出来是 **0.3312**。
             var plateMr = AddLayer("badgePlate" + i, plate, BadgePlateZ, plate,
-                                   BadgePlateQuad("badgePlate" + i, plateAt, at.x < 0f), parent: FaceRoot);
+                                   BadgePlateQuad("badgePlate" + i, plateAt, at.x < 0f), parent: Board3DBones());   // 🆕 `B117-R22`：原版 `3DBody/TraitIcons`
             SetBadgePlateInk(plateMr, _alpha);
             _badgePlates.Add(plateMr);
             // 图标层走**自建灰化 shader**（原版 `disabledMaterial` = `Sprite Greyscale`，见 `TraitDisabled.shader`）：
@@ -3920,7 +3920,7 @@ namespace CardPresentation
             //    （原版 `TraitIcons` 挂在 `3DBody` 下，见 `Core/Badges.cs` 头部），与 `BoardMeleeAt` 一族同源
             //    ⇒ 挂在 `2DCard`（`FaceRoot`），⛔ 别搬进 `Front`（那会让整排徽标上浮 0.08）。
             //    ⚠️ 徽标本来就只在场上出现（那里 2D 卡面是关的），与「卡根空间」一致。
-            var t = TmpFont.NewText(FaceRoot, "badgeCounter" + i, "", BadgeCounterFontSize, BadgeCounterInk,
+            var t = TmpFont.NewText(Board3DBones(), "badgeCounter" + i, "", BadgeCounterFontSize, BadgeCounterInk,   // 🆕 `B117-R22`：原版 `3DBody/TraitIcons`
                                     TmpFont.Face.LatinCardBody);
             // 🔴 2026-10-20（`W58`）：原版 `TraitCounter` 是 **Bold + Extra Thick Outline 0.106**
             //    （`m_fontStyle = 1`；材质 `Pragati-Regular Atlas Material Extra Thick Outline`）。
@@ -3971,7 +3971,7 @@ namespace CardPresentation
         {
             var at = BadgeIconAt01(i);
             var go = new GameObject("badgeIcon" + i);
-            go.transform.SetParent(FaceRoot, false);      // 徽标也是卡面的一层 ⇒ 跟着倾摆
+            go.transform.SetParent(Board3DBones(), false);      // 🆕 `B117-R22`：原版 `3DBody/TraitIcons`（跟着卡体上浮）
             go.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, BadgeIconZ);
             go.AddComponent<MeshFilter>().sharedMesh = CenteredQuad("badgeIcon", Badges.IconSize, Badges.IconSize, icon);
             var mr = go.AddComponent<MeshRenderer>();
@@ -4025,7 +4025,7 @@ namespace CardPresentation
             }
             var at = BadgeIconAt01(i);
             var go = new GameObject("badgeCross" + i);
-            go.transform.SetParent(FaceRoot, false);          // 徽标是卡面的一层 ⇒ 跟着倾摆
+            go.transform.SetParent(Board3DBones(), false);          // 🆕 `B117-R22`：原版 `3DBody/TraitIcons`（跟着卡体上浮）
             go.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height,
                                                      BadgeIconZ - Badges.NotActiveCrossZOffset);   // z 更负 = 更靠前
             go.AddComponent<MeshFilter>().sharedMesh =
@@ -4456,7 +4456,7 @@ namespace CardPresentation
                     //    小图档 = `clipWindow: !d.isUnit` + 小图档硬矩形）—— 原来这里那个三元就是它的两支，
                     //    收进函数后「建出来」与「状态轴变了重烘」走的是**同一个判据**（⛔ 别再在这儿拼一遍）。
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artFrontMesh);
-                if (!board) { _frame = AddLayer("frame", frameTex, 0f, null); ApplyFrameMaskFade(bigState ? 1f : 0f); }   // ← 出生即按状态 1 淡出（见类尾 ApplyFrameMaskFade）
+                if (!board) { _frame = AddLayer("frame", frameTex, 0f, null); ApplyFrameMaskFade(bigState ? 1f : 0f); }   // ← 出生即按状态记账（类尾 ApplyFrameMaskFade；2026-11-02 起不淡出）
                 // 🆕 2026-10-24（`E5`）：**出生这一趟把状态记账**（原版 `CardImageController.currentState`）。
                 //   两条 overDraw 轴现在可以经 `Create(..., artOverdraw:, useOverDraw:)` 在建卡**之前**给定，
                 //   所以这里记下的就是 `Build` 真正烘进网格的那一档；之后 setter 拿它判「状态变没变」
@@ -5261,10 +5261,10 @@ namespace CardPresentation
         const float UnitNameBigH    = 0.5755f;                 // 57.5474 × 0.01
         const float TacticNameBigH  = 0.8000f;                 // 80 × 0.01
         const float TacticDescBigH  = 0.9929f;                 // 99.2930 × 0.01
-        const float UnitDescBigEm   = 0.26f;                   // 26 × 0.01
-        const float UnitNameBigEm   = 0.24f;                   // 24 × 0.01
-        const float TacticNameBigEm = 0.24f;
-        const float TacticDescBigEm = 0.252f;                  // 25.2 × 0.01
+        const float UnitDescBigEm   = 0.26f;                 // 26 × 0.01（名义=prefab；shipped ×0.78 落在 `DescUnitBigBandMax`）
+        const float UnitNameBigEm   = 0.18f;                   // 24 × 0.01 × 0.75（同上）
+        const float TacticNameBigEm = 0.18f;                   // 24 × 0.01 × 0.75（同上）
+        const float TacticDescBigEm = 0.252f;                // 25.2 × 0.01（名义=prefab；×0.78 落在 `DescTacticBigBandMax`）
         const float BigLineSpacing  = 0.05f;                   // 5 × 0.01（战术 desc / 单位 desc 同值）
         const float UnitNameBigLine = -0.08f;                  // **−8** × 0.01：`NameTextUnit No Description Big` 是负行距（三行挤在一起）
         const float TacticDescBigPara = 0.08f;                 // 8 × 0.01
@@ -5547,35 +5547,35 @@ namespace CardPresentation
         //  MonoBehaviour/MonoBehaviour_<id>.json` 里那 15 个 TMP 实例的 `m_fontSizeMin` / `m_fontSizeMax`；
         //  逐层对照表（节点名 · 实例 MB · fs/fsBase/min/max · wrap · em）→
         //  `资料/完全复刻/判据/B99_R4a_近似改原版值_卡牌界面.md` §1·2。
-        //  ⚠️ **本表全部是「原版 pt ÷ 10」**（我们这套字号 = 原版 pt ÷ 10，判据 `TmpFont.TrueEmPerFontSize`
-        //     与 `TmpFont.FontSizeForEm`）⇒ ⛔ 别把原版的 24/19 原样写进来。
+        //  ⚠️ **本表 `min` 是「原版 pt ÷ 10」**（我们这套字号 = 原版 pt ÷ 10，判据 `TmpFont.TrueEmPerFontSize`
+        //     与 `TmpFont.FontSizeForEm`）⇒ ⛔ 别把原版的 24/19 原样写进来。🔴 `B117_F14`/`UI-21`：**卡名/效果文字的 `max` 再乘 shipped 实拍（×0.75/×0.78）** —— prefab 与我们逐像素一致、但发行版实拍小 24%/22%，按铁律 4 采实况（效果文字的名义没动，渲染尺寸完全由上界定）。
         //  ⚠️ **原版每一层的 `m_fontSizeBase` 都是 0.145~0.16**（我们单位 0.0145~0.016），
         //     `TextMeshPro.cs:2149` 的 `clamp(base, min, max)` 恒落到 **min** ⇒ 运行时那趟搜索
         //     **从 min 起、一路往上试**（不是从作者填的 `m_fontSize` 起）。落点见 `FitToBox`。
         //  ⛔ 别把这些值改回「按名义字号 ±5%」那套近似（那是 `B99_R4a` 点名的 5 条近似之一）。
 
-        /// <summary>`DescTextUnit` —— `m_fontSizeMin/Max = 1 / 24`。</summary>
-        const float DescUnitBandMin = 0.10f, DescUnitBandMax = 2.40f;
-        /// <summary>`DescTextTactic` 与 `DescTacticSmall` —— 两件都是 `1 / 19`。</summary>
-        const float DescTacticBandMin = 0.10f, DescTacticBandMax = 1.90f;
-        /// <summary>`NameTextUnit`（含放大窗那档 fs16、含 `…No description`）—— 三件都是 `1 / 19`。</summary>
-        const float NameUnitBandMin = 0.10f, NameUnitBandMax = 1.90f;
-        /// <summary>`NameTextTactic` —— `m_fontSize = 21.5` 而 **`m_fontSizeMax = 24`**（⇒ 运行时 = 24）。</summary>
-        const float NameTacticBandMin = 0.10f, NameTacticBandMax = 2.40f;
+        /// <summary>`DescTextUnit` —— `m_fontSizeMin/Max = 1 / 24`。🔴 `B117_F14`：max 按 shipped 实拍 ×0.78</summary>
+        const float DescUnitBandMin = 0.10f, DescUnitBandMax = 1.872f;
+        /// <summary>`DescTextTactic` 与 `DescTacticSmall` —— 两件都是 `1 / 19`（max ×0.78）。</summary>
+        const float DescTacticBandMin = 0.10f, DescTacticBandMax = 1.482f;
+        /// <summary>`NameTextUnit`（含放大窗那档 fs16、含 `…No description`）—— 三件都是 `1 / 19`（max ×0.75）。</summary>
+        const float NameUnitBandMin = 0.10f, NameUnitBandMax = 1.425f;
+        /// <summary>`NameTextTactic` —— `m_fontSize = 21.5` 而 **`m_fontSizeMax = 24`**（⇒ 运行时 24；max ×0.75）。</summary>
+        const float NameTacticBandMin = 0.10f, NameTacticBandMax = 1.800f;
         /// <summary>`ArmyTextUnit` —— `1 / 15`。⚠️ 我们的阵营行**没有框高**（`Fill` 传 `maxHeight = 0`）
         /// ⇒ 这一档目前**不会**跑到 `FitToBox`；留着是为了「给框高那天不用再查一遍」。</summary>
         const float ArmyBandMin = 0.10f, ArmyBandMax = 1.50f;
         /// <summary>`RaceText` —— **`m_fontSizeMin = 3.0`**（全表唯一一个下界不是 1 的）· `max = 18`。
         /// ⚠️ 同 `ArmyTextUnit`：我们没给兵种行框高 ⇒ 目前不走 `FitToBox`。</summary>
         const float RaceBandMin = 0.30f, RaceBandMax = 1.80f;
-        /// <summary>`DescTextUnit Big`（手牌简化态 5）—— `1 / 26`。</summary>
-        const float DescUnitBigBandMin = 0.10f, DescUnitBigBandMax = 2.60f;
-        /// <summary>`DescTextTactic Big`（手牌简化态 8）—— fs 25.2 但 `max = 26`。</summary>
-        const float DescTacticBigBandMin = 0.10f, DescTacticBigBandMax = 2.60f;
-        /// <summary>`NameTextUnit No Description Big`（手牌简化态 6）—— `1 / 24`。</summary>
-        const float NameUnitBigBandMin = 0.10f, NameUnitBigBandMax = 2.40f;
-        /// <summary>`NameTextTacticBig`（手牌简化态 7）—— `1 / 24`。</summary>
-        const float NameTacticBigBandMin = 0.10f, NameTacticBigBandMax = 2.40f;
+        /// <summary>`DescTextUnit Big`（手牌简化态 5）—— `1 / 26`（max ×0.78）。</summary>
+        const float DescUnitBigBandMin = 0.10f, DescUnitBigBandMax = 2.028f;
+        /// <summary>`DescTextTactic Big`（手牌简化态 8）—— fs 25.2 但 `max = 26`（×0.78）。</summary>
+        const float DescTacticBigBandMin = 0.10f, DescTacticBigBandMax = 2.028f;
+        /// <summary>`NameTextUnit No Description Big`（手牌简化态 6）—— `1 / 24`（max ×0.75）。</summary>
+        const float NameUnitBigBandMin = 0.10f, NameUnitBigBandMax = 1.800f;
+        /// <summary>`NameTextTacticBig`（手牌简化态 7）—— `1 / 24`（max ×0.75）。</summary>
+        const float NameTacticBigBandMin = 0.10f, NameTacticBigBandMax = 1.800f;
 
         /// <summary>
         /// 建或**原地更新**一层 TMP 文字，返回它（文字为空时返回 null 并把旧的清掉）。
@@ -6012,17 +6012,17 @@ namespace CardPresentation
             return b.x <= maxWidth * eps && (maxHeight <= 0f || b.y <= maxHeight * eps);
         }
 
-        // 字号（= 一个 em 有多高）对卡高的比值。**出处是原版，不是我们挑的**：
-        //   原版卡预制体 `08_预制体特效/战斗预制体/` 上的 `NameTextUnit`：
-        //     `m_fontSize = 19`、`m_LocalScale = (0.01, 0.01, 0.01)`  → em = 19 × 0.01 = 0.19 世界单位
-        //     卡面高 `2DCard.m_SizeDelta.y = 3.3313`（自它往上到根 `CardPrefab` 的 scale 全是 1）
-        //   → 0.19 ÷ 3.3313 = **5.70%**
-        //   （场景那份 `battlearena1` 里链上多一层 `CardUI` scale 150，对分子分母同时生效、约掉。）
-        // ⚠️ 这是**字号（em）**对卡高，不是文字框对卡高 —— 文字框是 29.7308 × 0.01 = 0.2973，
-        //    比值 8.92%，那是留给卡名的**版面空间**，不是字实际多大。
-        // ⚠️ 原版这句开着 `m_enableAutoSizing`（`m_fontSizeMax` = 19）—— 名字**长**的时候会自动缩，
-        //    所以 5.70% 是**上限**。我们这边没做自动缩放，只有 `FitToWidth` 的固定回缩。
-        const float TitleEmOfCard = 0.0570f;
+        // 字号（= 一个 em 有多高）对卡高的比值。**出处是原版 prefab，再按 shipped 实拍订正（铁律 4）**：
+        //   原版 `NameTextUnit`：`m_fontSize 19` × `m_LocalScale 0.01` ⇒ em 0.19；卡高 3.3313 ⇒ **5.70%**
+        //   （场景 `battlearena1` 链上多一层 `CardUI` scale 150，对分子分母同时生效、约掉）。
+        //   prefab 与我们是**逐像素一致**的（都是「单字 advance / 卡宽 = 9.08%」），但 **shipped 实拍小 24%**：
+        //   `C:/Users/qjh36/Desktop/warpforge参考图/卡组编辑界面参考.png`（1581×887 · 卡宽 175 px）量得
+        //   「单字 advance / 卡宽 = **6.86%**」；我们 `_tmp_view/shots/20261103_s117/08_pool2.png`
+        //   （2560×1440 · 卡宽 283 px）量得 **9.09%** ⇒ 6.86 ÷ 9.09 = **0.75** ⇒ 本值 = 0.0570 × 0.75。
+        //   🔴 **`NameUnitBandMax` 等 autosize 上界必须同比例一起缩放** —— `FitToBox` 装得下时会一路涨到那个
+        //   max（`B99_G1` 复刻的原版 autosize），**只改名义字号根本不会变小**；这是**按实况复刻**（⛔ 不是自设计），
+        //   ⚠️ 这是**字号（em）**对卡高，不是文字框对卡高（框 0.2973 = 8.92%，是版面空间）；卡尺寸不动（1.634 vs 1.619）。
+        const float TitleEmOfCard = 0.04275f;
 
         /// <summary>🔴 **放大窗那一档的卡名字号** —— 同一条换算，只是 `m_fontSize` 是 **16** 不是 19：
         /// `16 × 0.01 ÷ 3.3313 = 0.0480`（两位都取到小数点后 4 位时，`0.0480 ÷ 0.0570` **恰好** = `16 ÷ 19`）。
@@ -6030,8 +6030,8 @@ namespace CardPresentation
         /// （`Card Display/Cards/CardUI (4)/…/NameTextUnit` 的 TMP：`m_fontSize=16` · `min=1` · `max=19`
         /// · `enableAutoSizing=1`；扫 13 arena × 8 实例 = 104 个里 `fs=16` 恰好 65 个 = 每场那 5 张）。
         /// ⚠️ 原版这 5 张也开着 `enableAutoSizing`（`m_fontSizeMax = 19`）⇒ **16 是起始值、不是硬顶**；
-        ///    我们只有 `FitToWidth` 的固定回缩，同构。</summary>
-        const float TitleEmOfCardZoom = 0.0480f;
+        ///    我们只有 `FitToWidth` 固定回缩，同构。🔴 `B117_F14`/`UI-21`：与 `TitleEmOfCard` **同比例 ×0.75**（shipped 实拍口径）。</summary>
+        const float TitleEmOfCardZoom = 0.0360f;
 
         /// <summary>卡名的字号。原版 `NameTextUnit` 的 `m_fontSize = 19`、`m_LocalScale = 0.01`
         /// ⇒ **em = 0.19 卡单位**（19 × 0.01）⇒ 喂给按面的 <see cref="TmpFont.FontSizeForEm"/>。
@@ -6065,7 +6065,7 @@ namespace CardPresentation
         /// <summary>
         /// 效果文字的字号。**2026-09-12 改：之前这条是我们挑的，现在按原版来。**
         /// 原版 `DescTextUnit`：`m_fontSize = 23.55`、`m_LocalScale = 0.01` → em = 0.2355 卡单位
-        /// → 0.2355 ÷ 3.3313 = **7.07%** 卡高（旧值 3.75% 只有它一半，字明显偏小）。
+        /// → 0.2355 ÷ 3.3313 = **7.07%** 卡高。🔴 `B117_F14`/`UI-21`（铁律 4）：shipped 实拍 4.12% vs 我们 5.03% ⇒ **×0.78**，落点是 autosize 上界 `DescUnitBandMax`（2.40 → 1.872），名义值仍是 prefab 事实 23.55。
         /// ⚠️ 原版同时开着 `m_enableAutoSizing`（`m_fontSizeMax = 24`），长描述运行时会被缩下来 ——
         ///    所以 7.07% 是**上限**；我们靠 `FitToBox` 按 `DescBoxH`（原版那块版面框高）收缩，同构。
         /// 出处：`子代理读报_2dcard_0827.md` A3 表 `DescTextUnit`。
@@ -6078,13 +6078,13 @@ namespace CardPresentation
             get { return TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, Height * DescEmOfCard); }
         }
 
-        /// <summary>0.2355 / 3.3313 —— 效果文字的 em 对卡高比</summary>
+        /// <summary>0.2355 / 3.3313 —— 效果文字的 em 对卡高比；🔴 `B117_F14`/`UI-21` 按 shipped 实拍 ×0.78</summary>
         const float DescEmOfCard = 0.0707f;
 
         /// <summary>🔴 **2026-10-25（`CF-8`）**：**战术卡**效果文字的 em —— 原版 `DescTextTactic` 与
         /// `DescTacticSmall` **都是 `m_fontSize = 19`、`m_LocalScale = 0.01` ⇒ em 0.19**；
         /// 而 <see cref="KeywordFontSize"/> 取的是**单位卡**那档 `DescTextUnit`（23.55 ⇒ 0.2355）。
-        /// 原来两档共用一个常量 ⇒ **战术卡效果文字大 24%**（本轮订正）。</summary>
+        /// 原来两档共用一个常量 ⇒ **战术卡效果文字大 24%**（本轮订正）。🔴 `B117_F14`/`UI-21`：按 shipped 实拍 ×0.78 ⇒ 0.1482。</summary>
         public static float TacticKeywordFontSize
         {
             get { return TmpFont.FontSizeForEm(TmpFont.Face.LatinCardBody, 0.19f); }
@@ -8553,7 +8553,7 @@ namespace CardPresentation
         ///    `SortingOrder = −1`，我们两层都是 MeshRenderer、只能用 z）。</summary>
         void PlaceRim(Transform t)
         {
-            bool board = _faceMode == CardFace.Board;
+            bool board = _faceMode == CardFace.Board; AttachToBoard3D(t, board, FaceRoot);   // 🆕 `B117-R22`：原版 `MinionLight` 挂在 `3DBody` 下（跟着卡体上浮）
             // 原版那一层的实绘尺寸 = sprite(0.79 × 1.07) × `MinionLight.localScale`(3.1555 / 3.0920)
             const float RingW = 0.79f * 3.1555f, RingH = 1.07f * 3.0920f;     // 2.4928 × 3.3084
             // 🔴 **2026-10-25（`M2`）**：这一层**不挂 `Front`**（它固定在 `FaceRoot` 下，见 `Build` 那处），
@@ -13313,7 +13313,7 @@ namespace CardPresentation
                 // ⚠️ **2026-10-25（`M2`）四个数值层【不挂】`Front`**：它们的位置取 `StatAt01(s, true)`
                 //    = 原版 `3DBody` 空间的四个 TMP 节点（`BoardMeleeAt` 那一族），**不是** `Front` 局部系
                 //    ⇒ 挂在 `2DCard`（`FaceRoot`），跟 3D 卡体同一套坐标。⛔ 别把它们搬进 `Front`。
-                go.transform.SetParent(FaceRoot, false);  // 四个数值层也是卡面（场上的倾摆是关的，见 `SetFace`）
+                go.transform.SetParent(Board3DBones(), false);  // 🆕 `B117-R22`：原版挂 `Board Elements/3DBody`（跟着卡体上浮）；两级节点恒等 ⇒ 坐标不变
                 go.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, BoardInfoZ);
                 go.AddComponent<MeshFilter>().sharedMesh = CenteredQuad("stat" + s, StatCell, StatCell, null);
                 var mr = go.AddComponent<MeshRenderer>();
@@ -13340,7 +13340,7 @@ namespace CardPresentation
                 // 逐格显隐走**唯一判据** `StatShownFor`（原版逐 counter `Toggle`；**远程 = 0 照印 `0`**，
                 // 只有**护甲 0** 才整格不显示 —— 判据与出处见那个函数的 doc）。`_statsHidden` = 原版
                 // `CardTextCountersController.SetText` 开头那句 `if (hiddenStat) return;`（挡住藏住期间的刷新）。
-                bool show = board && !_statsHidden && StatShownFor(s, Data);
+                bool show = (board || _countersForced) && !_statsHidden && StatShownFor(s, Data);   // 🆕 `B117-R23`：登场 clip 期间要能淡入
                 var tex = show ? StatTexture(s, v) : null;
                 if (tex == null) show = false;
                 mr.gameObject.SetActive(show);
@@ -13350,7 +13350,7 @@ namespace CardPresentation
                 var at = StatAt01(s, true);
                 mr.transform.localPosition = new Vector3((at.x - 0.5f) * Width, (0.5f - at.y) * Height, BoardInfoZ);
                 var c = _statFlash[s];
-                c.a *= _alpha;
+                c.a *= _alpha * _counterAlpha;      // 🆕 `B117-R23`：原版 alpha 曲线 0.1667→0.7 做 0→1
                 mr.sharedMaterial.color = (_tint * c);
             }
         }
@@ -15384,27 +15384,27 @@ namespace CardPresentation
         //  2. ③ 的**可见效果**：那条 SoftMask 的片元是 `a_out = a_obj · (1 − M · α_mask)`
         //     （`UI Extensions/SoftMaskShader` 反编译体，判据全文在 `ArtVisibleThroughFrame` 的 doc §③），
         //     而 `AlphaMask` 的序列化值**恒 null**（151/153 个实例；白 ⇒ `α_mask = 1`）
-        //     ⇒ `a_out = a_obj · (1 − M)`，`M` = `_MaskEffectStrength` 由 0 补到 1。
-        //  3. ⇒ **等价物 = 把这两层的 alpha 乘 `(1 − M)`**，⛔ **不需要搬** `UnityEngine.UI.Extensions.SoftMaskScript`：
+        //     ⇒ `a_out = a_obj · (1 − M)`；`M` 的目标值实测 **1.0f**（`DAT_1834b2bb8` 现读 = 1）⇒ Big 档这两层 alpha = 0。
+        //  3. ⇒ **照字面复刻 = 把这两层的 alpha 乘 `(1 − M)`**，⛔ **不需要搬** `UnityEngine.UI.Extensions.SoftMaskScript`：
         //     · `_frame`（原版 CardFrame，`a_obj` = 1）
         //     · `_textBg`（原版 Textbackgrounds，`a_obj` = 写死的 0.647 = `TextBgAlpha`）
         //     ⚠️ 它**不碰立绘**（立绘与卡框是兄弟，且 `AlphaMask` 为空）⇒ 别把这条乘到 `_art` 上。
         //  4. 时长/缓动 = 与另两样**同一条时间轴**（`DoChange` 里是三个兄弟、没有 Sequence）：
         //     `BigStateTweenDuration` 0.3 s · `Ease.OutBack`。
         //
-        // 🔑 **我们怎么落**：一个标量 `_frameMaskM`（0 = 框原样 · 1 = 完全淡出）＋ `ApplyFrameMaskFade(m)`。
-        //   逐帧：`ApplyBigStateTweenAt` 里跟着补间推（`fromBig ? 1−k : k`）；
-        //   收口/瞬时：`RebakeBigStateMeshes`（补间完成、被杀、不可补间那一档都走它）；
-        //   出生：`Build` 建完 `_frame` / `_textBg` 各贴一次。
-        //   🔴 **必须在 `ApplyTint()` 末尾再贴一次**：`ApplyTint` 会把 `_layers` 里每一层的 `_Color`
-        //   按整卡着色重刷（`_frame` 就是其中一员）⇒ 不重贴的话，任何一次 `SetAlpha`/`SetTint`
-        //   都会把卡框**刷回不透明**（= 静默失效，而且只在被着色时才现形）。这就是那条老坑
-        //   「加一层之前先 grep 谁会遍历 `_layers`」在这里的另一面。
+        // 🔑 **我们怎么落**：一个标量 `_frameMaskM`（0 = 框原样 · 1 = 原版「完全淡出」）＋ `ApplyFrameMaskFade(m)`；
+        //   逐帧 `ApplyBigStateTweenAt` 跟着补间推（`fromBig ? 1−k : k`）、收口走 `RebakeBigStateMeshes`、出生两处各贴一次。
+        //   🔶 **自己设计（非原版）· 2026-11-02 调度台裁定（`B117-R11`）**：上面那条 `(1 − M)` **我们不照做** ——
+        //   `ApplyFrameMaskFade` 的 `vis` 恒 **1**（Big 档这两层照常不透明）。为什么必须自定：本地拿不到 Big 档的
+        //   **像素级 oracle**（`点击卡片查看详情的参考.png` 那张是战术卡 = `useOverDraw 0` ⇒ Small 档，证不了 Big 档），
+        //   而用户 2026-11-02 要求「详情窗要有卡框」；「立绘压框」那一半已由 `_artFront`（带 alpha 的立绘层）承担。
+        //   🔴 **必须在 `ApplyTint()` 末尾再贴一次**：`ApplyTint` 会把 `_layers` 里每一层的 `_Color` 按整卡着色
+        //   重刷（`_frame` 就是其中一员）⇒ 不重贴就**静默失效**，只在被着色时才现形（老坑：加层先 grep `_layers`）。
 
-        /// <summary>原版 `_MaskEffectStrength`（0 = 卡框/文字底板原样 · 1 = 完全淡出）。</summary>
+        /// <summary>原版 `_MaskEffectStrength`（0 = 卡框/文字底板原样 · 1 = 原版「完全淡出」）—— **只记账**，不再驱动材质 alpha。</summary>
         float _frameMaskM;
 
-        /// <summary>这两层现在还剩多少可见份额（= 原版片元里的 `1 − M·α_mask`，`α_mask` 恒 1）。</summary>
+        /// <summary>**原版片元**算出来的可见份额（= `1 − M·α_mask`，`α_mask` 恒 1）—— **判据读口**，2026-11-02 起⛔ 不再乘进材质。</summary>
         float FrameMaskAlpha { get { return 1f - Mathf.Clamp01(_frameMaskM); } }
 
         /// <summary>把「第三样」落到两层材质上（口径见上面那一段）。幂等：写成绝对值，⛔ 不是叠乘。
@@ -15413,7 +15413,7 @@ namespace CardPresentation
         void ApplyFrameMaskFade(float m)
         {
             _frameMaskM = Mathf.Clamp01(m);
-            float vis = FrameMaskAlpha;
+            float vis = 1f;   // 🔶 自己设计（非原版）：不随 `_frameMaskM` 淡没 —— 判据与裁定见上面第 5 条
             var fm = _frame != null ? _frame.sharedMaterial : null;
             if (fm != null && fm != _frameDissolveMat && fm.HasProperty("_Color"))
                 fm.color = new Color(_tint.r, _tint.g, _tint.b, _tint.a * _alpha * _alpha2D * vis);
@@ -15421,9 +15421,9 @@ namespace CardPresentation
                 _textBg.sharedMaterial.color = new Color(0f, 0f, 0f, TextBgAlpha * _alpha * _alpha2D * vis);
         }
 
-        /// <summary>自检读口：卡框那层现在的不透明度（= `_tint.a · _alpha · _alpha2D · FrameMaskAlpha`）。
-        /// 小图档应当 ≈ `_alpha`；**状态 1（Big）下必须是 0**。</summary>
-        public float FrameMaskAlphaNow { get { return FrameMaskAlpha; } }
+        /// <summary>自检读口：卡框那层**材质**现在的不透明度（现读 `_frame.sharedMaterial.color.a`）。
+        /// 小图档 ≈ `_alpha`；Big 档**同样是 `_alpha`**（2026-11-02 起不再淡没，见上面第 5 条）。</summary>
+        public float FrameMaskAlphaNow { get { var fm = _frame != null ? _frame.sharedMaterial : null; return fm != null && fm.HasProperty("_Color") ? fm.color.a : 0f; } }
 
         // ==================================================================
         //  🆕 2026-10-28（执行代理 `B89_E5c` · 账 `L782`）：`HeroLandIntoField` 的 `showStats` 那一段
@@ -15559,13 +15559,13 @@ namespace CardPresentation
         //  接线（宿主侧，**不在本文件**）：`CardUse.Booster` 要由开包 / 轮抽两个宿主显式传进来，
         //     补丁与调用链自证 → `资料/完全复刻/报告/B106_W9.md` §二·3。
 
-        /// <summary>`NameTextUnit` 的 autosize 上界（原版 `m_fontSizeMax` ÷10）：
-        /// 标准 / 放大窗 **1.90**（19 pt）· 开包族 **2.00**（20 pt）。判据见上面那一段。</summary>
-        float NameUnitBandMaxForUse { get { return _use == CardUse.Booster ? 2.00f : NameUnitBandMax; } }
+        /// <summary>`NameTextUnit` 的 autosize 上界（原版 `m_fontSizeMax` ÷10）：标准/放大窗 1.90、开包族 2.00，
+        /// 🔴 `B117_F14`/`UI-21` 两档**都按 shipped 实拍 ×0.75**（1.425 / 1.500）。判据见 `<see cref="TitleEmOfCard"/>` 那一段。</summary>
+        float NameUnitBandMaxForUse { get { return _use == CardUse.Booster ? 1.500f : NameUnitBandMax; } }
 
-        /// <summary>`DescTextUnit` 的 autosize 上界：标准 / 放大窗 **2.40**（24 pt）· 开包族 **1.90**（19 pt）。
-        /// ⚠️ 只作用于**单位卡**那一支；战术卡的效果文字两档都是 `DescTacticBandMax`（1.90），不走这里。</summary>
-        float DescUnitBandMaxForUse { get { return _use == CardUse.Booster ? 1.90f : DescUnitBandMax; } }
+        /// <summary>`DescTextUnit` 的 autosize 上界：标准/放大窗 2.40、开包族 1.90 ⇒ 🔴 都按实拍 **×0.78**（1.872 / 1.482）。
+        /// ⚠️ 只作用于**单位卡**那一支；战术卡的效果文字两档都是 `DescTacticBandMax`，不走这里。</summary>
+        float DescUnitBandMaxForUse { get { return _use == CardUse.Booster ? 1.482f : DescUnitBandMax; } }
 
         /// <summary>`ArmyTextUnit` 的 autosize 上界（原版 `m_fontSizeMax` ÷10）：
         /// 标准 **1.50**（15 pt）· 开包族的**单位卡** **1.70**（17 pt）。
@@ -15827,5 +15827,67 @@ namespace CardPresentation
 
         /// <summary>立绘层的 x 镜像符号。默认 `+1`；`massive` 的敌方卡 → `−1`（见上面那一段判据）。</summary>
         float _artMirrorX = 1f;
+
+        // ==================================================================
+        //  🆕 2026-11-02（执行代理 `F7` · 账 `B117-R22` / `B117-R23`）：场上那几类层的父链 + 计数器淡入
+        // ==================================================================
+        //
+        //  原版父链（`CardPrefab.prefab` 现读）：`CardPrefab ▸ Board Elements ▸ 3DBody ▸ {Card 3D,
+        //    TraitIcons(徽标) · Base Attack Counters · Base Health Counters · Armour Container ·
+        //    MinionLight(状态环)}`；`Board Elements.m_LocalPosition.y` 在登场 clip 里 −1.347 → 0。
+        //  ⇒ 那几类层必须**跟着卡体一起上浮**；我们原来挂在 `FaceRoot`/`Front` ⇒ 0.7 s 那一刻
+        //    数字/徽标在**落点**瞬现、而卡体还在下方 1.347（用户报的「登场动画很怪」）。
+        //  ⚠️ **本仓这两级节点放在卡根、局部 (0,0,0)**（原版原点在卡底）—— 这样**既有局部坐标一个数都不改**
+        //    （它们本来就是按卡根写的）。`body3D`（3D 卡体）仍留在卡根下（`transform.Find("body3D")`
+        //    有 5 处在用）⇒ 位移由 `CardFeel.HandToBoard` 对**两个节点同时**施加同一条曲线。
+        Transform _boardElements, _body3DBones;
+
+        /// <summary>懒建原版那两级 `Board Elements / 3DBody`（恒等变换 ⇒ 子层坐标不用改）。</summary>
+        Transform Board3DBones()
+        {
+            if (_body3DBones != null) return _body3DBones;
+            var be = new GameObject("Board Elements");
+            be.transform.SetParent(transform, false);
+            _boardElements = be.transform;
+            var b3 = new GameObject("3DBody");
+            b3.transform.SetParent(_boardElements, false);
+            _body3DBones = b3.transform;
+            return _body3DBones;
+        }
+
+        /// <summary>自检读口：`Board Elements`（没建 = `null`）。</summary>
+        public Transform BoardElementsForTest { get { return _boardElements; } }
+        /// <summary>自检读口：`3DBody`（没建 = `null`）。</summary>
+        public Transform Body3DBonesForTest { get { return _body3DBones; } }
+
+        /// <summary>把一层挂到 `Board Elements/3DBody` 下（`on == false` ⇒ 回到 <paramref name="fallback"/>）。
+        /// ⚠️ 两级节点都是**恒等变换** ⇒ 不改 `localPosition`。</summary>
+        void AttachToBoard3D(Transform t, bool on, Transform fallback)
+        {
+            if (t == null) return;
+            var want = on ? Board3DBones() : fallback;
+            if (want != null && t.parent != want) t.SetParent(want, false);
+        }
+
+        /// <summary>攻/血计数器现在的整组 alpha（原版两条 alpha 曲线 `0.1667 → 0.7` 做 0→1；见 `B117-R23`）。</summary>
+        float _counterAlpha = 1f;
+        /// <summary>登场 clip 期间强制显示计数器（那时 `_faceMode` 还是 `Hand`，`SyncStatLayers` 会判 board=false）。</summary>
+        bool _countersForced;
+
+        /// <summary>自检读口。</summary>
+        public float CounterAlpha { get { return _counterAlpha; } }
+        /// <summary>自检读口：计数器是否被「登场 clip」强制显示着。</summary>
+        public bool CountersForcedVisible { get { return _countersForced; } }
+
+        /// <summary>设置计数器的整组 alpha（原版 `Base Attack/Health Counters` 的 alpha 曲线）。</summary>
+        public void SetCounterAlpha(float a) { _counterAlpha = Mathf.Clamp01(a); SyncStatLayers(); }
+
+        /// <summary>登场 clip 期间把计数器显示出来（alpha 由 `SetCounterAlpha` 淡入）。</summary>
+        public void SetCountersForcedVisible(bool on) { _countersForced = on; SyncStatLayers(); }
+
+        /// <summary>自检读口：第 `s` 个数值层的父节点（没建 = `null`）—— 断原版父链 `Board Elements/3DBody` 用。</summary>
+        public Transform StatLayerParent(int s) { var mr = _stats[s]; return mr != null ? mr.transform.parent : null; }
+        /// <summary>自检读口：状态环（原版 `MinionLight`）的父节点（没建 = `null`）。</summary>
+        public Transform RimParent { get { return _rim != null ? _rim.transform.parent : null; } }
     }
 }

@@ -181,9 +181,9 @@ namespace CardPresentation
             if (!_persist) return;
             try
             {
-                var path = SavePath;
-                if (!System.IO.File.Exists(path)) return;
-                var d = JsonUtility.FromJson<CardProgressSave>(System.IO.File.ReadAllText(path));
+                var path = SavePath; string text = SaveCenter.ReadThroughLegacy(SaveKeys.OursCardProgress, path);   // 🆕 2026-11-02（B117_F4 · UI-15/B-322）：**先中央档、再旧档**；两处都没有 ⇒ null（⛔ 别恢复裸 `File.Exists` + `ReadAllText`）
+                if (text == null) return;   // 第一次跑：没有存档 = 出厂态，不吵
+                var d = JsonUtility.FromJson<CardProgressSave>(text);
                 if (d == null) return;
                 if (d.levels != null) foreach (var e in d.levels) if (e != null && !string.IsNullOrEmpty(e.id)) _lvl[e.id] = e.v;
                 if (d.owned != null) foreach (var e in d.owned) if (e != null && !string.IsNullOrEmpty(e.id)) _owned[e.id] = e.v;
@@ -212,7 +212,7 @@ namespace CardPresentation
                 foreach (var kv in _lvl) d.levels.Add(new CardProgressEntry { id = kv.Key, v = kv.Value });
                 foreach (var kv in _owned) d.owned.Add(new CardProgressEntry { id = kv.Key, v = kv.Value });
                 foreach (var kv in _wild) d.wildcards.Add(new CardProgressEntry { id = kv.Key, v = kv.Value });
-                System.IO.File.WriteAllText(SavePath, JsonUtility.ToJson(d, true));
+                string werr; if (!SaveCenter.SaveThroughLegacy(SaveKeys.OursCardProgress, SavePath, JsonUtility.ToJson(d, true), out werr)) { Debug.LogError("[CardProgress] 等级存档**写不出**（" + SavePath + "）：" + werr + " ⇒ 本次改动只在内存里（关掉游戏会丢）"); return false; }   // 🆕 2026-11-02（B117_F4）：中央档 + 双写旧档（`SaveCenter.StoreOn` 关着 ⇒ 只写旧档，与切换前同形）
                 return true;
             }
             catch (System.Exception ex)
@@ -785,8 +785,8 @@ namespace CardPresentation
         //    分层为什么要「每格一个队列」、相关卡为什么要压暗到 0.65 —— **全在那个文件的注释里**。
         //    ⚠️ 顺带订正一处：本文件 2026-09-27 记的槽 3 转角 **12.648°** 是错的，clip 原文复算是 **12.750°**。
 
-        /// <summary>卡位个数：**1 主卡 + 8 相关卡**（原版是 1+4；**8 这一档是我们挑的**，用户授权的冗余）。</summary>
-        public const int Slots = CardFan.Slots;
+        /// <summary>卡位个数：**1 主卡 + 4 相关卡 = 5**（原版 `cardUIs[0..4]` / `relatedCard1..4`）。🔴 2026-11-02（`B117-27`）：原跟 `CardFan.Slots` 建 9 格，现按原版改 5；外推那 4 组数仍留在 `CardFan` 表里供 `B107_R3c_Assert` 核，窗口不再用。</summary>
+        public const int Slots = CardFan.OriginalSlots;
         /// <summary>换位动画时长 —— 原版 `CardDisplayWindow.relatedCardSwapTime`（字段 `+0xC0`）。</summary>
         public const float SwapTime = CardFan.SwapTime;
         /// <summary>槽名（照原版命名：**前台那张不带后缀**，其余 `CardUI (1..8)`）。</summary>
@@ -1060,7 +1060,7 @@ namespace CardPresentation
         {
             var root = transform;
             for (int i = root.childCount - 1; i >= 0; i--) CollectionWindow.DestroySafe(root.GetChild(i).gameObject);
-            _voiceBox = null; _eyeBox = null;      // 旧的那两颗随子件一起没了 ⇒ 引用也要清
+            _voiceBox = null; _eyeBox = null; _menuTutObjs = null; _menuFxRoot = null;      // 旧的那两颗随子件一起没了 ⇒ 引用也要清（🆕 B117-28 那两层同理）
             if (!HasCard) return;
 
             // 1) 压暗 + 点遮罩关窗（原版唯一的「关」）
@@ -1146,7 +1146,7 @@ namespace CardPresentation
             BuildUpgrade(vlg);
             BuildAltArt(vlg);
             BuildCounter(panel);
-            BuildWildcards(panel);
+            BuildWildcards(panel); BuildTutorialObjsMenu(cardNode); BuildEffectListMenu(cardNode);   // 🆕 B117-28：原版菜单窗比战斗窗多的两层（`Card Display` 的 3、4 号孩子）
         }
 
         // ============================================================ 卡片那一叠（扇形 + 相关卡）

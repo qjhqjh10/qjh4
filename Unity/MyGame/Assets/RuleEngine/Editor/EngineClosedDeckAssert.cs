@@ -85,7 +85,9 @@ public static class EngineClosedDeckAssert
         // ---- A2 · 逐字段的值（**来源逐条标**；⛔ 别拿 `Skirmish` 证明 `ClosedDeck`）----
         Eq(cd.deckSize, 12, "A2 `deckSize = 12` —— 原版【文案】`12-card decks`");
         Eq(cd.maxLegendaries, 4, "A2 `maxLegendaries = 4` —— 原版【文案】`Up to 4 Legendaries`");
-        Eq(cd.warlordLifeChange, -10, "A2 `warlordLifeChange = -10` —— 原版【文案】`10 less Health`");
+        // 🔴 **2026-11-02 改定**：文案 `10 less Health` 是**相对经典 +10** 说的 ⇒ 轮抽（跟 `Skirmish` 那一份）
+        //   = **0**（= SO 基准）。判据链 → `GameplayVariables.warlordLifeChange` 字段注释。
+        Eq(cd.warlordLifeChange, 0, "A2 `warlordLifeChange = 0` —— 【推断】= SO 基准（文案「比经典少 10」是相对经典）");
         Eq(cd.manaPerTurn, 2, "A2 `manaPerTurn = 2` —— 原版【文案】`+2 Maximum Energy each turn`");
         // 🔶 自己设计（非原版断言口径）：原版服务端 `PlayEventData.gameplayVariables` 本地取不到 ⇒ **不再把
         //   `startingManaSecond = 2` 这个【推断值】钉成断言**（拿自己的推断当判据 = 自证：将来若按官方文案改成

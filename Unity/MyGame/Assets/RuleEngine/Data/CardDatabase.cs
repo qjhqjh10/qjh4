@@ -167,18 +167,18 @@ namespace RuleEngine
             /// `CardTraits` 有 **650** 张，且 `A1748` 那 18 张的 `ShowTraits` **全是空**
             /// ⇒ 对着 `ShowTraits` 判会把 633 张误判成「没挂 trait」。
             ///
-            /// ⚠️ **本列不喂引擎**（纯落值）：它**包含** `Frenzied` / `Rage` / `Unstoppable` 三个
-            /// **`CardDef.Prefixes` 未登记**的词（那三个**不进 `keywords`** —— 写了会被
-            /// `KeywordTable.Normalize` 返回 null 后静默丢弃）。要看「引擎真正认得的」
-            /// 请读 `keywords`；要看「**原版挂了什么**」读本列。
+            /// 🔴 **本列【已喂引擎】**（2026-11-02 `B117_F1` · `B117-25` 就地订正：原文写「不喂引擎/纯落值」，**已过期**）——
+            /// `CardDatabase` 的 `def.AttachCardTraits(c.cardTraits)` 就在生产路径上，原版 `CardScript__SetBaseCardTraits.c:37-42` 也把本列**整表**灌进「当前 trait 表」`+0x128`；读口 = `CardDef.HasTrait`（卡面事实）/ `UnitState.HasCurrentTrait`（场上）。
+            /// 它**包含** `Frenzied` / `Rage` / `Unstoppable` 三个 **`CardDef.Prefixes` 未登记**的词（那三个**不进 `keywords`** —— 写了会被
+            /// `KeywordTable.Normalize` 返回 null 后静默丢弃）⇒ 要看「`keywords` 那层认得的」请读 `keywords`；要看「**原版挂了什么**」读本列。
             ///
             /// ⚠️ `cardTraits` 与 `keywords` 的关系 = **权威序第 1 层**（主对话已裁③）：
             /// 真值 `CardTraits` **只补空**（OCR 那格为空时才填、⛔ 不覆盖已有值），
             /// 上面还压着 OCR 源表 / `cardface_fixes.json` / `fix_own_armour` / `_manual_keywords`。
             /// 生成器跑完会打出「填了多少 / 被更高层换掉多少 / 因引擎不认跳过多少」三个数。
-            /// 🆕 **2026-10-23（`新账-95`）**：**全仓唯一的读点 = `Editor/RuleEngineTest.cs`** 那条
-            /// 「`cardTraits` 里不许出现 `Frenzied` / `Rage`」的断言（它读的是**原始 DTO**）。
-            /// 运行期引擎**一个读点都没有** ⇒ 它**不算死列**（有消费者），但也别拿它当引擎输入。</summary>
+            /// 🆕 **2026-10-23（`新账-95`）**：「全仓唯一的读点 = `Editor/RuleEngineTest.cs`」**已过期** ——
+            /// 现读点还有 `Core/CardDef.cs`（`AttachCardTraits` / `HasDefaultTrait` / `HasTrait`）、`Core/UnitState.cs`（`HasCurrentTrait`）、
+            /// `Core/RuleCore.cs`（`CardPlayedTagMask` 的 ephemeral / `OathExtraReplays`）与 `Core/BattleContext.cs`（`IsEphemeral`）。</summary>
             public string[] cardTraits;
 
             // ================================================================================

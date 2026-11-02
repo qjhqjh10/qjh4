@@ -202,25 +202,25 @@ namespace RuleEngine
 
                 // ---------------------------------------------------------------- 20 mightAttack
                 // 原版 `:82-86` → `CardScript__get_mightAct.c`（全文）：
-                //   ① `attacksThisTurn(+0x48) != 0` 时：必须带 `bloodThirst(220)` 且 `== 1`，否则假；
+                //   ① `attacksThisTurn(+0x48) != 0` 时：必须带 `HasCurrentTrait(0xdc bloodThirst)` 且 `== 1`，否则假；
                 //   ② `RawCardScript.IsUnit(raw)`（`cardType` 0 Minion 或 10 Hero）；
-                //   ③ `displaySummonSickness`（`+0x58 && !fast && !flank`）⇒ 假；
-                //   ④ `HasCurrentTrait(100 stun)` / `(150 cantAttack)` / `(880 nonCombatant)` 任一 ⇒ 假；
-                //   ⑤ 其余真。
+                //   ③ `displaySummonSickness`（`+0x58 && !HasCurrentTrait(fast 0x28) && !HasCurrentTrait(flank 0x1cc)`）⇒ 假；
+                //   ④ `HasCurrentTrait(100 stun)` / `(0x96=150 cantAttack)` / `(0x370=880 nonCombatant)` 任一 ⇒ 假；
+                //   ⑤ 其余真。 🔴 ①③④ 五词原版全走 `EntityScript__HasCurrentTrait`（当前 trait 表 `+0x128`）⇒ 我们一律用 `HasCurrentTrait`（⛔ 不是 `Has`）；否则只写在 `cardTraits` 列的 `flank` 判不到（`GOF57 Ork Nob`）。
                 case 20:
                 {
                     if (u == null) return null;
                     if (u.AttacksThisTurn != 0)
                     {
-                        if (!u.Has(KeywordTable.BloodThirst)) return false;
+                        if (!u.HasCurrentTrait(KeywordTable.BloodThirst)) return false;
                         if (u.AttacksThisTurn != 1) return false;
                     }
                     var c = card ?? u.Card;
                     if (!IsUnitOrHero(c)) return false;
-                    if (u.SummonSickness && !u.Has("fast") && !u.Has("flank")) return false;   // displaySummonSickness
-                    if (u.IsStunned) return false;                                             // stun(100)
-                    if (u.Has(KeywordTable.CantAttack)) return false;                          // cantAttack(150)
-                    if (u.Has(RuleCore.Noncombatant)) return false;                            // nonCombatant(880)
+                    if (RuleCore.DisplaySummonSickness(u)) return false;                       // displaySummonSickness
+                    if (u.HasCurrentTrait(KeywordTable.Stun)) return false;                    // stun(100)
+                    if (u.HasCurrentTrait(KeywordTable.CantAttack)) return false;              // cantAttack(150)
+                    if (u.HasCurrentTrait(RuleCore.Noncombatant)) return false;                // nonCombatant(880)
                     return true;
                 }
 
@@ -235,19 +235,19 @@ namespace RuleEngine
                 // ---------------------------------------------------------------- 50 flying
                 // 原版 `:38-45`：`(MeetsTraitCriteria(180 unstoppable) || MeetsTraitCriteria(390 flying))
                 //   && !MeetsTraitCriteria(980 vanguard)`。
-                // 三个 trait 在我们这边都是**一等关键词**：`RuleCore.Unstoppable` / `KeywordTable.Flying`
-                // / `KeywordTable.Vanguard`（`CardDef.Prefixes:5107-5112` 起）。
+                // 🔴 `MeetsTraitCriteria` 读的是**当前 trait 表** `+0x128`（`FilterMethods__MeetsTraitCriteria.c`），而
+                //   `CardScript__SetBaseCardTraits.c:37-42` 把 `cardTraits(+0x230)` 整表灌进去 ⇒ 走 `HasCurrentTrait`（⛔ 不是 `Has`）。
                 case 50:
                     if (u == null) return null;
-                    return (u.Has(RuleCore.Unstoppable) || u.Has(KeywordTable.Flying))
-                        && !u.Has(KeywordTable.Vanguard);
+                    return (u.HasCurrentTrait(RuleCore.Unstoppable) || u.HasCurrentTrait(KeywordTable.Flying))
+                        && !u.HasCurrentTrait(KeywordTable.Vanguard);
 
                 // ---------------------------------------------------------------- 100 protectedFromDamage
                 // 原版 `:46-54`：`MeetsTraitCriteriaFromList({dodge(240), invulnerable(310), dropPod(230)})`
-                //   ⇒ 任一命中即真（`FilterMethods__MeetsTraitCriteriaFromList.c` 是「Any」）。
+                //   ⇒ 任一命中即真（`FilterMethods__MeetsTraitCriteriaFromList.c` 是「Any」，逐条调 `MeetsTraitCriteria` = 当前 trait 表 ⇒ `HasCurrentTrait`）。
                 case 100:
                     if (u == null) return null;
-                    return u.Has(KeywordTable.Dodge) || u.Has(Invulnerable) || u.Has(KeywordTable.DropPod);
+                    return u.HasCurrentTrait(KeywordTable.Dodge) || u.HasCurrentTrait(Invulnerable) || u.HasCurrentTrait(KeywordTable.DropPod);
 
                 // ---------------------------------------------------------------- 110 protectedFromAttackDamage
                 // 原版 `:57-67`：先递归判 `100`；不成立再看
@@ -271,9 +271,9 @@ namespace RuleEngine
                     if (p100 == true) return true;
                     if (u == null || thisUnit == null) return null;
                     // `currentCombatAttack`（`EntityScript__get_currentCombatAttack.c`）——主语 = **施法者**：
-                    // 带 dropPod(230) 时读空投舱攻击（我们**没有**「空投舱在飞」这一层 ⇒ 拿不到 ⇒ 不猜）；
+                    // 带 dropPod(230) 时读空投舱攻击（我们**没有**「空投舱在飞」这一层 ⇒ 拿不到 ⇒ 不猜；`EntityScript__get_currentCombatAttack.c:19/38` 读的是 `HasCurrentTrait`，⛔ 不是 `Has`）；
                     // 残骸 ⇒ 0；其余按当前攻击型取近战/远程。末跳 = `HasBastionHigherThanAttack`（`<=`）。
-                    if (thisUnit.Has(KeywordTable.DropPod)) return null;
+                    if (thisUnit.HasCurrentTrait(KeywordTable.DropPod)) return null;
                     int combat = thisUnit.IsRemnant ? 0
                                : (thisUnit.CurrentAttackType == UnitState.AttackTypeRanged
                                   ? thisUnit.RangedAttack : thisUnit.Attack);
@@ -286,8 +286,8 @@ namespace RuleEngine
                 //   再调 `FilterMethods__MeetsTraitCriteriaFromList(this, 表, exclude:false, this)`（Any）⇒ 任一命中即真；比 `100` 多 shield/survivor。
                 case 120:
                     if (u == null) return null;
-                    return u.Has(KeywordTable.Dodge) || u.Has(KeywordTable.Shield)
-                        || u.Has(Invulnerable) || u.Has(KeywordTable.DropPod) || u.Survivor > 0;
+                    return u.HasCurrentTrait(KeywordTable.Dodge) || u.HasCurrentTrait(KeywordTable.Shield)
+                        || u.HasCurrentTrait(Invulnerable) || u.HasCurrentTrait(KeywordTable.DropPod) || u.Survivor > 0;
 
                 // ---------------------------------------------------------------- 190 hasAbility
                 // 原版 `:73-77`：读 `bool hasActiveAbility`（`card+0x220`，
@@ -334,10 +334,10 @@ namespace RuleEngine
 
                 // ---------------------------------------------------------------- 230 stealthAndNotDealtKillDmg
                 // 原版 `:268-277`：`MeetsTraitCriteria(70 stealth)` ∧ `!EnoughPendingDamageToDie(card)`
-                //   （不满足 stealth ⇒ 假，**不看**将死）。
+                //   （不满足 stealth ⇒ 假，**不看**将死；`MeetsTraitCriteria` = 当前 trait 表 ⇒ `HasCurrentTrait`）。
                 case 230:
                     if (u == null) return null;
-                    return u.Has(KeywordTable.Stealth) && !RuleCore.EnoughPendingDamageToDie(u);
+                    return u.HasCurrentTrait(KeywordTable.Stealth) && !RuleCore.EnoughPendingDamageToDie(u);
 
                 // ---------------------------------------------------------------- 240/250（附魔账）
                 // 240 `:281-285` → `EntityScript__HasSecretOrders.c`：数 `+0x110 activeEnchantments` 里
@@ -498,7 +498,7 @@ namespace RuleEngine
                     if (u == null || u.Instance == null) return null;
                     var c = card ?? u.Card;
                     if (c == null) return null;
-                    if (u.Has(KeywordTable.Jam)) return false;      // 原版 `:227` 那条 `!HasCurrentTrait(130)`
+                    if (u.HasCurrentTrait(KeywordTable.Jam)) return false;   // 原版 `:227` 那条 `!HasCurrentTrait(130)`
                     int q = c.Quest;
                     if (q < 0) return null;                         // 未知 ⇒ 不猜
                     if (q == 0) return false;                       // 原版 `raw+0x240 == 0` ⇒ 假
@@ -512,8 +512,8 @@ namespace RuleEngine
                 // 原版 `:124-145`（`FilterMethods__MeetsConditionCriteria.c` 的 0x14a 那一支）：
                 //   `MeetsTraitCriteriaFromList({stealth(70), ward(140)})` **或**
                 //   (`MeetsTraitCriteria(160 tainted)` ∧ !`MeetsTraitCriteria(980 vanguard)`).
-                // 🆕 2026-10-23（`新账-97` ⑤）：**判得了** —— 四个词都走 `UnitState.Has`
-                //   （`DefinedTrait` 里 `stealth=70 / ward=140 / tainted=160 / vanguard=980`）。
+                // 🆕 2026-10-23（`新账-97` ⑤）：**判得了** —— 四个词走 `MeetsTraitCriteria` 那一族（读**当前 trait 表** `+0x128`）
+                //   ⇒ 我们用 `UnitState.HasCurrentTrait`，⛔ 不是 `Has`（`DefinedTrait` 里 `stealth=70 / ward=140 / tainted=160 / vanguard=980`）。
                 // 🔴 **`ward` / `tainted` 当前池 0 张**（2026-10-23 全表普查：`cards_engine.json` 的
                 //   `keywords` / `cardTraits` / `desc` 三处都 0 命中；真值 `cards_raw.json` 的
                 //   `CardTraits` 里也没有这两个词）⇒ 今天这一档在池内**等价于 `stealth`**，
@@ -522,15 +522,15 @@ namespace RuleEngine
                 case 330:
                 {
                     if (u == null) return null;
-                    if (u.Has(KeywordTable.Stealth) || u.Has(Ward) || u.Has(WardWb)) return true;
-                    return u.Has(Tainted) && !u.Has(KeywordTable.Vanguard);
+                    if (u.HasCurrentTrait(KeywordTable.Stealth) || u.HasCurrentTrait(Ward) || u.HasCurrentTrait(WardWb)) return true;
+                    return u.HasCurrentTrait(Tainted) && !u.HasCurrentTrait(KeywordTable.Vanguard);
                 }
 
                 // ---------------------------------------------------------------- 331 stealthOrCamouflage
-                // 原版 `:146-156`：`MeetsTraitCriteriaFromList({stealth(70), camouflage(985)})`。
+                // 原版 `:146-156`：`MeetsTraitCriteriaFromList({stealth(70), camouflage(985)})` ⇒ 当前 trait 表（`HasCurrentTrait`）。
                 case 331:
                     if (u == null) return null;
-                    return u.Has(KeywordTable.Stealth) || u.Has(Camouflage);
+                    return u.HasCurrentTrait(KeywordTable.Stealth) || u.HasCurrentTrait(Camouflage);
 
                 // ---------------------------------------------------------------- 340 onlyRemnants
                 // 原版 `:157-169`：`isRemnant(+0x65) && !isLeavingRemnant(+0x66)` ∧ `IsNecronRemnant(card)`。

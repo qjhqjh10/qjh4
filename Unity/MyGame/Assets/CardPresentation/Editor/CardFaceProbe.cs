@@ -196,7 +196,7 @@ public static class CardFaceProbe
         float gotEm = ourFontSize * emPerFontSize;
         Check(Mathf.Abs(gotEm - wantEm) <= wantEm * 0.01f,
               $"W62/T2 {what}① 口径：`ourFontSize × emPerFontSize` == 原版 em **{wantEm:F4}** 卡单位"
-            + $"（我们 fontSize {ourFontSize:F3} × {emPerFontSize:F3}；原版 fs {origFontSize:F2} × scale 0.01）"
+            + $"（我们 fontSize {ourFontSize:F3} × {emPerFontSize:F3}；判据 fs {origFontSize:F2} × scale 0.01 —— prefab 或 shipped 实拍，见调用点）"
             + $" ⇒ 卡高 {gotEm / cardH * 100f:F2}%（原版 {wantEm / cardH * 100f:F2}%）"
             + "｜⚠️ **这一条是算术自证**（`ourFontSize` 本来就 = `wantEm ÷ emPerFontSize`）—— "
             + "它的作用只是「谁改了标定」一眼可见；**字号真有多大由 ②③ 量**"
@@ -872,9 +872,9 @@ public static class CardFaceProbe
                 float kUi = 0.1f * faUi.faceInfo.scale;
                 float kBody = 0.1f * faBody.faceInfo.scale;
                 float cardH = CardView.Height;                  // 3.3313 = 原版 `2DCard.m_SizeDelta.y`
-                CheckFaceSize("卡名", "NameTextUnit", 19f, kUi, CardView.TitleFontSize, cardH,
+                CheckFaceSize("卡名", "NameTextUnit", 14.25f, kUi, CardView.TitleFontSize, cardH,   // 🔴 `B117_F14`/`UI-21`（铁律 4）：19 → 14.25（×0.75，shipped 实拍；prefab 与逐像素一致但比实拍大 24%）
                               TmpFont.Face.LatinUi);
-                CheckFaceSize("效果文字", "DescTextUnit", 23.55f, kBody, CardView.KeywordFontSize, cardH,
+                CheckFaceSize("效果文字", "DescTextUnit", 23.55f, kBody, CardView.KeywordFontSize, cardH,   // 名义仍是 prefab 的 23.55；shipped ×0.78 落在 autosize 上界 `DescUnitBandMax`（2.40 → 1.872），见 `CardView.TitleEmOfCard`
                               TmpFont.Face.LatinCardBody);
                 CheckFaceSize("阵营行", "ArmyTextUnit", 15f, kBody, CardView.ArmyFontSize, cardH,
                               TmpFont.Face.LatinCardBody);

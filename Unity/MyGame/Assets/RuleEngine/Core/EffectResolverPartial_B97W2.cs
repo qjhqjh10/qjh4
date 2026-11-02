@@ -163,8 +163,8 @@ namespace RuleEngine
         /// <summary>
         /// **把这张卡某 `(ab, lg)` 行上的 `CardEffect` 行按 `AddEffect` 的 case 表逐条结算**。
         ///
-        /// <para>⚠️ **今天没有任何生产调用点**（见上面那段裁断）—— 本方法是引擎侧的
-        /// `CardScript.AddEffect` 等价位，等「正文路让位」这件事定了再接。
+        /// <para>🔴 **2026-11-03 订正（铁律 5）：原写「今天没有任何生产调用点」已过期** —— 现读有 **2 个真实生产调用点**：`EnchantmentExecutor_B115.cs:312`（附魔模板路）与 `ChoiceOptionCards_B116W32.cs:155`（选项卡路 → `RunAbilityBuffRowOfEnchantment`）。⇒ `buffType` 表在**附魔 / 选项卡那条路上是活的**，⛔ 别再说「整张表没有消费者」。卡表主路（`FireTriggerRowsByChosenAbility`）仍然只在正文 op 为空时兜底。本方法是引擎侧的
+        /// `CardScript.AddEffect` 等价位；**卡表主路**要不要也接，仍等「正文路让位」这件事定了再说。
         /// 自检直接调它验机制（`RuleEngineTest.CheckB97W2Gaps` 的 C 段）。</para>
         /// </summary>
         /// <param name="ab">`cardAbilities` 下标；`-1` = `activeAbility` · `-2` = `alternativeAbility`。</param>

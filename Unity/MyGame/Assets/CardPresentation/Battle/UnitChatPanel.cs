@@ -714,7 +714,7 @@ namespace CardPresentation
             // 🔴 2026-10-17（A1024③ 第 2 批）：原版 `Unit Chat/.../ChatText` = Pragati（两档都过这里；
             //    uGUI 档已在 `MakeText` 换过 ⇒ 同面早退）。必须在下面 `SetGlyphHeight` **之前**。
             if (t != null) t.SetFace(TmpFont.Face.LatinCardBody);
-            Move(t, b.left + TextLeft, topPx + TextCy, ZText, at.ax, at.ay);
+            Move(t, b.left + TextLeft, topPx + TextCy, ZText, at.ax, at.ay); if (t != null) { var _ct = t.GetComponentInChildren<TMP_Text>(true); if (_ct != null) _ct.rectTransform.pivot = new Vector2(0f, 0.5f); }   // 🔴 **`B117-R1`（2026-11-02）：把台词 TMP 的枢轴钉成「左中」** —— 判据链：① 本文件坐标是「文本区**左沿** + 中线」，而 `Move` 摆的是**枢轴点**（`HudCanvas.SetAnchorPx` doc：「与 pivot 无关」）；② `Label.CreateCore` 的 uGUI 档把 `pivot` **硬写成 `(0.5,0.5)`**（`Battle/Label.cs:204`），传进去的 `(0,0.5)` 只是 `Label.anchor`；③ 纠它的 `Label.RefreshBounds` 在「0 个可见字」时**早退**（它量 `GetTextBounds()`，那里只统计 `isVisible` 的字 —— `TMP_Text.cs:4864-4894`，而 `HideBubble` / 每句开头都把 `maxVisibleCharacters` 置 0 ⇒ 空集哨兵 ±4.29e9）⇒ 矩形一直**以节点为中心**摆，台词从框左沿外 `TextW/2 = 220.45 px` 开始（真机 2026-11-03 实证：`为了帝皇…` 只剩 `了帝皇…`；尺寸全对，所以既有的「宽 ≤ 440.9 / 高 ≤ 81.7」断言抓不到）。⚠️ 只动 x（`anchor.y = pivot.y = 0.5` 本来就对）；⛔ 别改成「调用方 + `TextW/2`」——`RefreshBounds` 真跑成时会再加一次
             // 原版是 TMP `fontSize 33`（**em 口径**）—— 见 `Speak` 里那段更正说明（别按大写折）。
             // 🔴 **2026-10-16（`T09` 批 3）**：走 `U()`（世界档 = `33/108` 世界单位、uGUI 档 = **33 设计 px**）。
             //   ⛔ 漏了它 ⇒ 画布上的字号只有 **0.3 px**、**一个字都不报**。
@@ -1093,7 +1093,8 @@ namespace CardPresentation
                 // 🆕 2026-10-19（`T17`）：**官方词条优先**（`Chat_Messages/*`）→ voice_lines 的英文 → 卡名。
                 //   三个来源都不是我们译的：官方两列是原版 I2 表；voice_lines 的 text 是从原版音频文件名抠的英文。
                 string shown = official ?? (string.IsNullOrEmpty(text) ? (fallbackName ?? "") : text);
-                b.text.SetText(shown);
+                // 🔴 `B117-R1`：**先对齐、再灌字** —— `SetText` 内部那次 `RefreshBounds` 按**当时的** alignment 算偏移，停在 `Center` 会把子节点左推 ≈55 px（判据链 → `MakeBubble` 里那句 `pivot` 的注释）
+                b.text.SetAlignLeft(); b.text.SetText(shown);
                 // 字号：**照原版那个 `m_fontSize = 33`**。
                 // 🔴 2026-09-25 更正：原来英文走的是 `SetCapHeight(33 × 0.72 / 108)`（按「拉丁大写 ≈ 0.72 em」折），
                 //    两处都不对 —— ① TMP 的 `m_fontSize` **就是 em 大小**（原版 33 就是 33 px 的 em），
@@ -1103,8 +1104,7 @@ namespace CardPresentation
                 // 🔴 **2026-10-16（`T09` 批 3）**：那一句改成 `U(…)` —— 世界档仍是 `33/108`（逐位不变），
                 //    uGUI 档是 **33 设计 px**（画布单位就是设计 px）。
                 b.text.SetGlyphHeight(U(OrigFontPx));
-                // 逐行左对齐（原版 `m_HorizontalAlignment = 1`）—— 折行后短行靠左，不是居中
-                b.text.SetAlignLeft();
+                // 🔴 逐行左对齐（原版 `m_HorizontalAlignment = 1`）已挪到上面 `SetText` **之前**（⛔ 别在这里再调一次）
                 // 🔴 **台词不许溢出**：限宽折行 + 字号自适应，逐值照原版那个框（见 `TextW/TextH` 的出处）。
                 //    顺序要紧：**先**把字号按「最大 33」定好（上面那行），`SetAutoFitBox` 才拿得到
                 //    正确的上限（它取的是本类自己算的字号，见那个方法的注释）。

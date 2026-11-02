@@ -4889,7 +4889,11 @@ public static partial class RuleEngineTest
         // ---- ① 两套参数本身 ----
         Check(sv.deckSize, 12, "遭遇：**12 张**卡组（原版文案 `12-card decks`）");
         Check(sv.maxLegendaries, 4, "遭遇：传说最多 **4**（原版文案 `Up to 4 Legendaries (Warlord not included)`）");
-        Check(sv.warlordLifeChange, -10, "遭遇：督军生命 **−10**（原版文案 `Warlords start with 10 less Health`）");
+        // 🔴 **2026-11-02 由 −10 改成 0**：文案 `Warlords start with 10 less Health` 是**相对经典**说的
+        //    （经典 = `+10`），不是「遭遇 −10」⇒ 遭遇 = SO 基准、经典 = SO + 10，两档相差 10。
+        //    判据链（SO 25 + 真机实拍 35 ⇒ +10）→ `GameplayVariables.warlordLifeChange` 字段注释。
+        Check(sv.warlordLifeChange, 0, "遭遇：督军生命**增减 = 0**（= SO 基准；文案「比经典少 10」是相对经典说的）");
+        Check(cv.warlordLifeChange, 10, "经典：督军生命 **+10**（真机实拍 vs SO 反推 —— 见字段注释判据链）");
         Check(sv.manaPerTurn, 2, "遭遇：每回合最大能量 **+2**（原版文案 `Gain +2 Maximum Energy each turn`）");
         CheckTrue(!sv.showMulligan, "遭遇：**不换牌**（原版文案 `No mulligan`）");
         Check(sv.startingHand, 4, "遭遇：起手 **4** 张（⚠️ 规则书:58，**非官方来源**）");
@@ -4922,14 +4926,33 @@ public static partial class RuleEngineTest
         Check(ctx.Players[1].Hand.Count, sv.startingHand + sv.secondExtraCards,
               $"遭遇：**后手** = 起手 {sv.startingHand} + 补偿 {sv.secondExtraCards}"
             + $" = {sv.startingHand + sv.secondExtraCards} 张（实得 {ctx.Players[1].Hand.Count}）");
-        Check(ctx.Players[0].Warlord.MaxHealth, 30 - 10,
-              $"遭遇：督军生命 **30 − 10 = 20**（`MaxHealth` 与 `Health` 都要改，只改后者会被回血加回去）");
-        Check(ctx.Players[0].Warlord.Health, 20, "……当前生命同样是 20");
-        Check(ctx.Players[1].Warlord.MaxHealth, 20, "……对手督军也是 20（两边都吃这条）");
-        // 经典支反例：同一副牌走经典 ⇒ 起手 3、督军 30
+        Check(ctx.Players[0].Warlord.MaxHealth, 30,
+              $"遭遇：督军生命 **= 30（卡面 30 + 0）**（`MaxHealth` 与 `Health` 都要改，只改后者会被回血加回去）");
+        Check(ctx.Players[0].Warlord.Health, 30, "……当前生命同样是 30");
+        Check(ctx.Players[1].Warlord.MaxHealth, 30, "……对手督军也是 30（两边都吃这条）");
+        // 经典支反例：同一副牌走经典 ⇒ 起手 3、督军 **40**（= 卡面 30 + 10）
         var cc = BattleVars(new[] { Unit("A", 1, 1, 1) }, new[] { Unit("X", 1, 1, 5) }, cv);
         Check(cc.Players[0].Hand.Count, 3, "**反例**：同样的牌走经典仍是起手 3 张");
-        Check(cc.Players[0].Warlord.MaxHealth, 30, "**反例**：经典督军仍是 30 血");
+        Check(cc.Players[0].Warlord.MaxHealth, 40, "**反例**：经典督军 = 卡面 30 **+10** = 40");
+
+        // ---- ②b 督军生命：**两档的基准与差**（2026-11-02 改定：经典 +10 · 遭遇 0） ----
+        //   判据链：SO 基准（`UM47 Uriel Ventris = 25` —— `cards_raw.json` 的 `maxHealth` 与
+        //   `cards_truth.json` 的顶层 `health` **都是 25**；⚠️ `cards_truth` 的 `full_raw` 里没有 `health` 字段）
+        //   + **真机实拍**（经典局三名 Aeldari 督军 40/35/35 vs SO 30/25/25 ⇒ 逐条 +10）
+        //   → `GameplayVariables.warlordLifeChange` 字段注释。
+        //   ⚠️ 这里**必须用真卡的 25 血**（不是 fallback 的 30）—— 否则「+10」与「恰好 40」分不开。
+        var umC = Hero("UM47FixtureC", 2, 25);      // 血 = 真实 SO 里的 25（`UM47 Uriel Ventris`）
+        var umS = Hero("UM47FixtureS", 2, 25);
+        var ck = BattleVars(new[] { umC }, new[] { Unit("X", 1, 1, 5) }, cv);
+        var sk = BattleVars(new[] { umS }, new[] { Unit("X", 1, 1, 5) }, sv);
+        // 🔴 **先前提、后结论**（前提不成立时不许静默跳过）
+        Check(ck.Players[0].Warlord.Card.Health, 25, "（前提）经典局的督军**卡面血 = 25**");
+        Check(sk.Players[0].Warlord.Card.Health, 25, "（前提）遭遇局的督军**卡面血 = 25**");
+        Check(ck.Players[0].Warlord.MaxHealth, 25 + 10, "经典：督军生命 = **卡面 25 + 10 = 35**");
+        Check(sk.Players[0].Warlord.MaxHealth, 25, "遭遇：督军生命 = **卡面 25 + 0 = 25**");
+        Check(ck.Players[0].Warlord.MaxHealth - sk.Players[0].Warlord.MaxHealth, 10,
+              "★ 两档**相差 10** —— 这才是文案 `Warlords start with 10 less Health` 的正确落法"
+            + "（原来读成「遭遇 −10」⇒ 两档都低了 10）");
 
         // ---- ③ 能量：P1 3 / P2 4；之后**每回合 +2**，再叠上「上回合没用完保存的 1 点」 ----
         RuleCore.BeginTurn(ctx);                       // P1 的第 1 个回合
@@ -24906,7 +24929,7 @@ public static partial class RuleEngineTest
         Check(ctxRev.Players[0].Hand.Count, 3 + ctxRev.Vars.secondExtraCards,
               $"★ **先手换人**：座位 0 成了后手 ⇒ 补偿跟着它（{ctxRev.Players[0].Hand.Count} 张）");
         Check(ctxRev.Players[1].Hand.Count, 3, "★ ……而座位 1（现在的先手）只有起手 3 张");
-        Check(ctx.Players[0].Warlord.Health, 30, "督军 30 血");
+        Check(ctx.Players[0].Warlord.Health, 40, "督军 40 血（卡面 30 + 经典档 10 —— 2026-11-02 改定）");
         Check(ctx.Players[0].Warlord.Attack, 2, "督军 2 攻");
         Check(ctx.Players[0].Energy, 0, "开局能量 0");
         Check(ctx.Active, 0, "先手 = 玩家 1");
@@ -25267,9 +25290,10 @@ public static partial class RuleEngineTest
             RuleCore.BeginTurn(bctx);                 // → P1 第 1 回合
             var zerker = Place(bctx, 0, 3, Unit("Zerker", 1, 5, 5));
             zerker.AddKeyword(RuleCore.Berzerk, 1);
-            // 目标 **4 费 4 血**：不管走哪一份评分，打它都比打 30 血督军值 ——
+            // 目标 **4 费 4 血**：不管走哪一份评分，打它都比打 40 血督军值 ——
             //   · 原版评分（`W64·B-01` 起经 `IAiScorer` 调 `Data/SimpleAI`）：致死 = 卡价值 `2×4+1 = 9`
-            //     > 打督军 `5×1.2 − 反击 0.72 + 存活 0.1 = 5.38`（督军 30 血、攻 2）；
+            //     > 打督军 `5×1.2 − 反击 0.72 + 存活 0.1 = 5.38`（督军 40 血、攻 2 ——
+            //     2026-11-02 经典档 +10 后是 40；督军血变多只会让这个结论更稳）；
             //   · 回退评分（钩子没装的宿主）：致死 `+10000` 也压倒督军的 `+0.5`。
             // ⇒ 这条断言在两种实现下都只可能是「打这个部队」，不会因为评分来源而摇摆。
             // ⚠️ 2026-10-23（`B-01`）就地订正：原来写「目标给 4 血（< 5 攻）⇒ 斩杀优先」并把这张卡
@@ -28979,9 +29003,11 @@ public static partial class RuleEngineTest
         Check(ctx.Players[0].Warlord.Health, 23, "督军 20 → 23");
 
         var ctx2 = Duel(medic, Unit("Dummy", 1, 0, 1), out a, out b);
-        ctx2.Players[0].Warlord.Health = 29;
+        // 🔴 **2026-11-02**：经典督军上限由 30 → 40（`ClassicWarlordLifeChange = +10`）⇒ 满血前一格改成 39。
+        Check(ctx2.Players[0].Warlord.MaxHealth, 40, "（前提）经典督军上限 = 40（卡面 30 + 10）");
+        ctx2.Players[0].Warlord.Health = 39;
         CheckCode(RuleCore.UseAbility(ctx2, 0, 3), RuleCodes.OK, "血快满了也能放");
-        Check(ctx2.Players[0].Warlord.Health, 30, "治疗封顶在最大生命 30（不是 32）");
+        Check(ctx2.Players[0].Warlord.Health, 40, "治疗封顶在最大生命 40（不是 42）");
 
         var scribe = Unit("Scribe", 2, 1, 4, "Ability: Draw 2");
         var ctx3 = Duel(scribe, Unit("Dummy", 1, 0, 1), out a, out b);
@@ -29949,13 +29975,13 @@ public static partial class RuleEngineTest
                          new[] { Unit("X", 1, 1, 1), Unit("Y", 1, 1, 1), Unit("Z", 1, 1, 1) });
         ctx.Players[0].Deck.Clear();
 
-        Check(ctx.Players[0].Warlord.Health, 30, "抽空之前督军 30 血");
+        Check(ctx.Players[0].Warlord.Health, 40, "抽空之前督军 40 血（卡面 30 + 经典档 10）");
         RuleCore.Draw(ctx, 0);
         Check(ctx.Players[0].Fatigue, 1, "第 1 次抽空 → 疲劳 1");
-        Check(ctx.Players[0].Warlord.Health, 29, "督军挨 1 伤（30→29）");
+        Check(ctx.Players[0].Warlord.Health, 39, "督军挨 1 伤（40→39）");
         RuleCore.Draw(ctx, 0);
         Check(ctx.Players[0].Fatigue, 2, "第 2 次 → 疲劳 2");
-        Check(ctx.Players[0].Warlord.Health, 27, "督军再挨 2 伤（29→27）");
+        Check(ctx.Players[0].Warlord.Health, 37, "督军再挨 2 伤（39→37）");
 
         // ---- 🧨 灭自证：**弃牌堆里有牌时也不许洗回** ----
         //  如果哪天有人把「洗回墓地里的初始牌」接回来（原版 `shouldReshuffle == true` 那一支），

@@ -101,18 +101,18 @@ public static class B108A4_Assert
             if (std == null || boost == null || tacticStd == null || tacticBoost == null) return;
 
             // ---- 行 88 + 213：卡名上界 ----
-            Near(std.NameBandMaxForTest, 1.90f, 1e-3f,
-                 "A1 ★ 行 213 标准档 / 商店页签的卡名 autosize 上界 = 1.90（原版 `NameTextUnit` 19 pt ÷10；"
+            Near(std.NameBandMaxForTest, 1.425f, 1e-3f,
+                 "A1 ★ 行 213 标准档 / 商店页签的卡名 autosize 上界 = 1.425（原版 `NameTextUnit` 19 pt ÷10 × shipped 实拍 0.75；`B117_F14`，判据 → `CardView.TitleEmOfCard`）；"
                + "商店页签那 5 个实例虽 `m_fontSize = 16`，但 `m_fontSizeMax = 19` ⇒ 有效字号同标准档 ⇒ 不单开一档）");
-            Near(boost.NameBandMaxForTest, 2.00f, 1e-3f,
-                 "A1b ★ 行 88 开包族卡名上界 = 2.00（原版开包实例 `16.3 / max 20`）"
+            Near(boost.NameBandMaxForTest, 1.500f, 1e-3f,
+                 "A1b ★ 行 88 开包族卡名上界 = 1.500（原版开包实例 `16.3 / max 20` × 0.75）"
                + "｜🧨 把 `NameUnitBandMaxForUse` 改回恒 `NameUnitBandMax` ⇒ 本行红");
 
             // ---- 行 103：效果文字上界 ----
-            Near(std.DescBandMaxForTest, 2.40f, 1e-3f,
-                 "A2 ★ 行 103 标准档效果文字上界 = 2.40（原版 `DescTextUnit` 23.55 / max 24）");
-            Near(boost.DescBandMaxForTest, 1.90f, 1e-3f,
-                 "A2b ★ 行 103 开包族效果文字上界 = 1.90（原版开包实例 `19 / max 19`）"
+            Near(std.DescBandMaxForTest, 1.872f, 1e-3f,
+                 "A2 ★ 行 103 标准档效果文字上界 = 1.872（原版 `DescTextUnit` 23.55 / max 24 × 实拍 0.78；`B117_F14`）");
+            Near(boost.DescBandMaxForTest, 1.482f, 1e-3f,
+                 "A2b ★ 行 103 开包族效果文字上界 = 1.482（原版开包实例 `19 / max 19` × 0.78）"
                + "｜🧨 把 `DescUnitBandMaxForUse` 改回恒 `DescUnitBandMax` ⇒ 本行红");
 
             // ---- 行 133 / 117：阵营行 / 兵种行（两条**方向相反**）----

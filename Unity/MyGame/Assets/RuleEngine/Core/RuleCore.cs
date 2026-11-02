@@ -2859,7 +2859,7 @@ namespace RuleEngine
             {
                 var b = ctx.Players[pl].Board;
                 for (int s = 0; s < b.Length; s++)
-                    if (b[s] != null && b[s].Has(KeywordTable.Oath))
+                    if (b[s] != null && b[s].HasCurrentTrait(KeywordTable.Oath))
                         b[s].CurrentAttackType = ChooseAttackTypeAutomatically(b[s]);
             }
 
@@ -3550,8 +3550,8 @@ namespace RuleEngine
             //      —— 现读 `CardScript__ActivateTraitsOnSummonOrEnchantment.c:91/:96`：第二个是
             //      `op_Implicit(local_30, 0, 0)` ⇒ **`canAttack = false`**（`op_Implicit` 的第 2 个实参
             //      才是值，同函数内 `ObscuredInt__op_Implicit(&local_78, uVar2, 0)` 可交叉印证）。
-            return SummonSicknessExempt(u) || u.Has(KeywordTable.Ferocity)
-                || u.Has(KeywordTable.Oath);
+            return SummonSicknessExempt(u) || u.HasCurrentTrait(KeywordTable.Ferocity)
+                || u.HasCurrentTrait(KeywordTable.Oath);   // 🔴 2026-11-02（执行代理 `B117_F8` · `B117-24` #13 的 `oath` 半格）**就地订正**：原来这一格是 `u.Has(...)`、行尾注释写「`oathDouble` 会被前缀折成 `oath` ⇒ 这里只能退用 `Has`」——**那个前提已被 `B117-26` 消掉**（`CardDef.Prefixes` 现在有 `"oathdouble"` / `"oathtripleactivation"` / `"oathinallturns"` 三条、排在 `"oath"` 之前）⇒ `HasCurrentTrait("oath")` 对 `UM100` **不再**为真，可以照原版判据走。判据 = `CardScript__ActivateTraitsOnSummonOrEnchantment.c:75-99`（遍历 `+0x128` 当前 trait 表 ⇒ 四个词全是 `HasCurrentTrait` 语义）。
         }
 
         /// <summary>
@@ -3559,12 +3559,12 @@ namespace RuleEngine
         ///
         /// 出处 = `EntityScript__get_displaySummonSickness.c:7-11`（整个方法体）：
         /// `+0x58 &amp;&amp; !HasCurrentTrait(0x28) &amp;&amp; !HasCurrentTrait(0x1cc)`。
-        /// 读它的是 <see cref="DisplaySummonSickness"/> / <see cref="HasDeployExemption"/> /
-        /// <see cref="HasAttackDeployExemption"/>（原来这三处各写了一遍 `u.Has("fast") || u.Has("flank")`）。
+        /// 读它的是 <see cref="DisplaySummonSickness"/> / <see cref="HasDeployExemption"/> / <see cref="HasAttackDeployExemption"/>。
+        /// 🔴 两个词都用 `UnitState.HasCurrentTrait`（原版那句就是它，读**当前 trait 表** `+0x128`；用 `Has` 会漏掉只写在 `cardTraits` 列的 `Flank`，如 `GOF57 Ork Nob`）。
         /// </summary>
         public static bool SummonSicknessExempt(UnitState u)
         {
-            return u != null && (u.Has("fast") || u.Has("flank"));
+            return u != null && (u.HasCurrentTrait("fast") || u.HasCurrentTrait("flank"));
         }
 
         /// <summary>
@@ -3654,8 +3654,8 @@ namespace RuleEngine
             u.CannotAttackThisTurn = displaySummonSickness;   // 原版 `canAttack` `+0x23C`（`ActivateMinion.c:39-42`）
             u.Exhausted = displaySummonSickness || actedOut;  // 原版 `canAct` `+0x230`（同处 + `:19-22` 的 `+0x48` 闸）
             // `ferocity` / `oath` 的**第二写点**（`ActivateMinion.c:43-69`）：只抬 `canAct` = `!stun`。
-            if (u.Has(KeywordTable.Ferocity) || u.Has(KeywordTable.Oath))
-                u.Exhausted = actedOut || u.Has(KeywordTable.Stun);
+            if (u.HasCurrentTrait(KeywordTable.Ferocity) || u.HasCurrentTrait(KeywordTable.Oath))
+                u.Exhausted = actedOut || u.HasCurrentTrait(KeywordTable.Stun);
         }
 
         /// <summary>
@@ -3715,10 +3715,10 @@ namespace RuleEngine
         {
             if (u == null) return;
             // `fast` / `flank`：只抬 `canAct`（`ActivateTraitsOnSummonOrEnchantment.c:75-88`）。
-            if (u.Has("fast") || u.Has("flank"))
+            if (u.HasCurrentTrait("fast") || u.HasCurrentTrait("flank"))
                 u.Exhausted = false;
             // `ferocity` / `oath`：`canAct = true` 且 **`canAttack = false`**（同文件 `:89-99`）。
-            if (u.Has(KeywordTable.Ferocity) || u.Has(KeywordTable.Oath))
+            if (u.HasCurrentTrait(KeywordTable.Ferocity) || u.HasCurrentTrait(KeywordTable.Oath))
             {
                 u.Exhausted = false;
                 u.CannotAttackThisTurn = true;
@@ -3981,9 +3981,9 @@ namespace RuleEngine
             if (card == null) return 0;
             int m = 0;
             // `Ach_12` `Play Card With Ephemeral` —— `withTrait=[5]` = `DefinedTrait.ephemeral`；
-            //   判据 = **卡面事实**（`Has("ephemeral")`，104 张现读），⛔ 不用 `ctx.IsEphemeral`
-            //   （它还把「这一份被 MarkEphemeral 标过」算进来 —— 原版那格是**卡的 trait**）。
-            if (card.Has("ephemeral")) m |= 1 << CardPlayedTag.Ephemeral;
+            //   判据 = 原版 `withTrait` 读**当前 trait 表** ⇒ 两列都认（现读：`keywords` 103 ∪ `cardTraits` 104 = **104 张**），
+            //   ⛔ 不用 `ctx.IsEphemeral`（它还把「这一份被 MarkEphemeral 标过」算进来 —— 原版那格是**卡的 trait**）。
+            if (card.Has("ephemeral") || card.HasTrait("ephemeral")) m |= 1 << CardPlayedTag.Ephemeral;
             // `Ach_54` `Play Companions` —— `onlyCountCompanions=1`；伴生造出来的那一份带
             //   `CardInstance.IsCompanion`（`PlayCompanions` 里 `made.IsCompanion = true`，
             //   = 原版 `newCard + 0x64 = 1`）⇒ 只有**它被打出**才算，⛔ 不是「谁造了它」。
@@ -5756,7 +5756,7 @@ namespace RuleEngine
             // 🆕 2026-10-23（`B-31` 拆码）：原版这一支（`IsValidAttackTarget.c:200-203`）带词条
             //   `Battle/Tips/CantAttackFlank`（`DAT_184289a78`；键名写 Flank 是因为「侧翼」是那条豁免词）
             //   ⇒ 改用 `ErrCantAttackFlank`（原来返回 `ErrTarget`）。
-            if (!allowAutoActions && attacker.SummonSickness && !attacker.Has("fast") && target.IsWarlord)
+            if (!allowAutoActions && attacker.SummonSickness && !attacker.HasCurrentTrait("fast") && target.IsWarlord)
                 return RuleCodes.ErrCantAttackFlank;
 
             // 🆕 **2026-10-30（执行代理 `B99_B1` · 组 B「六道闸 · coward」）** —— 判据 =
@@ -6025,7 +6025,7 @@ namespace RuleEngine
         static void RecomputeAttackTypeAfterActiveAbility(UnitState u)
         {
             if (u == null) return;
-            if (!u.Has(KeywordTable.Duty) && !u.Has(KeywordTable.Ferocity) && !u.Has(KeywordTable.Oath))
+            if (!u.HasCurrentTrait(KeywordTable.Duty) && !u.HasCurrentTrait(KeywordTable.Ferocity) && !u.HasCurrentTrait(KeywordTable.Oath))
                 return;
             u.CurrentAttackType = ChooseAttackTypeAutomatically(u);
         }
@@ -6123,7 +6123,7 @@ namespace RuleEngine
             var u = ctx.Players[p].Board[atkSlot];
             if (u == null) return false;
             if (!u.CannotAttackThisTurn) return false;            // 原版：`displaySummonSickness` 为真才写
-            if (!u.Has(KeywordTable.Ferocity) && !u.Has(KeywordTable.Oath)) return false;
+            if (!u.HasCurrentTrait(KeywordTable.Ferocity) && !u.HasCurrentTrait(KeywordTable.Oath)) return false;
             u.CurrentAttackType = UnitState.AttackTypeActive;
             return true;
         }
@@ -11844,9 +11844,9 @@ namespace RuleEngine
         //  `BattleDriver.OpenCommand`（和 `Ability:` / 替代行动**共用同一格**，原版也是一个按钮）。
         // ==================================================================
 
-        /// <summary>同方场上带 `OathDouble` 的**牌数** —— 「友方誓约能力多结算几次」的次数。
-        /// 🔴 **只此一处**（照原版 `BattleManager__IsThereDoubleOathEffect.c:33` 那个循环写的：
-        /// 遍历同方场上每张牌、带该 trait 就 `++`）。</summary>
+        /// <summary>同方场上带 `oathDouble`(**1277 = `0x4fd`**) 的**牌数** —— 「友方誓约能力多结算几次」的次数。🔴 **只此一处**（原版 `BattleManager__IsThereDoubleOathEffect.c:33`：遍历同方每张牌、`EntityScript__HasCurrentTrait(card, 0x4fd)` 为真就 `++`）。
+        /// 🔴 2026-11-02（`B117_F1` · `B117-23`）**就地订正**：原来读 `u.Card.OathDouble`（由**正文文本**落的 bool，`CardDef.cs:4401` 的 `case "誓约加倍"`），原版读的是**当前 trait 表** ⇒ 改走 `HasOathDouble`。✅ 同日 `B117_F8`（`B117-26`）已根治前缀撞车 ⇒ `HasOathDouble` 现在就是一句 `HasCurrentTrait("oathdouble")`（类尾那一段有来龙去脉）。
+        /// 受害者 = `UM100 Chaplain Cassius`（`cardTraits=["Talent","oathDouble"]`）；全池 **0 张**正文写「誓约加倍」⇒ 旧 bool 恒 false（`CardDef.OathDouble` 那一位保留，但不再是本方法的判据）。</summary>
         public static int OathExtraReplays(BattleContext ctx, int p)
         {
             int n = 0;
@@ -11854,7 +11854,7 @@ namespace RuleEngine
             for (int i = 0; i < BoardSpec.Size; i++)
             {
                 var u = board[i];
-                if (u != null && u.Card != null && u.Card.OathDouble) n++;
+                if (HasOathDouble(u)) n++;   // oathDouble = 1277 = 0x4fd
             }
             return n;
         }
@@ -13750,8 +13750,8 @@ namespace RuleEngine
                 // 🔴 **次序：先发事件、再造卡** —— 原版 `OnTrigger(46)` 在天赋卡**生成之前**；
                 //    手牌满导致「造不成」时**动画照样演**（`_AddCardNotDrawnToHand` 是之后的事）。
                 //    ⇒ 这一句必须放在两条生成分支（真值表 / 按名字）**之前**，⛔ 别挪到 `continue` 后面。
-                // 🔴 **闸 = 「这张卡有天赋」**，⛔ **不是** `u.Has("talent")` —— `CardDef` **没有**
-                //    `CardTraits` 列（数据是纯落值、不喂引擎，见 `EffectResolver.cs` 那段注释）。
+                // 🔴 **闸 = 「这张卡有天赋」**；`cardTraits` 列**已喂引擎**（`CardDatabase.cs` 的 `AttachCardTraits`），⛔ 这里仍不用 `u.Has("talent")` 是因为它只读 `keywords` 列。
+                //    ⚠️ 2026-11-02（`B117_F1` · `B117-25`）就地订正：原注写「`CardDef` 没有 `CardTraits` 列/不喂引擎」，**已过期**（`CardDef.HasTrait` / `UnitState.HasCurrentTrait` 都读得到）。
                 //    这里用引擎**已有的**两条天赋判据（与 96 张 trait 卡**逐张相等**，本轮现读：
                 //    `cardTraits` 含 `talent` = 96 · `abilityTriggers` 含 46 = 96 · `desc` 有 `Talent:` = 96，
                 //    三个集合完全相同 ⇒ 拿其中任一条当闸都不多不少）。
@@ -17126,7 +17126,7 @@ namespace RuleEngine
         {
             if (ctx == null || inst == null || inst.Card == null) return;
             if (p < 0 || p >= ctx.Players.Length) return;
-            if (!inst.Card.Has(KeywordTable.Oath)) return;                     // `.c:10` `HasCurrentTrait(oath)`
+            if (!inst.Card.Has(KeywordTable.Oath) && !inst.Card.HasTrait(KeywordTable.Oath)) return;   // `.c:10` `HasCurrentTrait(0x4fb)` = **当前 trait 表**（`keywords` ∪ `cardTraits`）⇒ 卡这一侧要并上 `HasTrait`（🔴 2026-11-02 `B117_F8` 就地订正：原来只读 `Has`，注释却已经写着 `HasCurrentTrait` —— 自相矛盾；手牌上的 `CardInstance` 没有 `UnitState`，所以用 `CardDef` 的两个口并起来，⛔ 不是退化成 `Has`）
             int amount = inst.Card.KwValue(KeywordTable.Oath);                 // `.c:21` `GetCurrentTraitValue(oath)`
             // 🔴 2026-10-29（B96_OATH · 账 455）：恢复 `PayCardPlayedCostOath.c` 1:1 —— `.c:22` 那句 `PlayerManager.UseMana(amount, Normal, …)` **无条件**（`.c` 全文没有「卡面有 `Oath N:` 付费组就跳过」这道闸；那是 `B94_FX4` 为了让两个出牌调用点不双计而加的，那两个调用点已按 §4.2 ①② 删除）⛔ 别再加条件：闸会把 360 支（本文件 `RunPlayChosenCardAbility`）那条**原版真会收钱**的路静默改掉
             SpendNormalMana(ctx, p, amount, "誓约（" + (inst.Card.Name ?? "?") + "）",
@@ -18374,6 +18374,33 @@ namespace RuleEngine
         public static UnitState StrikeChosenOrNullForTest(UnitState attacker, UnitState target)
         {
             return StrikeChosenOrNull(attacker, target);
+        }
+
+        // ================================================================================================
+        //  🆕 2026-11-02（执行代理 `B117_F1` · 活状态表 `B117-23`）：`oathDouble` 的**精确**判定
+        //
+        //  ⚠️ 追加在**类尾**（本文件有 490+ 处账按 `RuleEngine/Core/RuleCore.cs:行号` 引用 —— 现读最大
+        //     落点 `:18247`；末尾追加不移动任何既有行）。
+        // ================================================================================================
+        /// <summary>`oathDouble`（原版 `DefinedTrait.oathDouble = 1277 = 0x4fd`）的**精确**判定 —— 服务
+        /// <see cref="OathExtraReplays"/>（原版 `BattleManager__IsThereDoubleOathEffect.c:33` 的
+        /// `EntityScript__HasCurrentTrait(card, 0x4fd)`）。
+        ///
+        /// <para>🔴 **2026-11-02 执行代理 `B117_F8` 就地订正（活状态表 `B117-26` 的根治）**：本方法原来按
+        /// `CardTraitEntry.Raw` **逐字精确比** —— 那是 `B117_F1` 在前缀撞车下的**绕过**。撞车已消除
+        /// （`KeywordTable.Prefixes` 现在有 `"oathdouble"`，排在 `"oath"` **之前**）⇒ 直接问
+        /// `HasCurrentTrait("oathdouble")` 就是原版那条闸（`HasCurrentTrait(0x4fd)`），而且**顺带覆盖**了
+        /// 运行时 `addTrait` 授予（那条路走 `_keywords`；授予名同样过 `Normalize` ⇒ 现在是 `oathdouble`），
+        /// 以及 `HasCurrentTrait` 自带的**残骸档 / 已摘除 / 被 jam 摘过**三道闸（原来还得靠
+        /// `HasCurrentTrait("oath")` 借那两道闸，借来的闸在撞车消除后**会反过来漏判**：`oath N` 卡也带
+        /// `oath`，`UM100` 反而不带）。</para>
+        /// <para>✅ **今日全池影响面**：归一化结果变化的卡**只有 `UM100`**（`oath` → `oathdouble`）；
+        /// 28 张 `cardTraits=["oath N"]` 的卡结果不变（它们同时在 `keywords` 里也写了 `Oath`）。
+        /// 断言 = `Editor/RuleEngineTest_B116W19.cs` 的 `B117F1TraitConsumers()` 那一族（③ 段）。</para></summary>
+        static bool HasOathDouble(UnitState u)
+        {
+            if (u == null || u.Card == null) return false;
+            return u.HasCurrentTrait("oathdouble");   // 原版 `EntityScript__HasCurrentTrait(card, 0x4fd)`
         }
     }
 }

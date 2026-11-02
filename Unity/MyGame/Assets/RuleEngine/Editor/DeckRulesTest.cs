@@ -45,7 +45,13 @@ public static partial class RuleEngineTest
                 + "不是另发明一个常数）");
         Check(RuleEngine.DeckRules.OvertimeExtraDraw, 1,
               "加时**只多抽 1 张**（原版代码只做这一件事；规则书那个「抽 2 张」= 常规 1 + 加时 1，不是独立常数）");
-        Check(RuleEngine.DeckRules.SkirmishWarlordHealthPenalty, 10, "遭遇模式督军生命 -10（规则书:62）");
+        // 🔴 **2026-11-02 改了判据对象**（同上面 `overtimeTurn` 那条）：`SkirmishWarlordHealthPenalty` 现在 = **0**，
+        //    而**运行路径读的是 `ctx.Vars.warlordLifeChange`** ⇒ 钉那个真源头，别只钉派生的常量（自证）。
+        Check(RuleEngine.GameplayVariables.Skirmish.warlordLifeChange, 0,
+              "遭遇模式督军生命增减 = **0**（= SO 基准；文案 `10 less Health` 是**相对经典 +10** 说的，"
+            + "判据 = 真机实拍 + `SetupWarlordsLifeAndEnchantment`，见 `GameplayVariables` 字段注释）");
+        Check(RuleEngine.DeckRules.SkirmishWarlordHealthPenalty, 0,
+              "……派生常量同步为 0（`SkirmishWarlordHealthPenalty` = `-warlordLifeChange`）");
         Check(RuleEngine.DeckRules.LegendaryTotalLimit(true), 4, "遭遇模式传说卡总数上限 4（规则书:64）");
         CheckTrue(RuleEngine.DeckRules.LegendaryTotalLimit(false) == int.MaxValue,
                   "经典模式没有传说卡总数上限");

@@ -733,14 +733,24 @@ namespace CardPresentation
             res.highlightRoot[idx] = hlRoot;
             res.highlight[idx] = hlRoot != null ? hlRoot.GetComponentInChildren<ImageQuad>() : null;
 
-            // `Icon`：`a=(0,0)-(1,1) p=(.5,.7) sz=(0,0)` + **preserveAspect** ⇒ 等比放进 165×180 并居中
-            //（UGUI 的 preserveAspect 是按 rect 居中收 padding，**不看 pivot**）
+            // `Icon`：`a=(0,0)-(1,1) p=(.5,.7) sz=(0,0)` + **preserveAspect** ⇒ 等比放进 165×180
+            // 🔴 **2026-11-02（`B117-R12②`）就地订正（铁律 5）**：原来这里写「UGUI 的 preserveAspect 是按 rect 居中收 padding、
+            //   **不看 pivot**」—— **那句是错的**。uGUI 源码（本机 `Library/PackageCache/com.unity.ugui@27635d171b1a/
+            //   Runtime/UGUI/UI/Core/Image.cs:810-827` 的 `PreserveSpriteAspectRatio`）等比之后那一步是
+            //   `rect.y += (oldHeight - rect.height) * rectTransform.pivot.y;` ⇒ **按 pivot 偏移、不是居中**。
+            //   实算（Deck 钮 165×180 · 精灵 126×126 方形 ⇒ 画 165×165）：`(180−165) × 0.7 = 10.5`（自钮**底**）
+            //   ⇒ 图标 = 钮顶 **4.5 … 169.5**；原来按「居中」画的是 7.5 … 172.5 ⇒ **整块低 3 px**。
+            //   ⚠️ `Label` 不动（原版 `a=(.5,.5) p=(.5,0) pos.y=−72.162 sz=(155,37.856)` ⇒ 钮顶 +124.3 … +162.2，
+            //   我们本来就对 —— `cy + 72.16` 逐值相同）。⇒ **原版的文字框本来就压在图标框下沿**（文字顶 +124.3 vs
+            //   图标底 +169.5 ⇒ 重叠 45.2 px），那不是缺陷，⛔ 别按「文字上沿 ≥ 图标下沿」去改（与原版 prefab 冲突）。
+            //   判据 → `资料/完全复刻/报告/B117_F3_Loc与软边uv.md`。
             var iconTex = Art(spec.Art);
             ImageQuad iconQ = null;
             if (iconTex != null)
             {
                 float side = Mathf.Min(BarW, TabBtnH);
-                var q = ImageQuad.Create(b, iconTex, Local(b, cx, cy), LayoutSpace.Px(side),
+                float iconCy = cy - (TabBtnH - side) * (0.7f - 0.5f);   // = cy − 3：原版 pivot 0.7 那一笔偏移
+                var q = ImageQuad.Create(b, iconTex, Local(b, cx, iconCy), LayoutSpace.Px(side),
                                          new Vector2(0.5f, 0.5f), "Icon");
                 if (q != null) { q.SetAspect(1f); q.SetRenderQueue(QContent); iconQ = q; }
             }

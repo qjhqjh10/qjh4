@@ -2076,7 +2076,7 @@ namespace CardPresentation
             card.SetBody3DVisible(false);
 
             var body = tr.Find("body3D");
-            Vector3 bodyBase = body != null ? body.localPosition : Vector3.zero;
+            Vector3 bodyBase = body != null ? body.localPosition : Vector3.zero; var boardEl = tr.Find("Board Elements"); Vector3 boardElBase = boardEl != null ? boardEl.localPosition : Vector3.zero;   // 🆕 `B117-R22`：原版 `Board Elements` 才是被动画的那一级（数字/徽标挂在它下面的 `3DBody`）
             if (body == null)
                 Debug.LogWarning("[CardFeel] 登场 clip：这张卡建不出 `body3D`（3D 卡体）⇒ "
                                + "`Board Elements` 的位移与 `_DissolveAmount` 两段**不演**"
@@ -2085,9 +2085,9 @@ namespace CardPresentation
             var seq = DOTween.Sequence();
             seq.AppendInterval(HandToBoardEnd);     // 先把总长定成 0.9167；下面全是 Insert（不受游标影响）
 
-            // ① 🆕 `B04`：`CardImage.m_LocalPosition.y = −0.065` 是**常量曲线** ⇒ 开场就摆好；
-            //    它的缩放从 1 起（scale 曲线 0 → 1，第一段是常量）。
-            card.SetArtLocalY(HandToBoardArtY);
+            // ① 🆕 `B04`：`CardImage.m_LocalPosition.y = −0.065` 是**常量曲线** —— ⚠️ 这一份**已经烘在网格里**
+            //    （`CardView.ArtExtent` 的族差 `ArtFamilyDy`：−0.044 − 0.021 = −0.065）⇒ 这里⛔ **不能再调一次**。
+            //    🔴 `B117-R21`：原来那行 `card.SetArtLocalY(HandToBoardArtY)` 会把中心再压 −0.065 ⇒ 实际 **−0.130**（双份）。
             card.SetArtLocalScale(1f);
             // ② 🆕 `B04`：`CardFrame.m_Enabled`（= 那个 `AnimateUIMaterialProperty` **组件**）
             //    0 → 1 **@0.0333** ⇒ 把卡框换成**溶解材质实例**（原版 `OnEnable` → `CreateInstanceMaterial`）。
@@ -2133,7 +2133,7 @@ namespace CardPresentation
             // ③ 0.1667：3D 体出现 + 开始溶解（`m_IsActive 0→1` 与 `_DissolveAmount 1→0` 同刻起）
             seq.InsertCallback(HandToBoardLand, () =>
             {
-                card.SetBody3DVisible(true);
+                card.SetBody3DVisible(true); card.SetCountersForcedVisible(true); card.SetCounterAlpha(0f);   // 🆕 `B117-R23`：计数器从 0.1667 起淡入（原版两条 alpha 曲线）
                 bool ok = card.BeginDissolve();
                 if (!ok && !_warnedHandToBoardDissolve)
                 {
@@ -2147,19 +2147,19 @@ namespace CardPresentation
             // ⚠️ 起点用**捕获的局部变量**（不是 `card.DissolveAmount`）—— `DOTween.To` 的起点是它**开始那一刻**
             //    去读 getter 的，而同一刻的 `InsertCallback` 刚把溶解材质装好（`BeginDissolve` 会把量归 0）⇒
             //    直接读 getter 会把起点读成 0（= 一开场就全实）。局部量 = 原版曲线的 1。
-            float dissolveFrom = 1f;
+            float dissolveFrom = 1f; float counterFrom = 0f; seq.Insert(HandToBoardLand, DOTween.To(() => counterFrom, v => { counterFrom = v; card.SetCounterAlpha(v); }, 1f, HandToBoardDissolveEnd - HandToBoardLand).SetEase(ClipSmoothStep));   // 🆕 `B117-R23`
             seq.Insert(HandToBoardLand,
                 DOTween.To(() => dissolveFrom, v => { dissolveFrom = v; card.SetDissolveAmount(v); }, 0f,
                            HandToBoardDissolveEnd - HandToBoardLand).SetEase(ClipSmoothStep));
 
             // ④ `Board Elements` 的 y：−0.43 → −1.347 →（停）→ 0
-            if (body != null)
+            if (body != null || boardEl != null)   // 🆕 `B117-R22`：3D 卡体与 `Board Elements`（数字/徽标/护甲/状态环）走同一条曲线
             {
-                seq.Insert(0f, BodyYTo(body, bodyBase.y + HandToBoardBodyY0,
-                                       bodyBase.y + HandToBoardBodyY1, HandToBoardLand));
+                seq.Insert(0f, BodyYTo2(body, bodyBase, boardEl, boardElBase, HandToBoardBodyY0,
+                                        HandToBoardBodyY1, HandToBoardLand));
                 seq.Insert(HandToBoardDissolveEnd,
-                           BodyYTo(body, bodyBase.y + HandToBoardBodyY1, bodyBase.y,
-                                   HandToBoardEnd - HandToBoardDissolveEnd));
+                           BodyYTo2(body, bodyBase, boardEl, boardElBase, HandToBoardBodyY1, 0f,
+                                    HandToBoardEnd - HandToBoardDissolveEnd));
             }
 
             // ⑤ `2DCard.m_Alpha` 1 → 0（[0.3333, 0.6667]）—— 起点同样是**捕获量**（原版那条曲线从 1 起）
@@ -2184,13 +2184,13 @@ namespace CardPresentation
                 card.SetDissolveAmount(0f);
                 card.RestoreOriginalMaterial();
                 card.SetAlpha2D(1f);
-                card.SetAlpha(1f);
+                card.SetAlpha(1f); card.SetCounterAlpha(1f); card.SetCountersForcedVisible(false);   // 🆕 `B117-R23`：0.7 s 淡入收口
             });
 
             var t = CardTween.Use(seq, Ease.Linear, tr);
             // ⚠️ 被打断时**两档 α 都要复位**（同 `DealIn` 那条注释）：2D 那一档跑到一半被 kill 的话
             //    这张卡会**永久半透明**（静默）。复位成 1 是安全的一侧 —— 正常跑完时它本来就是 1。
-            t.OnKill(() => { if (card != null) { card.SetAlpha2D(1f); } });
+            t.OnKill(() => { if (card != null) { card.SetAlpha2D(1f); card.SetCounterAlpha(1f); card.SetCountersForcedVisible(false); } });   // 🆕 `B117-R23`：被打断也要收口
             if (onDone != null) t.OnComplete(() => onDone());
             return t;
         }
@@ -4339,6 +4339,24 @@ namespace CardPresentation
                 });
             }
             return t;
+        }
+
+        /// <summary>🆕 2026-11-02（执行代理 `F7` · `B117-R22`）：**两个** transform 的纵向位移一起补间。
+        /// <para>原版被动画的那一级是 `CardPrefab/Board Elements`（`m_LocalPosition.y` −1.347 → 0），
+        /// 而 `3D 卡体` 与 `TraitIcons`/`Base * Counters`/`Armour Container`/`MinionLight` 都在它下面
+        /// ⇒ 我们这边 `body3D`（3D 卡体，仍是卡根的直接子件）与 `Board Elements`（其余那几类的父节点）
+        /// 必须走**同一条**曲线，否则数字/徽标会在落点瞬现、卡体还在下方 1.347（用户报的「登场动画很怪」）。</para>
+        /// <para>缺一个就只补另一个（建不出 3D 体时 `body == null`；没有那两级节点时 `b == null`）。</para></summary>
+        static Tween BodyYTo2(Transform a, Vector3 aBase, Transform b, Vector3 bBase,
+                              float y0, float y1, float dur)
+        {
+            if (a == null) return BodyYTo(b, bBase.y + y0, bBase.y + y1, dur);
+            if (b == null) return BodyYTo(a, aBase.y + y0, aBase.y + y1, dur);
+            if (dur <= 0f) return null;
+            var s = DOTween.Sequence();
+            s.Join(BodyYTo(a, aBase.y + y0, aBase.y + y1, dur));
+            s.Join(BodyYTo(b, bBase.y + y0, bBase.y + y1, dur));
+            return s;
         }
     }
 }

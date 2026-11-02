@@ -886,7 +886,7 @@ namespace CardPresentation
             //   （`PlayerHand._MoveCardsInHandToPosition_d__76__MoveNext.c` 状态 0 的 `Toggle(false)`；
             //     判据/取舍见 `_animGate` 那段。⛔ 与 `FrozenNow` 是**两件事**，别合并。）
             if (IsDoingAnim) return;
-            _dragging = card;
+            _dragging = card; BattleSfx.Play(BattleSfx.MoveCardIntoBattle);   // 🔴 2026-11-03（`B117-33`）：**拾起那一刻**就响 `moveCardIntoBattle` —— 判据 `CardScript__TryDraggingFromHand.c:89` → `CardScript__StartMovingFromHand.c:43`（`SoundManager.Play2D(SoundAssetCollection.get_MoveCardIntoBattle)`，一进来第一句，与缩放补间同拍）。改前要等松手起飞（`BattleDriver.OnPlayerDeployFlightStart`）⇒ 抓牌阶段**零声音反馈**。⚠️ 起飞那一拍已改成不重复放（`PlayDeployTakeoffCues(moveCue:false)`），⛔ 别两处都响。
             _grabOffset = card.transform.position - world;
             _pressWorld = world;
             _travel = 0f;
@@ -2242,5 +2242,9 @@ namespace CardPresentation
         /// 否则用 `…`（0）。消费者 = 抬牌跟手那条路（本类尚未建成，见上文）。</summary>
         public static float GetCardInHandYOffsetTouchInput()
             => GetScreenPhysicalSize() > PhysicalSizeThreshold ? CardInHandShownYOffsetMin : CardInHandShownYOffset;
+
+        /// <summary>自检口（`B117F11_Assert` 用；⛔ 生产别调）：直接走**生产那条起拖路径** `PickUp`
+        /// —— 用来钉住「拾起那一刻就响 `moveCardIntoBattle`」（`B117-33`）。</summary>
+        public void PickUpForTest(CardView card, Vector3 world) { PickUp(card, world); }
     }
 }

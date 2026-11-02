@@ -13722,6 +13722,70 @@ if (glowFx != null)
             }
         }
 
+        // ============================================================ 🆕 2026-11-03（`B117-R17`）
+        // 用户真机验收裁定：「一进入就弹的『领取奖励』这个不需要」⇒ **不自动弹，入口保留**。
+        // 这是**偏离原版**的一处（原版 `MainMenuMission.TrySchedulePopup` =「有可领取就弹」，
+        // 判据 `decomp_full/MainMenuMission__TrySchedulePopup.c`）⇒ 已按铁律 18 在
+        // `DailyData.AutoPopupEnabled` 声明处打了 `🔶 自己设计` 标记（三样写全）。
+        // 本节钉三件事：① 真机档（`isPlaying = true`）默认**不排** ⇒ 开机不弹；
+        //   ② **反证**：走测试注入口（`AutoPopupInEditor`）⇒ 原逻辑照排（只是被关掉、不是坏了）；
+        //   ③ 入口仍在 —— `DailyStreakTab` 那一页由上面「A815 `Daily Streak Tab`」节断言
+        //      （「页建了」+「页上挂的是 `DailyStreakTab`」），⛔ 不在这里再造一份（夹具不同）。
+        Section("B117-R17：开机**不自动弹**每日奖励/每日连胜（总开关关着；入口保留）");
+        {
+            // ---- ① 开关本身 + 纯函数两档 ----
+            // ⚠️ `Application.isPlaying` 在 `-executeMethod` 批处理里恒 `false` ⇒ 「真机那一档」只能走
+            //    `IsAutoPopupAllowedFor(isPlaying, injected)` 这个纯函数（这也是把它抽出来的唯一理由）。
+            CheckTrue(!DailyData.AutoPopupEnabled,
+                      "★ 总开关 `DailyData.AutoPopupEnabled` = **false**（用户 2026-11-03 裁定「不自动弹，入口保留」）");
+            CheckTrue(!DailyData.IsAutoPopupAllowedFor(true, false),
+                      "★★ 真机档（`isPlaying = true`、无注入）⇒ **不排** ⇒ 进主菜单**不会自动弹窗**"
+                    + "｜🧨 把 `AutoPopupEnabled` 改回 `true` ⇒ 本条红");
+            CheckTrue(!DailyData.IsAutoPopupAllowedFor(false, false),
+                      "★ 编辑期档（`isPlaying = false`、无注入）⇒ 不排（沿用 2026-10-26 那道闸）");
+            CheckTrue(DailyData.IsAutoPopupAllowedFor(true, true),
+                      "★★ 反证：**测试注入口开着** ⇒ 允许排 —— 证明原逻辑还活着（只是被总开关关掉，不是坏了）");
+            CheckTrue(DailyData.IsAutoPopupAllowedFor(false, true),
+                      "★ 反证（编辑期同一条）：注入开着 ⇒ 允许排");
+
+            // ---- ② 生产入口那一路：造出「有可领」态 ⇒ 调 `TrySchedulePopup()`（= `MainMenuRuntime.Build()` 尾调那一句）----
+            bool snapInjected = DailyData.AutoPopupInEditor;
+            int snapOpen = DailyData.PopupOpenCount;
+            try
+            {
+                DailyData.ForceRewardClaimedForTest(2, false);                  // 每日奖励轨第 3 天 ⇒ Unlocked
+                DailyData.ForceStreakClaimedForTest(DailyData.StreakClaimableDay, false);
+                CheckTrue(DailyData.HasCollectableDailyReward,
+                          "（前提）每日奖励轨**有一格可领** —— 不造这个态，「不弹」是空断（门本来就不让排）");
+                CheckTrue(DailyData.HasCollectableStreak, "（前提）连登轨那一格可领");
+
+                DailyData.AutoPopupInEditor = false;                            // = 真机默认（总开关关着）
+                DailyData.ReleasePopupActions();                                // 清掉上一节可能留下的
+                int schedBefore = DailyData.PopupScheduleCount;
+                bool scheduled = DailyData.TrySchedulePopup();                  // = `MainMenuRuntime.Build()` 尾调那一句
+                CheckTrue(!scheduled, "★★ 有可领 + 总开关关 ⇒ `TrySchedulePopup()` **返回 false**（契约 = 没排）");
+                Check(DailyData.PopupScheduleCount, schedBefore,
+                      "★ …`PopupScheduleCount` **不增** —— 调用方拿不到「已排队」的错觉");
+                Check(DailyData.PendingPopupActions, 0, "★ …队列里**一条都不挂**");
+                Check(DailyData.PopupOpenCount, snapOpen, "★★ …`PopupOpenCount` **不增**（开机那一拍不会真开出窗）");
+
+                // ---- ③ 反证（真跑一遍排队体）：注入打开 ⇒ 排队 2 条、计数 +1 ----
+                DailyData.AutoPopupInEditor = true;
+                CheckTrue(DailyData.TrySchedulePopup(),
+                          "★★ 反证：注入打开 ⇒ **返回 true**（同一份方法体，只是闸开了）—— 与上一条构成「结构上不可能同时绿」");
+                Check(DailyData.PopupScheduleCount, schedBefore + 1, "★ …`PopupScheduleCount` **+1**");
+                Check(DailyData.PendingPopupActions, 2,
+                      "★ …两条轨各一条（原版「每份 mission 实例各排自己那个 `Popup(12)`」；1 条 ⇒ 漏了一轨，4 条 ⇒ 幂等坏了）");
+            }
+            finally
+            {
+                DailyData.ReleasePopupActions();
+                DailyData.AutoPopupInEditor = snapInjected;                     // ⚠️ 静态 ⇒ 必须还原
+                DailyData.ForceRewardClaimedForTest(2, false);                  // 还原成出厂那一态（同上一节收尾）
+                DailyData.ForceStreakClaimedForTest(DailyData.StreakClaimableDay, false);
+            }
+        }
+
         B94Z1_Assert.Run(); _sink.Pass += B94Z1_Assert.Pass; _sink.Fail += B94Z1_Assert.Fail; B103F4_Assert.RunForge(); _sink.Pass += B103F4_Assert.Pass; _sink.Fail += B103F4_Assert.Fail; B109_E26_CardReward_Assert.Run(); _sink.Pass += B109_E26_CardReward_Assert.Pass; _sink.Fail += B109_E26_CardReward_Assert.Fail; B110_C07_Assert.Run(); _sink.Pass += B110_C07_Assert.Pass; _sink.Fail += B110_C07_Assert.Fail; C3_Assert.Run(); _sink.Pass += C3_Assert.Pass; _sink.Fail += C3_Assert.Fail; B110_M2F_Assert.Run(); _sink.Pass += B110_M2F_Assert.Pass; _sink.Fail += B110_M2F_Assert.Fail; B110_W3_Assert.Run(); _sink.Pass += B110_W3_Assert.Pass; _sink.Fail += B110_W3_Assert.Fail; B111_R3WB_Assert.Run(); _sink.Pass += B111_R3WB_Assert.Pass; _sink.Fail += B111_R3WB_Assert.Fail; C9_Assert.Run(); _sink.Pass += C9_Assert.Pass; _sink.Fail += C9_Assert.Fail; B116W16_Assert.Run(); _sink.Pass += B116W16_Assert.Pass; _sink.Fail += B116W16_Assert.Fail; Debug.Log(P + $"=== 合计：{_sink.Pass} 通过 / {_sink.Fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线）：`B94Z1_Assert`（26 条，红点写手收口）此前 0 宿主 —— 接在合计行之前，**同一行追加 ⇒ 行数零变化**
         // 🔴 **2026-10-11（A350 · 调度台裁定）**：这一串是失败表的【重列】（`Check` 里已经逐条打过）
         //   ⇒ 行首标记 = `失败重列：`，⛔ 不再是 `✗`（原来是 `✗` 时日志里 `✗` 行数 = 失败数 ×2）。

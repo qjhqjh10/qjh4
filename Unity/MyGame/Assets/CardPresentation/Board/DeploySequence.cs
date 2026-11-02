@@ -218,7 +218,7 @@ namespace CardPresentation
                 seq.Append(tr.DOMove(landPos, LandTime).SetEase(Ease.OutQuad));
             }
             // 同 <see cref="Play"/>：旋转用 `Insert(0f, …)`（⛔ 不是 `Join`，那会从 0.3 s 才起算）
-            seq.Insert(0f, tr.DORotate(Vector3.zero, MoveTime).SetEase(Ease.OutCubic));
+            seq.Insert(0f, tr.DORotate(Vector3.zero, MoveTime).SetEase(RotateEase));
             // 🆕 2026-10-27（`E3CMP` · 账 804 ④）：落地后的尾拍 —— 原版 d__314 **state 3** 的
             //   `LandOnGround()` → `WaitForSeconds(AttackStepTime)`（`.c:186-205`）。`onDone` 因此落在 0.75 s。
             seq.AppendInterval(LandTailTime);
@@ -307,7 +307,7 @@ namespace CardPresentation
             //    ⚠️ 跨度仍是 `MoveTime`（0.3）—— 原版的旋转补间吃 `minionToConversionPointTime`，
             //    即**只覆盖飞行那一段**，落下那 0.2s 里它已经归位。
             //    🔴 缩放**不在这里**：`B07` 起改成**起飞前瞬时赋值**（见上面那一句 + 原版判据）。
-            seq.Insert(0f, tr.DORotate(Vector3.zero, MoveTime).SetEase(Ease.OutCubic));
+            seq.Insert(0f, tr.DORotate(Vector3.zero, MoveTime).SetEase(RotateEase));
             // 🆕 2026-10-27（`E3CMP` · 账 804 ④）：落地后的尾拍 —— 原版 d__314 **state 3** 的
             //   `LandOnGround()` → `WaitForSeconds(AttackStepTime)`（`.c:186-205`，`:199` 就是那一句）。
             //   原版「真出牌」（`_ResolvePlayCardFromHand` 等整条协程跑完）因此在 **0.75 s**，
@@ -325,5 +325,12 @@ namespace CardPresentation
             if (onDone != null) seq.OnComplete(() => onDone());
             return seq;
         }
+
+        /// <summary>登场旋转的缓动 —— 原版那条 `DOLocalRotate` **没有 `SetEase`** ⇒ 走 DOTween 默认缓动。
+        /// <para>判据（`B117-R24`，只读代理 G2 现核）：原版起旋转那一句只有
+        /// `DOLocalRotate(Vector3.zero, minionToConversionPointTime)`，**后面没有** `SetEase` / `SetOptions`；
+        /// DOTween 的 `defaultEaseType` 出厂值 = **`OutQuad`**。我们原来写的是 `Ease.OutCubic`（自造）⇒ 2026-11-02 改回。</para>
+        /// <para>⚠️ 两处调用点（`PlayQuad` / `Play`）共用这一个常量 —— ⛔ 别在一处单独写死字面量。</para></summary>
+        public static readonly Ease RotateEase = Ease.OutQuad;
     }
 }

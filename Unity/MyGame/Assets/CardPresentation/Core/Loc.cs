@@ -491,14 +491,14 @@ namespace CardPresentation
             // 英文列 = 那五颗 TMP 自己的 `m_text`（`PLAY`/`COLLECTION`/`SHOP`/`REWARDS`/`SOCIAL`）。
             // 🔴 **中文列的出处分两档，别混**：
             //   · `游玩` / `收藏` = **官方词条表** `d:/4/Unity/数据/本地化/i18n/zh_CN.csv:2,3`
-            //     （`PLAY,~,游玩` / `COLLECTION,~,收藏`）—— 这是**第一档判据**。
+            //     （`PLAY,~,游玩` / `COLLECTION,~,收藏`）—— 这是**第一档判据**；⚠️ `HomeButton` 的中文 2026-10-14 起由「游玩」改成官方 13 语言表的「玩」，**2026-11-03 又按用户裁定改成「游戏」**（那一行带 🔶 标记，是**明确偏离原版**的一处）。
             //   · `商店` / `奖励` / `社交` = **本地词条表里没有这三条**（全表 6424 行已 grep，零命中）
             //     ⇒ 取**用户给的原版客户端实拍** `C:/Users/qjh36/Desktop/warpforge参考图/主界面参考图.png`
             //     左竖导航上逐字读到的三个词（仓库副本 `资料/原版参照图/用户实拍_1017/` 里**没有**这张，
             //     它是 2026-10-10 才加进去的）—— 这是**第二档判据**，已在卡片行标注。
             // 消费侧 = `Shell/MainMenuRuntime.cs` 的 `NavButton`（原来硬编码英文）。
             // ------------- E1 主菜单左竖导航五颗 -------------
-            { "MainMenu/NavigationPanel/HomeButton",          new Entry("玩",     "PLAY") },        // 中文 = zh_CN.csv:2
+            { "MainMenu/NavigationPanel/HomeButton",          new Entry("游戏",     "PLAY") },        // 中文 = zh_CN.csv:2；🔶 自己设计（非原版）：左导航 Play 项中文由官方「玩」改为「游戏」 —— 三处官方来源（HomeButton / ButtonLabel/Play / 原版实拍）均为「玩」；用户 2026-11-03 裁定「改为游戏，官方翻译太差了」
             { "MainMenu/NavigationPanel/Collection",          new Entry("收藏",     "COLLECTION") },  // 中文 = zh_CN.csv:3
             { "MainMenu/NavigationPanel/Shop",                new Entry("商店",     "SHOP") },        // 中文 = 用户实拍（表里没有）
             { "MainMenu/NavigationPanel/Rewards",             new Entry("奖励",     "REWARDS") },     // 中文 = 用户实拍（表里没有）

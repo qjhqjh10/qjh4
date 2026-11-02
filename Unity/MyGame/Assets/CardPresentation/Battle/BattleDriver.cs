@@ -13826,7 +13826,7 @@ namespace CardPresentation
             //   起飞那两条 cue 与「起飞票」都只对**单位卡**开（否则票会挂 3 s，把它后面那次
             //   效果召唤的 `Deploy` 误判成「起飞已响」、白吞两条 cue）。
             if (DeploySequence.IsInline(card)) return;
-            PlayDeployTakeoffCues();
+            PlayDeployTakeoffCues(moveCue: false);   // 🔴 2026-11-03（`B117-33`）：玩家这条路的 `moveCardIntoBattle` **已在拾起那一刻响过**（`CardInteraction.PickUp`；判据 = `CardScript__StartMovingFromHand.c:43` 由 `CardScript__TryDraggingFromHand.c:89` 在**起拖**时调），起飞这一刻原版只有 `_ResolvePlayCardFromHand…:397` 的 `playMinionFromHand` ⇒ 传 `false`，⛔ 别双响。
             // 记下「起飞已经响过」⇒ `PlayBattleSfx(Deploy)` 不再重复前两条（它那时正好在落地拍）
             _playerTakeoffAt = _clock;
             // 🆕 B3：**这条牌这一手已经响过起飞**（给 `DoPlay` 用）。⛔ 与 `_playerTakeoffAt` 的
@@ -16112,7 +16112,7 @@ namespace CardPresentation
                 _leanActive = true;
                 _leanSlot = _selectedSlot;
                 _leanHome = BoardRestLocal(_selectedSlot, v0);   // 抬手之前的静止位（原版 base = stored 字段 `+0x2b8`；⛔ 别取当前 localPosition —— 补间中那是飞行位置）
-                _leanHomeRot = v0.transform.localRotation;   // 抬手之前的静止朝向（账 762/768/777：旋转那半要从这一档 slerp）
+                _leanHomeRot = v0.transform.rotation;   // 抬手之前的静止朝向（账 762/768/777：旋转那半要从这一档 slerp。🔴 2026-11-03 `B117-34`：存**世界**四元数 —— 原版 `OrientToTargetingDirection` 读写的都是 `transform.rotation`，⛔ 不是 localRotation）
             }
             if (!_leanActive) return;
 
@@ -16139,11 +16139,11 @@ namespace CardPresentation
             //      **x/y 各乘侧符号**（`iVar4 = isPlayer ? +1 : −1`）；
             //    · `q = Quaternion.LookRotation(dir) × Quaternion.AngleAxis(chargeAttackAngle × 侧符号, transform.right)`；
             //    · `transform.rotation = Quaternion.Slerp(get_rotation(), q, clamp01(dt / timeToChargeAttack))`。
-            //  🔶 自己设计（非原版）：**3D `LookRotation` → 2D 绕 Z 角** 的映射 —— 我们是 2D 卡（ImageQuad），
-            //     绕 X/Y 转会让卡**侧过去**（边缘朝向相机），那是 3D 卡才有的姿势；这里取「卡体 +Y 指向目标」
-            //     的屏幕角（`atan2(dir.y, dir.x) − 90°`）加到原 Z 角上，再叠 `chargeAttackAngle`（原版那一跳是
-            //     绕 right 轴的 roll，2D 里就是同一个 Z）。**没有原版判据能证明这两种表示在 2D 下等价** ——
-            //     逐帧的 `t`、`slerp`、角度来源都是照抄的，只有「3D→2D 的投影方式」是我们挑的。
+            //  🔴 **2026-11-03（`B117-34` · 用户亲自点名）就地订正（铁律 5）**：原来这里走的是 🔶 自己设计（非原版）的
+            //     「3D `LookRotation` → 2D 绕 Z 角」映射（`Euler(0,0,atan2−90+charge)`）—— 那不是原版的做法，**整段已删**，
+            //     改回原版那两句 3D 四元数。⚠️ 我们注意到、并**接受**的后果：我们的卡是挂在 3D 空间里的 2D 面，`LookRotation`
+            //     会让它朝目标**立起来**（不是平面内拧一下）；3D 战场档（`ArenaSlots`：我方 z = −6.655 / 敌方 z = +1.043）里
+            //     方向矢量的 z 远大于 x/y ⇒ 实际只歪一点点，与 2D 兜底档形状不同 —— 但**原版就是这么算的**，⛔ 别改回去。
             //     侧符号恒 `+1`（本方法只处理 `_myUnits`；敌方的瞄准不经过这里，见 `_leanSlot` 的 doc）。
             //  目标取不到（敌方督军视图没建）⇒ 只保持原朝向，⛔ 不猜一个角度。
             Quaternion wantRot = _leanHomeRot;
@@ -16155,13 +16155,13 @@ namespace CardPresentation
                     Vector3 dir = foeW.transform.position - v.transform.position;
                     if (dir.sqrMagnitude > 1e-8f)
                     {
-                        float faceDeg = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
-                        wantRot = Quaternion.Euler(0f, 0f, faceDeg + CardFeel.ChargeAngleDeg);
+                        var look = Quaternion.LookRotation(dir);   // 原版 `:135`（Unity `LookRotation`：+Z 指向 dir）
+                        wantRot = Quaternion.AngleAxis(CardFeel.ChargeAngleDeg, v.transform.right) * look;   // 原版 `:147-164`（`q1*q2` = 先 look 再绕 right roll `chargeAttackAngle`）
                     }
                 }
             }
-            v.transform.localRotation = Quaternion.Slerp(v.transform.localRotation, wantRot, t);
-            if (settled) { v.transform.localRotation = _leanHomeRot; _leanActive = false; }   // 收手：朝向也归位
+            v.transform.rotation = Quaternion.Slerp(v.transform.rotation, wantRot, t);   // 原版 `:174-182` 是 `set_rotation`（**世界**四元数，⛔ 不是 localEulerAngles）
+            if (settled) { v.transform.rotation = _leanHomeRot; _leanActive = false; }   // 收手：朝向也归位
         }
 
         /// <summary>自检用：瞄准的「抬手/后撤」现在**开着吗**（= `_leanActive` 这一格）。
@@ -19587,7 +19587,7 @@ namespace CardPresentation
             // 🆕 2026-10-19（偏差 3）：**新一批事件不许插到已排的队头前面** —— 起算点 =
             //   `max(现在, 上一批最后一条 cue 的收尾时刻)`。判据 / 为什么闸之外还要这一道 → `_timelineTailAt` 的 doc。
             float t = Mathf.Max(_clock, _timelineTailAt);
-            _lastBatchStartAt = t;      // 自检口（偏差 3）
+            _lastBatchStartAt = t; float hitBurstAt = float.NaN;   // 自检口（偏差 3）· 🔴 `hitBurstAt` = 本批「一次多目标伤害」那一串 `Hit` 的**共同起播时刻**（`B117-37`，判据见 `HitBurstParallel`）
             // 🆕 2026-10-24（`B1` · D3）：本批「那一击整条动画跑完」的时刻（见 `_batchAttackSkillAnimAt`）。
             _batchAttackSkillAnimAt = -1f;
             _batchAttackEvent = null;
@@ -19614,7 +19614,7 @@ namespace CardPresentation
                     drawIndex = drawSeen[e.Player]++;
                 }
                 float beatGap = EventTiming.DelayBetween(prev, e, RangedVfxDurationBefore(e, prev));
-                t += beatGap;
+                t += beatGap; if (HitBurstParallel(_signalBuf, i)) { if (float.IsNaN(hitBurstAt)) hitBurstAt = t; else t = hitBurstAt; }   // 🔴 2026-11-03（`B117-37`）：**同一次多目标伤害的 N 条 `Hit` 并排起播**（判据 = `HitBurstParallel`）
                 if (e.Kind == EvtKind.CollectWaystone && e.Player >= 0 && e.Player < 2) _waystonesCollected[e.Player] += e.Amount > 0 ? e.Amount : 1;   // 🆕 B89-E30（账 `L165`）：本局「真收了路基石」按座位累计（原版 `CollectSpiritStone` 那条收集信号；引擎发出点 = `RuleCore.CollectWaystoneCore` 的 `EvtKind.CollectWaystone`，`Amount = WaystoneGiveMana = 1`）。⚠️ 这一行替换的是**原来的空行**，为零行数变化。
 
                 // 🔴 **2026-10-21（W61 第 2 批 · 第 5 条）：抬手音 = 攻击动作的【起点】，不是事件那一拍。**
@@ -21607,10 +21607,10 @@ namespace CardPresentation
         /// 飞向战场」那一拍响的两条（`CardScript__StartMovingFromHand.c:43` /
         /// `_ResolvePlayCardFromHand…:397`）。玩家那一路由 `OnPlayerDeployFlightStart` 调；
         /// AI 那一路由 <see cref="StartAiDeployFlight"/> 调；🆕 **B3**：程序化出牌（不走拖拽/飞行那条路）
-        /// 由 `DoPlay` 补调。⚠️ `private` 但三处同源，⛔ 别各抄一份。</summary>
-        void PlayDeployTakeoffCues()
+        /// 由 `DoPlay` 补调。⚠️ `private` 但三处同源，⛔ 别各抄一份。🔴 **2026-11-03（`B117-33`）**：`moveCue` —— 玩家**手动拖拽**那条路在**拾起**时就响过 `moveCardIntoBattle`（`CardInteraction.PickUp`：`CardScript__TryDraggingFromHand.c:89` → `StartMovingFromHand.c:43`）⇒ 起飞这一刻传 `false` 只响 `playMinionFromHand`；AI/程序化/效果召唤**没有拾起** ⇒ 保持 `true`。</summary>
+        void PlayDeployTakeoffCues(bool moveCue = true)
         {
-            BattleSfx.Play(BattleSfx.MoveCardIntoBattle);
+            if (moveCue) BattleSfx.Play(BattleSfx.MoveCardIntoBattle);
             BattleSfx.Play(BattleSfx.PlayMinionFromHand);
         }
 
@@ -40382,6 +40382,45 @@ namespace CardPresentation
 
         /// <summary>`S3-G1` 读口：表现层时钟（`_clock`，秒）—— trace 的 `t` 列用它。</summary>
         public float PresentationClock { get { return _clock; } }
+
+        /// <summary>🔴 2026-11-03（`B117-37`）：**这一条 `Hit` 要不要跟前面那一条【并排】起播**
+        /// （= 同一次「多目标伤害」里的第 2..N 个目标）。
+        ///
+        /// <para><b>判据（第一权威，亲读）</b> = `d:/2/tools/decomp_full/BattleManager._ResolveMultiDamage_d__456__MoveNext.c:150-171`：
+        /// 对**非末目标**只 `StartCoroutine(ReceiveDamage)`（**不 yield**），只有**最后一个**目标
+        /// （`count-1 &lt;= index`）才 `yield return StartCoroutine(…)` ⇒ N 个目标是**同帧并行**、
+        /// 调用方只等最长的那一个 ⇒ 3 目标 AoE 总共 **≈1.0 s**（不是 3.0）。</para>
+        ///
+        /// <para><b>「什么算同一次多目标伤害」= 等价物、不是原件</b>（与 <see cref="UnitDamageCueIndex"/> 同一档口径）：
+        /// 我们的 `BattleEvent` 里没有「同源动作 id」这一位 ⇒ 退一档看事件流形状：
+        /// ① 本条是 `Hit` 且**不是**易伤第二拍（那一拍必须串行，见 `EventTiming.HitHoldOf`）；
+        /// ② **不是攻击命中**（紧跟在 `Attack` / `Retaliation` 后面的那条 `Hit`）；
+        /// ③ 往前找**最近的一条实质事件**（跳过 `Trigger` —— 那些是被这一下「打出来」的反应，
+        ///    原版把它们排进动作队列、在伤害收尾之后才演）：它必须也是 `Hit`、**同一座位**、**不同格位**。</para>
+        ///
+        /// <para>⚠️ 未覆盖的一档（如实记）：触发效果造成的**额外伤害**若紧跟在同一批里，会与这批并排 ——
+        /// 原版那条是排进队列的（串行）。要根治得让引擎给事件补一个「同源动作 id」。见 `_timelineTailAt`。</para></summary>
+        /// <summary>自检口（`B117F11_Assert` 用；⛔ 生产别调）：直接走**生产那条起飞 cue 路径**
+        /// （`PlayDeployTakeoffCues`）—— 用来钉住「玩家手动拖拽那条路的 `moveCardIntoBattle` 在**拾起**时
+        /// 就响过、起飞这一拍只响 `playMinionFromHand`」（`B117-33`）。</summary>
+        public void PlayDeployTakeoffCuesForTest(bool moveCue = true) { PlayDeployTakeoffCues(moveCue); }
+
+        public static bool HitBurstParallel(List<BattleEvent> buf, int i)
+        {
+            if (buf == null || i < 0 || i >= buf.Count) return false;
+            var e = buf[i];
+            if (e == null || e.Kind != EvtKind.Hit || e.IsVulnerableSecondHit) return false;
+            if (i > 0 && buf[i - 1] != null
+                && (buf[i - 1].Kind == EvtKind.Attack || buf[i - 1].Kind == EvtKind.Retaliation)) return false;
+            for (int j = i - 1; j >= 0; j--)
+            {
+                var p = buf[j];
+                if (p == null || p.Kind == EvtKind.Trigger) continue;
+                return p.Kind == EvtKind.Hit && !p.IsVulnerableSecondHit
+                    && p.Player == e.Player && p.Slot != e.Slot;
+            }
+            return false;
+        }
     }
 }
 

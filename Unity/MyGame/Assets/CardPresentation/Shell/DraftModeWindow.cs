@@ -785,11 +785,11 @@ namespace CardPresentation
 
         static void LoadRunFromDisk()
         {
-            var path = StorePath;
-            if (!System.IO.File.Exists(path)) return;          // 第一次跑：没有进行中的一局 = 出厂态，不吵
+            var path = StorePath; string text = SaveCenter.ReadThroughLegacy(SaveKeys.ActiveEvent, path);   // 🆕 2026-11-02（B117_F4 · UI-15/B-322）：**先中央档、再旧档**（⛔ 别恢复裸 `File.Exists` + `ReadAllText`）
+            if (text == null) return;                         // 第一次跑：没有进行中的一局 = 出厂态，不吵
             try
             {
-                var dto = JsonUtility.FromJson<DraftStoreDto>(System.IO.File.ReadAllText(path));
+                var dto = JsonUtility.FromJson<DraftStoreDto>(text);
                 if (dto == null) { Debug.LogWarning("[Draft] 存档解不出内容（" + path + "）⇒ 当作没有进行中的一局"); return; }
                 if (dto.version != new DraftStoreDto().version)
                 {
@@ -823,11 +823,11 @@ namespace CardPresentation
                 if (_run == null)
                 {
                     if (System.IO.File.Exists(path)) { System.IO.File.Delete(path); Debug.Log("[Draft] 清掉一局存档（" + path + "）"); }
+                    SaveCenter.Delete(SaveKeys.ActiveEvent);   // 🆕 2026-11-02（B117_F4）：**中央档同删**（否则读口「中央优先」会把已结束的一局复活）
                     return;
                 }
                 var dto = new DraftStoreDto { run = _run };
-                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
-                System.IO.File.WriteAllText(path, JsonUtility.ToJson(dto, true));
+                string werr; if (!SaveCenter.SaveThroughLegacy(SaveKeys.ActiveEvent, path, JsonUtility.ToJson(dto, true), out werr)) Debug.LogWarning("[Draft] 存档写盘失败（" + path + "）：" + werr);   // 🆕 2026-11-02（B117_F4）：中央档 + 双写旧档（建目录 / 原子写由 `SaveCenter` 承担）
             }
             catch (Exception e)
             {
@@ -846,7 +846,7 @@ namespace CardPresentation
         public static void DeleteRunForTest()
         {
             _loaded = true; _run = null;
-            try { if (System.IO.File.Exists(StorePath)) System.IO.File.Delete(StorePath); }
+            try { if (System.IO.File.Exists(StorePath)) System.IO.File.Delete(StorePath); SaveCenter.Delete(SaveKeys.ActiveEvent); }   // 🆕 2026-11-02（B117_F4）：中央档同删（⛔ 别只删旧档 ⇒ 下一段自检会把这条中央档复活）
             catch (Exception e) { Debug.LogWarning("[Draft] 删存档失败（" + StorePath + "）：" + e.Message); }
         }
 

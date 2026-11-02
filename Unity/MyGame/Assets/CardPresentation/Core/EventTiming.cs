@@ -420,8 +420,8 @@ namespace CardPresentation
                 //    ⚠️ `DeathHold` 本身**不动** —— 它是「Hit 那一拍收尾之后到阵亡开场」的间隔，另一件事。
                 case EvtKind.Death: return DeathHold;
 
-                // 触发：用 `BattleManager` 里那两个命名延迟常量（见 `TriggerHold` 的注释）
-                case EvtKind.Trigger: return TriggerHold;
+                // 触发：**前置 0**（🔴 2026-11-03 `B117-39`：原版那条协程只有 `WaitForSeconds(0.2)`，无前置 —— `_ResolveTriggerTraitAnim_d__476.c:11-14`；原来排的 `TriggerHold` 0.3 是**通用节拍**、不是 Trigger 专用 ⇒ N 次白等 0.3N s）
+                case EvtKind.Trigger: return 0f;
 
                 // 🔴 **2026-10-14（收口自检 β 回归）：抽卡那一条【从本函数搬去 `DurationOf`】**。
                 //   原来 `case EvtKind.Draw: return DrawDeal;` 写在这里（= 「上一条到这一条的**间隔**」），
@@ -950,7 +950,7 @@ namespace CardPresentation
         public const float DeathHold = 0.1f;
 
         /// <summary>
-        /// 触发效果相对上一条的延迟。
+        /// 🔴 **2026-11-03（`B117-39`）：本常量【不再】用作触发前置** —— `DelayBetween(next: Trigger)` 已改 0（原版那条协程无前置）。保留只为记账 / 别的通用节拍引用。
         /// 出处：`BattleManager` 构造函数里那两个命名延迟常量 —— `sec3FractionDelay = 0.3`
         /// （`BattleManager__.ctor.c`，数值从 `GameAssembly.dll` 读出）。
         /// ⚠️ 它是引擎里反复出现的**通用「等一拍」粒度，不是 Trigger 专用**。

@@ -140,7 +140,7 @@ namespace CardPresentation
         /// ⇒ 短名键 = `Armies/&lt;Faction&gt;_short`。
         /// <para>⚠️ 官方全表里**只有 6 条 `_short`**（`Goff` / `Leviathan` / `Sautekh` / `Sororitas` /
         /// `Genestealers` / `AstraMilitarum`；现读 `Resources/official_loc_13lang.json` 的 `Armies/` 20 条里）
-        /// ⇒ 其余 7 个阵营走「回落全名」那一支，与原版同（原版也是空则回落）。</para>
+        /// ⇒ 其余 7 个阵营走「回落全名」那一支，与原版同（原版也是空则回落）。🔴 **2026-11-02（`B117-R2`）**：那 7 个「原版本来没有」**不是缺词条** ⇒ 取值前先 `Loc.HasAnyTerm` 判一次（真机假警报 `Armies/Ultramarines_short`）。</para>
         /// <para>🔴 **可达性**（原版调用点逐个现读，2026-10-25）：全库 **5 个**调用点，
         /// **1 个真传 `true`** —— `RankedDeckSelector.ChangeDeck`（`cpp2il/RankedDeckSelector.cs:645`，
         /// 排位窗空态那句 `MainMenu/Ranked/NoDeckMessage` 的 `{1}`）；另 4 个不传
@@ -160,9 +160,9 @@ namespace CardPresentation
             if (string.IsNullOrEmpty(faction)) return null;
             string full = CardText.Faction(faction);
             if (!useShortName) return full;
-            // 先 `_short`、取不到回落全名：`CardText.TermOr` 的语义正是「表里有⇒取它；没有⇒出声+回 fallback」，
-            // 而且它内部已按 13 语档 + 官方全表 + 中文字体闸取值（⛔ 别在这里另开一条取值路）。
-            return CardText.TermOr(CardText.ArmyTermPrefix + faction + "_short", full);
+            // 先 `_short`、取不到回落全名（`CardText.TermOr` = 表里有⇒取它；没有⇒出声+回 fallback；它内部已按 13 语档 + 官方全表 + 中文字体闸取值，⛔ 别另开取值路）。
+            // 🔴 **2026-11-02（`B117-R2`）先判「这条短名到底存不存在」**：官方全表 `Armies/` 20 条里**只有 6 个阵营有 `_short`**（`AstraMilitarum`/`Genestealers`/`Goff`/`Leviathan`/`Sautekh`/`Sororitas`；现读 `数据/游戏数据/官方本地化_13lang.json`）⇒ 其余 7 个**原版本来就没有**（原版那支是「取到空 ⇒ 回落全名」、**不是缺词条**），而 `TermOr` 末句会调 `Loc.T` 出声 ⇒ 真机被冒充成缺词条一次（`Armies/Ultramarines_short`）。判据 = `Loc.HasAnyTerm`（**三档一起算**：手写 `Table` → bulk → 官方 13 语言全表）；⛔ 别用 `Loc.HasEntry`（只认手写表 ⇒ 那 6 条官方短名会被误判成「没有」而白白回落全名）。
+            string key = CardText.ArmyTermPrefix + faction + "_short"; if (!Loc.HasAnyTerm(key)) return full; return CardText.TermOr(key, full);
         }
 
         /// <summary>🔴 **中立阵营** —— 原版 `GameStaticData.IsNeutralArmy(CardArmy)` 的等价实现。

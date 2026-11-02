@@ -4336,8 +4336,8 @@ namespace RuleEngine
         //     与 `EffectResolver.ResolveOathAbility`（只读 `OathExtraReplays`）。
         // ==================================================================
 
-        /// <summary>`Friendly [Oath] abilities apply an additional time` —— 友方誓约能力**多结算几次**
-        /// （次数 = 同方场上带本标记的牌数，见 `RuleCore.OathExtraReplays`）。</summary>
+        /// <summary>`Friendly [Oath] abilities apply an additional time` —— 友方誓约能力**多结算几次**。🔴 2026-11-02（`B117_F1`/`B117_F8`）就地订正：本 bool 由**正文文本**落值（`case "誓约加倍"`），而原版那一条（`BattleManager__IsThereDoubleOathEffect.c:33`）读的是 **trait 表**（`HasCurrentTrait(0x4fd)`）⇒ `RuleCore.OathExtraReplays` **不再读本字段**，改走 `HasOathDouble`（= `HasCurrentTrait("oathdouble")`，归一化见 `KeywordTable.Prefixes` 那三条 oath 变体）；本字段**保留**（数据/展示还认它），⛔ 别拿它当判据。</summary>
+        // （本注释块**刻意保持两行**：`CardDef.cs` 有账按 `文件:行号` 引用，插行会让下面全部漂移 —— 铁律 18·b）
         public bool OathDouble;
 
         /// <summary>`Oath abilities of friendly troops can be activated up to 3 times each turn` ——
@@ -6364,11 +6364,11 @@ namespace RuleEngine
         //    `CardDef.cs` 有 40 处账落点按 **行号** 引用，构造函数在 `:839-1000` ⇒ 在那里加一行会让它们
         //    整体漂移。⇒ 走「构造后挂载」（<see cref="AttachCardTraits"/> / <see cref="AttachKeywordId"/>），
         //    两个挂载点都在**类尾**，不挪任何既有行。
-        //    ⚠️ **接线不属于本代理白名单**（已写进报告 §⑥）：`CardDatabase.cs` 的 `new CardDef(...)` 要加
-        //     `cardTraits: c.cardTraits`（**v9 起就有的既有列**，`CardDatabase.cs:172`，注释明写「本列不喂引擎」）
-        //     与 `keyword: c.keyword`（**新列**：`cards_engine.json` 现读没有，要生成器落；真值 =
-        //     `cards_truth.json.keyword`）。没接线时 `CardTraitsKnown == false` / `KeywordId == -1`
-        //     ⇒ 查询一律返回「判不了」+ `why`，⛔ **不许静默当成「没有」**。
+        //    ✅ **接线已经做完**（2026-11-02 就地订正 · 铁律 5 —— 原文写「接线不属于本代理白名单、要加
+        //    `cardTraits: c.cardTraits`」，那是 `B8_Q` 当时的施工边界，**后来已经落了**）：
+        //    `Data/CardDatabase.cs:1734-1735` 现读就是 `def.AttachCardTraits(c.cardTraits);` +
+        //    `def.AttachKeywordId(c.keyword);` ⇒ 生产路径上 `CardTraitsKnown == true`、`KeywordId != -1`。
+        //    只有**夹具 / 旧表**才可能没喂（那时查询返回「判不了」+ `why`，⛔ 不许静默当成「没有」）。
         // =====================================================================================
 
         /// <summary>原版一条 `CardTraitData`：`_trait`(`+0x18`) 的规范化名 + `_traitValue`(`+0x1c`)。</summary>
@@ -8339,7 +8339,7 @@ namespace RuleEngine
             new[] { "vulnerable", "vulnerable" }, new[] { "strike", Strike }, new[] { "stomp", "stomp" },
             new[] { "unstable", "unstable" }, new[] { "bloodthirst", "bloodthirst" },
             new[] { "cruelty", "cruelty" },
-            new[] { "shuriken", "shuriken" }, new[] { "sniper", "sniper" }, new[] { "waystone", "waystone" },
+            new[] { "shuriken", "shuriken" }, new[] { "sniper", "sniper" }, new[] { "waystone", "waystone" }, new[] { "oathinallturns", "oathinallturns" }, new[] { "oathdouble", "oathdouble" }, new[] { "oathtripleactivation", "oathtripleactivation" },   /* 🆕 2026-11-02（执行代理 `B117_F8` · 活状态表 `B117-26`）：**`oath` 家族三个变体（`oathInAllTurns` 1276 / `oathDouble` 1277 / `oathTripleActivation` 1278）必须有自己的一条**，且**必须排在本行下一行的 `"oath"` 之前** —— `Normalize` 是 `StartsWith` + **先到先得**（`CardDef.cs` 的 `Normalize(item, out matchedLength)`），排在 `"oath"` 之后等于没写。**改之前的行为**：`oathDouble` 被前缀折成 `oath` ⇒ 全池 28 张 `cardTraits=["oath 1..8"]` 与 `UM100` 的 `oathDouble` 归一化后**同名** ⇒ 任何 `HasCurrentTrait("oathdouble")` / `HasCurrentTrait("oath")` 对那 29 张卡**都为真**（原版 `HasCurrentTrait(0x4fb oath)` 与 `HasCurrentTrait(0x4fd oathDouble)` 是**两条不同的闸**）。**改之后**：只有 `UM100` 的归一化结果变（`oath` → `oathdouble`），其余 28 张不变（实测见 `报告/B117_F8_oathdouble与剩余trait.md` §一）。⚠️ **⛔ 不进 `Implemented`**（同 `massive` / `transient` / `firststrike` 先例）：那三兄弟在 `Card_Trait/*` 里**没有名字**（隐藏 trait），进 `Implemented` 会让 `BattleDriver` 的外观过滤给它们多显示一枚原版没有的徽标（`CardDef.cs` 下面那张 45 词清单里已就地订正）。⚠️ **前缀撞车已现核**：以 `oa` 开头的既有条目只有 `"oath"` 一条，反向（`"oath".StartsWith("oathdouble")`）不成立 ⇒ 三条新词只影响「本来就是它们自己」的写法。⚠️ **字面量拼法与 `cards_raw.json` 的 `cardTraits` 一致**（`oathInAllTurns` / `oathDouble` / `oathTripleActivation` → 小写连写）。 */
             new[] { "oath", "oath" }, new[] { "codex", "codex" }, new[] { "uprising", "uprising" },
             new[] { "teleport", "teleport" }, new[] { "pack", "pack" }, new[] { "tide", "tide" },
             new[] { "swarm", "swarm" }, new[] { "agenda", "agenda" }, new[] { "destroyer", "destroyer" },
@@ -8659,8 +8659,8 @@ namespace RuleEngine
             //      `secret` `trap` `secretOrder` `secretIdentity` `fear` `meltdown` `massive` `psyker`
             //      `reactor` `psychicPower` `plasmaPower` `spikes` `horns` `daemonhost` …｜🔴 **2026-10-30（调度台裁定 · 铁律 5 就地订正）：`coward` 与 `precognition` 已【从本名单划掉】并同时进了 `Prefixes` + `Implemented`** —— 理由是「闸已建 ⇒ 必须登记」：不登记则 `Normalize` 丢掉这两个词 ⇒ `UnitState._keywords` 灌不进 ⇒ 刚建的两条攻击闸（`RuleCore.IsValidTarget`）从卡数据永远不可达 = 死代码（违反铁律 11）。上面那句「登记它们只会加噪声」的旧理由，在 `ward`/`wardWb`/`tainted`/`summonRift`（`B98_N3`，2026-10-29）那批落进 `Implemented` 之后**已经不成立**
             //      `questCompleted` `mutation` `chaosOnly` `mekaniak` `piercing` `daemonicAllegiance`
-            //      `notDestroyRemnant` `dontReturnFerocity` `oathInAllTurns` `oathDouble`
-            //      `oathTripleActivation` `markOfChaos` …）—— 登记它们会给「未实现关键词」那张单
+            //      `notDestroyRemnant` `dontReturnFerocity` ~~`oathInAllTurns` `oathDouble`~~
+            //      ~~`oathTripleActivation`~~（🔴 **2026-11-02 执行代理 `B117_F8` 就地订正：这三个词已【划出】** —— 理由是「**归一化撞车会污染别的词**」：`oathDouble` 被 `"oath"` 前缀折成 `oath` ⇒ 全池 28 张 `oath N` 与 `UM100` 的 `oathDouble` 同名 ⇒ 原版两条独立的闸（`HasCurrentTrait(0x4fb)` / `(0x4fd)`）在我们这儿合并成一条。⇒ 三条已进 `Prefixes`（排 `"oath"` 之前）、**仍不进 `Implemented`**，同 `massive` / `transient` 那一档）`markOfChaos` …）—— 登记它们会给「未实现关键词」那张单
             //      与卡面徽章**加噪声**（`Implemented` 被 `BattleDriver` 用来过滤外观，
             //      见 `MarkOfChaos` 的 doc 那段血案）；
             //   · `markOfKhorne` / `markOfNurgle` / `markOfSlaanesh` / `markOfTzeentch` 的卡面名是
@@ -9576,6 +9576,41 @@ namespace RuleEngine
             for (int i = 0; i < ops.Count; i++)
                 if (ops[i] != null && ops[i].SubjectTargetsAffected < 0) ops[i].SubjectTargetsAffected = v;
         }
+
+        // ================================================================================================
+        //  🆕 2026-11-02（执行代理 `B117_W1` · 活状态表 `B117-01`）：**`cardTraits` 的便捷只读口**
+        //
+        //  背景：原版 `MeetsTraitCriteria` 读的是「当前 trait 表」`+0x128`，而 `CardScript__SetBaseCardTraits.c:37-42`
+        //  把 **`cardTraits(+0x230)` 整表**灌进 `+0x128` ⇒ 有两条 trait **只写在 `cardTraits` 列、卡面不印**：
+        //    · `SAU7 Canoptek Wraith`：`keywords=["Remnant"]` / `cardTraits=["Unstoppable","Remnant"]`
+        //    · `Daemonbreaker`（`e01f4d54…`）：`keywords=[]` / `cardTraits=["Ephemeral"]`
+        //  我们的 `CardDef.Has` 只读 `keywords` 列 ⇒ 这两条在原版判得到、在我们这里**静默判不到**（`B117-01` 的病灶）。
+        //
+        //  ⚠️ **规则仍然只有一处**：本方法是 `HasDefaultTrait` 的**薄封装**（⛔ 别在这里再写一份归一化）。
+        //     多出来的只有「数据没喂 ⇒ **出声一次**」这一位（原版那条 `null` 分支根本不存在 ⇒ 我们不许静默）。
+        //  🔴 **场上单位请用 `UnitState.HasCurrentTrait`**（= `keywords` ∪ 运行期 ∪ `cardTraits`，且带
+        //     残骸档 / 已摘除两道闸）；本方法只是**卡面事实**，⛔ 别拿它顶那个。
+        //
+        //  ⚠️ 追加在**类尾**（`账/*.tsv` 按 `文件:行号` 引 —— 现读最大落点 `CardDef.cs:9436`，本段在其后）。
+        // ================================================================================================
+        /// <summary>`cardTraits` 列里有没有这条 trait（**卡面事实**，⛔ 不是场上当前状态）。
+        /// <para>判据 = 原版 `RawCardScript.HasDefaultTrait(DefinedTrait)`（见 <see cref="HasDefaultTrait"/>）。
+        /// 这里只是加「没喂就出声一次」的薄口。</para></summary>
+        public bool HasTrait(string name)
+        {
+            string why;
+            bool hit = HasDefaultTrait(name, out why);
+            if (why == null) return hit;
+            if (!_warnedNoCardTraits)
+            {
+                _warnedNoCardTraits = true;
+                UnityEngine.Debug.LogWarning("[CardDef] `HasTrait(" + name + ")` 读不到 `cardTraits`：" + why);
+            }
+            return false;
+        }
+
+        /// <summary>见 <see cref="HasTrait"/>：`cardTraits` 没喂时**全进程只吼一次**（夹具会批量造这种卡）。</summary>
+        static bool _warnedNoCardTraits;
     }
 
 }

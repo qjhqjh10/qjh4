@@ -1536,14 +1536,14 @@ namespace RuleEngine
         /// <summary>
         /// **这一份**是不是临时卡（规则书 `:183` + `:229`）。
         ///
-        /// 两个来源（`∪`）：
-        ///   ① **卡自己带 `Ephemeral` 关键词**（98 张）—— 那张卡的**所有份**都临时
-        ///   ② **这一份被标记**（<see cref="MarkEphemeral"/>）
+        /// 三个来源（`∪`）：
+        ///   ① **卡自己带 `Ephemeral` 关键词**（`cards_engine.json` 现读 103 张）—— 那张卡的**所有份**都临时
+        ///   ② **`cardTraits` 列**（104−103 = 1 张：`Daemonbreaker`，卡面**不印**）· ③ **这一份被标记**（<see cref="MarkEphemeral"/>）
         /// </summary>
         public bool IsEphemeral(CardInstance inst)
         {
             if (inst == null || inst.Card == null) return false;
-            return inst.Card.Has("ephemeral") || inst.EphemeralMarked;
+            return inst.Card.Has("ephemeral") || inst.Card.HasTrait("ephemeral") || inst.EphemeralMarked;
         }
 
         /// <summary>把**这一份**牌标成临时（造复制 / 天赋生成时调）。**幂等**（布尔，不是计数）。</summary>

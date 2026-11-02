@@ -1050,6 +1050,7 @@ namespace CardPresentation
             var mainCell = new PxRect(xs[mi], ys[mj], xs[mi + 1], ys[mj + 1]);
             PlaceCell(q, mainCell, vis, uv0);
             SetRamp(q, mainCell, clip, softPx);
+            _uvCheckKids.Clear();     // 🔴 只收「本趟」的块（见 `CheckSoftEdgeUv` 的 doc：运行时 Destroy 延迟到帧末）
 
             for (int i = 0; i < sx; i++)
                 for (int j = 0; j < sy; j++)
@@ -1072,12 +1073,13 @@ namespace CardPresentation
                     sub.SetRenderQueue(oldQ);
                     SetRamp(sub, cell, clip, softPx);
                     q.SoftEdgeRegister(sub);          // 🆕 A38③：登记 ⇒ 之后父件 `SetTint` 时它跟着刷
+                    _uvCheckKids.Add(sub);            // 🔴 本趟的块（uv 不变量只数这几块，见 `CheckSoftEdgeUv`）
                 }
 
             // 🆕 **A38③**：挂上「几何一变就重切」的回调（在此之前**不能挂** —— 重切要走一遍
             //    `PlaceCell`（内含 `SetAspect`/`SetWorldHeight`），挂了会在半路被自己叫回来）。
             ArmSoftRebuild(q, vis, mainCell, baseCorners, clip, softPx, uv0);
-            CheckSoftEdgeUv(q, uv0, "切开");
+            CheckSoftEdgeUv(q, uv0, "切开", _uvCheckKids);
         }
 
         /// <summary>🆕 **2026-10-04（A38③）：软边的重切。** 触发点 = 宿主 quad 之后被
@@ -1137,31 +1139,29 @@ namespace CardPresentation
         /// 把 `uv0` 换回 `q.UvRect`（F1 那个真缺陷）时 `want` 跟着缩，**四种情形计数都不动**。
         /// ⇒ 它能抓的**只有**「宿主 uv 不是本趟那份」（= `ReapplySoftEdges` 里不切分支的洞②）。
         /// ✅ **能真红的那条断言在宿主侧**（`Editor/ShellScene.cs` ⑤·c）：**出生时抓一份 uv、重切后比面积和**
-        /// —— 那一份期望值**独立于实现**，换回旧写法得 0.5625 vs 1.0 ⇒ 立刻红。</summary>
+        /// —— 那一份期望值**独立于实现**，换回旧写法得 0.5625 vs 1.0 ⇒ 立刻红。🔴 **2026-11-02（`B117-R3`）**：这个计数**不再数「宿主下所有 ImageQuad」**、只数「宿主 + 本趟的块」——旧数法在**真机**上每重切一次多算一块（运行时 `Object.Destroy` 延迟到帧末 ⇒ 上一刀的子块还挂着），实测假警报 `3 块 1.190476 / 4 块 1.380952 / 5 块 1.571428`（多出的每块恒 `4/21 = 0.190476`）。</summary>
         public static int SoftEdgeUvDrifts;
+        static readonly System.Collections.Generic.List<ImageQuad> _uvCheckKids = new System.Collections.Generic.List<ImageQuad>(16);   // ↑ 这张表 = 「本趟切出来的子块」，只给 `CheckSoftEdgeUv` 用（复用 ⇒ 零分配；`ApplySoftEdges` 不会重入 —— 重切由 `ImageQuad._softBusy` 挡）
 
-        /// <summary>🔴 **软边树的 uv 不变量**：宿主 + 全部子块的 uv 加起来必须**正好铺满整张图**（`uv0`），
+        /// <summary>🔴 **软边树的 uv 不变量**：宿主 + **本趟切出来的**子块的 uv 加起来必须**正好铺满整张图**（`uv0`），
         /// 且**没有一块采到整张图之外**。
-        /// <para>**为什么它不是自证**（铁律 12 那条）：期望值有两重**独立**来源 ——
-        /// ① `uv0` 是**调用方给的「整张图的 uv」**（`Rect` 是「整张图 ∩ 裁切框」那个算式的结果 ·
-        /// `Nine`/`Tiled` 是子块建好那一刻自己的 `UvRect` · **重切那条路是第一次切时存下来的那一份**）
-        /// —— 不是「切完再回读宿主」；② 面积和是**从几何独立算出来的**（每块越界多少就取多少 uv）。</para>
+        /// <para>**为什么它不是自证**：期望值有两重**独立**来源 —— ① `uv0` 是**调用方给的「整张图的 uv」**（`Rect` 是「整张图 ∩ 裁切框」那个算式的结果 · `Nine`/`Tiled` 是子块建好那一刻自己的 `UvRect` · **重切那条路是第一次切时存下来的那一份**）—— 不是「切完再回读宿主」；② 面积和是**从几何独立算出来的**。</para>
         /// <para>⚠️ **它抓不到什么（R-F 2026-10-04 复核）**：「把 `uv0` 换回 `q.UvRect`」那一档**抓不到** ——
         /// 见上面 `SoftEdgeUvDrifts` 的订正说明；那一档由**宿主侧**那条（出生时抓 uv、比重切后的面积和）负责。</para>
+        /// <para>🔴 **2026-11-02（`B117-R3`）只数【本趟】的块，⛔ 不再 `GetComponentsInChildren`**：真机三连假警报里多出来的每块面积恒 `4/21`，而那颗 168 px 高的阵营格「视口软边内沿落在格内 32 px」那条带的 uv 面积正好 `32/168 = 4/21` ⇒ **多出来的就是上一刀切出来的那条带**。
+        /// 根因：`SoftEdgeClear` 运行时走 `Object.Destroy`（**延迟到帧末**）⇒ 同一帧连切几刀时旧子块还挂在宿主下面、照样被数到；编辑器那侧 `DestroyImmediate` 立刻生效 ⇒ 自检一直全绿（这条**只在真机现形**；牙口 = `Editor/ShellScene.cs` ⑤·c-3 那颗「无关子 quad」）。</para>
         /// <para>自检怎么用（一行，宿主 = 已经切过软边的那颗 quad）：
         /// <c>Check(MenuDraw.SoftEdgeUvDrifts, 0, "宿主 uv 是本趟写进去的那一份");</c>
-        /// —— 期望值是**字面量 0**，⛔ 别从被测实现里读；⛔ 也别把这条当成「uv0 传错」的判据。</para></summary>
-        static void CheckSoftEdgeUv(ImageQuad host, Rect uv0, string tag)
+        /// —— 期望值是**字面量 0**，⛔ 别从被测实现里读；⛔ 也别把这条当成「uv0 传错」的判据。`kids` = **本趟**建出来的子块（`切开` 传刚建的那几块；`整块不切` 传 `null`）；⛔ 别改成「宿主下所有 quad」（会数到上一刀的）。</para></summary>
+        static void CheckSoftEdgeUv(ImageQuad host, Rect uv0, string tag, System.Collections.Generic.List<ImageQuad> kids = null)
         {
             if (host == null) return;
             double want = (double)uv0.width * uv0.height;
             if (want <= 1e-9) return;                       // 退化（整块被裁没）：没有可断的不变量
-            double got = 0; int n = 0; bool outside = false;
-            var all = host.GetComponentsInChildren<ImageQuad>(true);
-            for (int i = 0; i < all.Length; i++)
+            double got = 0; int n = 0; bool outside = false;   // 🔴 2026-11-02（B117-R3）：只数「宿主 + **本趟的**块」，见本函数的 doc
+            for (int i = -1; i < (kids != null ? kids.Count : 0); i++)   // i = −1 ⇒ 宿主自己
             {
-                var k = all[i];
-                if (k == null) continue;
+                var k = i < 0 ? host : kids[i]; if (k == null) continue;
                 var u = k.UvRect;
                 got += (double)u.width * u.height; n++;
                 if (u.xMin < uv0.xMin - 1e-4f || u.yMin < uv0.yMin - 1e-4f

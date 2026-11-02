@@ -3960,7 +3960,7 @@ namespace RuleEngine
                                           unitsOnly: true,
                                           costMin: op.CostMin, costMax: op.CostMax);
             // ---- 🆕 2026-10-22（`A1682`）：**复制「指代的那一个」**（`deploy a copy of this troop`）----
-            //  卡面（`SAU72 Immortals Phalanx`）：`When reanimated, deploy a copy of this troop`
+            //  卡面（`SAU71 Immortals Phalanx` —— 🔴 2026-11-03 订正：原写 `SAU72`，而 `SAU72` 是 Lokhust Lord）：`When reanimated, deploy a copy of this troop`
             //  （中文：「被复生时，部署此部队的一个复制。」）。
             //  🔴 **改前**：`CreatePool.Resolve` **认得**这个载荷（它把 `copy of <指代>` 归成
             //     `CopyOfPrev`），但**本函数不看那个旗标** ⇒ 一律走「从池里挑」，而复制品的
@@ -9389,7 +9389,7 @@ namespace RuleEngine
             int energyBefore = ctx.Players[owner].Energy;
 
             ctx.EffectChain++;
-            for (int i = 0; i <= (replays = RuleCore.OathExtraReplays(ctx, owner)); i++)   // 🔴 2026-10-29（B97_ER2 · 账 L427 ①）：原版 `CardScript__ResolveActiveAbilityPlayed.c:66-72` 的 `while (IsThereDoubleOathEffect(...) > i)` 是**每圈重算**（循环体内可能改场上 trait 张数）⇒ 条件里现算，⛔ 别退回「循环前算一次存进 `replays`」。⚠️ 残余：算子 `RuleCore.OathExtraReplays` 读 `u.Card.OathDouble`（**卡面** trait），原版读 `HasCurrentTrait`（**含运行时授予**）—— 那一半在 `RuleCore.cs`，不属本代理 ⇒ 今天重算与旧值恒等、零可观测变化（池内 `oathDouble` 只 `UM84` 一张且卡面自带）。
+            for (int i = 0; i <= (replays = RuleCore.OathExtraReplays(ctx, owner)); i++)   // 🔴 2026-10-29（B97_ER2 · 账 L427 ①）：原版 `CardScript__ResolveActiveAbilityPlayed.c:66-72` 的 `while (IsThereDoubleOathEffect(...) > i)` 是**每圈重算**（循环体内可能改场上 trait 张数）⇒ 条件里现算，⛔ 别退回「循环前算一次存进 `replays`」。⚠️ 2026-11-02（`B117_F8`）**就地订正 · 那段「残余」已消除**：`RuleCore.OathExtraReplays` 现在读 `HasOathDouble` = `HasCurrentTrait("oathdouble")`（含运行时授予，与原版 `IsThereDoubleOathEffect.c:33` 同口径）；池内带 `oathDouble` 的**只有 `UM100 Chaplain Cassius` 一张**（旧文写 `UM84` 那是 `LegacyCardIds` 的旧编号）。
             {
                 // 🔴 **只有第一遍付费**（2026-09-16 实测踩到）：`Oath N:` 的 N 是**挂在 op 上的
                 //    付费前缀**（`op.Cost`），而每一次重放都会再走一遍 `ResolveOneCore` 的付费分支
@@ -11864,7 +11864,7 @@ namespace RuleEngine
         static bool AddEffectCasterNotJammed(BattleContext ctx, UnitState caster, bool extrinsic, string by)
         {
             if (ctx == null || caster == null || !extrinsic) return true;
-            if (!caster.Has(KeywordTable.Jam)) return true;
+            if (!caster.HasCurrentTrait(KeywordTable.Jam)) return true;
             ctx.Log($"{by}：`AddEffect` **闸② jam** —— 施放者「{caster.Name}」身上带 **jam**"
                   + "（`DefinedTrait.jam = 130`），这条 **extrinsic** 效果不收"
                   + "（原版 `CardScript__AddEffect.c:85-98`）");
@@ -17946,7 +17946,7 @@ namespace RuleEngine
                 // ---- jam（130）：被干扰的卡**不问** ------------------------------
                 //   原版 `EntityScript.HasCurrentTrait(jam)` 读的是**运行期** trait
                 //   ⇒ 场上实例优先（`UnitState._keywords`），没有实例才退回卡的默认 trait。
-                bool jammed = (thisCard != null && thisCard.Has(KeywordTable.Jam))
+                bool jammed = (thisCard != null && thisCard.HasCurrentTrait(KeywordTable.Jam))
                            || (thisCard == null && card.HasDefaultTrait(KeywordTable.Jam, out _));
                 if (jammed)
                 {
@@ -18592,7 +18592,7 @@ namespace RuleEngine
         {
             if (only != null) return;
             // ① jam 闸（`RawCardScript__TriggerAbilities.c:43`：`HasCurrentTrait(thisCard, 0x82, 0)`）
-            bool jammed = thisCard != null && thisCard.Card != null && thisCard.Has(KeywordTable.Jam);
+            bool jammed = thisCard != null && thisCard.Card != null && thisCard.HasCurrentTrait(KeywordTable.Jam);
             // ② `resolveOnlyEnchantments`（`.c:47` 的 `param_9 != 0`：只跑附魔趟）
             if (jammed || resolveOnlyEnchantments)
             {
@@ -19114,7 +19114,7 @@ namespace RuleEngine
         /// ② 否则要求这张卡「有天赋」——引擎里既有的**三口径一致**判据 =
         ///   `TalentCardData.Resolve(...).Count &gt; 0 || TalentName != null`（`RuleCore.SpawnTalents` 的闸；
         ///   现读 `cardTraits` 含 talent / `abilityTriggers` 含 46 / desc 有 `Talent:` 三个集合都 = 96 张）。
-        /// ⚠️ `CardDef` 的 `cardTraits` 列**没喂引擎**（见 `SpawnTalents` 那段注释）⇒ 这里走不了 `HasDefaultTrait`。</summary>
+        /// ⚠️ 2026-11-02（`B117_F1` · `B117-25`）**就地订正**：原注写「`cardTraits` 没喂引擎 ⇒ 走不了 `HasDefaultTrait`」，**已过期** —— 现读 `Data/CardDatabase.cs` 的 `def.AttachCardTraits(c.cardTraits)` 就在生产路径上，`CardDef.HasTrait` / `UnitState.HasCurrentTrait` 都读得到；这里仍不走它，只是因为本闸要与 `abilityTriggers` 那两条**同集合**（三口径现读都 = 96 张）。</summary>
         static bool HandTalentGateOpen(BattleContext ctx, CardDef card)
         {
             if (ctx == null || card == null) return false;

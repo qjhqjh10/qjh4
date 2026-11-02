@@ -294,10 +294,10 @@ public static class B99G1_Assert
                 if (nt != null)
                 {
                     float nom = v.NameFontSize;
-                    Tr(nt.fontSize <= 1.90f + 1e-3f,   // 🔴 2026-10-30（B100_F7/K3）：上界 = 原版 autosize 硬上限 `NameUnitBandMax` 1.90（`CardView.cs:5552`，private const ⇒ 抄字面量）；名义 `NameFontSize` = 1.8988 是它量化前的同一个值（差 0.0012 > 旧容差 1e-3）⇒ 旧 `nom + 1e-3` **结构上不可能过**
-                       $"G1 ★ 单位卡卡名**没被放大**：fs {nt.fontSize:F4} ≤ autosize 上界 1.9000（名义 {nom:F4}）"
-                     + "（原版 `NameTextUnit` 的 `m_fontSizeMax` = 19 ⇒ 运行时顶到 1.90；`FitToBox` 的量化步是 0.005）"
-                     + "｜🧨 卡名那支把 `NameTacticBand*`（1/24）当档位传进去 ⇒ 涨到 2.4 一档 ⇒ 红");
+                    Tr(nt.fontSize <= v.NameBandMaxForTest + 1e-3f,   // 🔴 2026-11-03（`B117_F14`）：上界不再写死 —— shipped 实拍 ×0.75 后 `NameUnitBandMax` = **1.425**（判据 → `CardView.TitleEmOfCard`）；直接读公开 accessor，⛔ 别再抄一份字面量
+                       $"G1 ★ 单位卡卡名**没被放大**：fs {nt.fontSize:F4} ≤ autosize 上界 {v.NameBandMaxForTest:F4}（名义 {nom:F4}）"
+                     + "（`NameUnitBandMax` = 原版 `m_fontSizeMax` 19 ÷10 × shipped 实拍 0.75；`FitToBox` 的量化步是 0.005）"
+                     + "｜🧨 卡名那支把 `NameTacticBand*` 当档位传进去 ⇒ 涨到 1.80 一档 ⇒ 红");
                     Tr(OnGrid(nt.fontSize),
                        $"G1c 单位卡卡名 fs {nt.fontSize:F4} 落 0.005 网格｜🧨 去掉量化 ⇒ 红");
                 }
@@ -307,13 +307,13 @@ public static class B99G1_Assert
                     Tr(OnGrid(dt.fontSize),
                        $"G1d 单位卡效果文字 fs {dt.fontSize:F4} 落 0.005 网格（`DescTextUnit` 档 1/24；"
                      + $"名义 {CardView.KeywordFontSize:F3}）｜🧨 去掉量化 ⇒ 红");
-                    Tr(dt.fontSize <= 2.40f + 1e-3f,
-                       $"G1e 效果文字 fs {dt.fontSize:F4} ≤ 该层上界 2.40（`DescTextUnit m_fontSizeMax = 24` ÷ 10）"
-                     + "｜🧨 上界写错（例如拿 2.60 那档 `DescTextUnit Big`）⇒ 越界 ⇒ 红");
+                    Tr(dt.fontSize <= v.DescBandMaxForTest + 1e-3f,
+                       $"G1e 效果文字 fs {dt.fontSize:F4} ≤ 该层上界 {v.DescBandMaxForTest:F4}（`DescTextUnit` 24 ÷10 × shipped 实拍 0.78）"
+                     + "｜🧨 上界写错（例如拿 2.028 那档 `DescTextUnit Big`）⇒ 越界 ⇒ 红");
                 }
             }
 
-            // ---- 战术卡：卡名档 = `NameTextTactic` 1/**24** ⇒ 装得下就会被放大到 1.90 以上 ----
+            // ---- 战术卡：卡名档 = `NameTextTactic` 1/**24** ⇒ 装得下就会被放大到 1.425 以上 ----
             Tr(tacticDef != null, "G2 **前提断言**：卡池里挑得出一张战术/防御卡（`!IsUnit`）");
             if (tacticDef != null)
             {
@@ -323,14 +323,14 @@ public static class B99G1_Assert
                 Tr(nt != null, "G2b **前提断言**：战术卡卡名层建出来了（`TitleText` 非 null）");
                 if (nt != null)
                 {
-                    float nom = v.NameFontSize;      // 名义（单位/战术同一个名义 = 1.90；`NameFontSize` 按 `CardUse` 分档）
+                    float nom = v.NameFontSize;      // 名义（单位/战术同一个名义 = 1.424；`NameFontSize` 按 `CardUse` 分档）
                     Tr(nt.fontSize > nom + 0.05f,
                        $"G2 ★★ 战术卡卡名**被放大**了：fs {nt.fontSize:F4} > 名义 {nom:F4}"
-                     + $"（夹具 = 卡名最短的 `{tacticDef.Name}`；原版 `NameTextTactic` 的 `m_fontSizeMax` = **24** "
-                     + "⇒ 运行时 = 24 = 我们的 2.40 档）"
-                     + "｜🧨 卡名那支把 `NameUnitBand*`（1/19）传进去 ⇒ 停在 1.90 ⇒ 红（= 改前那 21% 的差）");
-                    Tr(nt.fontSize <= 2.40f + 1e-3f,
-                       $"G2c 战术卡卡名 fs {nt.fontSize:F4} ≤ 2.40（`NameTextTactic m_fontSizeMax = 24` ÷ 10）"
+                     + $"（夹具 = 卡名最短的 `{tacticDef.Name}`；原版 `NameTextTactic` 的 `m_fontSizeMax` = **24** ×0.75 "
+                     + "⇒ 运行时 = **1.80**）"
+                     + "｜🧨 卡名那支把 `NameUnitBand*`（1.425）传进去 ⇒ 停在 1.425 ⇒ 红（= 改前那 21% 的差）");
+                    Tr(nt.fontSize <= v.NameBandMaxForTest + 1e-3f,
+                       $"G2c 战术卡卡名 fs {nt.fontSize:F4} ≤ {v.NameBandMaxForTest:F4}（`NameTextTactic m_fontSizeMax` 24 ÷10 × 0.75）"
                      + "｜🧨 上界写大 ⇒ 越界 ⇒ 红");
                     Tr(OnGrid(nt.fontSize),
                        $"G2d 战术卡卡名 fs {nt.fontSize:F4} 落 0.005 网格｜🧨 去掉量化 ⇒ 红");

@@ -4181,7 +4181,7 @@ namespace RuleEngine
             if (op != null) { r.Ops.Add(op); r.Kind = SegKind.Ok; return r; }
 
             // ---- 8c-bis) 🔴 `<效果> when <事件>`（**后缀形**，`A1461` / `A1575`，2026-10-12）----
-            //   出处：`TAU20 Sniper Drone` 的 `Gains Long Range when an enemy gains Markerlight`
+            //   出处：`TAU15 Sniper Drone`（🔴 2026-11-03 订正：原写 `TAU20`，而 `TAU20` 是 Piranha） 的 `Gains Long Range when an enemy gains Markerlight`
             //   （卡面亲读 → `d:/2/Warpforge部队卡片/Tau/3部队/Warpforge_20_Sniper-Drone.png`；
             //    抄录表 → `资料/卡表核对_卡图提取/Tau__1.md:36`）。
             //   🔴 **必须先于 `TryGive`/`TryGain`**（它们在这段**后面**，见下面 7x/9x 那几支）：
@@ -5462,10 +5462,10 @@ namespace RuleEngine
         ///
         /// 实测「回合起止」型只有 **1 条**：AstraMilitarum `Cadia Stands`
         /// （`For the rest of this battle, at the start of your turn, deploy a Shock Trooper`）。
-        /// 同族的另外 3 条是**别的触发点**，**不在这个 handler 里**、现在仍然判不认识：
-        ///   `… give Shield to all Drones you deploy`（部署时给）·
-        ///   `… give Armour 1 to Vehicles you put in play`（部署时给）·
-        ///   `… Sabotage cards in the enemy hand cost 1 more`（持续改费）
+        /// 同族的另外 3 条是**别的触发点**，**不在这个 handler 里**（🔴 2026-11-03 订正：原写「现在仍然判不认识」已过期）：
+        ///   `… give Shield to all Drones you deploy`（部署时给）**已解**（现测 `ruleprobe seg` ⇒ unparsed 空 · `Deployed=1`）·
+        ///   `… give Armour 1 to Vehicles you put in play`（部署时给）**已解** —— 现测 `ruleprobe card "Armoured Support"`（`UM44`）= `verb=persist · atTurnPhase=deploy`、`unparsed` 空；
+        ///   `… Sabotage cards in the enemy hand cost 1 more`（持续改费）**仍然判不认识**（现测 `ruleprobe seg` ⇒ unparsed 非空）
         /// —— **宁可报「不认识」，也不注册一条不会生效的**。
         /// </summary>
         static bool TryPersistent(string low, string src, SegResult r)
@@ -8756,7 +8756,7 @@ namespace RuleEngine
         /// 并把**效果那半**解析成 op。**切不出来返回 `false`**（⛔ 不猜切点）。
         ///
         /// 🆕 2026-10-12（`A1461` / `A1575`）。**为什么需要它**：卡面
-        /// `Gains Long Range when an enemy gains Markerlight`（`TAU20 Sniper Drone`，
+        /// `Gains Long Range when an enemy gains Markerlight`（`TAU15 Sniper Drone`（🔴 2026-11-03 订正：原写 `TAU20`，而 `TAU20` 是 Piranha），
         /// 亲读 `d:/2/Warpforge部队卡片/Tau/3部队/Warpforge_20_Sniper-Drone.png`；
         /// 抄录 `资料/卡表核对_卡图提取/Tau__1.md:36`）是「**效果在前、事件在后**」的写法，
         /// 而主解析器只认过事件在前的 `When …, …` ⇒ `TryGain` 的

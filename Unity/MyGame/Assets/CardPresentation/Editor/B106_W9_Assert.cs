@@ -77,16 +77,16 @@ public static class B106W9_Assert
             Tr(std != null && boost != null && stdTactic != null, "A0-a **前提**：三张夹具卡都建出来了");
             if (std == null || boost == null || stdTactic == null) return;
 
-            Near(std.NameBandMaxForTest, 1.90f, 1e-3f,
-                 "A1 标准档卡名 autosize 上界 = 1.90（原版 `NameTextUnit` 19 pt ÷10）"
+            Near(std.NameBandMaxForTest, 1.425f, 1e-3f,
+                 "A1 标准档卡名 autosize 上界 = 1.425（原版 `NameTextUnit` 19 pt ÷10 × shipped 实拍 0.75；`B117_F14`，判据 → `CardView.TitleEmOfCard`）"
                + "｜🧨 把 `NameUnitBandMaxForUse` 写死回常量 ⇒ 本行在开包那一侧才红（见 A1b）");
-            Near(boost.NameBandMaxForTest, 2.00f, 1e-3f,
-                 "A1b 开包族卡名上界 = 2.00（原版开包实例 `m_fontSizeMax = 20`）"
+            Near(boost.NameBandMaxForTest, 1.500f, 1e-3f,
+                 "A1b 开包族卡名上界 = 1.500（原版开包实例 `m_fontSizeMax = 20` × 0.75）"
                + "｜🧨 改回恒 `NameUnitBandMax`(1.90) ⇒ 本行红");
 
-            Near(std.DescBandMaxForTest, 2.40f, 1e-3f, "A2 标准档效果文字上界 = 2.40（`DescTextUnit` 24 pt ÷10）");
-            Near(boost.DescBandMaxForTest, 1.90f, 1e-3f,
-                 "A2b 开包族效果文字上界 = 1.90（原版开包实例 `19/max 19`）"
+            Near(std.DescBandMaxForTest, 1.872f, 1e-3f, "A2 标准档效果文字上界 = 1.872（`DescTextUnit` 24 pt ÷10 × shipped 实拍 0.78；`B117_F14`）；名义 `KeywordFontSize` 仍是 prefab 的 23.55");
+            Near(boost.DescBandMaxForTest, 1.482f, 1e-3f,
+                 "A2b 开包族效果文字上界 = 1.482（原版开包实例 `19/max 19` × 0.78）"
                + "｜🧨 改回恒 `DescUnitBandMax`(2.40) ⇒ 本行红");
 
             float armyRatio = boost.ArmyFontSizeForTest(true) / Mathf.Max(1e-6f, std.ArmyFontSizeForTest(true));
@@ -104,8 +104,8 @@ public static class B106W9_Assert
                  "A5b 标准档兵种行 = 静态 `RaceFontSize`（零回归）");
 
             // 商店页签那一档「fs 16 / max 19」= 标准档 ⇒ 有效字号相同，**不单开分支**。
-            Near(boost.NameBandMaxForTest, std.NameBandMaxForTest + 0.10f, 1e-3f,
-                 "A6 开包族与标准档卡名上界只差 0.10（20↔19）—— 商店页签那档（16/19）与标准档**同界** ⇒ 不分档");
+            Near(boost.NameBandMaxForTest, std.NameBandMaxForTest * 20f / 19f, 1e-3f,
+                 "A6 开包族 / 标准档卡名上界之比 = **20/19**（两档同乘 0.75 ⇒ 比值不变）—— 商店页签那档（16/19）与标准档**同界** ⇒ 不分档");
 
             Near(stdTactic.ArmyFontSizeForTest(false), std.ArmyFontSizeForTest(true), 1e-4f,
                  "A7 标准档：战术卡阵营行与单位卡阵营行**同值**（原版 `ArmyTextTactc` 41/41 `m_fontSizeMax = 15`"

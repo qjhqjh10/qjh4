@@ -1296,6 +1296,39 @@ public static class CollectionScene
                           + (i == 2 ? "（⚠️ 页节点叫 `Cardback Tab`，**卡面印的是 Cosmetics**）" : "")
                           + (i == 3 ? "（⚠️ 页节点叫 `Alternate Art Tab`，**卡面印的是 Styles**）" : ""));
             }
+            // 🆕 **2026-11-02（`B117-R12②`）：图标 / 文案的【原版几何】** —— 用户真机报「文字压在图标下沿上」。
+            //   判据 = 原版 prefab 现读（`d:/2/tools/assetripper_out/ExportedProject/Assets/Collection Menu Variant.prefab`，
+            //   四个子菜单 prefab 的 `Icon` 逐字段相同）：
+            //     · 钮 165×180 · `Icon` anchor (0,0)-(1,1) sizeDelta (0,0) **pivot (0.5, 0.7)** + preserveAspect
+            //       ⇒ uGUI `PreserveSpriteAspectRatio`（本机 `com.unity.ugui@27635d171b1a/…/Image.cs:819`）按 pivot 偏移
+            //       `(180−165) × 0.7 = 10.5` 自钮**底** ⇒ 图标 = 钮顶 **4.5 … 169.5**（居中画是 7.5…172.5 ⇒ **低 3px**）
+            //     · `Label` anchor (.5,.5) pivot (.5,0) apos.y **−72.162** sizeDelta **155 × 37.856**
+            //       ⇒ 钮顶 **124.3 … 162.2**
+            //   🔴 **两条叠起来 = 原版本来的样子**（文字框顶 124.3 < 图标框底 169.5，重叠 45.2px）：实拍里文字确实压在
+            //      插图下沿的 nametag 条上 ⇒ ⛔ **别写成「文字上沿 ≥ 图标下沿」**，那条与原版 prefab 直接冲突。
+            //      本档钉的是**原版那两组数**（图标中心 vs 文案中心相差 56.25px）。
+            //   🧨 改坏法：把 `BuildTabButton` 的 `iconCy` 退回 `cy`（居中）⇒ 差值 53.25 ⇒ 下面第 3 条红。
+            {
+                var kbG = FindChild(bar, "CollectionTabButton_0");
+                var iconT = kbG != null ? FindChild(kbG, "Icon") : null;
+                var iconG = iconT != null ? iconT.GetComponent<ImageQuad>() : null;
+                CheckTrue(iconG != null, "（图标几何 · 前提）第 1 键的 `Icon` 图块取得到");
+                float gx1 = 0f, gy1 = 0f, gx2 = 0f, gy2 = 0f;
+                bool okG = iconG != null && QuadRectOf(iconG, out gx1, out gy1, out gx2, out gy2);
+                CheckTrue(okG && gx2 > gx1 && gy2 > gy1, "（图标几何 · 前提）图标矩形量得到（宽高都为正）");
+                var labT = kbG != null ? FindChild(kbG, "Text") : null;
+                float labY = labT != null ? MenuCheck.DesignPx(labT).y : -99999f;
+                CheckTrue(labT != null && Mathf.Abs(labY) < 5000f, "（图标几何 · 前提）文案节点的设计坐标量得到");
+                if (okG && labT != null)
+                {
+                    CheckNear(gy2 - gy1, 165f, 1.5f,
+                              "★ 图标高 = **165**（原版 165×180 框 + 方形精灵 + preserveAspect ⇒ 按短边收成 165）");
+                    CheckNear(gx2 - gx1, 165f, 1.5f, "★ 图标宽 = **165**（同上）");
+                    CheckNear(labY - (gy1 + gy2) * 0.5f, 56.25f, 1.5f,
+                              "★ 文案中心比图标中心**低 56.25 px** = 原版那两组数（图标 4.5…169.5 · 文案 124.3…162.2）"
+                            + " —— 把图标改回「居中」⇒ 53.25 ⇒ 这里红（真机症状：文字更压图标下沿）");
+                }
+            }
             // 🆕 **2026-10-08（波 C3 · A212 主表 #31 验收）：左栏键文案的【渲染】断言**（四窗这一族原来一条都没有）。
             //   判据 = 原版四窗左栏键文案的 `m_TextWrappingMode` **一律 `0`（`NoWrap`）**—— 逐窗现读的四窗表
             //   只写一处：`Shell/MainMenuSubmenuWindow.cs` 的 `BuildTabButton`（此处不抄第二份，铁律 6）。
@@ -8667,7 +8700,7 @@ public static class CollectionScene
                     CheckTrue(cell0View != null && Mathf.Abs(cell0View.Alpha - 1f) < 0.001f,
                               "★ …因此第 1 格的卡是**实心**的（`Alpha == 1`，不是停在 0）");
                     var cd = CollectionWindow.LastCardDetail;
-                    CheckTrue(cd != null, "点第 1 格 ⇒ **开出了卡片详情窗**");
+                    CheckTrue(cd != null, "点第 1 格 ⇒ **开出了卡片详情窗**"); B117F9_CheckDetailLayers(cd);   // 🆕 B117-27/28（同一物理行追加 ⇒ 行数零变化）
                     if (cd != null)
                     {
                         var disp = FindChild(cd.transform, "Card Display");
@@ -13246,7 +13279,7 @@ public static class CollectionScene
                 CheckNear(win.WildcardShineRate, 0f, 1e-4f, "（收尾）重开又从 **0** 起"); win.tabButtons.Click(0);   // 复原：本节进来时是 Deck 页（同 `:12087` 的口径，不给后面的段留状态）
             }
 
-            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B107_W14_Assert.RunCollection(win); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B108A4_Assert.Run(); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; CheckUI21Measure(win); CheckB326Uv1(win); B108A4_Assert.RunCollectionCloseScrolls(win); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md ｜ 🆕 2026-10-31（B107_W27）：同一物理行再追加 `B107_W14_Assert.RunCollection(win)`（N84 关窗重开回初值；**必须排在所有筛选断言之后** —— 它会复位三份 static 筛选；判据 → 报告/B107_W14.md §四·1）
+            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B107_W14_Assert.RunCollection(win); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B108A4_Assert.Run(); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; CheckUI21Measure(win); CheckB326Uv1(win); B108A4_Assert.RunCollectionCloseScrolls(win); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; B117F14_Assert.Run(); _sink.Pass += B117F14_Assert.Pass; _sink.Fail += B117F14_Assert.Fail;   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md ｜ 🆕 2026-10-31（B107_W27）：同一物理行再追加 `B107_W14_Assert.RunCollection(win)`（N84 关窗重开回初值；**必须排在所有筛选断言之后** —— 它会复位三份 static 筛选；判据 → 报告/B107_W14.md §四·1）
             Q2_Assert.Run(); _sink.Pass += Q2_Assert.Pass; _sink.Fail += Q2_Assert.Fail; B110_F1_Assert.Run(); _sink.Pass += B110_F1_Assert.Pass; _sink.Fail += B110_F1_Assert.Fail; B110_F2_Assert.Run(); _sink.Pass += B110_F2_Assert.Pass; _sink.Fail += B110_F2_Assert.Fail; B111_S2_Assert.Run(); _sink.Pass += B111_S2_Assert.Pass; _sink.Fail += B111_S2_Assert.Fail; B112_G_Assert.Run(); _sink.Pass += B112_G_Assert.Pass; _sink.Fail += B112_G_Assert.Fail; B113_G3_Assert.Run(); _sink.Pass += B113_G3_Assert.Pass; _sink.Fail += B113_G3_Assert.Fail; int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
             else
@@ -13705,5 +13738,58 @@ public static class CollectionScene
             if (lx > hx || ly > hy) return false;
             x0 = lx; x1 = hx; y0 = ly; y1 = hy;
             return true;
+        }
+
+        // ============================================================ 🆕 2026-11-02（`B117-27` / `B117-28` · 执行代理 `B117_F9`）
+        // 判据：
+        //  · **槽数** —— 原版 `CardDisplayWindow` 只有 `cardUIs[0..4]`（1 主卡 + `RawCardScript.relatedCard1..4`），
+        //    判据链 → `Core/RelatedCards.cs` 文件头 + `CardFan.OriginalSlots`。
+        //  · **两层** —— 原版菜单窗 `Card Display` 的四个孩子 `LowerSection`/`Cards`/`TutorialObjs`/`EffectList`
+        //    （`m_IsActive` 分别 = 1/1/**1**/**0**），现读于
+        //    `_tmp_view/orig_ui_proj/Assets/Data/Scenes/MainMenu Warpforge.unity` 的 RT 1416/1403/591。
+        // ⛔ 期望值写成**字面量**（5 / true / false / 5 行），⛔ 不从被测常量反读（那是自证）。
+        static void B117F9_CheckDetailLayers(CardDetailPopup cd)
+        {
+            Section("B117-27/28：卡片详情窗 —— 槽数（原版 5）与两层（`TutorialObjs` 开 / `EffectList` 关）");
+
+            var disp = cd != null ? FindChild(cd.transform, "Card Display") : null;
+            CheckTrue(cd != null && disp != null,
+                      "（前提·不静默）卡片详情窗开着、`Card Display` 在（下面几条全靠它；null ⇒ ⛔ 不许静默跳过）");
+            if (cd == null || disp == null) return;
+
+            // ---- B117-27：槽数 = min(1 + 相关卡数, 5) ----
+            var rel = cd.Card != null ? RelatedCards.Find(cd.Card, 4) : new System.Collections.Generic.List<CardDef>();
+            int expect = cd.Card == null ? 0 : Mathf.Min(1 + rel.Count, 5);
+            Check(cd.SlotCount, expect,
+                  "★ 位姿槽数 = min(1 + 相关卡数, **5**)（原版 `cardUIs[0..4]`；现读相关卡 " + rel.Count
+                + " 张 ⇒ 期望 " + expect + "，实得 " + cd.SlotCount + "）"
+                + "｜🧨 改回跟 `CardFan.Slots`(9) 建 ⇒ 红");
+            CheckTrue(cd.SlotCount <= 5, "★ ……而且**从不超过 5**（`SlotCount` 现读 " + cd.SlotCount + "）");
+            int built = 0;
+            for (int i = 0; i < cd.SlotCount; i++) if (cd.SlotView(i) != null) built++;
+            Check(built, cd.SlotCount, "★ 每一格都建出了 `CardView`（" + built + " / 槽 " + cd.SlotCount + "）");
+
+            // ---- B117-28：原版菜单窗多出来的两层 ----
+            var tut = FindChild(disp, "TutorialObjs");
+            var fx = FindChild(disp, "EffectList");
+            CheckTrue(tut != null, "★ `Card Display/TutorialObjs` **建出来了**（原版菜单窗有这一层）");
+            CheckTrue(fx != null, "★ `Card Display/EffectList` **建出来了**（原版菜单窗有这一层）");
+            if (tut != null)
+                CheckTrue(tut.gameObject.activeSelf,
+                          "★ `TutorialObjs` **出厂 `activeSelf = true`**（原版 `m_IsActive: 1`；🧨 建成关的 ⇒ 红）");
+            if (fx != null)
+                CheckTrue(!fx.gameObject.activeSelf,
+                          "★ `EffectList` **出厂 `activeSelf = false`**（原版 `m_IsActive: 0`；唯一写者 = `DisplayCardEffects`；🧨 建成开的 ⇒ 红）");
+
+            // 结构（照原版）：`TutorialObjs ▸ {UnitObjs, EnergyText}` · `EffectList ▸ {AffectedBy, Elements(5)}`
+            CheckTrue(tut != null && FindChild(tut, "UnitObjs") != null && FindChild(tut, "EnergyText") != null,
+                      "★ `TutorialObjs ▸ {UnitObjs, EnergyText}` 都在（原版那两格；前者含 Melee/Ranged/Health 三颗字）");
+            if (fx != null)
+            {
+                CheckTrue(FindChild(fx, "AffectedBy") != null, "★ `EffectList ▸ AffectedBy`（标题）在");
+                var elems = FindChild(fx, "Elements");
+                CheckTrue(elems != null, "★ `EffectList ▸ Elements`（5 行的容器）在");
+                if (elems != null) Check(elems.childCount, 5, "★ `Elements` 下 **5 行**（原版 `EffectElement` 0..4）");
+            }
         }
 }

@@ -113,8 +113,11 @@ namespace RuleEngine
         public const int SkirmishCards = GameplayVariables.SkirmishDeckSize;                      // :57
         public const int SkirmishHandStart = GameplayVariables.SkirmishStartingHand;              // :58
         public const int SkirmishHandLimit = GameplayVariables.SkirmishHandLimit;                 // :58
-        /// <summary>⚠️ 老名字是「**扣几点**」（正数 10）；`GameplayVariables` 里存的是**增量**（`−10`）。
-        /// 保留这个正数写法只为不动既有断言，新代码用 `SkirmishWarlordLifeChange`。</summary>
+        /// <summary>⚠️ 老名字是「**扣几点**」（正数）；`GameplayVariables` 里存的是**增量**。
+        /// 🔴 **2026-11-02 现读 = 0**：遭遇档不再扣血（`SkirmishWarlordLifeChange = 0`）——
+        /// 原文案 `Warlords start with 10 less Health` 是**相对经典**说的（经典 = `+10`），
+        /// 判据链见 `GameplayVariables.warlordLifeChange` 字段注释。
+        /// 保留这个派生写法只为不动既有断言，新代码一律用 `SkirmishWarlordLifeChange`。</summary>
         public const int SkirmishWarlordHealthPenalty = -GameplayVariables.SkirmishWarlordLifeChange;  // :62
         public const int SkirmishEnergyPerTurn = GameplayVariables.SkirmishManaPerTurn;           // :60
         public const int SkirmishLegendaryLimit = GameplayVariables.SkirmishMaxLegendaries;      // :64

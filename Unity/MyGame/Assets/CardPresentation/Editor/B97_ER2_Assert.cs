@@ -139,11 +139,13 @@ public static partial class RuleEngineTest
     }
 
     // ==================================================================
-    //  3 · 誓约重放次数（账 427）—— 只数**同方场上**带卡面 `oathDouble` 的牌
-    //  判据 = `BattleManager__IsThereDoubleOathEffect.c:33`
-    //  ⚠️ **如实标着的残余**：原版读 `HasCurrentTrait`（含运行时授予），
-    //     我们读 `Card.OathDouble`（**卡面** trait）—— 那一半在 `RuleCore.cs`，不属本代理。
-    //     本段因此**断的是「算子今天的口径」**（同方 + 卡面 trait），不是原版口径。
+    //  3 · 誓约重放次数（账 427）—— 只数**同方场上**当前带 `oathDouble` 的牌
+    //  判据 = `BattleManager__IsThereDoubleOathEffect.c:33`（逐张 `EntityScript__HasCurrentTrait(card, 0x4fd)`）
+    //  🔴 2026-11-02（`B117_F13`）**就地订正**：原来这里写着「残余：我们读 `Card.OathDouble`（卡面 trait）」——
+    //     **已过期**（`B117-44`）：`B117_F1`/`F8` 起 `RuleCore.OathExtraReplays` 走 `HasCurrentTrait("oathdouble")`，
+    //     与本条判据**同口径**、残余已消除。夹具因此必须把 trait 挂进 `cardTraits`
+    //     （`AttachCardTraits(new[] { "oathDouble" })`，归一化见 `KeywordTable.Prefixes` 那三条 oath 变体）；
+    //     设 `CardDef.OathDouble` 那个**正文 bool** 已不再能让本段变绿（它不再是判据，见 `CardDef.cs:4339`）。
     // ==================================================================
     static void B97ER2OathReplaysCountsOnlyOwnSide()
     {
@@ -157,12 +159,13 @@ public static partial class RuleEngineTest
         Check(ua != null && ub != null && ue != null, true, "前提：三个单位都上了棋盘");
         if (ua == null || ub == null || ue == null) return;
 
-        a.OathDouble = true;
-        e.OathDouble = true;                        // 对面那张：⛔ 不该被数进来
+        a.AttachCardTraits(new[] { "oathDouble" });
+        e.AttachCardTraits(new[] { "oathDouble" });   // 对面那张：⛔ 不该被数进来
         Check(RuleCore.OathExtraReplays(ctx, 0), 1,
-              "🧨 只数**本方**场上带 `oathDouble` 的牌（判据 `BattleManager__IsThereDoubleOathEffect.c:33`）；改成数双方 ⇒ 实得 2");
+              "🧨 只数**本方**场上带 `oathDouble` 的牌（判据 `BattleManager__IsThereDoubleOathEffect.c:33`）；改成数双方 ⇒ 实得 2"
+            + "；把这两句 `AttachCardTraits` 拿掉（trait 没挂上）⇒ 实得 0、本行红");
 
-        b.OathDouble = true;
+        b.AttachCardTraits(new[] { "oathDouble" });
         Check(RuleCore.OathExtraReplays(ctx, 0), 2,
               "🧨 本方第二张也带上 ⇒ 跟着变 2（证明它真的**逐张现数**，不是缓存/写死）");
         Check(RuleCore.OathExtraReplays(ctx, 1), 1, "对面同理（各数各的侧）");

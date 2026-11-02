@@ -311,9 +311,9 @@ namespace CardPresentation
         Vector3 _fxTitleBase;
         Vector3[] _fxWhoBase, _fxWhatBase;
 
-        /// <summary>每个**位姿槽**上的卡（下标 0 = 前台）。判据与真值 → `CardFan`。</summary>
-        public readonly CardView[] SlotViews = new CardView[CardFan.Slots];
-        readonly CardDef[] _slotDefs = new CardDef[CardFan.Slots];
+        /// <summary>每个**位姿槽**上的卡（下标 0 = 前台）。判据与真值 → `CardFan`。🔴 2026-11-02（`B117-27`）：长度 = `CardFan.OriginalSlots`（**5** = 原版 `cardUIs[0..4]`），不再是外推表长度 `CardFan.Slots`(9)。</summary>
+        public readonly CardView[] SlotViews = new CardView[CardFan.OriginalSlots];
+        readonly CardDef[] _slotDefs = new CardDef[CardFan.OriginalSlots];
         bool _swapping;
         /// <summary>开窗那一拍还在播没有 —— 我们这套的 `displayAnimation.isPlaying`（闸③，见 `SwapToFront`）。</summary>
         bool _opening;
@@ -368,7 +368,7 @@ namespace CardPresentation
             float wPx = lb.WorldW;                                        // uGUI 档：就是 px（见上）
             return lb.transform.localPosition.x + FxC.x - wPx * 0.5f;     // 块左缘 = 中心 − 半个块宽
         }
-        /// <summary>位姿槽上有几张卡（= 1 主卡 + 相关卡数，最多 `CardFan.Slots`；自检用）</summary>
+        /// <summary>位姿槽上有几张卡（= 1 主卡 + 相关卡数，最多 `CardFan.OriginalSlots`；自检用）</summary>
         public int SlotCount { get; private set; }
         /// <summary>**前台那张**（永远是位姿槽 0）—— 原版 `cardInFront`。</summary>
         public CardView Card { get { return SlotViews[0]; } }
@@ -388,9 +388,9 @@ namespace CardPresentation
         public bool FrontVisible { get; private set; } = true;
 
         /// <summary>位姿槽 `i` 上的卡（越界返回 null）。</summary>
-        public CardView SlotView(int i) { return (i >= 0 && i < CardFan.Slots) ? SlotViews[i] : null; }
+        public CardView SlotView(int i) { return (i >= 0 && i < CardFan.OriginalSlots) ? SlotViews[i] : null; }
         /// <summary>位姿槽 `i` 上那张卡的卡表项（越界返回 null）。</summary>
-        public CardDef SlotDef(int i) { return (i >= 0 && i < CardFan.Slots) ? _slotDefs[i] : null; }
+        public CardDef SlotDef(int i) { return (i >= 0 && i < CardFan.OriginalSlots) ? _slotDefs[i] : null; }
 
         /// <summary>窗口上那行字（自检用）</summary>
         public string ShownTitle { get; private set; }
@@ -1071,7 +1071,7 @@ namespace CardPresentation
         public int HitSlot(Vector3 world)
         {
             if (!Visible) return -1;
-            for (int i = 0; i < SlotCount && i < CardFan.Slots; i++)
+            for (int i = 0; i < SlotCount && i < CardFan.OriginalSlots; i++)
             {
                 var v = SlotViews[i];
                 if (v != null)
@@ -1370,7 +1370,7 @@ namespace CardPresentation
             _opening = false;            // 关窗 = 那 5 条补间随之死掉（`SetLink`），闸③ 也一并清
             FrontVisible = true;         // 主卡没了 ⇒ 记账复位（下一次 `Show` 由 `faceDown` 重新决定）
             SlotCount = 0;
-            for (int i = 0; i < CardFan.Slots; i++) { SlotViews[i] = null; _slotDefs[i] = null; }
+            for (int i = 0; i < CardFan.OriginalSlots; i++) { SlotViews[i] = null; _slotDefs[i] = null; }
             if (_cards != null) MenuDraw.ClearChildren(_cards);
             if (_bg != null) MenuDraw.ClearChildren(_bg);
             _lore = null;
@@ -1439,7 +1439,7 @@ namespace CardPresentation
             if (def != null)
             {
                 // 相关卡：判据只此一份（`RelatedCards.Find`），与原版那 4 个 `relatedCard1..4` 字段的关系 → 那个文件头
-                foreach (var r in RelatedCards.Find(def, CardFan.Slots - 1))
+                foreach (var r in RelatedCards.Find(def, CardFan.OriginalSlots - 1))
                 {
                     cards.Add(BattleDriver.ToCardData(r, r.Faction));
                     defs.Add(r);
@@ -1451,9 +1451,9 @@ namespace CardPresentation
                                + "（相关卡是按卡表算的；不静默）");
             }
 
-            SlotCount = Mathf.Min(cards.Count, CardFan.Slots);
+            SlotCount = Mathf.Min(cards.Count, CardFan.OriginalSlots);
             _swapping = false;
-            for (int i = 0; i < CardFan.Slots; i++) { SlotViews[i] = null; _slotDefs[i] = null; }
+            for (int i = 0; i < CardFan.OriginalSlots; i++) { SlotViews[i] = null; _slotDefs[i] = null; }
 
             for (int i = 0; i < SlotCount; i++)
             {
@@ -1486,7 +1486,7 @@ namespace CardPresentation
                 //    （那两条就是这条动画的**灭自证** —— 只断终态的话「摆终态」也满足）。
                 v.SetPose(OpenStartLocal(i), CardFan.OpenStartRot,
                           CardFan.OpenStartHpx / (CardView.Height * 108f));
-                v.SetData(cd);
+                if (i == 0 && defs[i] != null && defs[i].Type == "hero") ApplyWarlordHealthModifier(ref cd); v.SetData(cd);
                 v.SetFace(CardFace.Full);
                 v.SetHighlight(CardHighlightState.Normal);   // 展示窗里的卡不吃「可出牌/不可出牌」那套状态色
                 CardFan.ApplySlotTint(v, i == 0);            // 前台白 / 相关卡压暗（原版 `cardInBackGroundColorTint`）
@@ -1559,7 +1559,7 @@ namespace CardPresentation
             _opening = false;
             DG.Tweening.Tween last = null;
             float denom = CardView.Height * 108f;
-            for (int i = 0; i < SlotCount && i < CardFan.Slots; i++)
+            for (int i = 0; i < SlotCount && i < CardFan.OriginalSlots; i++)
             {
                 var v = SlotViews[i];
                 if (v == null) continue;                     // 建不出来那一格（`BuildFan` 已经出声告警过）
@@ -1614,7 +1614,7 @@ namespace CardPresentation
                 Debug.Log("[展示窗] 换位被挡：上一次还没播完（原版闸① `swappingCards`）");
                 return;
             }
-            if (idx <= 0 || idx >= CardFan.Slots) return;                  // 闸②：点的是前台自己（位姿槽 0）
+            if (idx <= 0 || idx >= CardFan.OriginalSlots) return;                  // 闸②：点的是前台自己（位姿槽 0）
             var a = SlotViews[0]; var b = SlotViews[idx];
             if (a == null || b == null) return;
             _swapping = true;
@@ -2679,6 +2679,57 @@ namespace CardPresentation
             what = AbilityText.Marked(what);   // = 原版 `ModifyLocalization` 那一跳（`zh` 位同样带字体闸）
             rows.Add(TextRow(e.Source, what));
             return true;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-02（执行代理 `F12` · 账 `B117-30`）：**督军血量修正**（原版 `warlordHealthModifier`）
+        //  判据（一手，`d:/2/tools/decomp_full/`，逐条现读）：
+        //   · `CardDisplayWindow__ShowCard.c` 尾段 —— `InitializeCardForDisplay(this, card, 0, tier, warlordHealthModifier, 0)`
+        //     （第 5 个实参就是模式增量）。调用方示例 = `DeckInfoPopup__OnWarlordClick.c:24-34`
+        //     （传 `gameplayVariables.warlordLifeChange`）。
+        //   · `CardDisplayWindow__InitializeCardForDisplay.c` —— 增量**只发给 index 0 那一张**；
+        //     `CardDisplayWindow__InitializeRelatedCards.c` 给相关卡那一档第 5 个实参恒 `0`。
+        //   · `BasicCardUI__SetRawCardData.c` —— `if (card.cardType(+0x94) != 10 /*Hero*/) modifier = 0;`
+        //     然后 `SetText(this+0xa0, modifier + maxHealth, modifier + maxHealth, modifier + maxHealth)`
+        //     ⇒ **三档同值**（当前 / 基准 / 上限）⇒ 卡面**不着色**（⛔ 只加当前值会让满血督军被涂成「+10 绿」）。
+        //  ⇒ 我们的落点：**主卡 ∧ 督军（`CardDef.Type == "hero"`）**，`health` 与 `baseHealth` **一起加**。
+        //  ⚠️ **收藏窗 / 菜单详情窗不走这里**：那是另一个类 `Shell/CardDetailPopup.cs`（菜单版 `CardDisplayWindow`），
+        //     本类只由 `BattleDriver.Setup` 建（战斗侧）⇒ 「收藏窗（非局内）显示 SO 原值」天然成立，
+        //     ⛔ 不需要、也不许在那边加任何判断。
+        //  ⚠️ **喂值的唯一路口** = `BattleDriver.Begin`（`Ctx.Vars.warlordLifeChange` = 本局参数）；
+        //     ⛔ 别在窗里按模式自己推（本类拿不到 `BattleContext`、也没有模式号）。
+        //  ⚠️ **追加在类尾**（本文件被账按 `文件:行号` 引用 50+ 条；⛔ 别往上挪，见铁律 18·b）。
+        // ════════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>本局模式的督军生命增量（原版 `ShowCard` 的第 5 个实参）。`0` = 不加（= 卡面 SO 原值）。
+        /// <para>由驱动在开局喂一次（`BattleDriver.Begin`）；⛔ 别在窗里自己推。</para></summary>
+        static int _warlordLifeChange;
+
+        /// <summary>喂「本局模式的督军生命增量」（经典 = `GameplayVariables.ClassicWarlordLifeChange`(+10) · 小冲突 = 0）。
+        /// <para>⚠️ **必须在开窗之前喂**：`Show` 只在建卡那一拍读它（`BuildFan` → `ApplyWarlordHealthModifier`），
+        /// 喂晚了已经画出来的那一张**不会重画**。</para></summary>
+        public static void SetWarlordLifeChange(int modifier) { _warlordLifeChange = modifier; }
+
+        /// <summary>自检读口：现在喂进来的督军生命增量。</summary>
+        public static int WarlordLifeChangeForTest { get { return _warlordLifeChange; } }
+
+        /// <summary>把「本局模式的督军生命增量」加进**主卡**的显示数据（原版 `BasicCardUI.SetRawCardData` 那一跳）。
+        /// <para>⚠️ 必须**在 `CardView.SetData` 之前**调（`SetData` 是唯一写口），调用点见 `BuildFan`。</para>
+        /// <para>⚠️ 只有**基准已知**时才动 `baseHealth`；`statBasesKnown == false`（出厂值）意味着卡面压根不比基准
+        /// ⇒ 只加当前值就够了，⛔ 别凭空造一个基准出来。</para>
+        /// <para>⚠️ **已经掉过血的卡**（`health != baseHealth`）只补基准、当前值保持引擎真值 ——
+        /// 原版这扇窗画的是卡面（恒「满血 + 增量」），我们这一侧主卡可能是**场上当前血**，
+        /// 把它拉回满血 = 把「受伤」这个信息抹掉（那是另一条链的事，不在本条）。</para></summary>
+        static void ApplyWarlordHealthModifier(ref CardData cd)
+        {
+            if (_warlordLifeChange == 0) return;
+            if (cd.statBasesKnown)
+            {
+                bool undamaged = cd.health == cd.baseHealth;
+                cd.baseHealth += _warlordLifeChange;
+                if (undamaged) cd.health += _warlordLifeChange;
+            }
+            else cd.health += _warlordLifeChange;
         }
     }
 }

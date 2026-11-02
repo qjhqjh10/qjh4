@@ -831,18 +831,18 @@ namespace CardPresentation
                 }
                 c.SetQueue(q);
 
-                Place(c, pos, angle, scale);
+                Place(c, pos, angle, scale, i == hoveredIndex);
             }
         }
 
-        void Place(CardView c, Vector3 pos, float angle, float scale)
+        void Place(CardView c, Vector3 pos, float angle, float scale, bool snap = false)
         {
             // 记下这一趟算出来的位姿（`A1540`：发牌入场读落点前要靠它先落实，见 `_lastPose` 的注释）
             _lastPose[c] = new HandPose { pos = pos, angle = angle, scale = scale };
             // ⚠️ 「不补间」这一支也要 **先掐掉在飞的位姿补间** —— 否则上一次重排的补间会继续把
             //   刚 snap 好的位姿改回去（静默、只在动起来时看得见）。只掐 `TweenPose` 那一条，
-            //   不碰这个 Transform 上的别的补间（`KillPoseTween` 的 doc 有说明）。
-            if (!animateRelayout) { c.KillPoseTween(); c.SetPose(pos, angle, scale); return; }
+            //   不碰这个 Transform 上的别的补间（`KillPoseTween` 的 doc 有说明）。🔴 2026-11-03（`B117-32`）`snap`（= 悬停/抬起那张）也走这一支：判据 = 原版 `CardScript__ShowCardInHand.c:108/135/152` 对**这一张**是 `set_position`/`set_rotation`/`set_localScale` **三句直写**（无补间无时长），只有**其余牌**才由 `MoveCardsInHandToPosition` 按 0.2 s 重排；改前把悬停那张也塞进同一条 0.2 s `OutQuad` ⇒ 「悬停慢半拍」。
+            if (!animateRelayout || snap) { c.KillPoseTween(); c.SetPose(pos, angle, scale); return; }
             // 只有真的会动的地方才补间（拖拽让位每帧都可能重排，别把补间叠起来）
             c.transform.DOKill();
             // 🔴 2026-10-24（`A26` / `A3`）：**传 `OutQuad`，⛔ 不是 `Linear`。**

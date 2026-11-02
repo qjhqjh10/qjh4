@@ -15,6 +15,10 @@
 //      🔴 **那是粉丝实体版、不是官方**（该文件自己第 5 行写着 `Not official. Fan project.`）
 //      ⇒ **只能当第二来源**，凡只有它一条支撑的，字段上都标着。
 //    · 【推断】= 我们**从别的判据反推**出来的，注释里写清怎么推的。
+//    · 【实拍】= **原版真机跑起来读到的值**（比静态字段更硬，铁律 4：实况与字段冲突时以实况为准）。
+//      ⚠️ **文案要读全，别读字面**：`Warlords start with 10 less Health` 是**相对经典**的，
+//      不是「绝对值 = 某数」—— 2026-11-02 就是把这句读成「冲突 = −10、经典 = 0」而少算了 10 血
+//      （真机实拍三名 Aeldari 督军 40/35/35 vs SO 30/25/25 ⇒ 经典档是 **+10**）。
 //    · ⛔ **18 个值本身全在服务器**（`assets_full` / `解包整理/` / `d:/4` 全盘 0 命中）⇒ **抄不到**。
 using System;
 
@@ -98,15 +102,18 @@ namespace RuleEngine
         //     做遭遇模式时就会发现同一个「12」在两处 —— 那正是「两处写同一条规则 = 迟早不一致」）。
         // ==================================================================
         // 经典：**全部是改造前就在跑的值**（`RuleEngineTest` 2995 条断言 = 不许改口径的验收）
+        // ⚠️ **例外一格 = `ClassicWarlordLifeChange`**（2026-11-02 由 0 改成 +10，见字段自己的注释）。
         public const int ClassicDeckSize = 30, ClassicStartingHand = 3, ClassicHandLimit = 10,
                          ClassicManaPerTurn = 1, ClassicStartingMana = 1, ClassicStartingManaSecond = 1,
                          ClassicOvertimeTurn = 10, ClassicDrawPerTurn = 1, ClassicManaAccumulation = 0,
-                         ClassicWarlordLifeChange = 0,
+                         ClassicWarlordLifeChange = 10,
                          ClassicMaxLegendaries = 0, ClassicCopiesOther = 2, ClassicCopiesLegendary = 1;
         // 遭遇（Skirmish）—— 逐条的来源分【文案】/【规则书】/【推断】，见下面 `Skirmish` 那个实例
+        // ⚠️ **`SkirmishWarlordLifeChange` 现读 = 0**（2026-11-02 由 −10 改；模式文案那句
+        //    `10 less Health` 是**相对经典**说的，不是绝对值 —— 见字段注释）。
         public const int SkirmishDeckSize = 12, SkirmishStartingHand = 4, SkirmishHandLimit = 8,
                          SkirmishManaPerTurn = 2, SkirmishStartingManaSecond = 2, SkirmishManaAccumulation = 1,
-                         SkirmishWarlordLifeChange = -10, SkirmishMaxLegendaries = 4;
+                         SkirmishWarlordLifeChange = 0, SkirmishMaxLegendaries = 4;
 
         // ---- 1~3：卡组构筑 ----------------------------------------------------
         /// <summary>【文案】**整副**传说卡上限（不含督军）：经典 **0 = 无此限制** · 遭遇 **4**（`Up to 4 Legendaries (Warlord not included)`）。
@@ -131,16 +138,27 @@ namespace RuleEngine
         public int slotsPerSide = 9;
 
         // ---- 5~6：督军与卡组 ---------------------------------------------------
-        /// <summary>【文案】督军生命增减：经典 0 · 遭遇 **−10**（`Warlords start with 10 less Health`）。
-        /// <para>🔴 **2026-10-18（`W` 笔）：SO 是当前数字 build 的基准；经典 0 / 冲突 −10 是运行时全局增量**
-        /// （判据 → `资料/普查产出_1018/R_督军10血成因.md` §2）。卡表里那 49 项 `health` 差异
-        /// （47 张督军 + `BL71`/`SW13`）是 **2026 build 把 SO 统一下调**（35→25 ×39 · 40→30 ×11 ·
-        /// 30→20 · 35→30），**不是**本字段造成的：原版
-        /// `BattleManager__SetupWarlordsLifeAndEnchantment.c:29,53,72` 只在
-        /// `GameplayData.warlordLifeChange != 0` 时走
-        /// `ForceChangeMaxHealth(督军, 当前最大生命 + warlordLifeChange)` —— 每局敌我**同加同减**，
+        /// <summary>【推断】**督军生命增减：经典 `+10` · 冲突（Skirmish）`0`** —— 2026-11-02 改定。
+        /// <para>🔴 **怎么推出来的（本文就是判据链，别只记结论）**：
+        /// ① 【SO 基准】**当前 build 的 SO `maxHealth` 就是小冲突那一档的值** ——
+        ///    `UM47 Uriel Ventris = 25`（`_tmp_view/allcards_export/cards_raw.json` 与 `cards_truth.json` 的 `full_raw`
+        ///    **两侧都是 25**，不是我们抄错）。
+        /// ② 【实拍】用户真机原版（经典局）拍了三名 Aeldari 督军：**40 / 35 / 35**
+        ///    —— 对应 SO 的 `ASH2 30 / ASH1 25 / ASH3 25` ⇒ **逐条 +10**。
+        /// ③ 【反编译】运行期只有一处加减：`BattleManager__SetupWarlordsLifeAndEnchantment.c`
+        ///    的 `ForceChangeMaxHealth(督军, *(int*)(lVar3+0x20) + 当前最大生命, 0)`，
+        ///    `+0x20` = `GameplayData.warlordLifeChange` ⇒ 它是**每局敌我同加同减的一个全局增量**。
+        /// ④ 【文案】冲突模式那句 `Warlords start with 10 less Health` 是**相对经典**说的
+        ///    （35 − 10 = 25 = SO 值）⇒ 冲突档 = `0`，经典档 = `+10`。
+        /// ⇒ **经典 = SO + 10 · 冲突 = SO**；两档相差 10。</para>
+        /// <para>🔴 **2026-10-18（`W` 笔）留下的那条仍然成立**：SO 是当前数字 build 的基准；卡表里那 49 项
+        /// `health` 差异（47 张督军 + `BL71`/`SW13`）是 **2026 build 把 SO 统一下调**
+        /// （35→25 ×39 · 40→30 ×11 · 30→20 · 35→30），**不是**本字段造成的：原版那一跳只加**同一个全局增量**，
         /// 产生不出逐卡 −5（`AM3`）/ −15（`TL35`）/ 0（9 张）这种差异。
-        /// ⇒ ⛔ **别拿本字段去解释单张卡的 `health`**；卡面/结算的基准值来自卡表 `cards_engine.json`。</para></summary>
+        /// ⇒ ⛔ **别拿本字段去解释单张卡的 `health`**；卡面/结算的基准值来自卡表 `cards_engine.json`
+        /// （判据 → `资料/普查产出_1018/R_督军10血成因.md` §2 与本次 `报告/B117_F6_督军血量.md`）。</para>
+        /// <para>⚠️ **PnP 成品卡图不是本字段的尺子**：它和 SO 的差**不统一**（45 张 −10 · `AM3` −5 · `TL35` −15 ·
+        /// 9 张 0）⇒ 拿它验证「+10」只能当**旁证**，逐张对不上的那几张已在报告里列明。</para></summary>
         public int warlordLifeChange = ClassicWarlordLifeChange;
         /// <summary>【文案】卡组张数：经典 30 · 遭遇 **12**（`12-card decks`）。</summary>
         public int deckSize = ClassicDeckSize;
@@ -400,7 +418,7 @@ namespace RuleEngine
                 if (_skirmish != null) return _skirmish;
                 var v = new GameplayVariables();
                 v.maxLegendaries = SkirmishMaxLegendaries;            // 【文案】Up to 4 Legendaries
-                v.warlordLifeChange = SkirmishWarlordLifeChange;      // 【文案】10 less Health
+                v.warlordLifeChange = SkirmishWarlordLifeChange;      // 【推断】= SO 基准（文案「比经典少 10」相对经典 +10）· 2026-11-02
                 v.deckSize = SkirmishDeckSize;                        // 【文案】12-card decks
                 v.manaPerTurn = SkirmishManaPerTurn;                  // 【文案】+2 Maximum Energy each turn
                 v.startingManaSecond = SkirmishStartingManaSecond;    // 【推断】文案 P1 3 / P2 4 的那 1 点差
@@ -464,7 +482,9 @@ namespace RuleEngine
                 v.handLimit = TutorialMaxCardsInHand;          // 【TutorialScenario】maxCardsInHand 10
                 v.showMulligan = false; v.manaAccumulation = 1; v.addedManaSecond = 1;   // 【反编译】教程不跑换牌阶段 ＋ 🔶 累积两格（判据见下行）
                 // ⚠️ **没动的**（原版值在服务器、本地查不到）：startingMana / startingManaSecond /
-                //    manaPerTurn / overtimeTurn / shouldReshuffle —— 一律沿用经典值。
+                //    manaPerTurn / overtimeTurn / shouldReshuffle / warlordLifeChange —— 一律沿用经典值。
+                //    🔴 其中 `warlordLifeChange` 自 **2026-11-02** 起是 **+10**（不是 0）⇒ **教程局督军
+                //    也会 +10**。原版教程那一档的服务端真值本地仍拿不到，按「沿用经典」这条口径落。⛔ 别单独调它。
                 //    判据只到这里为止，⛔ 别按「教程大概应该……」去改（**这两个累积格是例外，有官方判据**）：🔶 自己设计（非原版）——服务端 `gameplayVariables` 取不到，`manaAccumulation = 1` ＋ `addedManaSecond = 1` 是按**官方教学文案**补的（`TutorialData/Tutorial1/Turn6/Tip2fast`「You can accumulate 1 Energy per turn… You will get 1 more your next turn」教的就是这条）；`addedManaSecond` 非 0 同时是「累积」那组 HUD 的唯一显隐闸（`SetupBoardPhase.c:179-196`），否则教程里的教学点永远演示不出来。判据全文 → `资料/完全复刻/报告/B88_J1_两条悬案裁定.md` §悬案1。调度台 2026-10-27 裁定。
                 _tutorial = v;
                 return _tutorial;
@@ -489,7 +509,9 @@ namespace RuleEngine
         /// <list type="bullet">
         /// <item>`deckSize = 12` —— 原版【文案】`12-card decks`（轮抽侧另有「4 轮 × 3 张」的结构性一致）。</item>
         /// <item>`maxLegendaries = 4` —— 原版【文案】`Up to 4 Legendaries (Warlord not included)`。</item>
-        /// <item>`warlordLifeChange = -10` —— 原版【文案】`Warlords start with 10 less Health`。</item>
+        /// <item>`warlordLifeChange = 0` —— 【推断】（= SO 基准；文案 `Warlords start with 10 less Health`
+        ///   是**相对经典 +10** 说的）。⚠️ 原版轮抽那一局的真值仍拿不到（服务器下发），
+        ///   这里跟的是 `Skirmish` 那一份 —— 判据见 `warlordLifeChange` 字段注释。</item>
         /// <item>`manaPerTurn = 2` —— 原版【文案】`Gain +2 Maximum Energy each turn`；
         ///   `startingManaSecond = 2` —— 【推断】（同文案 `P1 3 Energy P2 4 Energy` 的那 1 点差）。</item>
         /// <item>`showMulligan = false` · `shouldReshuffle = false` —— 原版【文案】`No mulligan`。</item>

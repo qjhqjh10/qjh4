@@ -62,6 +62,12 @@ public static class CardFaceAssertE5
 
             RunSwapSound(pool);
 
+            // 🆕 2026-11-02（执行代理 `F7` · `B117-R11`）：卡框在大图档**不再整层淡没**（用户报「详情窗没有卡框」）
+            RunFrameKeepVisible();
+            RunDeployRotateEase();      // 🆕 2026-11-02（`F7` · `B117-R24`）：登场旋转缓动 = 原版 DOTween 默认
+            RunArtLocalYSingleSource(); // 🆕 2026-11-02（`F7` · `B117-R21`）：`CardImage` 的 y 只许有一份
+            RunBoardParentChain();      // 🆕 2026-11-02（`F7` · `B117-R22`/`R23`）：场上层父链 + 计数器淡入
+
             // 🔴 2026-10-27（执行代理 `B9_W4NFG`）：**嵌套淡入组**（原版 `NestedFadeGroup`：9 组根 + 子树 SR/TMP）
             RunNestedFadeGroups();
 
@@ -1184,6 +1190,237 @@ public static class CardFaceAssertE5
             if (uv[i].y > vMax) vMax = uv[i].y;
         }
         return new Vector4(uMin, uMax, vMin, vMax);
+    }
+
+    // ==================================================================
+    //  F7 · `B117-R11`：卡框 / 文字底板**不再随 Big 档整层淡没**
+    // ==================================================================
+    //
+    // 判据（原版，一手）：`ChangeState(Big)` 开 `frameMask` 并把 `CardFrame` 与 `textBackground` 换成
+    //   SoftMask 材质、`_MaskEffectStrength` 补到 **1.0f**（`read_literal` 现读 `DAT_1834b2bb8` = 1）；
+    //   该 shader 的 `a_out = a_obj·(1 − M·maskAlpha)`，而 prefab `AlphaMask: {fileID: 0}` + `FlipAlphaMask: 1`
+    //   ⇒ 字面复刻 = 这两层在大图档 alpha **0**。
+    // 🔶 2026-11-02 调度台裁定（`B117-R11`）：**不照做** —— `ApplyFrameMaskFade` 的 `vis` 恒 1，
+    //   用户要求「详情窗要有卡框」，「立绘压框」那半边由 `_artFront`（带 alpha 的立绘层）承担。
+    // 🧨 **灭自证**：把 `CardView.ApplyFrameMaskFade` 的 `float vis = 1f` 改回 `FrameMaskAlpha`（= 1−M）
+    //   ⇒ Big 档那份材质 alpha 立刻变 0 ⇒ F7① / F7③ 一起红。
+    static void RunFrameKeepVisible()
+    {
+        var root = new GameObject("E5_F7_frame");
+        try
+        {
+            var pool = CardDatabase.Load();
+            var unit = FindByName(pool, "Howling Banshee Exarch");   // 池内 `useOverDraw` = 1
+            Check(unit != null, "F7-P 前提：单位卡样本 `Howling Banshee Exarch` 在池里");
+            if (unit == null) return;
+            var data = BattleDriver.ToCardData(unit, unit.Faction);
+
+            var big = CardView.Create(root.transform, data, "f7big", use: CardUse.ZoomWindow,
+                                      artOverdraw: true, useOverDraw: true);
+            Check(big != null, "F7-P2 前提：`CardView.Create`（前台 + useOverDraw=1）建得出来");
+            if (big == null) return;
+            var bm = big.ArtFrontMeshForTest;
+            Vector4 buv = UvRect(bm);
+            Check(big.ArtFrontShown && bm != null && buv.z > 0.05f && buv.z < 0.15f,
+                  "F7-P3 前提：这张卡真的进了 **Big 档**（`_artFront` 亮 + BIG 硬矩形 v 下沿 ≈0.1；实得 "
+                  + buv.z.ToString("F3") + "）");
+            Check(big.FrameMaskAlphaNow > 0.5f,
+                  "F7① Big 档**卡框材质 alpha 必须 > 0**（实得 " + big.FrameMaskAlphaNow.ToString("F4")
+                  + "）—— 2026-11-02 之前这里是 0（整层淡没 = 用户报的「没有卡框」）");
+
+            // F7②：同一条轴关掉（= `useOverDraw = 0` 的卡那一档）⇒ 不进 Big、卡框照旧不透明（防回归）
+            var small = CardView.Create(root.transform, data, "f7small", use: CardUse.ZoomWindow,
+                                        artOverdraw: true, useOverDraw: false);
+            Check(small != null, "F7②-P 前提：`useOverDraw = false` 那张建得出来");
+            if (small != null)
+            {
+                Check(!small.ArtFrontShown, "F7②-P2 前提：`useOverDraw = 0` ⇒ **不进 Big**（`_artFront` 不亮）");
+                Check(small.FrameMaskAlphaNow > 0.5f,
+                      "F7② `useOverDraw = 0` 的卡卡框 alpha 仍然 > 0（防回归；实得 "
+                      + small.FrameMaskAlphaNow.ToString("F4") + "）");
+                // F7③ 灭自证：两档的卡框 alpha **必须相等**（都 = `_alpha`）—— 只要有人把 `vis` 换回
+                //   `1 − M`，Big 那一份就会掉到 0，这条立刻红（⛔ 不是同义反复：两个数走的是两条分支）
+                Check(Mathf.Abs(big.FrameMaskAlphaNow - small.FrameMaskAlphaNow) < 1e-4f,
+                      "F7③ **灭自证**：Big 与 Small 两档的卡框材质 alpha 必须相等（实得 "
+                      + big.FrameMaskAlphaNow.ToString("F4") + " vs " + small.FrameMaskAlphaNow.ToString("F4")
+                      + "）—— 把 `vis` 改回 `1 − M` 这里会差 1");
+            }
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    // ==================================================================
+    //  F7 · `B117-R21`：`CardImage` 的 y **只许有一份**（提防「网格烘死 −0.065」+「`SetArtLocalY` 再压一次」）
+    // ==================================================================
+    //
+    // 判据：原版 `CardImage.m_LocalPosition.y = −0.065` 是 clip 里的**常量曲线**（`anim` 里
+    //   path `2DCard/Front/CardImage` 单关键帧）；我们的网格已经把这一份烘进顶点
+    //   （`CardView.ArtExtent` 的族差：Hand/Board 族 `−0.044 − 0.021 = −0.065`）。
+    // 🧨 **灭自证**：把 `CardFeel.HandToBoard` 里那行 `card.SetArtLocalY(HandToBoardArtY)` 加回去
+    //   ⇒ ② 量到 −0.065（而不是 0），且立绘中心变成 −0.130 ⇒ 红。
+    static void RunArtLocalYSingleSource()
+    {
+        var root = new GameObject("E5_F7_arty");
+        try
+        {
+            var pool = CardDatabase.Load();
+            var unit = FindByName(pool, "Howling Banshee Exarch");
+            Check(unit != null, "F7-R21-P 前提：单位卡样本 `Howling Banshee Exarch` 在池里");
+            if (unit == null) return;
+            var data = BattleDriver.ToCardData(unit, unit.Faction);
+            var cv = CardView.Create(root.transform, data, "f7r21", CardFace.Hand, use: CardUse.Standard);
+            Check(cv != null, "F7-R21-P2 前提：手牌族那张建得出来");
+            if (cv == null) return;
+            cv.SetFace(CardFace.Board);     // 借场上形态把 3D 体建出来（同 `CardBaseDemo` B05 的探针做法）
+            cv.SetFace(CardFace.Hand);
+
+            // ① 立绘**网格**里已经有 −0.065（Hand 族；Full 族是 −0.044）⇒ `_art` 那一级的局部 y 必须是 0
+            CheckClose(cv.ArtLocalY, 0f, 1e-6f,
+                       "F7-R21① 建卡后 `_artLocalY` = **0**（−0.065 只在网格里）");
+            var artNode = FindDeep(cv.transform, "art");
+            Check(artNode != null, "F7-R21①' 前提：找得到 `_art` 那一层（节点名 `art`）");
+            if (artNode != null)
+            {
+                var mf = artNode.GetComponent<MeshFilter>();
+                float mcy = mf != null && mf.sharedMesh != null ? mf.sharedMesh.bounds.center.y : float.NaN;
+                Check(mcy < -0.05f && mcy > -0.08f,
+                      "F7-R21①'' 立绘**网格**中心 y ≈ **−0.065**（手牌族；实得 " + mcy.ToString("F4") + "）"
+                      + " —— 换成 −0.044（菜单族）/ 0 ⇒ 红");
+                CheckClose(artNode.localPosition.y, 0f, 1e-6f,
+                           "F7-R21①''' `_art` 节点局部 y = 0（⛔ 不许再叠一层）");
+            }
+
+            var keepMode = CardTween.Mode;
+            CardTween.Mode = UpdateType.Manual;
+            try
+            {
+                CardFeel.HandToBoard(cv);
+                CheckClose(cv.ArtLocalY, 0f, 1e-6f,
+                           "F7-R21② `HandToBoard` 起手**不再调** `SetArtLocalY(−0.065)`");
+                for (int i = 0; i < 60; i++) CardTween.Advance(1f / 60f);   // 推过 0.9167 s 整条 clip
+                CheckClose(cv.ArtLocalY, 0f, 1e-6f,
+                           "F7-R21③ clip 结束 / 回手后 `_artLocalY` 仍是 **0**（⛔ 不需要额外复位调用）");
+            }
+            finally { CardTween.Mode = keepMode; }
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+        }
+    }
+
+    /// <summary>按名字深度优先找一个子节点（`transform.Find` 只找直接子件 —— 卡面各层挂在 `Front` 下）。</summary>
+    static Transform FindDeep(Transform t, string name)
+    {
+        if (t == null) return null;
+        if (t.name == name) return t;
+        for (int i = 0; i < t.childCount; i++)
+        {
+            var r = FindDeep(t.GetChild(i), name);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    /// <summary>`B117-R24`：登场旋转的缓动 —— 原版 `DOLocalRotate` **没有 `SetEase`** ⇒ 走 DOTween 默认 `OutQuad`。
+    /// <para>我们原来写死 `Ease.OutCubic`（自造）⇒ 2026-11-02 改回。🧨 改回 `OutCubic` ⇒ 本组两条一起红。</para></summary>
+    static void RunDeployRotateEase()
+    {
+        Check(DeploySequence.RotateEase == Ease.OutQuad,
+              "F7-R24 登场旋转缓动 = **`Ease.OutQuad`**（原版没写 `SetEase`，DOTween 默认档；实得 "
+              + DeploySequence.RotateEase + "）");
+        Check(DeploySequence.RotateEase == DOTween.defaultEaseType,
+              "F7-R24b 同一个值 == `DOTween.defaultEaseType`（原版就是「不写 = 走默认」；实得 "
+              + DOTween.defaultEaseType + "）");
+    }
+
+    // ==================================================================
+    //  F7 · `B117-R22` / `B117-R23`：场上那几类层的父链 = 原版 `Board Elements/3DBody`；计数器淡入
+    // ==================================================================
+    //
+    // 判据（原版 prefab 现读，`CardPrefab.prefab`）：
+    //   `CardPrefab ▸ Board Elements ▸ 3DBody ▸ {Card 3D, TraitIcons, Base Attack Counters,
+    //    Base Health Counters, Armour Container, MinionLight}`
+    //   （`Board Elements` `:58` · `3DBody` `:129` · `TraitIcons` `:1552` · `Base Attack Counters` `:75`
+    //    · `Armour Container` `:1371` · `MinionLight` `:1498`）；
+    //   `Board Elements.m_LocalPosition.y` 在登场 clip 里 −1.347 → 0；
+    //   两条计数器 alpha 曲线在 0.1667 → 0.7 做 0 → 1。
+    // 🧨 **灭自证**：① 把数值层的父节点改回 `FaceRoot` ⇒ F7-R22① 红；
+    //   ② 把 `SyncStatLayers` 里 `c.a *= _alpha * _counterAlpha` 的 `_counterAlpha` 删掉 ⇒ F7-R23①/② 红
+    //      （`SetCounterAlpha` 自己那条不会红 —— 所以必须读**材质色**）。
+    static void RunBoardParentChain()
+    {
+        var root = new GameObject("E5_F7_chain");
+        try
+        {
+            var pool = CardDatabase.Load();
+            var unit = FindByName(pool, "Howling Banshee Exarch");
+            Check(unit != null, "F7-R22-P 前提：单位卡样本 `Howling Banshee Exarch` 在池里");
+            if (unit == null) return;
+            var data = BattleDriver.ToCardData(unit, unit.Faction);
+            var v = CardView.Create(root.transform, data, "f7chain", CardFace.Board, use: CardUse.Standard);
+            Check(v != null, "F7-R22-P2 前提：场上形态建得出来");
+            if (v == null) return;
+            var bones = v.Body3DBonesForTest;
+            Check(bones != null && bones.name == "3DBody",
+                  "F7-R22-P3 前提：`3DBody` 节点建出来了（实得 " + (bones != null ? bones.name : "null") + "）");
+            Check(v.BoardElementsForTest != null && bones != null && bones.parent == v.BoardElementsForTest,
+                  "F7-R22-P4 前提：`Board Elements ▸ 3DBody`（父链照原版）");
+            if (bones == null) return;
+
+            int built = 0, okParents = 0;
+            for (int s = CardView.StatMelee; s <= CardView.StatHealth; s++)
+            {
+                var p = v.StatLayerParent(s);
+                if (p == null) continue;
+                built++;
+                if (p.name == "3DBody") okParents++;
+            }
+            Check(built >= 2, "F7-R22-P5 前提：至少建出两个数值层（实得 " + built + " 个）");
+            Check(built > 0 && okParents == built,
+                  "F7-R22① 四个数值层的父节点都是 **`3DBody`**（原版 `Board Elements/3DBody/Base * Counters`；实得 "
+                  + okParents + "/" + built + "）");
+            Check(v.RimParent != null && v.RimParent == bones,
+                  "F7-R22② 状态环（原版 `MinionLight`）与数值层挂在**同一个 `3DBody`** 下（实得 "
+                  + (v.RimParent != null ? v.RimParent.name : "null") + "）");
+
+            // ---- R23：登场 clip 期间计数器 alpha 0 → 1（读**材质色**，⛔ 不读 `CounterAlpha` 自己）----
+            var keepMode = CardTween.Mode;
+            CardTween.Mode = UpdateType.Manual;
+            try
+            {
+                var h = CardView.Create(root.transform, data, "f7chain_h", CardFace.Hand, use: CardUse.Standard);
+                Check(h != null, "F7-R23-P 前提：手牌那张建得出来");
+                if (h != null)
+                {
+                    h.SetFace(CardFace.Board); h.SetFace(CardFace.Hand);   // 借场上形态把 3D 体建出来（同 B05）
+                    float aBefore = h.StatLayerColor(CardView.StatMelee).a;
+                    Check(h.CounterAlpha > 0.99f && aBefore <= 0.001f,
+                          "F7-R23-P2 前提：clip 之前 alpha = 1、而数值层**没显示**（材质 α "
+                          + aBefore.ToString("F3") + "）");
+                    CardFeel.HandToBoard(h);
+                    CardTween.Advance(0.2f);                       // > 0.1667 起点
+                    float ca = h.CounterAlpha;
+                    float ma = h.StatLayerColor(CardView.StatMelee).a;
+                    Check(ca > 0f && ca < 1f,
+                          "F7-R23① 0.2 s 处 `CounterAlpha` 落在 (0,1)（原版 0.1667→0.7；实得 " + ca.ToString("F3") + "）");
+                    Check(ma > 0f && ma < 1f && Mathf.Abs(ma - ca) < 0.02f,
+                          "F7-R23①' 而且**材质色**的 α 跟着它走（实得 " + ma.ToString("F3") + "，CounterAlpha "
+                          + ca.ToString("F3") + "）—— 🧨 删掉 `SyncStatLayers` 里的 `* _counterAlpha` ⇒ 这里量到 1 ⇒ 红");
+                    CardTween.Advance(0.6f);                       // 累计 0.8 s > 0.7
+                    CheckClose(h.CounterAlpha, 1f, 1e-3f, "F7-R23② 0.7 s 之后 alpha 收口 = 1");
+                    Check(!h.CountersForcedVisible, "F7-R23②' 收口后不再强制显示（判据交回 `SetFace(Board)`）");
+                }
+            }
+            finally { CardTween.Mode = keepMode; }
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+        }
     }
 
     static void Check(bool ok, string msg)

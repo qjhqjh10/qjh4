@@ -18219,15 +18219,21 @@ public static class BattleScene
                 int enSk = driver.Ctx.Players[0].MaxEnergy;
                 bool mullSk = driver.Ctx.MulliganOpen;
                 int startHandSk = driver.Ctx.Vars.startingHand;   // ⚠️ **必须在 `Begin` 之前存下来**
-                // 督军生命：判据是 **−10**（原版文案 `Warlords start with 10 less Health`），
+                // 督军生命：判据是**本局模式自己的 `warlordLifeChange`**，⛔ 不是写死 −10。
+                // 🔴 **2026-11-02 改**：文案 `Warlords start with 10 less Health` 是**相对经典 +10** 说的
+                //    ⇒ 遭遇档 = **0**（= 卡面），经典档 = **+10**。原来这里写死 `- 10` ⇒ 两档都低了 10。
                 // ⚠️ **不是「等于 20」** —— 督军底血各卡不同（这一副是 35）⇒ **拿卡面血量当基准**。
                 // ⚠️ 基准要取**对局自己那个督军的 `CardDef`**（`UnitState.Card`）——
                 //    拿 `heroId` 回卡池查会**查到另一张卡**（实测：查出来 40 血、实际用的是 35 血的），
                 //    那是「按 id 反查」在卡池里撞了同名/同 id 的坑，**别用**（这一版踩过）。
                 var wlCard = driver.Ctx.Players[0].Warlord.Card;
-                Check(wlCard != null && hpSk == wlCard.Health - 10,
-                      $"遭遇：督军（{wlCard.Name}）生命 = **卡面 {wlCard.Health} − 10 = {wlCard.Health - 10}**（实得 {hpSk}）"
-                    + "—— 原版文案 `Warlords start with 10 less Health`，**是「少 10」不是「等于某个固定值」**");
+                int lifeModSk = driver.Ctx.Vars.warlordLifeChange;
+                // 🔴 先前提、后结论（`wlCard == null` 时原来那条会**静默整条不跑**）
+                Check(wlCard != null, "（前提）遭遇局的督军卡 `UnitState.Card` 拿得到（否则下一条无从判起）");
+                if (wlCard != null)          // 只为防 NRE；前提那条已在上一行红过
+                Check(hpSk == wlCard.Health + lifeModSk,
+                      $"遭遇：督军（{wlCard.Name}）生命 = **卡面 {wlCard.Health} + 模式增量 {lifeModSk} = {wlCard.Health + lifeModSk}**（实得 {hpSk}）"
+                    + "—— 判据 = `ctx.Vars.warlordLifeChange`（遭遇档 0 ⇒ 就是卡面值），**不是写死某个数**");
                 // 🔴 **2026-09-26：防御卡现在只发【后手】**（用户指出 —— 我们原来两边都发是错的），
                 //   而**谁先手是投硬币决定的**（`BattleDriver.Begin` 里的 `firstSeat`；
                 //   用户 2026-09-26 拍板「一律投硬币」，等价于「所有督军的 `initiative` 相同」）⇒ **这两条断言必须按角色写**，
@@ -18264,22 +18270,24 @@ public static class BattleScene
         //   · 之后只有 `BattleScoreManager__CheckThresholds.c:22`（跟着「敌方督军生命变化」那条信号）
         //     才会把它往上调，且 `AlreadyAccomplished` **只置位、不清零**（已达成不回退）。
         // 🔴 **为什么要专门开一节**：**经典局盖不住这一格** —— 56 个督军起始生命 ∈ {25,30,35,40}，
-        //   `SkullsFor` 全给 0，两种口径**同值**；只有**遭遇局**（`SkirmishWarlordLifeChange = -10`）
-        //   才有起始生命 ≤ 20 的督军，旧实现那时会显示 `x1`。所以这一节的**前提本身也是断言**
+        //   `SkullsFor` 全给 0，两种口径**同值**；只有**遭遇局且卡面 20 血**的督军（`TAU65`）
+        //   才起始生命 ≤ 20，旧实现那时会显示 `x1`。所以这一节的**前提本身也是断言**
         //   （找不到那样的督军 ⇒ 当场红，不静默跳过）。
+        //   🔴 2026-11-02：遭遇档 `warlordLifeChange` 由 −10 改为 **0**（经典 +10）⇒ 上面那个「≤ 20」
+        //   只能靠卡面 20 的督军达成（原来靠 −10 把 30 血压下来）⇒ 夹具改成**显式换督军**。
         {
             var pool147 = CardDatabase.Load();
-            // 找「自动凑牌时挑中的那个督军」起始生命 ≤ 30 的阵营（−10 之后 ≤ 20，才踩得到那一格）。
-            // ⚠️ 判据与 `MakeDeck` **逐字一致**：取**该阵营在卡池里出现的第一个 `hero`** ——
-            //    换一种挑法就可能挑到 35/40 血的那个，前提就不成立了。
+            // 找一张「遭遇局起始生命 ≤ 20」的督军（= 卡面血 + 本模式增量 ≤ 20）。
+            // 🔴 **2026-11-02 改**：原来靠 `Health - 10` 把 30 血压到 20；现在遭遇档增量 = **0**
+            //    ⇒ 只有**卡面就是 20** 的那张（`TAU65 War Shaper`）踩得到这一格。
+            // ⚠️ `MakeDeck` 取的是**该阵营在卡池里出现的第一个 `hero`**（`TAU2` 25 血），
+            //    ⇒ 下面拿到牌之后**显式把督军换成这一张**（否则前提必红）。
             string lowFoe = null; CardDef lowFoeHero = null;
             {
-                var seenHeroF = new HashSet<string>();
                 foreach (var c in pool147)
                 {
-                    if (c == null || c.Type != "hero" || seenHeroF.Contains(c.Faction)) continue;
-                    seenHeroF.Add(c.Faction);
-                    if (lowFoe == null && c.Health - 10 <= 20) { lowFoe = c.Faction; lowFoeHero = c; }
+                    if (c == null || c.Type != "hero") continue;
+                    if (c.Health + GameplayVariables.SkirmishWarlordLifeChange <= 20) { lowFoe = c.Faction; lowFoeHero = c; break; }
                 }
             }
             Check(lowFoe != null && lowFoeHero != null,
@@ -18290,6 +18298,10 @@ public static class BattleScene
                 // `foeFaction:` 必须显式传（`ResolveDeck` 按 `_foeFaction` 选**池子/阵营**去展开卡组——
                 // 传错会用别的阵营解析同名卡，自动凑兜底时也会凑错阵营）。
                 var sk147 = MakeDeck(pool147, lowFoe, 0, "自检·A147 遭遇", (int)GameMode.Skirmish);
+                // 🔴 **2026-11-02**：`MakeDeck` 只会取该阵营的**第一个** `hero`（`TAU2` 25 血），
+                //    而这一节要的是**卡面 20** 的那张（遭遇档增量 0 ⇒ 起始生命 20）⇒ 显式换督军槽。
+                //    同阵营（`lowFoe`）⇒ `Validate` 的阵营/同名/张数三条都不受影响。
+                if (sk147 != null) sk147.WarlordId = lowFoeHero.Id;
                 CheckDeckFixtureSurvives(pool147, sk147, Check, "夹具「自检·A147 遭遇」");
                 Check(sk147 != null && sk147.CardIds.Count == 12,
                       $"（前提）凑出一副 12 张的遭遇牌（阵营 {lowFoe}）");
@@ -18304,9 +18316,11 @@ public static class BattleScene
                     driver.RefreshAll();
                     int foeStartHp = driver.Ctx.Players[1 - driver.MyIndex].Warlord.MaxHealth;
                     int byHp = DeckRules.SkullsFor(foeStartHp);
-                    Check(driver.Vars.IsSkirmish && foeStartHp == lowFoeHero.Health - 10,
-                          $"（前提）遭遇局：敌方督军（{lowFoeHero.Name}）起始生命 = {lowFoeHero.Health} − 10 "
-                        + $"= {foeStartHp} ≤ 20 —— 正是「按生命反推」会算出 ≥1 颗的那一档");
+                    Check(driver.Vars.IsSkirmish
+                          && foeStartHp == lowFoeHero.Health + GameplayVariables.SkirmishWarlordLifeChange,
+                          $"（前提）遭遇局：敌方督军（{lowFoeHero.Name}）起始生命 = 卡面 {lowFoeHero.Health}"
+                        + $" + 模式增量 {GameplayVariables.SkirmishWarlordLifeChange} = {foeStartHp} ≤ 20"
+                        + " —— 正是「按生命反推」会算出 ≥1 颗的那一档");
                     Check(byHp >= 1,
                           $"（前提）按**旧口径**（`SkullsFor(最低生命)`）这里本该显示 `x{byHp}` —— 所以下面那条**不是恒真**");
                     Check(driver.SkullScoreText == "x0",
@@ -22129,7 +22143,7 @@ public static class BattleScene
                                   $"★ 字号落在原版 `m_fontSizeMin/Max` = **[10, 33]** 内（实得 {lb.FontPxNow:F1}）");
                             Shot(cam, "20b_单位语音条_最长台词");   // 实拍一眼：它现在应当**在框里折成几行**
                         }
-                        chat.HideAll();
+                        chat.HideAll(); B117F2_Assert.Run(chat);
                     }
                 }
                 // ---- 🆕 2026-09-18：`cantdo`（原版 `ChatMessage.ICantDoThat` = 枚举 3）----
@@ -24137,8 +24151,8 @@ public static class BattleScene
                     float restY = hv.transform.position.y;
                     hand.Refresh(list, 0);                       // 悬停第 0 张 → 它该抬起来
                     Step(1f / 60f);
-                    Check(hv.transform.position.y - restY < hand.hoverLift * 0.5f,
-                          "⑥ 手牌重排走的是**补间**：刷新后的第一帧还没抬到位");
+                    Check(Mathf.Abs(hv.transform.position.y - (restY + hand.hoverLift)) < 0.01f,
+                          "⑥ 🔴 2026-11-03（`B117-32`）：**悬停那张瞬切** —— 刷新后第一帧就抬到位（原版 `CardScript__ShowCardInHand.c:108/135/152` 三句直写；🧨 把它塞回补间 ⇒ 第一帧停在原位 ⇒ 红）");
                     CardTween.Advance(CardTween.RelayoutDuration + 0.05f);
                     Check(Mathf.Abs(hv.transform.position.y - (restY + hand.hoverLift)) < 0.01f,
                           $"……推完 {CardTween.RelayoutDuration:F2}s → 抬到位（{hand.hoverLift:F2} 世界单位）");
@@ -24183,8 +24197,8 @@ public static class BattleScene
                             hand.animateRelayout = true;
                             hand.Refresh(list6d);                        // 先落回**静止位**（上一段 ⑥ 刚收过悬停）
                             CardTween.Advance(CardTween.RelayoutDuration + 0.05f);
-                            Vector3 from6d = pv6d.transform.position;    // 补间起点 = **渲染位姿**，⛔ 不是我们的常量
-                            hand.Refresh(list6d, 0);                     // 悬停第 0 张 ⇒ `HandLayout.Place` → `CardView.TweenPose`
+                            pv6d.SetPose(pv6d.transform.localPosition + Vector3.up * 0.5f, pv6d.transform.localEulerAngles.z, pv6d.BaseScale); Vector3 from6d = pv6d.transform.position;   // 补间起点 = **渲染位姿**，⛔ 不是我们的常量（🔴 2026-11-03 `B117-32`：悬停那张现在**瞬切**，不能再靠「悬停」制造这段位移 ⇒ 改成先把它**硬挪开**当起点）
+                            hand.Refresh(list6d);                        // 无悬停 ⇒ 这一张按普通重排补间回静止位（量到的仍是 `CardView.TweenPose` 那条 OutQuad）
                             CardTween.Advance(0.01f);                    // 让补间真正起步（首帧不一定推进）
                             CardTween.Advance(CardTween.RelayoutDuration * 0.5f - 0.01f);   // 累计 = 半程
                             Vector3 mid6d = pv6d.transform.position;
@@ -45263,7 +45277,7 @@ public static class BattleScene
                 }
             }
 
-            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; CheckT21TriggerAnchors(driver, Check); RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; CheckCardWinUiStateBlocked(driver, Check); CheckChallengeCounters(Check); CheckManaBuffHud(driver, Check); B115W7_Assert.Run(driver); pass += B115W7_Assert.Pass; fail += B115W7_Assert.Fail; B116W42_Assert.Run(driver); pass += B116W42_Assert.Pass; fail += B116W42_Assert.Fail; driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
+            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; CheckT21TriggerAnchors(driver, Check); RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; CheckCardWinUiStateBlocked(driver, Check); CheckChallengeCounters(Check); CheckManaBuffHud(driver, Check); B115W7_Assert.Run(driver); pass += B115W7_Assert.Pass; fail += B115W7_Assert.Fail; B116W42_Assert.Run(driver); pass += B116W42_Assert.Pass; fail += B116W42_Assert.Fail; B117F11_Assert.RunWithDriver(driver); pass += B117F11_Assert.Pass; fail += B117F11_Assert.Fail; driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
             //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：
@@ -46893,7 +46907,7 @@ public static class BattleScene
             PinFirstSeat(driver, null);       // 用完拔回（与前面 9b/9c 留下的状态一致）
         }
 
-        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); pass += B99A3_Assert.Pass; fail += B99A3_Assert.Fail; B99A1_Assert.Run(); pass += B99A1_Assert.Pass; fail += B99A1_Assert.Fail; B99B1_Assert.Run(); pass += B99B1_Assert.Pass; fail += B99B1_Assert.Fail; B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; B108_A2_PlayerChain_Assert.Run(); pass += B108_A2_PlayerChain_Assert.Pass; fail += B108_A2_PlayerChain_Assert.Fail; B108_A8_TutorialArrow_Assert.Run(); pass += B108_A8_TutorialArrow_Assert.Pass; fail += B108_A8_TutorialArrow_Assert.Fail; B109_E12_Wiring_Assert.Run(); pass += B109_E12_Wiring_Assert.Pass; fail += B109_E12_Wiring_Assert.Fail; B109_E6_EnchantDispatch_Assert.Run(); pass += B109_E6_EnchantDispatch_Assert.Pass; fail += B109_E6_EnchantDispatch_Assert.Fail; B109_E7_EnchantVfx_Assert.Run(); pass += B109_E7_EnchantVfx_Assert.Pass; fail += B109_E7_EnchantVfx_Assert.Fail; B109_E22_PendingMode_Assert.Run(); pass += B109_E22_PendingMode_Assert.Pass; fail += B109_E22_PendingMode_Assert.Fail; B109_E25_VfxAsset_Assert.Run(); pass += B109_E25_VfxAsset_Assert.Pass; fail += B109_E25_VfxAsset_Assert.Fail; C7_Assert.Run(); pass += C7_Assert.Pass; fail += C7_Assert.Fail; Q1_Assert.Run(); pass += Q1_Assert.Pass; fail += Q1_Assert.Fail; B110R17_Assert.Run(); pass += B110R17_Assert.Pass; fail += B110R17_Assert.Fail; B110_W2_Assert.Run(); pass += B110_W2_Assert.Pass; fail += B110_W2_Assert.Fail; C6_Assert.RunUnit(); pass += C6_Assert.Pass; fail += C6_Assert.Fail; B111E2_Assert.Run(); pass += B111E2_Assert.Pass; fail += B111E2_Assert.Fail; B111E1B_Assert.Run(); pass += B111E1B_Assert.Pass; fail += B111E1B_Assert.Fail; B111R1WC_Assert.Run(); pass += B111R1WC_Assert.Pass; fail += B111R1WC_Assert.Fail; B111_R2W_Assert.Run(); pass += B111_R2W_Assert.Pass; fail += B111_R2W_Assert.Fail; B111_F1E_Assert.Run(); pass += B111_F1E_Assert.Pass; fail += B111_F1E_Assert.Fail; B113W13_Assert.Run(); pass += B113W13_Assert.Pass; fail += B113W13_Assert.Fail; B113W3_Assert.Run(); pass += B113W3_Assert.Pass; fail += B113W3_Assert.Fail; B114_W14_Assert.Run(); pass += B114_W14_Assert.Pass; fail += B114_W14_Assert.Fail; B114_W17_Assert.Run(); pass += B114_W17_Assert.Pass; fail += B114_W17_Assert.Fail; B114_W18_Assert.Run(); pass += B114_W18_Assert.Pass; fail += B114_W18_Assert.Fail; B114_W31_Assert.Run(); pass += B114_W31_Assert.Pass; fail += B114_W31_Assert.Fail; B114_W36_Assert.Run(); pass += B114_W36_Assert.Pass; fail += B114_W36_Assert.Fail; B114_W42_Assert.Run(); pass += B114_W42_Assert.Pass; fail += B114_W42_Assert.Fail; CheckPostFxDetachRoundTrip(Check); B116W23_Assert.Run(); pass += B116W23_Assert.Pass; fail += B116W23_Assert.Fail; B116W29_Assert.Run(); pass += B116W29_Assert.Pass; fail += B116W29_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
+        B93F5Assert.Run(); pass += B93F5Assert.Pass; fail += B93F5Assert.Fail; B94X2_Assert.Run(); pass += B94X2_Assert.Pass; fail += B94X2_Assert.Fail; B94V1_Assert.Run(); pass += B94V1_Assert.Pass; fail += B94V1_Assert.Fail; B94Y5_Assert.Run(); pass += B94Y5_Assert.Pass; fail += B94Y5_Assert.Fail; B94B9_Assert.Run(); pass += B94B9_Assert.Pass; fail += B94B9_Assert.Fail; B97_FXC_Assert.Run(); pass += B97_FXC_Assert.Pass; fail += B97_FXC_Assert.Fail; B97W8Assert.Run(); pass += B97W8Assert.Pass; fail += B97W8Assert.Fail; B97W20Assert.Run(); pass += B97W20Assert.Pass; fail += B97W20Assert.Fail; B97W16Assert.Run(); pass += B97W16Assert.Pass; fail += B97W16Assert.Fail; B99E4_Assert.Run(); pass += B99E4_Assert.Pass; fail += B99E4_Assert.Fail; B99W3_Assert.Run(); pass += B99W3_Assert.Pass; fail += B99W3_Assert.Fail; B100F9_Assert.Run(); pass += B100F9_Assert.Pass; fail += B100F9_Assert.Fail; B101E2_Assert.Run(); pass += B101E2_Assert.Pass; fail += B101E2_Assert.Fail; B101R4_Assert.Run(); pass += B101R4_Assert.Pass; fail += B101R4_Assert.Fail; B101R3_Assert.Run(); pass += B101R3_Assert.Pass; fail += B101R3_Assert.Fail; B100F12_Assert.Run(); pass += B100F12_Assert.Pass; fail += B100F12_Assert.Fail; B100F11_Assert.Run(); pass += B100F11_Assert.Pass; fail += B100F11_Assert.Fail; B99A3_Assert.Run(); pass += B99A3_Assert.Pass; fail += B99A3_Assert.Fail; B99A1_Assert.Run(); pass += B99A1_Assert.Pass; fail += B99A1_Assert.Fail; B99B1_Assert.Run(); pass += B99B1_Assert.Pass; fail += B99B1_Assert.Fail; B99C1_Assert.Run(); pass += B99C1_Assert.Pass; fail += B99C1_Assert.Fail;   B101R5_Assert.Run(); pass += B101R5_Assert.Pass; fail += B101R5_Assert.Fail; B101F2_Assert.Run(); pass += B101F2_Assert.Pass; fail += B101F2_Assert.Fail;  B102EFF_Assert.Run(); pass += B102EFF_Assert.Pass; fail += B102EFF_Assert.Fail;  B102EXEC_Assert.Run(); pass += B102EXEC_Assert.Pass; fail += B102EXEC_Assert.Fail;  B103W3_Assert.Run(); pass += B103W3_Assert.Pass; fail += B103W3_Assert.Fail; B103W5_Assert.Run(); pass += B103W5_Assert.Pass; fail += B103W5_Assert.Fail; B104_V2_Assert.CheckB104V2(); pass += B104_V2_Assert.Pass; fail += B104_V2_Assert.Fail; B104_VfxChain_Assert.Run(); pass += B104_VfxChain_Assert.Passed; fail += B104_VfxChain_Assert.Failed; B104_CardFeel_Assert.Run(); pass += B104_CardFeel_Assert.Pass; fail += B104_CardFeel_Assert.Fail; B104_A2_Assert.Run(); pass += B104_A2_Assert.Passed; fail += B104_A2_Assert.Failed; B104_W64_Assert.Run(); pass += B104_W64_Assert.Pass; fail += B104_W64_Assert.Fail;  B105_W2_Assert.RunEngine(); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; /* 🔴 2026-10-31（调度台 · B105_D1 诊断）：`B100F26_Assert` 是 `B98G6_Assert`（已在 `RuleEngineTest.cs:1294` 接线且全绿）的**过期副本** —— 6 条红全是订正前期望 ⇒ 退役本处接线，覆盖由 B98G6 保住。 */ TraitEffectAssert.Run(); pass += TraitEffectAssert.Passed; fail += TraitEffectAssert.Failed; B106_W23_Assert.Run(); pass += B106_W23_Assert.Pass; fail += B106_W23_Assert.Fail; B108_A2_PlayerChain_Assert.Run(); pass += B108_A2_PlayerChain_Assert.Pass; fail += B108_A2_PlayerChain_Assert.Fail; B108_A8_TutorialArrow_Assert.Run(); pass += B108_A8_TutorialArrow_Assert.Pass; fail += B108_A8_TutorialArrow_Assert.Fail; B109_E12_Wiring_Assert.Run(); pass += B109_E12_Wiring_Assert.Pass; fail += B109_E12_Wiring_Assert.Fail; B109_E6_EnchantDispatch_Assert.Run(); pass += B109_E6_EnchantDispatch_Assert.Pass; fail += B109_E6_EnchantDispatch_Assert.Fail; B109_E7_EnchantVfx_Assert.Run(); pass += B109_E7_EnchantVfx_Assert.Pass; fail += B109_E7_EnchantVfx_Assert.Fail; B109_E22_PendingMode_Assert.Run(); pass += B109_E22_PendingMode_Assert.Pass; fail += B109_E22_PendingMode_Assert.Fail; B109_E25_VfxAsset_Assert.Run(); pass += B109_E25_VfxAsset_Assert.Pass; fail += B109_E25_VfxAsset_Assert.Fail; C7_Assert.Run(); pass += C7_Assert.Pass; fail += C7_Assert.Fail; Q1_Assert.Run(); pass += Q1_Assert.Pass; fail += Q1_Assert.Fail; B110R17_Assert.Run(); pass += B110R17_Assert.Pass; fail += B110R17_Assert.Fail; B110_W2_Assert.Run(); pass += B110_W2_Assert.Pass; fail += B110_W2_Assert.Fail; C6_Assert.RunUnit(); pass += C6_Assert.Pass; fail += C6_Assert.Fail; B111E2_Assert.Run(); pass += B111E2_Assert.Pass; fail += B111E2_Assert.Fail; B111E1B_Assert.Run(); pass += B111E1B_Assert.Pass; fail += B111E1B_Assert.Fail; B111R1WC_Assert.Run(); pass += B111R1WC_Assert.Pass; fail += B111R1WC_Assert.Fail; B111_R2W_Assert.Run(); pass += B111_R2W_Assert.Pass; fail += B111_R2W_Assert.Fail; B111_F1E_Assert.Run(); pass += B111_F1E_Assert.Pass; fail += B111_F1E_Assert.Fail; B113W13_Assert.Run(); pass += B113W13_Assert.Pass; fail += B113W13_Assert.Fail; B113W3_Assert.Run(); pass += B113W3_Assert.Pass; fail += B113W3_Assert.Fail; B114_W14_Assert.Run(); pass += B114_W14_Assert.Pass; fail += B114_W14_Assert.Fail; B114_W17_Assert.Run(); pass += B114_W17_Assert.Pass; fail += B114_W17_Assert.Fail; B114_W18_Assert.Run(); pass += B114_W18_Assert.Pass; fail += B114_W18_Assert.Fail; B114_W31_Assert.Run(); pass += B114_W31_Assert.Pass; fail += B114_W31_Assert.Fail; B114_W36_Assert.Run(); pass += B114_W36_Assert.Pass; fail += B114_W36_Assert.Fail; B114_W42_Assert.Run(); pass += B114_W42_Assert.Pass; fail += B114_W42_Assert.Fail; CheckPostFxDetachRoundTrip(Check); B116W23_Assert.Run(); pass += B116W23_Assert.Pass; fail += B116W23_Assert.Fail; B116W29_Assert.Run(); pass += B116W29_Assert.Pass; fail += B116W29_Assert.Fail; B117F11_Assert.Run(); pass += B117F11_Assert.Pass; fail += B117F11_Assert.Fail; Debug.Log(P + $"=== 合计：{pass} 通过 / {fail} 失败 ===");   // 🆕 2026-10-29（调度台代接线 · `B97_W8`）：账 `日常_奖励:155` 结算奖励行（几何/0 条隐藏/Show 后重算）· 同一行追加 ⇒ 行数零变化 ／（`B97_W3` 窄口授权 · 调度台）：账 `战斗逻辑驱动:483` 的表现层接线 —— 接在**方法尾聚合行、合计那一条之前**（🎯 理由：本件会在时间线上留一条 0.4 s 的空操作 `cueAction`，接在这里 ⇒ 其后**没有任何别的断言**可被污染；另一候选 `:40000` 的 `var wctx = driver.Ctx;` 后面紧跟的就是「拦得住 / 放得开」那一段，那条 cue 会掺进去）。同一物理行追加 ⇒ 行数零变化。    // 🆕 2026-10-30（调度台代接线 · `B101_R5`）：`steal 全摘 extrinsic` / `exchange 两次手牌清扫` / `transformUnit 手牌格沿用实例号` / `DoTakeControl` doc —— 接在合计行之前，**同一物理行追加 ⇒ 行数零变化** ／🆕 2026-10-29（调度台代接线）：`B93F5Assert`（54 条）· `B94X2_Assert`（准星/弧线）· `B94V1_Assert`（LoadableRef + 错误横幅单例）· `B94Y5_Assert`（教程指针双点口）—— 此前均 0 宿主，接在合计行之前，**同一行追加 ⇒ 行数零变化**
 
         if (Application.isBatchMode) EditorApplication.Exit(fail == 0 ? 0 : 1);
     }
@@ -51195,5 +51209,93 @@ public static class S3VfxTrace
         _path = null;
         _rows = 0;
         _ioErrorReported = false;
+    }
+}
+
+// ============================================================================================
+//  🔴 2026-11-02（执行代理 `B117_F2` · 活状态表 `B117-R1`）：**语音条那句台词必须从【框里】开始**
+// ============================================================================================
+//  **现象**（2026-11-03 真机实拍 `_tmp_view/shots/20261103_s117/23_pick.png` / `24_endturn.png`）：
+//    语音条那句 `为了帝皇和基因原体！` 只剩 `了帝皇和基因原体！` —— 整块台词**从框左沿外 220.45 px 开始**
+//    （= `TextW / 2`，正好半个框宽），首两三字被屏幕左缘切掉。
+//  **为什么既有断言抓不到**：`BattleScene.cs` 的「台词不许溢出」那一节只量**尺寸**
+//    （`WorldW ≤ 440.9` / `WorldH ≤ 81.7`）—— 尺寸一直是对的，错的是**位置**。
+//  **判据**（原版 `ChatText` 那颗 RT：`bundle_scenes_scenes_battlearena1` 的 `RectTransform_3566.json`）：
+//    x[201.2,642.1] y[738.2,819.9] ⇒ 框 **440.9 × 81.7**；`m_HorizontalAlignment = 1 (Left)` ·
+//    `m_VerticalAlignment = 512 (Middle)` ⇒ **墨迹左沿贴框左沿、上下不出框**。
+//  **根因**（已修，判据链写在 `UnitChatPanel.MakeBubble` 里那句 `pivot = (0, 0.5)` 的注释）：
+//    TMP 子节点的 `pivot` 被 `Label.CreateCore` 硬写成 `(0.5,0.5)`，而 `Move` 摆的是「枢轴点」=
+//    文本区**左沿**；把它纠正回来的 `Label.RefreshBounds` 在「0 个可见字」时早退
+//    （打字机 / `HideBubble` 都会把 `maxVisibleCharacters` 置 0，而 `GetTextBounds()` 只统计
+//    `isVisible` 的字 ⇒ 空集哨兵）⇒ **那条纠正路从来没跑成过** ⇒ 矩形以节点为**中心**摆。
+//  **断什么**（三条，全部用「墨迹框相对**文本节点**」的偏移 —— 那个节点就是按「文本区左沿 + 中线」摆的）：
+//    ① 左沿 `cp.x + min.x ≥ −1`（≈0）② 上/下沿不越框 ③ 墨迹宽 ≤ 440.9 + 0.6
+//  🔴 **量之前只推 `ForceMeshUpdate()`，⛔ 不许调 `Label.ForceRelayout()`**：后者末尾会跑
+//    `RefreshBounds` —— 那**正是被验的那条纠正路**，跑一遍就把 bug 现场抹平了（= 自证）。
+//  **接线**：`B117F2_Assert.Run(chat)` 接在 `Editor/BattleScene.cs` 语音条那一节末尾的
+//    `chat.HideAll();` 那一行上（行尾追加，⛔ 那里没有 `//` 注释，不会被吞）。
+// ============================================================================================
+public static class B117F2_Assert
+{
+    const string P = "[B117_F2] ";
+    static int _ok, _bad;
+    public static int Pass { get { return _ok; } }
+    public static int Fail { get { return _bad; } }
+
+    static void Check(bool ok, string what)
+    {
+        if (ok) { _ok++; Debug.Log(P + "✓ " + what); }
+        else { _bad++; Debug.LogError(P + "✗ " + what); }
+    }
+
+    /// <summary>原版台词框（判据见上面那一段，⛔ **别拿 `UnitChatPanel.TextW` 来断** —— 那是自证）。</summary>
+    const float OrigBoxW = 440.9f, OrigBoxH = 81.7f;
+
+    public static void Run(CardPresentation.UnitChatPanel chat)
+    {
+        Check(chat != null, "（前提）拿得到 `UnitChatPanel`（`drv.UnitChat`）—— 不成立时下面三条等于没验");
+        if (chat == null) return;
+
+        // 夹具：一句**一定折行**的长台词，走**生产那条 `Speak`** —— 它开头就 `HideBubble`
+        //   （把 `maxVisibleCharacters` 置 0），bug 现场正是在这条路上。
+        const string Probe = "如果我们赢了那就是赢如果我战死狂战斗中那不算数这句是为了把框撑满两行以上";
+        bool spoke = chat.Speak(0, "B117F2", "Test", null, "B117F2", Probe, null, expectVoice: false);
+        Check(spoke, "（前提）`Speak` 把这一句显示出来了（false = 闸挡下 / 气泡序号认不出）");
+        var lb = chat.TextLabel;
+        var tmp = lb != null ? lb.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+        Check(lb != null && tmp != null, "（前提）拿得到台词那块文字本体 + 它底下那颗 TMP（量墨迹框要用它）");
+        if (lb == null || tmp == null) { chat.HideAll(); return; }
+
+        // 🔴 打字机此刻把 `maxVisibleCharacters` 停在 0 ⇒ `GetTextBounds()` **只统计 `isVisible` 的字**
+        //    （`TMP_Text.cs:4864-4894`）⇒ 直接读 `textBounds` 会是空集哨兵（±4.29e9）。
+        //    这里**只**把可见字数拨满再推一次网格 —— ⛔ 别走 `lb.ForceRelayout()`（它会跑 `RefreshBounds`，
+        //    而那是被验的那条纠正路 ⇒ 跑一遍 bug 就没影了 = 自证）。
+        int keepMax = tmp.maxVisibleCharacters;
+        tmp.maxVisibleCharacters = 99999;
+        tmp.ForceMeshUpdate();
+
+        float k = chat.IsUgui ? 1f : 108f;      // uGUI 档 = 设计 px；世界档 = 世界单位（×108 = px）
+        Vector3 cp = tmp.rectTransform.localPosition;
+        Bounds b = tmp.textBounds;
+        float inkLeft = (cp.x + b.min.x) * k;   // 相对文本节点（= 框左沿），**负 = 出框左边**
+        float inkTop = (cp.y + b.max.y) * k;    // 相对文本节点（= 框垂直中线），**正 = 往上**
+        float inkBot = (cp.y + b.min.y) * k;
+        float inkW = Mathf.Abs(b.size.x) * k;
+
+        Check(inkLeft >= -1f,
+              $"★ `B117-R1`：台词**从框里开始**（墨迹左沿相对文本节点 = **{inkLeft:F1} px**，期望 ≈0、≥ −1）"
+            + "｜🧨 把 `UnitChatPanel.MakeBubble` 里那句 `pivot = (0, 0.5)` 删掉 ⇒ 本条掉到 −220 左右（= 半个框宽）");
+        // ⚠️ 容差 5 px = A712 的**字墨校正**（`Label.VOffsetWorld` ≈ 0.13 em ≈ 4.3 px）+ 行盒上下不对称；
+        //    真溢出时是几十 px 的量级，这 5 px 不会把真缺陷放过去。
+        Check(inkTop <= OrigBoxH * 0.5f + 5f && inkBot >= -OrigBoxH * 0.5f - 5f,
+              $"★ `B117-R1`：台词**上下不出框**（相对中线 上 {inkTop:F1} / 下 {inkBot:F1}，"
+            + $"期望落在 ±(框高一半 {OrigBoxH * 0.5f:F2} + 5) 之内）");
+        Check(inkW <= OrigBoxW + 0.6f,
+              $"★ `B117-R1`：墨迹宽 ≤ 原版框宽 **{OrigBoxW} px**（实得 {inkW:F1}）");
+
+        // 还原打字机状态，并把气泡收掉（本节之后不该留一条亮着的气泡）
+        tmp.maxVisibleCharacters = keepMax;
+        tmp.ForceMeshUpdate();
+        chat.HideAll();
     }
 }

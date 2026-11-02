@@ -649,7 +649,7 @@ namespace CardPresentation
             MenuTutorialManager.Attach(this);
             // 🆕 **2026-10-26（B9 · P9 #430）**：≡ 原版 `MainMenuMission.Initialize()` 末尾那一跳
             //   （`MainMenuMission__Initialize.c:11-12` 的尾调 `TrySchedulePopup()`，Slot 74）——
-            //   **进主菜单时若有可领的奖励/连登 ⇒ 自动弹那一扇窗**（原版是排进 `MenuActions`，
+            //   ⚠️ **2026-11-03 起不再自动弹**（`DailyData.AutoPopupEnabled = false`，用户裁定「不自动弹，入口保留」）—— 这一跳照留（撤旧句柄）；原版是排进 `MenuActions`，
             //   且只在当前窗恰好是 `MainMenuWindow` 时开火 ⇒ 这里也一样）。
             //   ⚠️ 本行**同时**承担 `MainMenuMission.Dispose()` 那一跳（撤上一轮的句柄）——
             //   见 `DailyData.TrySchedulePopup()` 的第一句，理由写在那里。

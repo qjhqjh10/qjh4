@@ -2393,13 +2393,13 @@ namespace CardPresentation
         /// （每日奖励轨 / 连登轨），与「每实例一个 `menuAction`」一一对应。</para></summary>
         static MenuAction _popupActionDaily, _popupActionStreak;
 
-        /// <summary>见 <see cref="TrySchedulePopup"/> 里那段 🔶 —— **编辑期默认不排队**；自检要验这条链时
-        /// 显式把它打开（`DailyData.AutoPopupInEditor = true`），验完关掉。
+        /// <summary>见 <see cref="TrySchedulePopup"/> 里那段 🔶 —— **默认不排队**（真机那一档由总开关 `AutoPopupEnabled` 关着）· 自检要验这条链时
+        /// 显式把它打开（`DailyData.AutoPopupInEditor = true`），验完关掉 —— **这是唯一的测试注入口**。
         /// ⚠️ 它只管「自动排程」这一侧；`TrySchedulePopup()` 手调时也受它管。</summary>
         public static bool AutoPopupInEditor;
 
-        /// <summary>「现在允许排自动动作吗」—— 运行时恒真；编辑期只有显式打开才真（理由见那段 🔶）。</summary>
-        static bool SchedulingAllowed { get { return Application.isPlaying || AutoPopupInEditor; } }
+        /// <summary>「现在允许排自动动作吗」= <see cref="IsAutoPopupAllowedFor"/>（总开关见类尾的 `AutoPopupEnabled`）。</summary>
+        static bool SchedulingAllowed { get { return IsAutoPopupAllowedFor(Application.isPlaying, AutoPopupInEditor); } }
 
         /// <summary>排过几次弹窗动作（**自检读它做差分** —— 别拿「一定排过」自证）。</summary>
         public static int PopupScheduleCount { get; private set; }
@@ -2460,11 +2460,11 @@ namespace CardPresentation
             //   ⇒ 先撤旧句柄、再按新状态排（否则旧句柄会被 `Contains` 判成「已排过」而**永远不再弹**）。
             ReleasePopupActions();
 
-            // 🔶 自己设计（非原版）：编辑期默认**只撤句柄、不排队**（`AutoPopupInEditor` 可显式打开） · 原版没有「编辑期」
-            // 这个概念、判据为空；但**必须有这道闸** —— 自检宿主（`MainMenuScene.Run` / `ShellScene.Run`）在同一个进程里
+            // 🔶 自己设计（非原版）：**真机也不自动弹** —— `AutoPopupEnabled = false`（用户 2026-11-03 裁定「不自动弹，入口保留」）；
+            // 另有一道编辑期闸（`AutoPopupInEditor`，调度台 2026-10-26）：自检宿主（`MainMenuScene.Run` / `ShellScene.Run`）在同一个进程里
             // 反复 `Build()` + 开关窗，而 `MenuActions.actions` 是**静态**的、跨节存活 ⇒ 不闸的话一条「等
             // `MainMenuWindow` 的动作」会在**后面某一节**突然开一扇奖励窗，把不相干的断言打红
-            // （同族先例 = `MenuTutorialFlow.Attach` 的 `Application.isPlaying` 闸） · 调度台 2026-10-26
+            // （同族先例 = `MenuTutorialFlow.Attach` 的 `Application.isPlaying` 闸）；两道理由都写进 `IsAutoPopupAllowedFor` 的文档。
             if (!SchedulingAllowed) return false;
 
             bool any = false;
@@ -2543,9 +2543,9 @@ namespace CardPresentation
         static void TryShowMissionToast(int dailyIndex)
         {
             int idx = dailyIndex;
-            // 与 `TrySchedulePopup` 同一道闸（理由见那段 🔶：静态 `MenuActions` 会跨自检小节存活）。
-            // ⚠️ **出声** —— 红线是不许静默失败，所以「没排」这件事要留一行。
-            if (!SchedulingAllowed)
+            // 闸 = **编辑期闸**（同族理由见 `TrySchedulePopup` 那段 🔶）；⚠️ **不吃** 2026-11-03 的总开关（任务飘窗是原版行为）。
+            // ⚠️ **出声**；🔴 ⛔ 别改用 `SchedulingAllowed`（它带 `AutoPopupEnabled`，2026-11-03 只关自动弹窗）
+            if (!(AutoPopupInEditor || Application.isPlaying))
             {
                 Debug.Log("[Daily] 任务完成的飘窗**没有排**（编辑期默认不排自动动作；"
                         + "要验这条链先置 `DailyData.AutoPopupInEditor = true`）—— 任务 " + (idx + 1));
@@ -3107,6 +3107,29 @@ namespace CardPresentation
         {
             if (StreakRewardCountOverrideForTest >= 0) return StreakRewardCountOverrideForTest;
             return StreakRewardSpecsOf(i).Length;
+        }
+
+        // ------------------------------------------------------------ 🆕 2026-11-03（`B117-R17`）自动弹窗总开关
+        // 🔶 自己设计（非原版）：开机不自动弹每日奖励/每日连胜 —— 原版 MainMenuMission.TrySchedulePopup 是「有可领取就弹」；
+        //    用户 2026-11-03 裁定「不自动弹，入口保留」。
+        // 判据（原版那一侧）：`decomp_full/MainMenuMission__TrySchedulePopup.c` —— ① 门 =「至少一条可领」
+        //   ② 幂等（句柄仍在队列里就早退）③ `MenuActions.QueueAction(...)` 排一条 `Popup(12)`；
+        //   唤醒点 = `MainMenuMission__Initialize.c:11-12` 与 `__UpdateSaveGame.c:12` 的尾调。
+        // ⇒ **方法体本身照抄、⛔ 不许删**（`TrySchedulePopup` / `OpenDailyRewardPopupScheduled` /
+        //   `OpenDailyStreakPopupScheduled` 三层都留着），只在这一道总开关上关掉「真机自动排」。
+        // ⚠️ 恢复原版行为 = **只改这一个字段为 `true`**（⛔ 别去动 `TrySchedulePopup` 的方法体）。
+        // 为什么用户要关：真机验收一进主菜单就弹「领取奖励」，用户 2026-11-03 明确「这个不需要」，
+        //   但**入口保留** —— `RewardsWindow` 的「每日连胜」页（`DailyStreakTab`，`RewardsWindow.cs:315`）
+        //   与每日奖励页照常能点开，不受这个开关影响。
+        public static readonly bool AutoPopupEnabled = false;
+
+        /// <summary>把 <see cref="SchedulingAllowed"/> 里那条判据抽成**纯函数** —— 自检要在编辑期验「真机那一档也关着」
+        /// （`-executeMethod` 批处理里 `Application.isPlaying` 恒 `false`，不抽出来就断不到真机那一路）。
+        /// <para>`isPlaying` = 真机 / Play 模式；`injected` = <see cref="AutoPopupInEditor"/>（**自检唯一的测试注入口**）。</para>
+        /// <para>两条契约：① 真机 + 无注入 ⇒ **false**（用户 2026-11-03 裁定）；② 注入 ⇒ **true**（原逻辑照排，证明「只是被关掉、不是坏了」）。</para></summary>
+        public static bool IsAutoPopupAllowedFor(bool isPlaying, bool injected)
+        {
+            return injected || (AutoPopupEnabled && isPlaying);
         }
     }
 

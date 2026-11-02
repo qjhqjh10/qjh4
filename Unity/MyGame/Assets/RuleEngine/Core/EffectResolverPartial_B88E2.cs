@@ -201,8 +201,8 @@ namespace RuleEngine
             // ① 回合闸（`:5-21`）—— `allowPlayerActionsFlag` 无等价位，用「这一侧是不是行动方」代替
             if (ctx.Active != owner) return false;
 
-            // ② jam（130）闸（`:22`）—— 运行期 trait 优先，没有实例才退回卡的默认 trait
-            bool jammed = (thisCard != null && thisCard.Has(KeywordTable.Jam))
+            // ② jam（130）闸（`:22`）—— 运行期 trait 优先，没有实例才退回卡的默认 trait ｜🔴 2026-11-02（`B117_F13` · `B117-24` #22 / `B117-45`）：实例那半支 `Has` → `HasCurrentTrait`（原版 `CardScript__CanPlayWithOathNowInPlay.c:22` 是 `EntityScript__HasCurrentTrait(param_1, 0x82)` = **当前 trait 表**；`Has` 只读 `keywords` 列 ⇒ 只写在 `cardTraits` 里的 jam 会被漏判）
+            bool jammed = (thisCard != null && thisCard.HasCurrentTrait(KeywordTable.Jam))
                        || (thisCard == null && card.HasDefaultTrait(KeywordTable.Jam, out _));
             if (jammed) return false;
 
@@ -989,7 +989,7 @@ namespace RuleEngine
                       + "（原版 `PlayAbility.c:2015-2019`：`bm.cardChosenInSelection == null` 直接返回）");
                 return 0;
             }
-            bool oath = cc.Has(KeywordTable.Oath);                 // 原版 `:2025` `HasDefaultTrait(thatCard, oath)` = **卡面印的**
+            bool oath = cc.HasDefaultTrait(KeywordTable.Oath, out _);   // 原版 `:2025` `RawCardScript__HasDefaultTrait(thatCard, 0x4fb)` = **卡面印的** ｜🔴 2026-11-02（`B117_F13` · `B117-45`）就地订正：原来写 `cc.Has(...)`（只读 `keywords` 列）⇒ 改成 `HasDefaultTrait`（读 `cardTraits` 列 = 原版 `defaultTraits(+0x230)`）；⛔ **别改成 `HasCurrentTrait`** —— 原版这一句读的**不是**当前 trait 表（它是「选中的那张」，可能根本不在场），也正因为 `cc` 是 `CardDef` 而非 `UnitState`、没有那个口
             if (oath) PayCardPlayedCostOath(ctx, p, u.Instance);   // 原版 `:2032` —— 付的是 **actingCard** 自己的 oath（`PayCardPlayedCostOath.c:11`）
             int times = oath ? 1 + RuleCore.OathExtraReplays(ctx, p) : 1;   // 原版 `:2043-2057` 的 while（只有带 oath 才补放）
             int ran = 0;
@@ -997,7 +997,7 @@ namespace RuleEngine
             //   而 `ThisCardPlayed(0)` 的卡面写法就是 `Rally:`（判据 = `ActionPump` 的 `AbilityTriggerNameOfKeyword`
             //   `case KeywordTable.Rally: return "ThisCardPlayed"`，且池内 105/105 张带 rally 的卡 `abilityTriggers` 都有 0）。
             //   传 `"ThisCardPlayed"` ⇒ `TriggerOps` 恒 `null` ⇒ 静默空转（本代理 2026-10-29 实测）。
-            for (int i = 0; i < (times = oath ? 1 + RuleCore.OathExtraReplays(ctx, p) : 1); i++)   // 🔴 2026-10-29（B97_ER2 · 账 L427 ②）：原版 `AbilityLogic__PlayAbility.c:2043-2057` 的 `while (IsThereDoubleOathEffect(bm, actingCard.isPlayer) > i)` 是**每圈重算** ⇒ 条件里现算（顺带把 `times` 同步成当前值，下面那行日志因此报的是**最终**次数）。⚠️ 残余同 `EffectResolver.ResolveOathAbility`：算子读卡面 trait，原版读 `HasCurrentTrait` —— 那一半在 `RuleCore.cs`。
+            for (int i = 0; i < (times = oath ? 1 + RuleCore.OathExtraReplays(ctx, p) : 1); i++)   // 🔴 2026-10-29（B97_ER2 · 账 L427 ②）：原版 `AbilityLogic__PlayAbility.c:2043-2057` 的 `while (IsThereDoubleOathEffect(bm, actingCard.isPlayer) > i)` 是**每圈重算** ⇒ 条件里现算（顺带把 `times` 同步成当前值，下面那行日志因此报的是**最终**次数）。✅ 2026-11-02（`B117_F13`）**就地订正**：原来这句后面写着「⚠️ 残余同 `EffectResolver.ResolveOathAbility`：算子读卡面 trait，原版读 `HasCurrentTrait`」—— **已过期**：`B117_F1`/`F8` 起 `RuleCore.OathExtraReplays` 就是 `HasCurrentTrait("oathdouble")`（原版 `BattleManager__IsThereDoubleOathEffect.c:33` 同口径），残余已消除。
                 if (RunAbilityOfAnotherCard(ctx, cc, KeywordTable.Rally, p, u, actingCard: u, targetCard: chosen, by: u.Name)) ran++;
             ctx.CardChosenInSelection = null;                      // 原版 `:2060-2068`：`bm+0x2e8 = 0`
             ctx.Log($"「{u.Name}」的主动能力 `chosenAbility 360`：让选中的「{cc.Name}」按 `ThisCardPlayed` 跑它自己的能力 "

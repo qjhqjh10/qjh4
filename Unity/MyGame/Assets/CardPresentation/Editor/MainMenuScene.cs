@@ -16050,11 +16050,11 @@ public static class MainMenuScene
         MeasureText(FindChild(menu.Find("Base Game Mode Container 1x1 - Tutorial"), "Event Title"),
                     "教学", 58.8f);   // 🔴 2026-10-11：模式卡标题改走 `Loc.T`（中文档 = 参考图实拍的「教学」）
         // 🔴 **2026-10-11（界面复刻 · A1493②）**：这两条的**标注串改了** —— 导航文案不再写死英文，
-        //   改走 `Loc.T`（键名与中文出处 = `Core/Loc.cs` 的 E1 那一节）⇒ 屏上是 **玩 / 收藏**（2026-10-14 官方 zh-CN 表：`MainMenu/NavigationPanel/HomeButton` 原「游玩」）。
+        //   改走 `Loc.T`（键名与中文出处 = `Core/Loc.cs` 的 E1 那一节）⇒ 屏上是 **游戏 / 收藏**（2026-10-14 官方 zh-CN 表 `MainMenu/NavigationPanel/HomeButton` 原「游玩」→「玩」；**2026-11-03 用户裁定再改成「游戏」**，🔶 明确偏离原版 —— 断言见本文件 `CheckB106W29` 末尾的 `B117_F10` 那一节）。
         //   ⚠️ `MeasureText` **只打日志、不断言**（见它的实现），所以这里改的只是「量的是谁」。
         //   ⚠️ 期望 em 两处都给 **33**：原来 `COLLECTION` 那个 30.45 是**拉丁字母被 autofit 缩出来**的结果，
         //   换成两个汉字后放得下、不会缩（⛔ 别再按 30.45 去核汉字）。
-        MeasureText(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Text"), "玩", 33f);   // 2026-10-14：官方 zh-CN 表 HomeButton 中文 = 「玩」（原「游玩」）
+        MeasureText(FindChild(menu.Find("Main Menu Navigation Button - Home"), "Text"), "游戏", 33f);   // 中文 = 「游戏」（2026-11-03 用户裁定 · 🔶 偏离原版；2026-10-14 官方表值曾是「玩」，更早是「游玩」）
         MeasureText(FindChild(menu.Find("Main Menu Navigation Button - Collection"), "Text"), "收藏", 33f);
 
         // ============================================================ §A92 节点类型（2026-10-07 新增）
@@ -21147,6 +21147,40 @@ public static class MainMenuScene
         //   `CanvasScaler(Expand)` 服务的；我们的设计空间是**钉高**的 ⇒ 再乘一次 `16/9/aspect` 就是**多乘**。
         //   `Shell/MainMenuRuntime.cs:3884-3918` 已有 2026-10-28 同款裁定（那里只有注释声明「等价实现」、0 处真实现，
         //   是有意的）。⇒ 本节**不产生任何断言**，只留这条记录，⛔ 别照施工单把它做回来。
+
+        // ------------------------------------------------ B117_F10：左导航第一格文案 =「游戏」
+        // 🔶 自己设计（非原版）：左导航 Play 项中文由官方「玩」改为「游戏」 —— 三处官方来源
+        //   （`MainMenu/NavigationPanel/HomeButton` / `MainMenu/MainButtons/ButtonLabel/Play` / 原版实拍）
+        //   均为「玩」；用户 2026-11-03 裁定「改为游戏，官方翻译太差了」（账 `B117-R12`）。
+        //   取值落点 = `Core/Loc.cs` 的 E1 那一节（手写 `Table` 优先级最高 ⇒ ⛔ 不去改
+        //   `Resources/official_loc_13lang.json` —— 那是原版解出来的原始数据，改了以后没法核）。
+        Section("★ B117_F10：左导航第一格屏上文案 =「游戏」（用户 2026-11-03 裁定 · 明确偏离原版）");
+        {
+            var f10Btn = menu != null ? menu.Find("Main Menu Navigation Button - Home") : null;
+            CheckTrue(f10Btn != null, "（前提）左导航第一格 `Main Menu Navigation Button - Home` 在（不在 ⇒ 下面那条没有鉴别力）");
+            var f10Txt = f10Btn != null ? FindChild(f10Btn, "Text") : null;
+            CheckTrue(f10Txt != null, "（前提）它的 `Text` 节点在（`MainMenuRuntime.NavButton` 里那句 `Text(b, label ?? Loc.T(locKey), …)` 建的就是它）");
+            string f10Got = TextOf(f10Txt);
+            // ⚠️ 上面 `TextOf` 走 `GetComponentInChildren<Label>()`（**不收 inactive**），而左栏在「开窗」时
+            //   会被整棵 `SetActive(false)`（`MainMenuRuntime.SetNavPanelVisible`）⇒ 取不到时改用带 `true` 的那一口
+            //   （节点的字没变，只是整棵不显示）—— ⛔ 别把它当成「文案不符」报红。
+            if (f10Got == null && f10Txt != null)
+            {
+                var f10Lbs = f10Txt.GetComponentsInChildren<Label>(true);
+                if (f10Lbs != null && f10Lbs.Length > 0) f10Got = f10Lbs[0].Text;
+            }
+            // 🔴 期望值是**字面量**，⛔ 不是 `Loc.T(键)` —— 那等于拿表证明表（把词条改回「玩」，那条也照样绿）。
+            string f10Want = Loc.Current == AvailableLanguages.Chinese ? "游戏"
+                           : Loc.Current == AvailableLanguages.English ? "PLAY" : null;
+            CheckTrue(f10Want != null, "（前提）自检语档是中文或英文（当前 `" + Loc.Current + "`）—— 其它语档本条没有确定期望值");
+            if (f10Want != null)
+                CheckText(f10Got, f10Want,
+                          "★ 左导航第一格 `Home/Text` 的**屏上实际文案** = 「游戏」（原版三处官方来源都是「玩」，用户 2026-11-03 裁定改「游戏」；"
+                        + "🧨 把 `Core/Loc.cs` 里 `MainMenu/NavigationPanel/HomeButton` 的中文列改回「玩」⇒ 本条红）");
+            // 语言无关的那一半：**中文列本身**（否则「自检恰好跑英文」时，上面那条只证明了 `PLAY` 没变）
+            CheckText(Loc.ZhOf("MainMenu/NavigationPanel/HomeButton"), "游戏",
+                      "★ `MainMenu/NavigationPanel/HomeButton` 的**中文列** = 「游戏」（`Core/Loc.cs` 的 E1 那一节 · 用户 2026-11-03 裁定）");
+        }
     }
 
     /// <summary>🆕 **B-55 第 4 件**（宿主 `Editor/WindowShots.cs`）：把本宿主那一棵场**建起来并交出根**。
