@@ -82,6 +82,7 @@ public static class B120_W2_Assert
         {
             try { driver.Begin("Ultramarines", "Goff", 20260916); driver.RefreshAll(); } catch (Exception e) { Debug.LogWarning(Prefix + "收尾 Begin 失败：" + e.Message); }
         }
+        RunB130OpenCommandType(driver);
         Debug.Log(Prefix + $"B120W2 合计：{_ok} 通过 / {_bad} 失败");
     }
 
@@ -561,5 +562,59 @@ public static class B120_W2_Assert
             Debug.LogWarning(Prefix + "读源码失败 `" + assetRelativePath + "`：" + e.Message);
             return "";
         }
+    }
+
+    // ==================================================================
+    //  B130（2026-11-03）· **起手打法读卡上的 `+0x120`（`CurrentAttackType`），
+    //  不是我们那份「上一次用了哪一档」的 `LastAttackType`（部署初值 0）**
+    //
+    //  判据链（全部亲读 `d:/2/tools/decomp_full/`）：
+    //    · `BattleManager__StartAttackFrom.c:18` —— `uVar1 = *(undefined4 *)(param_2 + 0x120)` 交给准星；
+    //    · `BattleManager__Update.c:1071` —— 松手那一帧 `uVar15 = *(undefined4 *)(lVar19 + 0x120)` 喂
+    //      `AddAttackAction`（`+0x120 == 4` 时走技能那一支，见 `:1021`/`:1042`）；
+    //    · `UnitOnBoardAttackTypeSelector__Toggle.c:152-153` —— 选择器高亮传的也是 `+0x120`；
+    //    · `CardScript__CardSetup.c:263-267` —— 部署初值写 `(近战<远程)+1` ⇒ **永不 0**
+    //      （我们的落点 = `UnitState` 构造器里的 `RuleCore.ChooseAttackTypeAutomatically`）。
+    //  🧨 灭自证：把 `BattleDriver.OpenCommand` 的 `u.CurrentAttackType` 改回 `u.LastAttackType`
+    //      ⇒ B130-2 实得 `None`、红（新部署的单位 `LastAttackType` 恒 0）。
+    // ==================================================================
+    static void RunB130OpenCommandType(BattleDriver driver)
+    {
+        Debug.Log(Prefix + "--- B130 · 起手打法 = `CurrentAttackType`（原版 `+0x120`）---");
+        if (driver == null) { Check(false, "（前提）`driver` 不为 null"); return; }
+        var ctx = driver.Ctx;
+        if (ctx == null) { Check(false, "（前提）`driver.Ctx` 不为 null"); return; }
+        int me = driver.MyIndex;
+        if (me < 0 || me >= ctx.Players.Length) { Check(false, "（前提）`MyIndex` 落在 0..1（实得 " + me + "）"); return; }
+        var board = ctx.Players[me].Board;
+        int slot = BoardSpec.WarlordSlot;
+        if (slot < 0 || slot >= board.Length || board[slot] == null)
+        {
+            slot = -1;
+            for (int s = 0; s < board.Length; s++) if (board[s] != null) { slot = s; break; }
+        }
+        Check(slot >= 0, "（前提）我方场上至少有一个单位");
+        if (slot < 0) return;
+        var u = board[slot];
+        int cat = u.CurrentAttackType;
+        Check(cat == UnitState.AttackTypeMelee || cat == UnitState.AttackTypeRanged || cat == UnitState.AttackTypeActive,
+              "★B130-1 部署初值 `CurrentAttackType`（= 原版 `+0x120`；`CardScript__CardSetup.c:263-267` 写 `(近战<远程)+1`）"
+            + " 只能是 **1/2/4**、⛔ 不是 0（实得 " + cat + "）");
+        Check(u.LastAttackType == 0,
+              "（前提）这个单位还没打过仗 ⇒ `LastAttackType`（我们的展示字段）= 0（实得 " + u.LastAttackType
+            + "）—— 改前 `OpenCommand` 读的就是它 ⇒ 起手打法会被判成 `None`、松手打不出去");
+        if (!driver.SimulateOpenCommand(slot))
+        {
+            Check(false, "（前提）`SimulateOpenCommand(" + slot + ")` 打开了选择器（没打开 ⇒ 下面那条无从判）");
+            return;
+        }
+        AttackKind want = cat == UnitState.AttackTypeRanged ? AttackKind.Ranged
+                        : cat == UnitState.AttackTypeActive ? AttackKind.Ability
+                        : AttackKind.Melee;
+        Check(driver.Command == want,
+              "★B130-2 起手打法 = 卡上的 `+0x120`（`BattleManager__StartAttackFrom.c:18` + `__Update.c:1071`）；"
+            + "`CurrentAttackType`=" + cat + " ⇒ 期望 " + want + "（实得 " + driver.Command + "）"
+            + "｜🧨 把 `OpenCommand` 改回读 `LastAttackType` ⇒ 实得 `None`、本条红");
+        driver.SimulateDeselect();
     }
 }

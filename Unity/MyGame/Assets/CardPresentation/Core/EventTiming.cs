@@ -347,11 +347,11 @@ namespace CardPresentation
                  : HitWaitSeconds;
         }
 
-        /// <summary>🆕 **2026-10-25（`AU1` · `J1` §6）：这一条「发动能力」占多久 —— 先按【分支】分，再按卡查表**。
+        /// <summary>🆕 **2026-10-25（`AU1` · `J1` §6）：这一条「发动能力」占多久 —— 先按【分支】分，再按卡查表**。✅ 已复刻（2026-11-03 · `B130` · 判据 = `_ResolveAnim.c:63-66`/`:200-211`：`waitForAnim==0` 的拍协程一开头就 `FinishResolvingAction` ⇒ 不占队列，表里 `s` 已按此重算）
         /// <list type="number">
         /// <item>替代支（`CardDef.UsesAlternativeAbility` 为真，现读全池只有 `SW21 Wulfen Pack Leader`）⇒
         ///   `AbilityAnimDurations.TryGetAlternative`（`alternative.seconds`，SW21 = **0.2**）；</item>
-        /// <item>普通支 / 没有替代表 ⇒ `AbilityAnimDurations.TryGet`（`active`，SW21 = **0.4**）；</item>
+        /// <item>普通支 / 没有替代表 ⇒ `AbilityAnimDurations.TryGet`（`active` = **Σ 仅 `waitAnimToApplyEffect != 0` 的拍**，SW21 = **0.4**）；</item>
         /// <item>表里没有这张卡 ⇒ <see cref="AbilityNoEntrySeconds"/>（**0**：原版表空就不放动画）；整张表载不到 ⇒ <see cref="AbilityLoadFailSeconds"/>（保守档，`IsSourced` 如实回 false）。</item>
         /// </list>
         /// <para>✅ **2026-10-25（`TL` §2）**：`alt` 那一列已进运行期表（现读只有 `SW21 = 0.2`）⇒
@@ -1201,9 +1201,9 @@ namespace CardPresentation
                                              + "+ timeAtEndPos`）之和 → `AbilityAnimDurations`（**现读 93 张卡**）；"
                                              + "🆕 2026-10-25（`AU1` · `J1` §6）**再按分支**：替代支（`CardDef.UsesAlternativeAbility`"
                                              + " 为真，现读只有 `SW21`）取 `alternative.seconds`（SW21 = **0.2**）· 普通支取 `s`"
-                                             + "（SW21 = 0.4）—— **替代那一列运行期表今天还没有** ⇒ 两支都按 0.4（见 `AbilityHoldOf`）；"
+                                             + "（SW21 = 0.4；🔴 2026-11-03 `B130`：`s` 只累 `waitAnimToApplyEffect != 0` 的拍）—— ⚠️ 原句「替代那一列运行期表今天还没有 ⇒ 两支都按 0.4」**已过期**（`TL` §2 已补 `alt`，见 `AbilityHoldOf`）；"
                                              + "查不到那张卡 ⇒ 兜底 "
-                                             + $"{AbilityLoadFailSeconds}（保守档 = 真值表中位数，与旧常数恰好相等；表里没有这张卡时是 {AbilityNoEntrySeconds}）";
+                                             + $"{AbilityLoadFailSeconds}（保守档 = 常数 1.0；它原是表中位数，2026-11-03 现读中位 0.9 但常数⛔不跟着动；表里没有这张卡时是 {AbilityNoEntrySeconds}）";
                 case EvtKind.Trigger: return "`BattleManager.twoFractDelay`(**+0x4C8**) = 0.2 —— `_ResolveTriggerTraitAnim` 那条链的等待";
                 // 🔴 **2026-10-23（P1 · 演出时序 ②）就地订正（铁律 5）**：原文写「0.2（督军那档 0.5 见
                 //   `CardFeel.DeathDissolve`）」—— **那句现在不成立**：这条演出占多久不再是消散那一段，

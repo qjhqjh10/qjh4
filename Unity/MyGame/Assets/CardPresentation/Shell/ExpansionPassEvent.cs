@@ -26,7 +26,7 @@
 //   （`ExpansionPassEvent.get_HasPremium` → `SingletonBehaviour<InventoryManager>.Instance.HasItem(item)`）。
 //   我们没有 `InventoryManager`（`Shell/Inventory.cs` 是**另一条线 C4 的件**，不是同一套）⇒ 本地用一个 bool。
 // · **`Score(int)` 的落盘**：原版 `totalScore`/`spentScore` 在远端存档；本地落
-//   `persistentDataPath/WarpforgeExpansionPass/pass.json`（照 `Shell/BattleLogData.cs` 那套
+//   `SaveRoot.Path/WarpforgeExpansionPass/pass.json`（🆕 2026-11-03 B128：根 = `C:\warpforgesave`；照 `Shell/BattleLogData.cs` 那套
 //   独立目录 + `OverrideDir` + 批处理不碰玩家真档）。
 // · **里程碑数据**：原版由远端 LiveOps 下发（`ExpansionPassData.ScoringMilestones`）。本机**没有**任何一条真数据
 //   ⇒ 本类**不内置任何编造的里程碑**（`Milestones` 出厂是空表）。自检要验机制时**由测试注入合成档**。
@@ -175,7 +175,7 @@ namespace CardPresentation
         //  本地落盘（形状照 `Shell/BattleLogData.cs` 那一套，⛔ 别自创第二种写法）
         // ════════════════════════════════════════════════════════════════════════════════
 
-        /// <summary>落盘目录名（`persistentDataPath` 下）。</summary>
+        /// <summary>落盘目录名（`SaveRoot.Path` 下）。</summary>
         public const string StoreDirName = "WarpforgeExpansionPass";
         /// <summary>落盘文件名（不带路径分隔符）。</summary>
         public const string StoreFileName = "pass.json";
@@ -188,7 +188,7 @@ namespace CardPresentation
             get
             {
                 return string.IsNullOrEmpty(OverrideDir)
-                     ? System.IO.Path.Combine(Application.persistentDataPath, StoreDirName)
+                     ? System.IO.Path.Combine(SaveRoot.Path, StoreDirName)
                      : OverrideDir;
             }
         }

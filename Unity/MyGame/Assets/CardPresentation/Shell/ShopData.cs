@@ -12,7 +12,7 @@
 // ⚠️ **价格与「拥有数」都是我们挑的**：原版价格是本地化词条 + 服务端数字（`1800` / `300,00` 那种），
 //    拥有数走 `CatalogItemContainer.ownedCount`。这里给的是**能让人把界面点通**的一组值。
 using System.Collections.Generic;
-using UnityEngine;      // 🆕 2026-10-25：拥有数落盘要用 `JsonUtility` / `Debug` / `Application.persistentDataPath`
+using UnityEngine;      // 🆕 2026-10-25：拥有数落盘要用 `JsonUtility` / `Debug`（路径走 `SaveRoot.Path`，🆕 2026-11-03 B128）
 
 namespace CardPresentation
 {

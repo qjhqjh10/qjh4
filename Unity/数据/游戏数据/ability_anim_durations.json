@@ -1,14 +1,14 @@
 {
  "_conventions": {
-  "aggregate": "一张卡的值 = 它 `activeAbility` 全部 CardAnim 的时长**求和** —— 依据 `AbilityLogic__PlayAnim.c` 会把这一整串逐条 `AddCardAnim` 排队播完",
+  "aggregate": "一张卡的值 = 它 `activeAbility` 里 **`waitAnimToApplyEffect != 0`** 的那几拍的时长求和 —— 依据 `AbilityLogic__PlayAnim.c` 逐条 `AddCardAnim` 排队，而 `_ResolveAnim.c:63-66` 里 `waitForAnim == 0` 的拍**协程一开头就 `FinishResolvingAction`**（队列放行、动画转后台）；`:200-211` 才是 `w == 1` 那档的 `WaitForSeconds(GetAnimDuration)`。Σ(全部拍) 另存 `cards[*].activeAll`（🔴 2026-11-03 `B130` 起两者分开记）",
   "boardCriteria": "`normalAbilityBoardCriteria` 的语义 = `BoardAnalysis__MeetsCriteria.c`（第一权威）；**满足 ⇒ 走普通 `activeAbility`，不满足 ⇒ 走 `alternativeAbility`**（`RawCardScript__GetActiveAbility.c`）。枚举值出处 `PlayersAffected.cs` / `CountOptions.cs` / `StatFilterOptions.cs`。逐卡翻译在 `conditional[*].criteria`。⚠️ 这个字段**不在** `cards_engine.json` 里（`cards_raw.json` 的 `full_raw` 才有）⇒ 引擎要接得先让 `gen_cards_engine.py` 把它带出来（卡牌线的文件）",
-  "fallback": "表里没有这张卡 ⇒ 退回 1.0（= 本表中位数；**能力事件那条路会出声**，见 `AbilityAnimDurations`）",
+  "fallback": "表里没有这张卡 ⇒ 退回 1.0（**保守常数**，原取本表中位数；🔴 2026-11-03 `B130` 起中位数已降到 `stats.median`，⛔ 本常数不跟着动 —— 它是 `AbilityAnimDurations.LoadFailFallback` 的镜像，改要两边同时改；**能力事件那条路会出声**，见 `AbilityAnimDurations`）",
   "formula": "AnimInfo.GetAnimDuration() = vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos（不含 startDelay）",
   "scope": "只取 `activeAbility.activeAbilityLogic[*].cardAnimations[*]`（原版「单位主动发动能力」那一条路）；`cardAbilities[*]`（`ThisCardPlayed` / `Slay` / `Rage` … 那一族）是**别的时机**播的，不在本表 —— 它们在 `card_vfx_by_card.json` 里按原版 `CardAbility.trigger` 分流到 `play`/`trigger`/`death`/`hit`/`attack_melee`/`trait_onplay`/`trigger_unmapped` 各桶，本表**跨这些桶**按 `soField` 前缀（`cardAbilities…` / `activeAbility…`）收，只把 `activeAbility` 那批求和、其余如实留在 `cards[*].otherAbilityAnims` 备查（2026-10-25 `TL`）",
   "secondChain": "`cards_engine.json` 的 `animTimes` 里 `tg == -1` 的行 = 同一份 `activeAbility.activeAbilityLogic[*].cardAnimations[*]`；那条链走的是 `guid_map_bundles.tsv`（与本表的 `card_vfx_by_card.json` 不同一条）⇒ 逐卡比一遍",
   "soAnimCount": "`uncovered[*].soActiveAnims` 数的是**非空 GUID** 的条数 —— 现读有 34 张卡的 `cardAnimations` 里是空引用（`m_AssetGUID: \"\"`），数 `len()` 会得出假数（2026-10-22 修）",
-  "tween": "`animInfo.tweenAnim`（UnitTweenSO）：`m_PathID → 名字（`anim_address_map.json` 的 tween 束）→ 长度（`Resources/UnitTweens.json`）`三跳都已落盘；长度 = BuildSequence 排布下的 DOTween 序列总长；**只在 `waitAnimation != 0` 时原版才等它**（`_ResolveAnim` 先等 tween、再等 GetAnimDuration）。卡片级汇总 = `activeWithTween`。⚠️ 运行时读的仍是 `active`（不含 tween）",
-  "waitAnimToApplyEffect": "只如实带出，不参与求和（原版它是「这一拍带不带等待标记」，不是时长）",
+  "tween": "`animInfo.tweenAnim`（UnitTweenSO）：`m_PathID → 名字（`anim_address_map.json` 的 tween 束）→ 长度（`Resources/UnitTweens.json`）`三跳都已落盘；长度 = BuildSequence 排布下的 DOTween 序列总长；**只在 `waitAnimation != 0` 时原版才等它**（`_ResolveAnim` 先等 tween、再等 GetAnimDuration）。卡片级汇总 = `activeWithTween`（🔴 2026-11-03 `B130` 起只累 `waitAnimToApplyEffect != 0` 的拍）。⚠️ 运行时读的仍是 `active`（不含 tween）",
+  "waitAnimToApplyEffect": "**决定这一拍占不占动作队列**（`_ResolveAnim.c:63-66` 的 `w==0` ⇒ 立即 `FinishResolvingAction`；`:200-211` 的 `w==1` ⇒ 等满 `GetAnimDuration`）⇒ 参与求和，`active` = Σ(仅 `w==1` 的拍)；Σ(全部拍) 在 `activeAll`",
   "whoEmitsAbility": "`EvtKind.Ability` 在引擎里只有三条产生点：`RuleCore.UseAbility`（`Ability:` 正文，原版卡恒 false）· `UseOathAbility`（`Oath N:`）· `UseAlternative`（`Duty/Pray/Ferocity/Agenda`）。前两条要 `Board[slot]` ⇒ **战术卡不可能发**"
  },
  "_crossCheck": {
@@ -19,7 +19,7 @@
   "onlyInAnimTimes": [],
   "onlyInTable": []
  },
- "_headline": "🔴 `A1767`：`EventTiming.DurationOf(EvtKind.Ability)` 的那条常数 **1.0** 换成**逐卡真值**。判据 = 该卡 `activeAbility` 各 `cardAnimations` 的 `AnimInfo.GetAnimDuration()` 之和（`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；原版 `AnimInfo__GetAnimDuration.c`）。覆盖 **93 张卡 / 160 条 CardAnim**，min 0.2 / 中位 **1.0** / max 4.0。**第二条链交叉校验**（`cards_engine.json` 的 `animTimes`，`tg == -1` 行；那是一条独立的 GUID→CardAnim 链）：93 张卡，与本表**逐卡一致 93**、不一致 0 · 只在 animTimes 有 0 · 只在本表有 0（**两链全同**）。**「会发 Ability 事件」那一族 = 86 张**（`type ∈ unit/hero` 且卡面有 `Duty/Pray/Ferocity/Agenda` 正文或 `Oath N:` —— 引擎那三条产生点的代理判据），其中 **3 张没有真值**（逐张见 `uncovered`，理由逐条写明）。**同一张卡、不同棋盘状态 = 不同时长**的那一族：**1 张**（见 `conditional`）—— 原版 `RawCardScript.GetActiveAbility` 在 `activeAbility` / `alternativeAbility` 之间按 `normalAbilityBoardCriteria` **二选一**；本表 `active` 只记**普通那一支**。⚠️ **四处如实标注**：① 那 3 张没有真值 —— **不是快照年代**（2026-10-18 起真值 = 当前 build 的卡 SO），而是它们的卡 SO `activeAbility` 里**一条非空 CardAnim 引用都没有**（`m_AssetGUID` 全空）⇒ 原版这条路上不放动画、「该等 0 还是等一拍」判据不足（铁律 11 例外①）；② 原版 `_ResolveAnim` 里 tween 那一段（`animInfo.tweenAnim != null && waitAnimation != 0` 时 先 `WaitForCompletion(BuildSequence)`、**再** `WaitForSeconds(GetAnimDuration())`）—— 🔴 **2026-10-23（A11 · R18）已解**：133 条 CardAnim 带 tweenAnim，PathID→名字→长度**三跳全落盘**（`cards[*].*Anims[*].tweenAnim`；名字来自 `anim_address_map.json` 的 `bundle_tweenandshakes_assets_all`，长度按 `UnitTweenSO__BuildSequence.c` + `TweenInfoAnimationBase__GetTween.c` 的排布算）；解不出 0 条。真正会被等的（`waitAnimation != 0`）**21 条，全部落在 `otherAbilityAnims`（触发链）** ⇒ **本表 `active` 受影响的卡 = 0 张**，`activeWithTween` 与 `active` 现读逐卡相等。⚠️ **运行时也没接**（`Core/AbilityAnimDurations.cs` 读的仍是 `active`）；要接由卡牌线定（会改对局节奏）；③ `cardAbilities[*]`（`ThisCardPlayed` / `Slay` / … 那一族）是**别的时机**播的，**不进这张表**（全量件留在 `cards[*].otherAbilityAnims` 备查；🔴 2026-10-25 `TL`：`card_vfx_by_card.json` 已按 `CardAbility.trigger` 把它们分流到 `play`/`trigger`/`death`/`hit`/… 各桶 ⇒ 本表**跨所有事件桶按 `soField` 前缀**收，⛔ 不再只读 `ability` 桶）；④ 跨所有事件桶共 **633 条** `src == \"cardtrait-so\"` 的**关键词演出行**（`FlyingTraitPlay` / `RallyTraitStart` …，来自 `trait_collection.json` 的 `TraitEffects`）**没有 `abilitySlot`** ⇒ 不是 ability 链上的 CardAnim，单列在 `notAbilityRows`，⛔ 既不算时长、也不算「映射缺口」（2026-10-23 修 `新账-72 ④`；2026-10-25 `TL` 把取源从 `ability` 桶扩到全桶，条数 142 → 现读值）。",
+ "_headline": "🔴 `A1767`：`EventTiming.DurationOf(EvtKind.Ability)` 的那条常数 **1.0** 换成**逐卡真值**。判据 = 该卡 `activeAbility` 里**占动作队列的那几拍**的 `AnimInfo.GetAnimDuration()` 之和（`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；原版 `AnimInfo__GetAnimDuration.c`）；🔴 **2026-11-03（`B130`）**：只有 `waitAnimToApplyEffect != 0` 的拍占队列（`_ResolveAnim.c:63-66` 的 `w==0` ⇒ 协程一开头就 `FinishResolvingAction`；`:200-211` 才是 `w==1` 的等待）⇒ Σ(全部拍) 另存 `cards[*].activeAll` 备查。覆盖 **93 张卡 / 160 条 CardAnim**，其中**占 queue 的 129 拍**、`active != activeAll` 的卡 **13 张**；min 0 / 中位 **0.9** / max 4.0。**第二条链交叉校验**（`cards_engine.json` 的 `animTimes`，`tg == -1` 行；那是一条独立的 GUID→CardAnim 链）：93 张卡，与本表**逐卡一致 93**、不一致 0 · 只在 animTimes 有 0 · 只在本表有 0（**两链全同**）。**「会发 Ability 事件」那一族 = 86 张**（`type ∈ unit/hero` 且卡面有 `Duty/Pray/Ferocity/Agenda` 正文或 `Oath N:` —— 引擎那三条产生点的代理判据），其中 **3 张没有真值**（逐张见 `uncovered`，理由逐条写明）。**同一张卡、不同棋盘状态 = 不同时长**的那一族：**1 张**（见 `conditional`）—— 原版 `RawCardScript.GetActiveAbility` 在 `activeAbility` / `alternativeAbility` 之间按 `normalAbilityBoardCriteria` **二选一**；本表 `active` 只记**普通那一支**。⚠️ **四处如实标注**：① 那 3 张没有真值 —— **不是快照年代**（2026-10-18 起真值 = 当前 build 的卡 SO），而是它们的卡 SO `activeAbility` 里**一条非空 CardAnim 引用都没有**（`m_AssetGUID` 全空）⇒ 原版这条路上不放动画、「该等 0 还是等一拍」判据不足（铁律 11 例外①）；② 原版 `_ResolveAnim` 里 tween 那一段（`animInfo.tweenAnim != null && waitAnimation != 0` 时 先 `WaitForCompletion(BuildSequence)`、**再** `WaitForSeconds(GetAnimDuration())`）—— 🔴 **2026-10-23（A11 · R18）已解**：133 条 CardAnim 带 tweenAnim，PathID→名字→长度**三跳全落盘**（`cards[*].*Anims[*].tweenAnim`；名字来自 `anim_address_map.json` 的 `bundle_tweenandshakes_assets_all`，长度按 `UnitTweenSO__BuildSequence.c` + `TweenInfoAnimationBase__GetTween.c` 的排布算）；解不出 0 条。真正会被等的（`waitAnimation != 0`）**21 条，全部落在 `otherAbilityAnims`（触发链）** ⇒ **本表 `active` 受影响的卡 = 0 张**，`activeWithTween` 与 `active` 现读逐卡相等。⚠️ **运行时也没接**（`Core/AbilityAnimDurations.cs` 读的仍是 `active`）；要接由卡牌线定（会改对局节奏）；③ `cardAbilities[*]`（`ThisCardPlayed` / `Slay` / … 那一族）是**别的时机**播的，**不进这张表**（全量件留在 `cards[*].otherAbilityAnims` 备查；🔴 2026-10-25 `TL`：`card_vfx_by_card.json` 已按 `CardAbility.trigger` 把它们分流到 `play`/`trigger`/`death`/`hit`/… 各桶 ⇒ 本表**跨所有事件桶按 `soField` 前缀**收，⛔ 不再只读 `ability` 桶）；④ 跨所有事件桶共 **633 条** `src == \"cardtrait-so\"` 的**关键词演出行**（`FlyingTraitPlay` / `RallyTraitStart` …，来自 `trait_collection.json` 的 `TraitEffects`）**没有 `abilitySlot`** ⇒ 不是 ability 链上的 CardAnim，单列在 `notAbilityRows`，⛔ 既不算时长、也不算「映射缺口」（2026-10-23 修 `新账-72 ④`；2026-10-25 `TL` 把取源从 `ability` 桶扩到全桶，条数 142 → 现读值）。",
  "_sources": {
   "activeAbilityChoice": "d:/2/tools/decomp_full/RawCardScript__GetActiveAbility.c",
   "boardCriteria": "d:/2/tools/decomp_full/BoardAnalysis__MeetsCriteria.c",
@@ -38,6 +38,7 @@
  "cards": [
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -57,6 +58,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -76,6 +78,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -104,6 +107,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -123,6 +127,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -151,6 +156,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -170,6 +176,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -198,6 +205,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -217,6 +225,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -245,6 +254,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -282,6 +292,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -301,6 +312,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -329,6 +341,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -357,6 +370,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -376,6 +390,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -422,6 +437,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -441,6 +457,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -469,6 +486,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -497,6 +515,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -525,6 +544,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -571,6 +591,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -607,6 +628,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -626,6 +648,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -645,6 +668,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -682,6 +706,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -718,6 +743,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -737,6 +763,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -756,6 +783,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -792,6 +820,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -820,6 +849,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -839,6 +869,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -867,6 +898,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -886,6 +918,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -905,6 +938,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -924,6 +958,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -952,6 +987,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -979,6 +1015,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1007,6 +1044,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1035,6 +1073,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1054,6 +1093,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1082,6 +1122,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1119,6 +1160,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1138,6 +1180,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1175,6 +1218,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1194,6 +1238,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1213,6 +1258,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1232,6 +1278,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1251,6 +1298,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1279,6 +1327,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1316,6 +1365,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1352,6 +1402,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1380,6 +1431,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1399,6 +1451,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1427,6 +1480,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1446,6 +1500,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1473,6 +1528,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1510,6 +1566,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1529,6 +1586,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1548,6 +1606,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1585,6 +1644,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1638,6 +1698,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1657,6 +1718,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1685,6 +1747,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1704,6 +1767,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1732,6 +1796,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1760,6 +1825,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1779,6 +1845,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1798,6 +1865,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1817,6 +1885,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1836,6 +1905,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1855,6 +1925,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1883,6 +1954,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1911,6 +1983,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1930,6 +2003,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -1948,7 +2022,8 @@
    ]
   },
   {
-   "active": 0.5,
+   "active": 0,
+   "activeAll": 0.5,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -1969,7 +2044,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
-   "activeWithTween": 0.5,
+   "activeWithTween": 0,
    "alternative": null,
    "id": "AM1",
    "name": "Lord Solar Leontus",
@@ -1977,6 +2052,7 @@
   },
   {
    "active": 1.5,
+   "activeAll": 1.5,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2024,6 +2100,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2052,6 +2129,7 @@
   },
   {
    "active": 1.2,
+   "activeAll": 1.2,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2080,6 +2158,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2099,6 +2178,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2127,6 +2207,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2155,6 +2236,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2183,6 +2265,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2211,6 +2294,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2239,6 +2323,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2277,6 +2362,7 @@
   },
   {
    "active": 0.65,
+   "activeAll": 0.65,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2313,6 +2399,7 @@
   },
   {
    "active": 0.75,
+   "activeAll": 0.75,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2349,6 +2436,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2377,6 +2465,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2396,6 +2485,7 @@
   },
   {
    "active": 0.4,
+   "activeAll": 0.4,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2433,6 +2523,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2451,7 +2542,8 @@
    ]
   },
   {
-   "active": 1.5,
+   "active": 0.5,
+   "activeAll": 1.5,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2481,7 +2573,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
-   "activeWithTween": 1.5,
+   "activeWithTween": 0.5,
    "alternative": null,
    "id": "AM3",
    "name": "Commissar Denkler",
@@ -2489,6 +2581,7 @@
   },
   {
    "active": 2.0,
+   "activeAll": 2.0,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2526,6 +2619,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2545,6 +2639,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2572,6 +2667,7 @@
   },
   {
    "active": 1.25,
+   "activeAll": 1.25,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2618,6 +2714,7 @@
   },
   {
    "active": 2.0,
+   "activeAll": 2.0,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2655,6 +2752,7 @@
   },
   {
    "active": 1.2,
+   "activeAll": 1.2,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2692,6 +2790,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2720,6 +2819,7 @@
   },
   {
    "active": 0.75,
+   "activeAll": 0.75,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -2756,6 +2856,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2784,6 +2885,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2803,6 +2905,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2822,6 +2925,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2850,6 +2954,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2869,6 +2974,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2897,6 +3003,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2916,6 +3023,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2944,6 +3052,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2972,6 +3081,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -2991,6 +3101,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3019,6 +3130,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3056,6 +3168,7 @@
   },
   {
    "active": 0.4,
+   "activeAll": 0.4,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -3092,6 +3205,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3129,6 +3243,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3148,6 +3263,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3185,6 +3301,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3213,6 +3330,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3250,6 +3368,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3296,6 +3415,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3333,6 +3453,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3352,6 +3473,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3389,6 +3511,7 @@
   },
   {
    "active": 0.8,
+   "activeAll": 0.8,
    "activeAnims": [
     {
      "cardanim": "Basic_army_Guard_self Digital",
@@ -3408,6 +3531,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3444,6 +3568,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3463,6 +3588,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3482,6 +3608,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3501,6 +3628,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "DutyAnim",
@@ -3537,6 +3665,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3564,6 +3693,7 @@
   },
   {
    "active": 0.6,
+   "activeAll": 0.6,
    "activeAnims": [
     {
      "cardanim": "Atk_BulletImpact_Lasrifle_Hotshot_2shots",
@@ -3591,6 +3721,7 @@
   },
   {
    "active": 0.4,
+   "activeAll": 0.4,
    "activeAnims": [
     {
      "cardanim": "Basic_army_Guard_self_quick",
@@ -3638,6 +3769,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3666,6 +3798,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "Guard Summon",
@@ -3695,6 +3828,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3731,6 +3865,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3750,6 +3885,7 @@
   },
   {
    "active": 0.4,
+   "activeAll": 0.4,
    "activeAnims": [
     {
      "cardanim": "Guard Summon",
@@ -3778,6 +3914,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3797,6 +3934,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3834,6 +3972,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3898,6 +4037,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3917,6 +4057,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3944,6 +4085,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -3981,6 +4123,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4008,6 +4151,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4045,6 +4189,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4064,6 +4209,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4083,6 +4229,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4120,6 +4267,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4157,6 +4305,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4201,6 +4350,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4238,6 +4388,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4265,6 +4416,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4284,6 +4436,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4328,6 +4481,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4365,6 +4519,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4402,6 +4557,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4439,6 +4595,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4467,6 +4624,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4486,6 +4644,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4505,6 +4664,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4542,6 +4702,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4570,6 +4731,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4589,6 +4751,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4626,6 +4789,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4645,6 +4809,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4664,6 +4829,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4683,6 +4849,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4702,6 +4869,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4729,6 +4897,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4748,6 +4917,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4776,6 +4946,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4838,6 +5009,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4857,6 +5029,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4876,6 +5049,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4904,6 +5078,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4941,6 +5116,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4969,6 +5145,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -4988,6 +5165,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5007,6 +5185,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5026,6 +5205,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5045,6 +5225,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5100,6 +5281,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5137,6 +5319,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5156,6 +5339,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5193,6 +5377,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5212,6 +5397,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5231,6 +5417,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5259,6 +5446,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5278,6 +5466,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5315,6 +5504,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5343,6 +5533,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5362,6 +5553,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5399,6 +5591,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5436,6 +5629,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5455,6 +5649,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5492,6 +5687,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5529,6 +5725,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5566,6 +5763,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5593,6 +5791,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5639,6 +5838,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5658,6 +5858,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5686,6 +5887,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5705,6 +5907,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5732,6 +5935,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5759,6 +5963,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5778,6 +5983,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5797,6 +6003,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5825,6 +6032,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5844,6 +6052,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5871,6 +6080,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5890,6 +6100,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5917,6 +6128,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5954,6 +6166,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -5982,6 +6195,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6010,6 +6224,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6038,6 +6253,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6057,6 +6273,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6084,6 +6301,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6103,6 +6321,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6140,6 +6359,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6159,6 +6379,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6178,6 +6399,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6224,6 +6446,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6243,6 +6466,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6262,6 +6486,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6281,6 +6506,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6308,6 +6534,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6335,6 +6562,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6354,6 +6582,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6373,6 +6602,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6392,6 +6622,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6419,6 +6650,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6446,6 +6678,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6465,6 +6698,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6484,6 +6718,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6503,6 +6738,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6522,6 +6758,7 @@
   },
   {
    "active": 1.2,
+   "activeAll": 1.2,
    "activeAnims": [
     {
      "cardanim": "Buff_Green_Agenda_Self",
@@ -6550,6 +6787,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6569,6 +6807,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6588,6 +6827,7 @@
   },
   {
    "active": 0.7,
+   "activeAll": 0.7,
    "activeAnims": [
     {
      "cardanim": "Trait_GainQuest_self",
@@ -6607,6 +6847,7 @@
   },
   {
    "active": 0.75,
+   "activeAll": 0.75,
    "activeAnims": [
     {
      "cardanim": "Atk_BulletImpact_2shot",
@@ -6644,6 +6885,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6681,6 +6923,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6700,6 +6943,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6719,6 +6963,7 @@
   },
   {
    "active": 0.9,
+   "activeAll": 0.9,
    "activeAnims": [
     {
      "cardanim": "Buff_Green_Agenda_Self",
@@ -6747,6 +6992,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6765,7 +7011,8 @@
    ]
   },
   {
-   "active": 1.2,
+   "active": 0.2,
+   "activeAll": 1.2,
    "activeAnims": [
     {
      "cardanim": "Buff_Green_Agenda_Self",
@@ -6786,7 +7033,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
-   "activeWithTween": 1.2,
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "DA20",
    "name": "Master Lazarus",
@@ -6794,6 +7041,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6813,6 +7061,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6840,7 +7089,8 @@
    ]
   },
   {
-   "active": 2.0,
+   "active": 0.2,
+   "activeAll": 2.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Green_Agenda_Self",
@@ -6861,7 +7111,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
-   "activeWithTween": 2.0,
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "DA23",
    "name": "Bladeguard Veteran",
@@ -6869,6 +7119,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6888,6 +7139,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6916,6 +7168,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Atk_BulletImpact_5shot_gatling",
@@ -6935,6 +7188,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -6953,7 +7207,8 @@
    ]
   },
   {
-   "active": 2.0,
+   "active": 0.2,
+   "activeAll": 2.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Green_Agenda_Self",
@@ -6974,7 +7229,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
-   "activeWithTween": 2.0,
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "DA29",
    "name": "Darkshroud",
@@ -6992,6 +7247,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "Buff_Green_Agenda_Self",
@@ -7011,6 +7267,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7030,6 +7287,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7049,6 +7307,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7077,6 +7336,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7096,6 +7356,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7115,6 +7376,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7134,6 +7396,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7180,6 +7443,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7216,6 +7480,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7235,6 +7500,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7263,6 +7529,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7291,6 +7558,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7310,6 +7578,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7346,6 +7615,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7365,6 +7635,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7384,6 +7655,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7430,6 +7702,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7476,6 +7749,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7504,6 +7778,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7532,6 +7807,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7560,6 +7836,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7604,6 +7881,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7641,6 +7919,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7669,6 +7948,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7688,6 +7968,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7707,6 +7988,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7726,6 +8008,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7753,6 +8036,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7790,6 +8074,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7809,6 +8094,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7828,6 +8114,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7847,6 +8134,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7875,6 +8163,7 @@
   },
   {
    "active": 1.7,
+   "activeAll": 1.7,
    "activeAnims": [
     {
      "cardanim": "Healing_Volley_Effect",
@@ -7913,6 +8202,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7957,6 +8247,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7976,6 +8267,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -7995,6 +8287,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8023,6 +8316,7 @@
   },
   {
    "active": 0.9,
+   "activeAll": 0.9,
    "activeAnims": [
     {
      "cardanim": "Buff_Green_Agenda_Self",
@@ -8051,6 +8345,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8070,6 +8365,7 @@
   },
   {
    "active": 3.7,
+   "activeAll": 3.7,
    "activeAnims": [
     {
      "cardanim": "Buff_DA_Forest_Self",
@@ -8107,6 +8403,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8135,6 +8432,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8172,6 +8470,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8191,6 +8490,7 @@
   },
   {
    "active": 0.9,
+   "activeAll": 0.9,
    "activeAnims": [
     {
      "cardanim": "Buff_Green_Agenda_Self",
@@ -8219,6 +8519,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8238,6 +8539,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8257,6 +8559,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8285,6 +8588,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8304,6 +8608,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8323,6 +8628,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8342,6 +8648,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8361,6 +8668,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8380,6 +8688,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8399,6 +8708,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8418,6 +8728,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8437,6 +8748,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8456,6 +8768,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8475,6 +8788,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8503,6 +8817,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8531,6 +8846,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8550,6 +8866,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8569,6 +8886,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8597,6 +8915,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8616,6 +8935,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8643,6 +8963,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8662,6 +8983,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8689,6 +9011,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8708,6 +9031,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8727,6 +9051,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8746,6 +9071,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8765,6 +9091,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8784,6 +9111,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8803,6 +9131,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8822,6 +9151,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8841,6 +9171,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8860,6 +9191,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8879,6 +9211,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8916,6 +9249,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8935,6 +9269,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8963,6 +9298,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -8991,6 +9327,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9010,6 +9347,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9029,6 +9367,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9066,6 +9405,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9103,6 +9443,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9131,6 +9472,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9158,6 +9500,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9186,6 +9529,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9214,6 +9558,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9233,6 +9578,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9261,6 +9607,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9280,6 +9627,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9299,6 +9647,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9318,6 +9667,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9337,6 +9687,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9365,6 +9716,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9384,6 +9736,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9403,6 +9756,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9440,6 +9794,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9459,6 +9814,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9478,6 +9834,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9497,6 +9854,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9516,6 +9874,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9544,6 +9903,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9563,6 +9923,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9591,6 +9952,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9610,6 +9972,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9646,6 +10009,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9665,6 +10029,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9702,6 +10067,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9730,6 +10096,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9758,6 +10125,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9813,6 +10181,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9840,6 +10209,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9868,6 +10238,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9895,6 +10266,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9932,6 +10304,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9951,6 +10324,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -9996,6 +10370,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10024,6 +10399,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10052,6 +10428,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10089,6 +10466,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10135,6 +10513,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10163,6 +10542,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10182,6 +10562,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10210,6 +10591,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10229,6 +10611,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10248,6 +10631,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10267,6 +10651,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10286,6 +10671,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10305,6 +10691,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10324,6 +10711,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10343,6 +10731,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10362,6 +10751,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10390,6 +10780,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10409,6 +10800,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10428,6 +10820,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10447,6 +10840,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10475,6 +10869,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10503,6 +10898,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10522,6 +10918,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10541,6 +10938,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10569,6 +10967,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10588,6 +10987,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10625,6 +11025,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10644,6 +11045,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10672,6 +11074,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10699,6 +11102,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10726,6 +11130,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10754,6 +11159,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10773,6 +11179,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10801,6 +11208,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10820,6 +11228,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10848,6 +11257,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10867,6 +11277,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10904,6 +11315,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10941,6 +11353,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10960,6 +11373,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -10988,6 +11402,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11007,6 +11422,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11026,6 +11442,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11045,6 +11462,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11073,6 +11491,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11092,6 +11511,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11120,6 +11540,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11139,6 +11560,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11158,6 +11580,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11186,6 +11609,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11205,6 +11629,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11232,6 +11657,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11269,6 +11695,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11297,6 +11724,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11333,6 +11761,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11395,6 +11824,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11432,6 +11862,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11460,6 +11891,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11488,6 +11920,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11516,6 +11949,7 @@
   },
   {
    "active": 1.2,
+   "activeAll": 1.2,
    "activeAnims": [
     {
      "cardanim": "Atk_BulletImpact_MissileToTarget_warlord",
@@ -11543,6 +11977,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11562,6 +11997,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11589,6 +12025,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11608,6 +12045,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11627,6 +12065,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11664,6 +12103,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11683,6 +12123,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11720,6 +12161,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11747,6 +12189,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11775,6 +12218,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_target",
@@ -11794,6 +12238,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11821,6 +12266,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11848,6 +12294,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11876,6 +12323,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11913,6 +12361,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11932,6 +12381,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11951,6 +12401,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -11979,6 +12430,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12016,6 +12468,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_target",
@@ -12035,6 +12488,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12063,6 +12517,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12091,6 +12546,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12119,6 +12575,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12146,6 +12603,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12173,6 +12631,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12201,6 +12660,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12228,6 +12688,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12247,6 +12708,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12266,6 +12728,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12285,6 +12748,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12313,6 +12777,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12341,6 +12806,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12360,6 +12826,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12388,6 +12855,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12416,6 +12884,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12435,6 +12904,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12463,6 +12933,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12482,6 +12953,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12501,6 +12973,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12520,6 +12993,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12548,6 +13022,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12576,6 +13051,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12604,6 +13080,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12623,6 +13100,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12651,6 +13129,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12670,6 +13149,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12698,6 +13178,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12717,6 +13198,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12744,6 +13226,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12772,6 +13255,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12791,6 +13275,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12810,6 +13295,7 @@
   },
   {
    "active": 1.2,
+   "activeAll": 1.2,
    "activeAnims": [
     {
      "cardanim": "Atk_BulletImpact_MissileToTarget_warlord",
@@ -12837,6 +13323,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12865,6 +13352,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12892,6 +13380,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12911,6 +13400,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12930,6 +13420,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12949,6 +13440,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12968,6 +13460,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -12995,6 +13488,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13049,6 +13543,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13068,6 +13563,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13121,6 +13617,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13149,6 +13646,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13177,6 +13675,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13205,6 +13704,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13224,6 +13724,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13243,6 +13744,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13262,6 +13764,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13281,6 +13784,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13300,6 +13804,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13319,6 +13824,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13338,6 +13844,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13357,6 +13864,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13376,6 +13884,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13404,6 +13913,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13423,6 +13933,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13442,6 +13953,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13461,6 +13973,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13489,6 +14002,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13508,6 +14022,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13527,6 +14042,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13546,6 +14062,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13574,6 +14091,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13593,6 +14111,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13630,6 +14149,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13658,6 +14178,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13677,6 +14198,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13723,6 +14245,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13751,6 +14274,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13770,6 +14294,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13789,6 +14314,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13835,6 +14361,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13854,6 +14381,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13909,6 +14437,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13928,6 +14457,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13956,6 +14486,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13975,6 +14506,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -13994,6 +14526,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14013,6 +14546,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14041,6 +14575,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14060,6 +14595,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14079,6 +14615,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14098,6 +14635,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14117,6 +14655,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14136,6 +14675,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14155,6 +14695,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14183,6 +14724,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14211,6 +14753,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14239,6 +14782,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_target",
@@ -14258,6 +14802,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14277,6 +14822,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14313,6 +14859,7 @@
   },
   {
    "active": 4.0,
+   "activeAll": 4.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_target",
@@ -14359,6 +14906,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14395,6 +14943,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_self",
@@ -14414,6 +14963,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14433,6 +14983,7 @@
   },
   {
    "active": 0.4,
+   "activeAll": 0.4,
    "activeAnims": [
     {
      "cardanim": "PointBlank_1shot",
@@ -14452,6 +15003,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_target",
@@ -14471,6 +15023,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14499,6 +15052,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_target",
@@ -14518,6 +15072,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_target",
@@ -14537,6 +15092,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14574,6 +15130,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14611,6 +15168,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14648,6 +15206,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_target",
@@ -14666,7 +15225,8 @@
    "otherAbilityAnims": []
   },
   {
-   "active": 2.0,
+   "active": 1.0,
+   "activeAll": 2.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_target",
@@ -14687,7 +15247,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
-   "activeWithTween": 2.0,
+   "activeWithTween": 1.0,
    "alternative": null,
    "id": "SOR25",
    "name": "Imagifier",
@@ -14695,6 +15255,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_target",
@@ -14724,6 +15285,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14743,6 +15305,7 @@
   },
   {
    "active": 0.4,
+   "activeAll": 0.4,
    "activeAnims": [
     {
      "cardanim": "PointBlank_3shot",
@@ -14762,6 +15325,7 @@
   },
   {
    "active": 1.2,
+   "activeAll": 1.2,
    "activeAnims": [
     {
      "cardanim": "Atk_BulletImpact_MissileToTarget_warlord",
@@ -14789,6 +15353,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14834,6 +15399,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14870,6 +15436,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "SororitasSummon_Basic",
@@ -14899,6 +15466,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Atk_FlamethrowerAttack_2_Sororitas",
@@ -14918,6 +15486,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -14955,6 +15524,7 @@
   },
   {
    "active": 4.0,
+   "activeAll": 4.0,
    "activeAnims": [
     {
      "cardanim": "Faith_trigger_self",
@@ -15002,6 +15572,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15047,6 +15618,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15066,6 +15638,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "SororitasSummon_Basic",
@@ -15095,6 +15668,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15114,6 +15688,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15151,6 +15726,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15170,6 +15746,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15207,6 +15784,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15235,6 +15813,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15254,6 +15833,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15282,6 +15862,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15310,6 +15891,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15347,6 +15929,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15366,6 +15949,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_self",
@@ -15385,6 +15969,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15413,6 +15998,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15459,6 +16045,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15487,6 +16074,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15540,6 +16128,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15586,6 +16175,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15632,6 +16222,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15687,6 +16278,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15706,6 +16298,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15734,6 +16327,7 @@
   },
   {
    "active": 0.65,
+   "activeAll": 0.65,
    "activeAnims": [
     {
      "cardanim": "Atk_BulletImpact_Sororitas_Melta",
@@ -15761,6 +16355,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15789,6 +16384,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15808,6 +16404,7 @@
   },
   {
    "active": 2.0,
+   "activeAll": 2.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_target",
@@ -15855,6 +16452,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_self",
@@ -15893,6 +16491,7 @@
   },
   {
    "active": 2.0,
+   "activeAll": 2.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_target",
@@ -15921,6 +16520,7 @@
   },
   {
    "active": 1.0,
+   "activeAll": 1.0,
    "activeAnims": [
     {
      "cardanim": "Buff_Sororitas_quick_self",
@@ -15940,6 +16540,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -15968,6 +16569,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "SororitasSummon_Basic",
@@ -16006,6 +16608,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "SororitasSummon_Basic",
@@ -16053,6 +16656,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "SororitasSummon_Basic",
@@ -16090,6 +16694,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16145,6 +16750,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16182,6 +16788,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16201,6 +16808,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16229,6 +16837,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16248,6 +16857,7 @@
   },
   {
    "active": 1.2,
+   "activeAll": 1.2,
    "activeAnims": [
     {
      "cardanim": "Buff_Green_Agenda_Self",
@@ -16276,6 +16886,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16295,6 +16906,7 @@
   },
   {
    "active": 0.5,
+   "activeAll": 0.5,
    "activeAnims": [
     {
      "cardanim": "Buff_Blue_SW_target",
@@ -16314,6 +16926,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16333,6 +16946,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16361,6 +16975,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16388,6 +17003,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16425,6 +17041,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16444,6 +17061,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16463,6 +17081,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16500,6 +17119,7 @@
   },
   {
    "active": 0.4,
+   "activeAll": 0.4,
    "activeAnims": [
     {
      "cardanim": "Cut Wulfen",
@@ -16526,12 +17146,14 @@
      {
       "cardanim": "Cut Wulfen",
       "guid": "945014349c7e3cd4b93922bafe782387",
-      "seconds": 0.2
+      "seconds": 0.2,
+      "waitAnimToApplyEffect": 1
      }
     ],
     "hasAlternativeAbility": 1,
     "missing": [],
     "seconds": 0.2,
+    "secondsAll": 0.2,
     "selectCriteria": {
      "countCriteria": {
       "armyFilter": 0,
@@ -16613,6 +17235,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16632,6 +17255,7 @@
   },
   {
    "active": 2.8,
+   "activeAll": 2.8,
    "activeAnims": [
     {
      "cardanim": "Space Wolves Summon",
@@ -16660,6 +17284,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16679,6 +17304,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16698,6 +17324,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16717,6 +17344,7 @@
   },
   {
    "active": 0.5,
+   "activeAll": 0.5,
    "activeAnims": [
     {
      "cardanim": "Buff_Blue_SW_self",
@@ -16746,6 +17374,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "Buff_Green_Agenda_Self",
@@ -16765,6 +17394,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16793,6 +17423,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16821,6 +17452,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16857,6 +17489,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16876,6 +17509,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16913,6 +17547,7 @@
   },
   {
    "active": 1.5,
+   "activeAll": 1.5,
    "activeAnims": [
     {
      "cardanim": "Buff_Blue_SW_self",
@@ -16949,6 +17584,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16977,6 +17613,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -16996,6 +17633,7 @@
   },
   {
    "active": 0.75,
+   "activeAll": 0.75,
    "activeAnims": [
     {
      "cardanim": "Atk_BulletImpact_2shot",
@@ -17023,6 +17661,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17042,6 +17681,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17061,6 +17701,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17098,6 +17739,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17135,6 +17777,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17163,6 +17806,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17182,6 +17826,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17210,6 +17855,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17238,6 +17884,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17257,6 +17904,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17285,6 +17933,7 @@
   },
   {
    "active": 0.4,
+   "activeAll": 0.4,
    "activeAnims": [
     {
      "cardanim": "Buff_Howl_SW_self",
@@ -17304,6 +17953,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17332,6 +17982,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17360,6 +18011,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17397,6 +18049,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17425,6 +18078,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17444,6 +18098,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17472,6 +18127,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17518,6 +18174,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17537,6 +18194,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17556,6 +18214,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17575,6 +18234,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17594,6 +18254,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17622,6 +18283,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17649,6 +18311,7 @@
   },
   {
    "active": 1.2,
+   "activeAll": 1.2,
    "activeAnims": [
     {
      "cardanim": "DeckBuff_SW",
@@ -17677,6 +18340,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17705,6 +18369,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17733,6 +18398,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17752,6 +18418,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17771,6 +18438,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17790,6 +18458,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17827,6 +18496,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17846,6 +18516,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17874,6 +18545,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17893,6 +18565,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17912,6 +18585,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17949,6 +18623,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17977,6 +18652,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -17996,6 +18672,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18015,6 +18692,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18034,6 +18712,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18053,6 +18732,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18081,6 +18761,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18100,6 +18781,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18119,6 +18801,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18138,6 +18821,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18175,6 +18859,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18203,6 +18888,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18222,6 +18908,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18241,6 +18928,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18269,6 +18957,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18306,6 +18995,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18325,6 +19015,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18344,6 +19035,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18363,6 +19055,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18382,6 +19075,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18401,6 +19095,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18420,6 +19115,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18439,6 +19135,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18467,6 +19164,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18494,6 +19192,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18513,6 +19212,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18541,6 +19241,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18560,6 +19261,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18579,6 +19281,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18598,6 +19301,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18617,6 +19321,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18636,6 +19341,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18655,6 +19361,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18674,6 +19381,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18710,6 +19418,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18737,6 +19446,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18756,6 +19466,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18783,6 +19494,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18810,6 +19522,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18829,6 +19542,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18857,6 +19571,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18876,6 +19591,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18903,6 +19619,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18922,6 +19639,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18949,6 +19667,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18968,6 +19687,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -18995,6 +19715,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19014,6 +19735,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19033,6 +19755,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19069,6 +19792,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19088,6 +19812,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19107,6 +19832,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19134,6 +19860,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19161,6 +19888,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19180,6 +19908,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19208,6 +19937,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19227,6 +19957,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19255,6 +19986,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19274,6 +20006,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19302,6 +20035,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19321,6 +20055,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19340,6 +20075,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19359,6 +20095,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19386,6 +20123,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19405,6 +20143,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19424,6 +20163,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19443,6 +20183,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19479,6 +20220,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19506,6 +20248,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19525,6 +20268,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19553,6 +20297,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19608,6 +20353,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19635,6 +20381,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19662,6 +20409,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19681,6 +20429,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19717,6 +20466,7 @@
   },
   {
    "active": 0.95,
+   "activeAll": 0.95,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -19753,6 +20503,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -19771,7 +20522,8 @@
    "otherAbilityAnims": []
   },
   {
-   "active": 2.0,
+   "active": 0.2,
+   "activeAll": 2.0,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -19792,14 +20544,15 @@
      "waitAnimToApplyEffect": 0
     }
    ],
-   "activeWithTween": 2.0,
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "UM103",
    "name": "Terminator",
    "otherAbilityAnims": []
   },
   {
-   "active": 2.0,
+   "active": 0.2,
+   "activeAll": 2.0,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -19820,7 +20573,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
-   "activeWithTween": 2.0,
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "UM104",
    "name": "Bladeguard Ancient",
@@ -19828,6 +20581,7 @@
   },
   {
    "active": 1.4,
+   "activeAll": 1.4,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -19865,6 +20619,7 @@
   },
   {
    "active": 0.4,
+   "activeAll": 0.4,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -19901,6 +20656,7 @@
   },
   {
    "active": 1.2,
+   "activeAll": 1.2,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -19937,6 +20693,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19956,6 +20713,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -19992,6 +20750,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20011,6 +20770,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20030,6 +20790,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20049,6 +20810,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20068,6 +20830,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20096,6 +20859,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20124,6 +20888,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20161,6 +20926,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20180,6 +20946,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20226,6 +20993,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20254,6 +21022,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20282,6 +21051,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20301,6 +21071,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20337,6 +21108,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20356,6 +21128,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20375,6 +21148,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20411,6 +21185,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20430,6 +21205,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20466,6 +21242,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20485,6 +21262,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20521,6 +21299,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20540,6 +21319,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20568,6 +21348,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20587,6 +21368,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20615,6 +21397,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20634,6 +21417,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20680,6 +21464,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20708,6 +21493,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20727,6 +21513,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20764,6 +21551,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20783,6 +21571,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20802,6 +21591,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20821,6 +21611,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20840,6 +21631,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20868,6 +21660,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20887,6 +21680,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20906,6 +21700,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20925,6 +21720,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20961,6 +21757,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -20988,6 +21785,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21016,6 +21814,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21035,6 +21834,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21054,6 +21854,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21073,6 +21874,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21092,6 +21894,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21111,6 +21914,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21130,6 +21934,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21157,6 +21962,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21176,6 +21982,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21204,6 +22011,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21223,6 +22031,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21250,6 +22059,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21277,6 +22087,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21304,6 +22115,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21323,6 +22135,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21342,6 +22155,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21386,6 +22200,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21405,6 +22220,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21432,6 +22248,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21460,6 +22277,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21479,6 +22297,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21498,6 +22317,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21544,6 +22364,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21581,6 +22402,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -21617,7 +22439,8 @@
    ]
   },
   {
-   "active": 3.2,
+   "active": 1.4,
+   "activeAll": 3.2,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -21656,7 +22479,7 @@
      "waitAnimToApplyEffect": 1
     }
    ],
-   "activeWithTween": 3.2,
+   "activeWithTween": 1.4,
    "alternative": null,
    "id": "UM89",
    "name": "Incursor",
@@ -21681,7 +22504,8 @@
    ]
   },
   {
-   "active": 0.7,
+   "active": 0.2,
+   "activeAll": 0.7,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -21702,7 +22526,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
-   "activeWithTween": 0.7,
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "UM90",
    "name": "Phobos Lieutenant",
@@ -21720,6 +22544,7 @@
   },
   {
    "active": 1.2,
+   "activeAll": 1.2,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -21748,6 +22573,7 @@
   },
   {
    "active": 0.2,
+   "activeAll": 0.2,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -21766,7 +22592,8 @@
    "otherAbilityAnims": []
   },
   {
-   "active": 0.7,
+   "active": 0.2,
+   "activeAll": 0.7,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -21787,7 +22614,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
-   "activeWithTween": 0.7,
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "UM93",
    "name": "Vico Therbeus",
@@ -21795,6 +22622,7 @@
   },
   {
    "active": 0.95,
+   "activeAll": 0.95,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -21830,7 +22658,8 @@
    "otherAbilityAnims": []
   },
   {
-   "active": 1.2,
+   "active": 0.2,
+   "activeAll": 1.2,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -21851,14 +22680,15 @@
      "waitAnimToApplyEffect": 0
     }
    ],
-   "activeWithTween": 1.2,
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "UM95",
    "name": "Attack Bike",
    "otherAbilityAnims": []
   },
   {
-   "active": 2.0,
+   "active": 0.2,
+   "activeAll": 2.0,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -21879,7 +22709,7 @@
      "waitAnimToApplyEffect": 0
     }
    ],
-   "activeWithTween": 2.0,
+   "activeWithTween": 0.2,
    "alternative": null,
    "id": "UM96",
    "name": "Chapter Champion",
@@ -21897,6 +22727,7 @@
   },
   {
    "active": 2.7,
+   "activeAll": 2.7,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -21925,6 +22756,7 @@
   },
   {
    "active": 2.0,
+   "activeAll": 2.0,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -21961,6 +22793,7 @@
   },
   {
    "active": 0.85,
+   "activeAll": 0.85,
    "activeAnims": [
     {
      "cardanim": "Oath_Effect",
@@ -21997,6 +22830,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22016,6 +22850,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22043,6 +22878,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22080,6 +22916,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22116,6 +22953,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22144,6 +22982,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22163,6 +23002,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22191,6 +23031,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22219,6 +23060,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22247,6 +23089,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22275,6 +23118,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22312,6 +23156,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22331,6 +23176,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22368,6 +23214,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22396,6 +23243,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22415,6 +23263,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22434,6 +23283,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22453,6 +23303,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22481,6 +23332,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22500,6 +23352,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22528,6 +23381,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22555,6 +23409,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22574,6 +23429,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22636,6 +23492,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22655,6 +23512,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22674,6 +23532,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22720,6 +23579,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22739,6 +23599,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22776,6 +23637,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22813,6 +23675,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22850,6 +23713,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22878,6 +23742,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22906,6 +23771,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22934,6 +23800,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22962,6 +23829,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -22981,6 +23849,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -23000,6 +23869,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -23019,6 +23889,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -23047,6 +23918,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -23075,6 +23947,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -23094,6 +23967,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -23113,6 +23987,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -23141,6 +24016,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -23160,6 +24036,7 @@
   },
   {
    "active": null,
+   "activeAll": null,
    "activeAnims": [],
    "activeWithTween": null,
    "alternative": null,
@@ -28286,6 +29163,8 @@
  "schema": "ability_anim_durations/v1",
  "stats": {
   "activeAnims": 160,
+  "activeBeatsHeld": 129,
+  "activeDiffersFromAll": 13,
   "animTimesAgree": 93,
   "animTimesCards": 93,
   "animTimesMismatch": 0,
@@ -28294,8 +29173,8 @@
   "cardsWhoseTweenIsWaited": 0,
   "cardsWithTruth": 93,
   "max": 4.0,
-  "median": 1.0,
-  "min": 0.2,
+  "median": 0.9,
+  "min": 0,
   "notAbilityRows": 633,
   "otherAbilityAnims": 1309,
   "tableOnly": 0,

@@ -1206,8 +1206,8 @@ namespace CardPresentation
                 }
 
                 /// <summary>**真的接 `ItemDrawer.Draw`** 的那个重载（原版 `contentAnchor` 那一跳）。
-                /// <para>⚠️ 原版 `contentAnchor` 与每个抽屉的框都是 `UI_InfiniteScroll` 布局时给的，
-                /// 那份源码本地没有 ⇒ **框由调用方给**（同 `ItemDrawer.Draw` 的既有口径）。
+                /// <para>⚠️ 原版 `contentAnchor` 与每个抽屉的框都是 `UI_InfiniteScroll` 布局时给的；🔴 2026-11-03（`B128`）订正：
+                /// 原写「那份源码本地没有」**已过期**（真体 `out_il2csharp/…/UI_InfiniteScroll.cs` 448 行）⇒ **框仍由调用方给**（我们这层没有布局组）。
                 /// `ItemDrawer.Draw` 返回的 `Node == null` 就等于原版的 `view == null` ⇒ 返回 false。</para></summary>
                 public bool DrawItemReward(Transform contentAnchor, PxRect box, ItemSpec item, int quantity,
                                            DrawerOverride drawerOverride, ItemDrawerStyle style,

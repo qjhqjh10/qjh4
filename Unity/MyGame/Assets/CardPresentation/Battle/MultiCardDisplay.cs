@@ -128,12 +128,12 @@
 //  · 🔴 **2026-10-25（AU4）：窗级声音已接** —— 判据是本窗实例 MB_4182 的三个字段：`openSound = 空`
 //    （⇒ **开窗不出声，⛔ 别加**）· `closeSound = 空` + `useDefaultCloseSoundIfNull = 1`
 //    ⇒ 关窗走 `SoundManager.defaultCloseSound`（cue `ButtonClick Back`）。落点 = `HideCore(true)`。
-//  · ⏭ **仍欠**（如实记，两条都要动 `BattleDriver`，本文件白名单外）：
-//    ① `closeOnESC = 1`（MB_4182 实读；原版 `GameWindow__ESCPressed` → `Close`。我们的 `BattleDriver`
-//       只在结算屏处理 ESC ⇒ 本窗开着按 ESC 不会关）；
-//    ② `enableCardTooltips = 1`（MB_4182 实读）—— 卡要能悬停出关键词/数值 tooltip。我们的
-//       tooltip 泵是 `BattleDriver.TickTooltipAt`，它只遍历棋盘/手牌那批卡（`enableCardTooltips`
-//       两个消费窗都**没有贡献候选卡**）；`CardDisplayWindow.SlotHasTooltips(i)` 目前是**零调用**的死口。
+//  · ✅ **2026-11-03（`B128` · 铁律 5/20 就地订正）：下面两条【都已复刻】，原来记的「仍欠」已过期**：
+//    ① `closeOnESC = 1` ⇒ ✅ 已复刻（2026-11-03 · B128 · 判据 `GameWindow__ESCPressed.c` +
+//       `WindowsManager.Update` 的 `GetKeyDown(Escape)` + MB_4182 `closeOnESC=1`）：落点 = 本类
+//       `TickEscClose()`（`LateUpdate` 每帧调；挂起到同一条 `_closePending`，⛔ 不当场 `Hide`）。
+//    ② `enableCardTooltips = 1` ⇒ ✅ 已复刻（2026-10-30 · B99_A1 · 判据 `UIMultiCardDisplay__Initialize.c:91` 逐卡 `ToggleTooltips(card2d, enableCardTooltips, 0)`）：落点 = `BattleDriver.TipMultiCards`
+//       （`TickTooltipAt` 里 `|| TipMultiCards(wp)` 那一支，逐张跑关键词圈 + 数值圈）。
 // ═════════════════════════════════════════════════════════════════════════════
 using System;
 using System.Collections.Generic;
@@ -1043,7 +1043,7 @@ namespace CardPresentation
 
         void LateUpdate()
         {
-            ApplyPendingClose();
+            TickEscClose(); ApplyPendingClose();   // 🆕 B128：ESC 先挂起（与 uGUI 点击同一条 `_closePending`）、再落账
         }
 
         /// <summary>「继续」那一块（横条）被点到了没有 —— **判据只此一处**。
@@ -1276,5 +1276,55 @@ namespace CardPresentation
         /// UGUI 的 Elastic 支把它直接当 `Mathf.SmoothDamp` 的 `smoothTime`（`ScrollRect.LateUpdate`）
         /// ⇒ 越界量按它回弹。⛔ 别改成我们自己的经验值。</summary>
         public const float ScrollElasticity = 0.1f;
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-03（`B128` · 战斗线 `T09-新账`）：**ESC 关窗** —— 原版 `closeOnESC = 1`
+        //
+        //  判据（第一权威 = 反编译 + prefab 字段，全部现读）：
+        //    · `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4182.json`
+        //      （= 本窗实例 `UIMultiCardDisplay`）：**`closeOnESC = 1`** · `enableCardTooltips = 1`；
+        //    · `d:/2/tools/decomp_full/GameWindow__ESCPressed.c`：`WindowsManager` 有 currentWindow 且它
+        //      `enabled` 且 `*(window + 0x39) != 0`（= `closeOnESC`）⇒ 调虚方法 `+0x1b8`（= `Close`）
+        //      ⇒ **顶窗按 ESC = 关这一扇窗**（⛔ 不是「退出战斗」）；
+        //    · 分发点 `WindowsManager.Update`：`if (GetKeyDown(Escape) && currentWindow && currentWindow.IsOpen())
+        //      currentWindow.ESCPressed();`（`0x1b` = 27 = `KeyCode.Escape`）。
+        //
+        //  我们这边**没有** WindowsManager：本窗开着时 `BattleDriver.Update` 在
+        //  `if (TickMultiCards()) return;` 就整帧返回（= 本窗就是顶窗）⇒ ESC 由本类自己的 `LateUpdate`
+        //  读、经**与 uGUI 点击完全相同**的那条 `_closePending` → `ApplyPendingClose()` 落账。
+        //  ⛔ **别复用 `BattleDriver.EscPressed()`**：那一支是**结算屏出口**（`HandleEndBattleExit`），
+        //    本窗开着时它根本到不了；两处各读一次还可能在结算那一帧同时命中（关窗 + 回主菜单）。
+        //  ⚠️ **不记 `ClickLog`**：ESC 不是点击；`CloseRequested` 那条记账口只服务 `wf_click.py` 的点击验收。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>自检专用：把「ESC 按下了」钉死（`null` = 走真实设备 —— **生产恒为 null**）。
+        /// 与 <c>BattleDriver.EscapePressedForTest</c> 同一条先例（批处理没有键盘设备，`Keyboard.current == null`）。</summary>
+        public static bool? EscapePressedForTest;
+
+        /// <summary>ESC 被本窗吃掉（= 挂起了一次关闭）的次数 —— 自检/诊断。</summary>
+        public int EscCloseRequestsForTest { get { return _escRequests; } }
+        int _escRequests;
+
+        /// <summary>ESC 那一刻（原版 `WindowsManager.Update` 的 `Input.GetKeyDown(Escape)`，
+        /// `0x1b` = 27 = `KeyCode.Escape`）。批处理没有键盘 ⇒ 恒 false，故给 <see cref="EscapePressedForTest"/> 钉死口。</summary>
+        static bool EscPressedNow()
+        {
+            if (EscapePressedForTest.HasValue) return EscapePressedForTest.Value;
+            var kb = UnityEngine.InputSystem.Keyboard.current;
+            return kb != null && kb.escapeKey.wasPressedThisFrame;
+        }
+
+        /// <summary>ESC 关窗（**只挂起**，落账仍由 <see cref="ApplyPendingClose"/> 做）。
+        /// 返回 true = 这一帧的 ESC 被本窗吃掉（= 原版 `ESCPressed()` 命中了本窗）。
+        /// <para>⚠️ 幂等：`_closePending` 已经是真时**不再计数**（生产是「按下沿」、只会进来一次；
+        /// 批处理的自检钉死口是**电平**，可能被连调两次）。</para>
+        /// <para>⚠️ 批处理没有帧循环 ⇒ 自检手动调本方法（`LateUpdate` 里那一句的唯一判据也在这里，⛔ 别写两份）。</para></summary>
+        public bool TickEscClose()
+        {
+            if (!Visible) return false;                    // 窗关着 ⇒ 这一下不属于本窗（原版 `currentWindow` 闸）
+            if (!EscPressedNow()) return false;
+            if (!_closePending) { _escRequests++; _closePending = true; }
+            return true;
+        }
     }
 }

@@ -47,11 +47,11 @@
 //      （`BattleResult` 的注：⛔ 不写进 `ctx`、免得旧录像/旧联机局假红），它只活在 `ctx.Events` 的那一行里。
 //
 // ---- 存在哪（用户 2026-09-27 问的「专门的文件夹」）----
-// `Application.persistentDataPath/WarpforgeReplays/` —— 与 `NetConfig`（`WarpforgeNet.json`）·
+// `SaveRoot.Path/WarpforgeReplays/`（🆕 2026-11-03 B128：根 = `C:\warpforgesave`）—— 与 `NetConfig`（`WarpforgeNet.json`）·
 // `DeckStore` 同一套（`JsonUtility` + 一个给自检用的 `OverrideDir`）。
-// ⚠️ 编辑器里 `persistentDataPath` 在 `C:/Users/<你>/AppData/LocalLow/<公司>/<产品>/` ——
+// ⚠️ 根是**固定绝对路径**（换电脑 / 出 player 都一样）⇒ 不再随 `%LocalLow%` 漂 ——
 //    **看不见** ⇒ 每次存盘/读盘都 `Debug.Log` **完整路径**（用户要能找得到）。
-// ⚠️ 出 player 之后这个路径才会变到真正的存档位置；**这是第一处会写用户数据的地方**，
+// ⚠️ 编辑器与 player **同一个位置**（`C:\warpforgesave`）；**这是第一处会写用户数据的地方**，
 //    所以：只写这一个目录、文件名里不带路径分隔符、写失败一律出声。
 //
 // ---- 留多少局（用户 2026-09-27 问的「50 局合不合理、多大」）----
@@ -452,7 +452,7 @@ namespace CardPresentation
                 // 玩家目录的「根」：平时就是 `persistentDataPath`；只有自检验 `ResetForTest` 的硬挡时才被改到临时目录
                 // （见 `PlayerRootForTest` 的注 —— 那一格不是产品路径，⛔ 运行时没人设它）。
                 var root = string.IsNullOrEmpty(PlayerRootForTest)
-                         ? Application.persistentDataPath
+                         ? SaveRoot.Path
                          : PlayerRootForTest;
                 var d = string.IsNullOrEmpty(OverrideDir)
                       ? Path.Combine(root, DirName)

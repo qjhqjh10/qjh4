@@ -190,7 +190,7 @@ namespace RuleEngine
                 var b = rows[i];
                 if (b == null || b.Ab != ab || b.Lg != lg) continue;
                 if (b.IsHandBuff != isHandBuff) continue;
-                if (ApplyAbilityBuff(ctx, owner, target, b, by, unresolved)) n++;
+                if (ApplyAbilityBuff(ctx, owner, target, b, by, unresolved, def, ab, lg)) n++;   // 🔴 2026-11-03（`B128` · 引擎-N3）：把**宿主卡 + `(ab,lg)`** 一并下传 —— 原版 `AdjustCardEffect` 要在 `AddEffect` 之前按这一行的 `multiplier` 折 `*ValueOptions`（见类尾 `FoldBuffStatValueOptions`）
             }
             return n;
         }
@@ -204,13 +204,13 @@ namespace RuleEngine
         /// <returns>真的改了状态返回 `true`；`false` = 这一组今天没有落点（**已经出声**）或缺前置。</returns>
         public static bool ApplyAbilityBuff(BattleContext ctx, int owner, UnitState target,
                                             CardDatabase.AbilityBuffSpec b, string by,
-                                            List<string> unresolved = null)
+                                            List<string> unresolved = null, CardDef hostCard = null, int ab = -1, int lg = -1)   // 🔴 2026-11-03（`B128` · 引擎-N3）：后三个形参 = 原版 `AbilityLogic.AdjustCardEffect` 那一步折叠所需的**坐标**（宿主卡 + `(ab,lg)`）—— 缺省 `null/-1/-1` = 不折（既有调用点/夹具逐字不变）。⚠️ 形参名**不能叫 `def`**：本方法 `case 95` 体内已有一个局部 `var def = target.Card;`（C# 禁止内层局部遮蔽形参）。折叠本体 → 类尾 `FoldBuffStatValueOptions`
         {
             if (ctx == null || target == null || b == null) return false;
             string who = string.IsNullOrEmpty(by) ? "AddEffect" : by;
             // `AddEffect` 的四道前置闸里的两条（卡状态 + 施放者）；闸② jam / 闸④ 施放者不在场
             //   —— 与手牌那条路共用同一份判据（`AddEffectCasterGates`）。
-            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, target, b.Extrinsic != 0, $"效果（{who}）")) return false;
+            if (!AddEffectCasterGates(ctx, ctx.ActingUnit, target, b.Extrinsic != 0, $"效果（{who}）")) return false; var _fold = FoldBuffStatValueOptions(ctx, owner, target, hostCard, ab, lg, b, who);   // ✅ 已复刻（2026-11-03 · B128 · 引擎-N3 · 原版 `AbilityLogic.AdjustCardEffect` → `AbilityLogic__NewBuffStat.c:156-157`）：五格 `*ValueOptions` 的折叠**在 `AddEffect` 之前**（原版 `PlayAbility` 就是这么调的）⇒ 下面各 `case` 一律读 `_fold.*`，⛔ 不再直读 `b.*Change`（`b` 那几格是**未折**的原始值）
 
             switch (b.BuffType)
             {
@@ -229,39 +229,39 @@ namespace RuleEngine
                 case 1:
                 {
                     bool any = false;
-                    if (b.MeleeAttackChange != 0)
+                    if (_fold.Melee != 0)
                     {
-                        target.AddStatMod("attack", b.MeleeAttackChange, "AddEffect:" + who,
+                        target.AddStatMod("attack", _fold.Melee, "AddEffect:" + who,
                                           extrinsic: b.Extrinsic != 0, buffType: b.BuffType, permanent: b.PermanentBuff != 0);
                         any = true;
                     }
-                    if (b.RangeAttackChange != 0)
+                    if (_fold.Range != 0)
                     {
-                        target.AddStatMod("ranged", b.RangeAttackChange, "AddEffect:" + who,
+                        target.AddStatMod("ranged", _fold.Range, "AddEffect:" + who,
                                           extrinsic: b.Extrinsic != 0, buffType: b.BuffType, permanent: b.PermanentBuff != 0);
                         any = true;
                     }
-                    if (b.HealthChange != 0)
+                    if (_fold.Health != 0)
                     {
-                        target.AddStatMod("health", b.HealthChange, "AddEffect:" + who,
+                        target.AddStatMod("health", _fold.Health, "AddEffect:" + who,
                                           extrinsic: b.Extrinsic != 0, buffType: b.BuffType, permanent: b.PermanentBuff != 0);
                         any = true;
                     }
-                    if (b.ArmourChange != 0)
+                    if (_fold.Armour != 0)
                     {
-                        target.AddKeyword(KeywordTable.Armour, b.ArmourChange);   // 原版 `.c:480 CardScript__AddArmour`
+                        target.AddKeyword(KeywordTable.Armour, _fold.Armour);   // 原版 `.c:480 CardScript__AddArmour`
                         any = true;
                     }
-                    if (b.CostChange != 0)
+                    if (_fold.Cost != 0)
                     {
-                        ctx.Log($"⚠️{who}：`addStats(1)` 里的 `costChange = {b.CostChange}` **本仓没有落点**"
+                        ctx.Log($"⚠️{who}：`addStats(1)` 里的 `costChange = {_fold.Cost}` **本仓没有落点**"
                               + "（原版改 `CardEffect.costChange` 那本合并账；我们的手牌费用在 `ctx.CostMods`，"
                               + "与 `case 2 changeCost` 同一条 —— 见那一支）");
                         if (unresolved != null) unresolved.Add($"{who}（buffType 1 的 costChange 未建）");
                     }
-                    ctx.Log($"{who}：「{target.Name}」的 `addStats(1)` ⇒ 近战 {b.MeleeAttackChange:+#;-#;0} · "
-                          + $"远程 {b.RangeAttackChange:+#;-#;0} · 生命上限 {b.HealthChange:+#;-#;0} · "
-                          + $"护甲 {b.ArmourChange:+#;-#;0}（原版 `CardScript__AddEffect.c:331-459`）");
+                    ctx.Log($"{who}：「{target.Name}」的 `addStats(1)` ⇒ 近战 {_fold.Melee:+#;-#;0} · "
+                          + $"远程 {_fold.Range:+#;-#;0} · 生命上限 {_fold.Health:+#;-#;0} · "
+                          + $"护甲 {_fold.Armour:+#;-#;0}（原版 `CardScript__AddEffect.c:331-459`）");
                     return any;
                 }
 
@@ -270,8 +270,8 @@ namespace RuleEngine
                 //  的唯一台账是 `ctx.CostMods`（`RuleCore.DoLowerCost` 那一路）—— 但那条是**翻出正文 op 之后**
                 //  才写的，直接从 `CardEffect` 灌进去会越过它自己的判据 ⇒ **本支先出声、不改状态**，
                 //  留待「`changeCost` 的数据行落点」单独定口径（⛔ 不拿 `CostMods` 硬塞）。
-                case 2:
-                    ctx.Log($"⚠️{who}：`changeCost(2)` 的 `costChange = {b.CostChange}` **本仓暂无数据行落点**"
+                case 2:   // 🔴 2026-11-03（`B128` · 引擎-172）就地订正（铁律 5）：上面那句「留待单独定口径」**已过期** —— 这 15 行的**真落点全在【手牌】那一侧、且早就接完**：① **10 行 `at=handBuff`**（`Warp Storm`2 `Blackout`2 `Electro-Static`2 `Planetary Invasion`2 `Sump Overspill`2）走 `EnchantmentExecutor_B115.RunHandBuffRowOfEnchantment` → `AttachHandAbilityBuff` → `ApplyAbilityBuffToHandCard` 的 `case 2`（`RuleCorePartial_B115W20.cs:309`：登 `ctx.CostMods` 并**钉在那一份** `HandInstanceId`，判据 `PlayerHand__AddHandEffect.c:126-135`）⇒ **已生效**；② **3 行 `ca 30 buffOthers` + `ta 50`**（`Living Icon`1 `Solar Eclipse`2）走 `RuleCorePartial_B123E2.RunBuffOthersHandRowOfEnchantment` → 同一 `ApplyAbilityBuffToHandCard` ⇒ **已生效**；③ 剩下 **2 行**（`Electro-Static Interference` 的 `at=buffEffect` 行）与 `ca 50` 的 `handBuff` 行是同一 `(ab,lg)` 的两份表示，而原版 `AbilityLogic__PlayAbility.c:1378` `if (iVar8 != 0x32) return;` 之后的 `AddHandEffect` 只读 `abilityLogic.handBuff`（`param_1+0x60`）⇒ **`buffEffect` 那一份原版根本不读**（死数据）。⇒ **本 `case 2`（单位靶）今天仍然出声不改状态是对的**：原版 `AddEffect` 给**场上单位**挂 `changeCost` 只进 `activeEffects`，唯一消费者 `EntityScript.CurrentCost` 只对手牌有意义，而本仓没有「单位身上带一条费用记录、回手后生效」那一格（那是 recall 的账，另立）⇒ 强行写只会是死码。✅ 已核（2026-11-03 · B128 · `CardScript__AddEffect.c:331-459` + `EntityScript__get_CurrentCost.c:47-53`）
+                    ctx.Log($"⚠️{who}：`changeCost(2)` 的 `costChange = {_fold.Cost}` **本仓暂无数据行落点**"
                           + "（原版 `.c:331-459` 把它累加进 `CardEffect` 那本合并账；我们的手牌费用由"
                           + " `ctx.CostMods` 承载、写点只有正文 op 那一路）⇒ **本行不改状态**");
                     if (unresolved != null) unresolved.Add($"{who}（buffType 2 未建）");
@@ -436,7 +436,7 @@ namespace RuleEngine
                 case 85:
                 {
                     bool melee = b.BuffType == 70;
-                    int change = melee ? b.MeleeAttackChange : b.RangeAttackChange;
+                    int change = melee ? _fold.Melee : _fold.Range;
                     int options = melee ? b.MeleeAttackValueOptions : b.RangeAttackValueOptions;
                     if (change == 0 && options != 0)
                     {
@@ -477,7 +477,7 @@ namespace RuleEngine
                         Player = seat,
                         Key = def.Id,
                         Delta = 0,
-                        SetTo = b.CostChange,
+                        SetTo = _fold.Cost,
                         ExpireTurn = -1,      // 原版 `setCost` 不带到期位 ⇒ 永久
                     });
                     ctx.Log($"{who}：`setCost(95)` ⇒ 「{def.Name}」的费用设为 {b.CostChange}"
@@ -774,6 +774,101 @@ namespace RuleEngine
                   + "（原版 `CardScript__AddEffect.c:826-829` → `CardScript__AddEnchantment.c`："
                   + "读 `newEffect.enchantment(+0x88)` → 流水号 → `+0x110`/`+0x108` 各追加一份 → `ActivateTraitsOnSummonOrEnchantment`）");
             return true;
+        }
+
+        // ==============================================================================================
+        //  🆕 2026-11-03（写手 `B128` · 引擎-N3）：`CardEffect` 五格 `*ValueOptions` 的**折叠**
+        // ==============================================================================================
+        //  判据（第一权威，逐句现读）：
+        //   · 原版 `AbilityLogic.AdjustCardEffect`（ILSpy `AbilityLogic.cs:2450-2477`）对
+        //     `buffType ∈ {addStats(1), addTrait(3), addTraitRemnant(90), changeCost(2), changeAbilityCost,
+        //     setMeleeAttack(70), setRangeAttack(85), setCost(95)}` 的行，把 `melee/range/health/armour/cost`
+        //     五格各调一次 `NewBuffStat(valueOption, 原始 Change, abilityData, multiplier)` 并**写回** `CardEffect`
+        //     ⇒ `AddEffect` 收到的**已经是折好的数**（这就是 `ApplyAbilityBuff` 各 `case` 只读 `*Change` 的原因）。
+        //   · `AbilityLogic__NewBuffStat.c:60-62` = `uVar10 = (param_4 != 0) ? param_4 * param_6 : param_6`
+        //     （`param_4` = 原始 Change、`param_6` = multiplier）；`:156-157` = `if (param_3 == 0x50) return uVar10;`
+        //     ⇒ **80 档（`MinPlusMaxTimesMultiplier`）= `原始 Change × multiplier`（Change 为 0 时 = multiplier）**；
+        //     其余档走 `:LAB_18081bf52 return param_4`（原样）⇒ 本方法**只折 80**。
+        //   · `multiplier` 的来源 `AbilityLogic__PlayAbility.c:180-236`：`multiplier.targetsAffected == 0 (Any)` ⇒ 1；
+        //     否则 = `GetTargets(multiplier)` 的表长；再 `if (0 < furtherMultiplier) ×= furtherMultiplier`（`:235-236`）。
+        //     仓里的等价物 = `CardDef.Conditions` 的 `role="mult"` 行 → `CountMultiplierTargets`
+        //     （与 `ApplyMinPlusMaxTimesMultiplier` **同一个计数口**，⛔ 别另写一份）+ `AbilityTargets[ab].FurtherMultiplier[lg]`。
+        //  ⚠️ **折不出来 ⇒ 保留原始 Change + 出声**（⛔ 不猜、⛔ 不按形状猜，同 CLAUDE.md 18·0）：
+        //     ① 调用点没给宿主卡 / `(ab,lg)`；② 这一行没有 `mult` 行（原版那一格为空 ⇒ 其实是 1，
+        //     但我们分不清「明确没有」与「列没落」）；③ `multiplier` 未知 / 数不出来。
+        //  📊 现读影响面（`cards_engine.json` v49 `count 1142`）：`abilityBuffs` 里 `*ValueOptions == 80` 共 **6 行**
+        //     （cost×3 `BL52`/`GSC37`/`SW58` · melee×2 `DA45`/`38871853…` · range×1 `DA73`），全部 `at=buffEffect`、
+        //     `ca ∈ {30 buffOthers, 40 buffSelf}`，且**都带 `role="mult"` 行** ⇒ 折叠真的会生效。
+        //  ⛔ **`case 45 addStatsDropPod` 不折**：原版 `AdjustCardEffect` 的条件列表里**没有** 45 ⇒ 照抄。
+
+        /// <summary>`CardEffect` 五格属性的**折叠结果**（默认 = 原始 `*Change`，即「不折」）。</summary>
+        internal struct BuffStatFold
+        {
+            public int Melee, Range, Health, Armour, Cost;
+        }
+
+        /// <summary>把一条 `CardEffect` 行的五格 `*ValueOptions` 折成真值（原版 `AbilityLogic.AdjustCardEffect` 的等价位）。
+        /// <para>判据 / 为什么只折 80 / 折不出来的三档 → 上面那一整段（⛔ 别在这里抄第二份）。</para></summary>
+        internal static BuffStatFold FoldBuffStatValueOptions(BattleContext ctx, int owner, UnitState actor,
+                                                              CardDef def, int ab, int lg,
+                                                              CardDatabase.AbilityBuffSpec b, string who)
+        {
+            var f = new BuffStatFold
+            {
+                Melee = b != null ? b.MeleeAttackChange : 0,
+                Range = b != null ? b.RangeAttackChange : 0,
+                Health = b != null ? b.HealthChange : 0,
+                Armour = b != null ? b.ArmourChange : 0,
+                Cost = b != null ? b.CostChange : 0,
+            };
+            if (b == null) return f;
+            f.Melee = FoldOneBuffStat(ctx, owner, actor, def, ab, lg, f.Melee, b.MeleeAttackValueOptions, who, "meleeAttackChange");
+            f.Range = FoldOneBuffStat(ctx, owner, actor, def, ab, lg, f.Range, b.RangeAttackValueOptions, who, "rangeAttackChange");
+            f.Health = FoldOneBuffStat(ctx, owner, actor, def, ab, lg, f.Health, b.HealthValueOptions, who, "healthChange");
+            f.Armour = FoldOneBuffStat(ctx, owner, actor, def, ab, lg, f.Armour, b.ArmourValueOptions, who, "armourChange");
+            f.Cost = FoldOneBuffStat(ctx, owner, actor, def, ab, lg, f.Cost, b.CostValueOptions, who, "costChange");
+            return f;
+        }
+
+        /// <summary>单格折叠（<see cref="FoldBuffStatValueOptions"/> 的实现体）。`opt != 80` ⇒ **原样返回**。</summary>
+        static int FoldOneBuffStat(BattleContext ctx, int owner, UnitState actor, CardDef def, int ab, int lg,
+                                   int raw, int opt, string who, string field)
+        {
+            if (opt != 80) return raw;                       // 原版 `:LAB_18081bf52 return param_4`（其余档原样）
+            string why = null;
+            if (def == null || ab < 0 || lg < 0) why = "调用点没给宿主卡 / `(ab,lg)` 坐标";
+            CardDef.ConditionSpec ms = null;
+            if (why == null && (!def.TryGetCondition(ab, lg, "mult", out ms) || ms == null || ms.MultiplierSet == null))
+                why = "这一行没有 `role=mult` 行（原版 `AbilityLogic.multiplier`）";
+            if (why == null && ms.Exclude) why = "`mult` 行的 `excludeCondition = 1`（逐候选取反）本版未实现";
+            int cnt = 1;
+            if (why == null)
+            {
+                int ta = ms.MultiplierSet.TargetsAffected;
+                if (ta == CardDef.CountSetSpec.Unknown) why = "`multiplier.targetsAffected` 未知（没落）";
+                else if (ta != 0)                        // `0 (Any)` ⇒ 1（`PlayAbility.c:190`）
+                {
+                    var n = CountMultiplierTargets(ctx, owner, ms.MultiplierSet, ms.Condition, actor, out string gap);
+                    if (n == null) why = "`multiplier` 数不出来（" + gap + "）";
+                    else cnt = n.Value;
+                }
+            }
+            int fm = 1;
+            var ats = def != null ? def.AbilityTargets : null;
+            if (ats != null && ab >= 0 && ab < ats.Count && ats[ab] != null && ats[ab].FurtherMultiplier != null
+                && lg >= 0 && lg < ats[ab].FurtherMultiplier.Length && ats[ab].FurtherMultiplier[lg] > 0)
+                fm = ats[ab].FurtherMultiplier[lg];
+            if (why != null)
+            {
+                ctx?.Log($"⚠️{who}：`{field}` 是 `valueOptions = 80`（`MinPlusMaxTimesMultiplier`），但**折不出来**（{why}）"
+                       + $" ⇒ 保留原始值 {raw}（⛔ 不猜）");
+                return raw;
+            }
+            int mult = cnt * fm;
+            int v = raw != 0 ? raw * mult : mult;            // 原版 `NewBuffStat.c:60-62` 的 `uVar10`
+            ctx?.Log($"（{who}：`{field}` 的 `valueOptions = 80` ⇒ 原版 `NewBuffStat` 折叠 = {(raw != 0 ? raw + " × " : "")}"
+                   + $"mult（{cnt}{(fm > 1 ? " × fm " + fm : "")}）= **{v}**；`AbilityLogic__NewBuffStat.c:156-157`）");
+            return v;
         }
     }
 }

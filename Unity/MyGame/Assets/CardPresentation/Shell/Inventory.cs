@@ -365,7 +365,7 @@ namespace CardPresentation
     /// <summary>背包的**本地存档**（原版没有这一层：原版存档在 `PlayerDataManager` 的每活动 `TSave` 里）。
     ///
     /// <para>🔴 **如实标**：这是「`PlayerDataManager` / `LiveOpsEvent<TSave>` 落地**之前**的临时本地等价物」
-    /// —— 与 `DailyData` / `DraftRunSave` / `CardProgress` 那几份**同一套路**（`persistentDataPath` 下一个
+    /// —— 与 `DailyData` / `DraftRunSave` / `CardProgress` 那几份**同一套路**（`SaveRoot.Path` 下一个
     /// 自己的目录 + 一个 DTO + `JsonUtility`），所以它们将来会**一起**并进 `PlayerDataManager`。
     /// ⛔ 别把它当成原版做法。</para>
     ///
@@ -386,7 +386,7 @@ namespace CardPresentation
             get
             {
                 return string.IsNullOrEmpty(OverrideDir)
-                     ? System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, StoreDirName)
+                     ? System.IO.Path.Combine(SaveRoot.Path, StoreDirName)
                      : OverrideDir;
             }
         }

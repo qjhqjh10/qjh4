@@ -41,8 +41,10 @@ gen_ability_anim_durations.py — 账 `A1767`：把「发动效果的时长」�
    `activeAbility` 本身**一条 CardAnim 都没有**（铁律 11 例外①）。逐张名单见 `uncovered`。
 
 用法：
-  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py            # 重出两份产物
+  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py --write    # 重出两份产物（真写盘）
+  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py --dry      # 只算不写：逐卡列差异
   python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py --check    # 只比不写（幂等自检）
+  ⛔ 裸跑 = 只打印本用法并以 **rc=2** 退出（2026-11-03 `B130` 起：写盘类脚本必须带显式动作）。
 """
 
 import io
@@ -58,7 +60,7 @@ if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：\n  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py            # 重出两份产物\n  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py --check    # 只比不写（幂等自检）\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    print('用法：\n  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py --write    # 重出两份产物（真写盘）\n  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py --dry      # 只算不写：逐卡列差异\n  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py --check    # 只比不写（幂等自检）\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。\n  ⛔ 裸跑 = 只打印用法并 rc=2（2026-11-03 `B130`：写盘类脚本必须带显式动作）。')
     _wf_help_sys.exit(0)
 
 ROOT4 = "d:/4/Unity"
@@ -438,15 +440,31 @@ def build():
             continue
         if cid not in byid:
             unknown_card.append(cid)
-        total = round(sum(r["seconds"] for r in act), 4)
+        # 🔴 **2026-11-03（`B130`）：只有 `waitAnimToApplyEffect != 0` 的拍才占动作队列**。
+        #   原版 `BattleManager._ResolveAnim_d__466__MoveNext.c`：
+        #     · `:63-66` —— `if (*(char *)(param_1 + 0xc0) == '\0') { … FinishResolvingAction(…) }`
+        #       即 **`waitForAnim == 0` 的拍在协程一开头就把队列放行**（之后才 `WaitForSeconds(startDelay)`
+        #       → 播 VFX → `WaitForSeconds(GetAnimDuration)`，但那时已经在后台跑）；
+        #     · `:200-211` —— `waitForAnim == 1` 的拍走完 `GetAnimDuration()` 才在 `:191-194` 放行。
+        #   `param_1 + 0xC0` 的来历：`BattleManager__ResolveAnim.c` 把整个 `BattleAction` 从
+        #   `stateMachine + 0x28` 起整块拷进去 ⇒ `0xC0 − 0x28 = 0x98` = `BattleAction.waitForAnim`
+        #   （`BattleAction.cs:47` 那个字段；`d:/2/tools/il2cpp_out/dump.cs` 的 `BattleAction` 标 `// 0x98`）。
+        #   ⇒ 「一次技能占多久」= **Σ(仅 `waitAnimToApplyEffect != 0` 的拍)**；
+        #     Σ(全部拍) 另存 `activeAll` 备查（⛔ 别让它再当运行时的 `s`）。
+        held = [r for r in act if int(r.get("waitAnimToApplyEffect") or 0) != 0]
+        total = round(sum(r["seconds"] for r in held), 4)
+        total_all = round(sum(r["seconds"] for r in act), 4)
         cards.append({
             "id": cid,
             "name": name_of.get(cid, ""),
             "active": total if act else None,     # None = 原版这张卡的主动能力**一条动画都没有**
+            # 🔴 同上：`active`（= 占队列的那几拍）与 `activeAll`（= 全部拍，**不占队列**）分开记。
+            #   2026-11-03（`B130`）现读：93 张卡里 **13 张**两者不等（最大差 1.8 s）。
+            "activeAll": total_all if act else None,
             # 🔴 R18：原版 `_ResolveAnim` 在 `waitAnimation != 0` 时**先等** tween 序列，
-            #   再等 `GetAnimDuration()` ⇒ 真正等的 = 这一列。`active` 保持不变（运行时的 `s`
-            #   读的是它，改它 = 无人复核的行为变更；要接由 `Core/AbilityAnimDurations.cs` 那边定）。
-            "activeWithTween": (round(total + sum(waited_tween_seconds(r) for r in act), 4)
+            #   再等 `GetAnimDuration()` ⇒ 真正等的 = 这一列。⚠️ 只累 `held` 那几拍（同上：w=0 的拍
+            #   队列已放行，tween 也不占队列）。运行时的 `s` 读 `active`（不含 tween，见 `AbilityAnimDurations`）。
+            "activeWithTween": (round(total + sum(waited_tween_seconds(r) for r in held), 4)
                                 if act else None),
             "activeAnims": act,
             "otherAbilityAnims": other,
@@ -484,11 +502,18 @@ def build():
                 missing.append({"guid": g, "why": "GUID 表里没有 / dump 不在盘上"})
                 continue
             ai = load(p).get("animInfo") or {}
-            rows.append({"cardanim": rec[0], "seconds": round(anim_duration(ai), 4), "guid": g})
+            rows.append({"cardanim": rec[0], "seconds": round(anim_duration(ai), 4),
+                         "waitAnimToApplyEffect": int(ai.get("waitAnimToApplyEffect") or 0),
+                         "guid": g})
         alt_raw = srow.get("full_raw") if isinstance(srow.get("full_raw"), dict) else {}
         crit_raw = alt_raw.get("normalAbilityBoardCriteria")
         c["alternative"] = {
-            "seconds": round(sum(r["seconds"] for r in rows), 4) if rows else None,
+            # 🔴 2026-11-03（`B130`）：与普通支同一条口径 —— **只累 `waitAnimToApplyEffect != 0` 的拍**
+            #   （判据见上面 `held` 那一段）。替代支现读只有 `SW21`（1 拍，w=1 ⇒ 0.2 不变）。
+            "seconds": (round(sum(r["seconds"] for r in rows
+                                  if int(r.get("waitAnimToApplyEffect") or 0) != 0), 4)
+                        if rows else None),
+            "secondsAll": round(sum(r["seconds"] for r in rows), 4) if rows else None,
             "anims": rows,
             "missing": missing,
             "hasAlternativeAbility": int(srow.get("hasAlternativeAbility") or 0),
@@ -507,7 +532,8 @@ def build():
             "normalWithTween": c["activeWithTween"],
             "alternativeWithTween": (round(
                 (c["alternative"]["seconds"] or 0.0)
-                + sum(waited_tween_seconds(r) for r in rows), 4) if rows else None),
+                + sum(waited_tween_seconds(r) for r in rows
+                      if int(r.get("waitAnimToApplyEffect") or 0) != 0), 4) if rows else None),
             "criteria": c["alternative"]["selectCriteriaDecoded"],
             "note": "同一张卡、不同棋盘状态 ⇒ 两个不同的时长（铁律 5·c）",
         })
@@ -625,7 +651,10 @@ def build():
         cross["animTimesCards"] += 1
         s2 = round(sum(float(r.get("u") or 0.0) for r in act), 4)
         if cid in covered_ids:
-            s1 = round(next(c["active"] for c in withtruth if c["id"] == cid), 4)
+            # 🔴 2026-11-03（`B130`）：这里比的是**全部拍之和** ⇒ 对本表的 `activeAll`，⛔ 不是 `active`
+            #   （`active` 自本日起只累 `waitAnimToApplyEffect != 0` 的拍）。`animTimes` 的行**不带**
+            #   那个标志位 ⇒ 它天然是「全拍」口径；两链**逐拍 `u` 值**仍然是同一份 `AnimInfo`。
+            s1 = round(next(c["activeAll"] for c in withtruth if c["id"] == cid), 4)
             if abs(s1 - s2) <= 1e-6:
                 cross["agree"] += 1
             else:
@@ -634,7 +663,7 @@ def build():
             cross["onlyInAnimTimes"].append({"id": cid, "animTimes": s2})
     for c in withtruth:
         if not any(int(r.get("tg", 0)) == -1 for r in an_reported.get(c["id"], [])):
-            cross["onlyInTable"].append({"id": c["id"], "table": c["active"]})
+            cross["onlyInTable"].append({"id": c["id"], "table": c["activeAll"]})
     cross["allAgree"] = (not cross["mismatch"] and not cross["onlyInAnimTimes"]
                          and not cross["onlyInTable"])
 
@@ -646,6 +675,11 @@ def build():
         "min": vals[0] if vals else None,
         "median": med,
         "max": vals[-1] if vals else None,
+        # 🔴 2026-11-03（`B130`）：`active`（= 占队列的那几拍）与 `activeAll`（= 全部拍）的差异面
+        #   —— 现读 13 张卡、逐张见 `cards[*].active` vs `cards[*].activeAll`。
+        "activeDiffersFromAll": len([c for c in withtruth if abs(c["active"] - c["activeAll"]) > 1e-9]),
+        "activeBeatsHeld": sum(1 for c in withtruth for r in c["activeAnims"]
+                              if int(r.get("waitAnimToApplyEffect") or 0) != 0),
         "unresolved": len(unresolved),
         "notAbilityRows": len(not_ability),
         "tweenRows": sum(1 for c in cards for r in (c["activeAnims"] + c["otherAbilityAnims"])
@@ -670,9 +704,14 @@ def build():
 
     headline = (
         "🔴 `A1767`：`EventTiming.DurationOf(EvtKind.Ability)` 的那条常数 **1.0** 换成**逐卡真值**。"
-        "判据 = 该卡 `activeAbility` 各 `cardAnimations` 的 `AnimInfo.GetAnimDuration()` 之和"
-        "（`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；原版 `AnimInfo__GetAnimDuration.c`）。"
+        "判据 = 该卡 `activeAbility` 里**占动作队列的那几拍**的 `AnimInfo.GetAnimDuration()` 之和"
+        "（`vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos`；原版 `AnimInfo__GetAnimDuration.c`）；"
+        "🔴 **2026-11-03（`B130`）**：只有 `waitAnimToApplyEffect != 0` 的拍占队列"
+        "（`_ResolveAnim.c:63-66` 的 `w==0` ⇒ 协程一开头就 `FinishResolvingAction`；`:200-211` 才是 `w==1` 的等待）"
+        "⇒ Σ(全部拍) 另存 `cards[*].activeAll` 备查。"
         f"覆盖 **{stats['cardsWithTruth']} 张卡 / {stats['activeAnims']} 条 CardAnim**，"
+        f"其中**占 queue 的 {stats['activeBeatsHeld']} 拍**、`active != activeAll` 的卡 "
+        f"**{stats['activeDiffersFromAll']} 张**；"
         f"min {stats['min']} / 中位 **{stats['median']}** / max {stats['max']}。"
         # 🔴 B17（2026-10-22）加的两段：第二条链交叉校验 + 「会发 Ability 事件」那一族的准确口径
         f"**第二条链交叉校验**（`cards_engine.json` 的 `animTimes`，`tg == -1` 行；那是一条独立的 "
@@ -722,18 +761,28 @@ def build():
                  "本表**跨这些桶**按 `soField` 前缀（`cardAbilities…` / `activeAbility…`）收，"
                  "只把 `activeAbility` 那批求和、其余如实留在 `cards[*].otherAbilityAnims` 备查（2026-10-25 `TL`）",
         "formula": "AnimInfo.GetAnimDuration() = vfxDelayTime + timeAtStartPos + timeMoving + timeAtEndPos（不含 startDelay）",
-        "aggregate": "一张卡的值 = 它 `activeAbility` 全部 CardAnim 的时长**求和** —— 依据 "
-                     "`AbilityLogic__PlayAnim.c` 会把这一整串逐条 `AddCardAnim` 排队播完",
-        "fallback": f"表里没有这张卡 ⇒ 退回 {FALLBACK}（= 本表中位数；**能力事件那条路会出声**，见 `AbilityAnimDurations`）",
+        "aggregate": "一张卡的值 = 它 `activeAbility` 里 **`waitAnimToApplyEffect != 0`** 的那几拍的时长求和 —— "
+                     "依据 `AbilityLogic__PlayAnim.c` 逐条 `AddCardAnim` 排队，而 `_ResolveAnim.c:63-66` 里 "
+                     "`waitForAnim == 0` 的拍**协程一开头就 `FinishResolvingAction`**（队列放行、动画转后台）；"
+                     "`:200-211` 才是 `w == 1` 那档的 `WaitForSeconds(GetAnimDuration)`。"
+                     "Σ(全部拍) 另存 `cards[*].activeAll`（🔴 2026-11-03 `B130` 起两者分开记）",
+        "fallback": f"表里没有这张卡 ⇒ 退回 {FALLBACK}（**保守常数**，原取本表中位数；"
+                    "🔴 2026-11-03 `B130` 起中位数已降到 `stats.median`，⛔ 本常数不跟着动 —— "
+                    "它是 `AbilityAnimDurations.LoadFailFallback` 的镜像，改要两边同时改；"
+                    "**能力事件那条路会出声**，见 `AbilityAnimDurations`）",
         # 🔴 2026-10-23（A11）**订正**：原来这一格写「tweenAnim 的长度；waitAnimToApplyEffect
         #   只如实带出不参与求和」—— tween 那一段**已经算了**（见上面 R18 的那段注释）。
-        #   `waitAnimToApplyEffect` 的状态**不变**：只如实带出，仍不参与求和。
+        #   🔴 2026-11-03（`B130`）**再订正**：`waitAnimToApplyEffect` **参与求和**了（它决定哪几拍占队列），
+        #   上面那半句「不参与求和」已作废。
         "tween": "`animInfo.tweenAnim`（UnitTweenSO）：`m_PathID → 名字（`anim_address_map.json` 的 "
                  "tween 束）→ 长度（`Resources/UnitTweens.json`）`三跳都已落盘；长度 = BuildSequence "
                  "排布下的 DOTween 序列总长；**只在 `waitAnimation != 0` 时原版才等它**"
-                 "（`_ResolveAnim` 先等 tween、再等 GetAnimDuration）。卡片级汇总 = `activeWithTween`。"
+                 "（`_ResolveAnim` 先等 tween、再等 GetAnimDuration）。卡片级汇总 = `activeWithTween`"
+                 "（🔴 2026-11-03 `B130` 起只累 `waitAnimToApplyEffect != 0` 的拍）。"
                  "⚠️ 运行时读的仍是 `active`（不含 tween）",
-        "waitAnimToApplyEffect": "只如实带出，不参与求和（原版它是「这一拍带不带等待标记」，不是时长）",
+        "waitAnimToApplyEffect": "**决定这一拍占不占动作队列**（`_ResolveAnim.c:63-66` 的 `w==0` ⇒ 立即 "
+                                 "`FinishResolvingAction`；`:200-211` 的 `w==1` ⇒ 等满 `GetAnimDuration`）"
+                                 "⇒ 参与求和，`active` = Σ(仅 `w==1` 的拍)；Σ(全部拍) 在 `activeAll`",
         "boardCriteria": "`normalAbilityBoardCriteria` 的语义 = `BoardAnalysis__MeetsCriteria.c`（第一权威）；"
                          "**满足 ⇒ 走普通 `activeAbility`，不满足 ⇒ 走 `alternativeAbility`**"
                          "（`RawCardScript__GetActiveAbility.c`）。枚举值出处 `PlayersAffected.cs` / "
@@ -799,7 +848,11 @@ def build():
     #   两张表（`active` / `alternative`）按棋盘状态二选一，选哪支由引擎的 `BoardAnalysis.MeetsCriteria` 决定。
     rt_items = []
     for c in withtruth:
-        it = {"id": c["id"], "name": c["name"], "s": c["active"], "n": len(c["activeAnims"])}
+        # 🔴 2026-11-03（`B130`）：`n` = **累进 `s` 的那几拍**（`waitAnimToApplyEffect != 0`），
+        #   `nAll` = 这张卡 `activeAbility` 一共几拍（含不占队列的那些）。`s` 只累占队列的拍。
+        held_n = sum(1 for r in c["activeAnims"] if int(r.get("waitAnimToApplyEffect") or 0) != 0)
+        it = {"id": c["id"], "name": c["name"], "s": c["active"], "n": held_n,
+              "nAll": len(c["activeAnims"]), "sAll": c["activeAll"]}
         alt = ((c.get("alternative") or {}) or {}).get("seconds")
         if alt:
             it["alt"] = round(float(alt), 4)
@@ -809,14 +862,23 @@ def build():
         "schema": "ability_anim_durations/v1+rt",
         "generatedBy": "d:/4/Unity/工具/gen_ability_anim_durations.py",
         "_headline": (
-            f"`A1767`：逐卡「发动能力」时长 = 该卡 `activeAbility` 各 CardAnim 的 "
-            f"`AnimInfo.GetAnimDuration()` 之和。{len(rt_items)} 张卡 · 中位 {med} · "
+            f"`A1767`：逐卡「发动能力」占动作队列的时长 = 该卡 `activeAbility` 里 "
+            f"**`waitAnimToApplyEffect != 0`** 的那几拍的 `AnimInfo.GetAnimDuration()` 之和"
+            f"（🔴 2026-11-03 `B130`：`w == 0` 的拍原版在 `_ResolveAnim.c:63-66` 立即 "
+            "`FinishResolvingAction`，不占队列）。"
+            f"{len(rt_items)} 张卡 · 中位 {stats['median']} · "
             "表里没有这张卡 ⇒ 退回 `fallbackSeconds` 并**出声**。"
             f"另有 {len(rt_alt_cards)} 张卡的**替代支**时长在 `alt` 列"
             f"（{', '.join(rt_alt_cards) if rt_alt_cards else '无'}）—— 原版按棋盘状态二选一，"
             "两张时长都记着，⛔ 不是二选一后覆盖 `s`。"
+            "⛔ `sAll` / `nAll` 是**全部拍**的口径（改前就是 `s`），只备查、运行期不读。"
             "判据长文 / 未覆盖名单 → `数据/游戏数据/ability_anim_durations.json` 的 `_headline` 与 `uncovered`。"),
-        "fallbackSeconds": med,
+        # 🔴 2026-11-03（`B130`）：**这里改成常数 `FALLBACK`（1.0），不再是中位数** ——
+        #   `active` 换口径后中位数从 1.0 掉到 `stats.median`（现读 0.9），而 C# 侧的
+        #   `AbilityAnimDurations.LoadFailFallback` 是**写死的 1.0**、`BattleScene` 有一条断言
+        #   要求两者相等。这一档只是「整张表都载不到」时的保守值，⛔ 不该随统计量漂。中位数照旧在
+        #   `stats.median` 与本 `_headline` 里如实写着。
+        "fallbackSeconds": FALLBACK,
         "count": len(rt_items),
         "items": rt_items,
     }
@@ -827,8 +889,37 @@ def canon(o):
     return json.dumps(o, ensure_ascii=False, sort_keys=True, indent=1)
 
 
+USAGE = ('用法：\n'
+         '  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py --write    # 重出两份产物（真写盘）\n'
+         '  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py --dry      # 只算不写：逐卡列差异\n'
+         '  python -I -X utf8 d:/4/Unity/工具/gen_ability_anim_durations.py --check    # 只比不写（幂等自检）\n'
+         '  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。\n'
+         '  ⛔ 裸跑 = 只打印用法并 rc=2（2026-11-03 `B130`：写盘类脚本必须带显式动作）。')
+
+
+def _diff_items(old_full, new_full):
+    """`--dry` 用：逐卡列出 `s`（= 占队列的拍）与全部拍之和的差异（老产物没有 `activeAll` ⇒ 跳过）。"""
+    ob = {c.get("id"): c for c in (old_full.get("cards") or [])}
+    rows = []
+    for c in new_full["cards"]:
+        o = ob.get(c["id"])
+        if o is None:
+            rows.append((c["id"], c.get("name"), None, c["active"], c.get("activeAll")))
+            continue
+        if abs(float(o.get("active") or 0.0) - float(c["active"] or 0.0)) > 1e-9:
+            rows.append((c["id"], c.get("name"), o.get("active"), c["active"], c.get("activeAll")))
+    return rows
+
+
 def main():
-    check = "--check" in sys.argv
+    argv = [a for a in sys.argv[1:]]
+    write = "--write" in argv
+    check = "--check" in argv
+    dry = "--dry" in argv
+    if len([x for x in (write, check, dry) if x]) != 1:
+        # 裸跑 / 互斥动作同时给 / 未知参数 ⇒ 只打印用法，**不写盘**（rc=2）
+        print(USAGE)
+        return 2
     full, rt = build()
     if check:
         ok = True
@@ -855,6 +946,23 @@ def main():
                     ok = False
         print("=== --check " + ("全过 ✅" if ok else "有差异 ✗"))
         return 0 if ok else 1
+    if dry:
+        old = load(OUT_FULL) if os.path.exists(OUT_FULL) else {}
+        rows = _diff_items(old, full)
+        s = full["stats"]
+        print("=== --dry（不写盘）")
+        print("`s`（只累 `waitAnimToApplyEffect != 0` 的拍）与老产物的差异：**%d 张卡**" % len(rows))
+        for cid, name, o, n, nall in rows:
+            print("   %-5s %-24s 老 %-6s ⇒ 新 %-6s（全部拍 = %s）"
+                  % (cid, name or "", "—" if o is None else o, n, nall))
+        print("覆盖 %d 张卡 / %d 条 CardAnim（其中占队列 %d 拍）· min %s / 中位 %s / max %s"
+              % (s["cardsWithTruth"], s["activeAnims"], s["activeBeatsHeld"],
+                 s["min"], s["median"], s["max"]))
+        print("两链交叉校验：一致 %d / 不一致 %d · 只在 animTimes %d · 只在本表 %d%s"
+              % (s["animTimesAgree"], s["animTimesMismatch"], s["animTimesOnly"], s["tableOnly"],
+                 "" if full["_crossCheck"]["allAgree"] else "  ⚠️ 有分歧"))
+        print("（要落盘就加 `--write`；`--check` 比对盘上产物）")
+        return 0
     io.open(OUT_FULL, "w", encoding="utf-8", newline="\n").write(canon(full))
     io.open(OUT_RT, "w", encoding="utf-8", newline="\n").write(canon(rt))
     s = full["stats"]

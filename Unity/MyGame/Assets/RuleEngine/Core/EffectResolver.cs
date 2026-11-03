@@ -1664,7 +1664,7 @@ namespace RuleEngine
                     //     · `10 allFiltered` / `0 any` = 要按 `friendlyUnits/enemyUnits/includeHero/
                     //       includeMinions` 现筛（我们这一列**没落那些位** ⇒ 拿不准，宁可不改）。
                     //   读不到（`-1`）⇒ 退回既有近似 + 出声（下面那一段）。
-                    int ta = op != null ? op.SubjectTargetsAffected : -1;
+                    int ta = op != null ? op.SubjectTargetsAffected : -1; if (chosen == null && (ta == 30 || ta == 220)) { ctx.Log($"（「{spec.Raw}」：`targetsAffected = {ta}`（{(ta == 30 ? "target" : "targetOrSelf")}）在原版只读调用方给的 `targetCard`，而本路径**没有人选** ⇒ 依原版给**空表**（⛔ 不再退回「己方全体」）—— 判据 `AbilityLogic__GetTargets.c:192-207`：`iVar6 == 0x1e/0xdc` 两支 `if (param_5 != 0) List.Add(param_5)`，为 0 时**直接跳过建池那几支**）"); return list; }   // ✅ 已复刻（2026-11-03 · B128 · 引擎-N4③ · `AbilityLogic__GetTargets.c:192-207`）
                     if (ta == 80)   // 【B94_B22 2026-10-29 · B24 接线 G】原版 `targetsAffected = 80 actingCard` ⇒ 取**事件施动卡**（`AbilityLogic__GetTargets.c:761-769`：`0x50` 与 `0x28` 一起落到 `actingCard` 形参那一格）
                     { var ac = ctx.EventActingCard; if (ac != null) { list.Add(ac); return list; } }   // `ac == null` ⇒ 维持下面「判不了」+ 出声（⛔ 不拿 self / 施放者顶）
                     if (ta == 120)
@@ -7800,10 +7800,10 @@ namespace RuleEngine
         //      `actingCard` = 施害者（`BroadcastUnitStunned(manager, 被晕者, 施害者)`，我们那两跳
         //      **只带了被晕者**）⇒ **target 闸能接、acting 闸接不了**（见 `AbilityActingGate*`）。
         //    · ⛔ **其余事件仍一律不启用**（返回 `null`）——它们的 `targetCard` 是哪一格没查清。
-        //  ⚠️ 覆盖面（现读 v28 池）：`abilityLevelCriteria` 85 行 =
-        //    **已接 35 行**（`Attack` 6 + `Die` 16 + `510` 4 + `570` 5 + `515` 1 + `60` 1 + `291` 2）
-        //    ＋ **未接 50 行**（`ThisCardPlayed` 40 · `FollowUpResolution` 5 · `Strike` 2 ·
-        //    `AboutToAttack` 1 · `TriggeredSwarm` 1 · `OnSabotageCreated` 1 —— 都在**别的入队点 / 专路**）。
+        //  ⚠️ 覆盖面（现读）：`abilityLevelCriteria` 86 行 =
+        //    **已接 37 行**（`Attack` 6 + `Die` 16 + `510` 4 + `570` 5 + `515` 1 + `60` 2 + `291` 2 + `TriggeredSwarm` 1〔`B115_W14` 接在 `:7836`〕）
+        //    ＋ **未接 49 行**（`ThisCardPlayed` 40 · `FollowUpResolution` 5 · `Strike` 2 · 2026-11-03（`B128` · 引擎-165）就地订正：49 这个数**只是按 trigger 粗分**，真正的缺口已收口到 **4 行**——① `FollowUpResolution` 5 行里 **3 行唯一定位**（`EC40`/`EC49`/`GOF104`）：已由 `FireTriggerByNumberWithSink`（`:21067`）补 `abilityTrigger/abilityTarget/abilityHostCard` 接上（数值路原先一个实参都不传）；② `OnSabotageCreated` 1 行（`GSC68`）：已加进本方法白名单；③ `ThisCardPlayed` 40 / `Strike` 2 / `AboutToAttack` 1 —— **本来就走 `RuleCore.FireTriggerAt`**（`:12901` 早就传 `abilityTrigger`/`abilityTarget`），其中 **34 行**在「同一 trigger ≥2 条 ability」的卡上 ⇒ 由族闸（X6 口径乙 `AbilityFamilyGateOpsForTrigger`）负责、不走本闸（`AbilityFamilyGateIsActive` 会把 `abilityTrigger` 传 `null`）；④ `SW9` 的 2 行 410 属③那一档。⇒ **本闸今天唯一的残余 = 「定位不唯一」那 34 行所用的族闸近似**（已知并接受，见 X6 报告）。
+        //    `AboutToAttack` 1 · `OnSabotageCreated` 1 —— 都在**别的入队点 / 专路**）。
         //    评估表 → `资料/普查产出_1025/E5_引擎剩余小缺口.md` §五；本批报告 →
         //    `资料/普查产出_1025/E6_十三行接闸.md`。
 
@@ -7820,7 +7820,7 @@ namespace RuleEngine
                 case WhenEventKind.Reanimated:        // 570（`ReactToUnitReanimated.c:7`）
                 case WhenEventKind.GetsMarkerlight:   // 515（`ReactToUnitMarkerlight.c:7`）
                 case WhenEventKind.Damaged:           // 60（`ResolveDamageDealt` 0x3c：targetCard = 被打者）
-                case WhenEventKind.GetsStun:          // 291（`ReactToUnitStunned.c:7`：targetCard = 被晕者）
+                case WhenEventKind.GetsStun: case WhenEventKind.CreatesSabotage:   // 291（`ReactToUnitStunned.c:7`：targetCard = 被晕者）｜🔴 2026-11-03（`B128` · 引擎-165）：**701 `OnSabotageCreated` 这一族查清了** —— 判据 `decomp_full/CardScript__ReactToSabotageCreated.c:5-8` 全文 = `OnTrigger(0x2bd, mgr, thisCard=param_1, actingCard=param_2, targetCard=param_2)`，广播器 `BattleManagerSupport__BroadcastSabotageCreated.c` 的 `param_2` = **造牌那一方的督军**（两个调用点都先算 `BattleManager__GetHero(mgr, 造出来那张的 isPlayer)`，见 `BroadcastCreatedCardWithWarlordPreCall` 的 doc）⇒ 我们的 `subject` = 督军 = 原版 `targetCard`（现读 `abilityLevelCriteria` 里 701 **1 行**：`GSC68 Atalan Jackal`，且它的 trigger-701 ability **唯一定位**得到）。⚠️ 与 `AbilityActingGateCard` 里「700·701 都是 `(…, this, param_2, param_2)`」那句是**同一份判据**（那里已按 `subject` 给 actingCard）。✅ 已复刻（2026-11-03 · B128 · `CardScript__ReactToSabotageCreated.c`）
                     return true;
             }
             return kind == WhenEventKind.Triggers(KeywordTable.Swarm);   // 🔴 2026-11-01（`B115_W14` · `ENG-16` ②）：**620 `TriggeredSwarm` 那一族查清了** —— 原版 `CardScript.<>c__DisplayClass401_0.<ExecuteSwarm>b__0:45/51` → `BroadcastUnitSwarm(bm, param_2 = 被销毁那张, param_3 = 留下的那张)` → `TriggeredSwarm(observer, param_2, param_3)` → `OnTrigger(0x26c, …, actingCard = param_2, targetCard = param_3)` ⇒ **`just` = actingCard、`host`（留下的）= targetCard**（判据 `资料/普查产出_1025/E6_十三行接闸.md:153-156`，逐句）。⛔ 别写成 `switch` 的 `case` label —— `WhenEventKind.Triggers(kw)` 是**函数**、不是常量表达式。
@@ -12594,7 +12594,7 @@ namespace RuleEngine
         };
 
         /// <summary>
-        /// 给单位授予一份黑暗契约。**三件事照原版 `_grant_dark_pact`（`:1663`）的顺序**：
+        /// 给单位授予一份黑暗契约。**三件事照原版 `_grant_dark_pact`（`:1663`）的顺序**： · ✅ 已复刻（2026-11-03 · B125 · 判据 `判据/B107_复核_引擎线.md:25`）
         ///   ① 记下契约种类（`kws.darkpact = 种类`）
         ///   ② 单位自己的 `After receiving a Dark Pact, …` 段落 —— 立刻结算
         ///   ③ 同伴单位（原版是 Havoc）的 `When a friendly troop receives a Dark Pact, …` —— 广播一次
@@ -21090,7 +21090,7 @@ namespace RuleEngine
                 }),
                 actor: u,
                 requireActorInPlay: ActorMustBeInPlayForTrigger(u.Card, tn, null),
-                abilityContext: AbilityContextOfAbilityV14(u.Card, tn, null));
+                abilityContext: AbilityContextOfAbilityV14(u.Card, tn, null), abilityTrigger: AbilityFamilyGateIsActive(u.Card, tn, null) ? null : tn, abilityTarget: targetCard, abilityHostCard: u.Card);   // 🔴 2026-11-03（`B128` · 引擎-165）：**数值路（`FireTriggerByNumber`）原来一个 ability 级闸的实参都不传** ⇒ `EnqueueAbility` 的 `abilityTrigger` 恒 `null` ⇒ `AbilityLevelCriteriaAllows` 整段不执行（本文件 `:21067` 的 `FireTriggerByNumberWithSink` 是 60/185/187/210/410 五族的**唯一**入队口，其中 **410 `FollowUpResolution` 现读 5 行 `abilityLevelCriteria`** 就是靠这一行才接上）。⚠️ 形参照 `RuleCore.FireTriggerAt`（`:12901`）的同一套：`abilityTrigger` = 本族的 trigger 名（`tn` 由数值反查，判据 `CardDef.TryAbilityTriggerNameOfNumber`）；`abilityTarget` = 本族 `targetCard`（原版 `CanTriggerAbility` 判的就是它）；`abilityHostCard` = 载体卡。⚠️ **必须过 `AbilityFamilyGateIsActive` 那道闸**（判据 = `RuleCore.AbilityFamilyGateIsActive` 的 doc）：定位不唯一的卡（同一 trigger ≥2 条 ability）在 `EnqueueAbility` 那道闸里是**整条不触发**，与族闸（X6 口径乙）叠在一起会把正文整份掐死 ⇒ 那种卡一律传 `null`、只走族闸（现读 410 里的 `SW9 Fenrisian Wolf` 就是这一档）。同一物理行追加 ⇒ 行数零变化（本文件有账落点按行号引用，铁律 18·b）；✅ 已复刻（2026-11-03 · B128 · `CardAbility__CanTriggerAbility.c:127-140`）
         }
 
         // ==========================================================================================

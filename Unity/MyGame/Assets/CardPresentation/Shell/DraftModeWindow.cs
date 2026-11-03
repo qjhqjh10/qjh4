@@ -146,7 +146,7 @@ namespace CardPresentation
     /// <para>🔴 **为什么要有它**：原版这一局活在**服务端**的 `DraftEventSaveGame` 里 —— 关窗、进对局、
     /// 回壳再开窗，`selectedWarlord / selectedPacks / selectedCards / numberOfMatchesWon / numberOfMatchesLost /
     /// rewardsCollected` 全都还在（`dump.cs:126817-126832`）。本地没有服务器 ⇒ 用**静态对象**顶这一格：
-    /// 它活过「窗被销毁 + 场景切换」；🆕 **2026-10-25 起还会落盘**（`persistentDataPath/WarpforgeDraft/run.json`，
+    /// 它活过「窗被销毁 + 场景切换」；🆕 **2026-10-25 起还会落盘**（`SaveRoot.Path/WarpforgeDraft/run.json`，🆕 2026-11-03 B128：根 = `C:\warpforgesave`，
     /// 见文件里「一局的落盘」那一段）⇒ **退出游戏也在**（与原来的「活不过退出」不同，那条已作废）。</para>
     ///
     /// <para>字段对应（原版偏移逐条注明，⛔ 别改名去凑别的意思）：
@@ -728,7 +728,7 @@ namespace CardPresentation
         //   · 原版这一局活在服务端 `DraftEventSaveGame` 里 ⇒ 关服/客户端重启都还在；我们此前只在**进程内**
         //     的静态 `_run` 里 ⇒ **退出游戏就丢了一局**。落盘后 = 「关窗 / 进对局 / 回壳 / **重启游戏**」都在。
         //   · ⛔ 批处理自检一律不碰玩家真档（`StoreOn` 结构上挡住；要走盘上那一份先设 `OverrideDir`）。
-        /// <summary>落盘目录名（`persistentDataPath` 下，与 `BattleLogData.StoreDirName` 同一套路）。</summary>
+        /// <summary>落盘目录名（`SaveRoot.Path` 下，与 `BattleLogData.StoreDirName` 同一套路）。</summary>
         public const string StoreDirName = "WarpforgeDraft";
         /// <summary>落盘文件名（⚠️ 名字里不带路径分隔符）。</summary>
         public const string StoreFileName = "run.json";
@@ -740,7 +740,7 @@ namespace CardPresentation
             get
             {
                 return string.IsNullOrEmpty(OverrideDir)
-                     ? System.IO.Path.Combine(Application.persistentDataPath, StoreDirName)
+                     ? System.IO.Path.Combine(SaveRoot.Path, StoreDirName)
                      : OverrideDir;
             }
         }

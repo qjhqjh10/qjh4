@@ -8,7 +8,7 @@
 //      ⇒ 也满足「先跑过新客户端、再回旧客户端、再回来」这种来回切换。
 //
 // 为什么不能「删档重来」：原版 `ClearLocalPlayerData()`（`PlayerDataManager.cs:10157-10172`）确实是把
-// 本地档 `File.Delete` 掉，但**原版有云端权威副本**；我们**没有** ⇒ 必须导入式迁移（方案 §九·2）。
+// 本地档 `File.Delete` 掉，但**原版有云端权威副本**；我们**没有** ⇒ 必须导入式迁移（方案 §九·2）。🔴 🆕 2026-11-03 B128：**根已收到 `C:\warpforgesave`**（用户裁定：独立新游戏、从零开始）⇒ `%LocalLow%` 那份旧数据**不再被读**（也**永不删除**）；本类仍照常工作，只是根换成了 `SaveRoot.Path`。
 //
 // 映射表（判据 = 各旧档的落盘常量，逐条指到文件:行号；⛔ 原版没有的 key 一律 `_ours_` 前缀）
 //   ┌ 旧档（persistentDataPath 下）              ┐ → key                          · 方式
@@ -91,7 +91,7 @@ namespace CardPresentation
             get
             {
                 return string.IsNullOrEmpty(LegacyRootOverride)
-                     ? Application.persistentDataPath
+                     ? SaveRoot.Path
                      : LegacyRootOverride;
             }
         }

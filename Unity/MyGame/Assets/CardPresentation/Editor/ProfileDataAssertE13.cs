@@ -77,7 +77,7 @@ public static class ProfileDataAssertE13
             //    **`OverrideDir` 还指着临时目录**的时候调，**然后**才还原 `OverrideDir`。
             //    ⛔ 顺序反了 = 删掉玩家的真录像 —— 2026-10-24 就是这么丢的：原来这里是
             //    `ReplayStore.OverrideDir = null;` 在前、`ReplayStore.ResetForTest();` 在后 ⇒
-            //    `ReplayStore.Dir` 落回 `persistentDataPath/WarpforgeReplays` ⇒ 整目录被清空（而且当时一声不响）。
+            //    `ReplayStore.Dir` 落回 `persistentDataPath/WarpforgeReplays`（🆕 2026-11-03 B128 起 = `SaveRoot.Path/WarpforgeReplays`）⇒ 整目录被清空（而且当时一声不响）。
             //    证据与善后 → `资料/普查产出_1024c/RE1_战斗回放完整审查.md` B1；
             //    `ReplayStore.ResetForTest` 现在另有「没设 `OverrideDir` 就拒绝」的硬挡兜底（B2）。
             //    ⚠️ `BattleLogData.ResetForTest()` 是「清内存 + 从盘重读」，同样要**还在临时目录上**时读 ——

@@ -98,16 +98,16 @@ namespace CardPresentation
         /// 和「拖出去又放回来」区分开：拖过就不算轻点。</summary>
         public event Action<CardView> OnTapped;
 
-        /// <summary>**轻点 vs 拖拽**位移阈值（世界单位）= uGUI `EventSystem.pixelDragThreshold`（默认 **10 真实 px**），⛔ 不是 `VarsGlobal.minMovementToPlayCard` 那个 0.3（它是「拖多高出牌」，见 `PlayCommitGate` / `PlayLiftWorld`）。
+        /// <summary>**轻点 vs 拖拽**位移阈值（世界单位）= uGUI `EventSystem.pixelDragThreshold`（**原版 = 5 真实 px**：`Intro.unity:5429` `m_DragThreshold: 5`；uGUI 字段初值才是 10），⛔ 不是 `VarsGlobal.minMovementToPlayCard` 那个 0.3（它是「拖多高出牌」，见 `PlayCommitGate` / `PlayLiftWorld`）。
         ///
         /// <para>🔴 **2026-11-02（`B120-W1`）整段重写**：旧值 `0.3f` 是**我们的单位**（32.4 px，比原版大 7.28×），且把「轻点分界」与「出牌高度」混成了一个数。
         /// 判定链：uGUI `PointerInputModule.ShouldStartDrag` = `(pressPos−curPos).sqrMagnitude >= pixelDragThreshold²` ⇒ 过阈值才派 `OnDrag`（`CardCollider.OnDrag` → `CardScript.OnTouchDrag`），
-        /// 否则松手只派 `OnPointerClick`（= 我们的 `OnTapped`）。原版那个阈值本机读不到（`grep -rl m_DragThreshold assets_full` = **0 命中**，运行期建）⇒ 取字段初值 **10 px**。</para>
+        /// 否则松手只派 `OnPointerClick`（= 我们的 `OnTapped`）。🔴 **2026-11-03（`B130`）就地订正（铁律 5）**：原版那个阈值**查到了** = **5 px**（`d:/2/tools/assetripper_out/ExportedProject/Assets/Data/Scenes/Intro.unity:5429` → `m_DragThreshold: 5`；`decomp_full` 里 0 处读写 ⇒ 奔跑值就是序列化的 5）。原来写「本机读不到（`grep -rl m_DragThreshold assets_full` = 0 命中，运行期建）⇒ 取字段初值 10 px」—— **错因**：只搜了 `assets_full` 的 bundle 树、漏了 AssetRipper 导出的场景工程（`Battle/AttackSelector.cs:232-241` 同一处已订正）⇒ 结论偏了 1 倍。</para>
         /// <para>⚠️ **量纲**：uGUI 的阈值是**真实屏幕 px** ⇒ 换成我们的世界单位要按**当前屏高**除（`Screen.height / VisibleHeight`；1080p ⇒ 108），⛔ 不是写死 108。</para></summary>
         public static float TapThreshold { get { return TapThresholdWorldAt(Screen.height); } }
         //
-        /// <summary>uGUI 默认拖拽阈值（**真实屏幕 px**）= `EventSystem.m_DragThreshold` 的字段初值。</summary>
-        public const float TapThresholdPx = 10f;
+        /// <summary>拖拽阈值（**真实屏幕 px**）= 原版 `EventSystem.m_DragThreshold` 的**序列化值 5**（`Intro.unity:5429`；⛔ 不是 uGUI 字段初值 10）。🔴 2026-11-03（`B130`）：**唯一常量出处 = `Battle/AttackSelector.PopDragThresholdPx`**，本行直接引用它（铁律 6：同一条规则不写两份）。</summary>
+        public const float TapThresholdPx = AttackSelector.PopDragThresholdPx;
         //
         /// <summary><see cref="TapThresholdPx"/> → 我们的世界单位（`h` = 真实屏高；≤0 ⇒ 按 1080p 设计档；自检可钉）。</summary>
         public static float TapThresholdWorldAt(int h)

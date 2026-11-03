@@ -15322,7 +15322,7 @@ namespace CardPresentation
                                + " ⇒ 这一下不演任何高亮，选择态不变。");
                 return;
             }
-            _selectedSlot = slot; _command = u.LastAttackType == UnitState.AttackTypeSpell || u.LastAttackType < 0 || u.LastAttackType > UnitState.AttackTypeActive ? AttackKind.None : (AttackKind)u.LastAttackType;   // 🔴 2026-11-03（`B117-R9` 补丁②）：**起手就带着 `card.attackType`** —— 原版 `BattleManager__StartAttackFrom.c:20-40` 把它交给准星，`__Update.c` 的 `case 6`（拖拽态）在**鼠标抬起那一帧**用 `AddAttackAction(…, *(int*)(tracked+0x120), …)` 结算 ⇒ **不必先悬停过任何一颗钮**。值域与 `AttackSelector.KindOf` 逐值相同（`Spell(3)` / 认不出 ⇒ `None`；原版那一档 `attackType == 0` 照样能结算）。⚠️ 改前 `_command` 只有「悬停三钮 + 0.1 s 安全窗走完」才被设 ⇒ 快速拖过三颗钮再松手**什么都不发生**
+            _selectedSlot = slot; _command = u.CurrentAttackType == UnitState.AttackTypeSpell || u.CurrentAttackType < 0 || u.CurrentAttackType > UnitState.AttackTypeActive ? AttackKind.None : (AttackKind)u.CurrentAttackType;   // 🔴 2026-11-03（`B117-R9` 补丁②）：**起手就带着 `card.attackType`** —— 原版 `BattleManager__StartAttackFrom.c:20-40` 把它交给准星，`__Update.c` 的 `case 6`（拖拽态）在**鼠标抬起那一帧**用 `AddAttackAction(…, *(int*)(tracked+0x120), …)` 结算 ⇒ **不必先悬停过任何一颗钮**。值域与 `AttackSelector.KindOf` 逐值相同（`Spell(3)` / 认不出 ⇒ `None`；原版那一档 `attackType == 0` 照样能结算）。⚠️ 改前 `_command` 只有「悬停三钮 + 0.1 s 安全窗走完」才被设 ⇒ 快速拖过三颗钮再松手**什么都不发生** ／🔴 **2026-11-03（`B130`）就地订正（铁律 5）**：本句原来读的是 `u.LastAttackType` —— **那是我们自己的「上一次用了哪一档」展示字段（部署初值 0）**，不是原版那个 `+0x120` ⇒ 新部署的单位拖起直接松手时 `_command == None` ⇒ **打不出去**。原版 `+0x120` = `UnitState.CurrentAttackType`（部署时 `CardScript__CardSetup.c:263-267` 写 `(近战<远程)+1`，**永不 0**；读点 = 本文件注释里那三条 `.c`）⇒ 改成读它
             openView.SetHighlight(CardHighlightState.Selected);
 
             // 整条选择器挂到被拖的那个单位身上（原版展开时 `set_position(Get2DWorldPosFromBoardPos(单位.position))`）——
@@ -15359,7 +15359,7 @@ namespace CardPresentation
                 //   ⚠️ 取法与**正常那一路**（下面 `Option{ Army = … }`）**同一个表达式**（铁律 6）：
                 //   `ArmyIcons.Id(u.Card.Faction)`；`u.Card` 为 null 时给 0（= 原版「查不到军队」那一档）。
                 if (selector != null)
-                    selector.ShowJustOne(AttackKind.Ability, atWorld, u.LastAttackType,
+                    selector.ShowJustOne(AttackKind.Ability, atWorld, u.CurrentAttackType,
                                          u.Card != null ? ArmyIcons.Id(u.Card.Faction) : 0);
                 SetHint("");
                 return;
@@ -15409,9 +15409,9 @@ namespace CardPresentation
                               // 挂点 = `atWorld`（本方法上方那个局部量；推导与「谁才是唯一换算口」的注释在那里，
                               //   ⛔ 别在这儿再算一遍投影）。
                               atWorld,
-                              // 🆕 2026-09-29：那圈黄圈挂**这个单位上一次用的打法**（原版 `unit.attackType`；
-                              //   0 = 还没打过 ⇒ 不亮）。判据 → `AttackSelector.RefreshPicked`。
-                              u.LastAttackType);
+                              // 🆕 2026-09-29：那圈黄圈挂**卡上当前的攻击型**（原版 `unit.attackType` = `+0x120` = `CurrentAttackType`；0 = 认不出 ⇒ 不亮）。判据 → `AttackSelector.RefreshPicked`。
+                              // 🔴 **2026-11-03（`B130`）就地订正**：原来这里读 `u.LastAttackType`（我们的「上一次用了哪一档」展示字段，部署初值 0）—— **原版 `UnitOnBoardAttackTypeSelector__Toggle.c:152-153` 传给 `HighlightSelectedAttackTypeButtons` 的是 `*(card + 0x120)`** ⇒ 改读 `CurrentAttackType`。
+                              u.CurrentAttackType);
             SetHint("");
         }
 
@@ -15674,7 +15674,7 @@ namespace CardPresentation
             }
             _command = kind;
             // 🔴🆕 **2026-10-25（`AU1` · `AU1-D`）：`LastAttackType` 在【选定时】就写**（原来只在结算时写）。
-            //   判据 = 原版 `UnitOnBoardAttackTypeSelector__AttackButtonClick.c` → `CardScript.ChangeAttackType`
+            //   判据 = 原版 `UnitOnBoardAttackTypeSelector__AttackButtonClick.c` → `CardScript.ChangeAttackType`（🔴 2026-11-03 `B130` 补注：那一拍写的是 **`+0x120`**、我们的等价字段 = `CurrentAttackType`，`LastAttackType` 只是给**展示层**留的镜像 —— 两个都要写，见下面 `picked` 那一行）
             //   （**选定的那一下**写 `card.attackType(+0x20)` 并高亮那一圈）；我们这边「选定」= `CommitCommand`
             //   （点三选一那颗钮 / 悬停即选之后的那一下）。改前 `AttackSelector.SetSelected` **0 调用点** ⇒
             //   同一回合内改选后再开选择器，高亮的还是「上次真打出去的那一档」。
@@ -15688,7 +15688,7 @@ namespace CardPresentation
                 && _selectedSlot < Ctx.Players[_me].Board.Length)
             {
                 var picked = Ctx.Players[_me].Board[_selectedSlot];
-                if (picked != null) picked.LastAttackType = pickedType;
+                if (picked != null) { picked.LastAttackType = pickedType; RuleCore.SetCurrentAttackType(Ctx, _me, _selectedSlot, pickedType); }   // 🔴 2026-11-03（`B130`）：原版这一拍**同时写 `+0x120`**（`UnitOnBoardAttackTypeSelector__AttackButtonClick.c:104` → `CardScript__ChangeAttackType.c:14-15`）⇒ 补上这条写入点（`LastAttackType` 只留给展示层）；🧨 删掉 `RuleCore.SetCurrentAttackType(...)` ⇒ 选完打法再开选择器时，高亮/起手打法又回到「按数值自动挑」的那一档（`B130` 断言红）
             }
             if (selector != null) selector.SetSelected(kind);   // 🔴 2026-11-03（`B117-R9` 补丁①）：**不在这里 `Hide()`** —— 原版 `UnitOnBoardAttackTypeSelector__AttackButtonClick.c` 全篇没有 `Toggle(false)`，全库 `Toggle(…,0,…)` 只有 4 个调用点（`CancelActionStates` / `ResolveEndTurn` / `FinishedChoosingAbilityTargetByClick` / **`StopTracking`**）⇒ 选择器活到「这一手结束」为止（我们的收尾 = `ClearSelection()` 里的 `selector.Hide()`，`:16631`），玩家才看得见黄圈 / 1.3 倍 `OutBack` 补间、也才能「扫到另一颗改主意」
             // 🆕 2026-10-25（`AU1` · `CF`）：原版 `CardScript.ChangeAttackType` 在**这一拍**就点亮

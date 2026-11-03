@@ -20,7 +20,7 @@
 //   （那些是 `ThisCardPlayed`/`Slay`/`TurnEnd`/… = **别的时机**，归 `EvtKind.Trigger`/`Play`）。
 //   逐卡复核 **897/897 精确相等**（与真值源 `cards_1195_2022时代.json` 的
 //   `activeAbility.activeAbilityLogic[].cardAnimations[].m_AssetGUID` 逐 GUID 比）。
-//   ⇒ 全量件 1112 条 ability 行里只有 **109 条是 `activeAbility`** ⇒ 本表 **62 张卡 / 99 拍**
+//   ⇒ 全量件 1112 条 ability 行里只有 **109 条是 `activeAbility`** ⇒ 本表 **93 张卡 / 158 拍**（✅ 已复刻 2026-11-03 · `B128` · 判据 = `Resources/card_anim_order.json` 现读 `stats.cards = 93` / `stats.steps = 158`；⛔ 原记的 62/99 已过期）
 //     （🆕 2026-10-19 W：生成器改为**按卡池过滤** + 卡名取 `cards_engine.json` 那一份 —— 原先 63/100，
 //      少的那 1 张是不在卡池的源卡 `66486b3f…`；它还会挡住池内同名的 `AM68`）。
 //   ⚠️ 拿全表展开会把**出场/触发时机的动画播在「发动技能」那一拍上** —— **错误演示且完全静默**，比少播更坏。
@@ -36,7 +36,7 @@
 // 【如实标注（铁律 3 / 11）】
 //   ① **键 = 卡 id 或卡名**：原版按卡名取不到 id 时生成器留了 GUID 形式的 `id`；
 //      而 `BattleEvent.CardId` 装的是**英文卡名**（`CardDef.Name`）⇒ 两个键都收（同 `AbilityAnimDurations` 的做法）。
-//      逐卡命中面（现读）：本表 **62 张卡 / 99 拍**（= 有 `activeAbility` 且那一拍的 `ca` 解得出参数的那些）。
+//      逐卡命中面（现读 2026-11-03）：本表 **93 张卡 / 158 拍**（= 有 `activeAbility` 且那一拍的 `ca` 解得出参数的那些）。
 //      另有 **64 条 `activeAbility` 的 `ca` 是空串**（原版没绑 CardAnim）在生成期已剔除（池内口径）。
 //   ② 🔴 **「一张卡有多条 `activeAbility` 行」时【全部保留】、按行序拼**（如 `Leman Russ Vanquisher` 有 2 行）
 //      —— **这就是原版的做法，不是近似**。
@@ -126,9 +126,9 @@ namespace CardPresentation
         //     · `useNonModifiedAnimTime(0x10)`：真 = 用**原始** `t01=(t−ts)/tm` 求值；假 = 用**缓动后**的 `e`。
         //   ⚠️ 🔴 **2026-10-23 就地订正（铁律 5）**：这里原来写「**数据侧还没烘**（生成器白名单外）……
         //   下面这些字段今天**全部是默认 0**」—— **不成立**：`工具/gen_card_anim_order.py` 早已烘这 11 个字段
-        //   （现读 `Resources/card_anim_order.json`：99 拍里 `ao=1` **3 拍**、`mv=1` 7 拍）。
+        //   （现读 2026-11-03 `Resources/card_anim_order.json`：158 拍里 `ao=1` **4 拍**、`mv=1` 13 拍）。
         //   **错因**：写这段的时候生成器确实还没补，补上之后没回来改这句。行为本身早已生效（消费端就绪）。
-        //   ⚠️ 另一条**仍然成立**的：「`orientToVelocity` 我们卡池当前 **0 条**为 1」（99 拍现读）。
+        //   ⚠️ 另一条**仍然成立**的：「`orientToVelocity` 我们卡池当前 **0 条**为 1」（158 拍现读）。
         //   攻击路径（`CardAnimClips` / `cardanim_clips.json`）那一份是 2026-10-23（`新账-83`）才烘的，
         //   两份表**各自独立**（`CardAnimBeat` vs `CardAnimPlacement`），字段名相同、**别互相顶替**。
         /// <summary>`xAxis/yAxis/zAxis` 的扁平关键帧（同 <see cref="ease"/> 的 `[t0,v0,…]` 约定）。

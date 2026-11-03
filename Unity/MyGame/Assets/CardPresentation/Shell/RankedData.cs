@@ -178,7 +178,7 @@ namespace CardPresentation
             get
             {
                 return string.IsNullOrEmpty(OverrideDir)
-                    ? Path.Combine(Application.persistentDataPath, "WarpforgeRanked")
+                    ? Path.Combine(SaveRoot.Path, "WarpforgeRanked")
                     : OverrideDir;
             }
         }
@@ -220,7 +220,7 @@ namespace CardPresentation
         }
 
         /// <summary>写盘。⚠️ 原版这一步是**上传服务器**（`RankedV3Event.RecordMatchFinished` 的云脚本）；
-        /// 本地等价 = 写 `persistentDataPath/WarpforgeRanked/ranked.json`，形状照原版 save。</summary>
+        /// 本地等价 = 写 `SaveRoot.Path/WarpforgeRanked/ranked.json`（🆕 2026-11-03 B128：根 = `C:\warpforgesave`），形状照原版 save。</summary>
         public static void SaveNow()
         {
             Load();
@@ -559,7 +559,7 @@ namespace CardPresentation
         public static bool SelfCheck(out string why)
         {
             why = null;
-            _loaded = true;            // 自检隔离：不碰存档（`Load()` 会读 `Application.persistentDataPath`）
+            _loaded = true;            // 自检隔离：不碰存档（`Load()` 会读 `SaveRoot.Path`，🆕 2026-11-03 B128：根 = `C:\warpforgesave`）
             var saved = _ranks;
             int savedLegend = _legendaryElo;
             try

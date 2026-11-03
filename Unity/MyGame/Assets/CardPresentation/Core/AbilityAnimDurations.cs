@@ -11,13 +11,13 @@
 // ==================================================================
 //   · **该算哪几条**（`AbilityLogic__PlayAnim.c`，逐行读过）：一个 `AbilityLogic` 的
 //    `cardAnimations` 列表会被**逐条** `BattleManager.AddCardAnim(...)` 排队播完
-//    （调用点 `AbilityLogic__PlayAbility.c:273`）⇒ **一张卡的值 = 它这一串时长之和**。
+//    （调用点 `AbilityLogic__PlayAbility.c:273`）⇒ **一张卡的值 = 它这一串里【占动作队列的那几拍】之和**。
 //    🔴 **2026-10-17 更正（铁律 5）**：这里原来写「**排在末尾那条**若 `animInfo.waitAnimToApplyEffect != 0`
 //    才 `waitForCompletion = true`」—— **【错】**。实际是 **每一拍各读【自己那份】`AnimInfo.waitAnimToApplyEffect`（`0x58`）**：
 //    `AbilityLogic__PlayAnim.c:274`（单目标那一支）把它**原样传走、没有任何「最后一拍」门**。
 //    **错因** = 把 `PlayAnim(…, `**`List<CardScript> abilityTargets`**`)`（= **目标**）误当成了 `cardAnimations`（= **步骤**）；
 //    `(iVar11 == param_4._size - 1)` 判的是「这一拍循环到的**最后一个目标**」。
-//    ⚠️ **本表的【时长求和】不受这条更正影响**（求和与 wait 标记无关）；改的只是「**哪一拍带 wait 标记**」。
+//    ✅ **已复刻（2026-11-03 · B130 · `_ResolveAnim.c:63-66`/`:200-211`）**：`w==0` 的拍协程一开头就 `FinishResolvingAction`（队列放行）、只有 `w==1` 才等满 ⇒ `s` = Σ(仅 `w==1` 的拍)；原句「求和与 wait 标记无关」**已作废**（那正是 `B129` 查出的 13/93 卡偏差）。
 //    判据与现核 → `d:/4/Unity/资料/普查产出_1017/BSC62/R4_waitForAnim语义.md`（`dump.cs:19516` / `:19457`）。
 //    由 `_ResolveAnim` 播。
 //  · **播多久**（`BattleManager._ResolveAnim_d__466__MoveNext.c`）：先（仅当
@@ -66,7 +66,7 @@
 //        它**在**卡导出里，只是挂在 **`cards[*].full_raw.normalAbilityBoardCriteria`**（不在 `cards[*]` 顶层）：
 //        现读 1,351 张**全都带这个结构体**，其中**非默认值 2 张** —— `SW21 Wulfen Pack Leader`
 //        与 `SpaceWolves-Fenrisian Wolf`（后者 `hasAlternativeAbility = 0` ⇒ `MeetsCriteria` 根本不会被调）。
-//        `工具/gen_ability_anim_durations.py:434` **一直在读它** ⇒ 全量件 `conditional` 一直是准的。
+//        生成器的 `row["waitAnimToApplyEffect"]` 那一格 **一直在读它** ⇒ 全量件 `conditional` 一直是准的。
 //        **真正缺的是引擎那份** `MyGame/Assets/RuleEngine/Resources/cards_engine.json`：现读全池
 //        （张数见它的 `count`，⛔ 别写死）**逐张看**，`normalAbilityBoardCriteria` / `hasAlternativeAbility`
 //        **一个都没有** ⇒ 要接得先让 `gen_cards_engine.py` 把这两个字段带出来（卡牌线的文件）。
@@ -85,8 +85,8 @@ namespace CardPresentation
     {
         public string id;
         public string name;
-        public float s;      // Σ GetAnimDuration()（秒）
-        public int n;        // 累了几条 CardAnim（诊断：=1 的卡只有一条动画）
+        public float s;      // Σ GetAnimDuration()（**仅 `waitAnimToApplyEffect != 0` 的拍** · ✅ 已复刻 2026-11-03 · B130 · `_ResolveAnim.c:63-66/200-211`）
+        public int n;        // 累进 `s` 的那几拍（诊断：=1 的卡只有一条占队列的动画；全部拍数见运行期件的 `nAll`）
 
         /// <summary>🆕 **2026-10-25（`AU1` · `J1` §6）：替代支（`alternativeAbility`）的时长（秒）**。
         /// **只在非 0 时由生成器写** ⇒ 缺键 = 0 = 「这张卡没有替代支」。现读全池只有 `SW21`（0.2）。

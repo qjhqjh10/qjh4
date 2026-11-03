@@ -1103,13 +1103,13 @@ namespace CardPresentation
         /// 🔶 自己设计（非原版）：断签时掉的层数 `StreakLostValue = 10` · 原版是 `MainMenuMission.FailedValue`（服务端） · TODO(谁定的)｜原注：<summary>⚠️ 我们挑的：断签时掉的层数（原版是 `MainMenuMission.FailedValue`）。</summary>
         const int StreakLostValue = 10;
 
+        // ✅ 已复刻（2026-11-03 · B128 · 判据 = `资料/原版参照图/用户实拍_1017/奖励-每日连胜的参考图（…）.png` 现读「150 水晶 · 75 水晶 · 150 水晶 · 2 黑石 · 150 水晶」）前 5 格；第 6/7 格仍 🔶 自己设计（实拍只露出 5 格、后两格判据在远端）· 第 7 格留卡包 = 非货币档，`C3_Assert` D 段「闸关」负控要用它（原在旧第 4 格）
         static readonly string[] _streakName =
-        { "1 Booster Pack", "150 Gold", "20 Skulls", "2 Booster Packs", "200 Gold", "300 Gold", "40 Skulls" };
+        { "150 Crystal", "75 Crystal", "150 Crystal", "2 Blackstone", "150 Crystal", "300 Gold", "1 Booster Pack" };
         static readonly string[] _streakIcon =
-        { "40k_main_bt_rewards", "40k_topmarquee_currency_gold", "40K_missions_icon_Daily_skulls",
-          "40k_main_bt_rewards", "40k_topmarquee_currency_gold", "40k_topmarquee_currency_gold",
-          "40K_missions_icon_Daily_skulls" };
-        static readonly int[] _streakAmount = { 1, 150, 20, 2, 200, 300, 40 };
+        { "40k_topmarquee_currency_crystal", "40k_topmarquee_currency_crystal", "40k_topmarquee_currency_crystal", "40k_topmarquee_currency_blackstone",
+          "40k_topmarquee_currency_crystal", "40k_topmarquee_currency_gold", "40k_main_bt_rewards" };
+        static readonly int[] _streakAmount = { 150, 75, 150, 2, 150, 300, 1 };
         // ⚠️ 2026-10-31（B106_W11）：`StreakDays` 已从常量改成公式属性 ⇒ 定长数组改按 `StreakCapacity`
         //   （= `collectedRewards = 0` 那一档、格数最大的一档）；`SI()` 仍按 `StreakDays − 1` 夹。
         static readonly bool[] _streakClaimed = new bool[StreakCapacity];
@@ -1697,7 +1697,7 @@ namespace CardPresentation
         /// 「纯内存 + 可复现」（见类头），别偷偷加 `PlayerPrefs`/写盘 —— **那会让自检碰玩家的真存档**
         /// （同 `CollectionScene` 用临时存档那条纪律）」。**那条顾虑现在不存在了** —— 用户 2026-10-13 裁定
         /// 「**落盘（独立文件）**」，而落盘这件事**两件一起**解决掉了原来那个理由：
-        /// ① **独立文件**（`persistentDataPath/WarpforgeDaily/daily.json`，跟 `ReplayStore` 一条路子）
+        /// ① **独立文件**（`SaveRoot.Path/WarpforgeDaily/daily.json`，跟 `ReplayStore` 一条路子；🆕 2026-11-03 B128：根 = `C:\warpforgesave`）
         ///    —— ⛔ 不是 `PlayerPrefs`（那个在 Windows 上写注册表、而且全工程共用一个键空间，坏了会连累别人）；
         /// ② **自检那扇门是关着的**（`StoreOn`）：`-batchmode` 下一律**不碰真档**，
         ///    自检要走盘上那一份必须**显式注入**临时目录（`OverrideDir` = 「一律走临时档」的落点）
@@ -1797,7 +1797,7 @@ namespace CardPresentation
         //       与 `资料/真Play待验清单.md` 那一族同性质）—— 如实标注，⛔ 别当它验过。
         //
         // 🔴 **用户 2026-10-13 裁定：落盘（独立文件）**。做法 = **跟回放一条路子**
-        //    （`Battle/ReplayStore.cs`：`Application.persistentDataPath` 下一个自己的目录 + 一个给自检用的
+        //    （`Battle/ReplayStore.cs`：`SaveRoot.Path` 下一个自己的目录 + 一个给自检用的
         //    `OverrideDir`；⛔ **别自创**）。写盘那一拍照 `RuleEngine/Data/DeckStore.cs:SaveAll` 的
         //    「先写 `.tmp` 再换名」（写一半崩了不至于把旧档毁掉），⛔ **不是 `PlayerPrefs`**。
         //
@@ -1838,7 +1838,7 @@ namespace CardPresentation
         //    被碰到之前**跑完 ⇒ 不必在每个读口前面各写一句 `EnsureLoaded()`（那样迟早漏一个）。要重读只有
         //    `ReloadForTest()`。
 
-        /// <summary>落盘目录名（`persistentDataPath` 下，跟 `ReplayStore.DirName` 同理）。</summary>
+        /// <summary>落盘目录名（`SaveRoot.Path` 下，跟 `ReplayStore.DirName` 同理）。</summary>
         public const string StoreDirName = "WarpforgeDaily";
         /// <summary>落盘文件名。⚠️ **文件名里不带路径分隔符**（`ReplayStore` 那条纪律）。</summary>
         public const string StoreFileName = "daily.json";
@@ -1853,7 +1853,7 @@ namespace CardPresentation
             get
             {
                 return string.IsNullOrEmpty(OverrideDir)
-                     ? System.IO.Path.Combine(Application.persistentDataPath, StoreDirName)
+                     ? System.IO.Path.Combine(SaveRoot.Path, StoreDirName)
                      : OverrideDir;
             }
         }
@@ -2115,7 +2115,7 @@ namespace CardPresentation
                 LastStorePath = path;
                 LastStoreBytes = new System.Text.UTF8Encoding(false).GetByteCount(json);
                 Debug.Log("[Daily] 落盘（" + why + "）：`" + path + "`（" + LastStoreBytes + " B）—— " + BriefState()
-                        + "。⚠️ 编辑器里这个路径在 `AppData/LocalLow` 深处（`Application.persistentDataPath`），不好找。");
+                        + "。⚠️ 存档根 = `C:\\warpforgesave`（`SaveRoot.Path`，🆕 2026-11-03 B128）。");
                 // 🆕 **2026-10-26（B9 · P9 #431）**：≡ 原版 `MainMenuMission.UpdateSaveGame(save)`
                 //   = `base.UpdateSaveGame(save)` **+ 尾调 `TrySchedulePopup()`**
                 //   （判据 = `d:/2/tools/decomp_full/MainMenuMission__UpdateSaveGame.c:12` 那个尾调用 `[rax+0x5d8]`）
@@ -3026,7 +3026,7 @@ namespace CardPresentation
 
         /// <summary>这一格奖励的**原版 item 类型名**（喂 <see cref="ShowItemInfoOnClickForType"/>）。
         /// 🔶 自己设计（非原版）：由**图标名**静态映射（见 <see cref="ItemTypeNameOfIcon"/>）——我们 mock 表里没有原版 item SO，
-        /// 类型只能这么近似 · 映射表只覆盖本仓 mock 表出现过的三张图标 · **时间限定 = 2026-10-31 的 `_rewardFreeIcon` /
+        /// 类型只能这么近似 · 映射表只覆盖本仓 mock 表出现过的图标（2026-11-03 `B128` 起 **5 张**：gold / skulls / 卡包 / **crystal** / **blackstone**）· **时间限定 = 2026-11-03 的 `_rewardFreeIcon` /
         /// `_rewardPremIcon` / `_streakIcon` 三张表**（将来换图要同步改映射，否则会落到「查不到 ⇒ false + 出声」那一档）·
         /// 调度台 2026-10-31 裁定。</summary>
         static string ItemTypeNameOf(int day, bool premium) { return ItemTypeNameOfIcon(RewardIconOf(day, premium)); }
@@ -3039,7 +3039,8 @@ namespace CardPresentation
         /// 调度台 2026-10-31 裁定（授权「按图标类型映射而不是一刀切」）。</para>
         /// <para>⚠️ **这三条映射是近似，不是原版判据**：`gold` / `Daily_skulls` 按货币计（原版那一格是
         /// `Currency` 抽屉 ⇒ `showItemInfoOnClick = 1`，R13 §4·1）；`40k_main_bt_rewards`（卡包）按 `ShopContainer`
-        /// （原版 `Icon Container Drawer Variant` ⇒ `0`，§1.5）。⛔ 别把这张表当「原版类型真值」引用。</para>
+        /// （原版 `Icon Container Drawer Variant` ⇒ `0`，§1.5）。🆕 2026-11-03（`B128`）：`crystal` / `blackstone` **也按 `Currency`**
+        /// （与 gold / skulls 同一档；判据 = 它们就是顶栏那三颗货币里的两颗，见 `MainMenuRuntime.CurCrystals` / `CurBlackStones`）。⛔ 别把这张表当「原版类型真值」引用。</para>
         /// <para>返回 `null` = **这个图标本地没有判据** ⇒ 调用方出声 + 返回 false（铁律 2：不猜）。</para></summary>
         public static string ItemTypeNameOfIcon(string art)
         {
@@ -3047,6 +3048,7 @@ namespace CardPresentation
             {
                 case "40k_topmarquee_currency_gold":
                 case "40K_missions_icon_Daily_skulls":
+                case "40k_topmarquee_currency_crystal": case "40k_topmarquee_currency_blackstone":   // 🆕 2026-11-03（`B128` · 活动-N1）：连登轨前 5 格换成原版实拍的水晶/黑石 ⇒ 这两张新图标必须同步进映射，否则落 `default: null` ⇒ 可点性回退 + 每次开窗吼一次 `SayRewardTypeUnknownOnce`
                     return "Currency";
                 case "40k_main_bt_rewards":
                     return "Everguild.LiveOps.ShopContainer";
@@ -3084,7 +3086,7 @@ namespace CardPresentation
             _saidRewardTypeUnknown = true;
             Debug.Log("[Daily] 奖励抽屉**可点判据查不到**：原版 = 抽屉 prefab 的 `showItemInfoOnClick`"
                     + "（§1.5 那张类型表），而我们这份 mock 奖励的**图标不在 `ItemTypeNameOfIcon` 的映射里**"
-                    + "（映射只覆盖 2026-10-31 那三张图标；换图要同步改映射）⇒ 按铁律 2 返回 **false**（⛔ 不猜类型）。"
+                    + "（映射只覆盖 2026-11-03 `B128` 那五张图标；换图要同步改映射）⇒ 按铁律 2 返回 **false**（⛔ 不猜类型）。"
                     + "判据 → `资料/完全复刻/判据/B106_奖励预览链_施工单.md` §1.5。");
         }
 

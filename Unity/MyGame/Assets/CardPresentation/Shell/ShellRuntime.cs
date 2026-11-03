@@ -344,7 +344,7 @@ namespace CardPresentation
         {
             Instance = this; LiveOpsManager.EnsureStarted();   // 🆕 2026-10-28 B89-E11d：liveops 注册表在这建起来（**幂等**，与 `MainMenuRuntime.Awake` 那一处并存也只建一次；本文件是 `Shell.unity`=Build Settings 索引 0 的真入口 ⇒ 比主菜单更早）
             _ownSceneName = gameObject.scene.name;   // ⚠️ 必须在 DDOL 之前（之后读不到真名）
-            DontDestroyOnLoad(gameObject);      // 壳要跨场景活着（进主菜单/战斗都不重建）
+            DontDestroyOnLoad(gameObject); SaveRoot.Ensure();   // 壳要跨场景活着（进主菜单/战斗都不重建）· 🆕 2026-11-03 B128：进游戏先建/验存档根（`C:\warpforgesave`），实际路径由 `Ensure()` 打进日志（每进程一次）
 
             // 🆕 2026-10-25（执行代理 R4 · 存档 Step 4「双写期」）：**这里是 `LegacySaveReader.ImportAll()` 唯一的调用点**
             // —— 不接这一句，Step 2 那整套「旧档 → 中央存档」的导入就是**死代码**（一行都不会跑）。

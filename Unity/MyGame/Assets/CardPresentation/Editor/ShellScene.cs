@@ -6709,6 +6709,93 @@ public static class ShellScene
             if (pgAv2 != null)
                 Vp4("AvatarTab（`Avatar Tab/Item Display Panel/Scroll Rect`）",
                     pgAv2.RowsScroll, FindChildIn(pgAv2.transform, "Item Drawer"), "Scroll Rect");
+
+            // 🆕 2026-11-03（B128 · 界面-P-07）：头像格子的画序 = **建序**。
+            //   判据 = `Avatar Item Small.prefab`（`d:/2/tools/assetripper_out/ExportedProject/Assets/`）里
+            //   `m_SortingOrder` / `m_OverrideSorting` / `Canvas` 组件**全 0 命中**（只有 `CanvasRenderer`）
+            //   ⇒ uGUI 在同一个 Canvas 里按**兄弟序**画 ⇒ 后 `Instantiate` 的那一格压先建的那一格；
+            //   格内三层 = `Highlight → Border → Image`（子件序）。
+            //   我们改前 469 格共用 1/2/3 三个号 ⇒ 由「到相机的 3D 距离」决胜（透视相机：离屏心越远越早画）
+            //   ⇒ 屏心**右/下**侧那些相邻对子会画反。档位算法（可见行档 × 列）→ `Shell/AvatarTab.cs` 类尾
+            //   `QCellOrderBase` 那一段。⚠️ 改坏法：把 `BuildRows` 里的 `qCell` 换回常量 1/2/3 ⇒ 相邻两格同号 ⇒ 红。
+            if (pgAv2 != null)
+            {
+                var cellDrawer = FindChildIn(pgAv2.transform, "Item Drawer");
+                int CellQ(string cellName, string layer)
+                {
+                    var cs = FindChildIn(cellDrawer, cellName);
+                    var lq = cs != null ? FindChildIn(cs, layer) : null;
+                    var iq = lq != null ? lq.GetComponent<ImageQuad>() : null;
+                    return iq != null ? iq.RenderQueue : int.MinValue;
+                }
+                int h0 = CellQ("Avatar Item Small_0", "Highlight"), b0 = CellQ("Avatar Item Small_0", "Border");
+                int i0 = CellQ("Avatar Item Small_0", "Image");
+                int b1 = CellQ("Avatar Item Small_1", "Border"), b5 = CellQ("Avatar Item Small_5", "Border");
+                CheckTrue(h0 > 0 && b0 > 0 && b1 > 0 && b5 > 0,
+                          $"（前提）头像格的三层 quad 建出来了（`Highlight` {h0} · `_0/Border` {b0} · "
+                          + $"`_1/Border` {b1} · `_5/Border` {b5}；任取不到 ⇒ 下面两条没验到，⛔ 不静默跳过）");
+                CheckTrue(h0 < b0,
+                          $"★ B128 格内画序：`Highlight` {h0} < `Border` {b0}"
+                          + "（原版兄弟序 `Highlight → Border → Image`，判据 = `Avatar Item Small.prefab` 子件序；"
+                          + "W18 那条「框压死立绘」的红线也钉在这里）"
+                          + " —— 改坏法：把三层号改回 `Highlight 1 → Border 2`（反了）⇒ 红");
+                CheckTrue(b0 < b1 && b1 < b5,
+                          $"★ B128 格间画序 = **建序**：`_0/Border` {b0} < `_1/Border` {b1}（同行右邻）"
+                          + $" < `_5/Border` {b5}（下一行左端）"
+                          + " —— 原版同 Canvas 同 sortingOrder ⇒ 后建那一格在上；我们全格同号时由"
+                          + "『到相机的 3D 距离』决胜（屏心右/下侧画反）"
+                          + " —— 改坏法：`Shell/AvatarTab.BuildRows` 里把 `qCell` 换回常量 ⇒ 两格同号 ⇒ 红");
+                CheckTrue(i0 != int.MinValue,
+                          "（前提）第一格的 `Image` quad 在 —— 取不到 ⇒ 下面那条「`Border` < `Image`」没验到"
+                          + "（⛔ 不静默跳过；头像图缺失本身由 `AvatarTab.WarnIfAvatarMissing` 出声）");
+                if (i0 != int.MinValue)
+                    CheckTrue(b0 < i0,
+                              $"★ B128 格内画序：`Border` {b0} < `Image` {i0}"
+                              + "（判据同上；`Player_Profile_Border` 中心是不透明黑 ⇒ 反过来就是 469 格全黑那个老 bug）");
+            }
+
+            // 🆕 2026-11-03（B128 · 工具-39）：`UI_InfiniteScroll` 那 5 格（第 2 实例）—— **纯数据环，不依赖任何 Unity 对象**。
+            //   判据 = `decomp_full/UnityEngine.UI.Extensions.UI_InfiniteScroll__{SetItems,DisableGridComponents,OnScroll,Update}.c`
+            //   与 prefab 实读（`AutoScroll=1` · `AutoScrollSpeed=(-50,0)` · `_threshold=100`）；实现 → `Shell/MainMenuOfferContainer.cs`
+            //   的 `InfiniteScrollRing`（类尾那一段有逐句判据）。⚠️ 改坏法：把 `OnScroll` 的负侧也加上 `Threshold` ⇒ 第 ③ 条红。
+            {
+                var ring = new InfiniteScrollRing();
+                CheckTrue(Mathf.Approximately(ring.Threshold, 100f) && ring.AutoScroll
+                          && Mathf.Approximately(ring.AutoScrollSpeed.x, -50f)
+                          && Mathf.Approximately(ring.AutoScrollSpeed.y, 0f),
+                          "★ B128 工具-39 ④③ 出厂值 = 原版 prefab 实读：`_threshold` 100 · `AutoScroll` 1 · "
+                          + "`AutoScrollSpeed` (-50, 0)");
+                ring.SetItems(5, 200f);
+                CheckTrue(ring.ItemCount == 5 && Mathf.Approximately(ring.RecordOffsetX, 200f)
+                          && Mathf.Approximately(ring.DisableMarginX, 500f),
+                          $"★ B128 工具-39 ① 布局量：`_itemCount` {ring.ItemCount} · `_recordOffsetX` {ring.RecordOffsetX}"
+                          + $" · `_disableMarginX` {ring.DisableMarginX}（原版 `_itemCount × _recordOffsetX × 0.5` = 500）"
+                          + " —— 改坏法：`SetItems` 里把 0.5 写成 1 ⇒ 1000 ⇒ 红");
+                ring.ScrollTo(-200f);      // 内容左移 200 ⇒ 第 3/4 件 local 800/1000 > 500+100 ⇒ 各搬一整圈
+                CheckTrue(ring.WrapCount == 2 && Mathf.Approximately(ring.LocalOf(3), -200f)
+                          && Mathf.Approximately(ring.LocalOf(4), 0f),
+                          $"★ B128 工具-39 ② 搬件环：越 `_disableMarginX + _threshold` 的件搬 `_itemCount × _recordOffsetX`"
+                          + $"（实测 WrapCount {ring.WrapCount} · 第 4 件 local {ring.LocalOf(3):F1} · 第 5 件 {ring.LocalOf(4):F1}）");
+                var ring2 = new InfiniteScrollRing();
+                ring2.SetItems(1, 200f);   // margin = 100 · threshold = 100
+                ring2.ScrollTo(-150f);     // 正侧 local 150 < 200 ⇒ **不搬**
+                int w0 = ring2.WrapCount;
+                ring2.ScrollTo(150f);      // 负侧 local −150 < −100 ⇒ **搬**（原版负侧不加 `_threshold`）
+                CheckTrue(w0 == 0 && ring2.WrapCount == 1,
+                          $"★ B128 工具-39 ② 阈值不对称（**照抄原版**）：正侧 local 150 不搬（w0={w0}）· 负侧 local −150 搬"
+                          + $"（w={ring2.WrapCount}）—— 判据 `UI_InfiniteScroll__OnScroll.c` 负侧只翻 `_disableMarginX` 的符号位；"
+                          + "⛔ 别「修正」成对称（改了这条就红）");
+                var ring3 = new InfiniteScrollRing();
+                ring3.SetItems(5, 200f);
+                ring3.Tick(1f);            // AutoScroll：content.anchoredPosition += AutoScrollSpeed × dt
+                float moved = ring3.ContentX;
+                ring3.AutoScroll = false;
+                ring3.Tick(1f);
+                CheckTrue(Mathf.Approximately(moved, -50f) && Mathf.Approximately(ring3.ContentX, -50f)
+                          && ring3.ScrollCount == 1,
+                          $"★ B128 工具-39 ③ AutoScroll：`Tick(1s)` ⇒ ContentX {moved:F1}（速度 −50/s、走一次 `OnScroll`）；"
+                          + $"关掉后 `Tick` 不动（{ring3.ContentX:F1}）—— 原版 `Update` 的 `if (initialized && AutoScroll)`");
+            }
             if (pgTi2 != null)
                 Vp4("TitleTab（`Title Tab/Item Display Panel/Scroll Rect`）",
                     pgTi2.RowsScroll, FindChildIn(pgTi2.transform, "Item Drawer"), "Scroll Rect");

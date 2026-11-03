@@ -405,11 +405,15 @@ namespace CardPresentation
             int rows = n == 0 ? 0 : (n + cols - 1) / cols;
             float contentH = rows == 0 ? 0f : PadT + rows * CellH + (rows - 1) * GapY;
             _scroll.ContentX2 = GridT + contentH;
+            // 🔴 2026-11-03（B128 · 界面-P-07）：第一可见行 —— 每格画序按「可见行档 × 列」算，判据见类尾 `QCellOrderBase`
+            int firstRow = Mathf.Max(0, Mathf.FloorToInt((VpT + _scroll.Offset - (GridT + PadT)) / (CellH + GapY)));
 
             _cellArt.Clear(); _cellHl.Clear(); _cellIdx.Clear();
             for (int i = 0; i < n; i++)
             {
                 int col = i % cols, row = i / cols;
+                int slot = Mathf.Clamp(row - firstRow, 0, QCellOrderSlots - 1);
+                int qCell = QCellOrderBase + (slot * cols + col) * QCellOrderLayers - Q;
                 float x, y; CellXY(col, row, out x, out y);
                 var r = _scroll.Shift(new PxRect(x, y, x + CellW, y + CellH));
                 // 🔴 **子件一律从偏移后的 `r` 起算**（`ox/oy` = 这一格**在屏幕上**的左上角）。
@@ -428,7 +432,7 @@ namespace CardPresentation
                 var hl = Rect(ic, ArtHighlight,
                               ScaleAboutCenter(new PxRect(ox + CHlL, oy + CHlT, ox + CHlR, oy + CHlB),
                                                ScaleHighlight),
-                              "Highlight", 1, null, true);
+                              "Highlight", qCell, null, true);
                 if (hl != null) hl.gameObject.SetActive(i == Selected);   // 出厂 F，选中的那一格才亮
                 // 🔴🔴 **2026-10-18（W18）画序订正（铁律 5）** —— **这一页 469 格全黑**的根因：
                 //   原来 `Highlight 1 → Image 2 → Border 3` ⇒ **边框压在立绘上面**，而
@@ -437,16 +441,16 @@ namespace CardPresentation
                 //   原版兄弟序 = **`Highlight → Border → Image`**（`Image` 最后 = 画在最上面；
                 //   判据 = `资料/普查产出_0927/档案窗_Avatar与Title页.md` §A1 第 41–43 行，
                 //   同族先例 = `ProfileTab.L_ArtOverFrame` 那段注释，2026-09-27 已在别的页修过同一条病）。
-                //   ⇒ 队列改成 `Highlight 1 < Border 2 < Image 3`（Name 4 / Hit 5 顺延，互不重叠）。
+                //   ⇒ 队列改成 `Highlight < Border < Image`（Name 4 / Hit 5 顺延，互不重叠）。✅ 已复刻（2026-11-03 · B128 · 判据 = `Avatar Item Small.prefab` 子件序 + `m_SortingOrder/m_OverrideSorting/Canvas` 全 0 命中 ⇒ uGUI 按层级序画、「后建那一格在上」；三层号改成**每格一档** `qCell/+1/+2`，档位算法见类尾 `QCellOrderBase`）
                 // 🔴 **2026-10-24（E18）**：框与立绘各自**绕布局框中心放大**（×1.25 / ×2.0）——
                 //   放大后立绘仍然**整体压在框之上**（画序没动，只是两者都比布局框大）。
                 Rect(ic, ArtBorder,
                      ScaleAboutCenter(new PxRect(ox + CBdL, oy + CBdT, ox + CBdR, oy + CBdB), ScaleBorder),
-                     "Border", 2, null, true);
+                     "Border", qCell + 1, null, true);
                 WarnIfAvatarMissing(items[i].Art);     // ⛔ 取不到图必须出声（不许静默留白）
                 var art = CosmeticRect(ic, items[i].Art,
                                        ScaleAboutCenter(new PxRect(ox + CArtL, oy + CArtT, ox + CArtR, oy + CArtB),
-                                                        ScaleImage), "Image", 3);
+                                                        ScaleImage), "Image", qCell + 2);
                 // `Avatar Name` 在**格子外**（oy+CNmT..oy+CNmB），落在行距里 —— 真值
                 // 🔴 **2026-10-07（A62 子表 A · A31 / 判据 §③「碰巧对」）**：原版这一件是 **`折行=1`**，
                 //   我们原来**没显式声明**（靠 `SetAutoFitBox` 顺带打开）⇒ 补 `wrap: true` 钉死。
@@ -463,7 +467,7 @@ namespace CardPresentation
                 //   ⛔ 别改成「不建」：节点留着，哪天原版那一格真打开就有东西可显示（本工程纪律：
                 //     结构照原版建、显隐照原版字段）。
                 var cellNameLb = Text(cell, items[i].Name, new PxRect(ox + CNmL, oy + CNmT, ox + CNmR, oy + CNmB),
-                     Color.white, "Avatar Name", CNmPx, 4, autoFit: true, autoMinPx: CNmAutoMin, alignLeft: false, wrap: true,
+                     Color.white, "Avatar Name", CNmPx, qCell + 2, autoFit: true, autoMinPx: CNmAutoMin, alignLeft: false, wrap: true,
                      autoMaxPx: 36f, basePx: 36f, face: TmpFont.Face.LatinCardBody);
                 if (cellNameLb != null) cellNameLb.gameObject.SetActive(false);
                 int captured = i;
@@ -869,5 +873,54 @@ namespace CardPresentation
 
             ShineCountForTest++;
         }
+
+        // ================================================================================================
+        //  🆕 2026-11-03（`B128` · 旧任务 `界面-P-07`）：**格子三层的渲染队列按【当前可见行 × 列】分段**
+        // ================================================================================================
+        //  改前 = 三处队列实参恒 `1/2/3`（经 `ProfilePage.Rect/CosmeticRect/Text` 的 `Q + qOff`）⇒ **469 格共用
+        //    同一批号**，格与格之间由「到相机的 3D 距离」决胜（= CLAUDE §三「分层要用渲染队列，不能靠 z」那条
+        //    的同一个根因）⇒ 谁压谁**不定**，而且**恒是「更靠近屏幕中心」的那一格赢**：透视相机
+        //    （`ShellRuntime`：fov 40 / planeDistance 100）下离屏心越远 ⇒ 到相机越远 ⇒ 越早画
+        //    ⇒ **屏心右边 / 下边的那些相邻对子会画反**（原版要的是「后建的那一格在上」）。
+        //
+        //  🔴 **判据（原版为什么重叠、重叠时谁在上）**：
+        //    · `Avatar Item Small.prefab`（`d:/2/tools/assetripper_out/ExportedProject/Assets/Avatar Item Small.prefab`，
+        //      2026-11-03 现读）：子件序 = `Raycast Target → Image Container{Highlight → Border → Image → Avatar Name}`；
+        //      **`m_SortingOrder` / `m_OverrideSorting` / `Canvas` 组件全 0 命中**（只有 `CanvasRenderer` / `CanvasGroup`）
+        //      ⇒ uGUI 按**层级序**画：格内三层按兄弟序，**后建的那一格压先建的**
+        //      （`AvatarTab__InitializeGameObjects.c:152` 逐格 `Instantiate` ⇒ 建序 = 列表序 = 行优先）。
+        //    · 重叠是**几何事实**（不是看图猜的）：立绘实绘 = 布局框 ×2.0 ⇒ 360×285.26，格距 = 205×230
+        //      ⇒ 四邻（左右 / 上下 / 斜角）在透明四边上必相交；宽立绘更狠（实测 `Avatar_All_Servo Skull`
+        //      alpha bbox 381/512 ⇒ 实绘可见宽 **267.9 > 行距 205**，真重叠 63px）；`Border`（×1.25 = 225 宽）
+        //      与左右邻也相交 20px。
+        //
+        //  🔴 **为什么不按「每格一个绝对档」静态铺开**（`AllianceMemberTab.RowArtQueue` 那种 22×4）：
+        //    · 本页 469 格 × 3 层 = **1407 个号**；页带之上能用的空段只有 `3220–3999`（780 个），
+        //      再往上 **4000 起是 Overlay pass** —— `ToastNotifications`(4072+) / `LoadingMenu`(4090) /
+        //      `TutorialPointerUi`(4110+) 都在那儿，**必须永远压在最上面**。
+        //    · 往下也不行：本页页带只有 10 个号（`3160 + PageIndex*10` = 3170–3179），再往下就是窗框/压暗层。
+        //    ⇒ **改成「按当前可见行分配」**：`BuildRows` 本来就挂在 `MenuScroll.OnChanged` 上（一滚就整页重建，
+        //      `:293`），所以每次重建时用 `_scroll.Offset` 算出**第一可见行**，把可见的那几行映射成 0..7 号档；
+        //      视口外（被 `RectMask2D` 裁掉、根本看不见）的行折叠到边界档上，不影响画面。
+        //
+        //  🔴 **档位落点 = `3180` 起、每行 5 列 × 3 层 = 15 号、8 行 = 120 号（3180–3299）**：
+        //    · `3180–3219` = 本窗**其它五页**的页带（`TitleTab` 3180 / `BattleLogTab` 3190 /
+        //      `AchievementsMenu` 3200 / `RankedTab` 3210）—— `PlayerProfileWindow` 一次只激活一页
+        //      ⇒ 本页可见时那几段**全空**（与 `AllianceMemberTab` 直接占用 `3210–3299` 是同一条前提：
+        //      互斥的页共用号段）。
+        //    · `3220–3299` = 空闲（`AllianceMemberTab` 的奖杯格 / 成员行带在**社交窗**里，两窗互斥）。
+        //    · 上界卡在 **3299**：3300 起是弹窗带（`GenericOptionsPanel` 3330 / `BlockingOverlay` 3338 /
+        //      `AllianceMemberOptionsPopup` 3340 / `PurchasePremiumWindow` 3521 / `PopUpGameWindow` 3560 …）——
+        //      弹窗开在档案窗之上时**必须压住格子**（`WindowsManager.OpenWindow` 弹窗支只给底窗
+        //      `ToBackground()`，基类**不关物体** ⇒ 档案窗仍然在画）。
+        //    · 8 行容量：视口高 644.77 / 行距 230 ⇒ 同屏最多 3 行整 + 上下各溢 1 行（立绘上下各溢 71 / 28.6）
+        //      ⇒ 同屏最多 5 行；留到 8 行是给「滚到两行交界」的余量。
+        //    ⚠️ 格内第 3 层（`Avatar Name`）也挂 `qCell + 2`：原版它在 `Image` **之后**（兄弟序更靠后），
+        //      但这一件**原版就不上屏**（`m_IsActive = F`、运行期无 `SetActive`，见 `BuildRows` 那段），
+        //      ⇒ 与 `Image` 同号不会造成可见差；`Hit`（透明命中 quad，`PointerLayer` 只按**命中 quad 之间**的
+        //      队列排序、格与格的命中框互不重叠）保持原来的 5 不动。
+        const int QCellOrderBase = 3180;     // 绝对渲染队列起点（本页 `Q` = `QPageBase + 1*10` = 3170）
+        const int QCellOrderLayers = 3;      // 一格 3 层：0 `Highlight` < 1 `Border` < 2 `Image`
+        const int QCellOrderSlots = 8;       // 8 行档 × 5 列 × 3 层 = 120 号（3180–3299）
     }
 }

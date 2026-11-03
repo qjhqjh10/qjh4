@@ -638,7 +638,7 @@ public static class DraftAssertD3
     //  ⚠️ 本组用 `OverrideDir` 指向临时目录 ⇒ **绝不碰玩家真档**（`DraftModeWindow.StoreOn` 的第 ① 支）。
     static void RunSaveGroup()
     {
-        Debug.Log(P + "--- (D) 一局存档落盘（`persistentDataPath/WarpforgeDraft/run.json`）---");
+        Debug.Log(P + "--- (D) 一局存档落盘（`SaveRoot.Path/WarpforgeDraft/run.json`，🆕 2026-11-03 B128：根 = `C:\\warpforgesave`）---");
         var prevDir = DraftModeWindow.OverrideDir;
         var tmp = Path.Combine(Path.GetTempPath(), "wf_draft_store_" + Guid.NewGuid().ToString("N"));
         try

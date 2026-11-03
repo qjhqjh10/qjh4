@@ -4866,7 +4866,8 @@ namespace CardPresentation
 
         /// <summary>在模式卡下建那颗报价格抽屉（原版 `GeneralOfferPopupDrawerBase` 的宿主）。
         /// <para>🔶 自己设计（非原版）：`SlotBox` / `ContentAnchor` / `Visible` 三格由**宿主给** —— 原版是
-        /// `CarouselOfferPopupDrawer` 在 prefab 上的 `contentAnchor` + `UI_InfiniteScroll`（那份源码本地没有），
+        /// `CarouselOfferPopupDrawer` 在 prefab 上的 `contentAnchor` + `UI_InfiniteScroll`（🔴 2026-11-03 `B128` 订正：
+        /// 原写「那份源码本地没有」**已过期**，真体在 `out_il2csharp/…/UI_InfiniteScroll.cs` 448 行），
         /// 我们是扁平 quad 树、没有锚点层可照抄 · 必须自己定：卡内可用区 · 调度台 2026-10-29 指派（B97_SHOP）。
         /// 几何取「卡内**左上角**一个正方形槽（边长 = min(卡宽,卡高)）」= `MainMenuCarouselDrawer.SlotBox` 的既有契约。</para></summary>
         static MainMenuCarouselDrawer BuildOfferDrawerForMenuCard(Transform card, float w, float h)

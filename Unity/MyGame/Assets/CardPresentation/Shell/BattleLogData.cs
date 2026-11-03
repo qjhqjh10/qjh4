@@ -35,7 +35,7 @@
 //   · 为什么：原版的表在服务器，重启后仍在；我们纯内存 ⇒ **关掉游戏再进来，历史页就空了**
 //     （而录像文件其实还躺在 `persistentDataPath/WarpforgeReplays/` 里，只是没人列它们）。
 //   · 形状照 `Shell/DailyData.cs` 那一套（独立小 JSON + `OverrideDir` 改写口 + 批处理不碰真档）：
-//     `persistentDataPath/WarpforgeBattleLog/battlelog.json`。
+//     `SaveRoot.Path/WarpforgeBattleLog/battlelog.json`（🆕 2026-11-03 B128：根 = `C:\warpforgesave`）。
 //   · **留多少条 = `ReplayStore.MaxKept`（50）** —— 口径只写一处，⛔ 别另立一个数。
 //     （对局记录与录像一一对应：每局记录一条、录一份；两边都留 50 才不会「有记录没录像」。）
 //   · 🔴 **仍然是我们自建、不是复刻**（原版由服务器写、按赛季清理）。
@@ -47,7 +47,7 @@ using RuleEngine;          // `CardDatabase` / `CardDef`（`ResolveArmy` 用；�
 
 namespace CardPresentation
 {
-    /// <summary>对局历史（本地）。**落盘**在 `persistentDataPath/WarpforgeBattleLog/battlelog.json`
+    /// <summary>对局历史（本地）。**落盘**在 `SaveRoot.Path/WarpforgeBattleLog/battlelog.json`
     /// （🆕 2026-10-24 E13 —— 原来纯内存，见文件头那一节）。</summary>
     public static partial class BattleLogData
     {
@@ -211,7 +211,7 @@ namespace CardPresentation
         //   独立目录 + 一个小 JSON + `OverrideDir`（自检改写口）+ **批处理不碰玩家真档**。
         // ⚠️ 原版这张表**在服务器**（`PlayerDataManager.battleLogData`）⇒ 这一层是**我们自建的等价物**。
 
-        /// <summary>落盘目录名（`persistentDataPath` 下，跟 `ReplayStore.DirName` 同理）。</summary>
+        /// <summary>落盘目录名（`SaveRoot.Path` 下，跟 `ReplayStore.DirName` 同理）。</summary>
         public const string StoreDirName = "WarpforgeBattleLog";
         /// <summary>落盘文件名。⚠️ **文件名里不带路径分隔符**（`ReplayStore` 那条纪律）。</summary>
         public const string StoreFileName = "battlelog.json";
@@ -225,7 +225,7 @@ namespace CardPresentation
             get
             {
                 return string.IsNullOrEmpty(OverrideDir)
-                     ? System.IO.Path.Combine(Application.persistentDataPath, StoreDirName)
+                     ? System.IO.Path.Combine(SaveRoot.Path, StoreDirName)
                      : OverrideDir;
             }
         }

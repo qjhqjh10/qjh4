@@ -3041,7 +3041,7 @@ public static class EffectExporter
                 pair.Value[p[0]] = q;
             }
         }
-        // 🆕 2026-11-03（`B121-BF-02`）：第三张表带 bundle 维度。缺失只 warning（⛔ 不静默当成「没有」）。
+        // 🆕 2026-11-03（`B121-BF-02`）：第三张表带 bundle 维度。缺失只 warning（⛔ 不静默当成「没有」）。✅ 已复刻（2026-11-03 · B128 · 表已由 `gen_renderqueue_truth.py --write` 生成 1083 条/27 包，`--check` rc=0）
         var byBundlePath = baseDir + "mat_renderqueue_by_bundle.tsv";
         if (!File.Exists(byBundlePath))
         {

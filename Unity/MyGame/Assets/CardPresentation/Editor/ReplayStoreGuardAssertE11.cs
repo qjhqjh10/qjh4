@@ -11,7 +11,7 @@
 // ------------------------------------------------------------------
 //  2026-10-24：`Editor/ProfileDataAssertE13.cs` 的 `finally` 先把 `ReplayStore.OverrideDir` 置回 null、
 //  **再**调 `ReplayStore.ResetForTest()` ⇒ `ReplayStore.Dir` 落回
-//  `persistentDataPath/WarpforgeReplays` ⇒ **玩家的真录像被整目录清空**，而且当时一行日志都不打。
+//  `persistentDataPath/WarpforgeReplays`（🆕 2026-11-03 B128 起落回 `SaveRoot.Path/WarpforgeReplays`，即 `C:\warpforgesave`）⇒ **玩家的真录像被整目录清空**，而且当时一行日志都不打。
 //  两处都补了：① `finally` 调换顺序（B1）；② `ResetForTest` 加「没设 `OverrideDir` 就拒绝 + 出声」硬挡（B2）；
 //  ③ 删每一份都打一行 `[Replay] 自检清空：…`（B3，不许静默）。
 //

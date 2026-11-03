@@ -116,7 +116,7 @@ public static class B102DECK_Assert
         string keepRegistered = SaveCenter.LegacyMirrorPathOf(Key);
 
         // 「玩家真档」的三样读数（纯粹算出来的路径，**不读不写**）—— A4 用它证明没被写脏。
-        string realDeckPath = Path.Combine(Application.persistentDataPath, DeckStore.FileName);
+        string realDeckPath = Path.Combine(SaveRoot.Path, DeckStore.FileName);   // 🆕 2026-11-03 B128：玩家真档根 = `SaveRoot.Path`（`C:\warpforgesave`），不再是 `persistentDataPath`
         bool realExisted = File.Exists(realDeckPath);
         long realLen = realExisted ? new FileInfo(realDeckPath).Length : -1L;
         DateTime realMtime = realExisted ? File.GetLastWriteTimeUtc(realDeckPath) : DateTime.MinValue;

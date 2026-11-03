@@ -1,12 +1,12 @@
 // DeckStore.cs — 卡组存档（读写玩家自己组的卡组）
 //
-// ⚠️ 本文件用 UnityEngine（`Application.persistentDataPath` + `JsonUtility`）。
+// ⚠️ 本文件用 UnityEngine（`JsonUtility`）+ `CardPresentation.SaveRoot`（存档根）。
 //    `Core/` 下的东西一律不碰 Unity，规则/模型在 `Core/DeckRules.cs` 里。
 //
-// 存在哪：`Application.persistentDataPath/WarpforgeDecks.json`
-//   · Windows 编辑器/独立版都在 `%USERPROFILE%\AppData\LocalLow\<公司名>\<产品名>\`
-//   · 不进工程、不进仓库、卸载才没 —— 原版的卡组是存在**服务器**上的
-//     （`CardDeck.syncedToServer` / `deckId`），单机只能落到本地，这一点和原版不同。
+// 存在哪：`SaveRoot.Path/WarpforgeDecks.json`（🆕 2026-11-03 B128：根从 `Application.persistentDataPath` 收到 **`C:\warpforgesave`**）
+//   · ⚠️ 本条是 `RuleEngine`→`CardPresentation` 的**唯一**引用（只碰一个纯路径字符串）；`工具/ruleprobe` 的 csproj **不编本文件** ⇒ 不影响 headless 探针。
+//   · 旧位置 `%USERPROFILE%\AppData\LocalLow\<公司名>\<产品名>\` 的旧档**永不删除**，只是不再读写。
+//   · 原版的卡组存在**服务器**（`CardDeck.syncedToServer` / `deckId`），单机只能落到本地 —— 这一点和原版不同。
 //
 // 为什么自己读写文件而不是 `PlayerPrefs`：卡组是一份**有结构、会变长**的数据，
 // PlayerPrefs 是给零散键值用的，塞 JSON 进去在 Windows 上还会写注册表。
@@ -29,7 +29,7 @@ namespace RuleEngine
         {
             get
             {
-                return OverridePath ?? System.IO.Path.Combine(Application.persistentDataPath, FileName);
+                return OverridePath ?? System.IO.Path.Combine(CardPresentation.SaveRoot.Path, FileName);   // 🆕 2026-11-03 B128：根 = `C:\warpforgesave`（⚠️ 本条是 RuleEngine→CardPresentation 的**唯一**引用，见文件头注）
             }
         }
 

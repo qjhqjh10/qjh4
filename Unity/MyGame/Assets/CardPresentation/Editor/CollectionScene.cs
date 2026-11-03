@@ -9148,7 +9148,7 @@ public static class CollectionScene
                         //   ⚠️ **旧口径已作废**（2026-10-12「Craft 只出声」· 2026-10-18「点击但不起作用 /
                         //     恒可交互 / 存档不动」· 同日早些时候 W5「Upgrade 可交互度 = `CanUpgrade`」）
                         //     —— ⛔ 别再断回那一组。
-                        string craftSavePath = System.IO.Path.Combine(Application.persistentDataPath, CardProgress.SaveFileName);
+                        string craftSavePath = System.IO.Path.Combine(SaveRoot.Path, CardProgress.SaveFileName);   // 🆕 2026-11-03 B128：玩家真档根 = `SaveRoot.Path`
                         byte[] craftSave0 = System.IO.File.Exists(craftSavePath)
                                           ? System.IO.File.ReadAllBytes(craftSavePath) : null;
                         // ---- 四档**逐档**走（铁律 5·c：一个值 ≠ 全部情况）----

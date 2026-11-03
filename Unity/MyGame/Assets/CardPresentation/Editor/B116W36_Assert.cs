@@ -267,9 +267,9 @@ public static class B116W36_Assert
         CheckTrue(string.Equals(cur, tmpPath, StringComparison.OrdinalIgnoreCase),
                   "（前提·" + tag + "·B-343）本组读写口 = **临时档**「" + tmpPath + "」"
                 + "（`DeckStore.OverridePath` 由本组自己设、`finally` 自己还原 —— ⛔ 不依赖外层那道门）");
-        string pdp = Application.persistentDataPath;
+        string pdp = SaveRoot.Path;      // 🆕 2026-11-03 B128：玩家存档根 = `C:\warpforgesave`（原来比 `persistentDataPath`，改根后会**永远绿**）
         CheckTrue(string.IsNullOrEmpty(pdp) || !cur.StartsWith(pdp, StringComparison.OrdinalIgnoreCase),
-                  "（前提·" + tag + "·B-343）……而且它**不在**玩家的 `persistentDataPath`（" + pdp + "）下"
+                  "（前提·" + tag + "·B-343）……而且它**不在**玩家的存档根 `SaveRoot.Path`（" + pdp + "）下"
                 + " —— 这条红 = 又开始动玩家真存档了（红线）");
         CheckTrue(DeckLibrary.ReadLegacyText == null,
                   "（前提·" + tag + "·B-343）`DeckLibrary` 的**中央档注入钩子没注册**"

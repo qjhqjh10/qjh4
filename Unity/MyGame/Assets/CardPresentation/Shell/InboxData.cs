@@ -372,7 +372,7 @@ namespace CardPresentation
             get
             {
                 return string.IsNullOrEmpty(OverrideDir)
-                     ? System.IO.Path.Combine(Application.persistentDataPath, "WarpforgeInbox")
+                     ? System.IO.Path.Combine(SaveRoot.Path, "WarpforgeInbox")
                      : OverrideDir;
             }
         }

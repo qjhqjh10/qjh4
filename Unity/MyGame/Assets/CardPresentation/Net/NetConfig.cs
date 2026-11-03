@@ -1,6 +1,6 @@
 // NetConfig.cs — 联机设置（主机/客机 · IP · 密码 · 端口）的**存放与落盘**，外加「取本机 IP」那个刷新按钮要用的东西。
 //
-// 存在哪：`Application.persistentDataPath/WarpforgeNet.json`
+// 存在哪：`SaveRoot.Path/WarpforgeNet.json`（🆕 2026-11-03 B128：根 = `C:\warpforgesave`，原来是 `Application.persistentDataPath`）
 //   —— 和 `RuleEngine/Data/DeckStore.cs` 同一套（`JsonUtility` + 一个给自检用的 `OverridePath`）。
 //   ⚠️ **密码是明文存本地文件的**：这是「双人自己玩」的设置项，不是账号口令；
 //   要藏起来得引入密钥链，与本项目的用途不成比例。**这一点写在这里，别当成 bug。**
@@ -40,7 +40,7 @@ namespace CardPresentation.Net
 
         public static string Path
         {
-            get { return OverridePath ?? System.IO.Path.Combine(Application.persistentDataPath, FileName); }
+            get { return OverridePath ?? System.IO.Path.Combine(SaveRoot.Path, FileName); }
         }
 
         /// <summary>当前设置（第一次访问时读盘；读不出来就返回出厂值，**不抛**）。</summary>

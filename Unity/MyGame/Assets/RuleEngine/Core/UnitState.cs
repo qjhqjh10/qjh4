@@ -968,7 +968,7 @@ namespace RuleEngine
         public bool Has(string keyword)
         {
             if (IsRemnant && !IsLeavingRemnant) return _remnantTraits.Contains(keyword);
-            return _keywords.ContainsKey(keyword);
+            return _keywords.ContainsKey(keyword);   // ✅ 已核（2026-11-03 · B128 · 引擎-N1）：**这里就该是【按存在判】、⛔ 不许改成「按值 > 0 判」** —— ① 原版 `EntityScript__HasCurrentTrait.c` 全文只比 **id**（`+0x128` 基表 `*(int*)(lVar2+0x18)==param_2`、`+0x108` activeEffects 的 `buffType==3` ∧ `+0x3c==param_2`），**一次都没读值**；② `CardScript__AddEffect.c` 的 `case 3` 合并循环**对 `traitValue == 0` 照样 `List.Add`**（`.c:567-568` 那一支没有值闸）⇒ 原版「0 值 trait 存在 ⇒ `Has` 真」。③ 反证（数据面）：`cards_engine.json` 的 370 条 `addTrait` 行里 **234 条 `traitValue` 缺失（= 0）** —— 那是「给一个**没有数字**的关键词」（`Regeneration` / `Stealth` 那一族），改成按值判会让这 234 行**整片静默失效**。④ `KwValue` 那一边才钳 `>= 0`（`GetCurrentTraitValueWithModifiers.c` 末句 `-1 < iVar8+iVar7 ? iVar8+iVar7 : 0`），两者分工不同，⛔ 别混
         }
 
         /// <summary>

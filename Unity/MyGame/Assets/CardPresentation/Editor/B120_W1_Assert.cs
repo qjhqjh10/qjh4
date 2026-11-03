@@ -47,7 +47,7 @@ public static class B120_W1_Assert
     const float OrigPxPerUnit = 14.835f;      // 原版 HUD 画布：相机 fov40 + planeDistance 100
     const float OurPxPerUnit = 108f;          // 我们：`LayoutSpace.DesignPxH 1080 / DesignHeight 10`
     const float Bridge = OrigPxPerUnit / OurPxPerUnit;   // 0.13736111…
-    const float UGuiDragThresholdPx = 10f;    // `EventSystem.m_DragThreshold` 字段初值（原版资产里 0 命中）
+    const float UGuiDragThresholdPx = 5f;     // 🔴 2026-11-03（`B130`）：原版 `EventSystem.m_DragThreshold` 的**序列化值 5**（判据 = `d:/2/tools/assetripper_out/ExportedProject/Assets/Data/Scenes/Intro.unity:5429`；uGUI 字段初值才是 10，原来写「原版资产里 0 命中 ⇒ 取初值 10」是只搜了 `assets_full` 的 bundle 树）
     const float MinMovementToPlayCard = 0.3f; // `VarsGlobal.minMovementToPlayCard`（+0x7C，`VarsGlobal_原版数值.md:44`）
     const float MoveCardYOffset = 0.2f;       // `VarsDevice.moveCardYOffset`（`VarsDesktop`）
 
@@ -130,15 +130,16 @@ public static class B120_W1_Assert
     static void B_Tap()
     {
         Check(Near(CardInteraction.TapThresholdPx, UGuiDragThresholdPx, 1e-6f),
-              "B1 `TapThresholdPx` == uGUI 默认 **10 px**（实得 " + CardInteraction.TapThresholdPx.ToString("F3") + "）"
-            + "｜判据：`PointerInputModule.ShouldStartDrag` 用 `EventSystem.pixelDragThreshold`；原版资产里 `m_DragThreshold` 0 命中 ⇒ 取字段初值");
+              "B1 `TapThresholdPx` == 原版 **5 px**（实得 " + CardInteraction.TapThresholdPx.ToString("F3") + "）"
+            + "｜判据：`PointerInputModule.ShouldStartDrag` 用 `EventSystem.pixelDragThreshold`，原版序列化 `m_DragThreshold: 5`（`Intro.unity:5429`）；"
+            + "🧨 改回 10（uGUI 字段初值）⇒ 红");
 
         Check(Near(CardInteraction.TapThresholdWorldAt(1080), UGuiDragThresholdPx / OurPxPerUnit, 1e-6f),
-              "B2 1080p 下轻点阈值 = 10/108 = **0.0926** 世界单位（实得 "
+              "B2 1080p 下轻点阈值 = 5/108 = **0.0463** 世界单位（实得 "
             + CardInteraction.TapThresholdWorldAt(1080).ToString("F6") + "）");
 
         Check(Near(CardInteraction.TapThresholdWorldAt(2160), UGuiDragThresholdPx / (OurPxPerUnit * 2f), 1e-6f),
-              "B3 4K（2160）下 = 10/216 = **0.0463**（实得 " + CardInteraction.TapThresholdWorldAt(2160).ToString("F6") + "）"
+              "B3 4K（2160）下 = 5/216 = **0.02315**（实得 " + CardInteraction.TapThresholdWorldAt(2160).ToString("F6") + "）"
             + " —— 证明阈值是**真实屏幕 px**、⛔ 不是写死 108 的常量");
 
         Check(CardInteraction.TapThresholdWorldAt(1080) < 0.3f - 0.15f,
@@ -163,10 +164,12 @@ public static class B120_W1_Assert
             + (CardInteraction.PlayLiftWorld * OurPxPerUnit).ToString("F3") + " px）"
             + "｜🧨 把 0.3 直接当我们的单位用（= 32.4 px）⇒ 红");
 
-        Check(Mathf.Abs(CardInteraction.PlayLiftWorld - CardInteraction.TapThresholdWorldAt(1080)) > 0.03f,
+        Check(Mathf.Abs(CardInteraction.PlayLiftWorld - CardInteraction.TapThresholdWorldAt(1080)) > 1e-4f,
               "C3 ★「出牌高度」与「轻点阈值」是**两个量**（" + (CardInteraction.PlayLiftWorld * OurPxPerUnit).ToString("F2")
             + " px vs " + (CardInteraction.TapThresholdWorldAt(1080) * OurPxPerUnit).ToString("F2") + " px）"
-            + " —— 旧实现把两件事共用一个 0.3；🧨 把两者写成同一个常量 ⇒ 红");
+            + " —— 旧实现把两件事共用一个 0.3；🧨 把两者写成同一个常量 ⇒ 红"
+            + "｜🔴 2026-11-03（`B130`）：阈值订正成原版 5 px 后两者**数值上很接近**（4.45 vs 5 px，容差只能收到 1e-4），"
+            + "但来源不同（`0.3 × Bridge` vs `5 ÷ 屏高`）—— 判「是不是同一个量」看 C1/B2 的来源式，⛔ 别拿这条的差值当分离度");
     }
 
     // ==================================================================

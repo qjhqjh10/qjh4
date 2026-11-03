@@ -302,5 +302,66 @@ public static class B120W4_Assert
             }
         }
         finally { EventTiming.AbilityUsesAlternative = wasAlt; }
+
+        // 🆕 2026-11-03（执行写手 `B130`）：技能事件占时只累 `waitAnimToApplyEffect != 0` 的拍。
+        CheckAbilityHoldWaitOnly();
+    }
+
+    // ==================================================================
+    //  🆕 2026-11-03（执行写手 `B130`）：**技能事件占时 = Σ(仅 `waitAnimToApplyEffect != 0` 的拍)**
+    //    判据（第一权威反编译，逐行读过）=
+    //      `d:/2/tools/decomp_full/BattleManager._ResolveAnim_d__466__MoveNext.c`
+    //        · `:63-66` —— `if (*(char *)(param_1 + 0xc0) == '\0') { … FinishResolvingAction(…) }`
+    //          ⇒ `waitForAnim == 0` 的拍**协程一开头就把动作队列放行**（之后才 startDelay → VFX →
+    //            `WaitForSeconds(GetAnimDuration)`，那时已在后台跑）；
+    //        · `:200-211` —— `waitForAnim == 1` 的拍等满 `GetAnimDuration()`，`:191-194` 才放行；
+    //        · `+0xC0` 的来历 = `BattleManager__ResolveAnim.c` 把整个 `BattleAction` 从 `+0x28`
+    //          整块拷进状态机 ⇒ `0xC0 − 0x28 = 0x98` = `BattleAction.waitForAnim`（`BattleAction.cs:47`）。
+    //      ⇒ 一张卡的占时 = Σ(w==1 的拍的 `AnimInfo.GetAnimDuration()`)，⛔ 不是 Σ(全部拍)。
+    //    ⚠️ 期望值**从 `CardAnimOrder` 的逐拍表独立算**（那张表带 `Waits`，与本次判据同源但**不同一件产物**），
+    //      不是从被测的 `ability_anim_durations.json` 抄 —— 否则就是自证。
+    // ==================================================================
+    static void CheckAbilityHoldWaitOnly()
+    {
+        // ① 前提：逐拍表里 `DA23 Bladeguard Veteran` = 2.0 / 0.2，两者差得开（差不开就验不出东西）。
+        var beats = new System.Collections.Generic.List<CardAnimBeat>();
+        int nb = CardAnimOrder.TryGetBeats("DA23", beats);
+        float sumAll = 0f, sumWaited = 0f;
+        for (int i = 0; i < beats.Count; i++)
+        {
+            sumAll += beats[i].Duration;
+            if (beats[i].Waits) sumWaited += beats[i].Duration;
+        }
+        Check(nb == 2 && Mathf.Abs(sumAll - 2.0f) < 1e-4f && Mathf.Abs(sumWaited - 0.2f) < 1e-4f,
+              $"★ B130（前提）：`CardAnimOrder` 里 `DA23` = {nb} 拍 · Σ全部 {sumAll:F4}s · Σ仅 `Waits` {sumWaited:F4}s"
+            + "（应 = 2 拍 / 2.0 / 0.2 —— 判据 `Bladeguard Veteran` 的 `Buff_Green_Agenda` 0.2 w=1 + `ArmourEffect` 1.8 w=0）");
+        Check(sumAll - sumWaited > 1.0f,
+              $"★ B130（前提）：两者必须差得开（{sumAll - sumWaited:F4}s > 1.0）—— 否则下面几条验不出鉴别力");
+
+        // ② 正题：`Bladeguard Veteran` 的 hold = **0.2**（原版值），⛔ 不是 2.0。
+        float s;
+        bool has = AbilityAnimDurations.TryGet("DA23", out s);
+        Check(has && Mathf.Abs(s - 0.2f) < 1e-4f,
+              $"★ B130：`Bladeguard Veteran`（DA23）的 hold = {(has ? s : -1f):F4}s（原版 **0.2** = 只算 `w=1` 那一拍）");
+        // ③ **灭自证**：把 `waitAnimToApplyEffect` 全当 1 处理（= 改前 Σ全部拍）⇒ `s` 变成 2.0 ⇒ 本条红。
+        Check(has && Mathf.Abs(s - sumAll) > 1e-4f,
+              $"★ B130 **灭自证**：`s` = {s:F4}s ≠ Σ(全部拍) {sumAll:F4}s —— 生成器若不分 `waitAnimToApplyEffect`，"
+            + "这一条与上一条**同时**红（改前就是这个形状）");
+        float hold = EventTiming.AbilityHoldOf(new BattleEvent { Kind = EvtKind.Ability, CardId = "DA23" });
+        Check(Mathf.Abs(hold - sumWaited) < 1e-4f && Mathf.Abs(hold - sumAll) > 1e-4f,
+              $"★ B130：`AbilityHoldOf(DA23)` = {hold:F4}s（= 逐拍表算出的 {sumWaited:F4}s，≠ Σ全部 {sumAll:F4}s）"
+            + " —— 事件级占时与拍内排期（`CardAnimOrder.Waits`）**同一口径**");
+
+        // ④ 覆盖面：中间那拍是 `w=1` 的卡（`Incursor` 3.2 → 1.4）、以及全部拍都不占队列的卡（`Leontus` 0.5 → 0）。
+        float sInc;
+        bool hasInc = AbilityAnimDurations.TryGet("UM89", out sInc);
+        Check(hasInc && Mathf.Abs(sInc - 1.4f) < 1e-4f,
+              $"★ B130：`Incursor`（UM89）hold = {(hasInc ? sInc : -1f):F4}s（原版 1.4 = 0.2+0.2+1.0；改前是 3.2）");
+        float sLeo;
+        bool hasLeo = AbilityAnimDurations.TryGet("AM1", out sLeo);
+        Check(hasLeo && Mathf.Abs(sLeo) < 1e-4f,
+              $"★ B130：`Lord Solar Leontus`（AM1）hold = {(hasLeo ? sLeo : -1f):F4}s（原版 **0** = 两拍 w 都 0 ⇒ 队列立即放行；改前是 0.5）");
+        Check(Mathf.Abs(sInc - sLeo) > 0.5f,
+              $"★ B130 **灭自证（面）**：UM89 {sInc:F3}s 与 AM1 {sLeo:F3}s 必须差得开 —— 「一律按全部拍」或「一律按 0」都会让两者同时失真");
     }
 }

@@ -952,9 +952,9 @@ namespace CardPresentation
         //     `AchievementsManager.achievementsSave` + `UploadPooledProgress`）。
         //    关服 ⇒ 本地没有来源 ⇒ 这里只做到「**关掉游戏再打开还在**」（跨设备同步做不到）。
         //
-        // · 路径照既有先例（`Battle/ReplayStore` = `persistentDataPath/WarpforgeReplays/` ·
-        //   `Shell/DailyData` = `persistentDataPath/WarpforgeDaily/daily.json`）：
-        //   **`persistentDataPath/WarpforgeProfile/profile.json`**。
+        // · 路径照既有先例（`Battle/ReplayStore` = `SaveRoot.Path/WarpforgeReplays/` ·
+        //   `Shell/DailyData` = `SaveRoot.Path/WarpforgeDaily/daily.json`）：
+        //   **`SaveRoot.Path/WarpforgeProfile/profile.json`**（🆕 2026-11-03 B128：根 = `C:\warpforgesave`）。
         // · 形状 = 一个 JSON（`JsonUtility`），字段见 <see cref="SaveDto"/>。
         // · 🆕 **2026-10-25（执行代理 `R10` · 切换单 C8）：这份档已经进中央存档的双写期**。
         //   中央 key = `SaveKeys.CosmeticData`（**整份** payload，7 个字段一个不少），旧档 = 本文件那份
@@ -1005,14 +1005,14 @@ namespace CardPresentation
         /// 用完必须置回 `null` 并删掉临时文件（自检那边负责）。</summary>
         public static string SavePathOverrideForTest;
 
-        /// <summary>存档完整路径（`persistentDataPath/WarpforgeProfile/profile.json`；
+        /// <summary>存档完整路径（`SaveRoot.Path/WarpforgeProfile/profile.json`，🆕 2026-11-03 B128：根 = `C:\warpforgesave`；
         /// 自检可用 <see cref="SavePathOverrideForTest"/> 改道）。</summary>
         public static string SavePath
         {
             get
             {
                 if (!string.IsNullOrEmpty(SavePathOverrideForTest)) return SavePathOverrideForTest;
-                return System.IO.Path.Combine(System.IO.Path.Combine(Application.persistentDataPath, SaveDirName), SaveFileName);
+                return System.IO.Path.Combine(System.IO.Path.Combine(SaveRoot.Path, SaveDirName), SaveFileName);
             }
         }
 

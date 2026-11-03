@@ -320,3 +320,79 @@ public static class B99C1_Assert
 
     static void CheckTrueFail(string msg) { MenuCheck.True(_sink, false, msg); }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+//  🆕 2026-11-03（执行代理 `B128` · 战斗线 `T09-新账`）：**多卡摊开窗的 ESC 关窗**断言组。
+//
+//  它盯的判据（第一权威，全部现读）：
+//    · `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4182.json`（本窗实例
+//      `UIMultiCardDisplay`）：**`closeOnESC = 1`**；
+//    · `d:/2/tools/decomp_full/GameWindow__ESCPressed.c`：`currentWindow` 非空 ∧ enabled ∧
+//      `*(window + 0x39) != 0`（= `closeOnESC`）⇒ 调虚方法 `+0x1b8`（= `Close`）；
+//    · 分发点 `WindowsManager.Update`：`if (GetKeyDown(Escape) && currentWindow && currentWindow.IsOpen())
+//      currentWindow.ESCPressed();`（`0x1b` = 27 = `KeyCode.Escape`）。
+//  落点 = `CardPresentation/Battle/MultiCardDisplay.cs` 类尾 `TickEscClose()`（`LateUpdate` 每帧调）。
+//
+//  🔴 灭自证（哪一处改写会让哪一条红）：
+//    · 把 `TickEscClose()` 写成「只要 `Visible` 就挂起」（不看 ESC）⇒ 「ESC 没按 ⇒ 窗不关」那条红；
+//    · 去掉 `if (!Visible) return false;`（原版 `currentWindow` 闸）⇒ 「窗关着时 ESC 不被本窗吃掉」红
+//      （结算屏那一帧 ESC 会被本窗抢走）；
+//    · 在 `TickEscClose` 里直接 `Hide()`（不挂起）⇒ 「只挂起：窗还开着、`_closePending` 为真」那条红。
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+public static class B128_Assert
+{
+    static readonly CheckSink _sink = new CheckSink("[B128] ") { Near = MenuNearStyle.Compact2 };
+    public static int Pass { get { return _sink.Pass; } }
+    public static int Fail { get { return _sink.Fail; } }
+    static void T(bool c, string msg) { MenuCheck.True(_sink, c, msg); }
+
+    /// <summary>多卡摊开窗的 ESC 关窗（<c>closeOnESC = 1</c>）。
+    /// ⚠️ 必须是**活着且建好 HUD** 的那台 driver（宿主 = `BattleScene.Run` 里 `DestroyImmediate` 之前那一行）。</summary>
+    public static void RunMultiCardEsc(CardPresentation.BattleDriver driver)
+    {
+        T(driver != null, "★ B128：（前提）拿得到活着的 `BattleDriver`（ESC 关窗要一台建好 HUD 的驱动）");
+        if (driver == null) return;
+        var mcd = driver.MultiCards;
+        T(mcd != null, "★ B128：（前提）多卡摊开窗建出来了（`MultiCardDisplay.Create` 立在子画布上）");
+        if (mcd == null) return;
+
+        if (mcd.Visible) mcd.Hide();
+        int baseEsc = mcd.EscCloseRequestsForTest;
+        try
+        {
+            // ---- ① 窗关着：ESC **不归本窗**（原版 `WindowsManager.currentWindow` 闸）----
+            CardPresentation.MultiCardDisplay.EscapePressedForTest = true;
+            T(!mcd.TickEscClose(), "★ B128：窗**关着**时 ESC 不被本窗吃掉（原版 `currentWindow` 闸 —— 结算屏那一下不能被抢）");
+            T(mcd.EscCloseRequestsForTest == baseEsc, "★ B128：……而且计数没动（没挂起任何关闭）");
+
+            // ---- ② 窗开着：ESC 吃下、但只**挂起**（⛔ 不在输入回调里当场 Hide）----
+            mcd.Show(new List<CardPresentation.CardData>
+                     { CardPresentation.CardData.Placeholder(0), CardPresentation.CardData.Placeholder(1) }, null);
+            T(mcd.Visible, "★ B128：（前提）摊开窗开起来了");
+            T(mcd.TickEscClose(), "★ B128：窗开着时 ESC **被本窗吃掉**（原版 MB_4182 `closeOnESC=1` + `GameWindow__ESCPressed`）");
+            T(mcd.Visible && mcd.ClosePendingForTest,
+              "★ B128：……只**挂起**：窗还开着、`_closePending` 为真（与 uGUI 点击同一条落账路，⛔ 不当场 `Hide`）");
+            T(mcd.EscCloseRequestsForTest == baseEsc + 1, "★ B128：……计数恰 +1");
+
+            // 幂等：自检钉死口是**电平**（连调两次），生产是按下沿 ⇒ 不该重复挂起
+            mcd.TickEscClose();
+            T(mcd.EscCloseRequestsForTest == baseEsc + 1, "★ B128：……同一电平再调一次**不重复挂起**（⛔ 别把计数写成每帧 +1）");
+
+            // ---- ③ 落账 ⇒ 关掉一次（`ApplyPendingClose` 幂等）----
+            T(mcd.ApplyPendingClose() && !mcd.Visible,
+              "★ B128：`ApplyPendingClose` 落账 ⇒ 窗关掉一次（批处理没有帧循环 ⇒ 自检手动落账）");
+            T(!mcd.ApplyPendingClose(), "★ B128：……再落一次 = 假（幂等；不会把窗关第二遍）");
+
+            // ---- ④ 灭自证：ESC **没按** ⇒ 窗开着也不关、不挂起 ----
+            CardPresentation.MultiCardDisplay.EscapePressedForTest = false;
+            mcd.Show(new List<CardPresentation.CardData> { CardPresentation.CardData.Placeholder(0) }, null);
+            T(!mcd.TickEscClose() && mcd.Visible && !mcd.ClosePendingForTest,
+              "★ B128：ESC **没按** ⇒ 窗不关、不挂起｜🧨 把 `TickEscClose` 写成「只要 `Visible` 就挂起」⇒ 本条红");
+        }
+        finally
+        {
+            CardPresentation.MultiCardDisplay.EscapePressedForTest = null;   // 生产恒为 null
+            if (mcd.Visible) mcd.Hide();
+        }
+    }
+}

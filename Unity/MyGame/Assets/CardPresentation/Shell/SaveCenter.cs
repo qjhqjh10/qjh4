@@ -18,7 +18,7 @@
 //   · 施工方案：`资料/完全复刻/判据/存档体系_原版语义与施工方案.md` §七 Step 1 / Step 3。
 //
 // 落盘形态（**Step 0 定的 `_v` 约定**）
-//   根目录：`Application.persistentDataPath/WarpforgeSave/`
+//   根目录：`SaveRoot.Path/WarpforgeSave/`（🆕 2026-11-03 B128：根 = `C:\warpforgesave`，原来是 `Application.persistentDataPath`）
 //   每个 key 一个文件：`<key>.json`
 //   内容：**顶层第一个键**是 `"_v"`（int，从 1 开始），其余字段 = 该 key 的 payload，**同一层**（不套壳）：
 //        {"_v":1,"rows":[...],"skullsCount":0}     ← DailyCounters 这种
@@ -49,7 +49,7 @@ namespace CardPresentation
     /// ⚠️ 2026-10-28（`B90-N5`）：**已有首个消费者 = `Shell/ChatCache.cs`**（原写「Step 1 阶段没有任何子系统调用它」，已不成立）。</para></summary>
     public static class SaveCenter
     {
-        /// <summary>`persistentDataPath` 下的根目录名（与 `WarpforgeDaily` / `WarpforgeDraft` 并列）。</summary>
+        /// <summary>`SaveRoot.Path` 下的根目录名（与 `WarpforgeDaily` / `WarpforgeDraft` 并列）。</summary>
         public const string RootDirName = "WarpforgeSave";
 
         /// <summary>payload 顶层的版本键（**必须是第一个键** —— 读的时候按这个位置剥信封）。</summary>
@@ -76,13 +76,13 @@ namespace CardPresentation
         /// <summary>最近一次写盘失败的原文（成功时 `null`）。日志之外还能被自检读。</summary>
         public static string LastWriteError { get; private set; }
 
-        /// <summary>存档根目录（`persistentDataPath/WarpforgeSave`，或自检注入的目录）。</summary>
+        /// <summary>存档根目录（`SaveRoot.Path/WarpforgeSave`，或自检注入的目录）。</summary>
         public static string RootDir
         {
             get
             {
                 return string.IsNullOrEmpty(OverrideRoot)
-                     ? Path.Combine(Application.persistentDataPath, RootDirName)
+                     ? Path.Combine(SaveRoot.Path, RootDirName)   // 🆕 2026-11-03 B128：根 = `SaveRoot.Path`（`C:\warpforgesave`），不再是 `persistentDataPath`
                      : OverrideRoot;
             }
         }
@@ -908,11 +908,11 @@ namespace CardPresentation
         //  ⚠️ 本节全部成员**追加在类尾**。
         // ════════════════════════════════════════════════════════════════════════════════════
 
-        /// <summary>**双写期总开关**（Step 4 默认开 · Step 5 关掉）。
-        /// <para>`true`：**登记过**（<see cref="RegisterLegacyMirror"/>）的 key 在 `Set*` 写成功后，把同一份 payload
-        /// 再写一份到旧档 —— **不带 `_v` 信封**（旧客户端照旧能读，也不改它认识的文件形状）。</para>
-        /// <para>`false`（Step 5）：只写中央档。⛔ 关之前必须确认每个登记过的 key 都已有中央档（见 <see cref="DumpMirrorTable"/>）。</para></summary>
-        public static bool LegacyMirrorOn = true;
+        /// <summary>**双写期总开关**。🔴 **2026-11-03（`B128` · 旧任务 `界面-P-23` Step 5）用户裁定：默认关** —— 游戏已关服、
+        /// <para>以后再没有服务器 ⇒ **本地存档是唯一真源**；旧档 **永不删除**（唯一的离线回滚源）。`true`：登记过的 key 在 `Set*`
+        /// 写成功后把同一份 payload 再写一份到旧档（不带 `_v` 信封）。**逃生口**：环境变量 `WF_LEGACY_MIRROR` 非空 ⇒ 强制打开。</para>
+        /// <para>`false`（现行）：只写中央档，旧档从此**只读**。（关之前已核：每个登记过的 key 都已有中央档 —— 见 <see cref="DumpMirrorTable"/>。）</para></summary>
+        public static bool LegacyMirrorOn = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WF_LEGACY_MIRROR"));
 
         static readonly Dictionary<string, string> _mirror = new Dictionary<string, string>();   // key → 旧档绝对路径
 

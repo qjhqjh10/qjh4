@@ -95,7 +95,7 @@ namespace CardPresentation
         public int v;
     }
 
-    /// <summary>🆕 2026-10-18：`CardProgress` 的存档根（`Application.persistentDataPath/WarpforgeCardLevels.json`）。
+    /// <summary>🆕 2026-10-18：`CardProgress` 的存档根（`SaveRoot.Path/WarpforgeCardLevels.json`，🆕 2026-11-03 B128：根 = `C:\warpforgesave`）。
     /// 形状与为什么这么存 → `CardProgress` 里「存档」那一段的注释。</summary>
     [System.Serializable]
     public class CardProgressSave
@@ -142,7 +142,7 @@ namespace CardPresentation
         //   「**通过升级按钮进行不同等级的卡框切换**」⇒ 等级与通配符库存必须有落盘，
         //   否则「升了一级 / 扣了一张通配符」**关掉游戏就没了**（静默丢数据，红线）。
         //
-        // 文件：`Application.persistentDataPath/WarpforgeCardLevels.json`（**玩家存档位**，不进 git）。
+        // 文件：`SaveRoot.Path/WarpforgeCardLevels.json`（**玩家存档位**，不进 git；🆕 2026-11-03 B128：根 = `C:\warpforgesave`）。
         // 形状（`version` 留给以后迁移；读档时只认三个数组）：
         //   { "version": 1,
         //     "levels":    [ { "id": "UM82", "v": 2 } ],
@@ -157,7 +157,7 @@ namespace CardPresentation
         // ⚠️ 两个容器类放在**文件级**（不是嵌在 `CardProgress` 里）—— `JsonUtility` 对**嵌套类型**
         //   的支持在各 Unity 版本上不一致，放平最保险（它们不是 `MonoBehaviour`，不需要同名文件）。
 
-        /// <summary>存档文件名（**只此一处**；路径 = `Application.persistentDataPath`）。</summary>
+        /// <summary>存档文件名（**只此一处**；路径 = `SaveRoot.Path`）。</summary>
         public const string SaveFileName = "WarpforgeCardLevels.json";
 
         static bool _loaded;        // 懒加载过没有（无论读盘成功与否）
@@ -169,7 +169,7 @@ namespace CardPresentation
             {
                 // 🆕 2026-10-31（`B104_P3`）：自检可以用 `OverridePath` 指到别处（含**非法路径**，用来强制写盘失败）
                 return string.IsNullOrEmpty(OverridePath)
-                     ? System.IO.Path.Combine(Application.persistentDataPath, SaveFileName)
+                     ? System.IO.Path.Combine(SaveRoot.Path, SaveFileName)
                      : OverridePath;
             }
         }
