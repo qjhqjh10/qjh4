@@ -64,7 +64,7 @@ public static class B121_D5_Assert
                 // 载体在 0 侧格 3；`opp` 在 1 侧格 3。criteria：只留**敌方部队**（对 owner=0 而言）。
                 var crit = Criteria(10);
                 crit.EnemyUnits = 1; crit.IncludeMinions = 1; crit.FriendlyUnits = 0;
-                var tpl = Template("B121D5TplBuff30", 0, ca: 30, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
+                var tpl = Template("B121D5TplBuff30", Trig, ca: 30, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
                 var row = tpl.TriggerAbilityIndices[0];
 
                 var got = RuleCore.ResolveBuffOthersTargetsForTest(ctx, 0, carrier, null, null, 10, tpl, row);
@@ -76,7 +76,7 @@ public static class B121_D5_Assert
                           "A1b ★★★ **反证**：解出来的**不是载体**（`enemyUnits=1` 真的在筛，不是「全场上」）");
 
                 // 灭自证：同一份夹具**拿掉 36 格** ⇒ 必须回到「出声 + 不结算」
-                var tplBare = Template("B121D5TplBuff30NoCrit", 0, ca: 30, pa: 0, ta: 10, fm: 0, mult: 0, crit: null);
+                var tplBare = Template("B121D5TplBuff30NoCrit", Trig, ca: 30, pa: 0, ta: 10, fm: 0, mult: 0, crit: null);
                 var rowBare = tplBare.TriggerAbilityIndices[0];
                 int gapBefore = RuleCore.EnchantRowsDataGapForTest;
                 var gotBare = RuleCore.ResolveBuffOthersTargetsForTest(ctx, 0, carrier, null, null, 10, tplBare, rowBare);
@@ -97,7 +97,7 @@ public static class B121_D5_Assert
             {
                 var crit = Criteria(10);
                 crit.FriendlyUnits = 1; crit.IncludeMinions = 1; crit.EnemyUnits = 0;
-                var tpl = Template("B121D5TplCodex410", 0, ca: 410, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
+                var tpl = Template("B121D5TplCodex410", Trig, ca: 410, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
                 var e = Attach(ctx, carrier, tpl);
                 int gapBefore = RuleCore.EnchantRowsDataGapForTest;
                 int n = RuleCore.RunEnchantmentLogicRowsForTest(ctx, e, carrier, 0, 3, Trig, "EarnedSkull", null, null);
@@ -111,7 +111,7 @@ public static class B121_D5_Assert
             if (ctx2 == null || carrier2 == null) { CheckTrue(false, "B3 前提不成立：第二场没建起来"); }
             else
             {
-                var tpl2 = Template("B121D5TplCodex410NoCrit", 0, ca: 410, pa: 0, ta: 10, fm: 0, mult: 0, crit: null);
+                var tpl2 = Template("B121D5TplCodex410NoCrit", Trig, ca: 410, pa: 0, ta: 10, fm: 0, mult: 0, crit: null);
                 var e2 = Attach(ctx2, carrier2, tpl2);
                 int gapBefore2 = RuleCore.EnchantRowsDataGapForTest;
                 int n2 = RuleCore.RunEnchantmentLogicRowsForTest(ctx2, e2, carrier2, 0, 3, Trig, "EarnedSkull", null, null);
@@ -130,7 +130,7 @@ public static class B121_D5_Assert
             {
                 var crit = Criteria(10);
                 crit.EnemyUnits = 1; crit.IncludeMinions = 1; crit.FriendlyUnits = 0;
-                var tpl = Template("B121D5TplStun130", 0, ca: 130, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
+                var tpl = Template("B121D5TplStun130", Trig, ca: 130, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
                 var e = Attach(ctx, carrier, tpl);
                 int n = RuleCore.RunEnchantmentLogicRowsForTest(ctx, e, carrier, 0, 3, Trig, "EarnedSkull", null, null);
                 Check(n, 1, "C1 ★★★ **结论**：`ca 130` 晕了 1 个单位｜🧨 删掉 `ca 130` 那一跳 ⇒ 0 ⇒ 红");
@@ -149,7 +149,7 @@ public static class B121_D5_Assert
                 var crit = Criteria(10);
                 crit.EnemyUnits = 1; crit.IncludeMinions = 1; crit.FriendlyUnits = 0;
                 crit.TraitsFilter = 100; crit.ExcludeTrait = 1;
-                var tpl = Template("B121D5TplStun130Trait", 0, ca: 130, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
+                var tpl = Template("B121D5TplStun130Trait", Trig, ca: 130, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
                 var e = Attach(ctx2, carrier2, tpl);
                 if (opp2 != null) opp2.AddKeyword(KeywordTable.Stun, 1);      // 先把它晕上 ⇒ criteria 应当排除它
                 int n = RuleCore.RunEnchantmentLogicRowsForTest(ctx2, e, carrier2, 0, 3, Trig, "EarnedSkull", null, null);
@@ -167,7 +167,7 @@ public static class B121_D5_Assert
             if (ctx == null || carrier == null || opp == null) { CheckTrue(false, "D0 前提不成立：对局 / 载体没建起来"); }
             else
             {
-                var tpl = Template("B121D5TplSteal185", 0, ca: 185, pa: 0, ta: 20, fm: 0, mult: 0, crit: null);
+                var tpl = Template("B121D5TplSteal185", Trig, ca: 185, pa: 0, ta: 20, fm: 0, mult: 0, crit: null);
                 var e = Attach(ctx, carrier, tpl);
                 bool onSide1Before = BoardHas(ctx, 1, opp);
                 int n = RuleCore.RunEnchantmentLogicRowsForTest(ctx, e, carrier, 0, 3, Trig, "EarnedSkull", opp, null);
@@ -185,7 +185,7 @@ public static class B121_D5_Assert
             if (ctx2 == null || carrier2 == null) { CheckTrue(false, "D5 前提不成立：第二场没建起来"); }
             else
             {
-                var tpl2 = Template("B121D5TplSteal185Null", 0, ca: 185, pa: 0, ta: 20, fm: 0, mult: 0, crit: null);
+                var tpl2 = Template("B121D5TplSteal185Null", Trig, ca: 185, pa: 0, ta: 20, fm: 0, mult: 0, crit: null);
                 var e2 = Attach(ctx2, carrier2, tpl2);
                 int gapBefore = RuleCore.EnchantRowsDataGapForTest;
                 int n2 = RuleCore.RunEnchantmentLogicRowsForTest(ctx2, e2, carrier2, 0, 3, Trig, "EarnedSkull", null, null);
@@ -207,7 +207,7 @@ public static class B121_D5_Assert
                 var crit = Criteria(10);
                 crit.FriendlyUnits = 1; crit.IncludeMinions = 1; crit.EnemyUnits = 0;
                 crit.MaxTargets = 0;                       // 不裁剪 ⇒ 候选 = 两个
-                var tpl = Template("B121D5TplActAttack236", 0, ca: 236, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
+                var tpl = Template("B121D5TplActAttack236", Trig, ca: 236, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
                 var e = Attach(ctx, carrier, tpl);
                 int hpC = carrier.Health, hpS = second != null ? second.Health : -1;
                 int n = RuleCore.RunEnchantmentLogicRowsForTest(ctx, e, carrier, 0, 3, Trig, "EarnedSkull", opp, null);
@@ -227,7 +227,7 @@ public static class B121_D5_Assert
             {
                 var crit = Criteria(10);
                 crit.FriendlyUnits = 1; crit.IncludeMinions = 1;
-                var tpl = Template("B121D5TplActAttack236Null", 0, ca: 236, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
+                var tpl = Template("B121D5TplActAttack236Null", Trig, ca: 236, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
                 var e = Attach(ctx2, carrier2, tpl);
                 int gapBefore = RuleCore.EnchantRowsDataGapForTest;
                 int n = RuleCore.RunEnchantmentLogicRowsForTest(ctx2, e, carrier2, 0, 3, Trig, "EarnedSkull", null, null);
@@ -245,7 +245,7 @@ public static class B121_D5_Assert
             {
                 var crit = Criteria(10);
                 crit.EnemyUnits = 1; crit.IncludeMinions = 1; crit.FriendlyUnits = 0;
-                var tpl = Template("B121D5TplSelfAttack238", 0, ca: 238, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
+                var tpl = Template("B121D5TplSelfAttack238", Trig, ca: 238, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
                 var e = Attach(ctx, carrier, tpl);
                 int hp = opp.Health;
                 int before = carrier.AttacksThisTurn;
@@ -261,7 +261,7 @@ public static class B121_D5_Assert
             if (ctx2 == null || carrier2 == null) { CheckTrue(false, "F4 前提不成立"); }
             else
             {
-                var tpl2 = Template("B121D5TplSelfAttack238NoCrit", 0, ca: 238, pa: 0, ta: 10, fm: 0, mult: 0, crit: null);
+                var tpl2 = Template("B121D5TplSelfAttack238NoCrit", Trig, ca: 238, pa: 0, ta: 10, fm: 0, mult: 0, crit: null);
                 var e2 = Attach(ctx2, carrier2, tpl2);
                 int gapBefore = RuleCore.EnchantRowsDataGapForTest;
                 int n2 = RuleCore.RunEnchantmentLogicRowsForTest(ctx2, e2, carrier2, 0, 3, Trig, "EarnedSkull", null, null);

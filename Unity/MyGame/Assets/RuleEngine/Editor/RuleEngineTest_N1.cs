@@ -39,7 +39,7 @@ public static partial class RuleEngineTest
                   "前提：`RuleCore.Hurt` 还在（改名 ⇒ 本组夹具造不出阵亡，⛔ 别静默跳过）");
         if (mi == null || u == null) return;
         var args = new object[] { ctx, u, 99, "N1Kill", -1, false, null,
-                                  UnitDeathType.Unknown, DamageKind.Unknown };
+                                  UnitDeathType.Unknown, DamageKind.Unknown, null };   // 🆕 2026-11-03（B123 首跑）：`Hurt` 第 10 个形参 `actionTarget`（`B118_W20`）⇒ 反射实参补一格 `null`
         Check(args.Length, mi.GetParameters().Length,
               "前提：`RuleCore.Hurt` 的形参个数 = 本夹具喂的个数（反射不走可选形参）"
             + "｜🧨 `Hurt` 加减形参而这里没跟着改 ⇒ 本行红 + 下面那条变成「夹具抛异常」");

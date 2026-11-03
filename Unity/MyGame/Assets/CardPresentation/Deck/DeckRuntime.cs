@@ -2572,7 +2572,7 @@ namespace CardPresentation
             if (_cosmoArmyTitle != null)
             {
                 _cosmoArmyTitle.SetGlyphHeight(LayoutSpace.Px(FilterPanelModel.TitleFontPx));
-                MenuDraw.AlignLeft(_cosmoArmyTitle, cosmoArmyR); SetTmpMargin(_cosmoArmyTitle, new Vector4(22.7f, 0f, 0f, 0f));   // 🔴 2026-10-31（B108_A3）：HA=1 + 原版 `m_margin = (22.7,0,0,0)`（AUD02 行 462）
+                MenuDraw.AlignLeft(_cosmoArmyTitle, cosmoArmyR); SetTmpMargin(_cosmoArmyTitle, new Vector4(22.7f, 0f, 0f, 0f));   // 🔴 2026-10-31（B108_A3）：HA=1 + 原版 `m_margin = (22.7,0,0,0)`（AUD02 行 462）｜🔴 2026-11-03（B123 真机）：**已知缺陷** —— 这颗标题被画到屏幕右上（实拍 x≈1900，应在抽屉内 x≈25），见活状态表 `B123-ARMYTITLE`。试过两种局部坐标修法（`CosmoFltLocal` / `AlignLeftOn`）在现场都不生效（且第一版 `RectTransform` 强转在 world 档会抛，导致整页空白）⇒ 已回退到原实现，留待带探针的下次修
             }
 
             // 出厂两栏都收着 ⇒ 按进度 0 摆一次（位置 / 显隐 / 命中）。
@@ -4798,12 +4798,12 @@ namespace CardPresentation
             //   · 判据 = **本文件已有的那个「筛选是不是空的」读法**：`DeckFilter.IsEmpty`
             //     （`Deck/DeckEditorState.cs`，五个筛选字段全空；**不含 `Owned` / `Upgradable`** 那两个开关）
             //     —— ⛔ 别另造一个「有没有筛选」的概念。
-            //   · **与它自己的动作同一条判据**：`case "hdr_clear": ClearFilters()` 清的正是 `State.Filter`
-            //     那五件 ⇒ 这颗钮「管的是卡牌那一套筛选」，所以显隐也读 `State.Filter`。
-            //     ⚠️ 卡背页（`_tab == 2`）那一份 `_cosmoFilter` 算不算数 —— **判据不足**（原版只有一颗钮、
-            //     而它归哪个 controller 没读出来）⇒ 今天**只管卡牌那份**，如实标注在这里。
+            //   · **与它自己的动作同一条判据**：`case "hdr_clear": ClearFilters()` 清当前页那一套
+            //     （卡牌页清 `State.Filter`、卡背页清 `_cosmoFilter`；原版清的是**当前 controller** 的 `filters[]`）
+            //     ⇒ 显隐 / 命中闸 / 动作三处**一律读 `HdrClearOn`**（类尾那一个谓词，⛔ 别各写一份）。
+            //     ✅ **2026-11-03（B123-C2）结案**：原「卡背页算不算 = 判据不足」已不成立 —— chip 恰恰来自 `_cosmoFilter`。
             //   · 🔴 **命中闸必须跟着走**（`KeyLive` 里那一支）：藏起来却还能点到 = 静默失败（本仓红线）。
-            bool clearFiltersOn = !State.Filter.IsEmpty;
+            bool clearFiltersOn = HdrClearOn;
             SetOn(_hdrClear, clearFiltersOn);
             SetOn(_hdrClearTx, clearFiltersOn); RefreshHeaderChips();   // 🆕 2026-11-03（B121-COLL-22）：页头 chip + `Clear filters` 的位移（原版 `filterIconHolder` 容器 CSF 撑宽 ⇒ 钮跟着右移）
 
@@ -7334,8 +7334,8 @@ namespace CardPresentation
             var f = DeckFilter.None;
             f.Owned = State.Filter.Owned;
             f.Upgradable = State.Filter.Upgradable;
-            State.SetFilter(f);
-            _fltScroll = 0f;
+            if (_tab != 2) State.SetFilter(f);   // 🔴 卡背页只清**当前那个 controller** ⇒ 卡牌那一份不动（否则「在卡背页点清空、回卡牌页发现筛选也没了」= 原版没有的副作用）
+            _fltScroll = 0f; ClearCosmoFilterKeepOwned();   // 🔴 卡背页（`_tab == 2`）：同一颗钮清的是**当前那个 controller** ⇒ 一并清 `_cosmoFilter`（`Owned` 开关不动，同上一段口径）；判据/为什么必须在同一颗钮里 → 类尾那个方法的 doc
             RefreshPool(); RefreshFilters(); RefreshHeader();
             Say("已清空筛选");
         }
@@ -7957,7 +7957,7 @@ namespace CardPresentation
             _cosmoFilter = f;
             _cosmScroll = 0f;                 // 筛选一变就回到顶部（否则可能停在一片空白上）
             RefreshCosmoFilters();
-            RefreshCosmetics();
+            RefreshCosmetics(); RefreshHeader();   // 🔴 2026-11-03（B123-C2）：`RefreshHeader` 必须跟着刷 —— 页头 chip 与 `Clear filters`（`HdrClearOn`）都读 `_cosmoFilter`，原来只刷抽屉与卡背格 ⇒ 点完阵营后 chip / 钮要等下一次别的刷新才出现（「点下去没反应」类静默）
         }
 
         // ---- 自检用的读数（`DeckScene` 拿它盯原版参数；格子没进 `_named`，所以单开这一组）----
@@ -8455,7 +8455,7 @@ namespace CardPresentation
         ///   · 导入弹窗那四颗 `imp_*`（2026-10-17 已按 T23 删 —— 那棵树整棵是外壳那份的重复实现）。
         /// ⇒ 今天只剩 `hdr_clear` 那一支。
         /// 判据 = **与显隐同一个谓词**（不许两份）：
-        ///   · `hdr_clear` ↔ `!State.Filter.IsEmpty`（2026-10-20）—— 它与 `RefreshHeader`
+        ///   · `hdr_clear` ↔ `HdrClearOn`（2026-10-20 起是「本页筛选非空」；2026-11-03 `B123-C2` 收成一个谓词）—— 它与 `RefreshHeader`
         ///     里那两句 `SetOn` **是同一个谓词**（那边藏、这边挡命中）。
         /// 表里没有的 key = **恒在**（`hdr_back` / `hdr_filters` / `foot_done` / `name_*` / `tab_*`
         /// 都是常显件；⚠️ 2026-10-20 起 **`hdr_clear` 不再是常显件**）。
@@ -8468,7 +8468,7 @@ namespace CardPresentation
                 //   里那两句 `SetOn` 用的就是这一个谓词）⇒ 这里必须**同样**判掉，否则「藏起来了却还能点到」
                 //   （静默失败，本仓红线）。判据/推断/为什么走 `SetActive` → `HdrClearX` 上面那一大段。
                 case "hdr_clear":
-                    return !State.Filter.IsEmpty;
+                    return HdrClearOn;
                 default:
                     return true;
             }
@@ -10381,6 +10381,31 @@ namespace CardPresentation
         {
             if (i < 0 || i >= _hdrChipHits.Count) { x = y = w = h = 0f; return false; }
             var b = _hdrChipHits[i]; x = b.X; y = b.Y; w = b.W; h = b.H; return true;
+        }
+
+        // ============================================================ 🆕 2026-11-03（B123-C2 · `B121-COLL-24`）
+        // ============================================================ 页头 `Clear filters` 的谓词与「清空动作」—— 各只留一处
+
+        /// <summary>页头那颗 `Clear filters` **现在该不该在** —— 显隐（`RefreshHeader`）/ 命中闸（`KeyLive`）/ 清空动作 三处共用。
+        /// <para>判据 = **当前这一页自己的筛选**：卡背页（`_tab == 2`）读 `_cosmoFilter`（页头 chip 恰恰是它产的，
+        /// 见 `RefreshHeaderChips`）；其余两页读卡牌那套 `State.Filter`。</para>
+        /// <para>🔴 **2026-11-03（`B121-COLL-24`）**：原来三处各写 `!State.Filter.IsEmpty` ⇒ **卡背页有 chip 却没有钮**
+        /// （`B121-COLL16` 把 chip 建出来之后才露出来）。⛔ 别再各写一份（两处写同一条规则 = 迟早不一致）。</para></summary>
+        bool HdrClearOn { get { return _tab == 2 ? !_cosmoFilter.IsEmpty : !State.Filter.IsEmpty; } }
+
+        /// <summary>`Clear filters` 在卡背页（`_tab == 2`）也要清 `_cosmoFilter` —— 原版那颗钮清的是**当前那个 controller**
+        /// 的 `filters[]`（`CardCollectionFilterController__SetFiltersToDeck.c:29`；卡背页那个 controller 只有阵营一条）。
+        /// <para>🔴 `Owned` 是**开关**、不是 `filters[]` 项 ⇒ 与卡牌页那两个开关同口径**不动**（见 `ClearFilters` 的注释）。</para>
+        /// <para>⚠️ 只清不刷 = 「按钮出现了、点下去筛选还在」，比不做更糟 ⇒ 这里连刷新一起收口（`RefreshHeader` 由调用点补）。</para></summary>
+        void ClearCosmoFilterKeepOwned()
+        {
+            if (_tab != 2) return;
+            var cf = DeckFilter.None;                        // ⛔ 别整份直接用：它把 `Owned` 置真（= 玩家关掉的开关自己跳回开）
+            cf.Owned = _cosmoFilter.Owned;
+            _cosmoFilter = cf;
+            _cosmScroll = 0f;
+            RefreshCosmoFilters();
+            RefreshCosmetics();
         }
     }
 }

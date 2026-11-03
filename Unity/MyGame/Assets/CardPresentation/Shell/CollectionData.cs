@@ -630,10 +630,10 @@ namespace CardPresentation
         /// **空串会一路开进信息窗**。⚠️ 我们改前在这里报 `MenuDeck/Error/ImportEmpty`（自拟键）是**有意偏离**，
         /// 2026-11-03（B121-C2）按 §18·0 改回原版行为。</para>
         ///
-        /// <para>⚠️ 名字那一格我们**仍与纯原版有一处差别**：`DeckLibrary.ImportString` 对「空名字」会补
-        /// 「导入的卡组」（那是它的既有口径，`RuleEngine/Data/DeckLibrary.cs` 不在本笔白名单）；
-        /// 本方法**绕开**了它那条兜底（空串直接在这里造），所以空串导入出来的是**真空名** —— 与原版一致。
-        /// 非空串仍走 `ImportString`（它会补名，这是**已知的第二处偏离**，如实记）。</para></summary>
+        /// <para>⚠️ 名字那一格**已与原版一致**（2026-11-03 `B123-C2` 现核 + 已改 `DeckLibrary`）：原版 `CardDeck.DeckBasicSetup.c:21-24`
+        /// 把名字原样写、**无空名守卫**（补 GUID 的是 id 那一格）⇒ `DeckLibrary.ImportString` 不再补「导入的卡组」。
+        /// 本方法仍**绕开**它那条路（空串直接在这里造），空串导入出来是**真空名**。
+        /// 非空串走 `ImportString` 也**不再补名**。</para></summary>
         public static PlayerDeck ParseDeck(string s, out string why)
         {
             why = "";

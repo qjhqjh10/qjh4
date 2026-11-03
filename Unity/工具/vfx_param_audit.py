@@ -885,11 +885,21 @@ def queue_check(bundle_dir, materials_dir, shader_q_path, truth_path, runtime_pa
     truth = load_json_or(truth_path)
     runtime = load_json_or(runtime_path)
     use_runtime = bool(truth and runtime)
+    # 🆕 2026-11-03（批 `B123` · 账 `B121-BF-02`）：原版侧的队列**优先读带 bundle 的精确表**。
+    #   `truth["mat"]` 是按名字键的（同名跨包只会留一个值 —— 现读 `SandParticle` 是 3000/3001）；
+    #   本函数逐行处理的原始材质**全来自同一个包**（`bundle_dir`）⇒ (bundle, 名) 是精确的。
+    #   精确表缺失/没命中时**回落到 `mat`（旧行为）**，⛔ 不静默当成「没有」。
+    bundle_key = os.path.basename(os.path.normpath(bundle_dir)) if bundle_dir else ""
+    if bundle_key.startswith("bundle_"):
+        bundle_key = bundle_key[len("bundle_"):]
+    mat_by_bundle = ((truth or {}).get("mat_by_bundle") or {}).get(bundle_key) or {}
     out = []
     for r in rows:
         name, sh, oq, oqeff, uq = r[0], r[1], r[2], r[3], r[4]
         if use_runtime:
-            tm = (truth.get("mat") or {}).get(name)
+            tm = mat_by_bundle.get(name)
+            if not (isinstance(tm, int) and tm >= 0):
+                tm = (truth.get("mat") or {}).get(name)
             orig_eff = tm if isinstance(tm, int) and tm >= 0 else (truth.get("shader") or {}).get(sh)
             our_eff = (runtime.get("queue") or {}).get(name, uq)
             eq = (our_eff == orig_eff) or (our_eff == -1 and orig_eff == -1)

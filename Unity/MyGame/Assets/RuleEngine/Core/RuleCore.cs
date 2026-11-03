@@ -14665,10 +14665,10 @@ namespace RuleEngine
         // ==================================================================
 
         /// <summary>`DeclareAttack` 外面那一层：**按原版判据决定强制攻击退还一次行动额度**
-        /// （`ForcedAttackRefunds`：`chosenAbility ∈ {231,237,238}` 才退）；判据/净语义/**入队预扣** → 上方注释块。
-        /// ⚠️ 全仓只有 `EffectResolver.TryAttackOnce` 传 `forced: true`（`grep` 现核）。</summary>
+        /// （`ForcedAttackRefunds`：`chosenAbility ∈ {231,237,238}` 才退；判据/净语义/**入队预扣** → 上方注释块）。
+        /// 🆕 2026-11-03（`B123_E2`）：`forceRefund` 形参 = 调用方**直接指定**退还与否（`null` = 逐字旧行为）；附魔 `ca 238` 传 `true`（原版 `PlayAbility.c:2764-2779` 把 `dontCountAttack` 写死成 `1`）。全仓其余调用点（`EffectResolver.TryAttackOnce`）不传 ⇒ 仍按 `ForcedAttackRefunds` 查表。</summary>
         static int DeclareAttackRefundingForced(BattleContext ctx, int p, int atkSlot,
-                                                int tgtP, int tgtSlot, bool ranged, bool forced)
+                                                int tgtP, int tgtSlot, bool ranged, bool forced, bool? forceRefund = null)
         {
             if (!forced)
                 // 原版非强制那一条（玩家点出来的那一记）一个字都不碰
@@ -14677,7 +14677,7 @@ namespace RuleEngine
             // `wasFree` 取的时刻 = **入队那一刻**（`AddForceAttack.c:41`）⇒ 必须在攻击之前取。
             UnitState atkUnit = (ctx != null && p >= 0 && p <= 1 && BoardSpec.IsValid(atkSlot))
                                 ? ctx.Players[p].Board[atkSlot] : null;
-            bool wasFree = atkUnit != null && atkUnit.AttacksThisTurn == 0, refunds = ForcedAttackRefunds(ctx);  // `wasFree` 与退还判据都在**入队那一刻**取
+            bool wasFree = atkUnit != null && atkUnit.AttacksThisTurn == 0, refunds = forceRefund ?? ForcedAttackRefunds(ctx);  // `wasFree` 与退还判据都在**入队那一刻**取（`forceRefund` 非 null 时以它为准）
             if (refunds) RemoveAttackThisTurn(atkUnit);                           // ① **入队即预扣**（`AddForceAttack.c:42`；只有 `dontCountAttack` 那三族）
             int code = DeclareAttackCore(ctx, p, atkSlot, tgtP, tgtSlot, ranged, true);
             // 🔴🆕 **2026-10-27（执行代理 `B87_A3` · 调度台口径 `G14` 2026-10-26）就地改：候选不合法时

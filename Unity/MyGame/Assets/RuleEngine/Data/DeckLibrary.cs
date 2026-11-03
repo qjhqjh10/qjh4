@@ -489,9 +489,9 @@ namespace RuleEngine
             for (int i = 1; i < parts.Length; i++)
                 if (!string.IsNullOrEmpty(parts[i])) rawIds.Add(parts[i]);
 
-            string deckName = string.IsNullOrEmpty(name) ? "导入的卡组" : name;
+            string deckName = name ?? "";   // 🔴 2026-11-03（B123-C2 · `B121-COLL-14`）去掉「导入的卡组」兜底：原版 `CardDeck__DeserializeDeckString.c` 把 `Split(':')[0]` 原样交给 `DeckBasicSetup`，而 `CardDeck__DeckBasicSetup.c:21-24` 直接 `*(param_1+0x10)=param_2`（名字）⇒ **空名守卫不存在**（补 GUID 的是 `+0x18` 那个 **id**，不是名字）
             if (lookup == null)
-                { var noLookup = new PlayerDeck(deckName, null, null, rawIds, gameMode); noLookup.SetDeckArmyNeutral(); return noLookup; }   // 🆕 2026-11-01（`B111_R1WB`）：没有 hero ⇒ 原版 `DeckBasicSetup` 那一档 = Neutral
+                { var noLookup = new PlayerDeck(deckName, null, null, rawIds, gameMode); noLookup.Name = deckName ?? ""; noLookup.SetDeckArmyNeutral(); return noLookup; }   // 🆕 2026-11-01（`B111_R1WB`）：没有 hero ⇒ 原版 `DeckBasicSetup` 那一档 = Neutral｜🆕 2026-11-03（`B123-C2` 首跑）：`PlayerDeck` ctor 对空名会补「新卡组」⇒ 导入路按原版**原样写回**（`CardDeck__DeckBasicSetup.c:21-24` 无空名守卫）
 
             // ① **现代解**：按卡的类型摘（原版 `DeserializeDeckString.c:147,155` —— 按类型不按位置）
             List<string> modernDropped;
@@ -555,7 +555,7 @@ namespace RuleEngine
         public PlayerDeck Add(PlayerDeck d)
         {
             if (d == null) return null;
-            d.Name = UniqueName(string.IsNullOrEmpty(d.Name) ? "导入的卡组" : d.Name);
+            d.Name = string.IsNullOrEmpty(d.Name) ? "" : UniqueName(d.Name);   // 🔴 2026-11-03（B123-C2 · `B121-COLL-14`）：空名**保持空名**（原版不补文案、也不给空名编序号 —— `CardDeck__DeckBasicSetup.c:21-24` 直接赋值）；非空名照旧去重
             _decks.Add(d);
             _current = _decks.Count - 1;
             SaveOrWarn("Add");           // 🔴 A398：同上（返回值是对象）

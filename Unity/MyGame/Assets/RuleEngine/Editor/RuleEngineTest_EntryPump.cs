@@ -126,7 +126,7 @@ public static partial class RuleEngineTest
             //   （这一条验的是「入口自带 `ActionScope`」，与伤害类别无关）。
             //   ⇒ 先断一次「个数对得上」：将来再加形参时红得**看得懂**（而不是一条栈底异常）。
             var hurtArgs = new object[] { null, null, 1, "W62E", -1, false, null,
-                                          UnitDeathType.Unknown, DamageKind.Unknown };
+                                          UnitDeathType.Unknown, DamageKind.Unknown, null };   // 🆕 2026-11-03（B123 首跑）：`Hurt` 已加第 10 个形参 `actionTarget`（`B118_W20`）⇒ 反射实参表同步补一格 `null`（缺省值）
             Check(hurtArgs.Length, miHurt.GetParameters().Length,
                   "前提：`RuleCore.Hurt` 的形参个数 = 本夹具喂的个数（反射不走可选形参，少一个就抛 `TargetParameterCountException`）"
                 + "｜🧨 `Hurt` 加减形参而这里没跟着改 ⇒ 本行红 + 下面那条变成「夹具/入口抛异常」");

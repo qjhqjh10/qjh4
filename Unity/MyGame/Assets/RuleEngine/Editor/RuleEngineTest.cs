@@ -103,7 +103,7 @@ public static partial class RuleEngineTest
         Section("A5 批 1（`Heal N` 无目标=自己 / 三族「已由别的层接手」）");
         Step(TestA5Batch1);
 
-        Section("战术卡文本（能解析 N/448）");
+        Section("战术卡文本（能解析 N/446 —— 分母 = 原版卡池；池内 tactic 共 459，13 张 TRANSFORM_* 自设计卡不计入）");
         Step(TestTacticTextCoverage);
 
         Section("A4 解析层的宽度（付费前缀 / 小原子 / 设为 N 费）");
@@ -1303,7 +1303,7 @@ public static partial class RuleEngineTest
         Guard("CheckB97ER2Gaps", CheckB97ER2Gaps); { Guard("CheckB97W2Gaps", CheckB97W2Gaps); Guard("CheckB97W5DataColumnsAndPoolFilters", CheckB97W5DataColumnsAndPoolFilters); Guard("CheckB120W7Gaps", CheckB120W7Gaps); Guard("CheckB120W20Gaps", CheckB120W20Gaps); }   // 🆕 2026-10-29（调度台代接线）：`B97_W2`（手牌费 Permanent / 210 手牌两跳 / 11 组 buff）· `B97_W5`（startingCardInHand 列 / BoardGate ConditionsFilter / selectFromChooseResolution / 单次变异）—— 同一物理行追加 ⇒ 行数零变化
 
         // 🆕 2026-10-29（调度台代接线）：`B97_ER` —— 再裁 #54：`CanTriggerAbility` 第一道闸扩到全部 trigger。
-        Guard("CheckB97ERAbilityGates", CheckB97ERAbilityGates); Guard("CheckB108A1TriggerEmits", CheckB108A1TriggerEmits); Guard("CheckB108A16EnchantDataTriggerMatch", CheckB108A16EnchantDataTriggerMatch); Guard("CheckB116G2MultiAbilityQuest", CheckB116G2MultiAbilityQuest); Guard("CheckB116W12SwarmListenerTarget", CheckB116W12SwarmListenerTarget); Guard("CheckB116W6ChoiceTableAndOathRecompose", CheckB116W6ChoiceTableAndOathRecompose); Guard("B116W8_Assert", B116W8_Assert.Run); _pass += B116W8_Assert.Pass; _fail += B116W8_Assert.Fail; Guard("B116W18_Assert", B116W18_Assert.Run); _pass += B116W18_Assert.Pass; _fail += B116W18_Assert.Fail; Guard("CheckB116W19Jam", CheckB116W19Jam); Guard("B116W24_Assert", B116W24_Assert.Run); _pass += B116W24_Assert.Pass; _fail += B116W24_Assert.Fail; Guard("B116W27_Assert", B116W27_Assert.Run); _pass += B116W27_Assert.Pass; _fail += B116W27_Assert.Fail; Guard("B116W31_Assert", B116W31_Assert.Run); _pass += B116W31_Assert.Pass; _fail += B116W31_Assert.Fail; Guard("B116W32_Assert", B116W32_Assert.Run); _pass += B116W32_Assert.Pass; _fail += B116W32_Assert.Fail; Guard("B116W39_Assert", B116W39_Assert.Run); _pass += B116W39_Assert.Pass; _fail += B116W39_Assert.Fail; Guard("B116W41_Assert", B116W41_Assert.Run); _pass += B116W41_Assert.Pass; _fail += B116W41_Assert.Fail; Guard("B118W4_Assert", B118W4_Assert.Run); _pass += B118W4_Assert.Pass; _fail += B118W4_Assert.Fail; Guard("B118W11_Assert", B118W11_Assert.Run); _pass += B118W11_Assert.Pass; _fail += B118W11_Assert.Fail; Guard("B118W20_Assert", B118W20_Assert.Run); _pass += B118W20_Assert.Pass; _fail += B118W20_Assert.Fail;   // 🆕 2026-11-02（`B116_W41` · 活状态表 `B-340` ＋ `ENG-07` `psyker`/`reactor`）：`ta=65` 抽牌支接 36 格 ＋ 灵能/等离子死支（写 flag、没人读）；断言全文在 `Editor/B116W41_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W39` · 账 `B-342` ＋ `ENG-16`① ＋ `B-317`）：表支 `ta=140`（140 不筛 / 150 筛）· 触发正文挂 `ta` 后 `Strike` 才接得住 `chosen:` · 真死时的阵营闸走 `sideOverride`；断言全文在 `Editor/B116W39_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W31` · 活状态表 `SAN-04` 残余 + `SAN-27` 判据侧 + `B-333`）：`ta=150` 手牌半（效果层筛 / 表现层 `Slot=-1`）＋报表口径走表现层白名单；断言全文在 `Editor/B116W31_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W27` · 活状态表 `B-211` ＋ `B-255`）：`cardAbilities` 逐 ability 派发（380/320）＋ 排他闸；断言全文在 Editor/B116W27_Assert.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W24` · `ENG-11`）：`buffType 12/15` 的附魔挂载执行器（`Enchantments.Attach`）；断言全文在 Editor/B116W24_Assert.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W19` · `ENG-07` `jam`）：`cardTraits` 口径 + `HasWhileInPlayAbility` 判反 + 触发闸 + 誓约闸；断言全文在 `Editor/RuleEngineTest_B116W19.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W18` 代接线 · 同一物理行追加 ⇒ 行数零变化）：`B116W8` = ENG-11 的 `8 markOfChaos`/`90 addTraitRemnant`（原 `B116_W8` 写好但未接线）；`B116W18` = `B-328` `abilityBuffs` 的 `enchantmentId`/`enchantmentPathId` 两列   // 🆕 2026-11-02（B116_W12 · `B-314`）：Swarm 监听（620）的 `it` = 留下的 host（`ta=30` ← `targetCard`）；断言全文在 Editor/RuleEngineTest_B116W12.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（B116_W9 · ENG-02）：一件任务附魔有 N 条同 trigger 的 ability ⇒ （判据 = 原版 TriggerAbilities.c:115 在逐条循环里）；断言全文在 Editor/RuleEngineTest_B116G2.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-10-31（B108_A1/A16）：trigger 发射口 + 附魔数据位匹配   // 🆕 2026-11-02（`B116_W32` · `B-329`）：选项 SO 旁表（`choice_option_cards.json`）＋ 结构化支接上 —— TL20 的 `+2 [Melee]` 只加自己，⛔ 不再是「己方全体」；断言全文在 Editor/B116W32_Assert.cs（同一物理行追加 ⇒ 行数零变化）
+        Guard("CheckB97ERAbilityGates", CheckB97ERAbilityGates); Guard("CheckB108A1TriggerEmits", CheckB108A1TriggerEmits); Guard("CheckB108A16EnchantDataTriggerMatch", CheckB108A16EnchantDataTriggerMatch); Guard("CheckB116G2MultiAbilityQuest", CheckB116G2MultiAbilityQuest); Guard("CheckB116W12SwarmListenerTarget", CheckB116W12SwarmListenerTarget); Guard("CheckB116W6ChoiceTableAndOathRecompose", CheckB116W6ChoiceTableAndOathRecompose); Guard("B116W8_Assert", B116W8_Assert.Run); _pass += B116W8_Assert.Pass; _fail += B116W8_Assert.Fail; Guard("B116W18_Assert", B116W18_Assert.Run); _pass += B116W18_Assert.Pass; _fail += B116W18_Assert.Fail; Guard("CheckB116W19Jam", CheckB116W19Jam); Guard("B116W24_Assert", B116W24_Assert.Run); _pass += B116W24_Assert.Pass; _fail += B116W24_Assert.Fail; Guard("B116W27_Assert", B116W27_Assert.Run); _pass += B116W27_Assert.Pass; _fail += B116W27_Assert.Fail; Guard("B116W31_Assert", B116W31_Assert.Run); _pass += B116W31_Assert.Pass; _fail += B116W31_Assert.Fail; Guard("B116W32_Assert", B116W32_Assert.Run); _pass += B116W32_Assert.Pass; _fail += B116W32_Assert.Fail; Guard("B116W39_Assert", B116W39_Assert.Run); _pass += B116W39_Assert.Pass; _fail += B116W39_Assert.Fail; Guard("B116W41_Assert", B116W41_Assert.Run); _pass += B116W41_Assert.Pass; _fail += B116W41_Assert.Fail; Guard("B118W4_Assert", B118W4_Assert.Run); _pass += B118W4_Assert.Pass; _fail += B118W4_Assert.Fail; Guard("B118W11_Assert", B118W11_Assert.Run); _pass += B118W11_Assert.Pass; _fail += B118W11_Assert.Fail; Guard("B118W20_Assert", B118W20_Assert.Run); _pass += B118W20_Assert.Pass; _fail += B118W20_Assert.Fail; Guard("B123_C1_Assert", B123_C1_Assert.Run); _pass += B123_C1_Assert.Pass; _fail += B123_C1_Assert.Fail; /* 🆕 2026-11-03（B123-E1）：`ca 50` 主路 / `ApplyStunTo` / 203 / 230（A–E 五组，E 组断「正文非空 ⇒ 手牌一条都不多」）。同一物理行追加 ⇒ 行数零变化。 */ Guard("B123E1_Assert", B123_E1_Assert.Run); _pass += B123_E1_Assert.Pass; _fail += B123_E1_Assert.Fail;   // 🆕 2026-11-03（`B123_C1` · 账 `B121-E03F-09`）：13 张自设计变身战术卡的解析/覆盖率豁免（A 数据面 / B 分母 / C SegUnknown 哨兵 / D 摘掉豁免必须红 / E `WillRunOps` 给 `warlordtransform`）；断言全文在 `Editor/B123_C1_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W41` · 活状态表 `B-340` ＋ `ENG-07` `psyker`/`reactor`）：`ta=65` 抽牌支接 36 格 ＋ 灵能/等离子死支（写 flag、没人读）；断言全文在 `Editor/B116W41_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W39` · 账 `B-342` ＋ `ENG-16`① ＋ `B-317`）：表支 `ta=140`（140 不筛 / 150 筛）· 触发正文挂 `ta` 后 `Strike` 才接得住 `chosen:` · 真死时的阵营闸走 `sideOverride`；断言全文在 `Editor/B116W39_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W31` · 活状态表 `SAN-04` 残余 + `SAN-27` 判据侧 + `B-333`）：`ta=150` 手牌半（效果层筛 / 表现层 `Slot=-1`）＋报表口径走表现层白名单；断言全文在 `Editor/B116W31_Assert.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W27` · 活状态表 `B-211` ＋ `B-255`）：`cardAbilities` 逐 ability 派发（380/320）＋ 排他闸；断言全文在 Editor/B116W27_Assert.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W24` · `ENG-11`）：`buffType 12/15` 的附魔挂载执行器（`Enchantments.Attach`）；断言全文在 Editor/B116W24_Assert.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W19` · `ENG-07` `jam`）：`cardTraits` 口径 + `HasWhileInPlayAbility` 判反 + 触发闸 + 誓约闸；断言全文在 `Editor/RuleEngineTest_B116W19.cs`（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（`B116_W18` 代接线 · 同一物理行追加 ⇒ 行数零变化）：`B116W8` = ENG-11 的 `8 markOfChaos`/`90 addTraitRemnant`（原 `B116_W8` 写好但未接线）；`B116W18` = `B-328` `abilityBuffs` 的 `enchantmentId`/`enchantmentPathId` 两列   // 🆕 2026-11-02（B116_W12 · `B-314`）：Swarm 监听（620）的 `it` = 留下的 host（`ta=30` ← `targetCard`）；断言全文在 Editor/RuleEngineTest_B116W12.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-11-02（B116_W9 · ENG-02）：一件任务附魔有 N 条同 trigger 的 ability ⇒ （判据 = 原版 TriggerAbilities.c:115 在逐条循环里）；断言全文在 Editor/RuleEngineTest_B116G2.cs（同一物理行追加 ⇒ 行数零变化）   // 🆕 2026-10-31（B108_A1/A16）：trigger 发射口 + 附魔数据位匹配   // 🆕 2026-11-02（`B116_W32` · `B-329`）：选项 SO 旁表（`choice_option_cards.json`）＋ 结构化支接上 —— TL20 的 `+2 [Melee]` 只加自己，⛔ 不再是「己方全体」；断言全文在 Editor/B116W32_Assert.cs（同一物理行追加 ⇒ 行数零变化）
 
         // 🆕 2026-10-29（调度台代接线）：`B97_GEN2` —— 泛型补读 20 条（DynamicList 12 + ConfigProvider 2 + RefreshHandler 等）。
         Guard("CheckB97Gen2", CheckB97Gen2); Guard("CheckB97W11Gaps", CheckB97W11Gaps); B97W38Assert.Run(); _pass += B97W38Assert.Pass; _fail += B97W38Assert.Fail; Guard("CheckB97W35EnchantmentHop", CheckB97W35EnchantmentHop); Step(TestB97W1); Step(CheckB100F17Gaps); Step(CheckB100F21RemnantSlay);   // 🆕 2026-10-30（`B100_F19` · G11 #52）：`Step(TestB97W1)` 从 `:1365` **上移到覆盖闸 `:1318` 之前** —— 闸按 `_ranCases` 对账，`Step` 排在闸后 = 记不到 ⇒ #52 红（照 `:1272-1279` 同款先例；同一行追加 ⇒ 行数零变化）   // 🆕 2026-10-29（调度台代接线 · `B97_W11`）：账 `战斗逻辑驱动:1121` `MinionManager.GetNextSlotPos` 的上界缺陷 + `required==1` 中性支（200 个局面全量对过、0 处不同）；同一行追加 ⇒ 行数零变化
@@ -1397,7 +1397,7 @@ public static partial class RuleEngineTest
             _fail += B112_T2C_Assert.Fail;
             B112W_B127_Assert.Run();
             _pass += B112W_B127_Assert.Pass;
-            _fail += B112W_B127_Assert.Fail; B114_W9_Assert.Run(); _pass += B114_W9_Assert.Pass; _fail += B114_W9_Assert.Fail; B114_W19_Assert.Run(); _pass += B114_W19_Assert.Pass; _fail += B114_W19_Assert.Fail; Guard("B121D1_Assert", B121_D1_Assert.Run); _pass += B121_D1_Assert.Pass; _fail += B121_D1_Assert.Fail; Guard("B121D1B_Assert", B121_D1B_Assert.Run); _pass += B121_D1B_Assert.Pass; _fail += B121_D1B_Assert.Fail; B121_D3_Assert.Run(); _pass += B121_D3_Assert.Pass; _fail += B121_D3_Assert.Fail; Step(B121D4Case); B121_D5_Assert.Run(); _pass += B121_D5_Assert.Pass; _fail += B121_D5_Assert.Fail; B121_D5R_Assert.Run(); _pass += B121_D5R_Assert.Pass; _fail += B121_D5R_Assert.Fail; B121_E03F_DATA_Assert.Run(); _pass += B121_E03F_DATA_Assert.Pass; _fail += B121_E03F_DATA_Assert.Fail; RuleEngineTest_B121WC.Run(); _pass += RuleEngineTest_B121WC.Pass; _fail += RuleEngineTest_B121WC.Fail;   // 🆕 2026-11-01（写手 `W-19` 接线 · 活状态表 `B-251`）：`randomAbilityChoice` 接上**数值路**（原版 `RawCardScript__TriggerAbility.c:75` 的 `ability+0x48` 对两条路都成立），断言全文 `CardPresentation/Editor/B114_W19_Assert.cs`；同一物理行追加 ⇒ 行数零变化   // 🆕 2026-11-01（`B114_W9` · 调度台接线）：账 `B-211` 派发口（`TriggerRowKindOf` + `FireTriggerRowsByChosenAbility`），断言全文 `CardPresentation/Editor/B114_W9_Assert.cs`；同一物理行追加 ⇒ 行数零变化
+            _fail += B112W_B127_Assert.Fail; B114_W9_Assert.Run(); _pass += B114_W9_Assert.Pass; _fail += B114_W9_Assert.Fail; B114_W19_Assert.Run(); _pass += B114_W19_Assert.Pass; _fail += B114_W19_Assert.Fail; Guard("B121D1_Assert", B121_D1_Assert.Run); _pass += B121_D1_Assert.Pass; _fail += B121_D1_Assert.Fail; Guard("B121D1B_Assert", B121_D1B_Assert.Run); _pass += B121_D1B_Assert.Pass; _fail += B121_D1B_Assert.Fail; B121_D3_Assert.Run(); _pass += B121_D3_Assert.Pass; _fail += B121_D3_Assert.Fail; Step(B121D4Case); B121_D5_Assert.Run(); _pass += B121_D5_Assert.Pass; _fail += B121_D5_Assert.Fail; B121_D5R_Assert.Run(); _pass += B121_D5R_Assert.Pass; _fail += B121_D5R_Assert.Fail; B121_E03F_DATA_Assert.Run(); _pass += B121_E03F_DATA_Assert.Pass; _fail += B121_E03F_DATA_Assert.Fail; RuleEngineTest_B121WC.Run(); _pass += RuleEngineTest_B121WC.Pass; _fail += RuleEngineTest_B121WC.Fail; /* 🆕 2026-11-03（B123-E2）：`ca 30 ta=50` 手牌目标路（不与 `ca 50` 合流）+ `forceRefund`（4 组 24 条，含 5 条灭自证）。同一物理行追加 ⇒ 行数零变化。 */ B123_E2_Assert.Run(); _pass += B123_E2_Assert.Pass; _fail += B123_E2_Assert.Fail;   // 🆕 2026-11-01（写手 `W-19` 接线 · 活状态表 `B-251`）：`randomAbilityChoice` 接上**数值路**（原版 `RawCardScript__TriggerAbility.c:75` 的 `ability+0x48` 对两条路都成立），断言全文 `CardPresentation/Editor/B114_W19_Assert.cs`；同一物理行追加 ⇒ 行数零变化   // 🆕 2026-11-01（`B114_W9` · 调度台接线）：账 `B-211` 派发口（`TriggerRowKindOf` + `FireTriggerRowsByChosenAbility`），断言全文 `CardPresentation/Editor/B114_W9_Assert.cs`；同一物理行追加 ⇒ 行数零变化
         }
 
         // ---- 汇总 ----
@@ -3696,9 +3696,9 @@ public static partial class RuleEngineTest
     /// <summary>
     /// **战术卡文本解析的覆盖率** —— 这一轮的进度条（`资料/战术卡效果_移植方案.md`）。
     ///
-    /// 448 张战术卡的效果文本是英文自然语言，解析器（`Core/EffectText.cs`）照
+    /// 446 张**原版**战术卡的效果文本是英文自然语言，解析器（`Core/EffectText.cs`）照
     /// 我们上一版复刻 `rule_core.gd:_resolve_text`（旁证，非原版判据）的 handler 顺序一条条试。每加一个 handler，
-    /// **「完全解析 N/448」这个数就该往上走** —— 这就是「还差多少」的量化口径。
+    /// **「完全解析 N/446」这个数就该往上走** —— 这就是「还差多少」的量化口径。
     ///
     /// ⚠️ 报的是**两个**口径，别混：
     ///   · **完全解析** —— 整条 desc 每一句都认了（这才叫「这张卡能打」）；
@@ -3796,7 +3796,7 @@ public static partial class RuleEngineTest
         ReportFactionCoverage(pool);
 
         // ---- 效果分类表：**这套分类本来只活在代码里**，没有一处写下来过 ----
-        // 一张卡的效果 = (动词, 载荷, 目标, 条件, 时机) 的组合。这张表把 449 张按**动词**分堆，
+        // 一张卡的效果 = (动词, 载荷, 目标, 条件, 时机) 的组合。这张表把 **459 张**（池内全部 `tactic`，含 13 张自设计变身卡 —— 它们 `Parse` 出 0 op、不进任何一格）按**动词**分堆，
         // 每堆再看载荷/目标/条件。用处有三个：
         //   ① 看「15 个动词」这套分法**对不对**（有些东西混进来了，见下面日志里的告警）
         //   ② 加新效果时知道该往哪一格里放（`资料/卡牌效果管线_计划与交接.md` §七）
@@ -3809,7 +3809,7 @@ public static partial class RuleEngineTest
 
         // 现阶段门槛：骨架已通（有卡能完全解析）、且一张卡都没有解析成空表也不报错。
         // 每补一个 handler 就把这个数往上抬（抬的时候顺手在提交信息里记一笔）。
-        CheckTrue(cov.Full >= 120, $"完全解析 {cov.Full}/448（门槛 120，逐步抬高）");
+        CheckTrue(cov.Full >= 120, $"完全解析 {cov.Full}/{cov.Cards}（门槛 120，逐步抬高；分母 = **原版**战术卡池，池内 `tactic` 共 459 张，其中 13 张 `TRANSFORM_*` 自设计变身卡由 `EffectText.Coverage` 排除 —— 见那里的注释）");
         // 🆕 2026-09-16：**战术卡这一档的「不认识的句子」归零了**。
         // 这条原来是**正向哨兵**（`SegUnknown > 0` = 「还没做完，如实报出来」）——
         // 最后三句（`Cosmic Serpent` / `Spreading Corruption` 后半 / `Telepathic Domination`）
@@ -4513,7 +4513,7 @@ public static partial class RuleEngineTest
         // ---- ② 全局第 N 回合 ⇒ 触发（★ 判别式全在这里）----
         RuleCore.EndTurn(ctx);
         int who = ctx.Active;
-        int deck0 = ctx.Players[who].Deck.Count, hand0 = ctx.Players[who].Hand.Count;
+        int deck0 = ctx.Players[who].Deck.Count, hand0 = ctx.Players[who].Hand.Count; ctx.Players[who].Hand.Clear(); hand0 = 0;   // 🆕 2026-11-03（B123 首跑）：经典 `N=18` 时手牌早已满 10 张 ⇒ 不腾位置就看不到加时多抽那 2 张（旧 `N=10` 不撞上限）；下面那条「都进了手牌」才重新有判别力
         RuleCore.BeginTurn(ctx);                       // Turn = N，判据在这一步跑
         Check(ctx.Turn, N, $"现在 = **全局第 {N} 回合**");
         CheckTrue(ctx.IsOvertime,
@@ -5073,8 +5073,8 @@ public static partial class RuleEngineTest
         Check(cv2.Turn, GameplayVariables.ClassicOvertimeTurn,
               $"② 经典：同样在**全局第 {GameplayVariables.ClassicOvertimeTurn} 回合**进加时"
             + "｜🧨 改回 `Players[SecondSeat].MaxEnergy >= overtimeTurn` ⇒ 实得约第 18 回合 ⇒ 本行红");
-        Check(cv2.Players[cv2.SecondSeat].MaxEnergy, 6,
-              "② 经典触发那一刻后手 `MaxEnergy` 只有 6（< 阈值 10）—— 能量口径在这里不会进加时");
+        Check(cv2.Players[cv2.SecondSeat].MaxEnergy, 10,
+              "② 经典触发那一刻后手 `MaxEnergy` = **10**（2026-11-02 `B120-W12` 把经典 `overtimeTurn` 改成 18 之后，能量口径在这一回合**与回合口径重合**；判别力在上一条「第 17 回合只有 9 ⇒ 不进」）");
         CheckTrue(cv.overtimeTurn == GameplayVariables.ClassicOvertimeTurn,
                   $"② 经典的 `overtimeTurn` 仍然是 {GameplayVariables.ClassicOvertimeTurn}"
                 + "（**推断值**：原版真值在服务器，本地查不到）");
@@ -10585,8 +10585,8 @@ public static partial class RuleEngineTest
         // 🔴 **2026-10-18（第五十二会话收口 · 铁律 5）**：K06 把最后 23 张自造 id 全换成了真 id
         //   ⇒ 现读 **0 张自造**（K06 报告 `:11/:16` 的目标态）。旧断言 `selfMade > 0` 是 K06 之前的期望；
         //   上方注释 `:8846-8849` 早已写明「没样本了」，两处自相矛盾 —— 这里钉「**正好 0**」（将来再冒出
-        //   自造 id ⇒ 红，仍然咬得住）。
-        CheckTrue(selfMade == 0, $"池子里**没有**自造 id 的卡（{selfMade} 张；K06 起池 id 全真值）");
+        //   自造 id ⇒ 红，仍然咬得住）。🔴 2026-11-03（B123 首跑改判）：用户当天裁定新增 **13 张自设计变身战术卡**（`TRANSFORM_*`）⇒ 自造 id 恒 13；本行改钉 13，**其余自造 id 仍然咬得住**（多一张就红）。
+        Check(selfMade, 13, $"池内自造 id = **13** 张（全部是 `TRANSFORM_*` 自设计变身卡，用户 2026-11-03 裁定；其余一律应是原版真 id）—— 现读 {selfMade} 张");
         CheckTrue(reverseFail == 0, $"按 id 反查回同一张（{selfMade} 张自造样本，失败 {reverseFail} 张）");
 
         // ---- ③ id 的两种形态：原版 `AM12` / 自造 `AM_Some_Card` ----
@@ -15277,15 +15277,15 @@ public static partial class RuleEngineTest
             var blockers = new Dictionary<string, int>();
             foreach (var c in mine)
             {
-                if (c.Type != "tactic") continue;
+                if (c.Type != "tactic" || RuleCore.HasWarlordTransformAbility(c)) continue;   // 2026-11-03（B123_C1）🔶 自设计（非原版）· 用户 2026-11-03 裁定：13 张 `TRANSFORM_*` 变身卡**不计入这张表** —— 与全局 `EffectText.Coverage` 同一条豁免（它们卡面是说明文字、`Parse` 出 0 句；计进来会让每张阵营多一行「战术卡 N · 完全解析 N-1」+ 一条说明句卡点）
                 tac++;
                 // 🔴 **2026-09-16 修：判据不再自己写一份。**
                 //   原来这里自己判 `un.Count == 0 && pa.Count == 0`，**漏了 `EffectText.Coverage`
                 //   里那两条豁免** —— ① 手牌陷阱（`IsHandTrap`）直接算全过；② `HandledByOtherLayer`
                 //   把「别的层已经接手的句子」从「不认识」里剔掉。
                 //   ⇒ **同一张卡在两张报表里结论不同**：实测 `Genestealers` 那栏
-                //   「战术卡 34 · 完全解析 **33**」，而全局表头写 **445/445**（2026-10-15 现读 **446/446**，
-                //    战术卡张数 +1 见 `TestTacticTextCoverage`）—— 差的就是
+                //   「战术卡 34 · 完全解析 **33**」，而全局表头写 **445/445**（⚠️ 2026-11-03 现读 **446/446** —— 分母 = **原版**战术卡池 446；
+                //    池内 `tactic` 合计 **459** 张，其中 13 张 `TRANSFORM_*` 自设计变身卡已由 `EffectText.Coverage` 排除、不进这张表的分母；见 `TestTacticTextCoverage`）—— 差的就是
                 //   `Poisoned Supplies` / `Cult Propaganda` 那几张**手牌陷阱战术卡**。
                 //   ⚠️ 这正是本工程记过的「**报表虚低**」：下一个人照着做会去重做已经做完的事
                 //      （同 `单位卡desc与光环_批次划分.md` §一⑤ 那个坑）。
@@ -15335,7 +15335,7 @@ public static partial class RuleEngineTest
     }
 
     /// <summary>
-    /// **效果分类表** —— 449 张战术卡按「动词 → 载荷类别 → 目标」分堆，落盘到
+    /// **效果分类表** —— 459 张战术卡（池内全部，含 13 张自设计变身卡）按「动词 → 载荷类别 → 目标」分堆，落盘到
     /// `_tmp_view/tactic_taxonomy.md`，并在日志里报每一堆的量。
     ///
     /// 为什么要它有：这套分类一直**只活在 `Dispatch` 的 handler 顺序里**，没有一处写下来。
@@ -22342,7 +22342,7 @@ public static partial class RuleEngineTest
     /// </summary>
     static void TestMentionedCards()
     {
-        var pool = CardDatabase.Load();
+        var pool = CardDatabase.Load(); pool.RemoveAll(c => RuleCore.HasWarlordTransformAbility(c));   // 🆕 2026-11-03（B123 首跑）：13 张自设计 `TRANSFORM_*` 的正文含小写 `chosen` ⇒ 会把「`Chosen` 被点名 0 次」顶成 13、并带偏 67/128 两个口径；本普查的尺子是**原版卡面文本** ⇒ 排除它们（同 `EffectText.Coverage` 的口径）
 
         // ① **用户举的那个例子**（原话就是它）：`Path of Command` 里提到 `Storm Guardian`
         CardDef poc = null;
@@ -22791,8 +22791,8 @@ public static partial class RuleEngineTest
                 //    `cardType = 20` / `type = "enchantment"`）—— `gen_cards_engine.py` 的
                 //    `ENCHANTMENT_EXECUTORS` 加第 2 条。判据 → `资料/完全复刻/调度台日志.md` §13·5。
                 //    ⚠️ 与上面两条同一性质：**前提检查**，不是卡池合法性的判据。🔴 **2026-11-03（`E121-WIRE`）就地改期望值（铁律 5）：1129 → 1142。**v48 = 三处数据列（`abilityHeal` / `abilityMana` / 卡表 `handBuff` 四格）· v49 = **加卡不加列**（池内 +13 张 🔶 自设计 `TRANSFORM_<阵营>` 变身战术卡，1,129 → 1,142；判据 → `工具/gen_cards_engine.py` 的 `TRANSFORM_FACTIONS`）。现读 `cards_engine.json` = version 49 / count 1142。
-                CheckTrue(pool.Count == 1142,
-                          $"（前提）卡池张数（判据只写在 `资料/阵营推进_清单与交接.md` §一，这里只做前提检查）：{pool.Count}");
+                CheckTrue(pool.Count == 1129,   // 🔴 2026-11-03（B123 首跑）：本函数开头 `pool.RemoveAll(RuleCore.HasWarlordTransformAbility)` 剔掉 13 张自设计 `TRANSFORM_*` ⇒ 1,142 − 13 = **1,129**（其余口径全部按这一份 1129 现算、已逐条通过）
+                          $"（前提）卡池张数（本函数已剔 13 张自设计卡 ⇒ 1,142 − 13 = 1,129；权威数字见 `资料/阵营推进_清单与交接.md` §一）：{pool.Count}");
                 // 🔴 **2026-10-15（P3 相 · `A1763` 数据层）就地改期望值（铁律 5）：82 / 33 → 60 / 32。**
                 //    **成因查实**：本轮把 `descZh` 全池换成**官方模板**（`Card_Description/*`）——
                 //    **官方中文用 `$$ID$$` 指卡、不写字面卡名**（现读现池 **120 张**卡的 `descZh` 里有 `$$`），
@@ -30296,7 +30296,7 @@ public static partial class RuleEngineTest
             //   对应 `.c:1207`）= 写 `DeployedTurn`（= 原版 `+0x2E0`，`.c:42-52`）+ `ApplyDeployTurnState(keepStatus)`
             //   （= `.c:69-71` / `:179` / `:180`）。⚠️ 它**不**发召唤广播（原版那条链没调 `ResolveUnitSummoned`，
             //   反证见 `TransformUnit_B95A3.cs` §二），⛔ 别拿「新单位落地」当理由给它加 195/190/605/680。
-            { "TransformUnit",   "⑤ 在场单位变身（原版 `ResolveTransformUnit`；同一个 `keepEffects` 位控制召唤病）" },
+            { "TransformUnit",   "⑤ 在场单位变身（原版 `ResolveTransformUnit`；同一个 `keepEffects` 位控制召唤病）" }, { "SwapWarlordCard", "⑥ 督军变身（13 张 `TRANSFORM_*` 自设计战术卡 · 用户 2026-11-03 裁定）：换的是 `PlayerState.Warlord`，重建一份督军 `UnitState` 并补回 `Exhausted=false` / `PlayOrder` / 生命修正；已调 `ActivateTraitsOnSummonOrEnchantment`（与 `BuildPlayer` 同一跳），⛔ 不走 `ApplyDeployTurnState`（督军不吃部署当回合限制）" },  // 🆕 2026-11-03（B123 首跑）：新入口补进钉死清单（同一物理行追加 ⇒ 行数零变化）
         };
 
         var found = new SortedDictionary<string, string>();   // 方法名 → 文件:行（取第一处）

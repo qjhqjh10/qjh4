@@ -61,11 +61,12 @@
   当场从 shipped cue 束重解**。⇒ 重跑本脚本**不再丢**那 7 条（`B121-D2` 那 6 条 + `B121-AUD-05` 补的 `Draw`）。
   ⚠️ 这一组的 clip **不从解包目录拷**（扩展名可能不同，会出现同名两扩展名）⇒ `--check` 只按 **stem** 验在位。
 
-用法：
-    PYTHONIOENCODING=utf-8 python 工具/import_battle_sfx.py --check   # 只报告，不写盘
-    PYTHONIOENCODING=utf-8 python 工具/import_battle_sfx.py           # 拷音频 + 写表
+用法（🔴 写盘脚本必须有显式动作档，见 CLAUDE.md §三 2026-10-26 那条）：
+    PYTHONIOENCODING=utf-8 python 工具/import_battle_sfx.py --check   # 只报告 + 与产物比对，不写盘（rc 0/1）
+    PYTHONIOENCODING=utf-8 python 工具/import_battle_sfx.py --dry     # 只算 + 打印读数，零写盘
+    PYTHONIOENCODING=utf-8 python 工具/import_battle_sfx.py --write   # **唯一会写盘的档**：拷音频 + 补 meta + 写表
+    ⛔ 一个动作档都不给（或不认识）= 只打印用法并退出 2，不计算、不写盘。
 """
-import argparse
 import importlib.util
 import io
 import json
@@ -227,10 +228,26 @@ def read_card_cues():
     return out
 
 
+USAGE = """用法：导入原版战斗「时机 → cue」表（默认什么都不做）
+  PYTHONIOENCODING=utf-8 python 工具/import_battle_sfx.py --check   只报告 + 与产物比对，**零写盘**（一致 rc=0 / 缺失或过期 rc=1）
+  PYTHONIOENCODING=utf-8 python 工具/import_battle_sfx.py --dry     只算 + 打印读数，**零写盘**
+  PYTHONIOENCODING=utf-8 python 工具/import_battle_sfx.py --write   **唯一会写盘的档**：拷音频 + 补 meta + 写表
+  -h, --help  只打印本用法并退出（退出码 0）
+⛔ 一个动作档都不给（或不认识）= 只打印本用法并退出 2，不计算、不写盘。"""
+
+ACTIONS = ("--check", "--dry", "--write")
+
+
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--check", action="store_true", help="只报告，不写盘")
-    args = ap.parse_args()
+    argv = sys.argv[1:]
+    if any(a in ("-h", "--help") for a in argv):
+        print(USAGE)
+        return 0
+    picked = [a for a in argv if a in ACTIONS]
+    if len(picked) != 1 or len(picked) != len(argv):
+        print(USAGE)
+        return 2
+    mode = picked[0]
 
     gp = load_probe()
     cat = gp.load_catalog()
@@ -387,7 +404,7 @@ def main():
           f" ⇒ 要拷 {sum(1 for c in need_files if c not in have)} 个")
 
     copied = skipped = n_meta = 0
-    if not args.check:
+    if mode == "--write":
         os.makedirs(DST_AUDIO, exist_ok=True)
         guids = _sfx_meta.known_guids()      # 2026-10-24（G4）：全工程扫一次，别每条都扫
         for cl in need_files:
@@ -442,11 +459,16 @@ def main():
         "cues": table,
         "gaps": gaps,
     }
-    if not args.check:
+    if mode == "--write":
         io.open(DST_JSON, "w", encoding="utf-8", newline="\n").write(
             json.dumps(out, ensure_ascii=False, indent=1))
         print(f"已拷 {copied} 条 · 已存在跳过 {skipped} 条 · 补 meta {n_meta} 条 → {DST_AUDIO}")
         print(f"表已写：{DST_JSON}")
+        return 0
+    if mode == "--dry":
+        print(f"干跑（未写盘）：会拷 {sum(1 for c in need_files if c not in have)} 条音频 → {DST_AUDIO}")
+        print(f"                 会写表 {DST_JSON}（{len(table)} 条 cue）")
+        return 0
     else:
         # 🔴 2026-10-27（执行代理 B9_W35CHECK）：`--check` 必须**连产物一起查** ——
         #   原来这里只打「（--check：没有写盘）」；`have` 那行虽算了「要拷 N 个」却不点名、不报红。

@@ -153,11 +153,11 @@ public static class B120_W17_Assert
         Check(shatter != null && shatter.clips != null && shatter.clips.Length > 0 && shatter.clips[0] == "CardShatter",
               "A2c `CardShatter` → clip `CardShatter`（死灵「出现」那一档）");
 
-        // A3 旧那条路仍在：`RemnantSfx` 读的 (阵营, 时机) 那张表必须还是 6 条
-        //    （`Resources/Art/` 是 gitignore 的 ⇒ 缺失时这条红，文案里给出补法）
+        // A3 残骸 6 档的随机区间仍在（🆕 2026-11-03 `B123-C4`：唯一来源已切到 cue 表）
         Check(RemnantSfx.PropsLoaded == 6,
-              $"A3 前提：`remnant_cue_props.json` 6 条随机区间都读得到（实得 {RemnantSfx.PropsLoaded}）"
-            + " —— 缺了跑 `python 工具/import_remnant_sfx.py --write`");
+              $"A3 前提：残骸 6 档的随机区间都读得到（实得 {RemnantSfx.PropsLoaded}）"
+            + " —— 🆕 2026-11-03（`B123-C4`）：唯一来源 = cue 表 `Resources/remnant_sounds.json`"
+            + "（旧 `remnant_cue_props.json` 已不再被读）；缺了跑 `python 工具/import_remnant_sfx.py --write`");
 
         // A4 生成器纪律（源码面）：写盘必须显式 `--write`，裸跑 = 用法 + rc 2
         string gen = ReadProjectFile("../../工具/import_remnant_sfx.py");

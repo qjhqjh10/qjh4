@@ -5427,7 +5427,7 @@ namespace CardPresentation
         {
             LastImport = null;
             if (Manager == null) { Debug.Log("[Collection] 没有 `WindowsManager`，开不了 `Import Deck Popup`"); return null; }
-            var w = ImportDeckPopup.Create(Manager, RebuildDeckListNow);
+            var w = ImportDeckPopup.Create(Manager);   // 🔴 2026-11-03（B123-C2）：第二参（死回调 `OnImported`）已删 —— 这一站不落库、没有「导入完成」这一跳
             Manager.OpenWindow(w);
             LastImport = w;
             Debug.Log("[Collection] 开 `Import Deck Popup`");

@@ -116,12 +116,13 @@ public static class B117_WCOOL3_Assert
         RemnantSfx.ResetCounters();
         RemnantSfx.ResetThrottle();
 
-        var cue = RemnantSfx.PropsOf(RemnantSfx.Moment.Death, true);
-        float ttp = cue != null ? cue.timeToPlayAgain : -1f;
-        Check(cue != null && ttp > 0f,
-              $"A0 前提：灵族 `Death` 那档的 `timeToPlayAgain` = {ttp:F3} > 0（区间表 `remnant_cue_props` 读得到）"
+        var props = RemnantSfx.PropsOf(RemnantSfx.Moment.Death, true);      // 派生视图（🆕 2026-11-03 `B123-C4`）
+        var cue = RemnantSfx.DebugCue(RemnantSfx.Moment.Death, true);       // 🆕 2026-11-03 `B123-C4`：唯一真相源 = cue 表
+        float ttp = props != null ? props.timeToPlayAgain : -1f;
+        Check(props != null && cue != null && ttp > 0f,
+              $"A0 前提：灵族 `Death` 那档的 `timeToPlayAgain` = {ttp:F3} > 0（cue 表 `remnant_sounds` 读得到；`PropsOf` 是它的派生视图）"
             + "｜⛔ 前提不成立时 A1/A2 无从谈起 —— 这一条已经红了，不是静默跳过");
-        if (cue == null || ttp <= 0f) return;
+        if (props == null || cue == null || ttp <= 0f) return;
 
         bool first = RemnantSfx.Play(RemnantSfx.Moment.Death, true);
         int played1 = RemnantSfx.Played, thr1 = RemnantSfx.Throttled;
@@ -138,6 +139,7 @@ public static class B117_WCOOL3_Assert
             + "｜🧨 把这处冷却整段删掉 ⇒ 第二次照播、`Throttled` 不涨 ⇒ 本条红");
 
         // 窗口外：批处理 `Time.time` 不前进 ⇒ 把 ttp 压到 0（与「真的等够 ttp」同一判据形状）
+        // 🆕 2026-11-03 `B123-C4`：改的是 **cue 实例**（`RemnantSfx.Play` 现在只读它；`PropsOf` 只是派生视图，改它不影响播放）。
         float saved = cue.timeToPlayAgain;
         bool outside1, outside2;
         int thr3;

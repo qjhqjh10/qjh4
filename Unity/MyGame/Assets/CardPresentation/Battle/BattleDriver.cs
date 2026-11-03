@@ -28575,7 +28575,7 @@ namespace CardPresentation
                 //    （`Mekaniak` 那种：解析得出来、载荷没机制）。
                 bool parsed = EffectText.IsFullyParsed(c.Desc) || RuleCore.HasWarlordTransformAbility(c);   // 2026-11-03（`B121-FIX`）：🔶 自设计的 13 张变身战术卡卡面是**说明文字**、`IsFullyParsed` 恒假 ⇒ 卡面会错打「效果本版结算不了*」，而它**确实结算**（`RuleCore.TacticOpsOf` 给一条 `warlordtransform` op）。判据复用 `RuleCore.HasWarlordTransformAbility` 一处
                 if (!parsed) list.Add("效果本版结算不了*");
-                else if (!RuleCore.HasWarlordTransformAbility(c) && MechanismFails(c)) list.Add("效果本版没作用*");   // 2026-11-03（`B121-FIX`）：变身卡的卡面正文是**说明文字**、`EffectText.Parse` 只吐一条「整句原文」op ⇒ `MechanismFails` 会判假；而它的机制真在（`RuleCore.TacticOpsOf` 给一条 `warlordtransform` op，`EffectResolver.cs:1096` 有 `DoWarlordTransform` 执行支）⇒ ⛔ 别让它落「没作用*」（与上一行同一条例外）
+                else if (!RuleCore.HasWarlordTransformAbility(c) && MechanismFails(c)) list.Add("效果本版没作用*");   // 2026-11-03（`B121-FIX` · `B123_C1` 订正）：变身卡的卡面正文是**说明文字**、`EffectText.Parse` 对它 **0 条 op**（`ParseSegment` 落到 `Unknown` 兜底、`Ops=null`；⚠️ 原文写「只吐一条『整句原文』op」，2026-11-03 现读**不成立** —— 空表 ⇒ `MechanismFails` 的 `foreach` 一次都不进、也不会判假）；而它的机制真在（`RuleCore.TacticOpsOf` 给一条 `warlordtransform` op，`EffectText.WillRunOps` 现读同样收这一条，`EffectResolver.cs:1096` 有 `DoWarlordTransform` 执行支）⇒ 这条显式例外**保留**，⛔ 别让它落「没作用*」（与上一行同一条例外）
             }
             else if (MechanismFails(c))
             {

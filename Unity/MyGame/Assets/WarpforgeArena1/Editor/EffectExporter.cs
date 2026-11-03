@@ -671,7 +671,7 @@ public static class EffectExporter
             if (Report.TryGetValue(g.name, out var prev) && prev.StartsWith("OK")) { skipped++; continue; }
             try
             {
-                Export(g);
+                Export(g, VfxBundleName);      // 这一遍的 `g` 全来自特效主包（`vfx.GetAllAssetNames()`）
                 done++;
                 Report[g.name] = "OK	" + LastDetail;
             }
@@ -1152,7 +1152,7 @@ public static class EffectExporter
             }
             if (g == null) { Debug.Log(EX1 + $"按名字加载 `{t}` → **没取到**（下面再用枚举兜一次）"); continue; }
             if (!picked.Add(g.name)) continue;
-            try { Export(g); done++; Debug.Log(EX1 + $"已导出 `{g.name}`（按名字取的，来自包 `{from}`）—— {LastDetail}"); }
+            try { Export(g, from); done++; Debug.Log(EX1 + $"已导出 `{g.name}`（按名字取的，来自包 `{from}`）—— {LastDetail}"); }
             catch (Exception e) { Debug.LogError(EX1 + $"导出 `{g.name}` 失败：{e.GetType().Name}: {e.Message}"); }
         }
 
@@ -1181,7 +1181,7 @@ public static class EffectExporter
                 bool hit = false;
                 foreach (var t in targets) if (g.name == t) hit = true;
                 if (!hit || !picked.Add(g.name)) continue;
-                try { Export(g); done++; Debug.Log(EX1 + $"已导出 `{g.name}`（枚举取的，来自包 `{b.name}`）—— {LastDetail}"); }
+                try { Export(g, b.name); done++; Debug.Log(EX1 + $"已导出 `{g.name}`（枚举取的，来自包 `{b.name}`）—— {LastDetail}"); }
                 catch (Exception e) { Debug.LogError(EX1 + $"导出 `{g.name}` 失败：{e.GetType().Name}: {e.Message}"); }
             }
         }
@@ -1989,7 +1989,12 @@ public static class EffectExporter
         return n;
     }
 
-    static void Export(GameObject src)
+    /// <summary>导一件 prefab。
+    /// 🆕 2026-11-03（批 `B123` · 账 `B121-BF-02`）：`srcBundle` = 这个 prefab **自己来自哪个包**
+    /// （`xxx.bundle` / `bundle_xxx` 都行，内部归一）。它只用于**同名跨包材质**的队列精确匹配；
+    /// 传 null ⇒ 退回按名字键（老行为 + 冲突名出声一次）。⚠️ 材质可能跨包引用，所以这只是**线索**、
+    /// 不是断言 —— 命中不到时 `TruthQueue` 会走名字键回落并出声。</summary>
+    static void Export(GameObject src, string srcBundle = null)
     {
         var inst = UnityEngine.Object.Instantiate(src);
         inst.name = src.name;
@@ -2027,7 +2032,7 @@ public static class EffectExporter
             var psr0 = r as ParticleSystemRenderer;
             if (psr0 != null && psr0.trailMaterial != null)
             {
-                int di = DefIndex(defs, defIndex, psr0.trailMaterial);
+                int di = DefIndex(defs, defIndex, psr0.trailMaterial, srcBundle);
                 StripGlobalKeywords(defs[di], ps, psr0.trailMaterial.shader);
                 trailSlots.Add(di);
                 var tm = ImportMaterial(psr0.trailMaterial, out bool ta, out string to);
@@ -2042,7 +2047,7 @@ public static class EffectExporter
             {
                 var om = mats[i];
                 if (om == null) { slots.Add(-1); continue; }
-                int di = DefIndex(defs, defIndex, om);
+                int di = DefIndex(defs, defIndex, om, srcBundle);
                 StripGlobalKeywords(defs[di], ps, om.shader);
                 slots.Add(di);
                 var nm = ImportMaterial(om, out bool wasApprox, out string origShader);
@@ -2069,7 +2074,11 @@ public static class EffectExporter
                                + "在所有已加载的包里都没取到 ⇒ 这个效果「换材质」那一下没有材质可用");
                 continue;
             }
-            int di = DefIndex(defs, defIndex, om);
+            // 🆕 2026-11-03（`B121-BF-02`）：模块材质有**明确的出处包**（`module_material_sources.tsv`
+            //   第 2 列）⇒ 它的 (bundle, 名) 是精确的，不用猜 prefab 自己的包。
+            string modBundle = (_moduleMatSrc != null && _moduleMatSrc.TryGetValue(mName, out var msrc)
+                                && msrc != null && msrc.Length > 0) ? msrc[0] : null;
+            int di = DefIndex(defs, defIndex, om, modBundle);
             StripGlobalKeywords(defs[di], null, om.shader);
             ImportMaterial(om, out bool mApprox, out string mShader);
             if (mApprox) approx++;
@@ -2983,12 +2992,38 @@ public static class EffectExporter
     //    正是 `Invoke Minion Hits Ground` 里 `rock` 实测到的原版值 ✓
     //    影响面：197 个 shader 里 **29 个的 QUEUE 不是 3000**（`Matcap/*` = 2000 那一族影响 190 条效果）。
     static Dictionary<string, int> _matQ, _shaderQ;
+    // 🆕 2026-11-03（批 `B123` · 账 `B121-BF-02`）：**按 (bundle, 材质名) 的队列真值**。
+    //   为什么：`_matQ` 是**按名字键**的，同一个材质名在**不同包里**可以有不同 `m_CustomRenderQueue`
+    //   （现读 `SandParticle` = 3000 / 3001）⇒ 按名字只能活一个。精确值来自第三张 TSV
+    //   `mat_renderqueue_by_bundle.tsv`（3 列 `bundle \t 材质名 \t queue`，由 `工具/gen_renderqueue_truth.py` 生成）。
+    //   ⛔ **别用「冲突项不进 `mat` 表」**：`WarpforgeEffectBinder.cs:573` 对 −1 **不覆盖**、落回 shader 默认
+    //   （URP `Particles/Unlit` 的 SubShader 没有 `Queue` tag ⇒ 2000 不透明），而效果侧 10 个 prefab 用
+    //   `SandParticle`（同 vfx 包那份 = 3000）⇒ 删掉名字键会真回归 3000→2000。
+    //   ⇒ `_matQ` 保留作**向后兼容回落**；带 bundle 的消费方先走 `_matQByBundle`。
+    static Dictionary<string, int> _matQByBundle;
+    // 同名跨包且**取值不同**的名字（现读 `SandParticle` / `Campaign Points`）—— 回落到名字键时**出声一次**。
+    static HashSet<string> _matQConflictNames;
+    static readonly HashSet<string> _matQWarnedNames = new HashSet<string>();
+
+    /// <summary>包名归一：`xxx.bundle` / `bundle_xxx` → `xxx`（与 `gen_renderqueue_truth.py:bundle_key` 同一个口径）。</summary>
+    public static string NormalizeBundleKey(string bundle)
+    {
+        if (string.IsNullOrEmpty(bundle)) return "";
+        var k = Path.GetFileName(bundle.Trim());          // 去掉可能带的目录前缀
+        if (k.EndsWith(".bundle", StringComparison.OrdinalIgnoreCase))
+            k = k.Substring(0, k.Length - ".bundle".Length);
+        if (k.StartsWith("bundle_", StringComparison.Ordinal))
+            k = k.Substring("bundle_".Length);
+        return k;
+    }
 
     static void LoadQueueTruth()
     {
         if (_matQ != null) return;
         _matQ = new Dictionary<string, int>();
         _shaderQ = new Dictionary<string, int>();
+        _matQByBundle = new Dictionary<string, int>();
+        _matQConflictNames = new HashSet<string>();
         const string baseDir = "d:/4/Unity/数据/游戏数据/";
         foreach (var pair in new[] {
             new KeyValuePair<string, Dictionary<string, int>>(baseDir + "mat_renderqueue.tsv", _matQ),
@@ -3006,22 +3041,66 @@ public static class EffectExporter
                 pair.Value[p[0]] = q;
             }
         }
-        Debug.Log($"[EffectExporter] 队列真值表：材质 {_matQ.Count} · shader {_shaderQ.Count}");
+        // 🆕 2026-11-03（`B121-BF-02`）：第三张表带 bundle 维度。缺失只 warning（⛔ 不静默当成「没有」）。
+        var byBundlePath = baseDir + "mat_renderqueue_by_bundle.tsv";
+        if (!File.Exists(byBundlePath))
+        {
+            Debug.LogWarning($"[EffectExporter] 带 bundle 的队列真值表缺失：{byBundlePath} "
+                           + "⇒ TruthQueue 只按名字键回落（同名跨包时会挑到 min，可能不是本案材质的原值）"
+                           + "；补跑 `python -I -X utf8 d:/4/Unity/工具/gen_renderqueue_truth.py --write`");
+        }
+        else
+        {
+            var firstSeen = new Dictionary<string, int>();
+            foreach (var ln in File.ReadAllLines(byBundlePath, System.Text.Encoding.UTF8))
+            {
+                if (ln.Length == 0 || ln[0] == '#') continue;
+                var p = ln.Split('\t');
+                if (p.Length < 3) continue;
+                if (!int.TryParse(p[2], out var q)) continue;          // 表头（第 3 列不是整数）自然跳过
+                var bk = NormalizeBundleKey(p[0]);
+                _matQByBundle[bk + "\t" + p[1]] = q;
+                if (firstSeen.TryGetValue(p[1], out var q0))
+                {
+                    if (q0 != q) _matQConflictNames.Add(p[1]);
+                }
+                else firstSeen[p[1]] = q;
+            }
+        }
+        Debug.Log($"[EffectExporter] 队列真值表：材质 {_matQ.Count} · shader {_shaderQ.Count} · "
+                + $"带 bundle 的材质 {((_matQByBundle != null) ? _matQByBundle.Count : 0)} 条 / "
+                + $"{((_matQConflictNames != null) ? _matQConflictNames.Count : 0)} 个同名跨包多值名");
     }
 
-    /// <summary>原版材质的**生效渲染队列**：材质 override 优先，否则取 shader 的 SubShader QUEUE；都没有 ⇒ −1。</summary>
-    static int TruthQueue(string matName, string shaderName)
+    /// <summary>原版材质的**生效渲染队列**：材质 override 优先，否则取 shader 的 SubShader QUEUE；都没有 ⇒ −1。
+    /// `bundle` 非空时先查 **(bundle, 材质名)** 精确表 —— 只对「同名跨包多值」有区别。</summary>
+    static int TruthQueue(string matName, string shaderName, string bundle = null)
     {
         LoadQueueTruth();
-        if (_matQ.TryGetValue(matName, out var q) && q >= 0) return q;
+        if (!string.IsNullOrEmpty(bundle) && _matQByBundle != null)
+        {
+            var bk = NormalizeBundleKey(bundle);
+            if (_matQByBundle.TryGetValue(bk + "\t" + matName, out var qb) && qb >= 0) return qb;
+        }
+        if (_matQ.TryGetValue(matName, out var q) && q >= 0)
+        {
+            if (_matQConflictNames != null && _matQConflictNames.Contains(matName)
+                && _matQWarnedNames.Add(matName))
+                Debug.LogWarning($"[EffectExporter] 材质 `{matName}` 同名跨包多值，"
+                               + $"且没有可用的 (bundle, 名) 命中（bundle 线索 = `{bundle ?? "无"}`）"
+                               + $" ⇒ 回落名字键 min = {q}；要精确值请让调用方把 bundle 传进来");
+            return q;
+        }
         if (!string.IsNullOrEmpty(shaderName) && _shaderQ.TryGetValue(shaderName, out var q2)) return q2;
         return -1;
     }
 
-    /// <summary>把原材质的 shader 名与全部属性值抓下来，供运行时重建</summary>
-    public static int DefIndex(List<WFMatDef> defs, Dictionary<string, int> idx, Material om)
+    /// <summary>把原材质的 shader 名与全部属性值抓下来，供运行时重建。
+    /// `bundle` 非空 ⇒ 去重键带上它（同名的两个材质在两个包里是**两条 def**，⛔ 不能合并成一条）。</summary>
+    public static int DefIndex(List<WFMatDef> defs, Dictionary<string, int> idx, Material om, string bundle = null)
     {
-        string key = om.name + "|" + (om.shader ? om.shader.name : "null");
+        string key = (string.IsNullOrEmpty(bundle) ? "" : NormalizeBundleKey(bundle) + "\t")
+                     + om.name + "|" + (om.shader ? om.shader.name : "null");
         if (idx.TryGetValue(key, out var i)) return i;
 
         var d = new WFMatDef
@@ -3031,7 +3110,7 @@ public static class EffectExporter
             //    让运行时 `TryResolve` 走 `UseOriginal` 白名单取原件。判据 = 原版 prefab 材质上的 shader 名；
             //    A/B 已用 `WF_PREFER_ORIGINAL` 做过（噪声底内，E 3→2）→ `判据/B104_本会话待办与裁定.md` §三。
             shader = om.shader ? WarpforgeVFX.WarpforgeShaderMap.OriginalNameFor(om.shader.name, om.name) : "",
-            renderQueue = TruthQueue(om.name, om.shader ? WarpforgeVFX.WarpforgeShaderMap.OriginalNameFor(om.shader.name, om.name) : ""),
+            renderQueue = TruthQueue(om.name, om.shader ? WarpforgeVFX.WarpforgeShaderMap.OriginalNameFor(om.shader.name, om.name) : "", bundle),
         };
         var sh = om.shader;
         var fl = new List<string>(); var fv = new List<float>();

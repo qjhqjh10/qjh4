@@ -32,7 +32,7 @@
    ⛔ 这里**不另算一套规则**。
 
 数据源（逐列出处见 `--all` 产出的文件头与报告 §2）：
-    MyGame/Assets/RuleEngine/Resources/cards_engine.json            身份 + trigger/trait 面 + animTimes（v47 · count 1129）
+    MyGame/Assets/RuleEngine/Resources/cards_engine.json            身份 + trigger/trait 面 + animTimes（版本 / 张数**现读 `count`**，⛔ 别写死）
     MyGame/Assets/RuleEngine/Resources/cards_truth.json             效果树 abilities/activeAbility/alternativeAbility（1,351 张卡 SO）
     MyGame/Assets/CardPresentation/Resources/card_vfx_by_card.json  逐卡事件 → prefab/CardAnim（运行时那份）
     MyGame/Assets/CardPresentation/Resources/cardanim_clips.json    逐 CardAnim 的动画参数
@@ -45,9 +45,10 @@
 🔴 两种「口径」写死在这里，⛔ 别在别处再开一套：
   ① **统计口径**：`cards_raw.json` 每卡有两份同构技能树（解析视图 + `full_raw`）⇒ 递归扫会**翻倍**，
      本工具**不读**它。
-  ② `cards_engine.json` 现读 **1129** 张，`全卡核验总表.tsv` 骨架 **1128** 张 —— 差 1 张
-     `Reconnaissance Mission`（`e8cf1eb55ca41534abe38efc90b302e9`，老口径没进骨架）。
-     本工具**以 cards_engine 的 1129 为准**，⛔ 不扩表、不给骨架补行。
+  ② **张数口径 = `cards_engine.json` 的 `count`（现读，⛔ 别写死）**；`全卡核验总表.tsv` 的骨架张数
+     是**历史快照**，可能比它少（例：差 `Reconnaissance Mission`，
+     `e8cf1eb55ca41534abe38efc90b302e9`）。
+     本工具**以 cards_engine 的 `count` 为准**，⛔ 不扩表、不给骨架补行。
 """
 
 import io
@@ -1508,8 +1509,9 @@ def header_lines(D):
         % (D.vfx_meta.get("cardCount"), D.vfx_meta.get("entryCount"), one_line(D.vfx_meta.get("generatedAt"), 40)),
         "#            全池事件覆盖_静态.tsv mtime=%s（「在工程/在消费表/参数判定」列原样复用，本工具不重算）"
         % ev_mtime,
-        "# 口径：本表以 cards_engine.json 的 1129 张为准（全卡核验总表.tsv 骨架 1128，差 Reconnaissance Mission）；"
-        "⛔ 不用 cards_raw.json（每卡两份同构技能树，递归扫会翻倍）。",
+        "# 口径：本表以 cards_engine.json 的 **%s** 张为准（张数**现读 `count`**，⛔ 别写死；"
+        "`全卡核验总表.tsv` 的骨架是历史快照，可能比它少）；"
+        "⛔ 不用 cards_raw.json（每卡两份同构技能树，递归扫会翻倍）。" % (D.engine_raw.get("count"),),
         "# 消费：跳过 '#' 开头的行后，第一行是列名行；按列名取值（列名稳定，改动会同步报告）。",
         "# 判据全池表（≥%d 个不同卡 id 的文件，不算任何一张卡的专项文档，故 criteria_docs 列里不出现）：%s"
         % (BULK_TABLE_MIN, ", ".join(D.criteria_bulk()) or "无"),

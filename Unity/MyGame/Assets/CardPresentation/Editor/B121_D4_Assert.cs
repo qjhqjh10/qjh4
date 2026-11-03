@@ -23,7 +23,7 @@
 // ============================ 怎么用（宿主）============================
 //   `RuleEngineTest.Run()` 里加一行聚合：`Step(B121D4Case);`
 //   （本文件是 `RuleEngineTest` 的**分部** ⇒ 复用夹具 `Check` / `CheckTrue` / `Section`，
-//     ⛔ 另起一个类会抄第二份。⚠️ 那一行在 `RuleEngine/RuleEditor/RuleEngineTest.cs`，**不属本代理白名单**
+//     ⛔ 另起一个类会抄第二份。⚠️ 那一行在 `RuleEngine/Editor/RuleEngineTest.cs`，**不属本代理白名单**
 //     ⇒ 接线补丁写在报告 `报告/B121_D4_数据列.md` §接线 里，由调度台合并。）
 using System.Collections.Generic;
 using RuleEngine;
@@ -83,8 +83,8 @@ public static partial class RuleEngineTest
               + " —— 生成器按 `ca == 20` 滤过（⛔ 滤掉这道闸 ⇒ 本格变有行 ⇒ 红）");
         //   `Beautiful Death` 的两条 heal 行（`ca 320` / `ca 20` 的 `valueOptions = 210`）：
         //   `ca 320` 那条不进列；`ca 20` 那条进列但 `opt = 210`（本仓没有那个求值档）⇒ 消费端沿用正文。
-        Check(bd != null ? bd.AbilityHealAt(0, 1)?.ValueOptions ?? -99 : -99, 210,
-              "H2 `Beautiful Death` ab0/lg1（`ca 320`）不进列；进列的是 `ca 20` 那条且 `valueOptions = 210`"
+        Check(bd != null ? bd.AbilityHealAt(1, 0)?.ValueOptions ?? -99 : -99, 210,
+              "H2 `Beautiful Death` ab1/lg0（真值里 `ca 320` 那条不进列；进列的是 `ab1/lg0` 的 `ca 20` 且 `valueOptions = 210`）—— 2026-11-03（B123 首跑）就地订正：原写 `ab0/lg1` 是把两个下标写反了（现读 `cards_engine.json`：`{ab:1, lg:0, ca:20, opt:210}`）"
               + "（`TargetExcessDamage` —— 本仓没有这个档 ⇒ `ApplyHealCriteria` 出声并**沿用正文**）");
 
         // ---- H3（三态 / 反证）：旧表（version < 48）⇒ 整列未知，消费端必须退回正文 ----

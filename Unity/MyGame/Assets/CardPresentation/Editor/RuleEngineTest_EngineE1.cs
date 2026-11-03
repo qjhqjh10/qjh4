@@ -77,7 +77,7 @@ public static class EngineE1Assert
         // 🔴 2026-10-27（`A1a`）就地改期望值（铁律 5）：1128 → 1129（`DA42` 的附魔模板
         //    `Reconnaissance Mission`（`e8cf1eb5…`）收进池；v30 那张 `Pray Enchantment` 仍在）。
         //    判据 → `资料/完全复刻/调度台日志.md` §13·5（`G1` 回执）。
-        Check(pool.Count, 1129, "(前提) 卡池 1129 张｜🔴 2026-10-27：`A1a` 收 `DA42` 附魔模板（1128 → 1129）");
+        Check(pool.Count, 1142, "(前提) 卡池 1142 张｜🔴 2026-11-03（B123 首跑）：v49 加 13 张 `TRANSFORM_*` 变身战术卡（1,129 → 1,142）；原记录停在 2026-10-27 的 `A1a`（1,128 → 1,129）");
 
         int rows = 0, caMissing = 0, lenBad = 0, dmgUnknown = 0;
         int ca10 = 0, ca30 = 0, ca462 = 0, ca0 = 0;

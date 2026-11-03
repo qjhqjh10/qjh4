@@ -4634,7 +4634,7 @@ namespace RuleEngine
         }
 
         /// <summary>🆕 v48：`abilityHeal` 的一行（原版 `HealCriteria` + 该行的 `chosenAbility`）。</summary>
-        public class AbilityHealRowDto
+        [Serializable] public class AbilityHealRowDto   // 🔴 2026-11-03（B123 首跑现核）：漏 `[Serializable]` ⇒ `JsonUtility` **静默不填** `CardDto.abilityHeal`（恒 null）⇒ `HasAbilityHeal` 全池 false；`typecheck` 看不出来，只有运行时断言能抓。
         {
             /// <summary>`cardAbilities` 下标（`-1` = 缺键）。</summary>
             public int ab = -1;
@@ -4651,7 +4651,7 @@ namespace RuleEngine
         }
 
         /// <summary>🆕 v48：`abilityMana` 的一行（原版 `ManaBuff` 十一格）。旗标 0/1、`-1` = 缺键/坏值。</summary>
-        public class AbilityManaRowDto
+        [Serializable] public class AbilityManaRowDto   // 🔴 2026-11-03（B123 首跑现核）：同 `AbilityHealRowDto` —— 漏 `[Serializable]` ⇒ `JsonUtility` 静默不填 ⇒ `HasAbilityManaBuff` 全池 false。
         {
             public int ab = -1;
             public int lg = -1;
@@ -4869,10 +4869,10 @@ namespace RuleEngine
     //     `mutationType == 20`」的卡会被整行漏掉，而原版谓词**根本不看 `buffType`**。
     //     ⇒ 两列用途不同，⛔ 别拿一列顶另一列（顶了就是「静默少数行」）。
     //
-    //  ⚠️ **生成器那一半还没做**（`工具/gen_cards_engine.py` 需出 v41 的 `abilityMutations`；
-    //     行形状 = `[{ab, lg, mut}]`，`mut` 照原值落 `0/10/20`，**不稀疏**）⇒ 今天卡表里没有这个键
-    //     ⇒ `MapAbilityMutations` 返 `null` = **整列未知** ⇒ `CardDef.IsCumulativeMutation()` 恒 `false`
-    //     = 加这一列之前**逐字相同**的行为（零行为变化、不改 `PinnedPoolMd5`）。
+    //  ✅ **生成器那一半已做（2026-11-03 `B123-E3` 现核 v49）**：`cards_engine.json` 全池 **1621 行都在**、
+    //     行形状 = `[{ab, lg, mut}]`，`mut` 全 `0`（照原值落、**不稀疏**）⇒ `MapAbilityMutations` 读到真列，
+    //     `CardDef.IsCumulativeMutation()` 逐卡判 → 今天全池恒 `false`（等于加这一列之前的行为，零行为变化）；
+    //     ⚠️ 原记录「今天卡表里没有这个键」已过期（v41 写作时是真的，v49 起已落列）。
     //     ⛔ 别为了让谓词「有值」拿 `abilityBuffs` 拼一份（上面那行理由）。
     //
     //  ⚠️ 挂载那一句挤在 `:1749` 原有那一行里（同 v37 / v40 的理由：加行会把下游 A 行账落点推走）。

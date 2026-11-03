@@ -86,7 +86,7 @@ public static class CardFaceAssertE5
             //      它的 T-7 只读 `Played` 的「单次增量」（== 1）⇒ **不会**搅乱本宿主 D 组那几个 `Played` 读数；
             //      这里跑完再 reset 一次兜底，免得后面的宿主读到我们这一趟的窗口音计数。
             //   ⚠️ 它自己的行前缀是 **`BT T`**（同 `BadgeFilterAssert` 的 `BT W10` 先例）⇒ 逐条数时要连它一起数。
-            RunSoundCueAssertT();
+            RunSoundCueAssertT(); B123C3_Assert.Run(); _pass += B123C3_Assert.Pass; _fail += B123C3_Assert.Fail; /* 🆕 2026-11-03（B123-C3）：HandToBoard 的 OnKill 复位 9 项 + 「正常跑完」标志（N 跑满 / K 两刀打断 / D 幂等）；同一物理行追加 ⇒ 行数零变化。 */
         }
         catch (System.Exception e)
         {

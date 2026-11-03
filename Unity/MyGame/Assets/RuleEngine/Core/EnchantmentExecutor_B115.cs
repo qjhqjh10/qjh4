@@ -313,11 +313,11 @@ namespace RuleEngine
         //  载荷来源 = `CardDatabase.AbilityBuffsOf(附魔模板卡)`（波 2 新增的那一列；形状与卡表 v40 同）。
         //  应用体 = **`RuleCore.ApplyAbilityBuff`**（`Core/EffectResolverPartial_B97W2.cs:205` 的
         //  `CardScript.AddEffect` 11 组 case 表）—— ⛔ 别在这里另写一份加成逻辑（铁律 6）。
-        //  ⚠️ **已知缺口（如实）**：那 11 组**不含 `buffType 1 addStats` / `2 changeCost` / `3 addTrait`**，
-        //     而附魔 `ca 30/40` 的 58 行里正好是 `1:17 · 3:18 · 2:5 · 8:2 · 12/15:9 · 90:1`
-        //     ⇒ **今天走进去会落到它的 `default:`「不在 11 组里」那一支（出声、不改状态）**。
-        //     补丁见 `资料/完全复刻/报告/B115_S5_附魔执行器波01.md` §十二（`EffectResolverPartial_B97W2.cs`，
-        //     不属本代理白名单）。
+        //  ⚠️ **载荷覆盖（2026-11-03 就地订正 · `B123_E2` · 铁律 5）**：`ApplyAbilityBuff`（`EffectResolverPartial_B97W2.cs`）
+        //     现读**已含** `buffType 1 addStats`（`:229`）与 `3/90 addTrait`（`:291`）—— 原来这段写「那 11 组不含 1/2/3」
+        //     **已过期**（写于 2026-11-01，而 1/3 在 2026-11-02 `B115_S5` 已落地）；**真残余只有 `2 changeCost`**，
+        //     且它在「场上单位」这一档是空转（`:273` `return false` + 出声）—— 费用长在**手牌**上，落在
+        //     `RuleCorePartial_B115W20.ApplyAbilityBuffToHandCard` 的 `case 2`（`ca 30 + ta 50` 手牌路 = `RuleCorePartial_B123E2.cs`）。
 
         /// <summary>`AbilityEffect.buffOthers = 30` —— 逐目标 `AddEffect`（目标集由 `ta` 定）。</summary>
         internal const int ChosenBuffOthers = 30;
@@ -336,19 +336,19 @@ namespace RuleEngine
         /// 改前的四档 switch 是「第二张表只落了 `ta`」时的过渡实现；`B121-D1B` 已把 36 格导出并挂上
         /// （`CardDef.AttachAbilityTargetCriteria`）⇒ 这一格换成真解算口。</para>
         ///
-        /// <para>⚠️ **`ta = 50 inHandFiltered` 仍然出声**：那一档的候选是**手牌里的卡**（原版 `GetTargets.c:884-891`
-        /// 之前的 0x32 支），不是场上单位，而本仓 `ApplyAbilityBuff` 只吃 `UnitState`
-        /// ⇒ 硬拿棋盘单位顶 = 打错人（静默）。</para>
+        /// <para>🆕 **`ta = 50 inHandFiltered` 走另一条路**（2026-11-03 `B123_E2`）：候选是**手牌里的卡**（原版
+        /// `GetTargets.c:893-901` → `GetCardsInHandList`），由 `RunBuffOthersHandRowOfEnchantment` 结算
+        /// （`RuleCorePartial_B123E2.cs`）⇒ 本方法对 `ta == 50` 只留一道**防御性出声**（正常路径到不了这里）。</para>
         /// </summary>
         static List<UnitState> ResolveBuffOthersTargets(BattleContext ctx, int owner, UnitState carrier,
                                                         UnitState actingCard, UnitState chosen, int ta, CardDef card,
                                                         CardDef.TriggerAbilityIndexSpec row)
         {
-            if (ta == 50)
+            if (ta == 50)   // 正常路径到不了这里：`ca 30 + ta 50` 在调用前已转给 `RunBuffOthersHandRowOfEnchantment`（`B123_E2`）
             {
                 NoteEnchantBuffGap(card, row,
-                    "`ca 30 buffOthers` 的 `ta = 50 inHandFiltered` 候选是**手牌里的卡**（不是场上单位），"
-                  + "而本仓 `ApplyAbilityBuff` 只吃 `UnitState` ⇒ **本行不结算**（⛔ 不拿棋盘单位顶）");
+                    "`ca 30 buffOthers` 的 `ta = 50 inHandFiltered` 候选是**手牌里的卡**，本方法只解 `UnitState`"
+                  + " ⇒ 这一档由 `RunBuffOthersHandRowOfEnchantment` 负责（⛔ 不拿棋盘单位顶）");
                 return null;
             }
             return ResolveEnchantmentTargets(ctx, owner, carrier, chosen, ta, card, row, "30 buffOthers", actingCard);
@@ -375,12 +375,12 @@ namespace RuleEngine
 
             if (row.Ca == ChosenBuffHand)
             {
-                // 🆕 2026-11-02（执行写手 `B115_W20` · 格 1）：**那个等价口建出来了** ——
-                //   `RuleCorePartial_B115W20.cs` 的 `RunHandBuffRowOfEnchantment` / `AttachHandAbilityBuff`
-                //   （判据 = `PlayerHand__AddHandEffect.c:88-139` 两段：先记记录、再逐张当前手牌 `AddEffect`）。
-                //   ⚠️ 那一支原来在这里 `NoteEnchantBuffGap(… "本仓没有那个等价口")` + `return 0`。
+                // 🆕 2026-11-02（`B115_W20`）：等价口 = `RunHandBuffRowOfEnchantment` / `AttachHandAbilityBuff`（判据 `PlayerHand__AddHandEffect.c:88-139`：先记记录、再逐张当前手牌 `AddEffect`）。
                 return RunHandBuffRowOfEnchantment(ctx, owner, carrier, enchantmentCard, row, by);
             }
+            // 🆕 2026-11-03（`B123_E2`）：`ca 30 buffOthers` + `ta = 50 inHandFiltered` 的候选是**手牌里的卡**（`AbilityLogic__GetTargets.c:893-901` → `GetCardsInHandList`）⇒ 单开一条手牌路（⛔ 不登记 `ps.HandEffectRecords`；判据 / 与 `ca 50` 的分工 → `RuleCorePartial_B123E2.cs` 头注）。
+            if (row.Ca == ChosenBuffOthers && row.Ta == 50)
+                return RunBuffOthersHandRowOfEnchantment(ctx, owner, carrier, enchantmentCard, row, actingCard, by, chosen);
 
             List<UnitState> targets;
             if (row.Ca == ChosenBuffSelf)
@@ -649,9 +649,9 @@ namespace RuleEngine
                             }
                         return list;
                     }
-                default:
-                    NoteEnchantRowTargetGap(card, row, caName, ta);
-                    return null;
+                case 230:   // 🆕 2026-11-03（实现 = `B123_E1` `ResolveTargetsTa230`；接线 = `B123_E2`）：`GetTargets.c:809-833`（`0xe6`）两位督军取**当前生命更高**者；平局 ⇒ 座位 1（`GetHero(manager,1)`）
+                    { var r230 = ResolveTargetsTa230(ctx, out _); if (r230 == null) NoteEnchantRowTargetGap(card, row, caName, ta); return r230; }
+                default: NoteEnchantRowTargetGap(card, row, caName, ta); return null;
             }
         }
 
@@ -1070,9 +1070,9 @@ namespace RuleEngine
                 case 80:  // `:113-116`：`min + max × multiplierFactor`（乘数**已折进数值**，伤害只结算一次）
                     value = min + max * factor;
                     return true;
-                case 90:  // `:120`：先给 `min`，逐目标掷在 `CardScript__GetAdjustedDamage.c:23-30`
-                    value = min;
-                    return true;
+                case 90: value = min; return true;   // `:120`：先给 `min`，逐目标掷在 `CardScript__GetAdjustedDamage.c:23-30`
+                    // 🆕 2026-11-03（实现 = `B123_E1` `TryResolveCriteriaValue203`；接线 = `B123_E2`）：`valueOptions 203` = **`min + 当前手里剑数 × max`**（加法 —— ⛔ 不是 40/41/50 那族的「min × 值」）。
+                case 203: return TryResolveCriteriaValue203(ctx, thisCard, min, max, out value, out gap);   // 判据 `AbilityLogic__GetValueFromCriteria.c:320-325`（`case 0xcb`）
                 default:
                     gap = $"`valueOptions = {opt}` 不在本版读得出来的档里"
                         + "（已实现 0 / 10 / 20 / 30 / 40 / 41 / 50 / 80 / 90；其余见 `AbilityLogic__GetValueFromCriteria.c`）";
@@ -1084,13 +1084,13 @@ namespace RuleEngine
         /// `CheckIfMeetsCriteria`（`:1086-1095`）+ `maxTargets` 裁剪。
         /// <para>判据 = **分支出口**：`LAB_180818485: return *puVar13;` 是「建完池直接返回」，
         /// 下列各档都 `goto` 它 ⇒ **不筛不裁**：`20 self` · `30 target` · `220` · `40/80 actingCard` ·
-        /// `120 friendlyHero` · `130 enemyHero` · `140/150 previousAbilityTargets`。</para>
+        /// `120 friendlyHero` · `130 enemyHero` · `140/150 previousAbilityTargets` · `230`（`:809-833` 两条支路都 `goto LAB_180818485`）。</para>
         /// <para>其余档（尤其 `0 any` / `10 allFiltered` / `210` / `90 targetIfMeetsCriteria`）落到那段循环 ⇒ 要筛。</para></summary>
         static bool TaGoesThroughCriteriaFilter(int ta)
         {
             switch (ta)
             {
-                case 20: case 30: case 40: case 80: case 120: case 130: case 140: case 150: case 220:
+                case 20: case 30: case 40: case 80: case 120: case 130: case 140: case 150: case 220: case 230:
                     return false;
                 default:
                     return true;
@@ -1314,7 +1314,7 @@ namespace RuleEngine
                         Raw = "(附魔 ca 130 stun)", Side = "any", Kind = "unit", Count = 1,
                     },
                 };
-                DoStun(ctx, owner, by, op, t, unresolved);
+                ApplyStunTo(ctx, t, by, op);                // 🆕 2026-11-03（`B123_E1` 实现 / `B123_E2` 接线）：原版 `AddStun` 没有 jam 闸（`PlayAbility.c:642-657`）⇒ 走共用件，绕开 `DoStun` 的 `AddEffectCasterGates`
                 if (!before && t.IsStunned) stunned++;      // 真晕上的才计数（`DoStun` 的返回真只表示「这一 op 跑完了」）
             }
             if (unresolved.Count > 0) ReportUnresolved(ctx, by, unresolved);
@@ -1448,24 +1448,24 @@ namespace RuleEngine
         }
 
         /// <summary>`ca 238` 那一记：原版 `AddScriptedForceAttack(…, dontCountAttack = **1**, 0)`
-        /// ⇒ **入队预扣 + `wasFree` 才退还**，逐句同 `RuleCore.DeclareAttackRefundingForced`
+        /// （`AbilityLogic__PlayAbility.c:2764-2779` 的 `case 0xee`，`while(targets)` 逐目标各排一条）。
+        /// ⇒ **入队预扣 + `wasFree` 才退还**，与 `RuleCore.DeclareAttackRefundingForced` 逐句同形
         /// （净效果：攻击前 `0` 次 ⇒ 净 0；`> 0` 次 ⇒ 净不变）。
-        /// <para>⚠️ 为什么复制这三句而不是直接转调那个方法：它的 `refunds` 由
-        /// `ForcedAttackRefunds(ctx)` 按**卡 id 查表**算，而那张表只装 `cards_engine.json`
-        /// ⇒ 附魔模板卡恒 `Unknown`、会被算成「退还」，**行为上碰巧对**，但那不是这一档的判据
-        /// （判据是 `.c:2764-2779` 把 `1` 写死在实参里）。补丁（给 `DeclareAttackRefundingForced`
-        /// 加 `forceRefund` 形参）已写进报告。</para></summary>
+        ///
+        /// <para>🆕 **2026-11-03（`B123_E2` · 铁律 5 就地订正）**：原来这里**复制**了那三句（预扣 / 结算 / 退还），
+        /// 理由写的是「`ForcedAttackRefunds` 按卡 id 查表、而附魔模板卡不在 `cards_engine.json` 里 ⇒ 恒
+        /// `Unknown`」；现在 `DeclareAttackRefundingForced` 已加 `forceRefund` 形参（默认 `null` = 逐字旧行为）
+        /// ⇒ 这里**转调**它：「原版这一档把 `dontCountAttack` 写死成 `1`」现在落在 `forceRefund: true`
+        /// 这一个实参上，⛔ 不再有第二份「预扣 + 退还」的实现。</para>
+        /// <para>⚠️ `BeginAction` 必须由这一层包住：`DeclareAttackRefundingForced` 自己不包
+        /// （对照 `RuleCore.DeclareAttack` 那一行 `using (BeginAction(ctx)) return DeclareAttackRefundingForced(…)`）。
+        /// 🧨 灭自证：去掉 `forceRefund: true` ⇒ 附魔模板卡让 `ForcedAttackRefunds` 判 ⇒ `refunds = false`
+        /// ⇒ 预扣了不退还（`AttacksThisTurn` 净 −1）⇒ `B123_E2_Assert` 的 F 组变红。</para></summary>
         static int DeclareScriptedForceAttack238(BattleContext ctx, int p, int atkSlot, int tgtP, int tgtSlot, bool ranged)
         {
-            UnitState atkUnit = (ctx != null && p >= 0 && p <= 1 && BoardSpec.IsValid(atkSlot))
-                                ? ctx.Players[p].Board[atkSlot] : null;
-            bool wasFree = atkUnit != null && atkUnit.AttacksThisTurn == 0;
-            RemoveAttackThisTurn(atkUnit);                                  // 原版 `AddScriptedForceAttack.c:44`
-            int code;
-            using (BeginAction(ctx)) code = DeclareAttackCore(ctx, p, atkSlot, tgtP, tgtSlot, ranged, forced: true);
-            if (code == RuleCodes.OK && wasFree && atkUnit != null)
-                RefundForcedAttackAction(ctx, p, atkSlot, atkUnit);         // 原版 `_ResolveForceAttack…:73-77`
-            return code;
+            using (BeginAction(ctx))
+                return DeclareAttackRefundingForced(ctx, p, atkSlot, tgtP, tgtSlot, ranged,
+                                                    forced: true, forceRefund: true);
         }
 
         // ================================================================================================
@@ -1911,6 +1911,13 @@ namespace RuleEngine
         {
             return DeclareScriptedForceAttack238(ctx, p, atkSlot, tgtP, tgtSlot, ranged);
         }
+
+        /// <summary>自检门：`ca 30/40/50` 的「载荷/目标集判不了」出声计数
+        /// （= `_b115s5EnchantRowsUnsupported`，由 `NoteEnchantBuffGap` 涨）。
+        /// <para>🆕 2026-11-03（`B123_E2`）：`B123_E2_Assert` 用它做「不静默」的判别式 ——
+        /// ⚠️ 别拿 `EnchantRowsDataGapForTest` 顶：那是 `_b121d1EnchantRowsDataGap`（另一条出声口），
+        /// 本档走的是 `NoteEnchantBuffGap`。</para></summary>
+        public static int EnchantBuffGapForTest { get { return _b115s5EnchantRowsUnsupported; } }
 
     }
 }

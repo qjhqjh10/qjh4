@@ -128,10 +128,10 @@ namespace CardPresentation
         public Transform CloseHit { get { return transform.Find("CloseHit"); } }
         public Transform ShadeHit { get { return transform.Find("BackgroundHit"); } }
 
-        /// <summary>🔴 **2026-11-03（B121-C2）起**不再触发：导入那一站**不落库**（原版 `__TryImport.c` 也不落库），收藏页刷新由「从编辑器回程」那一跳负责。字段保留只为不改 `CollectionWindow.cs:5430` 的调用签名（该文件不在本笔白名单）—— ⛔ 别拿它当刷新口。</summary>
-        public System.Action OnImported;
+        // 🔴 **2026-11-03（B123-C2）已删**：这里原有一行 `public System.Action OnImported;` —— **死回调**（全仓 0 处 `OnImported(...)` 调用，
+        //   导入那一站根本不落库、原版 `__TryImport.c` 也没有这一跳）⇒ 字段 / `Create` 形参 / 赋值三处一起删。**行数保持** = 别让账锚点漂（本文件在账里被引到 `:601`）。
 
-        public static ImportDeckPopup Create(WindowsManager mgr, System.Action onImported = null)
+        public static ImportDeckPopup Create(WindowsManager mgr)
         {
             var go = new GameObject("Import Deck Popup");
             var win = go.AddComponent<ImportDeckPopup>();
@@ -140,7 +140,7 @@ namespace CardPresentation
             win.closeOnEsc = true;
             win.extraScaleSmallScreen = 1f;
             win.Manager = mgr;
-            win.OnImported = onImported;
+            // 🔴 **2026-11-03（B123-C2）已删**：原句 `win.OnImported = onImported;`（死回调，见上面那条）。
             WindowsManager.AttachToAnchor(win);
             return win;
         }
@@ -634,8 +634,8 @@ namespace CardPresentation
             var w = DeckInfoPopup.CreateForPicked(Manager, -1, deck, info, DeckInfoPopup.DeckInfoState.Import,
                                                   false, null, null);
             Manager.OpenWindow(w);
-            // ⚠️ `OnImported` **不在这里触发**：这一站还没入库（原版也没有这一跳）。收藏页的刷新由
-            //    「从编辑器回程」那一跳负责（`CollectionData.InvalidateLibrary`），别把这个回调当刷新口。
+            // ⚠️ 这一站**不落库**（原版 `__TryImport.c` 也没有这一跳）⇒ 也**没有**任何「导入完成」回调：
+            //    收藏页的刷新由「从编辑器回程」那一跳负责（`CollectionData.InvalidateLibrary`），⛔ 别在这里补一个刷新口。
             Debug.Log("[ImportDeck] 开 `Deck info Popup`（State=Import）并关自己 —— 卡组「" + (info.Name ?? "")
                       + "」**尚未入库**，玩家在信息窗点 `Import Deck` 才进编辑器、`Done` 才保存");
             Close();

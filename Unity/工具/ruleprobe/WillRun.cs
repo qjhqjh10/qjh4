@@ -43,6 +43,13 @@ using RuleEngine;
 ///   子效果藏在 `chooseone` 的 `ChooseWhat` 或 `give "…"` 的引号里）⇒ **按「段」对账会产生假警报**：
 ///   实测 `ASH71`（`Choose one: …`）· `BL4`（`Your Warlord gains "Blast 2 and Slay: …"`）
 ///   两族被逐条误报过。⇒ 那两类卡只报「整条 desc 解不出 op」那一档。
+///   🔴 **2026-11-03 就地订正（`B123_E3`）**：上面那句 `tactic/defence = Parse(desc)` 现在**有一个例外** ——
+///   13 张 `TRANSFORM_*` 变身战术卡（🔶 自设计，用户 2026-11-03 裁定）的卡面正文是**说明文字**，
+///   `EffectText.WillRunOps` 对它们走 `RuleCore.TacticOpsOf` 直接给一条 `warlordtransform` op
+///   （判据 = `RuleCore.HasWarlordTransformAbility` 一处）。它们**原版卡池里不存在** ⇒
+///   与 `EffectText.Coverage` 同口径**从 ① 的类型分母里排除**（不排除就会出现「本表 tactic 459 ×
+///   (b) `Coverage` tactic 446」同一份池两个数 —— 那正是这条订正要治的分叉）。
+
 ///
 /// ⛔ **本文件一行都不改引擎**（`MyGame/Assets/**` 不在本工具的白名单里）——
 ///   它把「空表 / 收漏」**报出来**，判决（改哪张表、补哪个消费点）由调度台另派。
@@ -107,6 +114,9 @@ class WillRun
     const string KMiss = "收漏";         // 🔴 触发头没收下来 —— `A1386` 是这一族。**计入 rc**
     const string KPaid = "付费段";       // 🔴 `N <货币>:` / `Oath N:` 形状的付费能力段没收下来。**计入 rc**
     const string KTwice = "同头两写";    // ⚠️ 头注册了、但正文与这一段不同（`desc` / `keywords` 两份数据不一致）。**不计入 rc**
+                                         // 🔴 2026-11-03（`B123_E3`）现读：池内 **0 条** —— `CardDef.AddTriggerOp` 自
+                                         //   2026-10-23（`T03`/`D15`）起是「同文去重 + **异文追加**」，同头的另一份正文
+                                         //   **会**进 `TriggerOps` ⇒ 不再被丢、不再落这一档（这一档今天**结构上不可达**）。
 
     /// <summary>🆕 **无头档**（`A1459`）的三档 —— 判据见 <see cref="ClassifyHeadless"/>。
     ///   这一档治的是：**卡面没有 `Head:` 的句子，腿 B 结构上抽不到**（`AddFaceBody` 里 `col &lt;= 0` 直接 return）
@@ -172,14 +182,27 @@ class WillRun
             rows.Add(Measure(pool[i], (poolRawKw != null && i < poolRawKw.Count) ? poolRawKw[i] : null, pool));
 
         var types = new[] { "tactic", "unit", "hero", "defence" };
+        // 🔴 2026-11-03（`B123_E3` · 同步 `EffectText.Coverage` 的新口径）：13 张 `TRANSFORM_*`
+        //   是 🔶 **自设计（非原版）** 的变身战术卡 —— **原版卡池里没有它们**，卡面正文是**说明文字**
+        //   （op 由 `RuleCore.TacticOpsOf` 直接给，判据 = `RuleCore.HasWarlordTransformAbility` 一处）。
+        //   `EffectText.Coverage` 已经把这一类**从分母里排除**；本表若照旧把它们算进 `tactic`，
+        //   同一份池就会出现「本表 tactic 459 × (b) `Coverage` tactic 446」**两个数**（同族分叉，
+        //   `A1339` 那一套）。⇒ 这里用**同一个判据**排除，并把被排除的那几张**点名打出来**（⛔ 不静默丢）。
+        var selfDesigned = rows.Where(r => RuleCore.HasWarlordTransformAbility(r.C)).ToList();
+        bool SelfDesigned(Row r) => RuleCore.HasWarlordTransformAbility(r.C);
         Console.WriteLine("=== willrun · 卡面正文「收下来没有」（按卡类型问对的层）===");
         Console.WriteLine("  卡池 " + Program.PoolPath);
         Console.WriteLine("  池 " + rows.Count + " 张（`scan` 的 " + rows.Count(r => !string.IsNullOrEmpty(r.C.Desc))
                           + " 张 = 池 − `desc` 为空的 " + rows.Count(r => string.IsNullOrEmpty(r.C.Desc)) + " 张）");
         Console.WriteLine("  腿 A（执行层） = `EffectText.WillRunOps`（unit/hero 走事件·触发·灵魂石·誓约·光环；"
-                          + "tactic/defence 走主解析器）");
+                          + "tactic/defence 走主解析器，**例外** = 13 张 `TRANSFORM_*` 走 `RuleCore.TacticOpsOf`）");
         Console.WriteLine("  腿 B（卡面）  = `desc` 分句 ∪ `keywords` 原文条目里 `Head: body` 且 `body` 解得出 op 的那些"
                           + "（**只对 unit/hero 做段级对账**，见文件头）");
+        if (selfDesigned.Count > 0)
+            Console.WriteLine("  ⚠️ 另有 " + selfDesigned.Count + " 张 🔶 自设计（非原版）的 `TRANSFORM_*` 变身战术卡"
+                              + "**不进下面 ①② 的四行**（原版卡池里没有它们，卡面正文是说明文字 ⇒ 与 "
+                              + "`EffectText.Coverage` 同一口径排除；判据 = `RuleCore.HasWarlordTransformAbility`）："
+                              + string.Join(" / ", selfDesigned.Select(r => r.C.Id)));
         Console.WriteLine();
 
         // ---------------------------------------------------------------- ① 按卡类型
@@ -188,7 +211,7 @@ class WillRun
                           + Pad("本来没正文", 12) + Pad("收漏了", 8) + "未归因");
         foreach (var t in types)
         {
-            var g = rows.Where(r => r.C.Type == t).ToList();
+            var g = rows.Where(r => r.C.Type == t && !SelfDesigned(r)).ToList();
             Console.WriteLine("  " + Pad("[" + t + "]", 11) + Pad(g.Count.ToString(), 7)
                 + Pad(g.Count(r => r.RunOps.Count > 0).ToString(), 9)
                 + Pad(g.Count(r => r.RunOps.Count == 0).ToString(), 7)
@@ -196,7 +219,7 @@ class WillRun
                 + Pad(g.Count(r => r.EmptyKind == "收漏了").ToString(), 8)
                 + g.Count(r => r.EmptyKind == "未归因"));
         }
-        var others = rows.Where(r => !types.Contains(r.C.Type)).ToList();
+        var others = rows.Where(r => !types.Contains(r.C.Type) && !SelfDesigned(r)).ToList();
         if (others.Count > 0)
             Console.WriteLine("  " + Pad("[其它]", 11) + Pad(others.Count.ToString(), 7)
                 + Pad(others.Count(r => r.RunOps.Count > 0).ToString(), 9)
@@ -206,7 +229,7 @@ class WillRun
         // ---------------------------------------------------------------- ② 老口径 vs 新口径
         Console.WriteLine("  --- ② 🔴 老口径 vs 新口径（同一批卡、同一趟算出来）---");
         Console.WriteLine("  老口径 = `RuleEngineTest` 报表的形状：只对 `WillRunOps` **返回的** op 逐条问 `OpHasMechanism`");
-        var oldParts = types.Select(t => { var g = rows.Where(r => r.C.Type == t).ToList();
+        var oldParts = types.Select(t => { var g = rows.Where(r => r.C.Type == t && !SelfDesigned(r)).ToList();
                                            return t + " " + g.Count(r => r.OldPass) + "/" + g.Count; });
         Console.WriteLine("    " + string.Join(" · ", oldParts) + " —— 全通");
         Console.WriteLine("    ⚠️ 这条口径**把「一条 op 都没收到」也算作【全通】**（`A1432`）");
@@ -215,7 +238,7 @@ class WillRun
         Console.WriteLine("  新口径 = 本子命令：**空表要出声**，且「本来没正文」与「收漏了」分开算");
         foreach (var t in types)
         {
-            var g = rows.Where(r => r.C.Type == t).ToList();
+            var g = rows.Where(r => r.C.Type == t && !SelfDesigned(r)).ToList();
             Console.WriteLine("    " + Pad(t, 8) + "收到 " + Pad(g.Count(r => r.RunOps.Count > 0).ToString(), 5)
                               + " 空表 " + Pad(g.Count(r => r.RunOps.Count == 0).ToString(), 5)
                               + "（本来没正文 " + g.Count(r => r.EmptyKind == "本来没正文")
@@ -268,7 +291,9 @@ class WillRun
         Console.WriteLine("      · **" + KPaid + "**（`N ☀:` / `N [Energy]:` 形状的付费能力段 —— "
                           + "**它自己那条通道没收到**）  " + nPaid + " 条 ← **计入 rc**");
         Console.WriteLine("      · **" + KTwice + "**（同一个头注册了、但 `desc` 与 `keywords` 两份正文**不一样**，"
-                          + "后者被「先到先得」丢掉）  " + nTwice + " 条 ← ⚠️ **数据不一致**，⛔ 不计入 rc");
+                          + "后者被「先到先得」丢掉）  " + nTwice + " 条 ← ⚠️ **数据不一致**，⛔ 不计入 rc"
+                          + "；🔴 2026-11-03 现读：`D15`（2026-10-23）起 `AddTriggerOp` 是「同文去重 + **异文追加**」"
+                          + " ⇒ 同头的另一份正文**会**进 `TriggerOps`、不再被丢 ⇒ 本档今天**结构上不可达**（池内恒 0）");
         // 🆕 `A1593`：**按通道比**（不是全卡 op 并集比）之后，把「旧口径会漏掉的那几条」标出来。
         var maskedAll = rows.SelectMany(r => r.MaskedByOtherAbility).ToList();
         Console.WriteLine("    🔴 🆕 **`A1593` 旧口径会漏掉的那几条 = " + maskedAll.Count + " 条**"
@@ -516,9 +541,13 @@ class WillRun
     ///   `Rally:` / `Pray:` 顶上）。⚠️ 这一步在**旧口径里根本无从表达**（它没有「通道」这一维）
     ///   ⇒ 它钉的是「新口径**认得出是哪条 ability**」，而 `GlobalHit`（旧口径的答案）
     ///   同时为真正好说明**旧口径的「收到」与巧合无法区分**。
-    /// **断言 C —— 反面对照**
-    ///   夹具 `Rally: Deal 1 damage. Rally: Deal 3 damage`：第二条**必须**报成「同头两写」
-    ///   （头注册过、正文不一样）—— 挡住「只要头注册了就一律算收到」那种改法。
+    /// **断言 C —— 同头两条正文（🔴 2026-11-03 `B123_E3` 判据更新）**
+    ///   夹具 `Rally: Deal 1 damage. Rally: Deal 3 damage`。
+    ///   ⚠️ 原措辞「第二条**必须**报成「同头两写」（头注册过、正文不一样）—— 挡住「只要头注册了就一律算收到」」
+    ///   **已作废**：`CardDef.AddTriggerOp` 自 2026-10-23（`T03`/`D15`）起是「同文去重 + **异文追加**」
+    ///   （判据 = 原版逐 `CardAbility` 各判各发）⇒ 第二条**真被登记、真会结算**，不是孤儿。
+    ///   现断言改为钉住新语义：腿 A **2** 条（`Deal 1` 与 `Deal 3` **逐值**都在）· 孤儿 **0** 条。
+    ///   与移植副本 `RuleEngineTest.cs:11510-11570` 的哨兵④-b **同一口径**（那份 2026-10-23 已改，本文件当时漏改）。
     ///
     /// ⚠️ **夹具卡在内存里现造**（`new CardDef(...)`，⛔ 不进卡池、⛔ 不碰 `MyGame/Assets/**`）——
     ///   它们是**判据的对照**，不是「池里有第四张卡」。
@@ -584,11 +613,28 @@ class WillRun
         var c1 = fx("FX-C1", "Rally: Deal 1 damage. Rally: Deal 3 damage");
         {
             var row = Measure(c1, null, pool);
-            var tw = row.Orphans.Where(b => b.Kind == KTwice).ToList();
-            bool ok = tw.Count == 1;
+            // 🔴 **2026-11-03（`B123_E3`）判据更新 —— 与移植副本 `RuleEngineTest.cs:11510-11570` 的哨兵④-b 对齐**：
+            //   原期望「第二条 `Rally:` 报「同头两写」孤儿 **1** 条」**已被引擎作废**（⛔ 不是回归）：
+            //   `CardDef.AddTriggerOp` 自 **2026-10-23（`T03` / `D15`，commit `74f6a99c`）** 起把
+            //   「先到先得」改成**「同文去重 + 异文追加」**（判据 = 原版**逐 `CardAbility`** 各判各发：
+            //   `RawCardScript__TriggerAbilities.c:112-120,204-215`）⇒ 同一个头下的两条**不同**正文
+            //   **都进 `TriggerOps`** ⇒ 第二条**不再是孤儿**。
+            //   ⚠️ 移植副本 `RuleEngineTest.cs:11547` 当天就订正了，**本文件这一侧当时漏改** ⇒ 两份实现
+            //   从 2026-10-23 起分叉；本笔按副本口径补齐（文件头 `A1594` 那段要求两份同步）。
+            //   ⛔ **别把期望改回 1 条**（那等于要求引擎退回「先到先得」）；也不⛔ 把这一档删掉 ——
+            //   它现在钉的是**新语义**，任何一边退化都会红。
+            bool saw1 = false, saw3 = false;
+            foreach (var o in row.RunOps)
+                if (o != null && o.Verb == "deal")
+                {
+                    if (o.Amount == 1) saw1 = true;
+                    if (o.Amount == 3) saw3 = true;
+                }
+            bool ok = row.RunOps.Count == 2 && row.Orphans.Count == 0 && saw1 && saw3;
             Console.WriteLine("    " + (ok ? "✅" : "🔴") + " C 「" + c1.Id + "」`" + c1.Desc + "`");
-            Console.WriteLine("        期望：第二条报「" + KTwice + "」 **1 条**；实得 **" + tw.Count + " 条**"
-                              + "（孤儿 " + row.Orphans.Count + "）");
+            Console.WriteLine("        期望：腿 A **2** 条（`Deal 1` 与 `Deal 3` **都要在**，逐值核对 —— ⛔ 不是只数条数）"
+                              + " · 孤儿 **0** 条（`D15` 异文追加 ⇒ 两条都进 `TriggerOps`）；实得 腿 A "
+                              + row.RunOps.Count + " 条 · 孤儿 " + row.Orphans.Count + " 条 · saw1=" + saw1 + " saw3=" + saw3);
             if (!ok) fail++;
         }
 
@@ -624,11 +670,13 @@ class WillRun
             var d2 = fx("FX-D2", "Rally: Deal 1 damage. Rally: Deal 3 damage");
             var row2 = Measure(d2, null, pool);
             int old2 = row2.Bodies.Count(b => !b.GlobalHit);
-            var tw = row2.Orphans.Where(b => b.Kind == KTwice).ToList();
-            bool ok2 = tw.Count == 1 && old2 == 1;
+            // 🔴 2026-11-03（`B123_E3`）：与断言 C 同一条判据更新（`D15` 异文追加）。本档原来要求
+            //   「同头两写孤儿 1 · 旧口径 1」，那是 `D15` **之前**的真值；现读腿 A **2**、新旧口径孤儿都 **0**。
+            bool ok2 = row2.RunOps.Count == 2 && row2.Orphans.Count == 0 && old2 == 0;
             Console.WriteLine("    " + (ok2 ? "✅" : "🔴") + " D 「" + d2.Id + "」`" + d2.Desc + "`");
-            Console.WriteLine("        期望：「" + KTwice + "」孤儿 **1** 条 · 旧口径孤儿 **1** 条；"
-                              + "实得 " + tw.Count + " 条 · 旧口径 " + old2 + " 条");
+            Console.WriteLine("        期望：腿 A **2** 条 · 孤儿 **0** 条 · 旧口径孤儿 **0** 条"
+                              + "（与 `RuleEngineTest.cs` 哨兵④-b 同一口径，判据见断言 C 那段）；实得 "
+                              + row2.RunOps.Count + " 条 · 孤儿 " + row2.Orphans.Count + " 条 · 旧口径 " + old2 + " 条");
             if (!ok2) fail++;
         }
         Console.WriteLine("    ⇒ 自检 **" + (fail == 0 ? "全过 ✅" : "红 " + fail + " 条 🔴") + "**"
@@ -1037,7 +1085,12 @@ class WillRun
             if (row.Orphans.Count > 0) row.EmptyKind = "收漏了";
             else
             {
-                var descOps = EffectText.Parse(c.Desc, out _, out _);
+                // 🔴 2026-11-03（`B123_E3`）：与 `EffectText.WillRunOps` 的 tactic/defence 支**同一判据** ——
+                //   13 张 `TRANSFORM_*` 走 `RuleCore.TacticOpsOf`（原版卡池里没有它们、卡面正文是说明文字）。
+                //   ⚠️ 正常路径今天走不到这里（它们的 `RunOps` 已经非空）—— 留着是为了哪天口径再变时**不悄悄分叉**。
+                var descOps = RuleCore.HasWarlordTransformAbility(c)
+                              ? RuleCore.TacticOpsOf(c)
+                              : EffectText.Parse(c.Desc, out _, out _);
                 row.EmptyKind = (descOps != null && descOps.Count > 0) ? "未归因" : "本来没正文";
             }
         }
@@ -1102,6 +1155,9 @@ class WillRun
     /// ⚠️ **只对 `unit` / `hero` 走这一档**（与腿 B 同一个范围，理由同 README「三条别推翻的取舍」1）：
     ///    `tactic` / `defence` 的腿 A **就是** `Parse(c.Desc)` ⇒ 这一类卡的「无头句」早就被腿 A 收到了，
     ///    走这一档只会重复记账。
+    ///    （🔴 2026-11-03 `B123_E3` 订正：上面那句今天有**一个例外** —— 13 张 `TRANSFORM_*` 走
+    ///    `RuleCore.TacticOpsOf`（原版卡池里没有、卡面只有说明文字）；本档只对 unit/hero 生效，
+    ///    所以那一族**不影响本档范围**，只是文件别处引用「tactic 腿 A = Parse」时要知道这个例外。）
     /// ⚠️ **按段原文去重**（`desc` 与 `keywords` 里同一段各印一遍是常态，同 `AddFaceBody` 的去重理由）。</summary>
     static void AddHeadless(List<FaceBody> into, CardDef c, string seg, string where)
     {

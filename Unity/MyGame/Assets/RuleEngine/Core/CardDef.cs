@@ -9122,10 +9122,10 @@ namespace RuleEngine
     //     整体漂移。追加在**文件最末**只增加尾部行号，上面一处都不动（＝预期零漂移）。
     //
     //  📌 本块**只加字段 + 解析口**（白名单：`CardDef.cs` 只加字段与解析）。
-    //     ⚠️ **今天没有任何消费者** ⇒ 接上之前**零行为变化**：
-    //        · `createAtPos` 的落点算法**已经落了**但 0 调用点（`Core/EffectResolverPartial_B88E2.cs` · 判据 `B91_P3` §二·1）；
-    //        · 要接线得改 `RuleCore.DeployFreeCore`（+`requestSlot` 形参）与 `EffectResolver.DoDeploy` —— 都在别的代理白名单里。
-    //     ⛔ 别把「卡表有值」当成「已经接了」（同 `E6` 那段对 `whileInPlayAnim` 的提醒）。
+    //     ✅ **2026-11-03 就地订正（铁律 5 · `B123_E2`）：本段原来写「今天没有任何消费者 / 落点算法 0 调用点」，已过期** ——
+    //        现读：`createAtPos` 的落点算法由 `EffectResolver.cs:4095` → `SummonRequestSlotFor` 调用；`keep` 被
+    //        `EffectResolver.cs:19503` / `RuleCorePartial_B103W5.cs:642` 读；`unitsToSummon` 被 `EnchantmentExecutor_B115.cs:1696/1704` 读。
+    //     ⛔ 别把「卡表有值」当成「已经接了」；也⛔ 别把「有消费者」当成「全接了」（`ids` 在卡表主路仍 0 消费者 = `B123 对账 A` §7）。
     //
     //  📌 原版分支表（逐行读过；⛔ 别在这里抄第二份 → `工具/gen_cards_engine.py` 的 `ability_summon_of` 上面那段）：
     //     `createAtPos` 只认 `{0 self, 1 cardTarget, 3 friendlyHero}`；**其余（含 `14 nextFriendlyMinionSpot`）

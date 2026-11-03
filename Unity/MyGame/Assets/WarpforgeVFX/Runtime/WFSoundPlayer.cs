@@ -81,7 +81,7 @@ namespace WarpforgeVFX
                     src.spatialize = false;
                     _pool[i] = src;
                 }
-                if (!_pool[i].isPlaying) return _pool[i];
+                if (!_pool[i].isPlaying && DebugForceFullRents <= 0) return _pool[i];   // 🆕 2026-11-03 `B123-C4`：自检注入「池满」时必须扫完再落 `OnPoolExhausted`（改前注入被 i=0 的提前 return 吃掉 ⇒ `B120_W5` C1 / `B121_WA` B2 实际没验到池满那一支）
             }
             // 原版：全活跃 ⇒ `CustomDebug.LogError("There are not enough audio sources!")` 并 `return 0`
             // ⇒ `SoundManager.Play` 把默认值往外交（**这一声不播**）。改前我们是「轮转盖掉最早那条」。
@@ -309,13 +309,13 @@ namespace WarpforgeVFX
         /// ⚠️ 只给自检读「源上的参数对不对」；⛔ 别在玩法代码里用（它绕过 `Play` 的音量/混音组设置）。</summary>
         public static AudioSource DebugRent() { return Rent(); }
 
-        static bool _batchFallbackWarned;
-
         /// <summary>池满时原版的动作：`LogError` + **这一声不播**（`d:/2/tools/decomp_full/SoundManager__GetAudioSource.c` 末尾）。
-        /// <para>🔶 自己设计（非原版 · **只服务无帧循环的宿主**）：`-executeMethod` 批处理 / 编辑模式没有帧循环，
-        /// `AudioSource.isPlaying` 永不转 false（本类 `A1534` 那条注释记的是同一现象）⇒ 照抄原版会让第 21 条起
-        /// **全部静音 + 每次刷一条 LogError**，自检日志被淹。**真实播放路径（`Application.isPlaying`）逐位同原版**。
-        /// 调度台 2026-11-02 裁定（`B120-W5`）。</para></summary>
+        /// <para>🆕 2026-11-03（`B123-C4` · `B121-AUD-02`）：**删掉了** 2026-11-02 `B120-W5` 那条
+        /// `🔶 自己设计（非原版 · 只服务无帧循环的宿主）` 的「批处理复用第 0 条」兜底 ——
+        /// 现读确认**没有任何 `-executeMethod` 宿主会连播 > 20**（8 个自检宿主全部先
+        /// `WFSoundPlayer.Enabled = false`，关掉时 `WarpforgeAudio.cs:154` 直接返 null ⇒ 一次 `Rent()` 都不发生；
+        /// `RuleEngineTest` / `NetSelfTest` / `NetBattleTest` 音频 0 命中；`DebugRent()` 全仓真实调用只有
+        /// `B120_W5_Assert` 3 处 + `B121_WA_Assert` 3 处 = 6 次 < 池 20）⇒ 回归原版：批处理也走同一条「报错 + 不播」。</para></summary>
         static AudioSource OnPoolExhausted()
         {
             if (DebugForceFullRents > 0)
@@ -326,16 +326,6 @@ namespace WarpforgeVFX
                 Debug.LogError("[WFSoundPlayer] There are not enough audio sources!"
                              + "（原版同一句；自检注入 `DebugForceFullRents`）—— 这一声**不播**");
                 return null;
-            }
-            if (!Application.isPlaying)
-            {
-                if (!_batchFallbackWarned)
-                {
-                    _batchFallbackWarned = true;
-                    Debug.LogWarning("[WFSoundPlayer] 批处理 / 编辑模式没有帧循环，`AudioSource.isPlaying` 不会回到 false"
-                                   + " ⇒ 池满后退回「复用第 0 条」（🔶 仅此环境；真实播放路径按原版丢弃新声并报错）。");
-                }
-                return _pool != null && _pool.Length > 0 ? _pool[0] : null;
             }
             Dropped++;
             Debug.LogError("[WFSoundPlayer] There are not enough audio sources!"

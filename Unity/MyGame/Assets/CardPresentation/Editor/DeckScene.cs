@@ -1397,7 +1397,7 @@ public static class DeckScene
             // 🔴 **2026-11-02（`B-334` · `B116_W36`）**：`Done`/`ESC` **保存成功 ⇒ 关窗**（原版 `TrySaveDeck→UploadDeck→OnSave→Close()`）。
             //   ⚠️ 这一行**必须**是独立的一行（⛔ 别并进下面那条超长聚合行 —— 追加点落在它行尾 `//` 之后就被静默吞掉）。
             B116W36_Assert.Run(); _sink.Pass += B116W36_Assert.Pass; _sink.Fail += B116W36_Assert.Fail; /* 🔴 B-339（B116_W38）：卡组库**跨窗存活** ⇒ 保存失败支也关窗、库内容不丢 */ B116W38_Assert.Run(); _sink.Pass += B116W38_Assert.Pass; _sink.Fail += B116W38_Assert.Fail;
-            B105W4_Assert.Run(); _sink.Pass += B105W4_Assert.Pass; _sink.Fail += B105W4_Assert.Fail;            B106W7_Assert.Run(); _sink.Pass += B106W7_Assert.Pass; _sink.Fail += B106W7_Assert.Fail; B111R1WB_Assert.Run(); _sink.Pass += B111R1WB_Assert.Pass; _sink.Fail += B111R1WB_Assert.Fail;   TestDoneHighlightToggler(); B107_W14_Assert.Reset(); B107_W14_Assert.RunStatic(); B107_W14_Assert.RunDeckScene(_rt); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B121_WC_Assert.Run(); _sink.Pass += B121_WC_Assert.Pass; _sink.Fail += B121_WC_Assert.Fail;   // 🆕 2026-10-31（调度台接线 · W7）：阵营口径按 `deckArmy` / `CanAddHero` 返 `InvalidArmy` / `DeckLibrary.Create` 已封口
+            B105W4_Assert.Run(); _sink.Pass += B105W4_Assert.Pass; _sink.Fail += B105W4_Assert.Fail;            B106W7_Assert.Run(); _sink.Pass += B106W7_Assert.Pass; _sink.Fail += B106W7_Assert.Fail; B111R1WB_Assert.Run(); _sink.Pass += B111R1WB_Assert.Pass; _sink.Fail += B111R1WB_Assert.Fail;   TestDoneHighlightToggler(); B107_W14_Assert.Reset(); B107_W14_Assert.RunStatic(); B107_W14_Assert.RunDeckScene(_rt); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B121_WC_Assert.Run(); _sink.Pass += B121_WC_Assert.Pass; _sink.Fail += B121_WC_Assert.Fail; /* 🆕 2026-11-03（B123-C2）：卡组编辑窗 Clear filters 三处同批 + 死回调 + 空名 + 队列钉子（A0–A17）；同一物理行追加 ⇒ 行数零变化。 */ B123_C2_Assert.Run(); _sink.Pass += B123_C2_Assert.Pass; _sink.Fail += B123_C2_Assert.Fail;   // 🆕 2026-10-31（调度台接线 · W7）：阵营口径按 `deckArmy` / `CanAddHero` 返 `InvalidArmy` / `DeckLibrary.Create` 已封口
 
             int total = _sink.Pass + _sink.Fail;
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===");
@@ -5655,8 +5655,8 @@ public static class DeckScene
                               "UI_Button_Mulligan_Pressed", "页头 `Close`（文本 'Back'）");
                 // 🔴🔴 **2026-10-20 改向：`hdr_clear` 不在这里走 `CheckHoverOne`** —— 它此刻**是隐藏的**。
                 //   本节跑到这里时，上面 `_rt.UiClearFilters()` 已经把筛选清空 ⇒ 按新判据这颗钮**隐藏**
-                //   （判据 = `DeckRuntime.KeyLive` 的 `case "hdr_clear": return !State.Filter.IsEmpty;`
-                //    与 `RefreshHeader` 里那两句 `SetOn(…, clearFiltersOn)`，两处**同一个谓词**）。
+                //   （判据 = `DeckRuntime.KeyLive` 的 `case "hdr_clear": return HdrClearOn;`（2026-11-03 `B123-C2` 收成唯一谓词；卡背页 `_tab==2` 读 `_cosmoFilter`）
+                //    与 `RefreshHeader` 里那两句 `SetOn(…, HdrClearOn)`，三处**同一个谓词**）。
                 //   而 `CheckHoverOne` 第 ③ 步走的是**鼠标那条路**（`UiHoverAt` → `HitBtn` → `KeyLive`）
                 //   ⇒ 隐藏的钮打不到 ⇒ 它内部那两条（打不到 / 悬停图没换）**必红**。
                 //   ⛔ **不许**改回「hover 之前先设个筛选、量完再清」那种迁移就写法 —— 那是把判据绕过去，

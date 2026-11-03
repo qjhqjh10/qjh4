@@ -6695,7 +6695,7 @@ public static class ShopScene
         var poolAll = RuleEngine.CardDatabase.Load();
 
         // ---- ① 前提（硬检查：⛔ 不写成 `if (前提) Check(结论)` —— 前提不成立会静默跳过）----
-        Check(poolAll.Count, 1129, "★①（前提）卡池张数 = 1129（现读）");
+        Check(poolAll.Count, 1142, "★①（前提）卡池张数 = 1142（现读；2026-11-03 v49 加 13 张 `TRANSFORM_*` 变身战术卡，1,129 → 1,142）");
         int cbrcTotal = 0;
         for (int i = 0; i < poolAll.Count; i++) if (poolAll[i] != null && poolAll[i].CantBeRandomlyCreated) cbrcTotal++;
         Check(cbrcTotal, 168, "★①（前提）卡池里 `cantBeRandomlyCreated=1` 的张数 = 168（现读；闸真有人在筛）");

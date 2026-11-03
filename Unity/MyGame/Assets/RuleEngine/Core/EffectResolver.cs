@@ -4435,11 +4435,22 @@ namespace RuleEngine
 
             foreach (var t in targets)
             {
-                if (t == null || !t.IsAlive) continue;
+                ApplyStunTo(ctx, t, by, op);   // 🔴 2026-11-03（`B123_E1` · `B121-D5-04` A 半）：施加段已抽成共用件 `RuleCore.ApplyStunTo`（`EffectResolverPartial_B123E1.cs`），这里留**唯一**调用点；下面 57 行是抽取前的逐档判据注释，**逐字保留**只为行数守恒（本文件有账落点按行号引用，铁律 18·b）—— 它们描述的就是 `ApplyStunTo` 的体，⛔ 别当「代码还在这里」。
+                // ── 抽取口径（`B121-D5-04` A 半 · 2026-11-03 `B123_E1`）────────────────────────────────────
+                //  · 共用件 = `RuleCore.ApplyStunTo(BattleContext ctx, UnitState t, string by, EffectOp op)`；
+                //    逐行语义 = 下面这段注释里的**每一个 `continue`**，⛔ 没有删一档、没有放宽一档。
+                //  · 🔴 **`EffectOp` 依赖必须跟着搬走**：闸① `AddEffectCardStateAllows` 与闸③ `AddEffectRemnantAllowsOp` 都收 `op`
+                //    （闸③ 只用 `op.Source` 记日志）—— 附魔路传的是它自己造的最小 `EffectOp`（`EnchantmentExecutor_B115` 的
+                //    `RunStunRowOfEnchantment`）；⛔ **别改成只传 `source` 字符串**：`op` 一旦为 `null` 两条闸的语义就分叉，残骸门会**静默放宽**。
+                //  · 🔴 **闸② jam / 闸④ 施放者不在场（上面 `:4434` 的 `AddEffectCasterGates`）留在本方法、不进共用件**：
+                //    原版的 `AddStun` 路（附魔 `ca 130` ⇒ `PlayAbility.c:642-657` 逐目标 `AddStun`）**没有**那道 jam 闸
+                //    ⇒ 附魔路调 `ApplyStunTo` 时本来就不该经过它；⛔ 别为了「统一」把它搬进共用件。
+                //  · ⚠️ `t == null || !t.IsAlive` 也一并搬进共用件（它排在闸①**之前**，顺序不能换）。
+                //  · ⚠️ 下面 44 行注释 = 抽取前原文，逐字保留（`A1166` 的 IsInPlay 闸 / `A1224` 的代词映射 / `A1134` 的
+                //    `unstunnable` / `A1116` 的 `AddTraitSilently` / `A1121` 的 `StunnedAtStartOfTurn`）—— 它们描述的就是
+                //    `ApplyStunTo` 的体，⛔ 别当「代码还在这里」。
                 // 🔴 `AddEffect` 闸①（卡状态）+ 闸③（残骸门）—— `Stun` 在原版是 `addTrait(3)`，
                 //    ⇒ 残骸**一律不收**（只有 `addStats` 的生命项与 `addTraitRemnant(90)` 放行）。
-                if (!AddEffectCardStateAllows(ctx, t, by)) continue;
-                if (!AddEffectRemnantAllowsOp(ctx, t, op, by)) continue;
                 // 🆕 **2026-10-09（`A1166`）**：上面这一句 `!IsAlive` 对应原版 `CardScript__Stun.c:44-45`
                 //    那道 `cardState ∈ {2, 0xf, 3, 0x11}`（= `CardScript.IsInPlay()`）闸。
                 //    🔴 **2026-10-11（`A1224`）就地订正：这一段原来写着「已判等价、⛔ 不另加判据」——
@@ -4462,13 +4473,6 @@ namespace RuleEngine
                 //    —— 非假时那一支只打一条 `LogWarning` + `ActivateUnstunnable` 音效，**不加 trait**。
                 //    ⚠️ **是「当前关键词」（`UnitState.Has` = 可被运行时授予），⛔ 不是印刷关键词。**
                 //    判定口共用 `RuleCore.StunBlockedByTraits`（震荡那一格、`SimpleAI.ScoreStun` 同一条）。
-                if (RuleCore.StunBlockedByTraits(t))
-                {
-                    ctx.Log($"{by}：「{op.Source}」想眩晕 {t.Name}，但它有 `unstunnable`"
-                          + "（原版 `CardScript__Stun.c:46` 直接跳过施加）");
-                    continue;
-                }
-                if (t.IsStunned) continue;      // 已经是了：见下面那条「广播不能重复」
                 // 🔴 **2026-10-09（`A1116`）**：原来是 `t.IsStunned = true;`（**只写字段、不挂关键词**）
                 //     ⇒ 改成**挂 `stun` trait**。判据 = 原版 `CardScript__Stun.c:48`
                 //     `AddTraitSilently(param_1, 100, …)` —— 全反编译里施加眩晕**只此一条路**
@@ -4476,11 +4480,9 @@ namespace RuleEngine
                 //     读点全是 `HasCurrentTrait(100)`（`CheckStun` / `CanAttackCard` /
                 //     `IsValidAttackTarget` / `AllowResolveAttack` / `get_mightAct` / `ActivateMinion` …）
                 //     ⇒ **原版只有一份表示**，`IsStunned` 现在的定义就是它。
-                t.AddKeyword(KeywordTable.Stun, 1);
                 // 🆕 **2026-10-24（引擎线 `G1b` · `C2` §6）**：原版 `CardScript__Stun.c:125` **每次被晕**
                 //   都调 `DisplayStatusAnim`。本行前面已有 `if (t.IsStunned) continue;` ⇒ 走到这里
                 //   一定**首次**（`Amount = 0` ⇒ 由 `SyncKeywords` 的「新出现」路演，不在这里重复演）。
-                EmitStatusApplied(ctx, t, KeywordTable.Stun, reapply: false);
                 // 🆕 2026-10-09（`A1121`）：**施加时清「回合开始时就在这个状态」那个闸门** ——
                 //    判据 = `CardScript__Stun.c:98`（`*(undefined1 *)(card + 0x55) = 0;`）。
                 //    ⇒ 这一下眩晕**不会**在**本回合末**被 `RuleCore.EndTurn` 摘掉
@@ -4488,11 +4490,9 @@ namespace RuleEngine
                 //    要撑到它自己的下个回合末才摘 ⇒ 「只废一个回合」。
                 //    ⚠️ 原版那一句还带一个 `+0x108 != 0`（「activeEffects 列表非空」）的守卫，
                 //       那是表现层的容器、对我们没有对应物 ⇒ 无条件执行，如实标着。
-                t.StunnedAtStartOfTurn = false;
                 // 🆕 `When an enemy receives a Stun, …`（2026-09-13 第三十四轮）。
                 // ⚠️ `!t.IsStunned` 那道守卫是**行为保持**的 —— 重复眩晕也只是把关键词叠一层
                 //    （`Has` 一样为真），但**广播不能重复**：卡面写的是「**收到**一次眩晕」。
-                BroadcastKeywordEvent(ctx, WhenEventKind.GetsStun, t);
             }
             ctx.Log($"{by}：「{op.Source}」眩晕了 {targets.Count} 个单位");
             return true;
@@ -4720,11 +4720,11 @@ namespace RuleEngine
         /// 原版 `RawCardScript.IsHidden()` 的**代理**判据 —— 「这张卡该不该出现在随机/选择池里」。
         ///
         /// <para>🆕 **2026-10-25（完全复刻 · 执行代理 A · 账 2b）** 新加。⚠️ **判据不全，如实标**：
-        /// `RawCardScript__IsHidden.c` **不在**反编译集里（`d:/2/tools/decomp_full/` 与 ilspy 全树都没有），
-        /// 只能拿一条**可见的**代理：卡名带 `(tutorial)`。
+        /// ⚠️ **2026-11-03 就地订正（`B123_E2`）**：原来写「方法体不在反编译集里」**已过期** —— 它在
+        /// `decomp_full/PlayerItem__IsHidden.c`（→ `FeatureConfig__IsItemHidden.c`），但那是**远端配置驱动**、本机拿不到。
         /// 现读卡池里这一类就是**教程装订的督军副本**（`Marneus Calgar (tutorial)` /
         /// `Uriel Ventris (tutorial)`），正是原版最该藏起来的那批。</para>
-        /// <para>⛔ 别把它当「原版就是按卡名判」—— 真判据拿到之后**就地替换**这一处（判据只此一处）。</para>
+        /// <para>🔶 自己设计（非原版）：以「卡名含 `(tutorial)`」代 `IsHidden()` —— 真判据 = 远端 LiveOps 配置 `FeatureConfig.IsItemHidden`（`PlayerItem__IsHidden.c` → `FeatureConfig__IsItemHidden.c`，按 `expansionPack` / `cardArmy` 两组隐藏表判），**本地没有这份配置** ⇒ 只能自定 · 2026-10-25 代理 A 首建 / 2026-11-03 `B123_E2` 补标 · ⛔ 别把它当「原版就是按卡名判」。</para>
         /// </summary>
         static bool IsHiddenCard(CardDef c)
         {
@@ -21401,7 +21401,7 @@ namespace RuleEngine
                     case TriggerRowKind.FollowUp:                    // ③ `320`：走已有执行器
                         fired += RunTriggerRowFollowUp(ctx, u, triggerNumber, owner, targetCard ?? actingCard);
                         continue;
-                    default:                                         // ③ 真效果种类 + 没有正文 ⇒ 出声
+                    default: if (r.Ca == 50) { fired += RunHandBuffRowOfEnchantment(ctx, owner, u, u.Card, r, "trigger:" + triggerNumber); continue; }   // ③ 真效果种类 + 没有正文 ⇒ 出声；🆕 2026-11-03（`B123_E1` · `B121-D4-03`）：`ca 50 buffHand` **有**执行器（原版 `AbilityLogic.PlayAbility` 的 `buffHand` 支 → `PlayerHand.AddHandEffect`，两段），落点 = `RuleCorePartial_B115W20.cs` 的 `RunHandBuffRowOfEnchantment`（现成实现，⛔ 别在这里另写一份）⇒ 这一支不再算缺口。⚠️ **不双发**：本方法唯一的调用点就是 `FireTriggerByNumberWithSink` 的 `if (ops == null || ops.Count == 0)`（本文件 `:21078`）⇒ 有正文 op 时根本进不来。⛔ 同一物理行内追加（本文件有账落点按行号引用，铁律 18·b）
                         NoteTriggerRowKindGap(u.Card, triggerNumber, r);
                         continue;
                 }

@@ -27,17 +27,18 @@
 //     其余 buffType 在手牌侧**没有落点**（例如加攻/加血要改的是「打出后的单位」，不是手牌），
 //     一律 `ctx.Log` 出声 + 进 `unresolved`，⛔ 不假装做了。
 //
-// ── ⚠️ 仍未覆盖（如实标着，⛔ 别当成做了）──────────────────────────────────────────────────
-//   ① **「后进手牌的牌」那一半今天接不上**：`RuleCore.HandEffectRegistry` 只收
-//      `e.Op != null && e.Op.Verb == "give"` 的记录（`:11131`）⇒ 本文件登记的 `Spec` 记录
-//      （`Op == null`）**不进**那份清单 ⇒ `SetupCardInHand` 不会把这条效果补给之后进手牌的牌。
-//      要接上需要在 `RuleCore.cs` 的 `HandEffectRegistry` / `HandEffectFits` / `SetupCardInHand`
-//      三处各加一支（`Spec != null` 那一档）；**那三个方法在 `RuleCore.cs`**，本代理按调度台
-//      简报的 ⛔（别碰 `RuleCore.cs`）**没有动它们** ⇒ 补丁已写进报告 `B115_W20_手牌桥四格.md` §五。
-//      影响面：**当前手牌**照常吃上（验收格走的就是这一档）；**之后抽到的**牌吃不上。
+// ── ✅ 覆盖边界（2026-11-03 就地订正 · `B123_E2` · 铁律 5）──────────────────────────────────
+//   ① **「后进手牌的牌」那一半已接**（这段原来写「今天接不上」，**已过期**）：`RuleCore.cs:11149`
+//      `HandEffectRegistry` 现在按 `Spec != null` 收记录（`:11158`），`:11087 SetupCardInHand` 在
+//      `:11092` 收 `Spec` ⇒ 本文件登记的 `Spec` 记录**会**补给之后进手牌的牌（那一跳落到
+//      `AttachHandAbilityBuffCopy`）。⇒ ⛔ 别再照旧文去补一遍（重复劳动）。
 //   ② `ApplyHandBuffs` 打出那一刻对 `Spec` 条**不做任何事**（`Op == null` 直接被跳过、记录照旧清掉）——
 //      对 `buffType 2` 是**对的**（费用在手牌里就结算完了，打出后不再有费用），
 //      对「加攻/加血」那类会是缺口，但池内一条都没有。
+//   ③ `untilEnemyTurnStart`（`+0x34`）我们**没有**那一档到期枚举 ⇒ 出声、按 `Never` 落（今天 0 条）。
+//   ④ 🆕 2026-11-03（`B123_E2`）：**`ca 30 buffOthers` 的手牌目标路**（`ta = 50`）在
+//      `RuleCorePartial_B123E2.cs`（逐目标 `AddEffect`、**不登记** `HandEffectRecords`）—— ⛔ 别与这里的
+//      `ca 50 buffHand` 合流（合流 = 把「后进手牌的牌」也挂上 = 原版没有的加宽）。
 //   ③ `untilEnemyTurnStart`（`+0x34`）我们**没有**那一档枚举 ⇒ 出声、按 `Never` 落（今天 0 条）。
 
 using System.Collections.Generic;
@@ -384,6 +385,65 @@ namespace RuleEngine
                   + $"ab{src.Spec.Ab}/lg{src.Spec.Lg}/buffType{src.Spec.BuffType}）"
                   + " —— 原版 `PlayerHand__SetupCardInHand.c:71`）");
             return true;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-11-03（批次 `B123` · 执行代理 `E2`）：**对【指定的几张】手牌**做一次 `AddEffect`
+        // ==========================================================================================
+        //  判据 = 原版 `AbilityLogic__PlayAbility.c:1176-1250`（`case 0x1e buffOthers`）：目标集在
+        //  `GetTargets` 那一刻**已经按 criteria 筛过**，之后是**逐目标** `CardScript.AddEffect(目标, 克隆的 CardEffect)`。
+        //  ⇒ 与 `AttachHandAbilityBuffToSide`（= `PlayerHand.AddHandEffect`：先登记记录、再贴**整只**手牌）是两件事：
+        //    · ⛔ 这里**不再跑 criteria** —— 目标集与 criteria 在 `ta = 50` 上并不等价（目标集已含 `maxTargets` 裁剪），
+        //      再筛一次会把目标集二次收窄；
+        //    · ⛔ 这里**不登记** `ps.HandEffectRecords` —— 那是 `ca 50` 的语义（登记了会让**后进手牌的牌**也吃上，
+        //      而原版 `ca 30` 只作用于结算那一刻**在手的那几张**）。
+
+        /// <summary>**把一条 `CardEffect` 载荷落到【指定的几张】手牌上**（原版 `CardScript.AddEffect` 的手牌档）。
+        /// <para>逐张：`HandOwnerOf` 判归属（不在任何人手上 ⇒ 跳过 + 出声）→ `ApplyAbilityBuffToHandCard` →
+        /// 成功才 `inst.HandEffects.Add(entry)`（每张各一条记录对象 = 原版「每张牌各 `List.Add` 一次」）。
+        /// 记录**不进** `PlayerState.HandEffectRecords`（见上）。</para>
+        /// </summary>
+        /// <param name="casterOwner">施法者一侧（只用于诊断；靶的归属一律以 `HandOwnerOf` 现读为准 ——
+        /// `enemyUnits` 的目标本来就在对手手上）。</param>
+        /// <returns>真的改了状态的张数。</returns>
+        internal static int AttachHandAbilityBuffToInstances(BattleContext ctx, int casterOwner, string source,
+                                                             string by, CardDatabase.AbilityBuffSpec spec,
+                                                             IReadOnlyList<CardInstance> targets,
+                                                             List<string> unresolved)
+        {
+            if (ctx == null || spec == null || targets == null) return 0;
+            int done = 0;
+            for (int i = 0; i < targets.Count; i++)
+            {
+                var inst = targets[i];
+                if (inst == null || inst.Card == null) continue;
+                int owner = HandOwnerOf(ctx, inst);
+                if (owner < 0)
+                {
+                    ctx.Log($"⚠️{by}：「{inst.Card.Name}」**不在任何一方手牌里** ⇒ 这一张跳过"
+                          + "（原版 `AddEffect` 的靶就是手牌里的卡；不在手上 = 这条链走不到）");
+                    unresolved?.Add($"{by}（手牌目标已不在手上：{inst.Card.Name}）");
+                    continue;
+                }
+                var entry = new CardInstance.HandEffect
+                {
+                    Op = null,                       // 数据行那一档（`Op` / `Spec` 二选一，见 `HandEffect.Op` 的 doc）
+                    Spec = spec,
+                    Source = source,                 // **附魔卡名**（身份位；日志另用 `by`）
+                    RecordId = ctx.NextHandEffectRecord(),
+                    Uses = HandBuffUsesOf(spec, ctx, by, unresolved),
+                    ActingUnit = ctx.ActingUnit,
+                    Target = null,                   // criteria 已在目标解算走过 ⇒ 这里不再造一个近似规格
+                    Expire = HandBuffExpiryOf(spec, ctx, by),
+                    ExpireTurn = ComputeExpireTurn(spec, ctx),
+                };
+                if (ApplyAbilityBuffToHandCard(ctx, owner, inst, spec, by, unresolved))
+                {
+                    inst.HandEffects.Add(entry);
+                    done++;
+                }
+            }
+            return done;
         }
     }
 }

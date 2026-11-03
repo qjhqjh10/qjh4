@@ -64,6 +64,15 @@
          🔴 必须显式列（本 csproj 关了 `EnableDefaultCompileItems`）；漏了 = 构建期
          `CS0117 CardDatabase 未包含 ProbeMap…` —— **那是我们要的**（⛔ 别改成反射：反射落空是静默的）。 -->
     <Compile Include="CardDatabaseProbeHook.cs" />
+    <!-- 🆕 2026-11-03（执行代理 `B123_E3` · 账 `B121-D4-01`）：`PoolParityProbe.cs` =
+         ① `ProbePoolAttach.AttachPostConstruction` —— 把引擎 `Data/CardDatabase.cs:1762` 那句「构造后挂载」
+            余下的十二列（whileInPlayAnim / permanentBuffs / abilitySummon / abilityBuffs 旁表 /
+            abilityMutations / startingCardInHand / abilityEffectTexts / cardTargetCriteria /
+            transformData / notDeckable / abilityHeal / abilityMana）在探针侧**按同一批 mapper**补齐；
+         ② `PoolParityProbe` = `poolparity` 子命令，**探针池 vs 主路池逐字段相等**的自证防线。
+         🔴 必须显式列（本 csproj 关了 `EnableDefaultCompileItems`）；漏了 = 构建期
+         `CS0103 名称"ProbePoolAttach"` —— **那是我们要的**（⛔ 别改成反射：反射落空是静默的）。 -->
+    <Compile Include="PoolParityProbe.cs" />
     <!-- 🆕 `ai`（`R11`，2026-10-25 · 第八十会话）：AI 打分的**逐条贡献**读数口。
          🔴 为什么必须把下面四个 `Data/` 文件编进来：`play all dump` 是**结算层**读数、
          **结构上看不见 AI**（实测只改 AI 打分时它前后逐字节相同）⇒ 在那之前 AI 改动没有读数口。

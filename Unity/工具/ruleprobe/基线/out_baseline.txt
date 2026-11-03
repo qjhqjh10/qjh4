@@ -1119,3 +1119,16 @@ BL58|Hellfire Pit|||deal/pool///3//0/0//////{T:Raw=a random enemy troop|Side=ene
 SAU59|Awakened Obelisk|||deal/pool///1//0/0//////{T:Raw=an enemy|Side=enemy|Kind=any|Count=1|Random=0|Auto=0|Subjectless=0|Adjacent=0|Anchor=Unset|AnchorInSet=0|AdjacentAll=0|AdjacentFailed=0|Each=0|KindUnfilterable=0|SubtypeFilter=-|Deployed=0|AttackedBySelf=0|KeywordFilter=-|NotKeyword=-|AlsoHand=0|HandOnly=0|PrevAntecedent=-|PrevSide=-|ResolvedSide=enemy|NameFilter=-|DamagedOnly=0|PrayedOnly=0|PickMost=-}/{SRC:Deal 1 damage to an enemy};create/pool///1/extermination protocol/0/0/targetdies////target dies/{T:null}/{SRC:If target dies, add Extermination Protocol to your hand};
 TL55|Protective Bio-structure|||give/pool///0/+2 melee/0/0//////{T:Raw=a friendly unit|Side=own|Kind=unit|Count=1|Random=0|Auto=0|Subjectless=0|Adjacent=0|Anchor=Unset|AnchorInSet=0|AdjacentAll=0|AdjacentFailed=0|Each=0|KindUnfilterable=0|SubtypeFilter=-|Deployed=0|AttackedBySelf=0|KeywordFilter=-|NotKeyword=-|AlsoHand=0|HandOnly=0|PrevAntecedent=-|PrevSide=-|ResolvedSide=own|NameFilter=-|DamagedOnly=0|PrayedOnly=0|PickMost=-}/{SRC:Give +2 Melee to a friendly unit this turn};
 97e959444b53f424ea4285e2ca02c7e6|Chosen of the Four|||chooseone/pool///2/give a random dark pact to a friendly troop|give +2 health to your warlord/0/0//////{T:null}/{SRC:Give a random Dark Pact to a friendly troop or +2 Health to your Warlord};
+TRANSFORM_AstraMilitarum|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||
+TRANSFORM_BlackLegion|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||
+TRANSFORM_DarkAngels|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||
+TRANSFORM_EmperorsChildren|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||
+TRANSFORM_Genestealers|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||
+TRANSFORM_Goff|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||
+TRANSFORM_Leviathan|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||
+TRANSFORM_SaimHann|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||
+TRANSFORM_Sautekh|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||
+TRANSFORM_Sororitas|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||
+TRANSFORM_SpaceWolves|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||
+TRANSFORM_TauEmpire|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||
+TRANSFORM_Ultramarines|Warlord Ascension|Transform your Warlord into another Warlord of the same faction, chosen at random||

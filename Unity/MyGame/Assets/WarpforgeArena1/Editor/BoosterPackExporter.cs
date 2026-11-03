@@ -263,6 +263,28 @@ public static class BoosterPackExporter
         return null;
     }
 
+    /// <summary>同 `FindInPacks`，另外带回**命中它的那个包**（`LoadedPacks` 的键 = 包文件名）。
+    /// 🆕 2026-11-03（批 `B123` · 账 `B121-BF-02`）：给 `DefIndex` 的 (bundle, 材质名) 队列真值当线索。</summary>
+    static T FindInPacks<T>(string name, out string bundle) where T : UnityEngine.Object
+    {
+        bundle = null;
+        foreach (var kv in LoadedPacks)
+        {
+            T hit = null;
+            try { hit = kv.Value.LoadAsset<T>(name); } catch { }
+            if (hit != null) { bundle = kv.Key; return hit; }
+        }
+        // 兜底：枚举（同上；顺带记下命中的包）
+        foreach (var kv in LoadedPacks)
+        {
+            T[] all = null;
+            try { all = kv.Value.LoadAllAssets<T>(); } catch { }
+            if (all == null) continue;
+            foreach (var a in all) if (a != null && a.name == name) { bundle = kv.Key; return a; }
+        }
+        return null;
+    }
+
     // ============================================================ 入口
 
     /// <summary>导出。**幂等**：同名产物原地覆盖（不删目录 —— 见 CLAUDE.md §三
@@ -305,7 +327,7 @@ public static class BoosterPackExporter
         int fxOk = 0;
         foreach (var n in CardFxRoots)
         {
-            var g = FindInPacks<GameObject>(n);
+            var g = FindInPacks<GameObject>(n, out var fxBundle);
             if (g == null)
             {
                 Report[n] = "FAIL\t已加载的包里没有这个 GameObject";
@@ -315,7 +337,7 @@ public static class BoosterPackExporter
             }
             try
             {
-                string detail = Export(g, EffectsDir, true);
+                string detail = Export(g, EffectsDir, true, fxBundle);
                 Report[n] = "OK\t" + detail;
                 fxOk++;
             }
@@ -332,7 +354,7 @@ public static class BoosterPackExporter
         int winOk = 0;
         foreach (var n in WindowRoots)
         {
-            var g = FindInPacks<GameObject>(n);
+            var g = FindInPacks<GameObject>(n, out var winBundle);
             if (g == null)
             {
                 Report["window:" + n] = "FAIL\t已加载的包里没有这个 GameObject";
@@ -342,7 +364,7 @@ public static class BoosterPackExporter
             }
             try
             {
-                string detail = Export(g, OutPrefabDir, false);
+                string detail = Export(g, OutPrefabDir, false, winBundle);
                 Report["window:" + n] = "OK\t" + detail;
                 winOk++;
             }
@@ -372,7 +394,7 @@ public static class BoosterPackExporter
 
     /// <summary>导一件（形状照 `EffectExporter.Export` 抄；**规则**全部转发到那边的助手，不在这里再写一份）。
     /// 返回一句「导了什么」写进报告。</summary>
-    static string Export(GameObject src, string prefabDir, bool asEffect)
+    static string Export(GameObject src, string prefabDir, bool asEffect, string srcBundle = null)
     {
         var inst = UnityEngine.Object.Instantiate(src);
         inst.name = src.name;
@@ -393,7 +415,7 @@ public static class BoosterPackExporter
             var psr0 = r as ParticleSystemRenderer;
             if (psr0 != null && psr0.trailMaterial != null)
             {
-                int di = EffectExporter.DefIndex(defs, defIndex, psr0.trailMaterial);
+                int di = EffectExporter.DefIndex(defs, defIndex, psr0.trailMaterial, srcBundle);
                 EffectExporter.StripGlobalKeywords(defs[di], ps, psr0.trailMaterial.shader);
                 trailSlots.Add(di);
                 var tm = EffectExporter.ImportMaterial(psr0.trailMaterial, out bool ta, out string to);
@@ -408,7 +430,7 @@ public static class BoosterPackExporter
             {
                 var om = mats[i];
                 if (om == null) { slots.Add(-1); continue; }
-                int di = EffectExporter.DefIndex(defs, defIndex, om);
+                int di = EffectExporter.DefIndex(defs, defIndex, om, srcBundle);
                 EffectExporter.StripGlobalKeywords(defs[di], ps, om.shader);
                 slots.Add(di);
                 var nm = EffectExporter.ImportMaterial(om, out bool wasApprox, out string origShader);

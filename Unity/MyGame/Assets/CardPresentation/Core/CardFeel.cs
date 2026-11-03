@@ -2188,10 +2188,10 @@ namespace CardPresentation
             });
 
             var t = CardTween.Use(seq, Ease.Linear, tr);
-            // ⚠️ 被打断时**两档 α 都要复位**（同 `DealIn` 那条注释）：2D 那一档跑到一半被 kill 的话
-            //    这张卡会**永久半透明**（静默）。复位成 1 是安全的一侧 —— 正常跑完时它本来就是 1。
-            t.OnKill(() => { if (card != null) { card.SetAlpha2D(1f); card.SetCounterAlpha(1f); card.SetCountersForcedVisible(false); } });   // 🆕 `B117-R23`：被打断也要收口
-            if (onDone != null) t.OnComplete(() => onDone());
+            // 🔴 `B121-Q4B-02`（`B123-C3`）：**「这条 clip 正常跑完了没有」必须自己记** —— DOTween 的 `OnKill` 在**正常跑完**时也会触发（`TweenManager.DoUpdate` 先调 `onComplete`、再 `Despawn`→`onKill`；`:1946` 记的是同一事实）⇒ 无条件复位会把**已换成场上形态**的卡打回手牌残留态（3D 体被关掉）。被打断时两档 α 也要复位（同 `DealIn` 那条）：2D 那一档跑到一半被 kill 的话这张卡会**永久半透明**（静默）；复位成 1 是安全的一侧 —— 正常跑完时它本来就是 1。
+            bool finished = false;   // 🆕 只有「没跑完」才做那 9 项残留复位（`ResetHandToBoardResidue`，见类尾）
+            t.OnKill(() => { if (card == null) return; card.SetAlpha2D(1f); card.SetCounterAlpha(1f); card.SetCountersForcedVisible(false); if (!finished) ResetHandToBoardResidue(card, body, bodyBase, boardEl, boardElBase); });   // 🆕 `B117-R23`：被打断也要收口 · 🆕 `B121-Q4B-02`：9 项残留复位（**只在未跑完时**）
+            t.OnComplete(() => { finished = true; if (onDone != null) onDone(); });   // ⚠️ DOTween 的 `OnComplete` 是**单槽**（再设一次会覆盖前一个）⇒ 标志与 `onDone` 必须写在同一个 lambda
             return t;
         }
 
@@ -4479,5 +4479,40 @@ namespace CardPresentation
         /// 多的 0.05 是既有分档的余量。⛔ 别为了这 0.05 去改 `EventTiming`（本批白名单不含它，
         /// 且那一档服务另外两条链）。</para></summary>
         public const float ReshuffleToDeckSeconds = 0.25f;
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-03（执行写手 `B123-C3` · 对账条目 `B121-Q4B-02`）：`HandToBoard` 中途被打断的残留复位
+        //  ⚠️ **追加在校类尾**（`CardFeel.cs` 有 235 条账按行号引 `:2190` 之后的行，见铁律 18·b ——
+        //     插在中间会把下游落点整体推走）
+        // ═══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>`HandToBoard` 这条 clip **中途被打断**时，把它改过的 **9 项**逐项复位到**起播前那一档**。
+        ///
+        /// <para>等价做法 = `Hand/CardInteraction.cs:2742-2751`（撤销出牌那条路 —— 今天唯一会落到这里的调用点，
+        /// 它自己已补了一遍，所以**今天能看到的路径不出错**；本条堵的是「别处复用会静默串味」：
+        /// 卡框溶解材质实例 / 3D 卡体可见性 / 3D 溶解材质与 `_DissolveAmount` / 立绘缩放 / `2DCard` 的 z /
+        /// `body3D` 与 `Board Elements` 两级 y / `ToBoardFX` 两颗粒子。α 那三档在 `OnKill` 里**无条件**复位，
+        /// 不在本方法里）。</para>
+        ///
+        /// <para>🔴 **调用方必须先自己判「是不是真的没跑完」** —— `OnKill` 在**正常跑完**时也会触发
+        /// （见 `HandToBoard` 里那条注释）。本方法**没有**这道闸：无条件调它会把**场上形态**的卡
+        /// 打回手牌残留态（`SetBody3DVisible(false)` 会直接把卡体关掉）。</para>
+        ///
+        /// <para>⚠️ 两级 y 复位用的是**调用方在起播那一刻捕获的基准**（`HandToBoard` 里的
+        /// `bodyBase` / `boardElBase` —— clip 的位移曲线本身就是「基准 + 偏移」）⇒ 这就是「起播前那一档」，
+        /// ⛔ 别在这里另填常数（那份常数只对「刚建出来的卡」成立）。</para>
+        /// </summary>
+        static void ResetHandToBoardResidue(CardView card, Transform body, Vector3 bodyBase,
+                                            Transform boardEl, Vector3 boardElBase)
+        {
+            if (card == null) return;
+            card.EndFrameDissolve();                                          // ① 卡框溶解材质实例 → 还原原材质（clip ②/②''）
+            card.RestoreOriginalMaterial(); card.SetDissolveAmount(0f);       // ② 3D 卡体材质 + `_DissolveAmount`（③）
+            card.SetBody3DVisible(false);                                     // ③ 3D 卡体可见性（③ 的反向）
+            card.SetSpawnParticlesActive(false); card.SetTrailActive(false);  // ④ `ToBoardFX` 两颗粒子（②'''，两项）
+            card.SetArtLocalScale(1f); card.SetFaceRootLocalZ(0f);            // ⑤ 立绘缩放 / `2DCard` 的 z（②'' / ②'''）
+            if (body != null) { var p = body.localPosition; p.y = bodyBase.y; body.localPosition = p; }              // ⑥ `body3D` 的 y
+            if (boardEl != null) { var p = boardEl.localPosition; p.y = boardElBase.y; boardEl.localPosition = p; }  // ⑥ `Board Elements` 的 y
+        }
     }
 }

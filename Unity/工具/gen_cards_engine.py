@@ -9687,15 +9687,38 @@ def main():
             # 🔴 2026-10-19（`E12`）：原来只比 `count` / `cards` —— 顶层的**新键**（`version`、
             #   `talentNameIds` …）加了之后 `--check` 照样报「一致 ✅」⇒ 新表可以静默不落盘。
             #   ⇒ 顶层这几格一起比（`source`/`note` 是长文案，故意不比：改注释不该让数据表失效）。
-            same = (old.get("count") == doc["count"]
-                    and old.get("version") == doc.get("version")
-                    and old.get("cards") == doc["cards"]
-                    and old.get("talentNameIds") == doc.get("talentNameIds"))
+            same_cards = (old.get("count") == doc["count"]
+                          and old.get("version") == doc.get("version")
+                          and old.get("cards") == doc["cards"]
+                          and old.get("talentNameIds") == doc.get("talentNameIds"))
+            # 🆕 2026-11-03（批 `B123` · 账 `B121-E03F-07`）：**第二张表也纳入 `--check`** ——
+            #   原来 `enchantment_templates.json` 只在下面 `--write` 段（`:9743`）落盘，`--check`
+            #   **从不读它** ⇒ 它过期时 `--check` 照样报「一致 ✅」（静默）。活状态表 `:976` 那条成立。
+            #   比的键 = `version` / `count` / `templates`；`source` / `note` 沿用上面那句口径
+            #   （长文案改动不该让数据表失效）。`ENCHANT_TEMPLATES_DOC is None` ⇒ 出声 + 按不一致处理。
+            if ENCHANT_TEMPLATES_DOC is None:
+                same_etpl = False
+                print("\n🔴 --check：第二张表（附魔模板）**没生成**"
+                      "（`ENCHANT_TEMPLATES_DOC is None`）⇒ 按不一致处理（⛔ 不静默放行）")
+            elif not os.path.exists(ENCHANT_TEMPLATES_DST):
+                same_etpl = False
+                print(f"\n❌ --check：第二张表 {ENCHANT_TEMPLATES_DST} 不存在"
+                      "（重跑时加 `--write` 落盘）")
+            else:
+                _etpl_old = json.load(open(ENCHANT_TEMPLATES_DST, encoding="utf-8"))
+                same_etpl = (_etpl_old.get("version") == ENCHANT_TEMPLATES_DOC.get("version")
+                             and _etpl_old.get("count") == ENCHANT_TEMPLATES_DOC.get("count")
+                             and _etpl_old.get("templates") == ENCHANT_TEMPLATES_DOC.get("templates"))
+                print(f"\n--check：第二张表 {ENCHANT_TEMPLATES_DST} "
+                      + ("一致 ✅" if same_etpl else "**已过期** ❌（重跑时加 `--write` 落盘）"))
+            same = same_cards and same_etpl
             # ⚠️ 2026-10-31（B110_W6 · 账 `N53`）：三态分开打 —— 「内容一致但闸红」（如 DTO 忘记跟列）**不是**
             #   「已过期」，混成一句会把人骗去重跑生成器（跑了也红，因为问题在 `.cs` 侧）。
             _verdict = ("一致 ✅" if (same and not _bad) else
                         ("**内容一致，但自检/闸报红** ❌（见上面 🔴 行；多半是 `.cs` 侧没跟列，重跑生成器不会好）"
-                         if same else "**已过期** ❌（重跑时加 `--write` 落盘）"))
+                         if same else
+                         ("**已过期** ❌（重跑时加 `--write` 落盘；第二张表状态见上面那一行）"
+                          if not same_etpl else "**已过期** ❌（重跑时加 `--write` 落盘）")))
             print(f"\n--check：现有 {DST} {_verdict}")
             return 0 if (same and not _bad) else 1
         print(f"\n--check：{DST} 不存在")

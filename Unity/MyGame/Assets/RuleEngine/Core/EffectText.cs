@@ -3152,7 +3152,7 @@ namespace RuleEngine
 
             if (c.Type == "tactic" || c.Type == "defence")
             {
-                var ops = Parse(c.Desc, out _, out _);
+                var ops = RuleCore.HasWarlordTransformAbility(c) ? RuleCore.TacticOpsOf(c) : Parse(c.Desc, out _, out _);   // 2026-11-03（B123_C1 · 账 B121-E03F-09）：🔶 自设计（非原版）· 用户 2026-11-03 裁定 —— 13 张变身战术卡（`TRANSFORM_*`）的卡面正文是**说明文字**、不是可解析的效果句 ⇒ `Parse` 对它**0 op**（`ParseSegment` 落到 `:4275-4276` 兜底 `SegKind.Unknown; Ops=null`），而它**确实会执行**（`warlordtransform` 动词已注册，`EffectResolver.cs:1096`）⇒ 拿「主解析器解得出吗」当尺子会把它们报成「没机制」。取 op 走**唯一取值口** `RuleCore.TacticOpsOf`（普通卡 = 逐字等于原来那句 `Parse`；变身卡 = 一条 `warlordtransform` 的 op），⛔ 别在这里另造一条
                 if (ops != null) foreach (var o in ops) AddWithNested(list, o);
                 return list;
             }
@@ -3233,7 +3233,7 @@ namespace RuleEngine
             foreach (var c in cards)
             {
                 if (c == null) continue;
-                if (type != null && c.Type != type) continue;
+                if ((type != null && c.Type != type) || RuleCore.HasWarlordTransformAbility(c)) continue;   // 2026-11-03（B123_C1 · 账 B121-E03F-09）：🔶 自设计（非原版）· 用户 2026-11-03 裁定 —— 13 张变身战术卡**不在原版卡池**（`TRANSFORM_*`，判据 = `RuleCore.HasWarlordTransformAbility` 一处），卡面正文是说明文字、op 由 `RuleCore.TacticOpsOf` 直接给 ⇒ **整张卡从「原版卡面文本解析覆盖率」的分母里排除**（与 `IsHandTrap` 那种「也算进分母、记全过」不同：它们不是「原版卡的另一种解析形状」，而是原版根本不存在的卡）。不排除的后果（现读实测）：`cov.Cards` 446→459、`SegUnknown` 0→13（每张一段说明句），把 `TestTacticTextCoverage` 的两条哨兵一起打红
                 cov.Cards++;
 
                 // 🆕 2026-09-14 A4 批 4：**手牌陷阱**的 desc **不是「打出时结算的效果」** ——
