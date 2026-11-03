@@ -171,23 +171,27 @@ public static class B118W18_Assert
             if (!it.IsDragging) return;
 
             Vector3 drop = board.SlotPosition(4);      // 与 `TryResolveSlot` 同一把尺子 ⇒ 必中一格
-            it.SimulateDrag(drop, 1f / 60f);
-            Check(it.Dragging == card, "（前提）拖拽态还在（否则 ② 读的是松手后的值）");
+            // 🔴 2026-11-03（`B124-W22` / `B120-W16`）：越过两道门的那一帧**就已经提交**（「还按着就 commit」）
+            //   ⇒ 「拖拽中」这个窗口只能在**手牌带里**取（指针还在 `HandLimitY` 以下 ⇒ 闸②不成立 ⇒ 不提交）。
+            Vector3 hover = home + new Vector3(0.60f, 0.05f, 0f);
+            it.SimulateDrag(hover, 1f / 60f);
+            Check(it.Dragging == card, "（前提）拖拽态还在（这一帧指针仍在手牌带 ⇒ 出牌闸不成立、没提交）");
 
-            // ---- ② 拖到合法格 ----
+            // ---- ② 拖拽中（还没越过出牌闸）----
             var o2 = card.OutlineTargetForTest;
             var r2 = card.RimTargetForTest;
             bool outlineStillGreen = Near(o2, PrefabPlayable);
             bool rimOff = r2.a <= 1e-4f;
             Check(outlineStillGreen && rimOff,
-                  "★② 拖到**合法**格：描边**仍是 #1C7101**（实得 " + S(o2) + "）**且**状态环 α = 0（实得 "
+                  "★② 拖拽中（指针在手牌带、落点已解析到合法格）：描边**仍是 #1C7101**（实得 " + S(o2) + "）**且**状态环 α = 0（实得 "
                 + S(r2) + "）—— 原版被拖的手牌从头没有状态环（`StartMovingFromHand` 无 `ChangeState`）"
                 + "｜🧨 把 `UpdateDrag` 里那句 `SetHighlight(ValidTarget)` 写回来 ⇒ 环 α=1 ⇒ 红；"
                 + "🧨 只断「环不绿」时把描边改蓝也会绿 ⇒ 所以两个条件写成一条");
 
-            // ---- ③ 松手打出（合法区）----
+            // ---- ③ 越过两道门 ⇒ **还按着就提交**（原版 `UpdateDrag` 里就 Release，⛔ 不等松手）----
+            it.SimulateDrag(drop, 1f / 60f);
             it.SimulateRelease(drop);
-            Check(it.Dragging == null, "（前提）松手后已退出拖拽态");
+            Check(it.Dragging == null, "（前提）越过出牌闸那一帧就提交、拖拽态已空（`SimulateRelease` 只是空操作）");
             var o3 = card.OutlineTargetForTest;
             Check(Near(o3, PrefabSelected),
                   "★③ 松手打出 ⇒ 描边 = `cardSelectedColor` **#003765**（实得 " + S(o3) + "）"
@@ -306,7 +310,9 @@ public static class B118W18_Assert
             it.SimulatePress(home);
             Check(it.IsDragging, "（前提）抓起来了");
             if (!it.IsDragging) return;
-            it.SimulateDrag(board.SlotPosition(4), 1f / 60f);
+            // 🔴 2026-11-03（`B124-W22`）：留在**手牌带**里拖 —— 拖到棋盘上会在那一帧「还按着就提交」，
+            //   牌直接出去、`AbortDrag` 那条路根本走不到（实测 `battle_b124b.log:1717411`）。
+            it.SimulateDrag(home + new Vector3(0.60f, 0.05f, 0f), 1f / 60f);
 
             // 前提：先把描边摆成「写出去了」那一档（否则「回到绿」是同义反复）
             card.SetOutline(CardHighlight.OutlineSelectOf(card.Data.rarity));

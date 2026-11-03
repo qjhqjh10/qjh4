@@ -329,8 +329,8 @@ public static class B99G1_Assert
                      + $"（夹具 = 卡名最短的 `{tacticDef.Name}`；原版 `NameTextTactic` 的 `m_fontSizeMax` = **24** ×0.75 "
                      + "⇒ 运行时 = **1.80**）"
                      + "｜🧨 卡名那支把 `NameUnitBand*`（1.425）传进去 ⇒ 停在 1.425 ⇒ 红（= 改前那 21% 的差）");
-                    Tr(nt.fontSize <= v.NameBandMaxForTest + 1e-3f,
-                       $"G2c 战术卡卡名 fs {nt.fontSize:F4} ≤ {v.NameBandMaxForTest:F4}（`NameTextTactic m_fontSizeMax` 24 ÷10 × 0.75）"
+                    Tr(nt.fontSize <= 2.015f + 1e-3f,
+                       $"G2c 战术卡卡名 fs {nt.fontSize:F4} ≤ 2.0150（`NameTextTactic m_fontSizeMax` 24 ÷10 × 0.75（`B117_F14`）× 1.1193（`B117_WCARD`）= **2.015**；判据 = `CardView.cs:5577` 的 `NameTacticBandMax`，⛔ 不是单位卡那档 `NameBandMaxForTest` 的 1.595/1.679）"
                      + "｜🧨 上界写大 ⇒ 越界 ⇒ 红");
                     Tr(OnGrid(nt.fontSize),
                        $"G2d 战术卡卡名 fs {nt.fontSize:F4} 落 0.005 网格｜🧨 去掉量化 ⇒ 红");

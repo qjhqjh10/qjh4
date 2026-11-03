@@ -17,8 +17,8 @@
 //  · A4：把 `Deck.Insert(0, …)` 改回 `Deck.Add(…)`（= 加到牌堆顶）⇒ 当次就把换掉的牌抽回来 ⇒ A4 红。
 //  · B2 与 B3 **互相锁死**：把门写死为「恒放行」⇒ B2 红；写死为「恒挡」⇒ B3 红。
 //  · B4：把 `postBattleRejudge` 的默认值改成 `true` ⇒ B4 红（不带第 4 个实参必须仍被挡）。
-//  · C2/C3：把闸放宽成「只要 `ta ∈ {10,110,140,150}` 就接」⇒ 截断档也被接 ⇒ C3 红；
-//           把闸收窄成「恒 null」⇒ C1 红。
+//  · C2/C3：把闸放宽成「只要 `ta ∈ {0,10,110,140,150}` 就接」⇒ 截断档也被接 ⇒ C3 红；
+//           把闸收窄成「恒 null」⇒ C1 红。（🔴 2026-11-03 `B124-W7` 订正：`ta=0 any` 已合法且**不看 `maxTargets`** —— 判据 `AbilityLogic__GetTargets.c:884-891` · 实现 `RuleCore.cs:18452-18453`）
 //
 // ============================ 用法（⚠️ 要**主对话**跑 —— 子代理不许 `-executeMethod`）============================
 //   建议宿主 = `RuleEngineTest.Run`（纯引擎夹具；C 段用 `CardDatabase.Load()`，与 `RuleEngineTest` 里
@@ -172,20 +172,20 @@ public static class B118W11_Assert
                     var set = c.AbilityTargetCriteriaAt(ab, lg);
                     if (set == null) continue;
                     int ta = set.TargetsAffected;
-                    if (ta != 10 && ta != 110 && ta != 140 && ta != 150) continue;
-                    if (set.MaxTargets >= 1) hasTrunc = true; else hasMultiNoTrunc = true;
+                    if (ta != 0 && ta != 10 && ta != 110 && ta != 140 && ta != 150) continue;   // 🔴 2026-11-03（B124-W7 · α）：`ta=0 any` 自 `B121_D3`（账 `b121-d3-ta0`）起合法 —— 判据 `AbilityLogic__GetTargets.c:884-891` · 实现 `RuleCore.cs:18452`
+                    if (ta != 0 && set.MaxTargets >= 1) hasTrunc = true; else hasMultiNoTrunc = true;   // `ta=0` **不看** `maxTargets`（原版建完池直接 `goto` 返回）· `RuleCore.cs:18453`
                 }
                 if (!hasMultiNoTrunc && !hasTrunc) continue;
-                if (hasTrunc && !hasMultiNoTrunc) truncOnlyTriggers++;   // 这份 trigger 上**只有**截断行
+                if (hasTrunc && !hasMultiNoTrunc && !TriggerHasMultiNoTruncRow(c, trg)) truncOnlyTriggers++;   // 这份 **trigger** 上**只有**截断行（🔴 2026-11-03 B124-W7：按 trigger 聚合，⛔ 不是按 ability —— 实测 `SW51` 的 trigger 0 由 ab0(`ta=0`) + ab1(`ta=10 ∧ maxTargets=1`) 共用，按 ability 分类会误判成 trunc-only）
 
                 var got = RuleCore.TriggerAbilityTargetCriteriaByNumberForTest(c, trg);
                 if (got != null)
                 {
                     accepted++;
                     int gta = got.TargetsAffected;
-                    if (gta != 10 && gta != 110 && gta != 140 && gta != 150) badTa++;
-                    if (got.MaxTargets >= 1) badMax++;
-                    if (hasTrunc && !hasMultiNoTrunc) truncAccepted++;   // 只有截断行却被接住 = 闸破了
+                    if (gta != 0 && gta != 10 && gta != 110 && gta != 140 && gta != 150) badTa++;
+                    if (gta != 0 && got.MaxTargets >= 1) badMax++;   // `ta=0` 的 `maxTargets` 原版不看 ⇒ 不算违规（`RuleCore.cs:18453`）
+                    if (hasTrunc && !hasMultiNoTrunc && !TriggerHasMultiNoTruncRow(c, trg)) truncAccepted++;   // 只有截断行却被接住 = 闸破了（同样按 trigger 聚合）
                 }
                 if (hasMultiNoTrunc && got != null) hits++;
             }
@@ -193,12 +193,38 @@ public static class B118W11_Assert
 
         Ok(hits > 0, "C2 池内**确有**多目标不截断行被接住（命中 " + hits + " 处）｜🧨 把闸收窄成「恒 null」⇒ 本行红");
         Ok(accepted > 0, "C2b 总计接住 " + accepted + " 处（= C2 的分母，防「命中 0」被读成通过）");
-        Ok(badTa == 0, "★ C3 接住的那些**全是多目标档**（`ta ∈ {10,110,140,150}`）；越界 " + badTa + " 处");
+        Ok(badTa == 0, "★ C3 接住的那些**全是多目标档**（`ta ∈ {0,10,110,140,150}` —— `ta=0 any` 自 `B121_D3` 起合法，判据 `AbilityLogic__GetTargets.c:884-891`）；越界 " + badTa + " 处");
         Ok(badMax == 0,
-           "★ C4 接住的那些**没有一条是截断档**（`MaxTargets >= 1` = 会推进 `ctx.GetRandomInt` 的那一档）；违规 " + badMax + " 处"
+           "★ C4 接住的那些**没有一条是截断档**（`ta≠0 ∧ MaxTargets >= 1` = 会推进 `ctx.GetRandomInt` 的那一档；`ta=0` 不看 `maxTargets`）；违规 " + badMax + " 处"
          + "｜🧨 把闸放宽成「只要 ta 命中就接」⇒ 本行红");
         Ok(truncAccepted == 0,
-           "★ C5 只有截断行的 trigger（实测 " + truncOnlyTriggers + " 处）**一条都没接**（实得 " + truncAccepted + " 处）"
-         + "｜🧨 同上，放宽闸 ⇒ 本行红");
+           "★ C5 只有截断行的 trigger（实测 " + truncOnlyTriggers + " 处，**按 trigger 聚合**）**一条都没接**（实得 " + truncAccepted + " 处；`ta=0` 的行算「多目标不截断」，不参与这一档）"
+         + "｜🧨 同上，放宽闸 ⇒ 本行红（🔴 2026-11-03 `B124-W7` 订正：分类口径从 **ability** 改成 **trigger** —— 查找口 `RuleCore.cs:18440-18457` 是按 trigger 聚合的；`SW51` 的 trigger 0 由 `ta=0` 与 `ta=10∧maxTargets=1` 两条 ability 共用，按 ability 分类会误报 1 条）");
+    }
+
+    /// <summary>这条 **trigger** 上是否存在「多目标不截断」行（`ta ∈ {0,10,110,140,150}` 且 `ta == 0 ∨ MaxTargets == 0`）。
+    /// <para>🔴 **2026-11-03（`B124-W7`）**：C5 原来按 **ability** 分类，而 `TriggerAbilityTargetCriteriaByNumber`
+    /// 是**按 trigger 聚合**取行的（`RuleCore.cs:18440-18457` 遍历 `TriggerAbilityRowsOf`）——
+    /// 实测 `SW51` `Hunter's Guile` 的 trigger 0 由 ab0（`ta=0`，可接）+ ab1（`ta=10 ∧ maxTargets=1`，截断）共用
+    /// ⇒ 按 ability 分类会把 ab1 误判成「trunc-only 却被接住」（实得 1，而那条被接的是 ab0 的 `ta=0`——不烧随机数）。
+    /// 判据 = 查找口本身按 trigger 聚合 ⇒ 分类也必须按 trigger 聚合。</para>
+    /// <para>⚠️ 用的是**同一个** `TriggerAbilityRowsOf` / `AbilityTargetCriteriaAt` 读口（与实现同源，但这里的期望是
+    /// 「有没有可接行」这个**结构事实**，不是抄实现常量 ⇒ 不是自证）。</para></summary>
+    static bool TriggerHasMultiNoTruncRow(CardDef card, int trigger)
+    {
+        if (card == null) return false;
+        var rows = card.TriggerAbilityRowsOf(trigger);
+        if (rows == null) return false;                 // 列未知 ⇒ 判不了（⛔ 不当「有」，也不当「没有」）
+        for (int i = 0; i < rows.Length; i++)
+        {
+            var r = rows[i];
+            if (r == null || r.Ab < 0 || r.Lg < 0) continue;
+            var s = card.AbilityTargetCriteriaAt(r.Ab, r.Lg);
+            if (s == null) continue;
+            int ta = s.TargetsAffected;
+            if (ta != 0 && ta != 10 && ta != 110 && ta != 140 && ta != 150) continue;
+            if (ta == 0 || s.MaxTargets < 1) return true;
+        }
+        return false;
     }
 }

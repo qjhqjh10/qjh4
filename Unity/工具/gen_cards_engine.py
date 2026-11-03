@@ -5261,19 +5261,30 @@ def _assert_enchant_index_consistent(cards, etpl_doc):
 #    · 排序 = `uniqueId` 升序 ⇒ **字节稳定**（两次 `--write` 必须逐字节相同）。
 ENCHANT_TEMPLATES_DST = r"d:/4/Unity/MyGame/Assets/RuleEngine/Resources/enchantment_templates.json"
 ENCHANT_TEMPLATES_DOC = None                 # `build()` 填；`main()` 在 `--write` 时落盘
-ENCHANT_TEMPLATES_REPORT = {"rows": 0, "with_owner": 0, "pool_reachable": 0,
-                            "wp_on": 0, "rows_bad": [], "order": "uniqueId",
-                            # 🆕 2026-11-02（执行代理 `B116_W28`）：收录闸②（PPtr 可达）的读数
-                            "pptr_targets": 0, "pptr_added": [],
-                            "pptr_bad_type": [], "pptr_unresolved": [],
-                            # 🆕 2026-11-02（`B115_W20` · 格 4/2/3）：手牌 buff 四列的口径与坏值
-                            "hand_rows": 0, "hand_no_row": [], "hand_bad": [],
-                            "set_bad": [], "set_unresolved": [],
-                            # 🆕 2026-11-03（执行写手 `B121-D1B`）：正文载荷（criteria / damage / heal / mana / summon）
-                            #   的坏值读数（`-1` 落列并出声）
-                            "payload_bad": [],
-                            # 🆕 2026-11-02（`B116_W18` · `B-328`）：`enchantmentId` / `enchantmentPathId` 两列
-                            "enchant_rows": 0, "enchant_bad": [], "enchant_off_table": []}
+def _new_enchant_templates_report():
+    """`ENCHANT_TEMPLATES_REPORT` 的**默认值单一来源**（⛔ 别在两处各写一份）。
+
+    🔴 2026-11-03（`B123-ENCHCNT`）：这张报告表是**模块级累计器** —— 消费侧有 `.get()+` / `+=` /
+    三个 list `append`（都不复位，只有 `rows` 是赋值）⇒ **同进程第二次 `main()` 打印会翻倍**。
+    故 `main()` 每次开头 `clear()` + `update(_new_enchant_templates_report())` **就地复位**
+    （就地 = 保住对象身份，其它模块级引用不必跟着改）。
+    """
+    return {"rows": 0, "with_owner": 0, "pool_reachable": 0,
+            "wp_on": 0, "rows_bad": [], "order": "uniqueId",
+            # 🆕 2026-11-02（执行代理 `B116_W28`）：收录闸②（PPtr 可达）的读数
+            "pptr_targets": 0, "pptr_added": [],
+            "pptr_bad_type": [], "pptr_unresolved": [],
+            # 🆕 2026-11-02（`B115_W20` · 格 4/2/3）：手牌 buff 四列的口径与坏值
+            "hand_rows": 0, "hand_no_row": [], "hand_bad": [],
+            "set_bad": [], "set_unresolved": [],
+            # 🆕 2026-11-03（执行写手 `B121-D1B`）：正文载荷（criteria / damage / heal / mana / summon）
+            #   的坏值读数（`-1` 落列并出声）
+            "payload_bad": [],
+            # 🆕 2026-11-02（`B116_W18` · `B-328`）：`enchantmentId` / `enchantmentPathId` 两列
+            "enchant_rows": 0, "enchant_bad": [], "enchant_off_table": []}
+
+
+ENCHANT_TEMPLATES_REPORT = _new_enchant_templates_report()
 
 
 def _tri_or_unknown(v):
@@ -8526,6 +8537,10 @@ def _dto_column_gate(doc):
 
 
 def main():
+    # 🔴 2026-11-03（`B123-ENCHCNT`）：`ENCHANT_TEMPLATES_REPORT` 是**模块级累计器**（`.get()+` /
+    #   `+=` / list `append` 都不复位）⇒ 同进程第二次 `main()` 打印**翻倍**。每次进 main() 先就地复位。
+    ENCHANT_TEMPLATES_REPORT.clear()
+    ENCHANT_TEMPLATES_REPORT.update(_new_enchant_templates_report())
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只对账，不写文件")
     ap.add_argument("--write", action="store_true",

@@ -395,7 +395,7 @@ public class BattleAutoDrive : MonoBehaviour
         Vector3 from = card.transform.position;
         // 🔴 2026-09-20：目标点用 `DropTargetWorld` —— 真 3D 时卡画在透视层，
         //    屏幕位置和老的 `SlotPosition` 差 ≈150 px（见 `BoardLayout.DropTargetWorld`）。
-        Vector3 to = board.transform.TransformPoint(board.DropTargetWorld(slot));
+        Vector3 to = board.DropTargetWorld(slot);   // 🔴 2026-11-03（B124-W13）：返回值**已是世界点**（BoardLayout.cs:547-557，W9 已去 InverseTransformPoint）⇒ ⛔ 不再 board.transform.TransformPoint
         Debug.Log($"[AutoDrive·拖拽] 拿手牌第 {handIdx} 张（{card.name}）→ 槽 {slot}"
                   + $"，世界 ({from.x:F2},{from.y:F2}) → ({to.x:F2},{to.y:F2})");
 

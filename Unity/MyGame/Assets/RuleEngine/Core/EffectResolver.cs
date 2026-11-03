@@ -6987,9 +6987,9 @@ namespace RuleEngine
                         Shuffle(ps2.Deck, ctx);
                         break;
                 }
-                // 事件：这一格**不在场**（`Slot = -1`）⇒ 表现层不该去棋盘上找它
+                // 事件：这一格**不在场**（`Slot = -1`）⇒ 表现层不该去棋盘上找它。🔴 2026-11-03（`B124-W15` · 账 `B121-E04B-02`）：这一条原来**不带 `Effect`** ⇒ 表现层两档都不认它（`BattleDriver` 的 `EvtKind.Return` 只按 `disappearFromHand` / `ReshuffleToDeck` 分流，其余落 `PlayReturnFeel`；而 `PlayReturnFeel` 用 `e.Slot` 查 `_fading`/`_myUnits`，`-1` 必 miss）⇒ **静默无画面**。原版这一趟有画面：`_ResolveRecallToDeck_d__543__MoveNext.c:229` `CreateCardInGame(…)` → `MoveToDeck` 那条链 ⇒ 目的地是牌库/牌库顶时带 `BattleEventEffect.ReshuffleToDeck`（消费端 = `BattleDriver.PlayReshuffleToDeckFeel`；载体与 `RuleCore.ReshuffleCemeteryIntoDeck:14340` 逐字同形）。⚠️ 目的地是**手牌**那一档的表现层**还没有**（「从墓地凭空出现在手牌」，原版是 `_ResolveRecallToHand` 那条 `CreateCardInGame`；今天池内 **0 张**走到这一支 —— 唯一持有者 `Eve of the Uprising` 目的地 = `deck`）⇒ 出声，⛔ 不借用「飞回牌堆」那套（会飞错地方）。零行数变化（铁律 18·b：本文件有账落点）。
                 ctx.Emit(new BattleEvent { Kind = EvtKind.Return, Player = sideOwner, Slot = -1,
-                                           CardId = inst.Card.Name, InstanceId = inst.Id });
+                                           CardId = inst.Card.Name, InstanceId = inst.Id, Effect = op.Dest == "hand" ? null : BattleEventEffect.ReshuffleToDeck }); if (op.Dest == "hand") ctx.Log($"{by}：「{inst.Card?.Name}」从墓地回到手牌 —— 表现层**没有**「墓地里的牌凭空出现在手牌」这一档（原版 `_ResolveRecallToHand` 的 `CreateCardInGame` 我们只接了棋盘回手），这一张**不播画面**（如实出声，⛔ 不是静默）");
                 moved.Add(inst);
                 n++;
             }
@@ -19325,40 +19325,40 @@ namespace RuleEngine
             if (card == null) return -1;
             var spec = card.AbilitySummonAt(op.AbilityIndex, op.LogicIndex);
             if (spec == null) return -1;                          // 没有这一行 ⇒ 保持旧行为
-            int cap = spec.CreateAtPos;
-            if (cap < 0) return -1;                               // 缺键/坏值 ⇒ 不知道（⛔ 别当成 0）
-            switch (cap)
-            {
-                case 0:
-                {
-                    var anchor = ctx.ActingUnit;
-                    if (anchor == null)
-                    {
-                        // 原版对「施放者不在 minion area」（战术卡）同样出声 + 退回默认
-                        ctx.Log("（召唤落点：`createAtPos=self` 但取不到施放者 —— 照原版出声、退回默认落点）");
-                        return -1;
-                    }
-                    return NextSlotToCard(ctx, owner, anchor);
-                }
-                case 1:
-                {
-                    var anchor = ctx.LastTarget;
-                    if (anchor == null)
-                    {
-                        ctx.Log("（召唤落点：`createAtPos=cardTarget` 但取不到卡目标 —— 照原版退回默认落点）");
-                        return -1;
-                    }
-                    return NextSlotToCard(ctx, owner, anchor);
-                }
-                case 3:
-                    // 贴督军：`GetNextSlotToCard` 见 `cardType == 10 (Hero)` 直接返默认 ⇒ 与默认等价
-                    return -1;
-                default:
-                    // 原版 `AddMinionOccupation(area, 0)` + `LogWarning`，落点仍默认。我们没有占用表 ⇒ 只出声。
-                    ctx.Log("（召唤落点：`createAtPos=" + cap + "` 不在 {0 self, 1 cardTarget, 3 friendlyHero} 三档内"
-                          + " —— 原版 `AddMinionOccupation(area,0)` + LogWarning、落点仍取默认；我们的棋盘无占用表 ⇒ 只出声）");
-                    return -1;
-            }
+            // 🔴 2026-11-03（`B124_W33` · 账 `B121-D5R-01`）：四档 `createAtPos` 的**判据只留一处** ——
+            //    实现在本文件类尾 `SummonRequestSlotCore`，与附魔侧 `EnchantmentExecutor_B115.cs:1880`
+            //    的 `SummonRequestSlotOf` **共用同一份**（改前两处四档逐条相同、只有取数口不同 ⇒ 迟早分叉）。
+            //    本方法只剩「这条 op 是哪张卡的哪一行」这一跳（取数口，两条路本来就不同）。
+            //
+            // ── 四档索引（正文判据在 `SummonRequestSlotCore`，⛔ 别在别处再写第三份）───────────────
+            //   0 self         ⇒ `NextSlotToCard(ctx, side, anchorSelf)`（`.c:760-767`；锚点 = `abilityData.thisCard`）
+            //   1 cardTarget   ⇒ `NextSlotToCard(ctx, side, anchorTarget)`（`.c:769-774`；锚点 = `abilityData.targetCard`）
+            //   3 friendlyHero ⇒ `-1`（`.c:775-790`：`GetNextSlotToCard` 见 `cardType == 10 (Hero)` 直接返默认）
+            //   default        ⇒ `-1` + 出声（`.c:792-793`：`AddMinionOccupation(area,0)` + `LogWarning`；
+            //                    落点仍取默认。我们的棋盘无占用表 ⇒ 只出声、不另建占用表）
+            //   `cap < 0`      ⇒ `-1` **不出声**（缺键/坏值 = 不知道，⛔ 别当成 0）；`3 friendlyHero` 回 `-1` 同理是**判据**
+            //
+            // ⚠️ **`cardTarget` 档的锚点是作用域量 `ctx.LastTarget`，必须在这里显式取、显式传**：
+            //    它在一次 resolve 的入口被种一次（`:445` `if (chosen != null) ctx.LastTarget = chosen;`），
+            //    之后会被后面的目标解析改写（`:1524` / `:1836` / `:1974` 的 `ctx.LastTarget = list[0];`）
+            //    ⇒ 多 op 卡上它**未必**是这条能力的目标。共用件本身**不读任何环境量**（那正是这次要拆掉的）；
+            //    要不要换成「本行能力的目标表」，是取数口自己的事 —— 今天**保持改前行为**（⛔ 别顺手改口径）。
+            //
+            // ── 为什么抽（账 `B121-D5R-01`）─────────────────────────────────────────────────────
+            //   两处改前逐条相同（四档 + 出声文案），只有「取谁当锚点」不同；任何一处改了另一处忘改
+            //   就会变成「同一个 `createAtPos` 在正文路和附魔路落点不一样」——**静默、且只在多目标卡上现形**。
+            //   抽成一件后，判据改一次两处同时生效；两条路各自保留自己的取数口与出声前缀。
+            //
+            // 📌 三态：这条 op 没归 `(ab, lg)`（`AbilityIndex`/`LogicIndex` 有一个 &lt; 0）/ 卡表没有
+            //    `summonCriteria` 那一行（`spec == null`）⇒ 一律回 `-1`，与加这一列之前**逐字相同**
+            //    （判据见 `CardDef.AbilitySummonAt` 的 doc：⛔ 不是「没写就是 self」）。
+            // 🧨 灭自证：把 `SummonRequestSlotCore` 的 `case 1` 改成恒 `-1` ⇒
+            //    `RuleEngineTest_EngineB94B20` 的「`createAtPos=1` ⇒ 卡目标同侧再外一格」那条变红；
+            //    把 `case 0` 的锚点从 `anchorSelf` 换成 `anchorTarget` ⇒ 同文件的 self 那条变红
+            //    （§三 的「两边一起改回去」反证：两档必须落在**不同格**）。
+            // 📌 附魔路（`EnchantmentExecutor_B115.cs:1880`）的改法 = 一行转调本件（⛔ 别在那边留第二份）——
+            //    那一步写成可粘贴补丁，见 `报告/B124_W33_附魔语义.md` §二（该文件不在本写手白名单内）。
+            return SummonRequestSlotCore(ctx, owner, spec.CreateAtPos, ctx.ActingUnit, ctx.LastTarget, null);
         }
 
         // ==========================================================================================
@@ -21876,6 +21876,64 @@ namespace RuleEngine
             ctx.Log($"{by}：「{op.Source}」没有变身 —— {why}");
             if (unresolved != null) unresolved.Add(op.Source + "（变身没发生：" + why + "）");
             return false;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-11-03（`B124_W33` · 账 `B121-D5R-01`）—— 召唤请求落点：**四档 `createAtPos` 的唯一共用件**
+        //  ⛔ 追加在类尾（铁律 18·b）：本文件在 `:20720-:21866` 有 36 条账落点 ⇒ 只有尾部零漂移。
+        //  📌 由来：`SummonRequestSlotFor`（正文路，本文件 `:19319`）与 `SummonRequestSlotOf`
+        //     （附魔路，`EnchantmentExecutor_B115.cs:1880`）改前是**同一份判据的第二份实现**
+        //     （四档逐条相同、只有「取数口」不同：一个读 `ctx.LastTarget`、一个收显式形参）⇒ 迟早分叉。
+        //     本件把判据收成一处；两条路各自保留自己的取数口与出声前缀。
+        //  ⚠️ 本块**不改任何既有行为**：文案逐字沿用正文路那三条（附魔路多一个 `{by}：` 前缀），
+        //     落的格仍由 `NextSlotToCard`（= 原版 `GetNextSlotToCard`）算 —— 本件不重写落点算法。
+        // ==========================================================================================
+        /// <summary>**原版 `AbilityLogic__PlayAbility.c:759-793` 的四档 `createAtPos`**（`GetNextSlotToCard` 的请求格）。
+        /// <para>判据（第一权威，全文现读 `decomp_full/AbilityLogic__PlayAbility.c`）：`0 self` ⇒ 贴**施放者**
+        /// （`abilityData.thisCard`）；`1 cardTarget` ⇒ 贴**卡目标**（`abilityData.targetCard`）；
+        /// `3 friendlyHero` ⇒ 贴督军，而 `GetNextSlotToCard` 见 `cardType == 10` 直接返默认 ⇒ **与默认等价、回 `-1`**；
+        /// **其余（含 `14 nextFriendlyMinionSpot`）** ⇒ 原版 `AddMinionOccupation(area, 0)` + `LogWarning`、
+        /// **落点仍取默认** ⇒ 回 `-1` 并出声。</para>
+        /// <para>⛔ **本件不读任何环境量**（`ctx.LastTarget` / `ctx.ActingUnit` 一律由调用方显式传）——
+        /// 那正是这次抽取要拆掉的东西（账 `B121-D5R-01` 的「应改成显式锚点」）。</para>
+        /// </summary>
+        /// <param name="side">落点算在哪一侧（原版 `MinionManager` 那一侧）。</param>
+        /// <param name="cap">原版 `SummonCriteria.createAtPos`；`&lt; 0` = 缺键/坏值 ⇒ 回 `-1` 且**不出声**（⛔ 别当 0）。</param>
+        /// <param name="anchorSelf">`0 self` 的锚点（原版 `abilityData.thisCard`）：正文路 = `ctx.ActingUnit`，附魔路 = 载体。</param>
+        /// <param name="anchorTarget">`1 cardTarget` 的锚点（原版 `abilityData.targetCard`）：正文路 = `ctx.LastTarget`，附魔路 = 本次 `chosen`。</param>
+        /// <param name="by">出声前缀（附魔路传 `carrier·card·trigger#N` 这类标签；正文路传 `null` = 沿用原样文案）。</param>
+        public static int SummonRequestSlotCore(BattleContext ctx, int side, int cap,
+                                                UnitState anchorSelf, UnitState anchorTarget, string by)
+        {
+            if (ctx == null) return -1;
+            if (cap < 0) return -1;                               // 缺键/坏值 ⇒ 不知道（⛔ 别当成 0）
+            string prefix = string.IsNullOrEmpty(by) ? "" : by + "：";
+            switch (cap)
+            {
+                case 0:
+                    if (anchorSelf == null)
+                    {
+                        // 原版对「施放者不在 minion area」（战术卡）同样出声 + 退回默认
+                        ctx.Log(prefix + "（召唤落点：`createAtPos=self` 但取不到施放者 —— 照原版出声、退回默认落点）");
+                        return -1;
+                    }
+                    return NextSlotToCard(ctx, side, anchorSelf);
+                case 1:
+                    if (anchorTarget == null)
+                    {
+                        ctx.Log(prefix + "（召唤落点：`createAtPos=cardTarget` 但取不到卡目标 —— 照原版退回默认落点）");
+                        return -1;
+                    }
+                    return NextSlotToCard(ctx, side, anchorTarget);
+                case 3:
+                    // 贴督军：`GetNextSlotToCard` 见 `cardType == 10 (Hero)` 直接返默认 ⇒ 与默认等价
+                    return -1;
+                default:
+                    // 原版 `AddMinionOccupation(area, 0)` + `LogWarning`，落点仍默认。我们没有占用表 ⇒ 只出声。
+                    ctx.Log(prefix + "（召唤落点：`createAtPos=" + cap + "` 不在 {0 self, 1 cardTarget, 3 friendlyHero} 三档内"
+                          + " —— 原版 `AddMinionOccupation(area,0)` + LogWarning、落点仍取默认；我们的棋盘无占用表 ⇒ 只出声）");
+                    return -1;
+            }
         }
     }
 }

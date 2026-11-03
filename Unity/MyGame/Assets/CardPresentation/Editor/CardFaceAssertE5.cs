@@ -1397,10 +1397,10 @@ public static class CardFaceAssertE5
                 if (h != null)
                 {
                     h.SetFace(CardFace.Board); h.SetFace(CardFace.Hand);   // 借场上形态把 3D 体建出来（同 B05）
-                    float aBefore = h.StatLayerColor(CardView.StatMelee).a;
-                    Check(h.CounterAlpha > 0.99f && aBefore <= 0.001f,
-                          "F7-R23-P2 前提：clip 之前 alpha = 1、而数值层**没显示**（材质 α "
-                          + aBefore.ToString("F3") + "）");
+                    int shownBefore = h.StatShown(CardView.StatMelee);   // 读 `activeSelf`，⛔ 不读材质色：`SyncStatLayers` 在 show==false 时走 `SetActive(false); continue;`（`Core/CardView.cs:13357-13362`）⇒ **不重写材质色**，材质会留着上次的 α=1，层其实是隐藏的
+                    Check(h.CounterAlpha > 0.99f && shownBefore == -1,
+                          "F7-R23-P2 前提：clip 之前 alpha = 1、而数值层**没显示**（activeSelf "
+                          + shownBefore + "，-1 = 未激活）");
                     CardFeel.HandToBoard(h);
                     CardTween.Advance(0.2f);                       // > 0.1667 起点
                     float ca = h.CounterAlpha;

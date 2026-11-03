@@ -71,7 +71,7 @@ public static class B118T11_Assert
         root.transform.position = new Vector3(0f, 100f, 0f);
         try
         {
-            var data = CardData.Simple("TapBlockProbe", 3, 3, 4);
+            var data = CardData.Simple("TapBlockProbe", 3, 3, 4); data.faction = "Ultramarines";   // 🔴 2026-11-03（`B124-W10` 改夹具 · 铁律 5）：`CardData.Simple` 的 `faction` 恒 null ⇒ `CardArt.Frame(null,…)` 直接 return null（`Core/CardArt.cs:73`）⇒ `CardView.Build` 的 3D 体整段在 `if (frameTex != null)`（`Core/CardView.cs:4323`）里 ⇒ `BuildBody3D`/`EnsureTapBlockCollider` 从没被调 ⇒ 挡板恒 null（A1a 前提红 → 下面 9 条一起红）。补一个非空阵营即可（`Frame` 只判空、不校验阵营名）
             var board = CardView.Create(root.transform, data, "board_probe", CardFace.Board);
             Check(board != null, "★ 前提：场上档探针卡建出来了（`CardView.Create(face: Board)`）");
             if (board == null) return;

@@ -908,7 +908,7 @@ namespace RuleEngine
     {
         /// <summary>**墓地洗回牌库**（原版 `BattleManager._ResolveDrawCard_d__432__MoveNext.c:89-123` 的
         /// `createdInInitialDeck` 那一支）。载体 = `EvtKind.Return` + `Slot = -1`；发出点 =
-        /// `RuleCore.ReshuffleCemeteryIntoDeck`（唯一）；消费端 = `BattleDriver.PlayReshuffleToDeckFeel`。
+        /// `RuleCore.ReshuffleCemeteryIntoDeck`（本笔之前唯一）；🔴 2026-11-03（`B124-W15`）起 `EffectResolver.ReturnFromCemetery` 的 `Dest == "deck"` 档**也发**；消费端 = `BattleDriver.PlayReshuffleToDeckFeel`。
         /// <para>判据（四段方法体全读，2026-11-03）：`CardScript__UndissolveToDeck.c`（`SetCardImage(null)` →
         /// `FadeCardItems(1, 0)` 瞬时淡入 → `StopSummonSicknessAnim` → `SetActive(true)` → 设回牌库态）·
         /// `BattleCardUI__ShowBoardObjects.c`（2D/3D 全藏）· `BattleCardUI__SetObjectVisibility.c`（state 0 = inDeck）·

@@ -91,15 +91,15 @@ public static class B118W20_Assert
             var u = Place(ctx, 0, 5, "B118W20_BuffHost");
             Ok(u != null && u.IsInPlayState(ctx), "A1 （前提）夹具摆好：一个在场单位");
 
-            u.AddTempBuff(new UnitState.TempBuff { Name = "attack", Value = 2, Owner = 0, Src = "B118W20", Permanent = true });
-            u.AddTempBuff(new UnitState.TempBuff { Name = "attack", Value = 3, Owner = 0, Src = "B118W20", Permanent = false });
+            var keepBuff = new UnitState.TempBuff { Name = "attack", Value = 2, Owner = 0, Src = "B118W20", Permanent = true }; u.AddTempBuff(keepBuff);
+            var dropBuff = new UnitState.TempBuff { Name = "attack", Value = 3, Owner = 0, Src = "B118W20", Permanent = false }; u.AddTempBuff(dropBuff);
             int atk0 = u.Attack;
             Ok(u.TempBuffs.Count == 2, "A1b （前提）两条限时增益都登记上了（实得 " + u.TempBuffs.Count + "）");
 
             u.RemoveAllAppliedEffectsForJam();
 
             Ok(u.TempBuffs.Count == 1 && u.TempBuffs[0].Permanent, "★ A2 `permanentBuff` 那条**活着**（jam 摘不掉）｜🧨 去掉 `RemoveTempBuffCore` 的 `b.Permanent` 闸 ⇒ 本行红（实得 " + u.TempBuffs.Count + " 条）");
-            Ok(u.TempBuffs.Count == 1 && !u.TempBuffs[0].Permanent, "★ A3 非永久那条**照旧被摘**（不是「什么都不摘」）｜🧨 把闸写成「恒不摘」⇒ 本行红");
+            Ok(u.TempBuffs.Count == 1 && !ReferenceEquals(u.TempBuffs[0], dropBuff) && ReferenceEquals(u.TempBuffs[0], keepBuff), "★ A3 被摘掉的**确实是【非永久】那条**（剩的是永久那条的同一对象；不是「什么都不摘」）｜判据 `decomp_full/CardScript__RemoveEffect.c:43-45`（`permanentBuff(+0x74) != 0 ⇒ return`）· 摘除内核 `UnitState.cs:2188-2192`｜🧨 把闸写成「恒不摘」⇒ 本行红。🔴 2026-11-03 `B124-W7` 订正：原来断 `!TempBuffs[0].Permanent`，与上面 A2 在「只剩 1 条」时**逻辑互斥**（必有一红）⇒ 改成按对象身份断「非永久那条被摘了」");
             Ok(u.Attack == atk0 - 3, "A3b 数值同进同退：攻击 +2 还在、+3 已撤（实得 " + u.Attack + "，改前 " + atk0 + "）");
         }
 

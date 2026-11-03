@@ -1770,7 +1770,7 @@ namespace CardPresentation
         {
             var p = transform.localPosition;
             transform.localPosition =
-                new Vector3(worldLeftX - ParentXInDesignSpace() + WorldW * 0.5f, p.y, p.z);
+                new Vector3(ParentXInDesignSpace(worldLeftX) + WorldW * 0.5f * ParentScaleSign(), p.y, p.z);
             ReclipNow();                          // 🔴 A804：平移会**把裁切框一起推走** ⇒ 挪完必须重裁（见 `ReclipNow`）
         }
 
@@ -1789,7 +1789,7 @@ namespace CardPresentation
         {
             var p = transform.localPosition;
             transform.localPosition =
-                new Vector3(worldRightX - ParentXInDesignSpace() - WorldW * 0.5f, p.y, p.z);
+                new Vector3(ParentXInDesignSpace(worldRightX) - WorldW * 0.5f * ParentScaleSign(), p.y, p.z);
             ReclipNow();                          // 🔴 A804：同 `AlignLeftOn`
         }
 
@@ -1922,7 +1922,7 @@ namespace CardPresentation
         static readonly System.Collections.Generic.HashSet<string> _dotAlignNoted =
             new System.Collections.Generic.HashSet<string>();
 
-        /// <summary>🆕 **A228**：父节点的**世界 x → 设计空间**（= 除掉父链的 `lossyScale.x`）。
+        /// <summary>🆕 **A228**：把**设计帧的 x** 换成「该写进 `localPosition.x` 的**父局部** x」。
         ///
         /// <para>**为什么必须有这一步**：`Align*On` 收的实参是**设计空间**的 x（调用侧一律
         /// `LayoutSpace.FromPixel(...)` / 裸世界 x —— 与 `Label.Create` 的 `pos`、`MenuDraw.Local`
@@ -1936,25 +1936,25 @@ namespace CardPresentation
         /// 不除 `k` 时的偏差 = `(1−k)·(P/k)`（局部单位；世界单位是 `(1−k)·P`）——
         /// `P` 越靠窗根这一项越小，所以**窗根附近看不出来、离得越远偏得越多**。</para>
         ///
-        /// <para>⚠️ **只在「窗口根在世界原点」时精确** —— 根一旦有偏移 `Rx`，正确式是
-        /// `worldX − (P − Rx)/k`，而本函数**拿不到 `Rx`**（只有父的绝对世界位置）⇒ 会多出 `Rx/k`。
-        /// 全仓的 UI 根（Shell 的 `Shell` 根、战斗 HUD 那一棵）实测都在原点；**将来哪条路把 UI 根挪走，
-        /// 这里要改成 `parent.InverseTransformPoint`（等价于 A228 的选项 (c)）**。</para>
+        /// <para>🔴 **2026-11-03（`B124-W44` · 账 `B123-ARMYTITLE`）已落地 A228 的选项 (c)**：上面那条 `P/k`
+        /// 式子退居**退化档兜底** —— 它的渲染结果恒 = `k·worldX`（`P` 在式子里**整体约掉**）⇒ 链上任何一级
+        /// `k ≠ 1` 都会把设计 x **再乘一遍**（`k = −1` = 关于屏幕中心**镜像**，真机「军队」标题实拍坐实）。
+        /// 现行式 = **`root.TransformPoint(设计点)` → `pt.InverseTransformPoint`**（`root` = 顶层祖先 = 设计帧）。</para>
         ///
-        /// <para>🔴 **默认关着 ⇒ 今天零可观测差异**：小屏开关出厂 `PlayerPrefs` = 0（原版 `GameStaticData.cctor`
-        /// 也是 0）⇒ 窗根本没接缩放器 ⇒ `k == 1` ⇒ 本函数**逐位等于**旧写法。
-        /// 断言必须**两态**（关 / 开），判据 → `Editor/SettingsScene.cs` 的 A228 那两组。</para>
+        /// <para>🔴 **小屏开关关着时仍零可观测差异**：开关出厂 `PlayerPrefs` = 0（原版 `GameStaticData.cctor` 也是 0）
+        /// ⇒ 窗没接缩放器 ⇒ `k == 1`，而全壳设计帧（顶层 `Shell` 根）在世界原点、`scale = 1` ⇒ 新旧两式**逐位相同**。
+        /// 断言：A228 两态（关 / 开）→ `Editor/SettingsScene.cs`；本笔新加的三种父链（根偏移 / 缩放 / 镜像）→ `Editor/B124_W44_Assert.cs`。</para>
         ///
         /// <para>⚠️ **退化档**（`k` 非有限 / ≈0）：那意味着父链被压平，字本来也画不出来 ⇒ 照旧走 `P`（不除），
         /// 只在这一档与旧写法一致 —— 不加别的兜底，也不出声（与 `HasMeasuredWidth` 那种「量不出来就什么都不做」
         /// 是同一类处置，且这一档下改与不改都看不见）。</para></summary>
-        float ParentXInDesignSpace()
+        float ParentXInDesignSpace(float worldX)
         {
-            var pt = transform.parent;
-            if (pt == null) return 0f;
+            var pt = transform.parent; if (pt == null) return worldX;
             float k = pt.lossyScale.x;
-            if (float.IsNaN(k) || float.IsInfinity(k) || Mathf.Abs(k) < 1e-6f) return pt.position.x;
-            return pt.position.x / k;
+            if (float.IsNaN(k) || float.IsInfinity(k) || Mathf.Abs(k) < 1e-6f) return worldX - pt.position.x;
+            var root = pt; while (root.parent != null) root = root.parent;
+            return pt.InverseTransformPoint(root.TransformPoint(new Vector3(worldX, 0f, 0f))).x;
         }
 
         /// <summary>🔴 **2026-10-04（Y5 · A70 修红）：`WorldW` 这一趟能不能用来算对齐。**
@@ -2790,6 +2790,16 @@ namespace CardPresentation
             // 横向对齐必须与枢轴同侧（见方法头）。左锚复用 `SetAlignLeft` —— 那是「逐行左对齐」的唯一实现。
             if (anchor.x <= 0f) SetAlignLeft();
             else if (anchor.x >= 1f) _tmp.alignment = TextAlignmentOptions.Right;
+        }
+
+        /// <summary>🆕 **2026-11-03（`B124-W44`）**：父链缩放（`pt.lossyScale.x`）的**符号** —— 左/右对齐那半格
+        /// 字宽要跟着**父局部 x 轴翻不翻**加：`k &lt; 0`（镜像父链）时 `+W/2` 会把整块再偏**一个文字宽**
+        /// （算式与判据见 <see cref="ParentXInDesignSpace"/> 的 doc）。退化档（无父 / 非有限 / ≈0）一律 `+1`，
+        /// 与旧写法逐位一致。</summary>
+        float ParentScaleSign()
+        {
+            var pt = transform.parent; if (pt == null) return 1f;
+            return pt.lossyScale.x < 0f ? -1f : 1f;
         }
     }
 }

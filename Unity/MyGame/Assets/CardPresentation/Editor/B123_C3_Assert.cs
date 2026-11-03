@@ -79,7 +79,8 @@ public static class B123C3_Assert
         }
         finally
         {
-            if (_last != null) { _last.Kill(false); _last = null; }
+            // ⚠️ 批处理里 `Kill(false)` 是空操作（`DOTween.initialized == false`）⇒ 走 `B124_TweenTestUtil` 的真杀口
+            if (_last != null) { B124_TweenTestUtil.KillInBatch(_last, "B123C3 finally"); _last = null; }
             CardTween.Mode = keepMode;
         }
     }
@@ -214,12 +215,22 @@ public static class B123C3_Assert
                       tag + "K4' 前提：3D 卡体已换成溶解材质、`_DissolveAmount` 已离开 0（实得 OnDissolve="
                       + mid.OnDissolve + " / amount=" + mid.DissolveAmt.ToString("F4") + "）");
             else
-                Check(!mid.OnDissolve && mid.DissolveAmt <= 1e-4f,
+                // 🔴 2026-11-03（`B124_W19`）：这一刀（0.56）只该断「材质已由 clip 自己还原」。
+                //   ⛔ **不断 `_DissolveAmount`** —— 溶解补间跑的是 `[0.1667, 0.7]`（`CardFeel.cs:2151-2153` 的 `seq.Insert`），
+                //   0.55 那句 `SetDissolveAmount(0)`（`:2174` 的 `InsertCallback(HandToBoardDone)`）**会被后续帧立刻写回**（实得 0.1563）；原版同样如此
+                //   （材质已还原、量写在没有该属性的材质上）⇒ 断 amount ≈ 0 是**期望错**，不是缺陷。
+                Check(!mid.OnDissolve,
                       tag + "K4' 前提：这一刀已经过了 0.55 ⇒ clip **自己**已把 3D 溶解材质还原（实得 OnDissolve="
-                      + mid.OnDissolve + " / amount=" + mid.DissolveAmt.ToString("F4") + "）");
+                      + mid.OnDissolve + " / amount=" + mid.DissolveAmt.ToString("F4")
+                      + "；⚠️ amount 在这一刻**本来就不是 0**（溶解补间跑 [0.1667,0.7]，0.55 那句归零会被写回）⇒ 本条不断它）");
 
             // ---- 打断 ----
-            tw.Kill(false);
+            // 🔴 2026-11-03（`B124_W19`）：批处理里 `tw.Kill(false)` 的**第一句**就早退
+            //    （`if (!DOTween.initialized || t == null || !t.active) return;`，`DOTween.Init` 只在 Play 模式跑）
+            //    ⇒ 原来那一下**什么都没做**，`OnKill` 的复位链一次都不执行（本组 14 条 AssertClean 全假红）。
+            //    真杀 = `TweenManager.Despawn`（会派 `onKill`，与 Play 模式 `Kill(false)` 末句同一条路）。
+            Check(B124_TweenTestUtil.KillInBatch(tw, tag + "打断"), tag + "K4b 打断**真的**杀了（批处理走 `TweenManager.Despawn` ⇒ `onKill` 会派）"
+                + "｜🧨 退回 `tw.Kill(false)` ⇒ 批处理里是空操作 ⇒ 本组后面的 9 项复位全红");
             var after = Capture(cv, body, be);
             AssertClean(tag, after, before);
         }
@@ -253,11 +264,12 @@ public static class B123C3_Assert
             Check(tw1 != null, "D1 前提：第一条补间起得来");
             if (tw1 == null) return;
             AdvanceSeconds(0.4f);
-            tw1.Kill(false);
+            // ⚠️ 批处理里 `Kill(false)` 是空操作 ⇒ 走真杀口（见 `B124_TweenTestUtil` 文件头）
+            Check(B124_TweenTestUtil.KillInBatch(tw1, "D1"), "D1b 第一次打断**真的**杀了（`TweenManager.Despawn`，会派 `onKill`）");
             var after1 = Capture(cv, body, be);
-            // 第二条：对**已不活跃**的补间再 `Kill` 一次 —— DOTween 自己在 `Kill` 开头就 `!t.active` 早退，
+            // 第二条：对**已不活跃**的补间再杀一次 —— 与 DOTween 自己在 `Kill` 开头就 `!t.active` 早退同义，
             // 本条验的是「它确实没把事情搅乱」（不抛异常、状态一个字段都不动）。
-            tw1.Kill(false);
+            Check(!B124_TweenTestUtil.KillInBatch(tw1, "D2 第二次"), "D1c 前提：第二次对**已死**的补间再杀 ⇒ 与 `Kill` 一样早退（返回 false = 什么都没做）");
             var after2 = Capture(cv, body, be);
             Check(SameSnap(after1, after2),
                   "D2 **连续两次 `Kill` 幂等**：第二次不改变任何残留项（3D 体 / 立绘缩放 / z / 两级 y / 粒子 / 两条溶解 / α）"
@@ -269,7 +281,8 @@ public static class B123C3_Assert
             Check(tw2 != null, "D3 前提：第二条 `HandToBoard` 起得来（上一次 kill 落在 0.55 之前，`Face` 仍 = Hand）");
             if (tw2 == null) return;
             AdvanceSeconds(0.5f);
-            tw2.Kill(false);
+            // ⚠️ 批处理里 `Kill(false)` 是空操作 ⇒ 走真杀口
+            Check(B124_TweenTestUtil.KillInBatch(tw2, "D3"), "D3b 第二次打断**真的**杀了（`TweenManager.Despawn`，会派 `onKill`）");
             var after3 = Capture(cv, body, be);
             AssertClean("D4 ", after3, before);
             CheckClose(after3.BodyY, before.BodyY, 1e-4f,
@@ -306,6 +319,12 @@ public static class B123C3_Assert
     {
         var fx = new GameObject("B123C3_SpawnParticles");
         var trail = new GameObject("Trail");
+        // 🔴 2026-11-03（`B124_W19`）：`new GameObject` 默认 `activeSelf = true`，而
+        //   `CardView.MountSpawnParticles` 只 `instance.SetActive(false)`（= 关**实例**本身），**不看**子节点；
+        //   而 `TrailActive` 读的是 `activeSelf`（不是 `activeInHierarchy`）⇒ 夹具不自己关，起播前就是「开着」的
+        //   （原版 `ToBoardFX/Spawn Particles/Trail.m_IsActive` 起播前 = 0，0.55 那一拍才 1）。
+        //   ⇒ 按产品语义把夹具建对（⛔ 别去改产品那一行 —— 它照原版只管实例）。
+        trail.SetActive(false);
         trail.transform.SetParent(fx.transform, false);
         bool ok = cv.MountSpawnParticles(fx);
         Check(ok && cv.SpawnParticlesMounted, "P2 前提：`Spawn Particles` / `Trail` 挂上了（否则两颗粒子那两项空转）");

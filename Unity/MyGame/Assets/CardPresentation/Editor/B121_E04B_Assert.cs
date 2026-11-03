@@ -20,7 +20,8 @@
 //   🧨 2：把发出点从「回填那一句」挪到「非开局牌只删」那一支 ⇒ A4（`FixtureJunk` 不许有条目）红。
 //   🧨 3：把 `ReshuffleToDeckPlanOf` 的两道闸（`Slot < 0` / `Effect`）删掉 ⇒ C2/C3/C4 红
 //         （普通回手、手牌溶解、墓地取回都会被它抢走 ⇒ 那三条链静默改道）。
-//   🧨 4：把 `PlayFeel` 的路由删掉 ⇒ D2 红；把消费端的 `CardFeel.ReturnToDeck` 换成别的调用 ⇒ D3 红。
+//   🧨 4：把 `PlayFeel` 的路由删掉 ⇒ D2 红；把消费端的 `CardFeel.ReturnToDeck` 换成别的调用 ⇒ D3 红；
+//        把那一支的 cue 改回静音 / 换成 `BackToHand` ⇒ D4a / D4b 红。
 //
 // ============================ 怎么接 ============================
 //   宿主聚合行末尾追加（**同一物理行** ⇒ 行数零变化）：
@@ -230,7 +231,7 @@ public static class B121_E04B_Assert
     // ==================================================================
     static void GroupD_SourceWiring()
     {
-        Debug.Log(P + "--- D · 源码闸：发出点 / 路由 / 消费动作 / 静音 ---");
+        Debug.Log(P + "--- D · 源码闸：发出点 / 路由 / 消费动作 / 造牌 cue ---");
         string root = Application.dataPath;
         string[] lines;
         if (!LoadLines(root + "/RuleEngine/Core/RuleCore.cs", out lines)) return;
@@ -251,7 +252,7 @@ public static class B121_E04B_Assert
             + "｜🧨 两边各写一遍字面量 ⇒ 改一处就静默不播");
 
         if (!LoadLines(root + "/CardPresentation/Battle/BattleDriver.cs", out lines)) return;
-        bool routed = false, action = false, muted = false, literalInDriver = false;
+        bool routed = false, action = false, cueBranch = false, cuePlayed = false, cueNoBackToHand = true, literalInDriver = false;
         foreach (var raw in lines)
         {
             var t = raw.TrimStart();
@@ -259,16 +260,32 @@ public static class B121_E04B_Assert
             if (t.IndexOf("else if (e.Slot < 0 && e.Effect == BattleEventEffect.ReshuffleToDeck) PlayReshuffleToDeckFeel(e);",
                           StringComparison.Ordinal) >= 0) routed = true;
             if (t.IndexOf("CardFeel.ReturnToDeck(v, pile.transform, plan.Seconds", StringComparison.Ordinal) >= 0) action = true;
-            if (t.IndexOf("} else if (e.Effect == BattleEventEffect.ReshuffleToDeck) {", StringComparison.Ordinal) >= 0) muted = true;
+            const string cueAnchor = "} else if (e.Effect == BattleEventEffect.ReshuffleToDeck) {";
+            int cueAt = t.IndexOf(cueAnchor, StringComparison.Ordinal);
+            if (cueAt >= 0)
+            {
+                // 🆕 2026-11-03（B124-W17）：只比【这一支的分支体】—— 整行末尾还有另一档的 `BackToHand`（`else` 那支）。
+                int bodyAt = cueAt + cueAnchor.Length;
+                int bodyEnd = t.IndexOf('}', bodyAt);
+                string body = bodyEnd > bodyAt ? t.Substring(bodyAt, bodyEnd - bodyAt) : "";
+                cueBranch = true;
+                cuePlayed = body.IndexOf("BattleSfx.Play(BattleSfx.CreateCardInHand)", StringComparison.Ordinal) >= 0;
+                if (body.IndexOf("BattleSfx.BackToHand", StringComparison.Ordinal) >= 0) cueNoBackToHand = false;
+            }
             if (t.IndexOf("\"reshuffleToDeck\"", StringComparison.Ordinal) >= 0) literalInDriver = true;
         }
         Check(routed, "★ D2 `PlayFeel` 的 `case EvtKind.Return` **真的路由**到 `PlayReshuffleToDeckFeel`"
                     + "（⛔ 不是只加了一个没人调的方法）｜🧨 删掉那段 `else if` ⇒ 本行红");
         Check(action, "★ D3 消费端**真的做了那一手**：`CardFeel.ReturnToDeck(v, pile.transform, plan.Seconds …)`"
                     + "（= 原版 `MoveToDeck` 的三条同长补间 + 收尾）｜🧨 换成别的调用 ⇒ 本行红");
-        Check(muted, "★ D4 `PlayBattleSfx` 对这条**静音**（原版那四段方法体里没有 `BackToHand` 那条 cue；"
-                   + "⛔ 不拿它顶上）");
-        Check(!literalInDriver, "★ D4b 表现层也没有裸字面量（同 D1b）");
+        Check(cueBranch, "★ D4 前提：找得到 `} else if (e.Effect == BattleEventEffect.ReshuffleToDeck) {` 那一支"
+                       + "（找不到时 D4a/D4b 等于空转 ⇒ 先断前提）｜🧨 删掉这一支 ⇒ 本行红");
+        Check(cuePlayed, "★ D4a 那一支**真的播** `BattleSfx.Play(BattleSfx.CreateCardInHand)`"
+                       + "（原版 `CardScript.<CreateCardInGame>d__250:78-81` 的 `Play2D`，cue = `BattleCardSounds.createCardInHand`"
+                       + " = 资产 `Create Card In Hand`，见 `BattleSfx.cs:91`）｜🧨 改回静音 / 换成别的 cue ⇒ 本行红");
+        Check(cueNoBackToHand, "★ D4b 同一分支体**不含** `BattleSfx.BackToHand`（原版那四段方法体里没有它；⛔ 不拿它顶上）"
+                             + "｜🧨 拿它顶上 ⇒ 本行红");
+        Check(!literalInDriver, "★ D4c 表现层也没有裸字面量（同 D1b）");
     }
 
     static bool LoadLines(string path, out string[] lines)

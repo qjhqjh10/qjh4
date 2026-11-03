@@ -128,7 +128,9 @@ public static class B121_WC_Assert
         var u = s.Find(UnitA);
         if (u == null) { Check(false, "C0（前提）夹具解析失败"); return; }
         s.Deck.WarlordId = HeroA;
-        s.Deck.CardIds.Add(UnitA);
+        // 2026-11-03（B124-W1 · δ）：原来只放 1 张 ⇒ `DeckRules.Validate` 在 ④ 张数档（`DeckRules.cs:486-488`）就回 `TooFewCards`，走不到 ⑥b（`:502` 的 `IsNotDeckable`）。
+        //   补满到合法张数（经典 30）：⑥b 在 ⑦ 同名上限**之前**返回 ⇒ 30 张同名不会先撞 `CopyLimitExceeded`；要测的那张 `notDeckable` 卡仍在。
+        for (int i = 0; i < DeckRules.CardCount(s.Skirmish); i++) s.Deck.CardIds.Add(UnitA);
         u.AttachNotDeckable(true);
         var e = s.Validate();
         Check(e == DeckError.InvalidCard,

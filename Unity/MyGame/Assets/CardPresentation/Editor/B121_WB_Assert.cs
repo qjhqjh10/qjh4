@@ -149,11 +149,20 @@ public static class B121_WB_Assert
                   "A5 ★★ `allowNearest` 的**两种取值现在给同一个答案**（" + oa + "/" + sa + " vs " + ob + "/" + sb + "）"
                 + " —— 容差删掉之后它只是签名兼容的遗留形参｜🧨 让它再分支（例如把 y 带挂回 false 那一档）⇒ 红");
 
-            // ---- A6：平手留**更早下标**（原版 `if (real1 > real5)` 严格不等）----
+            // ---- A6：平手档（⚠️ 2026-11-03 `B124-W27`：原来断「正中 ⇒ 必须 3」= **赌数学平手 = float 平手**）----
+            //   与 `B120_W16_Assert.cs:158/231/271` 那条「3/5 到 x=0.5 等距、float32 下严格 `<` 取 5」**同病**：
+            //   点经 `At → ToWorld → ToNormalized` 往返有 ε 级误差 ⇒ `d5 < d3` ⇒ 取 5。**实现照原版（严格 `<`）是对的，是断言错。**
+            //   ⇒ 平手档只断「落在 3/5 之一」（⛔ 不赌哪一侧）；偏向性另用两个**明确偏向一侧**的点断。
             bool tie = board.TryResolveSlot(At(nx4, 0.42f), out s, -1, -1);
-            Check(tie && s == 3,
-                  "A6 正好落在两候选正中（x=" + nx4.ToString("F4") + "）⇒ 留**更早下标**的槽 3（实得 " + s + "）"
-                + "｜判据 `MinionManager.cs:365-369`｜🧨 把 `<` 改成 `<=` ⇒ 红");
+            Check(tie && (s == 3 || s == 5),
+                  "A6 正好落在两候选正中（x=" + nx4.ToString("F4") + "）⇒ 解回 **3 或 5 之一**（float32 平手档，⛔ 不赌落在哪一侧；实得 " + s + "）"
+                + "｜判据 `MinionManager.cs:365-369`（严格 `<` ⇒ 两侧距离相等时 float 允许取任一侧）");
+            int biasR = 0, biasL = 0;
+            bool bR = board.TryResolveSlot(At(nx4 + board.spacing * 0.25f, 0.42f), out biasR, -1, -1);
+            bool bL = board.TryResolveSlot(At(nx4 - board.spacing * 0.25f, 0.42f), out biasL, -1, -1);
+            Check(bR && biasR == 5 && bL && biasL == 3,
+                  "A6b ★ 明确偏向一侧 ⇒ 解回那一侧（正中 +0.25 格 ⇒ " + biasR + " / −0.25 格 ⇒ " + biasL + "）"
+                + "｜🧨 把候选集顺序或比较方向写反 ⇒ 这里红");
         }
         finally { Object.DestroyImmediate(root); }
     }

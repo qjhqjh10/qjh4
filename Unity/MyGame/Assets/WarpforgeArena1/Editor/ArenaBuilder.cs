@@ -3824,8 +3824,8 @@ public static class ArenaBuilder
                 //      （md5 `41c14e8e7a1648098d9705fc68a026cf` · 256×16 RGB，与
                 //      `d:/2/解包资源/assets_full/bundle_battlesharedresources_assets_all/Texture2D/LUT Normal.png` 一致）。
                 //      ⛔ 不用新导、不用复制进来。
-                //    ⚠️ 连带（**不在本文件**）：`Editor/BattleScene.cs` 的 A243 断言 `ColorLookupMismatch`
-                //      仍写着「那 6 场不该接」⇒ 本改动落地后它会红，需按新口径改成「必须接、且贴的是 `LUT Normal`」。
+                //    ✅ **已订正（2026-11-03 `B124_W38` 现读）**：`BattleScene.cs:47476` 的 `ColorLookupMismatch` 与
+                //      `:47511` 的 13 场逐场对账，断的**就是**「那 6 场必须接、且贴的是 `LUT Normal`」（7 场各判 `LUT <场>`）。
                 bool sharedLut = false;
                 if (AssetDatabase.LoadAssetAtPath<Texture2D>(lutPath) == null)
                 {

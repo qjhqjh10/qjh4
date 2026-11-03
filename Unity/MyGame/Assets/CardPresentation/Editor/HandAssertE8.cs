@@ -556,9 +556,9 @@ public static class HandAssertE8
             Vector3 ownPt = pBoard.SlotPosition(k), foePt = eBoard.SlotPosition(k);
             int sOwn, sFoe;
             Check(pBoard.TryResolveSlot(ownPt, out sOwn) && sOwn == k, "前提：我方探针命中我方槽 " + k);
-            Check(!eBoard.TryResolveSlot(ownPt, out sFoe), "前提：我方探针**不**命中敌方棋盘（两条行心分开）");
+            Check(it.PointerOverBoardForTest(ownPt, pBoard) && !it.PointerOverBoardForTest(ownPt, eBoard), "前提：我方探针**只**压在我方棋盘上（`PointerOverBoard`；⛔ 不再拿「`TryResolveSlot` 解析成功」当「指针在这块棋盘」—— 无容差之后它对**两块**棋盘都返回 true，判据 `CardInteraction.cs:2795-2804`，自检读口 `:2807`）");
             Check(eBoard.TryResolveSlot(foePt, out sFoe) && sFoe == k, "前提：敌方探针命中敌方槽 " + k);
-            Check(!pBoard.TryResolveSlot(foePt, out sOwn), "前提：敌方探针**不**命中我方棋盘");
+            Check(it.PointerOverBoardForTest(foePt, eBoard) && !it.PointerOverBoardForTest(foePt, pBoard), "前提：敌方探针**只**压在敌方棋盘上（同上；判据 `CardInteraction.cs:2795-2804`）");
 
             int slot; BoardLayout which; string why;
             string sideF = CardInteraction.TacticTargetSideForTest(vFriend);

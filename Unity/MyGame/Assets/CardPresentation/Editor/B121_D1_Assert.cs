@@ -96,8 +96,8 @@ public static class B121_D1_Assert
             }
             else
             {
-                var buddy = PlaceUnit(ctx, 0, 4, buddyCard);
-                CheckTrue(buddy != null, "C0 前提：旁边那张友方单位在格 4");
+                var buddy = PlaceUnit(ctx, 0, 5, buddyCard);   // 🔴 2026-11-03（B124-W7 · δ）：原来摆**格 4 = `BoardSpec.WarlordSlot`**（`RuleEngine/Core/BoardSpec.cs:30`，`IsValid` 明确排除它）⇒ `DoReturn` 的 `BoardSlots.RemoveAt` 遇督军格直接 `return null`、不清格，而调用方照样加手牌（`EffectResolver.cs:6844-6850`）⇒ 「已离开棋盘」这条必红。挪到右贴督军格 5。
+                CheckTrue(buddy != null, "C0 前提：旁边那张友方单位在格 5");
                 var e = Attach(ctx, carrier, tpl140);
                 int handBefore = ctx.Players[0].Hand.Count;
                 CheckTrue(handBefore < 9, "C0b 前提：手牌没满（否则回手会走「进弃牌堆」那一支，读数会误判）");

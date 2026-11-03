@@ -336,7 +336,7 @@ public static class B99B1_Assert
             bool comment = s.StartsWith("//");
             if (!comment)
             {
-                if (lines[i].Contains("void Release(Vector3 world)")) iRelease = i;
+                if (lines[i].Contains("void Release(Vector3 world")) iRelease = i;   // 🔴 2026-11-03（`B124-W10`）：签名已加 `byCommitWhileHolding` 形参（`B120-W16`）⇒ 旧串带右括号 `world)` 恒 0 命中 ⇒ ⑦ 整段恒红。去掉右括号（含默认值写法也认）
                 if (lines[i].Contains("void AbortDrag(string why)")) iAbort = i;
                 if (lines[i].Contains("void PickUp(CardView card, Vector3 world, bool freshPress = true)")) iPickUp = i;
                 if (lines[i].Contains("DropAccepted = false;")) nAssignFalse++;

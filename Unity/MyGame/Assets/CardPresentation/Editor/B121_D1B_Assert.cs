@@ -198,8 +198,8 @@ public static class B121_D1B_Assert
                 int ca = cas[i];
                 var ctx = MakeBattle(out var carrier, out var opp);
                 if (ctx == null || carrier == null) { CheckTrue(false, $"F{ca}a 前提不成立"); continue; }
-                var foe = PlaceUnit(ctx, 1, 4, PlainUnit("B121D1BFoeGap" + ca));
-                var tpl = Template("B121D1BTplGap" + ca, 0, ca: ca, pa: 0, ta: 10, fm: 0, mult: 0, crit: null);
+                var foe = PlaceUnit(ctx, 1, 5, PlainUnit("B121D1BFoeGap" + ca));   // 🔴 2026-11-03（B124-W7 · δ）：原来摆**格 4 = `BoardSpec.WarlordSlot`**（`RuleEngine/Core/BoardSpec.cs:30`）—— 那是**覆盖对手督军**、不是本组要测的东西（`BoardSlots.RemoveAt` 遇督军格 no-op，`EffectResolver.cs:6844-6850` 照样加手牌）⇒ 挪到右贴督军格 5
+                var tpl = Template("B121D1BTplGap" + ca, Trig, ca: ca, pa: 0, ta: 10, fm: 0, mult: 0, crit: null);   // 🔴 2026-11-03（B124-W7 · δ）：第二参 = **trigger**，A–E 组都已传 `Trig`，本组原来传 `0` ⇒ `TriggerAbilityRowsOf(640)` 空 ⇒ 执行器 `EnchantmentExecutor_B115.cs:86-87` 直接 `return 0`，`.1/.2` 空转绿、`.3` 恒红
                 var e = Attach(ctx, carrier, tpl);
                 int hp = foe != null ? foe.Health : -1;
                 int gapBefore = RuleCore.EnchantRowsDataGapForTest;

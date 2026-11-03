@@ -262,7 +262,8 @@ public static class B118W14_Assert
                    "B6b ★★ 立绘与 2D 组**同步淡**（原来只淡它一个 ⇒ 与框/文字脱节）"
                  + "｜🧨 把 `ArtOpaque.shader` 的 `c.a = i.color.a` 改回 `c.a = 1` ⇒ 立绘的 α 根本没上屏 ⇒ 红");
 
-        tw.Kill();
+        // ⚠️ 批处理里 `Kill()` 是空操作（`DOTween.initialized == false`）⇒ 收尾走真杀口（这条已跑完 ⇒ 返回 false 也正常）
+        B124_TweenTestUtil.KillInBatch(tw, "B118W14 B 收尾");
     }
 
     // ==================================================================
@@ -309,7 +310,12 @@ public static class B118W14_Assert
         if (tw2 == null) { Check(false, "C5 ★ 前提：回手补间建不出来"); Object.DestroyImmediate(c.gameObject); return; }
         Step(0.45f);
         Check(c.Alpha2D < 0.95f, "C5 ★ 前提：kill 之前淡入确实在跑｜α2D = " + c.Alpha2D.ToString("F3"));
-        tw2.Kill();
+        // 🔴 2026-11-03（`B124_W19`）：批处理里 `tw2.Kill()` 的**第一句**就早退（`!DOTween.initialized`，
+        //   `DOTween.Init` 只在 Play 模式跑）⇒ 原来下面 C6/C6b/C6c 是**假红**（补间压根没被杀，`OnKill` 没派）。
+        //   真杀 = `TweenManager.Despawn`（会派 `onKill`，与 Play 模式 `Kill()` 末句同一条路）。
+        Check(B124_TweenTestUtil.KillInBatch(tw2, "B118W14 C5"),
+              "C5b ★ 倒放被打断那一下**真的**杀了（批处理走 `TweenManager.Despawn` ⇒ `onKill` 会派）"
+            + "｜🧨 退回 `tw2.Kill()` ⇒ 批处理里是空操作 ⇒ C6/C6b/C6c 全红");
         CheckClose(c.Alpha2D, 1f, 1e-4f,
                    "C6 ★★ 倒放被打断后 `Alpha2D` 复位到 1（否则这张视图**永久偏淡**、零报错）"
                  + "｜🧨 删掉 `ReturnToHand` 的 `OnKill` 里那句 `SetAlpha2D(1f)` ⇒ 红");

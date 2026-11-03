@@ -110,8 +110,11 @@ public static class B120_W16_Assert
         d.id = name; d.artId = name;                // ⛔ 别撞真实卡：`TacticTargetSide` 会拿 id 回查卡表
         d.isUnit = true; d.type = "unit"; d.rarity = "common";
         f.card = CardView.Create(f.root.transform, d, name, CardFace.Hand);
-        f.card.transform.position = LayoutSpace.ToWorld(0.5f, cardNormY);
         f.it.SetCards(new List<CardView> { f.card }, false);
+        // 🔴 2026-11-03（`B124-W22`）：**必须在 `SetCards` 之后**再手摆几何 —— `SetCards` 会经
+        //   `HandLayout.Refresh` 把这张牌重排回**手牌带**（实得归一化 y 0.1216），摆在前面的位置会被冲掉
+        //   ⇒ 组 B 的「抬高不够」前提变成 1.7838（实测 `battle_b124b.log:1709149`）。
+        f.card.transform.position = LayoutSpace.ToWorld(0.5f, cardNormY);
         return f;
     }
 
@@ -152,7 +155,7 @@ public static class B120_W16_Assert
         try
         {
             Vector3 home = f.card.transform.position;
-            Vector3 drop = f.board.SlotPosition(4);
+            Vector3 drop = f.board.SlotPosition(3);   // 🔴 2026-11-03（`B124-W22`）：**别拿督军格 4 当落点** —— `ArenaSlots.IsCandidate` 里督军位恒非候选（`Board/ArenaSlots.cs:297`），两侧皆空时候选只有 {3,5}，3/5 到 x=0.5 等距、float32 下严格 `<` 取 5 ⇒ 「解析到 4」必假
             int hand0 = f.it.HandCardCountForTest;
 
             // ---- 前提（手摆几何 + 原版常量，⛔ 全从夹具/字面量来，不从被测实现读「结果」）----
@@ -168,9 +171,9 @@ public static class B120_W16_Assert
                 + CardInteraction.PlayLiftWorld.ToString("F5") + "（= `minMovementToPlayCard` 0.3 原版世界单位 = 4.45 px）"
                 + "｜判据 `BattleManager__Update.c:253`（`pointerCursorStart.y + +0x7C < mouse.y`）");
             int slot0;
-            bool resolves = f.board.TryResolveSlot(drop, out slot0, 3, 3);   // 🆕 2026-11-03（`B121-WB` · `Q04c3`）：已删自定容差；显式给两侧各 3 已占 ⇒ 8 格全候选，槽 4 才可解析
-            Check(resolves && slot0 == 4,
-                  "（前提）落点解析到第 4 格（实得 resolves=" + resolves + "、槽 " + slot0 + "）");
+            bool resolves = f.board.TryResolveSlot(drop, out slot0, 3, 3);   // 🆕 2026-11-03（`B121-WB` · `Q04c3`）：已删自定容差；显式给两侧各 3 已占 ⇒ 8 格全候选，槽 3（贴督军的内圈格）可解析
+            Check(resolves && slot0 == 3,
+                  "（前提）落点解析到第 3 格（实得 resolves=" + resolves + "、槽 " + slot0 + "）");
             Check(f.it.HandCardCountForTest == hand0 && hand0 == 1,
                   "（前提）开局手牌 1 张（实得 " + hand0 + "）");
 
@@ -225,7 +228,7 @@ public static class B120_W16_Assert
         try
         {
             Vector3 home = f.card.transform.position;
-            Vector3 drop = f.board.SlotPosition(4);
+            Vector3 drop = f.board.SlotPosition(3);   // 🔴 2026-11-03（`B124-W22`）：**别拿督军格 4 当落点** —— `ArenaSlots.IsCandidate` 里督军位恒非候选（`Board/ArenaSlots.cs:297`），两侧皆空时候选只有 {3,5}，3/5 到 x=0.5 等距、float32 下严格 `<` 取 5 ⇒ 「解析到 4」必假
             int hand0 = f.it.HandCardCountForTest;
 
             Check(LayoutSpace.ToNormalized(drop).y >= BoardLayout.HandLimitY,
@@ -236,8 +239,8 @@ public static class B120_W16_Assert
                   "（前提）抬高 " + (drop.y - home.y).ToString("F5") + " < "
                 + CardInteraction.PlayLiftWorld.ToString("F5") + "（差这一点点）");
             int s;
-            Check(f.board.TryResolveSlot(drop, out s, 3, 3) && s == 4,
-                  "（前提）落点照样解析到第 4 格（实得 " + s + "）—— 落点这一条**不是**本组失败的原因");
+            Check(f.board.TryResolveSlot(drop, out s, 3, 3) && s == 3,
+                  "（前提）落点照样解析到第 3 格（实得 " + s + "）—— 落点这一条**不是**本组失败的原因");
 
             f.it.SimulateHover(home);
             f.it.SimulatePress(home);
@@ -265,7 +268,7 @@ public static class B120_W16_Assert
         try
         {
             Vector3 home = f.card.transform.position;
-            Vector3 drop = f.board.SlotPosition(4);
+            Vector3 drop = f.board.SlotPosition(3);   // 🔴 2026-11-03（`B124-W22`）：**别拿督军格 4 当落点** —— `ArenaSlots.IsCandidate` 里督军位恒非候选（`Board/ArenaSlots.cs:297`），两侧皆空时候选只有 {3,5}，3/5 到 x=0.5 等距、float32 下严格 `<` 取 5 ⇒ 「解析到 4」必假
             int hand0 = f.it.HandCardCountForTest;
 
             Check(LayoutSpace.ToNormalized(drop).y < BoardLayout.HandLimitY,
@@ -275,8 +278,8 @@ public static class B120_W16_Assert
                   "（前提）抬高 " + (drop.y - home.y).ToString("F4") + " ≥ "
                 + CardInteraction.PlayLiftWorld.ToString("F5") + "（抬高这一条**已经满足**）");
             int s;
-            Check(f.board.TryResolveSlot(drop, out s, 3, 3) && s == 4,
-                  "（前提）落点照样解析到第 4 格（实得 " + s + "）");
+            Check(f.board.TryResolveSlot(drop, out s, 3, 3) && s == 3,
+                  "（前提）落点照样解析到第 3 格（实得 " + s + "）");
 
             f.it.SimulateHover(home);
             f.it.SimulatePress(home);

@@ -11,6 +11,8 @@
 //      判据链：`TMP_Text.OnEnable`（`TextMeshPro.cs:630-668`）→ `SetAllDirty` → 延迟一拍的
 //      `TMP_UpdateManager.DoRebuilds` → `SetArraySizes`（`TextMeshPro.cs:1947`）把每颗子网格的
 //      `sharedMaterial` 换回它自己的材质参考表（队列 3000）。
+//      🔴 2026-11-03（`B124-W27` 实测）：本 build 的 `ForceMeshUpdate()` **不再**复现这条（掉队 0 颗）⇒ 夹具改为
+//      **显式**把子网格材质队列写回 3000 来造出缺陷态（见 B 组 ④）；`RestampQueuesAfterEnable` 那一支仍照原样验。
 //
 // 用法（⚠️ 要**主对话**跑 —— 子代理不许 `-executeMethod`）：
 //   unset ELECTRON_RUN_AS_NODE && "D:/Unity/Hub/Editor/6000.3.23f1/Editor/Unity.exe" -batchmode -quit \
@@ -170,6 +172,7 @@ public static class B118W2_Assert
     {
         var root = new GameObject("B118W2_B_restamp");
         CardView card = null;
+        var forcedMats = new List<Material>();   // 🔴 2026-11-03（`B124-W27`）：② 那次「模拟重建」自己造的材质副本，收尾销毁
         try
         {
             const int QMull = 3007;
@@ -204,13 +207,27 @@ public static class B118W2_Assert
                 + "（`CardView.EnableRestampPendingForTest`；判据 → 类尾 `_enableRestampPending` 的 doc）"
                 + "｜🧨 删掉 `OnEnable` 里那句挂起 ⇒ 红（那样 `Update` 那一刀永远不会来）");
 
-            // ④ 模拟「延迟一拍的重建」：TMP 重建会把子网格材质换回它自己的参考表（= 3000）
+            // ④ 模拟「延迟一拍的重建」：
+            //   🔴 2026-11-03（`B124-W27`）：本 build 的 `ForceMeshUpdate()` **不再**把子网格材质换回 3000
+            //   （实测掉队 **0 颗** ⇒ 原判别式已失去判别力、B3 会变成假绿）。⇒ 改成**显式**把子网格渲染器的材质
+            //   队列写回 3000（各换一份队列 = 3000 的副本，⛔ 不动 `CardView` 那份 `(源材质,队列)` 共享缓存），
+            //   不再依赖 TMP 内部行为 —— 这样 B3 验的仍是「`RestampQueuesAfterEnable` 能不能把子网格盖回来」。
             foreach (var t in card.GetComponentsInChildren<TextMeshPro>(true))
                 if (t != null && t.gameObject.activeInHierarchy) t.ForceMeshUpdate();
+            int reverted = 0;
+            foreach (var mr in card.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (mr == null || mr.sharedMaterial == null || mr.GetComponent<Label>() != null) continue;
+                if (mr.GetComponent<TextMeshPro>() != null) continue;      // 只动**子网格**那几颗（缺陷受害的那一类）
+                var revert = new Material(mr.sharedMaterial) { renderQueue = 3000 };
+                forcedMats.Add(revert);
+                mr.sharedMaterial = revert;
+                reverted++;
+            }
             int badAfterRebuild = CountWrongQueue(card, QMull, out string diagRebuild);
-            Check(badAfterRebuild > 0,
-                  $"★ B2 `B117-R73`（判别式·缺陷必须复现）：重建之后**确实有** {badAfterRebuild} 颗渲染器掉回别的队列"
-                + $"{diagRebuild}｜🧨 若这里是 0 ⇒ 本夹具没有判别力（下面 B3 就证明不了修复），⛔ 别读成通过");
+            Check(reverted > 0 && badAfterRebuild == reverted,
+                  $"（夹具布置）显式模拟「重建后子网格掉回 3000」：应掉队 {reverted} 颗、实测 {badAfterRebuild} 颗"
+                + $"{diagRebuild}｜🧨 布置不出 >0 颗 ⇒ 本夹具没有判别力（下面 B3 就证明不了修复），⛔ 别读成通过");
 
             // ⑤ 生产那一支（`Update` 下一帧干的就是这一句）
             card.RestampQueuesAfterEnable();
@@ -224,6 +241,7 @@ public static class B118W2_Assert
         finally
         {
             if (card != null) Object.DestroyImmediate(card.gameObject);
+            foreach (var m in forcedMats) if (m != null) Object.DestroyImmediate(m);   // B124-W27：④ 自造的材质副本
             Object.DestroyImmediate(root);
         }
     }

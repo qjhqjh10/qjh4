@@ -453,10 +453,12 @@ public static class B120_W21_Assert
 
         string hand = StripComments(File.ReadAllText(handPath));
         int nSide = CountOf(hand, "SideCount(");
-        Check(nSide == 9,
-            "D5 ★ `CardInteraction` 的 `SideCount(` 出现 **9 次** = 4 处落点解析 × 2 侧 + 1 处定义"
+        Check(nSide >= 9 && (nSide - 1) % 2 == 0,
+            "D5 ★ `CardInteraction` 的 `SideCount(` **成对出现**（每处落点解析 2 侧）+ 1 处定义 ⇒ `≥ 9` 且 `(n-1)` 为偶数"
             + "（实得 " + nSide + "）—— 产品路径真的把「每侧已占数」喂进去了"
-            + "｜🧨 把任一处改回不带数的重载 ⇒ 变 7 / 5 / 3 ⇒ 红（那会退化成「两侧皆空」的候选集）");
+            + "｜🔴 2026-11-03（`B124-W10`）：原来是**钉死 9**（4 处解析 × 2 + 1 定义），`B120-Q04c4b` 之后多了第 5 处解析 ⇒ 现读 11。"
+            + "改成「成对 + 下限」：既能挡「删掉任一处（变 7/5/3）」，也不会因为**新增**解析点而假红"
+            + "｜🧨 把任一处改回不带数的重载 ⇒ 落单 ⇒ 红（那会退化成「两侧皆空」的候选集）");
         int bare = CountOf(hand, ", out sWant);") + CountOf(hand, ", out _);") + CountOf(hand, ", out s) &&");
         Check(bare == 0,
             "D6 ★ `CardInteraction` 里**没有**不带占位数的落点解析（`TryResolveSlot(pos, out sWant);` / "

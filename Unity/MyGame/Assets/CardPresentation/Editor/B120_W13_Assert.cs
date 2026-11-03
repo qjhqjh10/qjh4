@@ -121,9 +121,10 @@ public static class B120_W13_Assert
         }
 
         // A5 —— `HitSlot`：3D 档**直接返回**射线结果（⛔ 不回落投影）
-        Check(flat.Contains("if (use3DBoard && boardCam != null && cam != null) { int raySlot; TryHitSlotByBoardRay(views, world, out raySlot); return raySlot; }"),
+        Check(flat.Contains("if (use3DBoard && boardCam != null && cam != null) { int raySlot; TryHitSlotByBoardRay(views, world, out raySlot, out _); return raySlot; }"),
             "A5 ★ `HitSlot` 的 3D 档 = **一句 early-return**（`TryHitSlotByBoardRay` → `return raySlot`），"
             + "miss 即 -1、⛔ 不回落投影（原版 `iVar7 < 1 ⇒ return 0`，`BattleManager__GetTargetInPos.c:250-252`）"
+            + "｜🔴 2026-11-03（`B124-W10`）：期望串补上第二个 out 形参 `out _` —— `BattleDriver.cs:33320` 现读是 `TryHitSlotByBoardRay(views, world, out raySlot, out _)`"
             + "｜🧨 改回「先射线、miss 再落到投影循环」⇒ 形状对不上 ⇒ 红");
 
         // A6 —— 🔴 2026-11-02（`B120-W27`）**就地改写**：原来这里断「本工程**没有** `BoardElements`」（层号无法一比一的证据）
@@ -163,7 +164,7 @@ public static class B120_W13_Assert
             drv.boardCam = cam;                                   // 测试里两台相机合一：`WorldToScreenPoint` → `ScreenPointToRay` 是恒等往返
             drv.use3DBoard = true;
 
-            var data = CardData.Simple("W13Probe", 3, 3, 4);
+            var data = CardData.Simple("W13Probe", 3, 3, 4); data.faction = "Ultramarines";   // 🔴 2026-11-03（`B124-W10` 改夹具 · 铁律 5）：`Simple` 的 `faction` 恒 null ⇒ `CardArt.Frame` 返 null ⇒ `CardView.Build` 的 3D 体整段被 `if (frameTex != null)` 跳过（`Core/CardView.cs:4323`）⇒ 挡板恒 null ⇒ B0b 前提红 → 后面全部级联红
             card = CardView.Create(root.transform, data, "w13_card", CardFace.Board);
             Check(card != null, "B0a（前提）探针卡建出来了（`CardView.Create(face: Board)`）");
             if (card == null) return;
@@ -241,7 +242,7 @@ public static class B120_W13_Assert
             var drv = root.AddComponent<BattleDriver>();
             drv.cam = cam; drv.boardCam = cam; drv.use3DBoard = true;
 
-            var data = CardData.Simple("W13MultiProbe", 3, 3, 4);
+            var data = CardData.Simple("W13MultiProbe", 3, 3, 4); data.faction = "Ultramarines";   // 🔴 2026-11-03（`B124-W10` 改夹具）：同 C 组上一处 —— `faction` 为 null ⇒ 没有 3D 体 ⇒ C0 前提红
             var first = CardView.Create(root.transform, data, "w13_m0", CardFace.Board);
             if (first == null) { Check(false, "C0（前提）探针卡建出来了"); return; }
             first.SetLayer(ArenaSlots.BoardCardLayer);

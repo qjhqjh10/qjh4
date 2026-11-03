@@ -15,7 +15,7 @@
 //   · A 段：把 `VoiceLines.Has` 改回 `_byId.ContainsKey(cardId)` ⇒ A4 **红**
 //     （A2 已断「`ASH15` 的 `deploy` 行**还在表里**」⇒ 两条结构上不可能同时为真）。
 //   · B 段：把跟手改回 `Vector3.Lerp(prev, target, 1f − Mathf.Exp(-20f*dt))` ⇒ B1/B2/B3 全红
-//     （远跳只走 28.35%、0.05 那一步贴不住、系数 0.2835 ≠ 0.18）；
+//     （远跳只走 28.35%、0.005 那一步贴不住、系数 0.2835 ≠ 0.18）；
 //     把硬吸附那一档的 `rx/ry 归零` 去掉 ⇒ B5 红（dy = 100 ⇒ rx 会到 20°）。
 using System.Collections.Generic;
 using UnityEngine;
@@ -150,22 +150,22 @@ public static class B117_WGB_Assert
             Vector3 lift = new Vector3(0f, 0f, -it.dragLiftZ);
             Vector3 p0 = card.transform.position;
 
-            // ① 远距硬吸附：d2 > 1000（y 取 +5 世界单位 ⇒ 也在手牌限位线上方，让位那一段不参与）
-            Vector3 w1 = p0 + new Vector3(100f, 5f, 0f);
+            // ① 远距硬吸附：d2 > 1000（**x** 取 +100；y 只 +1 ⇒ 不撞 `maxHeightOfUnplayableCard` 放弃闸 3.434 = 25 原版世界单位）
+            Vector3 w1 = p0 + new Vector3(100f, 1f, 0f);
             it.SimulateDrag(w1, dt);
-            Vector3 t1 = w1 + lift;
+            Vector3 t1 = w1 + lift + TargetOffset;   // 🔴 目标 = 指针 + `moveCardYOffset`（原版 0.2 世界单位 × 桥；漏了差 0.0274）
             Check(Vector3.Distance(card.transform.position, t1) < 1e-3f,
                   "★ B117-35：`d2 > 1000` ⇒ **硬吸附**（位置 == target；实得 " + card.transform.position
                 + "，期望 " + t1 + "）"
                 + "｜判据 VA `0x1805FC5D3 comiss [0x1834B3124(=1000)]`"
                 + "｜🧨 旧公式只走 28.35% ⇒ 差约 71 世界单位 ⇒ 红");
 
-            // ② 近距硬吸附：d2 < 0.01（0.05 世界单位 ≈ 5.4 px）
-            Vector3 w2 = w1 + new Vector3(0.05f, 0f, 0f);
+            // ② 近距硬吸附：d2 < 0.01 **原版单位²** = 1.887e-4 我们的单位²（过桥 0.13736²）⇒ 挪 0.005 我们的单位（d2 = 2.5e-5）
+            Vector3 w2 = w1 + new Vector3(0.005f, 0f, 0f);
             it.SimulateDrag(w2, dt);
-            Vector3 t2 = w2 + lift;
+            Vector3 t2 = w2 + lift + TargetOffset;
             Check(Vector3.Distance(card.transform.position, t2) < 1e-4f,
-                  "★ B117-35：`d2 < 0.01` ⇒ **硬吸附**（0.05 世界单位直接贴住）"
+                  "★ B117-35：`d2 < 0.01`（原版单位² = 1.887e-4 我们的单位²）⇒ **硬吸附**（0.005 我们的单位直接贴住；d2 = 2.5e-5）"
                 + "｜判据 VA `0x1805FC5C2 comiss [0x1834B2DBC(=0.01)]`"
                 + "｜🧨 旧公式会残留约 0.036 的指数尾 ⇒ 红");
 
@@ -173,7 +173,7 @@ public static class B117_WGB_Assert
             Vector3 w3 = w2 + new Vector3(0.5f, 0f, 0f);
             Vector3 prev3 = card.transform.position;
             it.SimulateDrag(w3, dt);
-            Vector3 t3 = w3 + lift;
+            Vector3 t3 = w3 + lift + TargetOffset;
             Vector3 want3 = prev3 + (t3 - prev3) * (10.8f * dt);
             Check(Vector3.Distance(card.transform.position, want3) < 1e-4f,
                   "★ B117-35：平滑档 `pos += (target−pos) × (10.8 × dt)`（实得 " + card.transform.position
@@ -183,25 +183,25 @@ public static class B117_WGB_Assert
             Check(Mathf.Abs(moved - 0.14175f) > 0.03f,
                   "🧨 灭自证：旧公式 `1 − exp(−20·dt)` = 0.2835 会给 **0.14175** ⇒ 与上一条结构上不可能同时绿");
 
-            // ④ 平滑档**仍然**按原版算倾斜（dy = 0.2 ⇒ rx = 40 × clamp01(0.02 + 0.5) − 20 = 0.8）
+            // ④ 平滑档**仍然**按原版算倾斜（dy = 0.2 我们的单位 = 1.4562 原版世界单位 ⇒ rx = 40 × clamp01(0.1456 + 0.5) − 20 = 5.82）
             Vector3 w4 = w3 + new Vector3(0f, 0.2f, 0f);
             it.SimulateDrag(w4, dt);
             float rx4 = Mathf.DeltaAngle(0f, card.transform.localEulerAngles.x);
-            CheckClose(rx4, 0.8f, 0.05f,
-                       "B117-35：平滑档仍算倾斜（`rx` = 0.8°；d2 = 0.208 落在平滑档）"
+            CheckClose(rx4, 40f * Mathf.Clamp01((0.2f / HandLayout.OurUnitsPerWorldUnit) / 10f + 0.5f) - 20f, 0.05f,
+                       "B117-35：平滑档仍算倾斜（`rx` = 5.82°：Δy 0.2 我们的单位 = 1.4562 原版世界单位、分母 10 原版世界单位；d2 = 0.208 落在平滑档）"
                      + "｜🧨 把倾斜整段删掉 ⇒ 0 ⇒ 红");
 
-            // ⑤ 硬吸附档把 rx/ry 归零（dy = 100 ⇒ 不归零的话 rx 会到 20°）
-            Vector3 w5 = w4 + new Vector3(0f, 100f, 0f);
+            // ⑤ 硬吸附档把 rx/ry 归零（**x** 甩 100 ⇒ d2 远阈；不归零的话 ry 会到 −20°；y 不抬 ⇒ 不撞放弃闸）
+            Vector3 w5 = w4 + new Vector3(100f, 0f, 0f);
             it.SimulateDrag(w5, dt);
             float rx5 = Mathf.DeltaAngle(0f, card.transform.localEulerAngles.x);
             float ry5 = Mathf.DeltaAngle(0f, card.transform.localEulerAngles.y);
             Check(Mathf.Abs(rx5) < 0.01f && Mathf.Abs(ry5) < 0.01f,
-                  "★ B117-35：硬吸附那一档 **rx/ry 归零**（原版把 `rotationTarget` 拷成静态 `Vector3`，"
-                + "按 ctor 同源推断 = `Vector3.zero`；实得 rx=" + rx5.ToString("F3") + " ry=" + ry5.ToString("F3") + "）"
-                + "｜🧨 不归零 ⇒ 这一档 dy = 100 ⇒ rx 到 20° ⇒ 红（⚠️ 推断强度：未 100% 钉死）");
-            Check(Vector3.Distance(card.transform.position, w5 + lift) < 1e-3f,
-                  "★ B117-35：该档位置同样瞬移到位（与 ① 同一判据，用大 dy 再验一次）");
+                  "★ B117-35：硬吸附那一档 **rx/ry 归零**（原版把 `rotationTarget` 拷成静态 `Vector3.zero`，"
+                + "`CardScript.c` 的 `+0xb8` = `static_fields` 指针、偏移 0 起读 12 字节 = `zeroVector`；实得 rx=" + rx5.ToString("F3") + " ry=" + ry5.ToString("F3") + "）"
+                + "｜🧨 不归零 ⇒ 这一档 Δx = 100 ⇒ ry 到 −20° ⇒ 红");
+            Check(Vector3.Distance(card.transform.position, w5 + lift + TargetOffset) < 1e-3f,
+                  "★ B117-35：该档位置同样瞬移到位（与 ① 同一判据，用大 Δx 再验一次）");
         }
         finally
         {
@@ -210,5 +210,16 @@ public static class B117_WGB_Assert
             if (card != null) Object.DestroyImmediate(card.gameObject);
             Object.DestroyImmediate(root);
         }
+    }
+
+    // 🔴 2026-11-03（执行写手 `B124-W22`）：跟手目标 = **指针 + 原版 `moveCardYOffset`**。
+    //   判据 = `Core/VarsDevice.cs:101`（`VarsDesktop.moveCardYOffset = 0.2` **原版世界单位**）
+    //        ＋ `Hand/CardInteraction.cs:2298-2301`（`DragTargetOffset` = 0.2 × 桥 `OurUnitsPerWorldUnit`）。
+    //   ⚠️ 本行**追加在类尾**（⛔ 不插进成员之间：本文件被账按行号引用过）。
+    //   ⛔ 别从 `CardInteraction.DragTargetOffsetForTest` 取期望值（那是「实现证明实现」）——
+    //      这里走原版字面量 0.2 × 公开桥常量，与实现同源但**不同口**。
+    static Vector3 TargetOffset
+    {
+        get { return new Vector3(0f, VarsDevice.Desktop.moveCardYOffset * HandLayout.OurUnitsPerWorldUnit, 0f); }
     }
 }

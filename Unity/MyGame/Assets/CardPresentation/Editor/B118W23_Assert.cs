@@ -119,6 +119,15 @@ public static class B118W23_Assert
         C(d.Ctx != null, true, "N0（前提）driver 已经 `Begin()` 过一局（`Ctx != null`）");
         if (d.Ctx == null) return;
 
+        // 🔴 2026-11-03（`B124-W28`）：批处理**没有帧循环** ⇒ `TickBlockingWindow` 永远不会自己收尾
+        //    （`BattleDriver.cs:20897` 那句 `_timeline.Count == 0 && _clock >= _blockingQuietAt` 只由帧驱动）
+        //    ⇒ 上一批演出留下的 `_blocking` 会一直挂到收工（`B124-W27` 补上 `!WaitingForBlockingAction` 之后
+        //    这条前提就**必然**是假 —— 实测 N1 恒 = 3，而 3 正是 `ChatHotkeyUiState()` 对 `_blocking` 的正确映射）。
+        //    ⇒ 这里按**帧循环本该做的事**显式放行（`SetBlockingForTest` 的存在理由就是这个；
+        //    它只改前置条件，**映射函数本身一个字没碰**，下面的断言才是被测对象）。
+        bool wasBlocking = d.WaitingForBlockingAction;
+        if (wasBlocking) d.SetBlockingForTest(false);
+
         // N1 档位落在原版 `UIstateOptions` 的 0…14 闭区间（枚举 15 档）。
         int st = d.ChatHotkeyUiStateForTest();
         T(st >= 0 && st <= 14, $"N1 `ChatHotkeyUiState()` 落在 0…14（原版 15 档枚举；实得 {st}）");
@@ -128,8 +137,22 @@ public static class B118W23_Assert
         //    也是原版 `CanUseWaystone.c:44-47` 第 ③ 道闸的判据。
         bool plain = !d.Ctx.IsOver && !d.InMulligan
                   && !(d.Choose != null && d.Choose.Visible)
-                  && !(d.End != null && d.End.Visible);
-        T(plain, "N2（前提）这一局处在「无终局 / 无换牌 / 无选牌」的普通档");
+                  && !(d.End != null && d.End.Visible)
+                  // 🔴 2026-11-03（`B124-W27`）：**漏了 `_blocking`** —— `ChatHotkeyUiState()` 把 `WaitingForBlockingAction`
+                  //   正映射成 **3**（`BattleDriver.cs:36276`，playingMinion 演出中）⇒ 原前提不成立（实测实得 3）。映射是对的，补前提。
+                  && !d.WaitingForBlockingAction
+                  // 🔴 2026-11-03（`B124-W28`）：`ChatHotkeyUiState()` 的**其余前置分支也要列齐** ——
+                  //    否则「前提成立、实测却不是 1」又会变成哑谜（判据 = `BattleDriver.cs:36262-36275` 那串 if）。
+                  && !d.AwaitingPlayTarget                                             // → 9
+                  && !(d.selector != null && d.selector.Visible)                        // → 6
+                  && !(d.interaction != null && d.interaction.IsDragging)               // → 2
+                  && !(d.skillPanel != null && d.skillPanel.Visible)                    // → 10
+                  && d.SelectedSlot < 0;                                               // → 9 / 10
+        T(plain, "N2（前提）这一局处在「无终局 / 无换牌 / 无选牌 / 无演出阻塞 / 无选目标 / 无选择器 / 无拖拽 / 无技能面板 / 无已选格」的普通档"
+               + $"（终局 {d.Ctx.IsOver} · 换牌 {d.InMulligan} · 阻塞 {d.WaitingForBlockingAction}(批处理已显式放行 {wasBlocking})"
+               + $" · 选目标 {d.AwaitingPlayTarget} · 选择器 {(d.selector != null && d.selector.Visible)}"
+               + $" · 拖拽 {(d.interaction != null && d.interaction.IsDragging)}"
+               + $" · 技能面板 {(d.skillPanel != null && d.skillPanel.Visible)} · 已选格 {d.SelectedSlot}）");
         if (plain) C(st, 1, "★★ N2 普通档 ⇒ `UIstate == normalBattle(1)`（原版 `BattleManager.GetUIState()` 唯一取值器；"
                           + "`BattleUiIsNormalBattle` 已并入这一份映射）");
     }

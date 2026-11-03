@@ -16,7 +16,8 @@
 //   B 段 · **源码闸**：掩码声明绑到了 `BoardCardLayer`（不是写死 10）；卡的 3D 挡板仍然**跟随卡自己的层**。
 //   C 段 · **迁移未完成项 → 显式红**（⏳ 待迁移；`调度台` 把下面几处改完就自动转绿，⛔ 别静默跳过）：
 //          ① `BattleDriver.cs` 里六处 `SetLayer(ArenaSlots.ArenaLayer)`（卡）② `BoardTargetRayLayerMask`
-//          ③ `CardFeel.IsArenaCard` 的门 ④ 相机 `cullingMask`（战场要含 10、HUD 要去掉 10）
+//          ③ `CardFeel.IsArenaCard` 的门（✅ 2026-11-02 `B120_W27` 已完成：收口到 `IsBoardLayer`；
+//             本件 2026-11-03 `B124-W28` 按新形状改判，见下）④ 相机 `cullingMask`（战场要含 10、HUD 要去掉 10）
 //          ⑤ 审计报告 `资料/完全复刻/报告/B120_W19_层依赖审计.md` 在盘上。
 //
 // ============================ 怎么用 ============================
@@ -204,10 +205,18 @@ public static class B120_W19_Assert
         }
         else
         {
+            // 🔴 2026-11-03（`B124-W28`）就地订正（铁律 5）：原来只查 `IsArenaCard` 那 240 字里有没有
+            //    `ArenaSlots.BoardCardLayer` —— **已过期**。2026-11-02 `B120_W27` 把那道门收口到
+            //    `IsBoardLayer(int)`（`Core/CardFeel.cs:4455-4458`：`layer == BoardCardLayer || layer == ArenaLayer`），
+            //    `IsArenaCard` 只转发它 ⇒ 字面上再也看不到 `ArenaSlots.BoardCardLayer`，本条因此**假红**。
+            //    现判据 = 两跳都断：① `IsArenaCard` 走 `IsBoardLayer`（⛔ 别写第二份层号判断）② `IsBoardLayer` 认 `BoardCardLayer`。
             int i0 = cf.IndexOf("public static bool IsArenaCard(CardView card)", StringComparison.Ordinal);
             string body = i0 >= 0 ? cf.Substring(i0, Math.Min(240, cf.Length - i0)) : "";
-            Pending(body.Contains("ArenaSlots.BoardCardLayer"),
-                "C③ `CardFeel.IsArenaCard` 的门改成比较 `ArenaSlots.BoardCardLayer`"
+            int i1 = cf.IndexOf("public static bool IsBoardLayer(int layer)", StringComparison.Ordinal);
+            string lb = i1 >= 0 ? cf.Substring(i1, Math.Min(240, cf.Length - i1)) : "";
+            Pending(body.Contains("IsBoardLayer(") && lb.Contains("ArenaSlots.BoardCardLayer"),
+                "C③ `CardFeel.IsArenaCard` 的门认 `ArenaSlots.BoardCardLayer`（经唯一的 `IsBoardLayer`；"
+                + $"`IsArenaCard`→`IsBoardLayer` {body.Contains("IsBoardLayer(")} · `IsBoardLayer` 认 BoardCardLayer {lb.Contains("ArenaSlots.BoardCardLayer")}）"
                 + "｜🧨 不改 ⇒ 迁移后 `IsArenaCard` **恒 false** ⇒ 深度缩放（`HookDepthScale` / `WFModuleTransformModifier`）**静默失效**，画面只是「有点不对」");
         }
 

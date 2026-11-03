@@ -6,11 +6,13 @@
 //   （否则无法测试）。卡与效果**全部是 🔶 自己设计（非原版）**（原版没有这张卡，见
 //   `RuleEngine/Core/RuleCorePartial_B96CB.cs` 文件末「变身战术卡」那一大段）。
 //
-//   本件钉五件事：① 13 张都在池、**可进卡组**、卡池可见、四围与费用符合规格
+//   本件钉七件事：① 13 张都在池、**可进卡组**、卡池可见、四围与费用符合规格
 //                ② 效果**换到同阵营、非当前**的那一位
 //                ③ 随机**可复现**（同一个 seed ⇒ 同一个结果；且证明它真的走 `ctx.Rng`）
 //                ④ **无候选 ⇒ 空放 + 出声 + 不崩**（不许静默、也不许抛）
 //                ⑤ 反证：普通卡不触发；没打出那张卡时督军不动
+//                ⑥ 立绘别名表（`CardArt.PortraitKeyAlias`）↔ 数据 13/13 一一对应（无多余、无缺失、同阵营、目标真有画）
+//                ⑦ `DeckBuilder.TacticPlayable` 13/13 = true（能进卡组 / 自动组牌不跳过）且卡面**不打「未实现」星**
 //
 // ============================ 判据（路径，⛔ 别在这里抄第二份）============================
 //   · 卡数据形状 = `工具/gen_cards_engine.py` 的 `transform_card_entry`（唯一出处）
@@ -28,6 +30,10 @@
 //         把 `candidateCount == 1` 那一支删掉（一律掷骰）⇒ C 的前半红。
 //   🧨 4：D 组「无候选 ⇒ 返回 false」配「返回 false 时督军**一个字没变**」——
 //         把无候选那一支改成「随便挑一张」或「抛异常」⇒ D 红。
+//   🧨 5：F 组「表恰好 13 条」配「13 张全命中 + 表的键一个不多」—— 少一条（那张卡退回占位图）/ 多一条（静默改写真卡立绘）都会红；
+//         且 F3e「别名目标真有立绘」把「映射到一张没画的卡」也钉住（那时 13 条仍在表里，只有本行红）。
+//   🧨 6：G 组「卡面正文 `IsFullyParsed` 恒假」是**前提断言** —— 撤掉 `DeckBuilder.cs:454` 那条例外 ⇒ `TacticPlayable` 红
+//         （证明这个 true 是例外撑起来的，不是正文恰巧解析得出来）。
 //
 // ============================ 怎么接 ============================
 //   宿主聚合行末尾追加（**同一物理行** ⇒ 行数零变化）：
@@ -81,6 +87,8 @@ public static class B121_E03F_DATA_Assert
             GroupC_Random();
             GroupD_NoCandidate();
             GroupE_Negative();
+            GroupF_PortraitAlias();
+            GroupG_PlayableNoStar();
         }
         catch (Exception e)
         {
@@ -343,5 +351,138 @@ public static class B121_E03F_DATA_Assert
     static CardDef Unit(string id, int cost)
     {
         return new CardDef(id, id, "unit", "", null, "Test", cost, 1, 1, 0, null);
+    }
+
+    // ==================================================================
+    //  F · 立绘别名表 ↔ 13 张变身卡（一一对应 · 不漏不多 · 同阵营 · 目标真有画）
+    // ==================================================================
+    //  判据：表本体 = `CardPresentation/Core/CardArt.cs:1443-1459`（13 条）· 取函数 = 同文件 `:1464`。
+    //  这张映射存在的理由（文件头 `:1424-1442`）：13 张变身卡是**我们自造的**、原版没有插图、
+    //  本地 `art_transform_*.png` 0 张 ⇒ 不映射的话卡面走程序生成的占位图。
+    //  🔴 表是**私有** static readonly（⛔ 不为了自检把它改 public）⇒ 反射取；
+    //     样板 = `CardPresentation/Editor/B116W29_Assert.cs:44-49`（同一族做法）。
+    static void GroupF_PortraitAlias()
+    {
+        Debug.Log(P + "--- F · 立绘别名表 ↔ 13 张变身卡 ---");
+        var fld = typeof(CardPresentation.CardArt).GetField("_portraitAlias",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Check(fld != null, "[F0 前提] 反射拿到 `CardArt._portraitAlias`（私有静态表）");
+        var table = fld != null ? fld.GetValue(null) as Dictionary<string, string> : null;
+        Check(table != null && table.Count > 0, "[F0b 前提] 别名表装得起来");
+        if (table == null) return;
+
+        // 期望键**从数据侧现算**（卡池里带变身效果码的那 13 张）—— ⛔ 不抄表的副本，否则就是同义反复
+        var pool = CardDatabase.Load();
+        Check(pool != null && pool.Count > 0, "[F0c 前提] 卡池装得起来");
+        if (pool == null) return;
+        var ids = new List<string>();
+        for (int i = 0; i < pool.Count; i++)
+            if (pool[i] != null && RuleCore.HasWarlordTransformAbility(pool[i])) ids.Add(pool[i].Id);
+        Eq(ids.Count, Factions.Length, "★ F1 数据侧恰好 13 张变身卡（分母；与 A7 同源）");
+
+        Eq(table.Count, Factions.Length,
+           "★ F2 别名表恰好 13 条｜🧨 少一条 ⇒ 那张卡卡面退回占位图；多一条 ⇒ 静默改写另一张真卡的立绘");
+
+        var idSet = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < ids.Count; i++) idSet.Add(ids[i]);
+
+        int hit = 0;
+        for (int i = 0; i < ids.Count; i++)
+        {
+            string id = ids[i];
+            string alias;
+            bool inTable = table.TryGetValue(id, out alias);
+            Check(inTable, $"★ F3 「{id}」在表里｜🧨 漏一条 ⇒ 这张卡的卡面退回占位图（玩家看到白块）");
+            if (!inTable) continue;
+            hit++;
+
+            Check(!string.IsNullOrEmpty(alias) && !string.Equals(alias, id, StringComparison.Ordinal),
+                  $"F3b 「{id}」的别名**非空且不等于自身**（实得「{alias}」）");
+
+            var target = CardDatabase.FindById(pool, alias);
+            Check(target != null, $"★ F3c 「{id}」→ 「{alias}」在池里是**真卡**｜🧨 写成不存在的 id ⇒ 卡面没有画");
+            if (target == null) continue;
+
+            var src = CardDatabase.FindById(pool, id);
+            string srcFaction = src != null ? src.Faction : null;
+            Check(string.Equals(target.Faction, srcFaction, StringComparison.Ordinal),
+                  $"★ F3d 「{id}」→ 「{alias}」**同阵营**（源 {srcFaction} / 目标 {target.Faction}）"
+                + "｜🧨 借了别阵营的画 ⇒ 玩家看到「这张卡画的是别人家的兵」");
+
+            // 「同阵营一张**有画**的原版卡」是表头写死的意图（`CardArt.cs:1431`）——
+            // 只查 id 存在不够：池里有卡、但那张本身没导图时，玩家看到的还是占位图。
+            Check(CardPresentation.CardArt.Portrait(alias) != null,
+                  $"★ F3e 「{id}」→ 「{alias}」那张卡**真有立绘**（`CardArt.Portrait` 非 null）"
+                + "｜🧨 映射到一张没画的原版卡 ⇒ 换成另一个白块");
+        }
+        Eq(hit, Factions.Length, $"★ F4 13 条**全命中**（实得 {hit}/{Factions.Length}）");
+
+        // 反向：表里**一个多余的键都不能有** —— 多出来的键会静默改写某张真卡的立绘（表外键原样返回）
+        foreach (var kv in table)
+            Check(idSet.Contains(kv.Key),
+                  $"★ F5 表的键「{kv.Key}」确实是一张变身卡｜🧨 多出来的键 ⇒ 它在静默篡改另一张卡的立绘");
+
+        // 行为面：表外键**原样返回**（所有真卡与自造卡都走这条 ⇒ 引入别名不能有副作用）
+        Check(string.Equals(CardPresentation.CardArt.PortraitKeyAlias("AM76"), "AM76", StringComparison.Ordinal),
+              "★ F6 表外的键原样返回（AM76 → AM76 ⇒ 真卡立绘零变化）");
+        Check(CardPresentation.CardArt.PortraitKeyAlias(null) == null
+              && CardPresentation.CardArt.PortraitKeyAlias("") == "",
+              "★ F6b `null` / 空串原样返回（不抛、不改写）");
+    }
+
+    // ==================================================================
+    //  G · 13 张都能进卡组（`TacticPlayable`）+ 卡面**不打「未实现」星**
+    // ==================================================================
+    //  判据：例外本体 = `RuleEngine/Data/DeckBuilder.cs:454`
+    //        （`return EffectText.IsFullyParsed(c.Desc) || RuleCore.HasWarlordTransformAbility(c);`）。
+    //        ⚠️ 这条例外是**必须的**：变身卡的卡面是说明文字、`IsFullyParsed` 恒假 ⇒
+    //        没有它的话自动组牌会整批跳过这 13 张（玩家可见的漏牌）。
+    //  打星处 = `CardPresentation/Battle/BattleDriver.cs:28553`（`UnimplementedNotes(CardDef)`），
+    //        tactic 那一支在 `:28576` 吃**同一条**例外（否则卡面会印「效果本版结算不了*」）。
+    //  🔴 期望值来源：用户 2026-11-03 裁定「允许加入卡组」+ 上面两处例外；⛔ 不是从被测函数反算出来的。
+    static void GroupG_PlayableNoStar()
+    {
+        Debug.Log(P + "--- G · `TacticPlayable` 13/13 + 卡面不打星 ---");
+        var pool = CardDatabase.Load();
+        Check(pool != null && pool.Count > 0, "[G0 前提] 卡池装得起来");
+        if (pool == null) return;
+
+        // `UnimplementedNotes` 是私有静态（样板同上：`B116W29_Assert.cs:44-46`）
+        var mi = typeof(CardPresentation.BattleDriver).GetMethod("UnimplementedNotes",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static, null,
+            new[] { typeof(CardDef) }, null);
+        Check(mi != null, "[G0b 前提] 反射拿到 `BattleDriver.UnimplementedNotes(CardDef)`");
+
+        int playable = 0, clean = 0;
+        for (int i = 0; i < Factions.Length; i++)
+        {
+            string id = "TRANSFORM_" + Factions[i];
+            var c = CardDatabase.FindById(pool, id);
+            Check(c != null, $"[G1 前提] 「{id}」在池里");
+            if (c == null) continue;
+
+            // 前提断言：正文解析不出来 ⇒ 下面的 true **只能**来自 `DeckBuilder.cs:454` 那条例外
+            Check(!EffectText.IsFullyParsed(c.Desc),
+                  $"G1b 「{id}」卡面正文 `IsFullyParsed` = **false**（前提：它能进卡组靠 `DeckBuilder.cs:454` 的变身例外，不是正文恰巧解析得出来）");
+            Check(!EffectText.IsHandTrap(c),
+                  $"G1c 「{id}」不是手牌陷阱卡（`TacticPlayable` 的另一道闸不拦它）");
+
+            bool ok = DeckBuilder.TacticPlayable(c);
+            Check(ok, $"★ G2 「{id}」`DeckBuilder.TacticPlayable` = true（能进卡组 / 自动组牌不会跳过它）"
+                    + "｜🧨 撤掉 `DeckBuilder.cs:454` 那条例外 ⇒ 本行红");
+            if (ok) playable++;
+
+            List<string> notes = null;
+            try { if (mi != null) notes = mi.Invoke(null, new object[] { c }) as List<string>; }
+            catch (Exception e) { Debug.LogError(P + "   `UnimplementedNotes` 抛了：" + e.GetType().Name + " " + e.Message); }
+            Check(notes != null, $"[G3 前提] 「{id}」`UnimplementedNotes` 返回了列表（不是 null）");
+            string joined = notes != null ? string.Join(" ", notes.ToArray()) : "（拿不到）";
+            Check(notes != null && joined.IndexOf('*') < 0,
+                  $"★ G3 「{id}」卡面**不打「未实现」星**（`UnimplementedNotes` = 「{joined}」）"
+                + "｜🧨 去掉 `BattleDriver.cs:28576` 的同一条例外 ⇒ 卡面会印「效果本版结算不了*」");
+            if (notes != null && joined.IndexOf('*') < 0) clean++;
+        }
+        Eq(playable, Factions.Length, $"★ G2b 13 张**全部可进卡组**（实得 {playable}/{Factions.Length}）");
+        Eq(clean, Factions.Length, $"★ G3b 13 张**全部不打星**（实得 {clean}/{Factions.Length}）");
     }
 }

@@ -854,6 +854,7 @@ public static class NetBattleTest
                                                        vars: GameplayVariables.Classic, firstSeat: 0);
 
                 NetRuntime.DrainNoticesForTest();      // 先把队清掉（本段只认自己弹的那几条）
+                NetRuntime.ResetReconnectPopupForTest();   // 🆕 2026-11-03（`B124_W30`）：掉线窗读数也归零（它已不走通知队）
                 hb9.LastSay = null;
                 // ⚠️ **只推一台**会话用这个（本文件的 `PumpUntil` 第二个参数**没有空判** —— 给它 null 会 NPE）：
                 //    两边一起推的话**客机自己也会报一次**，通知队里就有两条、数量断言说不清是谁弹的。
@@ -874,8 +875,18 @@ public static class NetBattleTest
                 Ok(pumpOne(hs9, () => hs9.State == NetState.WaitingReconnect, 6000),
                    $"（对面掉线）主机进「等重连」（实际 {hs9.State}）");
                 var n9a = NetRuntime.DrainNoticesForTest();
-                Ok(n9a.Length == 1,
-                   $"★（对面掉线）**弹了一条给人看的提示**（原来零接线 ⇒ 一条都没有；实得 {n9a.Length} 条）"
+                // 🔴 **2026-11-03（`B124_W30`）就地订正（铁律 5）**：这一条原来数的是 `DrainNoticesForTest()`。
+                //   2026-11-02（`B118-W6`）把掉线那一刻从「通用通知队（带 OK）」改走**原版那扇零颗钮的掉线窗**
+                //   （`SayPeerGone(..., noButton: hasCtx)` → `NetRuntime.ShowReconnectPopup`，= 原版
+                //   `ShowDisconnectionPopUp.c:51` 那六个 0 实参）⇒ 通知队**恒空**，这条每天假红。
+                //   ✅ 判据不变（「玩家一定看得见」那个口 = 弹窗），读数换成 `ReconnectPopupsShownForTest`
+                //      （它记在 `WindowsManager` 判空**之前**，批处理里照样读得到）。
+                //   ⛔ 别把产品改回 `Notice`（那会多一颗 OK 钮、与原版不符）。
+                Ok(n9a.Length == 0,
+                   $"★（对面掉线）**不许再走通用通知队**（实得 {n9a.Length} 条）—— 原版那一刻弹的是零颗钮那扇掉线窗"
+                 + "（`ShowDisconnectionPopUp.c:51` 那六个 0），不是带 OK 的通用通知");
+                Ok(NetRuntime.ReconnectPopupsShownForTest == 1,
+                   $"★（对面掉线）**弹了一条给人看的提示**（原来零接线 ⇒ 一次都不弹；实得 {NetRuntime.ReconnectPopupsShownForTest} 次）"
                  + " —— 🧨 改坏法：删掉 `WireSession` 里那句 `s.OnPeerLost += …` ⇒ 红");
                 // 🔴 **2026-10-26（`F5`）**：这一条原来断的是**我们自设的提示行**措辞「掉线」——
                 //   而弹窗正文 2026-10-26（批次 6 · `G15`）已改走**原版词条**（`Net/NetBattle.cs:949-953`
@@ -890,10 +901,11 @@ public static class NetBattleTest
                 Ok(!string.IsNullOrEmpty(wantPeerMsg) && wantPeerMsg != "Battle/HUD/WaitOpponentConnectionMsg",
                    $"（前提）`Battle/HUD/WaitOpponentConnectionMsg` 在词条表里（实得「{wantPeerMsg}」）"
                  + " —— ⛔ 取不到时 `Loc.T` 回键名，下一条会拿键名**假绿**");
-                Ok(n9a.Length >= 1 && n9a[0].Contains(wantPeerMsg)
-                   && (string.IsNullOrEmpty(wantSelfMsg) || !n9a[0].Contains(wantSelfMsg)),
+                string n9aText = NetRuntime.LastReconnectPopupTextForTest ?? "";
+                Ok(n9aText.Contains(wantPeerMsg)
+                   && (string.IsNullOrEmpty(wantSelfMsg) || !n9aText.Contains(wantSelfMsg)),
                    $"★（对面掉线）那条话点明是**对面掉线**（= 原版词条 `Battle/HUD/WaitOpponentConnectionMsg`"
-                 + $"；实得「{(n9a.Length > 0 ? n9a[0] : "")}」）"
+                 + $"；实得「{n9aText}」）"
                  + "｜🧨 换成「本机掉线」那一档（`Battle/HUD/LostConnectionMsg`）/ 退回我们自设的提示行措辞 ⇒ 红");
                 Ok(hb9.LastSay != null && hb9.LastSay.Contains("掉线"),
                    $"★（对面掉线）**提示行**也说了（实得「{hb9.LastSay}」）");
@@ -924,9 +936,11 @@ public static class NetBattleTest
                    $"（对面回来）客机自动重连、**两边**回到对局（主机 {hs9.State} / 客机 {cs9.State}）"
                  + " —— 🧨 改坏法：把条件退回「只查主机」⇒ 客机没追上时这一格照样绿，而第 ③ 步会假红"
                  + "（`NetSession.cs`：主机转 `InBattle` 与发 `Resume` 是同一次 `Pump`）");
-                Ok(hb9.LastSay != null && hb9.LastSay.Contains("回来"),
-                   $"★（对面回来）提示行改成「回来了」（实得「{hb9.LastSay}」）—— 与上面那条**不同源**："
-                 + "上面验的是那一下说不说，这条验的是**恢复之后会不会改口**（不说的话玩家一直以为对面还没回来）");
+                Ok(hb9.LastSay != null && hb9.LastSay.Contains("已恢复") && !hb9.LastSay.Contains("掉线")
+                   && !hb9.LastSay.Contains("对手回来了"),
+                   $"★（对面回来）提示行改口说「已恢复」（实得「{hb9.LastSay}」）—— 与上面那条**不同源**："
+                 + "上面验的是那一下说不说，这条验的是**恢复之后会不会改口**（不说的话玩家一直以为对面还没回来）"
+                 + "｜🔴 2026-11-02（`D118-54`）**去主语**：这句在本机掉线那一档也会走 ⇒ ⛔ 不许写回「对手回来了」（写回去即红）");
 
                 // ---- ③ 对面**主动离开这一局**（`bye`）⇒ 也必须出声 ----
                 // 🔴 **2026-10-10（F5）核过：这里的 `pumpOne`（只推主机）是对的，⛔ 别改成推两台。**
@@ -1204,8 +1218,11 @@ public static class NetBattleTest
                            $"（判弃权）对手回来（主机 {hsC.State} / 客机 {csC.State}）");
                         Ok(!hNBC.ReconnectCountdownRunning,
                            "★ **对手在倒计时内回来 ⇒ 倒计时取消**（原版 `SuccessfulReconnection.c:27` 的 `StopCoroutine`）");
-                        Ok(hbC.LastSay != null && hbC.LastSay.Contains("回来"),
-                           $"★ 提示行改口说「回来了」（实得「{hbC.LastSay}」）");
+                        Ok(hbC.LastSay != null && hbC.LastSay.Contains("已恢复") && !hbC.LastSay.Contains("掉线")
+                           && !hbC.LastSay.Contains("对手回来了"),
+                           $"★ 提示行改口说「已恢复」（实得「{hbC.LastSay}」）"
+                         + "｜🔴 2026-11-03（`B124_W30`）：原断「回来」，而 2026-11-02（`D118-54`）已按裁定**去主语**"
+                         + "（本机掉线那一档也走这句）⇒ 改成断「已恢复 + 不含掉线 + 不许写回『对手回来了』」，⛔ 别改宽");
                         Eq(hbC.Ctx.Winner, 0,
                            "★ …而且**没有判负**（`Winner` 还是 0 —— 用户 2026-09-26 要的「掉线能接着打」）");
 
@@ -1701,8 +1718,16 @@ public static class NetBattleTest
                 //      socket 上同形（A1267：连 `St/PeerClosed` 都不能当可靠判据）⇒ 这一维如实留着（铁律 11）。
                 {
                     var f = SetupA912(pool, 20261051, "结算掉线·本机");
-                    RuleCore.Forfeit(f.cb.Ctx, 1, BattleResult.Forfeit);
-                    Ok(f.cb.Ctx.IsOver, "（结算掉线②）夹具：客机这一局**已经结算**");
+                    // 🔴 **2026-11-03（`B124_W30`）就地订正（铁律 5）**：这里原来写 `Forfeit(f.cb.Ctx, 1, …)`
+                    //   —— 判的是**客机自己（`MySeat` 1）输** ⇒ 结算那一刻 `Winner` 已经是 **1**，
+                    //   而下面那条断言要求「重判后 `Winner` 必须**变**成 `MySeat == 0 ? 2 : 1`」（= 1）
+                    //   ⇒ **同一个值，永远不可能变**（改前若干轮的读数就是「✓ `Winner` 不变（实际 1，应为 1）」）。
+                    //   ⇒ 那是 2026-11-02（`B118-W6` 第三/四轮）把断言从「一个字都不改」翻成「改成本机负」时
+                    //     **没有跟着改夹具**。
+                    //   ✅ 修法 = 让**结算那一刻客机是赢家**（座位 0 弃权 ⇒ `Winner` = 2），重判本机负 ⇒ `Winner` = 1
+                    //     ⇒ 那条「从结算值改成本机负」才真的可观测（⛔ 别反过来把断言改宽 —— 那会变成「怎么都不红」）。
+                    RuleCore.Forfeit(f.cb.Ctx, 0, BattleResult.Forfeit);
+                    Ok(f.cb.Ctx.IsOver, "（结算掉线②）夹具：客机这一局**已经结算**（对手弃权 ⇒ 本机那一刻是赢家）");
                     int winnerBefore = f.cb.Ctx.Winner;
                     NetRuntime.DrainNoticesForTest();
                     f.cb.LastSay = null;

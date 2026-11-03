@@ -2240,7 +2240,8 @@ public static class CollectionScene
                 var wb = hit != null ? hit.GetComponent<WindowButton>() : null;
                 CheckTrue(wb != null && wb.onClick != null, "格子上的点击区挂到了 `WindowButton`");
                 if (wb != null) wb.Click();
-                Check(CollectionData.CurrentIndex(), pick, "点第 " + (pick + 1) + " 格 ⇒ 当前卡组换成它");
+                // 🔴 2026-11-03（`B124_W2`）：期望从 `pick` 改成 `before` —— 见下面那条的文案（判据 = `CollectionWindow.cs:5331-5359`）。
+                Check(CollectionData.CurrentIndex(), before, "点第 " + (pick + 1) + " 格 ⇒ **不改**当前卡组（原版 `CollectionDisplay<T>.Select` 只开信息窗；改「当前卡组」的唯一落点是信息窗那颗 `Select Deck`。判据 → `Shell/CollectionWindow.cs:5331-5359`）");
                 // 🔴 **2026-09-23 换路**：原来这里是「**再点一下同一格** = 进编辑」—— 那是 `Deck info Popup`
                 //    还没建时的**顶替路**（当时就出声了）。现在那扇窗建好了 ⇒ 改验**原版那条路**：
                 //    点格 ⇒ 开窗 ⇒ 窗里点 `Edit Deck` ⇒ 才交接下标。
@@ -3657,7 +3658,8 @@ public static class CollectionScene
                     CheckTrue(sharWbA != null, "（前提）`Share` 那颗钮取得到（(1)(2) 都靠它）");
 
                     // 期望值 = **这一副**照原版格式导出来的那一串。
-                    string wantShare = rawShare != null ? DeckLibrary.ExportString(rawShare) : "";
+                    // 🔴 2026-11-03（`B124_W2`）：产品侧按原版 `MakeDeckString` 写成「可读头部 + 末行 base64」（`DeckRuntime.CopyDeckToClipboard:6048`）⇒ 期望值要过同一个包装。
+                    string wantShare = rawShare != null ? DeckRuntime.DeckShareString(rawShare, DeckLibrary.ExportString(rawShare)) : "";
                     CheckTrue(!string.IsNullOrEmpty(wantShare),
                               "（前提）这一副**导得出**卡组串（空串 ⇒ (1)(2) 等于空转）");
 
@@ -3706,8 +3708,8 @@ public static class CollectionScene
                                 + " —— 🧨 **改坏法**：把 `Deck/DeckRuntime.CopyDeckToClipboard` 改成"
                                 + "「算完 `return s` 但**不赋值**」⇒ 这一条红（哨兵原样留着）");
                         CheckText(gotShare, wantShare,
-                                  "★ A1051(1)：……而且写进去的就是**这一副的卡组串**"
-                                + "（原版 `DeckInfoPopup__ShareDeck.c:16` 就这一句 `set_systemCopyBuffer`）");
+                                  "★ A1051(1)：……而且写进去的就是**这一副的分享串**（原版可读头部 + 末行 base64 载荷）"
+                                + "（原版 `DeckInfoPopup__ShareDeck.c:16` 就这一句 `set_systemCopyBuffer`，内容出自 `MakeDeckString.c`）");
                     }
 
                     // ---------------------------------------------------------------- (2) 灭自证
@@ -3724,8 +3726,12 @@ public static class CollectionScene
                         string plainShare = null;
                         try
                         {
+                            // 🔴 2026-11-03（`B124_W2`）：剪贴板里已是**多行分享串**，载荷在**末行**
+                            //   （原版导入端 `ImportDeckPopup__TryImport.c:14-18` = `Split('\n').Last()`）⇒ 只解末行。
+                            string clipRaw = ClipGet() ?? "";
                             plainShare = System.Text.Encoding.UTF8.GetString(
-                                             System.Convert.FromBase64String(ClipGet()));
+                                             System.Convert.FromBase64String(
+                                                 System.Linq.Enumerable.Last(clipRaw.Split('\n'))));
                         }
                         catch { plainShare = null; }        // 不是合法 Base64 ⇒ 下面那条如实红
                         var sbShare = new System.Text.StringBuilder();
@@ -3738,7 +3744,7 @@ public static class CollectionScene
                             if (!string.IsNullOrEmpty(cidA)) sbShare.Append(':').Append(cidA);
                         sbShare.Append(';').Append(rawShare.GameMode);
                         CheckTrue(plainShare != null && plainShare == sbShare.ToString(),
-                                  "★ A1051(2) 灭自证：剪贴板那串按**原版格式**解出来 = 名字 / 防御卡 / 督军 / 全部卡 / 模式"
+                                  "★ A1051(2) 灭自证：剪贴板那串的**末行**按**原版格式**解出来 = 名字 / 防御卡 / 督军 / 全部卡 / 模式"
                                 + "（期望值由**卡组数据 + 原版格式**现场重算，⛔ 不调 `ExportString`）"
                                 + " —— 🧨 改坏法：把 `ExportString` 里那句 `WarlordId` 摘掉 ⇒ (1) 两边一起动仍绿、"
                                 + "**这一条必红**"
@@ -5299,7 +5305,7 @@ public static class CollectionScene
                     Check(CollectionData.DeckCount(), n0, "合法串 ⇒ **卡组数不变**（原版先进信息窗，信息窗里点 Import 才保存）");
                     Check(imp.CurrentState, WindowState.Closed, "解析成功 ⇒ 导入窗关上");
                     CheckTrue(UnityEngine.Object.FindObjectOfType<DeckInfoPopup>() != null,
-                              "解析成功 ⇒ 打开 `DeckInfoPopup(State=Import)`（两站式第一站）");
+                              "解析成功 ⇒ 打开 `DeckInfoPopup(State=Import)`（两站式第一站）"); foreach (var lp in UnityEngine.Object.FindObjectsByType<DeckInfoPopup>(FindObjectsSortMode.None)) if (lp != null) lp.Close();   // 🔴 2026-11-03（`B124_W2`）：夹具自开的窗自己收（原版两站式的第一站，生产上由玩家点 `Import Deck` 或关窗收尾）⇒ 否则 A11 哨兵会扫到这扇残留（`:7035` 那条哨兵保持不放宽）
                     // ④ 点背景也关（原版 `backgroundCloseButton`）
                     var imp2 = win.OpenImportPopup();
                     var shade = imp2 != null && imp2.ShadeHit != null ? imp2.ShadeHit.GetComponent<WindowButton>() : null;
@@ -8115,9 +8121,15 @@ public static class CollectionScene
             //    （四页共用同一条 `Header`；理由见 `CollectionWindow.BuildFilterHeader` 的注释）。
             {
                 var bq = FindChild(cpage, "Clear filters");
-                CheckTrue(bq != null && Mathf.Abs(MenuCheck.DesignPx(bq).x - 737.17f) <= 1f,
-                          "`Clear filters` 底图中心 x = **737.17**（= 612.17 + 250/2 —— 与另外三页同值）"
-                          + " —— **别照抄 dump 里的 1405 / 1488.59**（那是布局组跑之前的模板位）");
+                // 🔴 2026-11-03（`B124_W2`）：期望值**不再写死 737.17** —— 产品按页取值
+                //   （`CollectionWindow.cs:7112` `cx = n>0 ? HdrClearX(n) : ClearFilterX(page)`；卡背页 `n==0` ⇒ `ClearFilterX(2)=1488.59`
+                //    由 `B121-COLL-08` 保留、判据 = prefab 父 `Filters.sizeDelta.x`）。n = 本页页头 chip 数。
+                var hdrChips = new List<FilterPanelModel.Cell>();
+                FilterPanelModel.BuildHeaderChips(CollectionWindow.CosmoState.Factions(), CollectionWindow.CosmoState.Filter, hdrChips, armyOnly: true);
+                float wantClearX = hdrChips.Count > 0 ? FilterPanelModel.HdrClearX(hdrChips.Count) : CollectionWindow.ClearFilterX(2);
+                CheckTrue(bq != null && Mathf.Abs(MenuCheck.DesignPx(bq).x - (wantClearX + 125f)) <= 1f,
+                          $"`Clear filters` 底图中心 x = **{wantClearX + 125f:F2}**（= 左缘 {wantClearX:F2} + 250/2）"
+                          + " —— 按页随 chip 数取值（⛔ 别再钉 737.17：那是 Deck/Cards/Styles 三页**无 chip** 时的值）");
                 var ttlT = FindChild(cpage, "Header Label");
                 var clrT = FindChild(cpage, "Clear filters Text");
                 var lt = ttlT != null ? ttlT.GetComponent<Label>() : null;
@@ -8141,8 +8153,16 @@ public static class CollectionScene
                     //    中心仍是**节点位置**（只换「从哪个口读那个数」）。
                     float tLeft = MenuCheck.DesignPx(lt.transform).x - LabelRenderedPx(lt).x * 0.5f;
                     float cRight = MenuCheck.DesignPx(lc2.transform).x + LabelRenderedPx(lc2).x * 0.5f;
-                    CheckTrue(tLeft > cRight,
-                              $"标题（左缘 **{tLeft:F0}**，右对齐到 1821）与 `Clear filters`（右缘 **{cRight:F0}**）**不叠**");
+                    // 🔴 2026-11-03（`B124_W2`）：**加 `n>0` 前提** —— 原版 `clearFiltersButton.SetActive(0 < toggleOptions.Count)`
+                    //   ⇒ 无 chip 时钮**本身是隐藏的**（上面那段临时点亮只为量数）；此时它停在 `ClearFilterX(2)=1488.59`、
+                    //   与标题「重叠」这件事**玩家看不见** ⇒ 这一条无从量，登记「未验」，⛔ 不许断成红/绿。
+                    if (hdrChips.Count > 0)
+                        CheckTrue(tLeft > cRight,
+                                  $"标题（左缘 **{tLeft:F0}**，右对齐到 1821）与 `Clear filters`（右缘 **{cRight:F0}**）**不叠**"
+                                + $"（chip 数 n={hdrChips.Count} ⇒ 钮可见，判据 `CollectionWindow.cs:7112` 走 `HdrClearX(n)`）");
+                    else
+                        Debug.Log(P + "   … 未验：卡背页当前 **0 颗 chip** ⇒ `Clear filters` 隐藏（原版 `SetActive(0 < count)`），"
+                                    + "「标题与钮不叠」这一条只对可见档有意义 ⇒ 本档不计通过/失败");
                     if (cfParent != null && !cfPWas) cfParent.gameObject.SetActive(false);
                     if (clrT != null && !cfTWas) clrT.gameObject.SetActive(false);
                     if (cpage != null && !pageWas) cpage.gameObject.SetActive(false);
@@ -8166,7 +8186,7 @@ public static class CollectionScene
             //   **卡组编辑窗显式传 26**（原版 `auto[26~32]`，A247）· **本窗走缺省 18**（原版 `auto[18~32]`，本来就对））
             //        + `CardbackTable.NamesFor`（阵营 → 卡背，**判据只有一份**）。
             //   原来那句「A4 只给了容器 rect、没给格子尺寸 ⇒ 没建」**早就不成立**（2026-09-28 在卡组编辑实测补全）。
-            Section("卡背页筛选抽屉：Army 13 格 + Owned（**行序 Army 在前**，与卡牌那套相反）");
+            Section("卡背页筛选抽屉：Army 13 格 + Owned（**行序 Owned 在前**（2026-11-03 按原版改），与卡组编辑窗那套相反）");
             CheckTrue(cBtn != null, "（前提·不静默）`Filter Toggle` 的 `WindowButton` 在 —— 不在 ⇒ 卡背页筛选抽屉整段没验");
             if (cBtn != null)
             {
@@ -8183,20 +8203,25 @@ public static class CollectionScene
                 CheckTrue(ca0 != null, "Army 第 1 格在（按**名字**找，不按序号）");
                 if (ca0 != null)
                 {
-                    // 面板内 (pad L14, 15+50) ⇒ `Abs` 加 (0.25,155.9) ⇒ 中心 (64.25, 270.9)
+                    // 面板内 (pad L14, armyTop 65 + ArmyContentTop 50) ⇒ `Abs` 加 (0.25,155.9) ⇒ 中心 (64.25, 320.9)
                     CheckNear(MenuCheck.DesignPx(ca0).x, 64.25f, 0.6f, "Army 第 1 格中心 x = **64.25**（0.25+14+50）");
-                    CheckNear(MenuCheck.DesignPx(ca0).y, 270.9f, 0.6f,
-                              "Army 第 1 格中心 y = **270.9**（155.9+15+50+50）"
-                              + " —— 这一页 **Army 在前**（卡牌那套是 Owned/Upgradable 在前）");
+                    // 🔴 2026-11-03（`B124_W2`）：本页行序已按原版改成 **Owned 在前 → Army**（`Core/FilterPanelModel.cs:1131` `ownedFirst`；
+                    //   判据 = `menu_dump "Cardback Tab"`：`Spacing 15 → Owned Toggle 50 → Army Filter`）⇒
+                    //   `armyTop = CosmoSpacing1(15) + ToggleRowH(50) = 65`，中心 y = 155.9 + 65 + ArmyContentTop(50) + ArmyCell(100)/2 = **320.90**。
+                    CheckNear(MenuCheck.DesignPx(ca0).y, 320.9f, 0.6f,
+                              "Army 第 1 格中心 y = **320.9**（155.9 + 65 + 50 + 50）"
+                              + " —— 这一页 **Owned 在前**，Army 行从 `CosmoSpacing1 15 + Owned 50` 起");
                     CheckArt(ca0, DeckRuntime.FactionIcon(cf[0]), "Army 格的图 = 该阵营图标（原版运行期赋）");
                 }
-                // `Owned` 行：`CosmoOwnedTop(13)` = 15 + 550 + 12.81 = 577.81 ⇒ 绝对行顶 733.71、中心 758.71
+                // `Owned` 行：本页 `ownedFirst` ⇒ 行顶 = `CosmoSpacing1(15)` ⇒ 绝对行顶 170.9、中心 195.9
+                //   （旧注释「`CosmoOwnedTop(13)` = 15 + 550 + 12.81 = 577.81 ⇒ 中心 758.71」是 **Army 在前**那套，已随行序一起作废）
                 var co = FindChild(drw, "Cell_owned");
                 CheckTrue(co != null, "`Owned` 那一格在");
                 if (co != null)
                 {
-                    CheckNear(MenuCheck.DesignPx(co).y, 758.71f, 0.6f,
-                              "`Owned` 行中心 y = **758.71**（155.9 + 577.81 + 25 —— Army 行 550 一高，它跟着往下走）");
+                    // 本页 Owned 是**第一行**：行顶 = `CosmoSpacing1 15` ⇒ 中心 y = 155.9 + 15 + ToggleRowH(50)/2 = **195.90**。
+                    CheckNear(MenuCheck.DesignPx(co).y, 195.9f, 0.6f,
+                              "`Owned` 行中心 y = **195.9**（155.9 + 15 + 25 —— 本页 **Owned 是第一行**，Army 在它下面）");
                     // 🔴 **2026-10-18（波 2a · W2）改「随语档」**：这颗字从波 1b（P1）起走词条
                     //   （`Core/FilterPanelModel.cs` 的 `BuildCosmetics` 那颗 `Owned` 格，键 = `MenuDeck/Filters/ShowOwnedOnly`）
                     //   ⇒ 原来写死的 `"Owned only"` 只是**英文列的副本**，
@@ -11416,6 +11441,7 @@ public static class CollectionScene
                           "第 4 行第 1 格（`TitleDrawer_9`：y 790.70..920.70，**压着视口底 855.46**）的名字有 TMP 网格");
                 if (ttTmp != null)
                 {
+                    B124W43_ProbeD06("pre", ttLb);   // 🔬 2026-11-03（B124_W43）只读探针：任务 `D-06`（⭐ 只打印）
                     // 🔴 **2026-10-25（`X5`）：读 `textInfo` 之前必须先补一次「重排」** —— 判据链（逐行可核）：
                     //   ① 本页是**未激活**时建的：`Shell/PlayerProfileWindow.cs:497-499` 只把 `DefaultTabIndex`
                     //      那一页 `SetActive(true)`，六页的 `Setup()` 在循环**之后**才跑 ⇒ 每颗 `Title`
@@ -11442,6 +11468,7 @@ public static class CollectionScene
                               "（前提·不静默）`Title` 上挂着 `Label` —— 上面那次重排要走它的公开口"
                             + "（拿不到 ⇒ 这一步没跑，下面那些红不是绿）");
                     if (ttLabel != null) ttLabel.ForceRelayout();
+                    B124W43_ProbeD06("post", ttLb);   // 🔬 2026-11-03（B124_W43）只读探针：重排之后的对照读数
 
                     var ti = ttTmp.textInfo;
                     int nV = 0, nBand = 0, nBad = 0, nBelow = 0, nBadBelow = 0;
@@ -13794,5 +13821,22 @@ public static class CollectionScene
                 CheckTrue(elems != null, "★ `EffectList ▸ Elements`（5 行的容器）在");
                 if (elems != null) Check(elems.childCount, 5, "★ `Elements` 下 **5 行**（原版 `EffectElement` 0..4）");
             }
+        }
+
+        // ============================================================ 🔬 **2026-11-03（B124_W43）只读探针**
+        // 任务 `D-06`（`任务线/自检断言线/任务总表.md:53-55` 那三行 `X5`/`Dg5`）：
+        // 「延后生成」链第 4 步为什么没落下网格 —— 量 `TitleDrawer_9` 的 `Title` 在三档下的状态。
+        // 三个必读字段 = `textInfo.characterCount` · `isActiveAndEnabled` · `Label.PendingWrapAppliedCount`
+        //              （另附 `text` 作上下文）。⛔ 只打印、**不判绿红**、**不改任何实现**；前缀 `[B124W43]`、**一行一个值**。
+        static void B124W43_ProbeD06(string tag, Transform titleNode)
+        {
+            var tmp = titleNode != null ? titleNode.GetComponentInChildren<TMPro.TextMeshPro>(true) : null;
+            var lb = titleNode != null ? titleNode.GetComponentInChildren<Label>(true) : null;
+            string txt = tmp != null ? (tmp.text ?? "<null>").Replace("\n", "\\n") : "<no-tmp>";
+            Debug.Log("[B124W43] D06." + tag + ".text=" + txt);
+            Debug.Log("[B124W43] D06." + tag + ".characterCount=" + (tmp != null && tmp.textInfo != null ? tmp.textInfo.characterCount : -1));
+            Debug.Log("[B124W43] D06." + tag + ".isActiveAndEnabled=" + (tmp != null && tmp.isActiveAndEnabled));
+            Debug.Log("[B124W43] D06." + tag + ".pendingWrapApplied=" + (lb != null ? lb.PendingWrapAppliedCount : -1));
+            Debug.Log("[B124W43] D06." + tag + ".found.tmp=" + (tmp != null) + " found.label=" + (lb != null));
         }
 }

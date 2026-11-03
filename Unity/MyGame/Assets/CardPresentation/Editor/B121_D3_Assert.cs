@@ -200,9 +200,9 @@ public static class B121_D3_Assert
             var ctx = Board(out src);
             var list = RuleCore.AbilityTargetListFromCriteriaForTest(ctx, 0, Set(10, 1, 0, 1, 1, 0), src, null);
             string got = Slots(list);
-            C(list == null ? -1 : list.Count, 4,
-              "A6 ★ **反证：`ta=10 allFiltered` 仍按 `friendlyUnits/enemyUnits` 建池**（只己方 ⇒ 4 张，实得 " + got + "）"
-            + "｜🧨 `ta=0` 的新分支顺手改宽了 10 那一档 ⇒ 变 6 ⇒ 红");
+            C(list == null ? -1 : list.Count, 3,
+              "A6 ★ **反证：`ta=10 allFiltered` 仍按 `friendlyUnits/enemyUnits` 建池**（只己方 4 个候选，其中**施放者自己** `0:3` 被 `includeSelf=0` 剔掉 ⇒ **3 张**，实得 " + got + "）"
+            + "｜判据 `FilterMethods__CheckIfMeetsCriteria.c:232-238`（`candidate == thisCard && includeSelf == 0 ⇒ return 0`）⇔ 我们 `TargetCriteriaEval.cs:252`｜🧨 `ta=0` 的新分支顺手改宽了 10 那一档 ⇒ 变 6 ⇒ 红");
         }
 
         // ---- A7（反证）：没接的档必须仍回 `null` ----

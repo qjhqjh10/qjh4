@@ -31,8 +31,9 @@
 //     （= 原版 `GetLibraryInFull` 的 `cardIds` + 两次 `Insert(0, …)`）。少扫一处 ⇒ 对应那条红。
 //  🧨 4「灰的是哪 4 张」：`Deck Image` / `Frame` / `Faction Icon` / `Game Mode Icon` 各 0.25，
 //     而 `Ban Icon` **不灰**。把 `Grey(...)` 的四行删任一行 ⇒ 对应那条红；把 `Ban Icon` 也灰上 ⇒ 最后那条红。
-//  🧨 5 几何：Ban Icon 实绘 = 300×377.61 × sx/sy（本段格子 225×364.5 ⇒ ×0.9 = 270×339.849）。
-//     常量抄错 ⇒ 红。队列：图标 > `Frame`（同一格同一时刻两个队列不能相等，否则谁盖谁看运气）。
+//  🧨 5 几何：Ban Icon 作者框 = 300×377.61 × sx/sy（本段格子 225×364.5 ⇒ ×0.9 = 270×339.849），
+//      🔴 **2026-11-03（`B124_W2`）订正**：sprite 是 512×512 方形、`m_PreserveAspect = 1` ⇒ **实绘 270×270**（纵向居中）
+//      —— 原来这里写「实绘 270×339.849」是**把保比档当成拉伸档**了。常量抄错 ⇒ 红。队列：图标 > `Frame`（同一格同一时刻两个队列不能相等，否则谁盖谁看运气）。
 //
 // ============================ 怎么接 ============================
 //  宿主里一行（`Run()` 自建一个临时根、跑完销毁；不需要 `CollectionWindow`）：
@@ -166,9 +167,15 @@ public static class B121_C3_Assert
             {
                 var rr = MenuDraw.QuadRectPx(q);
                 Near(rr.W, OrigIconW * SX, 0.6f, "`Ban Icon` 实绘宽 = 300 × sx（= 270.00 px @0.9）");
-                Near(rr.H, OrigIconH * SY, 0.6f, "`Ban Icon` 实绘高 = 377.61 × sy（= 339.849 px @0.9）");
+                // 🔴 2026-11-03（`B124_W2`）：sprite `40k_Cross_icon_cross_big_Banned_card` 是 **512×512**，而
+                //   `MenuDraw.Rect(..., keepAspect: true)` = 原版 `m_PreserveAspect = 1`（`Shell/MenuDraw.cs:3849`）
+                //   ⇒ 300×377.61 的作者框里**实绘 270×270**（保比、纵居中），⛔ 不是 377.61×sy 的拉伸高。
+                //   反证：上面那条宽期望 270 **本来就通过** —— 方形 sprite 保比后宽高必然相等。
+                Near(rr.H, OrigIconW * SX, 0.6f, "`Ban Icon` 实绘高 = 300 × sx（方形 sprite 保比 ⇒ **270.00**，与原版 `m_PreserveAspect = 1` 自洽）");
                 Near(rr.x1, CellRect.x1 + OrigIconX * SX, 0.6f, "`Ban Icon` 左 = 格左 + (−25)×sx（= −22.50）");
-                Near(rr.y1, CellRect.y1 + OrigIconY * SY, 0.6f, "`Ban Icon` 上 = 格上 + (−25.11)×sy（≈ −22.599）");
+                // 保比后纵向**居中**：上沿 = 框上 + (框高 − 实绘高)/2 = −22.599 + (339.849−270)/2 = **12.3255**（实测 12.326）
+                Near(rr.y1, CellRect.y1 + (OrigIconY + (OrigIconH - OrigIconW) * 0.5f) * SY, 0.6f,
+                     "`Ban Icon` 上沿 = 框上 + (377.61 − 300)/2 × sy（保比纵居中 ⇒ **12.326**；旧期望 −22.599 是「拉伸」那套）");
                 Check(q.Grey < 0.001f, "`Ban Icon` **自己不被灰**（原版那 4 条 `imageMaterialPairs` 里没有它）｜实际 " + q.Grey.ToString("F3"));
             }
             var frameT = hit.Find("Frame");
@@ -191,8 +198,12 @@ public static class B121_C3_Assert
             {
                 var want = Loc.T("MenuDeck/Banned");
                 Check(tlb.Text == want, "文案 = 本地化 `MenuDeck/Banned`；实际 `" + tlb.Text + "`，期望 `" + want + "`");
-                Near(tlb.FontSizeToPxNow(tlb.FontSizeBase, tlb.ActualFace), 38.25f * SY, 0.6f,
-                     "字号 = 38.25 × sy（原版 `m_fontSize 38.25` · 基准 36）");
+                // 🔴 2026-11-03（`B124_W2`）：原期望 `38.25 × sy` 读的其实是 **TMP 的 `m_fontSize`（38.25）**，
+                //   而实现给 `Label` 的 `autoBasePx` 是 **`TxtBasePx = 36`**（`Shell/MenuDraw.cs:3784` 的常量、
+                //   `:3860` 传 `autoBasePx: TxtBasePx * sy`）⇒ 本口读的是 `FontSizeBase`（= `m_fontSizeBase`）⇒ 期望 **36 × sy = 32.4**。
+                //   （38.25 是 `MenuDraw.Text` 的 `fontPx` 形参，走 `SetGlyphHeight`；要断它得先给 `Label` 加一个「标称字号」读口，现在没有。）
+                Near(tlb.FontSizeToPxNow(tlb.FontSizeBase, tlb.ActualFace), 36f * SY, 0.6f,
+                     "字号 = 36 × sy（原版 `m_fontSizeBase = 36` ⇒ **32.4**；⚠️ 38.25 是 `m_fontSize`、不是 base）");
                 var tmp = tlb.GetComponentInChildren<TMPro.TMP_Text>(true);
                 var rt = tmp != null ? tmp.rectTransform : null;
                 Check(rt != null, "`Banned Text` 的 TMP 子节点有 `RectTransform`（框宽高写在它身上）");

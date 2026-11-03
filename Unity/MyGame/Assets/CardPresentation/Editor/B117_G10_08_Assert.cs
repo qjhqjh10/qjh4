@@ -121,13 +121,17 @@ public static class B117_G10_08_Assert
     }
 
     // ==========================================================================================
-    //  B · 可点区域 = 钮矩形 ∪（**只在已选那一格**的）圈矩形
-    //  判据：`RT_3368/2804/2626` 的 `Image.m_RaycastTarget = 1`（118.372 × 118.806）∪
-    //        `RT_3028/2776/3512` 的 `Highlight`（176.23 × 176.875，`CardDisplayAttackTypeButton__HighlightIfNeeded.c`
-    //        第一句 `SetActive(highlightImage, param_2 == attackType)` ⇒ 没选中的格子圈是关的 ⇒ 也不吃射线）。
+    //  B · 受体几何：钮矩形（118.372 × 118.806）∪ 圈矩形（176.23 × 176.875）
+    //  判据：`RT_3368/2804/2626` 的 `Image.m_RaycastTarget = 1` ∪
+    //        `RT_3028/2776/3512` 的 `Highlight`（`CardDisplayAttackTypeButton__HighlightIfNeeded.c`
+    //        第一句 `SetActive(highlightImage, param_2 == attackType)` ⇒ 圈只在已选那格亮）。
+    //  🔴 2026-11-03（`B124-W29`）**改回原版**：`KindAtPoint` = **受体查询**，按原版 `Highlight` 的
+    //      `m_RaycastTarget = 1` + 已选那格 `SetActive(true)` ⇒ **圈亮的那格确实是靶**；「同档不重复下单」那条
+    //      闸已挪回点击消费者（`BattleDriver.CommitCommand` 的 `if (kind == _command) return;`）。
     //  判别式：
-    //    · 🧨 把 `KindAtPoint` 的命中改成「以钮心为圆心、直径 118.8 的圆」⇒ B4（钮外 75 px）红、B2（两钮空隙）也可能红；
-    //    · 🧨 把 `KindAtPoint` 里圈那一句删掉 ⇒ B4 红；
+    //    · 🧨 把 `KindAtPoint` 的命中改成「以钮心为圆心、直径 118.8 的圆」⇒ B2（两钮空隙）/B3（钮下方 100 px）可能红；
+    //    · 🧨 删掉 `KindAtPoint` 里 `IsPickedSlot(opt) && _rings[i]…HitPiece(RingW,RingH)` 那第二句 ⇒ B4 变 None 红
+    //      （W28 曾把它改钉成「圈亮 ≠ 可点」，本轮按裁定改回「圈亮 ⇒ 命中该格」；「点了能不能生效」由点击口另测）；
     //    · 🧨 把 `SetSlotActive` 的 `&& IsPickedSlot(opt)` 去掉 ⇒ B6 红。
     // ==========================================================================================
     static void B_HitUnion(AttackSelector sel)
@@ -169,7 +173,7 @@ public static class B117_G10_08_Assert
         Check(sel.KindAtPoint(melee + Vector3.down * px) == AttackKind.None,
               "B3 钮下方 100 px 不算受体（旧实现那个「直径 118.8 的圆」也在这里，圆外同样不该命中）");
 
-        // ---- 选中近战 ⇒ 那一格的圈亮起来，命中区跟着变大 ----
+        // ---- 选中近战 ⇒ 那一格的圈亮起来（圈亮 ⇒ 受体跟着变大：原版 `Highlight.m_RaycastTarget = 1`，见下面 B4）----
         sel.SetSelected(AttackKind.Melee);
         // `AttackSelector.Order = { Melee, Ability, Ranged }` ⇒ 下标就是这三格
         const int iMelee = 0, iAbility = 1, iRanged = 2;
@@ -177,10 +181,25 @@ public static class B117_G10_08_Assert
         Check(!sel.HighlightActiveForTest(iAbility), "B6b 没选中那格（技能）的圈是关的（原版 `SetActive(param_2 == attackType)`）");
         Check(!sel.HighlightActiveForTest(iRanged), "B6c 没选中那格（远程）的圈是关的");
 
-        // 钮外 75 px、圈内（|75| < 88.44）⇒ 应当仍然命中「近战」
+        // 钮外 75 px、圈内（|75| < 88.44）
+        // ---- 🔴 2026-11-03（`B124-W29`）**就地改回原版**（铁律 5）----
+        // W28 曾把本条改钉成「圈亮 ≠ 可点」（判据 = 当时 `AttackSelector.Selectable()` 里的
+        // `if (opt.Kind == _selected) return false;`）。2026-11-03 调度台按铁律 18·0 裁定：
+        // 那句在原版是 `UnitOnBoardAttackTypeSelector__AttackButtonClick.c` 第一句 = **点击消费者**的闸，
+        // 不在受体查询里；产品侧已把 `Selectable()` 那句删掉（消费口 `BattleDriver.CommitCommand`
+        // 早已有 `if (kind == _command) return;`，`B117-R9` 补丁③）。
+        // ⇒ 受体查询侧按原版**不筛已选项**：圈亮的那格（`Highlight`，`m_RaycastTarget = 1` + `SetActive(true)`）
+        // 确实是靶 ——「圈放大命中区」重新可观测。
+        // 「点了能不能生效」由点击口（`CommitCommand` 的同档闸）另测；本文件只测受体几何。
+        // 🔑 判别式 = 删掉 `KindAtPoint` 里圈那半句（`IsPickedSlot(opt) && … HitPiece(RingW, RingH)`）⇒ 本行变 None。
         float up75 = sel.WorldOfPxForTest(75f);
-        Check(sel.KindAtPoint(melee + Vector3.up * up75) == AttackKind.Melee,
-              "B4 已选那格「钮外 75 px、圈内」仍算受体（原版圈 `m_RaycastTarget = 1`）");
+        Check(sel.HighlightActiveForTest(iMelee),
+              "B4a（前提）已选那格的圈**亮着**（原版那颗 `m_RaycastTarget = 1` 的 `Highlight`；几何见 C2c）");
+        var at75 = sel.KindAtPoint(melee + Vector3.up * up75);
+        Check(at75 == AttackKind.Melee,
+              "★★ B4 已选那格「钮外 75 px、圈内」**算受体**（原版 `Highlight.m_RaycastTarget = 1`；圈亮 ⇒ 命中该格）"
+            + "｜🧨 删掉 `KindAtPoint` 里 `IsPickedSlot(opt) && …HitPiece(RingW, RingH)` 那半句 ⇒ 本行变 None（红）"
+            + $"（实得 {at75}｜up75 = {up75:F5} 世界单位）");
 
         // 同一地点在「没选中」那一档必须**不**命中 —— 这一对就是 B4 的判别式
         sel.SetSelected(AttackKind.None);

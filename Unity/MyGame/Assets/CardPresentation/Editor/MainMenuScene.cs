@@ -4983,7 +4983,7 @@ public static class MainMenuScene
                     // **全挂在上面那扇【预组】详情窗上**，而它喂的是第 1 对预组在当前模式（Classic）下那一副
                     // （`UM_SK_1_2` · 12 张 · **合法**）⇒ `ValidateDeck` = 通过 ⇒ `interactable = true`
                     // ⇒ 三条全假。更要紧的是：那颗「以为点了没反应」的点击会**真开出挑对手窗**
-                    // （`DeckInfoPopup.LastOpponentSelection` = 一扇 `DeckSelectionPopup`，压暗层档 **3125**
+                    // （`DeckInfoPopup.LastOpponentSelection` = 一扇 `DeckSelectionPopup`，压暗层档 **3123**
                     // > 练习窗吸收层 **3109**），它留在窗栈里 ⇒ 后面某次 `ShowPreviousWindow` 把它提回前台，
                     // 吃掉 A94 那两条「练习窗吸收层」探针（= 本轮 2 条 γ 级联）。
                     // ⚠️ **2026-10-22（M2）就地订正**：吸收层这个字面量原来是 **3107** —— 现在 **3109**
@@ -5028,7 +5028,7 @@ public static class MainMenuScene
                                   "★ 点它 ⇒ **什么都没发生**（窗没关、挑对手那扇也没开）—— `interactable = false` 的语义"
                                   + "（原版 UGUI：`Selectable.OnPointerClick` 头一句就 `return`）");
                         // 🔴 **收尾（照本文件其它窗的写法：先断后清）**：万一那颗钮真的把挑对手窗开出来了，
-                        //    **当场关掉**。它是一扇 `DeckSelectionPopup`（压暗层档 **3125** > 练习窗吸收层 **3109**
+                        //    **当场关掉**。它是一扇 `DeckSelectionPopup`（压暗层档 **3123** > 练习窗吸收层 **3109**
                         //    ⚠️2026-10-22：原写 3107，`QPrHit` 上移两号后吸收层 = `QPrHit − 1` = 3109），
                         //    留在窗栈里会被后面某次 `ShowPreviousWindow` 提回前台、吃掉 A94 那两条吸收层探针
                         //    （本轮 2 条 γ 级联就是这么来的）。清理放在断言**之后** ⇒ 取鉴别力不变。
@@ -5871,11 +5871,12 @@ public static class MainMenuScene
                                       "（前提·不静默）收尾这一次 `Deck Selection Popup` 也开出来了 —— 开不出来 ⇒ 下面（关窗钮 / 档位 / 吸收层）几条等于没验（⛔ 不是通过）");
                             if (ds3 != null)
                             {
-                                // 🆕 A47：压暗层命中区 —— 档 = `QDs`(3125)，< 内容命中区档 `QDsHit`(**3129**)
-                                //   （改前是 `QDsHit − 1` = **3128** = `QDsText` ⇒ 落在**文字那一档**上）
+                                // 🆕 A47：压暗层命中区 —— 档 = `QDs`(3123)，< 内容命中区档 `QDsHit`(**3127**)
+                                //   （改前是 `QDsHit − 1` = **3126** = `QDsText` ⇒ 落在**文字那一档**上）
                                 //   🔴 2026-10-17（N14）就地订正：本行原写 `QDsHit(3128)` —— `A1529①` 给
-                                //   `DeckSelectionPopup` 新开 `QDsHi`(3126) 之后，行/字/命中三档整体 +1 ⇒ 现值 3129。
-                                //   `QDsHit − 1 = 3128 = QDsText` 这个**结构**仍然成立（只是两个数各 +1）。
+                                //   `DeckSelectionPopup` 新开 `QDsHi`(3124) 之后，行/字/命中三档整体 +1。
+                                //   🔴 2026-11-03（`B124_W36`）再整梯 −2（`B121-COLL-12`）⇒ 现值 3127。
+                                //   `QDsHit − 1 = 3126 = QDsText` 这个**结构**仍然成立（只是数又变了）。
                                 //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档。
                                 MenuDraw.CheckShadeRule(CheckTrue, "选卡组窗", ds3.ShadeHit,
                                                         ds3.transform.Find("Menu Dark Background"),

@@ -176,19 +176,19 @@ public static class B123_C2_Assert
               "C2 非空名**逐字带过来**（实得「" + (named != null ? named.Name : "null") + "」）");
     }
 
-    // ============================================================ D · 队列记账（`B121-COLL-12` · 本波零改动）
+    // ============================================================ D · 队列记账（`B121-COLL-12` · 2026-11-03 整梯 −2 已落地 · 本段守**新号**）
     static void D_QueueLedger()
     {
-        // 🔴 **这不是「期望的行为」，是一颗【记账钉子】** —— `B121-COLL-12` 本波判的是「**没有安全空档 ⇒ 零改动 + 占位表**」
+        // 🔴 **这不是「期望的行为」，是一颗【记账钉子】** —— `B121-COLL-12` 起初判的是「**没有安全空档 ⇒ 零改动 + 占位表**」；
         //    （占位表 → 报告 §四）。这条断言的作用：**谁将来重排了这段梯子，谁就得同步改这里 + 报告 + 账**，
         //    而不是让撞号在无人察觉的情况下继续漂。
-        int ban = DeckSelectionPopup.QDsHit + 1;      // `MenuDraw.DeckCell` 尾句 `DeckBan.Apply(…, qOverlay + 1)`，而本窗 `qOverlay = QDsText + 1 = QDsHit`
-        Check(ban == DeckInfoPopup.QDIOver,
-              "D1（记账）选卡组窗的 Ban 档 = `QDsHit + 1` = " + ban + "，与 `DeckInfoPopup.QDIOver` = " + DeckInfoPopup.QDIOver
-            + " **同号** —— 这是已知的**休眠**撞号（`DeckRuntime.CurrentEventData` 生产恒 null ⇒ Ban 一个节点都不建）。"
-            + "⚠️ 你若刚做了梯队重排：把这一条改成新事实，并同步报告 §四与账 `B121-COLL-12`（⛔ 别直接删掉它）");
-        Check(ban == ImportDeckPopup.QImp,
-              "D2（记账）同一档也与 `ImportDeckPopup.QImp` = " + ImportDeckPopup.QImp + " 同号（两窗不同屏：一个在主菜单、一个在卡组编辑场景）"
-            + " —— 同上，重排时同步账");
+        int ban = DeckSelectionPopup.QDsHit + 1;      // `MenuDraw.DeckCell` 尾句 `DeckBan.Apply(…, qOverlay + 1)`，而本窗 `qOverlay = QDsText + 1 = QDsHit` ⇒ 现读 **3128**
+        Check(ban == 3128 && ban < DeckInfoPopup.QDIOver,
+              "D1 ★ `B121-COLL-12` 整梯 −2 后：Ban = `QDsHit + 1` = " + ban + " **严格小于** `DeckInfoPopup.QDIOver` = " + DeckInfoPopup.QDIOver
+            + " ⇒ **不再同号**（3128 < 3130；撞号是重排**之前**的休眠坑，已由这次重排解掉）。"
+            + "🧨 灭自证：把 `QDsHit` 改回 3129（或整梯加回 2 档）⇒ Ban = 3130 ⇒ `ban == 3128` 与 `ban < QDIOver` **同时假** ⇒ 本条红");
+        Check(ban == 3128 && ban < ImportDeckPopup.QImp,
+              "D2 ★ 同一档也**严格小于** `ImportDeckPopup.QImp` = " + ImportDeckPopup.QImp + "（3128 < 3130；这两扇**同在卡组编辑场景**，撞号会真盖住）"
+            + " —— 🧨 同上：`QDsHit` 回 3129 ⇒ 本条红（`Banned Text` = 3129 也仍 < 3130）");
     }
 }

@@ -1616,8 +1616,8 @@ namespace RuleEngine
         /// `play all dump` / `play check` 的指纹整片变化。⇒ 「没挂上」这件事**由断言钉**
         /// （`Editor/EnchantmentTemplateCheck.cs` §G 的 G2/G3），不靠运行期日志。</para>
         ///
-        /// <para>⚠️ 与原版的两处**如实差异**：① 一次只挂**一个**目标（原版 `TL47` 有 3 条 logic、
-        /// 其中一条是 `chosenAbility 30 buffOthers` ⇒ 可能多目标）；② 本仓的卡面解析（`desc`）
+        /// <para>⚠️ 与原版的**如实差异**：① ✅ 已修（2026-11-03 `B124_W39` · 账 `B124-TA10`）：**按 `ta` 取载体集、逐个挂**
+        /// （原版 `PlayAbility.c:1183-1224` / `ca 260` 的 `:2534-2551` 都是逐目标；改前一律只挂 `chosen`）；② 本仓的卡面解析（`desc`）
         /// 对这些卡**本来就没有「选一个目标挂附魔」这一步**，目标来自**落牌那一格**（`PlayTacticCore` 的 `chosen`）。</para>
         /// </summary>
         /// <returns>真挂上了几条（0 = 什么都没做，见上面的静默条件）。</returns>
@@ -1651,11 +1651,11 @@ namespace RuleEngine
                 if (dup) continue;
                 var tmpl = ctx.FindEnchantmentTemplate(g.TemplateCardId);
                 if (tmpl == null) { GrantedTemplateMissing++; continue; }   // ⛔ 静默（理由见 doc）；G3 那条断言就是这一格的锁
-                var eff = Attach(ctx, carrier, tmpl, g.BuffType,
-                                 source: playedInst.Card.Name,
-                                 acting: null,
-                                 trait: "");   // 明确 `""`（= 没有 trait）：原版 `CardEffect.trait` 取自**挂它的那条 buff**
-                if (eff != null) attached++;
+                attached += AttachRowToCarrierSet(ctx, playedInst, g, tmpl, chosen);
+                // 🔴 2026-11-03（`B124_W39` · 账 `B124-TA10`）：载体 = **目标集的每一个元素**（原版 `ca 30/31`
+                //   `PlayAbility.c:1183-1224` 逐目标 `AddEffect`；`ca 260` `:2534-2551` 逐目标 `TriggerOtherCardAbility`）
+                //   ⇒ 三态（判不了退回 `chosen` / 空表一件不挂 / 否则逐个挂）全在 helper 里，⛔ 别在这里留第二份。
+                //   ⚠️ 出声只走诊断计数（`ctx.Log` 会进 `ctx.Events`、进而改对局指纹 —— 与本函数其余档同一口径）。
             }
             return attached;
         }
@@ -2114,5 +2114,53 @@ namespace RuleEngine
                 if (rows[i] != null && rows[i].Trigger == trigger) n++;
             return n >= 1 ? n : 1;                           // ② 列在却一条都对不上 ⇒ 保守按改前行为
         }
+
+        // ==========================================================================================
+        //  🆕 2026-11-03（`B124_W39` · 账 `B124-TA10`）：附魔「打出即挂」的**载体集**（逐目标挂载）
+        // ==========================================================================================
+        //  判据（第一权威 `d:/2/tools/decomp_full/AbilityLogic__PlayAbility.c`，逐句现读）：
+        //   · `ca 30/31`（`:1183-1224`）：取 `buffEffect(+0x50)` 的 `GetNewInstanceOfThisEffect` →
+        //     `AdjustCardEffect` → 对**目标表逐元素** `BattleManager__AddEffect`（每个目标**各一份**新实例）。
+        //   · `ca 260`（`0x104`）`:2534-2551` → `LAB_18081e1c0` `:2851-2877`：对目标表逐元素
+        //     `CardScript__TriggerOtherCardAbility(target, buffEffect.enchantment)`。
+        //  ⇒ 「载体 = 目标集的每一个元素」两支都成立；**动作不同**（挂载 vs 触发模板能力）。
+        //  ⚠️ 如实标：本仓的 `Attach` 模型对应的是 `ca 30/31` 那一支；`ca 260` 的「立刻触发模板 trigger-0
+        //     能力」形状**还没复刻**（今天仍按挂载处理，`GOF56` / `SW56` 两张）—— 见 `B124_W39` 报告。
+        //  ⚠️ 载体集解算在 `RuleCore.ResolveGrantedEnchantmentCarriers`（`EnchantmentExecutor_B115.cs` 类尾）：
+        //     四档判据 + 36 格 criteria + `maxTargets` 裁剪**只许一份**（⛔ 别在 `Enchantments` 里再写）。
+        static int AttachRowToCarrierSet(BattleContext ctx, CardInstance playedInst,
+                                         GrantedEnchantmentRow g, CardDef tmpl, UnitState chosen)
+        {
+            if (ctx == null || playedInst == null || g == null || tmpl == null || chosen == null) return 0;
+            // `owner` = 打牌那一侧。两处调用点（`RuleCore.PlayCard` 单位路 `:4212` / `PlayTacticCore`
+            //   战术路 `EffectResolver.cs:2733`）都**没把 `p` 传进来**（那两个文件不在本笔白名单）⇒ 取
+            //   `ctx.Active`：这两条路都只在**当前行动方出牌**时走。
+            //   🔶 自己设计（非原版）：原版 `AbilityData` 自带 `thisCard.player`；我们这层拿不到该形参。
+            //   判不出来的 `ta`（旧表 / 本版没实现的档）⇒ 退回改前行为（只挂 `chosen`）并记诊断计数。
+            var carriers = RuleCore.ResolveGrantedEnchantmentCarriers(ctx, ctx.Active, chosen, playedInst.Card,
+                                                                      g.AbilityIndex, g.LogicIndex, g.TargetsAffected);
+            if (carriers == null) { GrantedTargetResolveFallback++; carriers = new List<UnitState>(1); carriers.Add(chosen); }
+            int attached = 0;
+            for (int c = 0; c < carriers.Count; c++)
+            {
+                var carrierUnit = carriers[c];
+                if (carrierUnit == null) continue;
+                var ci = carrierUnit.Instance;
+                if (ci == null) { GrantedCarrierNoInstance++; continue; }
+                var eff = Attach(ctx, ci, tmpl, g.BuffType,
+                                 source: playedInst.Card.Name,
+                                 acting: null,
+                                 trait: "");   // 明确 `""`（= 没有 trait）：原版 `CardEffect.trait` 取自**挂它的那条 buff**
+                if (eff != null) attached++;
+            }
+            return attached;
+        }
+
+        /// <summary>诊断计数：`ta` 载体集**判不了**（旧表 / 未实现的 `ta` 档）⇒ 退回「只挂 `chosen`」的次数
+        /// （`B124-TA10`；三态见 <see cref="AttachRowToCarrierSet"/> 的头注）。⚠️ 不写 `ctx.Log`（会进指纹）。</summary>
+        public static int GrantedTargetResolveFallback;
+
+        /// <summary>诊断计数：载体单位没有 `CardInstance`（本该不出现）⇒ 那一件跳过。</summary>
+        public static int GrantedCarrierNoInstance;
     }
 }

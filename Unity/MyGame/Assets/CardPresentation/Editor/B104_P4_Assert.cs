@@ -376,8 +376,11 @@ public static class B104_P4_Assert
         }
     }
 
-    /// <summary>B4（P5-3）：收藏窗选卡组**落盘失败** ⇒ 不出声就完了那一支已被修掉：
-    /// 要**回滚当前选中**、**不开详情窗**。</summary>
+    /// <summary>B4（P5-3 / 2026-11-03 `B124_W2` 改判）：`SelectDeck` **已按原版不写盘** ⇒
+    /// 旧的那一档（「落盘失败 ⇒ 回滚 + 不开窗」）**前提消失、整条作废**。
+    /// 现断**新语义**：点格 ⇒ **盘上存档逐字节不变** + **开出 `Deck info Popup`**。
+    /// 判据 = 原版 `CollectionDisplay<T>.Select`（`decomp_generic_trial/out/CollectionDisplay_object___Select__15ed9c0.c`）
+    /// 只写 `SelectedItem` + 调 `OnItemSelected`；我们侧 → `Shell/CollectionWindow.cs:5331-5359`（`B121-COLL-02`）。</summary>
     static void CheckB4SelectFailBlocksDetail(WindowsManager wm)
     {
         string keepPath = DeckStore.OverridePath;
@@ -388,23 +391,31 @@ public static class B104_P4_Assert
             int tgt = prev == 0 ? 1 : 0;
             Tr(tgt != prev, "B4a（前提）挑一个**不是当前选中**的下标（" + tgt + " ≠ " + prev + "）");
 
-            // 把**写盘**打断：内存库里还是刚才那 2 套，但 `Save()` 会往一个不存在的目录写 ⇒ 必失败。
+            // 坏路径保留：它顺手证明这条路上**连写盘的尝试都没有**（任何尝试都会失败 ⇒ 盘上不可能被改）。
             string badDir = Path.Combine(Path.GetTempPath(), "wf_b104p4_nodir_" + Guid.NewGuid().ToString("N").Substring(0, 6));
             DeckStore.OverridePath = Path.Combine(badDir, "x.json");
-            Tr(!Directory.Exists(badDir), "B4b（前提）坏路径的目录**真的不存在**（否则这条测不出写盘失败）");
+            Tr(!Directory.Exists(badDir), "B4b（前提）坏路径的目录**真的不存在**（任何写盘尝试都会失败 ⇒ 盘上不可能被改）");
 
             cw = CollectionWindow.Create(wm);
             CollectionWindow.LastOpened = null;               // 只量「这一次点格有没有开详情窗」
+            // ⚠️ 快照放在**建窗之后、点格之前** —— 建窗本身会不会补 id/落盘不属本条要验的范围，只量 `SelectDeck` 这一下。
+            string disk0 = File.Exists(keepPath) ? Convert.ToBase64String(File.ReadAllBytes(keepPath)) : null;
+            Tr(disk0 != null, "B4b2（前提）盘上那份存档读得到（`" + keepPath + "`）—— 读不到 ⇒ 下面「逐字节不变」等于空转");
             cw.SelectDeck(tgt);
 
-            C(CollectionData.CurrentIndex(), prev,
-              "B4c 落盘失败 ⇒ **当前卡组/高亮回滚到原来那套**（🧨 删掉 `RestoreSelection` ⇒ 这条红）");
-            Tr(CollectionWindow.LastOpened == null,
-               "B4d 落盘失败 ⇒ **不开 `Deck info Popup`**（🧨 删掉那个 `return` ⇒ 这条红）");
+            string disk1 = File.Exists(keepPath) ? Convert.ToBase64String(File.ReadAllBytes(keepPath)) : null;
+            C(disk1, disk0,
+              "B4c 点格 ⇒ **盘上存档逐字节不变**（原版 `CollectionDisplay<T>.Select` 只开信息窗、不写任何持久状态；"
+            + "🧨 把 `CollectionData.Select(i)` 那一句加回 `SelectDeck` ⇒ 本条红）");
+            Tr(CollectionWindow.LastOpened != null,
+               "B4d 点格 ⇒ **开出 `Deck info Popup`**（原版 `DeckItemSelected` → `OpenWindow<DeckInfoPopup>`；"
+             + "🧨 让 `SelectDeck` 什么都不做 ⇒ 本条红）");
         }
         finally
         {
             DeckStore.OverridePath = keepPath;
+            // 🔴 2026-11-03（`B124_W2`）：`SelectDeck` 现在**必然开**一扇 `DeckInfoPopup` ⇒ 自开自收，别漏给后面的宿主。
+            if (CollectionWindow.LastOpened != null) { try { CollectionWindow.LastOpened.Close(); } catch { } CollectionWindow.LastOpened = null; }
             try { wm.HidePopUp(true); } catch { /* 没弹出来就没什么可收的 */ }   // 本条的**错误弹窗是真的弹了** ⇒ 收掉，别留给下一段
             if (cw != null) SafeDestroy(cw.gameObject);
         }

@@ -640,7 +640,7 @@ namespace CardPresentation
             if (string.IsNullOrWhiteSpace(s))
             {
                 // ⛔ **别在这里加空串守卫**（见方法头：原版没有，空串会造出一份畸形卡组并开信息窗）。
-                var broken = new PlayerDeck("", null, null, new List<string>(), 0);
+                var broken = new PlayerDeck("", null, null, new List<string>(), 0); broken.Name = "";   // 判据：CardDeck__DeckBasicSetup.c:21-24 —— 名字原样写、无空名守卫（PlayerDeck ctor 的「新卡组」兜底不适用于解析路）
                 broken.SetDeckArmyNeutral();           // 没有督军 ⇒ 原版 `DeckBasicSetup` 那一档 = Neutral
                 Debug.LogWarning("[CollectionData] 导入串是空的 ⇒ 照原版造出**空中队卡组**（无名 / 无卡 / 无督军）"
                                  + "并开信息窗 —— 原版没有空串守卫（`CardDeck__DeserializeDeckString.c`），这是原版行为，⛔ 别修");

@@ -4147,31 +4147,6 @@ namespace CardPresentation
         /// 与 <see cref="LastShakeVertical"/> 同一个来源（`ShakeScreenDirOf`），后者留着是因为既有断言在读它。</summary>
         public static Vector3 LastShakeScreenDir { get; private set; }
 
-        /// <summary>🆕 2026-10-27（`B9_W11SHAKE`）**原版挨打那一档的世界单位峰值幅度**（我们的单位，**旋转前**）。
-        ///
-        /// 🔴 **2026-11-02（`B120_W4` · `D118-82`）：本函数的前提已被推翻，⛔ 别再调用**（保留只为 `Editor/BattleScene.cs:49446` 的
-        /// 旧断言还能编译 —— 那条断言本身也在证一个错前提，等 BattleScene 写手一起删）。原前提是「`direction` = 目标棋盘坐标」，
-        /// 实际 `direction` = `normalize(目标 − 攻方)`（单位向量）⇒ 正确算式就是 <see cref="ShakeWorldAmplitudeFor"/>(size, 1f)。
-        /// 下面这段原说明**保留作历史**（它算出来的 10.2 / 20.4 / 40.8 是「把坐标当方向」的后果，不是原版值）：
-        ///
-        /// 与 <see cref="ShakeWorldAmplitudeFor"/> 逐项同形，只把「preset 自带的 |direction|」换成
-        /// **目标棋盘坐标的模长**：
-        /// <code>= |origBoardPos| × ShakeAmplitudeForUnitSize(size) × ShakeBandPeak
-        ///    × (ShakeOriginalPxPerUnit ÷ OurPxPerUnit)</code>
-        /// 判据链：`m_AmplitudeGain = |direction| × amplitude`（`_DoShake_d__33__MoveNext.c:69-79`）
-        /// · `amplitude` = 2/4/8（`ResolveAttackAnimationEffects.c:30-52`，见本文件 `:4051-4058` 的实测）。
-        ///
-        /// 🔴 **量级要心里有数**（这是「坐标当方向」那一版的产物）：|棋盘坐标| ≈ **100.2 ~ 101.1** 原版单位
-        /// （`BattleBoardElements` 在 x=100）⇒ `m_AmplitudeGain ≈ 200 / 400 / 800`，比 `Shake Hit Small` 自带那版大约 353 倍。
-        /// 折算到我们这套单位（屏高 = 10）：峰值位移 ≈ **10.2 / 20.4 / 40.8** 世界单位（= 1 / 2 / 4 个屏高）⇒ **明显荒谬**，
-        /// 这正是「`direction` 是单位向量」这条判据的反证之一（另一条 = `FUN_180534610` 的 `sqrt`+除）。</summary>
-        public static float ShakeWorldAmplitudeForAttack(Vector3 origBoardPos, int unitSize)
-        {
-            float ampGain = origBoardPos.magnitude * ShakeAmplitudeForUnitSize(unitSize);
-            float origUnits = ampGain * ShakeBandPeak;
-            return origUnits * (ShakeOriginalPxPerUnit / OurPxPerUnit);
-        }
-
         /// <summary>🆕 **原版挨打震屏那一条入口**（`CardScript.ResolveAttackAnimationEffects` 的 `meleeHitCameraShakePreset` 路）。
         /// 🔴 **2026-11-02（`B120_W4` · `D118-82`）就地订正（铁律 5）** —— 本方法原来（`B9_W11SHAKE` / `B9_W29BDR2`）
         /// 把 <see cref="OrigBoardPosOf"/>(目标坐标) 当成 `direction` 喂进 `SetDirection`，据此算 `|direction| ≈ 100`
@@ -4187,8 +4162,8 @@ namespace CardPresentation
         ///    `y` 两边都按地面 0 ⇒ 屏幕竖直分量恒 0 ⇒ 近战挨打是**横抖**（`ShakeScreenDirOf` 的 `.x` 通道）。
         /// ⇒ 本方法**不再拿坐标当方向**：有 `attackerOurBoardPos` 就现算 `normalize(差)`（`OrigBoardPosOf` 的 `+100`
         /// 在差里**天然抵消**、y 两边都归 0），否则退回 preset 方向（不吃方向，但幅度不再离谱）。
-        /// <see cref="ShakeWorldAmplitudeForAttack"/> **保留但已废弃**（那条「`|坐标| × amplitude`」的算式前提已被推翻；
-        /// `Editor/BattleScene.cs:49446` 还在 assert 它 ⇒ 要删得等 BattleScene 的写手一起删）。
+        /// ✅ **2026-11-03（`B124-W34`）就地订正（铁律 5）**：那个「拿坐标当方向」的旧函数 `ShakeWorldAmplitudeForAttack` **已删除**
+        /// （三源合判无原版对应物、`assets_full` 无字符串引用；`Editor/BattleScene.cs` 只剩一处文案提及），⛔ 别按旧名再找它。
         /// **时间轴 / 信号 / 频率**仍走 `Shake Hit Small` 那套默认值（原版这一档只覆盖 direction 与 amplitude，
         /// `OverwriteCameraShakePreset__GetModifiedPreset.c:76-119` 逐格核过：其余五项都取 preset 自带值）。</summary>
         /// <param name="ourBoardPos">**目标**卡在我们世界坐标里的位置（`CardView.transform.position` 即可）。</param>

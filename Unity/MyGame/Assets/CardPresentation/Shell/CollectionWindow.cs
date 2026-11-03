@@ -5341,21 +5341,6 @@ namespace CardPresentation
         /// `DeckInfoControls__OnSelect.c`</summary>
         public void SelectDeck(int i)
         {
-            // 🔴 **2026-11-03（B121-COLL-02 · 收藏审计 §问题2）**：这一支**不再改「当前卡组」**。
-            //   原版 `CollectionDisplay<T>.Select`（`decomp_generic_trial/out/…__Select__15ed9c0.c`）
-            //   只写 `SelectedItem` 并调 `OnItemSelected`；`DeckCollectionTab.OnItemSelected`
-            //   只开 `DeckInfoPopup(Edit)` —— **不写任何持久状态**。
-            //   真正改「当前卡组」的唯一落点 = 详情窗那颗 `Select Deck`
-            //   （`DeckInfoControls__OnSelect.c`；我们侧 = `DeckInfoPopup` 的 Select 那一支）。
-            //   旧代码在这里 `CollectionData.Select(i)` 先落盘再开窗 ⇒ 玩家「点开看看」
-            //   就把战斗要用的那一套卡组悄悄换掉了（用户可见的语义错误）。
-            //   ⚠️ 一并去掉的还有它那套失败回滚 / 重建 —— 它们只服务那次写盘。
-            //   ⚠️ **行数保持原样是故意的**：本文件 100+ 条账按 `文件:行号` 引用，
-            //   删行会让下方落点整体漂移（账的落点纪律见 `CLAUDE.md` §三）。
-            //   ⛔ **别把 `CollectionData.Select(i)` 加回来** —— 那会让「点开」与「选中」再次同义。
-            //   （原「2026-10-31 `B104_P4` 失败档收尾」那段说明**已随写盘一起作废**，留痕于此。）
-            //   失败回滚（`RestoreSelection` + `ErrorPopupWindowController`）也一并作废 —— 没有写盘就没有「同步失败」这一档。
-            //   下面那句 `OpenDeckInfo(i)` 才是原版这条路的唯一产物（点格 = 开信息窗）。
             OpenDeckInfo(i);
         }
 

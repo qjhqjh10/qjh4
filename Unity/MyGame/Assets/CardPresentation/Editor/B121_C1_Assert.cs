@@ -95,7 +95,9 @@ public static class B121_C1_Assert
             else if (firstFacY < 0f && cells[i].Key != null && cells[i].Key.StartsWith("$fac:")) firstFacY = cells[i].R.y1;
         }
         CheckNear(ownedY, 15f, 0.01f, "COLL-06 收藏窗卡背抽屉：`Owned` 行顶 = 15（原版 `Spacing` 15 之后第一行）");
-        CheckNear(firstFacY, 65f, 0.01f, "COLL-06 收藏窗卡背抽屉：`Army` 行顶 = 65（= 15 + Owned 50）");
+        CheckNear(firstFacY, 65f + FilterPanelModel.ArmyContentTop, 0.01f,
+                  "COLL-06 收藏窗卡背抽屉：`Army` 行顶 = 65 + `ArmyContentTop`(50) = **115**（行顶 65 = 15 + Owned 50；"
+                + "`BuildCosmetics:1136` 写的是 `y = armyTop + ArmyContentTop` ⇒ 实测值恒 = 行顶 + 50）");
         Check(ownedY >= 0f && firstFacY > ownedY, "COLL-06 灭自证：Owned **在 Army 之前**（原版孩子序）");
 
         // 卡组编辑窗那一档（`ownedFirst:false`）方向必须相反 —— 两扇窗的行序是**两套参数**，别被收口
@@ -107,7 +109,9 @@ public static class B121_C1_Assert
             if (cells2[i].Key == "$owned") ownedY2 = cells2[i].R.y1;
             else if (firstFacY2 < 0f && cells2[i].Key != null && cells2[i].Key.StartsWith("$fac:")) firstFacY2 = cells2[i].R.y1;
         }
-        CheckNear(firstFacY2, 15f, 0.01f, "COLL-06 卡组编辑窗卡背抽屉：`Army` 行顶 = 15（原版 Army 在前）");
+        CheckNear(firstFacY2, 15f + FilterPanelModel.ArmyContentTop, 0.01f,
+                  "COLL-06 卡组编辑窗卡背抽屉：`Army` 行顶 = 15 + `ArmyContentTop`(50) = **65**（`armyTop` 15；"
+                + "同一条 `y = armyTop + ArmyContentTop` 的偏移）");
         Check(ownedY2 > firstFacY2, "COLL-06 灭自证：卡组编辑窗 **Army 在 Owned 之前**（与收藏窗相反）");
     }
 

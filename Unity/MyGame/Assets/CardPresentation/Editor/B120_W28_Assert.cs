@@ -434,14 +434,19 @@ public static class B120_W28_Assert
             {
                 Vector3 home = LayoutSpace.ToWorld(0.5f, 0.30f);   // 起点就在**出牌区里**（线 0.2778 之上）
                 f.card.transform.position = home;
-                Vector3 inAreaLow = home + new Vector3(0f, CardInteraction.PlayLiftWorld * 0.5f, 0f);
+                // 🔴 2026-11-03（`B124-W27`）：**量纲** —— `PlayLiftWorld`（原版世界单位 × 桥 = 0.0412 我们单位）与
+                //   `TapThreshold`（10 真实 px ÷ 屏高；批处理 480p ⇒ 0.2083）**不是同一个量纲** ⇒ 只抬竖直永远同时满足不了
+                //   「> 轻点阈值」与「< 出牌高度」。用**横向**位移补足拖距（出牌闸 `PlayCommitGate` 只看竖直 `y`）。
+                float dragWorld = Mathf.Max(CardInteraction.TapThreshold * 2f, CardInteraction.PlayLiftWorld * 2f);
+                Vector3 inAreaLow = home + new Vector3(dragWorld, CardInteraction.PlayLiftWorld * 0.5f, 0f);
                 Check(inAreaLow.y - home.y < CardInteraction.PlayLiftWorld,
                     "（前提）C2 的落点在**出牌区里**、但抬高**不够** 0.3 原版世界单位 ⇒ `PlayCommitGate` 判假 ⇒ 取消");
                 Check(CardInteraction.IsInPlayArea(inAreaLow), "（前提）C2 的落点归一化 y "
                     + LayoutSpace.ToNormalized(inAreaLow).y.ToString("F4") + " ≥ " + BoardLayout.HandLimitY.ToString("F4"));
-                Check(inAreaLow.y - home.y >= CardInteraction.TapThreshold,
-                    "（前提）C2 这一拖**超过轻点阈值**（" + (inAreaLow.y - home.y).ToString("F4") + " ≥ `TapThreshold` "
-                    + CardInteraction.TapThreshold.ToString("F4") + "）—— 否则它按「轻点」处理，下面那条会因**别的原因**通过");
+                Check(Vector3.Distance(inAreaLow, home) >= CardInteraction.TapThreshold,
+                    "（前提）C2 这一拖**超过轻点阈值**（" + Vector3.Distance(inAreaLow, home).ToString("F4") + " ≥ `TapThreshold` "
+                    + CardInteraction.TapThreshold.ToString("F4") + "；其中竖直只有 " + (inAreaLow.y - home.y).ToString("F4")
+                    + "，其余靠横向）—— 否则它按「轻点」处理，下面那条会因**别的原因**通过");
 
                 f.it.SimulateHover(home);
                 f.it.SimulatePress(home);

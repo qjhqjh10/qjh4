@@ -210,7 +210,10 @@ public static class B121D2_Assert
             if (!string.IsNullOrEmpty(json))
             {
                 int at = json.IndexOf("\"name\": \"" + name + "\"", StringComparison.Ordinal);
-                string block = at < 0 ? null : Slice(json.Substring(at), "{", "}");
+                // 🔴 2026-11-03（`B124-W27`）：原来是 `Slice(json.Substring(at), "{", "}")` —— 从**名字之后**找第一个 `{`
+                //   ⇒ 拿到的是**下一条** cue 的对象体（实测 `battle_sounds.json:454-465` 这条 `"group": "event"` 完全正确，是断言错）。
+                //   ⇒ 改成从 `at` **往前**找最近的 `{`（= 本 cue 的对象头），再按花括号配平切到对应的 `}`。
+                string block = at < 0 ? null : EnclosingObject(json, at);
                 bool sceneOrEvent = block != null
                     && (block.Contains("\"group\": \"scene\"") || block.Contains("\"group\": \"event\""));
                 Check(sceneOrEvent, $"B4 cue `{name}` 的 `group` = `scene`/`event`（不是 `collection`/`card`）"
@@ -303,12 +306,20 @@ public static class B121D2_Assert
         return ta != null ? ta.text : null;
     }
 
-    /// <summary>从 `src` 里切出第一个 `a` 到其后第一个 `b` 之间（找不到 = null）。</summary>
-    static string Slice(string src, string a, string b)
+    /// <summary>从 `at`（某条 `"name": …` 的位置）**往前**找最近的 `{`，再按花括号配平切到对应的 `}`（找不到 = null）。
+    /// <para>🔴 2026-11-03（`B124-W27`）：原来的 `Slice(src.Substring(at), "{", "}")` 从**名字之后**找 `{`
+    /// ⇒ 拿到的是**下一条** cue 的对象体 ⇒ B4 假红（被判红的那条数据其实 `"group": "event"` 完全正确）。
+    /// ⛔ 别改回「从名字往后找」—— JSON 里 `name` 是本 cue 对象的**第一个键**，对象头一定在它**之前**。</para></summary>
+    static string EnclosingObject(string json, int at)
     {
-        int i = src.IndexOf(a, StringComparison.Ordinal);
-        if (i < 0) return null;
-        int j = src.IndexOf(b, i + a.Length, StringComparison.Ordinal);
-        return j < 0 ? null : src.Substring(i, j - i + b.Length);
+        int open = json.LastIndexOf('{', at);
+        if (open < 0) return null;
+        int depth = 0;
+        for (int i = open; i < json.Length; i++)
+        {
+            if (json[i] == '{') depth++;
+            else if (json[i] == '}' && --depth == 0) return json.Substring(open, i - open + 1);
+        }
+        return null;
     }
 }

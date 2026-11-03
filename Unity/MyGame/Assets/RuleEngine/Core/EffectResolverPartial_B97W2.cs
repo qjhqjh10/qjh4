@@ -382,8 +382,8 @@ namespace RuleEngine
                 // 我们：`AddKeyword("ephemeral", 1)`（`_keywords` 那本账；`ephemeral` 是**认得出的 trait 名**，
                 //   `CardDef` 的词表里有它）。表现层那颗图标本仓没有对应件（⛔ 不假装有）。
                 case 25:
-                {
-                    bool added = target.AddKeyword("ephemeral", 1);
+                { if (target.Has("ephemeral")) { UnityEngine.Debug.LogWarning($"{who}：「{target.Name}」的 `ephemeralCopy(25)` **已带 `ephemeral` ⇒ 去重**（原版 `CardScript__AddTraitSilently.c`：`Any` 命中即 return；⛔ 不是 `AddKeyword` 的同键累加）"); return false; }
+                    bool added = target.AddKeyword("ephemeral", 1, silent: true);   // `silent` = 原版 `AddTraitSilently` 的「不置图标脏」（`UnitState.AddKeyword` 头注；缺省会把 `TraitRev` +1）
                     ctx.Log($"{who}：「{target.Name}」的 `ephemeralCopy(25)` ⇒ "
                           + (added ? "挂上 `ephemeral`（原版 `AddEffect.c:947` `AddTraitSilently(this, 5)`）"
                                    : "**没挂上**（`AddKeyword` 拒收 —— 见它的两支闸）"));
@@ -742,6 +742,12 @@ namespace RuleEngine
             //   `trait`：原版这一格 = 那条 `CardEffect.trait(+0x3C)` 本身（`param_2` 原样进 `+0x108`）⇒
             //     `b.Trait == 0` 时明确传 `""`（= 没有 trait），⛔ 别传 `null` —— 那会让 `Attach` 回落到
             //     载体卡的 `EnchantTrait`，凭空给这条附魔安一个原版没有的 trait。
+            //  🔴 2026-11-03（`B124_W39` · 账 `B124-SOURCE`）：`source` 传**卡名**（`Source` 的契约就是卡名，
+            //     读者 `EffectsToShow` 拿它去 `abilityBuffs` 查原版 `effectText`）⇒ ⛔ 别传 `who` 这条日志标签
+            //     （改前传的就是它 ⇒ 这条路挂上的附魔**取不到原文、且不发声**）。原版 `CardEffect+0x18` 是
+            //     `enchantingCard`（= 我们的 `ActingUnit`）；回落取 `CreationSource`（save/restore 的
+            //     出牌作用域量），⛔ 别回落 `PlayingCard` —— 它**从不清空**，会把上一张牌的名字盖上来
+            //     （见 `BattleContext.CreationSource` 的 doc）。这一格本身是 🔶 自己设计（原版没有「来源字符串」）。
             string traitName = "";
             if (b.Trait != 0)
             {
@@ -753,7 +759,7 @@ namespace RuleEngine
                 }
             }
             var eff = Enchantments.Attach(ctx, carrier, tmpl, b.BuffType,
-                                          source: who,
+                                          source: ctx.ActingUnit?.Card?.Name ?? ctx.CreationSource?.Name,
                                           acting: ctx.ActingUnit,
                                           trait: traitName,
                                           permanent: b.PermanentBuff != 0);

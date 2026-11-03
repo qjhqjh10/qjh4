@@ -17,7 +17,8 @@
 //     本段**逐帧 `CardTween.Advance`** 推真补间，量「跳过档 0.2 / 正常档 0.4」与「段 3 不缩」。
 //
 // ============================ 🔴 灭自证（改哪一处会让哪一条红）============================
-//   · A1 ← 把 `DropReject` 的默认（`allowNearest=false`）也做成「无容差」⇒ 旧签名会答出格号 ⇒ 红
+//   · A1 ← 把「无容差最近候选格」退回「必须压在容差区里」⇒ 这一点判 `MissedSlot` ⇒ 红
+//        （🔴 2026-11-03 订正：`allowNearest` 已是**兼容遗留形参**、两取同解 —— 见 `BoardLayout.cs:676`；原文写「默认档仍是 MissedSlot」已过期）
 //   · A3 ← 不把「两侧都满」判成空候选 ⇒ 答出一个格 ⇒ 红（那会绕过引擎的 `NotEnoughRoom`）
 //   · A4/A5 ← 候选集不按 `IsCandidate` 收窄（9 格全算）⇒ 答 8 / 3 而不是 5 ⇒ 红
 //   · A6 ← 去掉「越手牌限位线」这一道 ⇒ 手牌带里那一拖就提交 ⇒ 红
@@ -29,8 +30,8 @@
 //
 // ============================ ⚠️ 覆盖边界（如实记）============================
 //   · **不跑 Unity 帧循环**：B 段是编辑模式下把 `CardTween.Mode` 拨到 `Manual` 再自己 `Advance`（退出时**原样还原**）。
-//   · **2D 兜底档**：A 段夹具没有 3D 战场（`BoardLayout.use3D = false`）⇒ 走的正是「原来必须命中一格」那一条
-//     （3D 产品路径在 `B120-W21` 之后本来就是最近格、无容差）。
+//   · **2D 兜底档**：A 段夹具没有 3D 战场（`BoardLayout.use3D = false`）⇒ 走的是 2D 兜底档（🔴 2026-11-03 起同样是「候选集 + 2D 欧氏 + **无容差**」，自定容差已删）
+//     （3D 产品路径在 `B120-W21` 之后本来也是最近格、无容差 ⇒ 两档同口径）。
 //   · **候选集边界只在 API 层断言**（A3/A4/A5）：夹具没有驱动 ⇒ `SideCount` 恒 −1（两侧按皆空），
 //     「两侧都满 ⇒ 不出牌」那一档要真驱动才有，本件用 `BoardLayout.TryResolveSlot(..., 4, 4, true)` 直接钉住。
 //   · **不验手感**：那要真 Play（`资料/真Play待验清单.md`）。
@@ -146,8 +147,11 @@ public static class B120_W24_Assert
         def.id = name; def.artId = name;            // ⛔ 别撞真实卡：`TacticTargetSide` 会拿 id 回查卡表
         def.isUnit = true; def.type = "unit"; def.rarity = "common";
         f.card = CardView.Create(f.root.transform, def, name, CardFace.Hand);
-        f.card.transform.position = LayoutSpace.ToWorld(0.5f, cardNormY);
         f.it.SetCards(new List<CardView> { f.card }, false);
+        // 🔴 2026-11-03（`B124-W22`）：**必须在 `SetCards` 之后**再手摆几何 —— `SetCards` 会经
+        //   `HandLayout.Refresh` 把牌重排回手牌带（实得归一化 y 0.1216），摆在前面的位置会被冲掉
+        //   ⇒ C-1 的「抬高不够」前提变成 1.7838（实测 `battle_b124b.log:1712910`）。
+        f.card.transform.position = LayoutSpace.ToWorld(0.5f, cardNormY);
         return f;
     }
 
@@ -169,10 +173,11 @@ public static class B120_W24_Assert
             // ---- 前提（手摆几何 + 原版常量，⛔ 不从被测实现读「结果」）----
             int sOld;
             bool oldOk = f.board.TryResolveSlot(drop, out sOld);
-            Check(!oldOk,
-                "（前提）这一点**不在任何格位的容差区里** —— 旧签名 `TryResolveSlot(drop, out s)`（= `allowNearest:false`）"
-                + "判 **false**（实得 " + oldOk + "，槽 " + sOld + "）—— 否则本组证明不了「不压格也能出牌」"
-                + "｜🧨 把默认档也改成无容差 ⇒ 这里变 true ⇒ A1 的前提塌了（同时 A1 会红）");
+            Check(oldOk && sOld == 5,
+                "（前提）这一点**不在任何格位的容差区里**（离最近格 0.1388 归一化）—— 原版无容差 ⇒ 默认档也给出**最近候选格 5**"
+                + "（实得 ok=" + oldOk + "、槽 " + sOld + "）"
+                + "｜🔴 2026-11-03（`B121-WB` / `B124-W9`）已删自定容差 ⇒ `allowNearest` 成了兼容遗留形参（两取同解，`BoardLayout.cs:676`）"
+                + "｜🧨 把「最近格」退回「必须压在容差区里」⇒ 这里变 false ⇒ A1 的前提塌了");
             Check(LayoutSpace.ToNormalized(drop).y >= BoardLayout.HandLimitY,
                 "（前提）落点在**手牌限位线以上**（归一化 y " + LayoutSpace.ToNormalized(drop).y.ToString("F4")
                 + " ≥ " + BoardLayout.HandLimitY.ToString("F4") + "）");
@@ -180,14 +185,14 @@ public static class B120_W24_Assert
                 "（前提）抬高了 " + (drop.y - home.y).ToString("F4") + " 我们的单位 ≥ "
                 + CardInteraction.PlayLiftWorld.ToString("F5") + "（= `minMovementToPlayCard` 0.3 原版世界单位）");
 
-            // ---- A1：判定正本（`DropReject` 默认档）**仍然是** MissedSlot ⇒ 本件没动既有判据 ----
+            // ---- A1：判定正本（`DropReject` 默认档）也走「无容差最近候选格」⇒ 全层一个口径 ----
             int sDirect; BoardLayout wDirect; string whyDirect;
             int kDirect = f.it.DropRejectKindForTest(drop, f.card, out sDirect, out wDirect, out whyDirect);
-            Check(kDirect == (int)CardInteraction.DropRejectKind.MissedSlot,
-                "★A1 `DropReject` 的**默认档**（`allowNearest:false`）在这一点的判定**仍是 `MissedSlot`**（实得 "
-                + (CardInteraction.DropRejectKind)kDirect + "）—— 新行为只加在**提交路径**上，"
-                + "`ExplainDrop` / `DropRejectKindForTest` / `CardBaseDemo` 那批既有判据一个字没动"
-                + "｜判据 `BoardLayout.TryResolveSlot(..., allowNearest)` 的类尾长注");
+            Check(kDirect == (int)CardInteraction.DropRejectKind.Ok && sDirect == 5,
+                "★A1 `DropReject` 的**默认档**（`allowNearest:false`）同样给出 `Ok` / 槽 5（实得 "
+                + (CardInteraction.DropRejectKind)kDirect + " / 槽 " + sDirect + "）—— "
+                + "「无容差最近候选格」是**全层口径**（`allowNearest` 已两取同解，`BoardLayout.cs:676`），⛔ 不是只开给提交路径"
+                + "｜判据 `MinionManager.GetClosestAvailableSlot`：只要还有空格就一定返回一格");
 
             // ---- A2：★不压格也提交（原版 `BattleManager__Update.c:249-288` 全段没有「压格」比较）----
             f.it.SimulateHover(home);
@@ -241,9 +246,10 @@ public static class B120_W24_Assert
                 "★B3 两侧皆空 ⇒ 候选 = {3,5}，指针在 0.95 ⇒ 答槽 **5**（实得 ok=" + r0 + " 槽 " + s + "）"
                 + "｜🧨 9 格全算 ⇒ 答 8 ⇒ 红");
 
-            // 前提：同一点在默认档上仍然是「解不出来」—— 证明 B1..B3 都是**新那一档**的行为
-            Check(!f.board.TryResolveSlot(drop, out s),
-                "★B4（灭自证前提）同一点走**默认档** ⇒ false（实得 " + s + "）—— 新行为是**显式 opt-in**，没污染旧口");
+            // 前提：默认档与新档**同解**（`allowNearest` 已是兼容遗留形参）—— 证明 B1..B3 不是靠形参分支才成立
+            Check(f.board.TryResolveSlot(drop, out s) && s == 5,
+                "★B4（默认档一致）同一点走**默认档**（`allowNearest:false`）⇒ 同样答槽 5（实得 " + s + "）—— "
+                + "`allowNearest` 已是兼容遗留形参、两取同解（`BoardLayout.cs:676`），⛔ 别把容差写回来");
         }
         finally { f.Dispose(); }
     }

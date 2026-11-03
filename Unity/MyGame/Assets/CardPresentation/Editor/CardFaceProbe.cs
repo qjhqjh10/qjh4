@@ -637,8 +637,8 @@ public static class CardFaceProbe
 
                 for (int i = 0; i < Badges.MaxSlots; i++)
                 {
-                    var pt = bv.FaceLayerRoot.Find("badgePlate" + i);
-                    var ic = bv.FaceLayerRoot.Find("badgeIcon" + i);
+                    var pt = bv.Body3DBonesForTest != null ? bv.Body3DBonesForTest.Find("badgePlate" + i) : null;   // 🔴 2026-11-03（B124-W7 · α）：徽标自 `B117-R22`（2026-11-02）起挂在 **`Board Elements/3DBody`**（`CardView.cs:3915/3987`，读口 `Body3DBonesForTest` = `CardView.cs:15874`），⛔ 不在 `2DCard`（`FaceLayerRoot`）；且 `Transform.Find` 只找**直接子件** ⇒ 旧路径恒 null、7 条全红
+                    var ic = bv.Body3DBonesForTest != null ? bv.Body3DBonesForTest.Find("badgeIcon" + i) : null;
                     var xsv = bv.BadgePlateVertexXs(i);
                     if (pt == null || ic == null || xsv == null || xsv.Length < 2)
                     {
@@ -677,7 +677,7 @@ public static class CardFaceProbe
                 var badXMsg = new System.Text.StringBuilder();
                 for (int i = 0; i < Badges.MaxSlots; i++)
                 {
-                    var ic = bv.FaceLayerRoot.Find("badgeIcon" + i);
+                    var ic = bv.Body3DBonesForTest != null ? bv.Body3DBonesForTest.Find("badgeIcon" + i) : null;   // 🔴 2026-11-03（B124-W7 · α）：同 ⑥ 主干 —— 图标在 `Board Elements/3DBody` 下（`CardView.cs:3987`），旧 `FaceLayerRoot.Find` 恒 null ⇒ 这条灭自证空转
                     if (ic == null) continue;
                     float want = Badges.SlotAt(i).x;
                     if (Mathf.Abs(ic.localPosition.x - want) > 1e-3f)
@@ -1584,9 +1584,9 @@ public static class CardFaceProbe
                 + "；🧨 把 option 0 也映射进 5–8 ⇒ 红");
             Check(hv.TitleText.gameObject.activeSelf && hv.KeywordsText.gameObject.activeSelf,
                   "CF-6 option 0 ⇒ 卡名 + 效果文字**都在**（初始态 1 的名单）");
-            Check(Mathf.Abs(emU - 0.19f) < 0.004f && Mathf.Abs(emD - 0.2355f) < 0.005f,
-                  $"CF-6 option 0 的字号 = 初始态那两档（**短文本、不触发回缩**：卡名 em {emU:F4} ≈ 0.19 · "
-                + $"效果 em {emD:F4} ≈ 0.2355）｜🧨 名义字号接错档 ⇒ 红（量的是 `fontSize`，与字形墨高无关）");
+            Check(Mathf.Abs(emU - 0.1595f) < 0.004f && Mathf.Abs(emD - 0.1560f) < 0.005f,
+                  $"CF-6 option 0 的字号 = **shipped 上界**那两档（**短文本、不触发回缩**：卡名 em {emU:F4} ≈ 0.1595 · "
+                + $"效果 em {emD:F4} ≈ 0.1560）｜判据 = `CardView.cs:5575` `NameUnitBandMax 1.595` / `:5571` `DescUnitBandMax 1.560`（`B117_F14` ×0.75 + `B117_WCARD` ×1.1193/×0.8333 两刀后）｜🧨 名义字号接错档 ⇒ 红（量的是 `fontSize`，与字形墨高无关）");
             // ①·b **宽松的墨高兜底**（±10%）：`fontSize → 屏幕上的字多大` 这一段只由字体资产决定 ⇒
             //   `墨高 ÷ fontSize` 应当 = `CapPerFontSize(拉丁面)`（按面实测的常量）。它防的是
             //   「`fontSize` 对了但被别的缩放假象盖住」——⛔ 别把容差收紧到 1%（字形面换了会红）。
@@ -1611,9 +1611,9 @@ public static class CardFaceProbe
             Check(!hv.TitleText.gameObject.activeSelf && hv.KeywordsText.gameObject.activeSelf,
                   "CF-6 态 5 ⇒ **只有效果文字**（卡名那件关着；原版 `DescTextUnit Big` 一个）");
             float em5 = TmpFont.EmPerFontSize(TmpFont.Face.LatinCardBody) * su.KeywordsText.fontSize;
-            Check(Mathf.Abs(em5 - 0.26f) < 0.004f,
-                  $"CF-6 态 5 的字号 = 原版 `DescTextUnit Big` **fs26 × 0.01 = em 0.26**（实测 {em5:F4}）"
-                + "｜🧨 沿用初始态那档 0.2355 ⇒ 红");
+            Check(Mathf.Abs(em5 - 0.1690f) < 0.004f,
+                  $"CF-6 态 5 的字号 = `DescTextUnit Big` 的 **shipped 上界 em 0.1690**（prefab 名义 fs26 ⇒ em 0.26；`DescUnitBigBandMax = 1.690` · `CardView.cs:5585`）（实测 {em5:F4}）"
+                + "｜🧨 沿用初始态那档 0.1560 ⇒ 红");
             Check(hv.TextBgVisible && hv.TextBgMeshName == "TextBgQuad_textBg",
                   $"CF-6 态 5 的暗底 = **Big**（`TextBackground Big UI`；实测 {hv.TextBgMeshName}）");
 
@@ -1624,9 +1624,9 @@ public static class CardFaceProbe
             Check(hv.TitleText.gameObject.activeSelf && !hv.KeywordsText.gameObject.activeSelf,
                   "CF-6 态 6 ⇒ **只有卡名**（效果文字关着；原版 `NameTextUnit No Description Big`）");
             float em6 = TmpFont.EmPerFontSize(TmpFont.Face.LatinUi) * su.TitleText.fontSize;
-            Check(Mathf.Abs(em6 - 0.24f) < 0.004f && Mathf.Abs(su.TitleText.lineSpacing - (-0.08f)) < 0.005f,
-                  $"CF-6 态 6 的字号/行距 = 原版 `NameTextUnit No Description Big`"
-                + $"（**fs24 ⇒ em 0.24**、`m_lineSpacing −8 ⇒ −0.08`；实测 em {em6:F4} / 行距 {su.TitleText.lineSpacing:F3}）");
+            Check(Mathf.Abs(em6 - 0.2015f) < 0.004f && Mathf.Abs(su.TitleText.lineSpacing - (-0.08f)) < 0.005f,
+                  $"CF-6 态 6 的字号/行距 = `NameTextUnit No Description Big` 的 **shipped 上界 em 0.2015**"
+                + $"（prefab 名义 fs24 ⇒ em 0.24；`NameUnitBigBandMax = 2.015` · `CardView.cs:5589`；`m_lineSpacing −8 ⇒ −0.08`；实测 em {em6:F4} / 行距 {su.TitleText.lineSpacing:F3}）");
             Check(hv.TextBgVisible && hv.TextBgMeshName == "TextBgQuad_textBgSmall",
                   $"CF-6 态 6 的暗底 = **Small**（`TextBackground Small UI`；实测 {hv.TextBgMeshName}）"
                 + "｜🧨 继续用 Big 那张 ⇒ 红");
@@ -1641,8 +1641,8 @@ public static class CardFaceProbe
             bool tacticOk8 = ht.TextState == CardTextState.TacticOnlyDescription
                           && ht.KeywordsText.gameObject.activeSelf && !ht.TitleText.gameObject.activeSelf;
             float em8 = TmpFont.EmPerFontSize(TmpFont.Face.LatinCardBody) * st.KeywordsText.fontSize;
-            Check(tacticOk8 && Mathf.Abs(em8 - 0.26f) < 0.004f,   // 🔴 2026-10-30（B100_F7/K4）：s99 `FitToBox` 按原版 TMP autosize ⇒ `DescTextTactic Big` 名义 fs25.2 但 `m_fontSizeMax = 26`（`CardView.cs:5563` `DescTacticBigBandMax = 2.60`）⇒ 装得下就顶到 em 0.26，旧 0.252 是名义值
-                  $"CF-6 战术 + option 1 ⇒ **态 8**（只有 Big 战术效果文字，`DescTextTactic Big` 装得下 ⇒ autosize 顶到 `m_fontSizeMax=26` ⇒ em 0.26；"
+            Check(tacticOk8 && Mathf.Abs(em8 - 0.1690f) < 0.004f,   // 🔴 2026-11-03（B124-W7 · α）：期望改 **shipped 上界** —— prefab 名义 fs26，`DescTacticBigBandMax` 现读 = **1.690**（`CardView.cs:5587`）；旧注释里的 2.60 / em 0.26 是两刀之前的旧口径
+                  $"CF-6 战术 + option 1 ⇒ **态 8**（只有 Big 战术效果文字，`DescTextTactic Big` 装得下 ⇒ autosize 顶到 shipped 上界 `DescTacticBigBandMax = 1.690` ⇒ em 0.1690；"
                 + $"实测态 {ht.TextState} · em {em8:F4}）");
             Check(!ht.TextBgVisible, "CF-6 态 8 ⇒ **不画文字底板**（原版 7/8 的 activate 名单里没有 `Textbackgrounds`）");
             CardView.SetHandTextFormat(2);
@@ -1650,7 +1650,7 @@ public static class CardFaceProbe
                   && ht.TitleText.gameObject.activeSelf && !ht.KeywordsText.gameObject.activeSelf,
                   $"CF-6 战术 + option 2 ⇒ **态 7**（只有 Big 战术卡名，`NameTextTacticBig`；实测态 {ht.TextState}）");
             float em7 = TmpFont.EmPerFontSize(TmpFont.Face.LatinUi) * st.TitleText.fontSize;
-            Check(Mathf.Abs(em7 - 0.24f) < 0.004f, $"CF-6 态 7 的字号 = `NameTextTacticBig` fs24 ⇒ em 0.24（实测 {em7:F4}）");
+            Check(Mathf.Abs(em7 - 0.2015f) < 0.004f, $"CF-6 态 7 的字号 = `NameTextTacticBig` 的 **shipped 上界 em 0.2015**（prefab 名义 fs24 ⇒ em 0.24；`NameTacticBigBandMax = 2.015` · `CardView.cs:5591`）（实测 {em7:F4}）");
             Check(!ht.TextBgVisible, "CF-6 态 7 ⇒ 同样**不画底板**");
             }
 
@@ -1753,10 +1753,10 @@ public static class CardFaceProbe
             Check(m4 && Mathf.Abs(c4 - 0.7595f) < 0.02f,
                   $"CF-8 态 4（战术·有 race）效果文字中心 = 原版 `DescTacticSmall` **0.7595**（实测 "
                 + $"{(m4 ? c4.ToString("F4") : "量不到")}）｜🧨 继续用 `DescTextTactic`（0.7876）⇒ 红");
-            Check(Mathf.Abs(em3 - 0.19f) < 0.005f && Mathf.Abs(em4 - 0.19f) < 0.005f,
-                  "CF-8 战术卡两档效果文字 em = 原版 **0.19**（`DescTextTactic` / `DescTacticSmall` 都是 fs19；"
+            Check(Mathf.Abs(em3 - 0.1235f) < 0.005f && Mathf.Abs(em4 - 0.1235f) < 0.005f,
+                  "CF-8 战术卡两档效果文字 em = **shipped 上界 0.1235**（`DescTextTactic` / `DescTacticSmall` prefab 名义都是 fs19 ⇒ em 0.19，`DescTacticBandMax = 1.235` · `CardView.cs:5573`；"
                 + $"**短文本、不触发回缩** ⇒ 实测 态3 {em3:F4} / 态4 {em4:F4}）"
-                + "｜🧨 沿用单位卡那档 0.2355（大 24%）⇒ 红");
+                + "｜🧨 沿用单位卡那档 0.1560 ⇒ 红");
 
             // ---- ④ 文字底板：战术两态**不画**、单位两态照画（不是一刀切）-----------------------
             bool bgArt = v1.TextBgMeshName != null;      // 前提：底板图取得到（取不到 ⇒ 这一档没验到）

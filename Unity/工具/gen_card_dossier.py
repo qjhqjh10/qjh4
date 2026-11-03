@@ -750,6 +750,16 @@ def code_verbs_cell(cid):
     if c is None:
         return "查不到:ruleprobe 解析基线（%s 张 · %s）里没有这张卡" % (meta.get("n"), meta.get("mtime"))
     if not c:
+        # 13 张 `TRANSFORM_<FACTION>`（变身战术卡）：`desc` 是说明文字「Transform your Warlord
+        # into another Warlord of the same faction, chosen at random.」，文本解析器不产 op
+        # ⇒ 基线里该卡 op 列为空。但运行时 op 由 `RuleCore.TacticOpsOf` **直接构造**一条
+        # `warlordtransform`（`EffectResolver.cs:1096` 已注册该动词，唯一取值口 `:2046`/`:2622`）
+        # ⇒ ⛔ 别把它们当「白板卡」。判据 → `判据/B124_对账_C_工具索引.md` §一·1 / §二·步骤 2。
+        if cid.startswith("TRANSFORM_"):
+            h = verb_handler_map().get("warlordtransform")
+            if h:
+                return "warlordtransform→%s:%d ×1" % (h[0], h[2])
+            return "warlordtransform→查不到（EffectDispatch 里没有这个动词） ×1"
         return "无:desc 解析出 0 个 op（白板卡 / 只有被动 trait）"
     hm = verb_handler_map()
     parts = []
@@ -970,7 +980,11 @@ class Data(object):
     # ---------------------------------------------------------- 判据文档
     def criteria_docs(self):
         """一遍扫 `判据/` 全部文本，按「文件里出现了这个卡的 id 原文」建反查表。
-        ⛔ 不做模糊匹配 —— 只认 id 字面量（大小写敏感、前后不能接字母数字）。"""
+        ⛔ 不做模糊匹配 —— 只认 id 字面量（大小写敏感、前后不能接字母数字）。
+        🆕 2026-11-03（批 B124 · 账 `B123-IDXPOLL` 窄档）：**文件名含「对账」的文档不进本列** ——
+        对账报告只是「顺手提到某个卡 id 的证据」，不是该卡的专项判据；否则每写一份对账报告，
+        `卡牌总索引.tsv` 的 `criteria_docs` 列就跟着变（`--all --check` 永不稳定）。
+        ⚠️ 只排「对账」这一档：`B88_R1_90档_逐卡施工单` / `B117_逐卡核验_*` 这类**真·逐卡判据**必须留着。"""
         if self._crit is not None:
             return self._crit
         tokre = re.compile(r"(?<![0-9A-Za-z_])([A-Z]{2,4}[0-9]{1,3}|[0-9a-f]{32})(?![0-9A-Za-z_])")
@@ -979,6 +993,8 @@ class Data(object):
             for fn in fs:
                 if not (fn.endswith(".md") or fn.endswith(".tsv") or fn.endswith(".txt")):
                     continue
+                if "对账" in fn:
+                    continue          # 窄档：对账报告不当卡牌专项判据（见上）
                 p = os.path.join(dp, fn)
                 if os.path.abspath(p) == os.path.abspath(P_OUT):
                     continue          # ⛔ 自己的产物不进判据索引（否则第一次写盘后自指）
@@ -1685,8 +1701,11 @@ def main(argv):
         cv_hit = sum(1 for r in rows if str(r.get("code_verbs", "")).startswith("有("))
         cv_none = sum(1 for r in rows if str(r.get("code_verbs", "")).startswith("无:"))
         cv_miss = sum(1 for r in rows if str(r.get("code_verbs", "")).startswith("查不到:"))
-        print("  code_verbs 有=%d 无(白板)=%d 查不到(基线无此卡)=%d  基线 mtime=%s"
-              % (cv_hit, cv_none, cv_miss, _PARSE_META.get("mtime", "?")))
+        # `TRANSFORM_<FACTION>` 的 13 张：报 `warlordtransform→…`（既不是「有(」也不是「无:」）
+        # ⇒ 单列一档，⛔ 别让这 13 张在三档合计里静默消失（有+无+查不到 ≠ 卡数）。
+        cv_tf = len(rows) - cv_hit - cv_none - cv_miss
+        print("  code_verbs 有=%d 无(白板)=%d 查不到(基线无此卡)=%d 变身(TRANSFORM_*)=%d  基线 mtime=%s"
+              % (cv_hit, cv_none, cv_miss, cv_tf, _PARSE_META.get("mtime", "?")))
         ab_hit = sum(1 for r in rows if str(r.get("code_abil", "")).startswith("有("))
         print("  code_abil  有=%d（逐 ability → 触发口）" % ab_hit)
         print("  枚举名缺失: %s" % (",".join(D.enum_missing) or "无（5 个原版枚举全部现读成功）"))

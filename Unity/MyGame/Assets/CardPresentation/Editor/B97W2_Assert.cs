@@ -39,7 +39,7 @@
 //   · C 段：`ApplyAbilityBuff` 的 `case 70/85` 去掉 `isSet: true` ⇒ C2/C3 红（会**叠**成 3+5=8）；
 //           改成 `sign` 写反 ⇒ C2 红（实得 `-2`）。
 //   · C 段：`case 95` 的 `SetTo` 写成 `Delta` ⇒ C4 红（`CostMods` 里那条的 `SetTo` 不再是 1）。
-//   · C 段：`case 25` 的 `AddKeyword("ephemeral", 1)` 删掉 ⇒ C1 红。
+//   · C 段：`case 25` 的 `AddKeyword("ephemeral", 1)` 删掉 ⇒ C1 红；同句漏 `silent: true` ⇒ C1 的 `TraitRev` 那条红。
 //   · C 段：`case 6/10/11` 改成「静默 return true」⇒ C6 红（要求它**必须**回 `false` 且出声）。
 using System.Collections.Generic;
 using RuleEngine;
@@ -180,10 +180,22 @@ public static partial class RuleEngineTest
             Check(u != null, true, "前提：`ephemeralCopy` 那个单位上了棋盘");
             if (u == null) return;
             Check(u.Has("ephemeral"), false, "前提：它本来**没有** `ephemeral`");
+            int rev0 = u.TraitRev;   // 🧨 灭自证：`case 25` 漏了 `silent: true` ⇒ 第一次调用就把这里 +1
             bool ok = RuleCore.ApplyAbilityBuff(ctx, 0, u, new CardDatabase.AbilityBuffSpec { BuffType = 25 }, "B97W2:C1");
             Check(ok, true, "`ephemeralCopy(25)` 落地");
             Check(u.Has("ephemeral"), true,
                   "🧨 `ephemeral` 挂上了（原版 `CardScript__AddEffect.c:947` `AddTraitSilently(this, 5)`）；删掉那句 ⇒ 红");
+            // 🧨 灭自证：删掉 `case 25` 的去重闸 ⇒ 第二次调用的 `AddKeyword` 把同键值**累加成 2** ⇒ 下面两句同时红。
+            //    「值 == 1」不可能被别的路径满足：本件这个 `u` 只被本块这两次调用碰过，棋盘上只有它一个单位、
+            //    没有光环/附魔/卡面 `ephemeral`（`Check(u.Has(...), false)` 已先断过），也没有别处调 `case 25`。
+            bool again = RuleCore.ApplyAbilityBuff(ctx, 0, u, new CardDatabase.AbilityBuffSpec { BuffType = 25 }, "B97W2:C1b");
+            Check(again, false,
+                  "🧨 第二次 `ephemeralCopy(25)` 被**去重闸**拒收（原版 `CardScript__AddTraitSilently.c` 的 `Any ⇒ return`）；删掉那道闸 ⇒ 回 `true`");
+            Check(u.KwValue("ephemeral"), 1,
+                  "🧨 `ephemeral` 的值仍是 **1**（⛔ 不是 2）—— 去重是「已有就不加」，与 `AddKeyword` 的同键累加**不同**；删掉那道闸 ⇒ 实得 2");
+            Check(u.TraitRev, rev0,
+                  "🧨 `TraitRev` 两次调用后**仍等于 `rev0`**（不是 `rev0+1`）—— 原版 `AddTraitSilently` 刻意不刷 trait 图标，"
+                + "`silent: true` 正是它的等价位（`UnitState.AddKeyword` 头注 / 账 `D118-80`）；漏掉 `silent` ⇒ 第一次调用就实得 `rev0+1`");
         }
     }
 

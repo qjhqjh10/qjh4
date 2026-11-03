@@ -8197,7 +8197,7 @@ namespace CardPresentation
                     + "（原版 `playingTargetedSpell` 那一支 `Update.c:626-684`；"
                     + "⚠️ 原版这一支**同样点亮**合法目标 —— `StartSpellFrom.c:30-45` 那一份内联）"
                     + "；点空白/点非法目标 = 取消（这张牌留在手里，并给 `DragToTarget` 提示）");
-            if (unitCard) ShowPlayTargetPrompt(def, card); return true;
+            if (unitCard) ShowPlayTargetPrompt(def, card); UnityEngine.Debug.Log("[Battle] 进入等点目标态：卡「" + CardText.Name(def) + "」· 玩家 " + _me + " · 还差一次目标点选（点空白/点非法目标 = 取消，这张牌留在手里）"); return true;
         }
 
         /// <summary>非单位卡的「目标规格」是哪一侧（`"enemy"` / `"own"` / `"any"`；**`""` = 这张卡根本不需要目标**）。
@@ -21576,7 +21576,7 @@ namespace CardPresentation
                 //   ⚠️ `EvtKind.Return` 语义含「回牌库」（原版同一条动画、`PlayBackToHandAnimation`）⇒ 两条都照播；🔴 2026-10-31（`B105_W2`）订正：
                 //   `disappearFromHand(56)` 那一支⛔ 不响这条 —— 原版走 `_ResolveDisappearFromHand:96-130` 的 `DissolveCardInHand`（判据：`assets_full/…/SoundAssetCollection.json` 的 `dissolveCardInHand` = `m_AssetGUID ""` ⇒ **原版自己也静音**，铁律 11 例外①，⛔ 不拿别的 clip 顶上）。
                 case EvtKind.Return:
-                    if (e.Effect == "disappearFromHand") { /* 原版这一格是空 AssetReference ⇒ 静音（铁律 11 例外①）；⛔ 不调 `BattleSfx.Play`，否则 cue 表会白出一条「查不到」警告 */ } else if (e.Effect == BattleEventEffect.ReshuffleToDeck) { /* 🆕 2026-11-03（`B121-E04B`）：**墓地洗回牌库**那一趟四段方法体（`UndissolveToDeck`/`ShowBoardObjects`/`SetObjectVisibility`/`MoveToDeck`）里**没有** `BackToHand` 那条 cue；唯一的音是 `CreateCardInGame` 里一条**有条件**的 `Play2D`（`_d__250:78-81`，cue 名本地没解出）⇒ 这里**静音**，⛔ 不拿 `BackToHand` 顶上（那是回手/回牌库倒放那条链的音） */ } else BattleSfx.Play(BattleSfx.BackToHand);
+                    if (e.Effect == "disappearFromHand") { /* 原版这一格是空 AssetReference ⇒ 静音（铁律 11 例外①）；⛔ 不调 `BattleSfx.Play`，否则 cue 表会白出一条「查不到」警告 */ } else if (e.Effect == BattleEventEffect.ReshuffleToDeck) { BattleSfx.Play(BattleSfx.CreateCardInHand); /* 🔴 2026-11-03（B124-W15 · 账 B121-E04B-04）：判据反证 —— 那条 `Play2D` 的 cue = `BattleCardSounds.createCardInHand`（`dump.cs:25915 @0x50` · `:35425 @0x1D0` ⇒ `.c:78-81` 的 `*(CardScript+0x1d0)+0x50`）；资产 `Create Card In Hand`（3×`CardMove_*.wav`），我们 `battle_sounds.json` 早有、`BattleSfx.cs:91` 在用（`EvtKind.Draw` 那支）；原版 `.c:78` 的两个条件只是「对象/集合非空」，不是语义闸 ⇒ 无条件播。⛔ 别拿 `BackToHand` 顶上。 */ } else BattleSfx.Play(BattleSfx.BackToHand);
                     break;
 
                 // 主动技能：**只有这张卡没有专用演出时**才响「默认技能音」。
@@ -25666,7 +25666,7 @@ namespace CardPresentation
         /// ✅ **2026-09-29 做完了**：实现 = `CardFeel.ReturnToHand`（**同一条时间轴用代码喂值** ——
         ///    我们这套 2D 卡没有 `Animation` 组件、更没有那条 clip）。逐帧判据（含反向四个时刻与
         ///    `DOMove(up × localScale.x × 3.0, 0.208 s, 线性)`）都写在那个方法的注释里，本文件不抄第二份。
-        /// ⚠️ **回牌库也走这条倒放**（原版两个调用者：`ResolveRecallToHand` / `ResolveRecallToDeck`）。
+        /// ⚠️ **回牌库只是先走这条倒放，后面还有第二段**（🔴 2026-11-03 `B124_W31b` 就地订正：原句写「原版两个调用者」，**不成立** —— `BattleCardUI.PlayBackToHandAnimation` 全树**唯一调用者** = `CardScript._TransformUnitInPlayToCard_d__256__MoveNext.c:52`；被两条 Recall 共用的是 `TransformUnitInPlayToCard`（`_ResolveRecallToHand_d__542__MoveNext.c:273` / `_ResolveRecallToDeck_d__543__MoveNext.c:126`，另有 `_ResolvePlayCardFromHand_d__447:958`）。倒放之后**回牌库那一支**继续 `CardScript.UndissolveToDeck`（`:182/:319`）→ 换父到 `BattleManager.GetDeckManager(owner)` → `CardScript.MoveToDeck(card,1,0)`（`:352`，返回值 0.4 s）⇒ 我们的第二段 = `CardFeel.ReturnToDeck`，见 `ReturnFeelArrived`）。
         /// </summary>
         void PlayReturnFeel(BattleEvent e)
         {
@@ -25685,11 +25685,11 @@ namespace CardPresentation
             //   原来这里是「当场摘掉」。⚠️ 与阵亡同一条道理：**必须先从字典里摘掉**，否则 `SyncBoard`
             //   发现引擎里那一格空了，当场就把它 `Kill` 了，动画一帧都看不见。
             //   摘掉之后它成了孤儿 ⇒ 挂进 `_returning`，重开一局时由 `Begin` 那一段统一清掉。
-            //   ⚠️ **回牌库也走同一条倒放**（原版两个调用者：`ResolveRecallToHand` 与 `ResolveRecallToDeck`）。
+            //   ⚠️ **回牌库的第一段也是这条倒放**（🔴 2026-11-03 `B124_W31b` 订正：倒放的唯一调用者是 `_TransformUnitInPlayToCard`，两条 Recall 都经它；但回牌库在它**之后**还要接 `UndissolveToDeck + MoveToDeck` ⇒ 本方法的 `onDone` 走 `ReturnFeelArrived` 按目的地决定接不接第二段）。
             if (animateFeel)
             {
                 _returning.Add(v);
-                var tw = CardFeel.ReturnToHand(v, 0f, () => { _returning.Remove(v); Kill(v.gameObject); });
+                var tw = CardFeel.ReturnToHand(v, 0f, () => ReturnFeelArrived(v, e));   // 🆕 2026-11-03（`B124_W31b` · 账 `B121-E04B-01`）：收尾按**目的地**分两支 —— 回手 = 原样销毁；回牌库 = 再演第二段（`UndissolveToDeck + MoveToDeck` 的等价物 = `CardFeel.ReturnToDeck`）。判别式只此一处 = `EventTiming.ReturnDestOf`（引擎先搬实例再发事件，按 `InstanceId` 反查 Hand/Deck；⛔ 别在这里另写一份反查）
                 if (tw != null) return;
                 _returning.Remove(v);       // 没补间（DOTween 不可用）⇒ 落到下面直接销毁
             }
@@ -25837,8 +25837,8 @@ namespace CardPresentation
             //   两者在屏幕上同点，所以这一跳看不见（同 `DoPlay` 那次交接的判据）。
             Vector3 aboveLocal = layout.DropTargetWorldAtHeight(slot, layout.MinionConversionHeight);
             Vector3 landLocal = layout.DropTargetWorld(slot);
-            Vector3 aboveWorld = boardRoot != null ? boardRoot.TransformPoint(aboveLocal) : aboveLocal;
-            Vector3 landWorld = boardRoot != null ? boardRoot.TransformPoint(landLocal) : landLocal;
+            Vector3 aboveWorld = aboveLocal;   // 🔴 2026-11-03（B124-W13）：DropTargetWorldAtHeight 返回值**已是世界点**（BoardLayout.cs:621-634 与 DropTargetWorld 同空间，W9 已去 InverseTransformPoint）⇒ ⛔ 不再 boardRoot.TransformPoint
+            Vector3 landWorld = landLocal;     // 🔴 同上（BoardLayout.cs:547-557）：返回值已是世界点，⛔ 不再变换
             // 飞行段的缩放 = **玩家那条的同一个值**（`BoardLayout.placedScale × LayoutSpace.Scale`）
             float flyEndScale = layout.placedScale * LayoutSpace.Scale;
 
@@ -41777,7 +41777,7 @@ namespace CardPresentation
         /// <para>三条闸：`Kind == Return` · `Slot &lt; 0`（**不在棋盘上** —— 棋盘上的回手/回牌库归
         /// `PlayReturnFeel`）· `Effect == BattleEventEffect.ReshuffleToDeck`。</para>
         /// <para>⚠️ 另外两档 `Slot &lt; 0` 的 `Return` **不是**它：`disappearFromHand`（手牌溶解，`B105_W2`）与
-        /// 「墓地取回」（`EffectResolver` 那条**不带** `Effect`）—— 本函数对两者都回 `Valid = false`。</para></summary>
+        /// 「墓地取回」的 `Dest == "hand"` 档（`EffectResolver.ReturnFromCemetery` **不带** `Effect`；🔴 2026-11-03 `B124-W15` 起 `Dest == "deck"` 档带 `Effect = BattleEventEffect.ReshuffleToDeck` ⇒ **归本函数**）—— 本函数对这两档都回 `Valid = false`。</para></summary>
         public static ReshuffleToDeckPlan ReshuffleToDeckPlanOf(BattleEvent e, int me)
         {
             var plan = default(ReshuffleToDeckPlan);
@@ -41839,8 +41839,8 @@ namespace CardPresentation
             _reshuffleStarted++;
             // 终点缩放：牌堆**实测**世界高 ÷ 卡体世界高（同 `FoeCardWorldH` 那条换算：`CardView.Height × 分辨率窄屏补偿`）。
             // 原版收尾照抄 `DeckReferenceObject` 的 localScale；我们那颗参考件不存在 —— `CardFeel.ReturnToDeck` 的形参 doc 已记。
-            float cardWorldH = CardView.Height * LayoutSpace.Scale;
-            float? targetScale = (pile.WorldH > 0f && cardWorldH > 0f) ? (float?)(pile.WorldH / cardWorldH) : null;
+            float? targetScale = DeckTargetScaleOf(pile.WorldH);   // 🔴 2026-11-03（`B124_W31b`）：算式收口到 `DeckTargetScaleOf`（本方法与 `ReturnFeelArrived` 共用一份）
+            // 实现 = 牌堆**实测**世界高 ÷ 卡体世界高（`CardView.Height × LayoutSpace.Scale`，同 `FoeCardWorldH` 那条换算）；原版收尾照抄 `DeckReferenceObject.localScale`，我们那颗参考件不存在（`CardFeel.ReturnToDeck` 的形参 doc 已记）
             // ④ `MoveToDeck` 那条链的等价实现 = `CardFeel.ReturnToDeck`（三条同长补间 + 收尾 `SetInDeckPosition`）
             var tw = CardFeel.ReturnToDeck(v, pile.transform, plan.Seconds, isPlayer: plan.IsLocal,
                                            cardBack: DeckCardBackOf(plan.Player), targetScale: targetScale,
@@ -41984,6 +41984,73 @@ namespace CardPresentation
             var clip = VoiceLines.Clip(file);            // 取不到 ⇒ 它自己已经报过警告
             if (clip == null) return;
             PlayUnitVoiceClipOnly(clip, card, VoiceLines.ExactDeploy);
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-03（执行写手 `B124_W31b` · 活状态表 `B121-E04B-01`）
+        //  **回手 / 回牌库那条倒放的收尾** —— 回牌库是**两段**，不是一段。
+        //  判据（一手，2026-11-03 亲读）：
+        //    · `_ResolveRecallToDeck_d__543__MoveNext.c:126` state 0 起 `CardScript.TransformUnitInPlayToCard`
+        //      （它内部唯一一处 `BattleCardUI.PlayBackToHandAnimation`，`_d__256__MoveNext.c:52`）= 我们的第一段；
+        //    · `:182/:319` state 1 `CardScript.UndissolveToDeck`（`SetCardImage(null)` → 瞬回 α=1 → 设回牌库态）；
+        //      `:352` state 2 `CardScript.MoveToDeck(card,1,0)` —— 返回值 = `VarsGlobal+0x78` 0.1 ＋ `DAT_1834b2dc8` 0.3
+        //      = **0.4 s**（与 `EventTiming.MoveToDeckTotal` 同一个数）。`MoveToDeck` 的等价实现 = `CardFeel.ReturnToDeck`
+        //      （三条同长补间 + `SetInDeckPosition` + 关掉那张卡）—— 与墓地洗回那一趟（`PlayReshuffleToDeckFeel`）
+        //      **同一条链**，⛔ 别新造第二套。
+        //  目的地判别式**只此一处**：`EventTiming.ReturnDestOf`（`HookEventTimingCardSource` 里挂的；引擎是
+        //  **先**把实例搬进 `Hand`/`Deck` **再**发事件 ⇒ 按 `InstanceId` 反查；`1` = 牌库 / 牌库顶）。
+        //  为什么回手那一支不动：`_ResolveRecallToHand_d__542__MoveNext.c:55-60` 的收尾是
+        //  `PlayerHand.AddCardNotDrawnToHand`（手牌那套自己重建），没有 `MoveToDeck`。
+        //  ⚠️ 一律追加在**类尾**（铁律 18·b）：本文件在账里有大量 `文件:行号` 落点（现读 800+ 处）。
+        // ==================================================================
+
+        /// <summary>牌堆那张图的**实测**世界高 ÷ 卡体世界高 = 回牌堆补间的终点缩放。
+        /// <para>原版 `SetInDeckPosition()` 照抄 `DeckManager.DeckReferenceObject`（一张**带位姿的参考卡**）的
+        /// `localScale`；我们这一侧 `deckRef` 常常是牌堆那张 uGUI 图（`HudPiece.SetWorldHeight` 改的是 `sizeDelta`
+        /// ⇒ 它的 `localScale` 恒 1）⇒ 用「牌堆世界高 ÷ 卡体世界高」这个**实测量**的比值。⛔ 别自己编一个数。</para>
+        /// <para>⚠️ 算式**只此一处**（`PlayReshuffleToDeckFeel` 与 `ReturnFeelArrived` 共用）。牌堆高读不到 ⇒ `null`
+        /// （`CardFeel.ReturnToDeck` 退回 `deckRef.localScale`）。</para></summary>
+        static float? DeckTargetScaleOf(float pileWorldH)
+        {
+            float cardWorldH = CardView.Height * LayoutSpace.Scale;
+            return (pileWorldH > 0f && cardWorldH > 0f) ? (float?)(pileWorldH / cardWorldH) : null;
+        }
+
+        /// <summary>「回牌库第二段缺牌堆件」只喊一次（⛔ 不静默）。</summary>
+        static bool _warnedRecallToDeckNoPile;
+
+        /// <summary>`PlayReturnFeel` 那条倒放演完之后的收尾（由 `CardFeel.ReturnToHand` 的 `onDone` 调）。
+        /// <para>**回手**（`ReturnDestOf != 1`，含判不出的那三档）⇒ 原样收口（与改前逐字一致）；
+        /// **回牌库 / 牌库顶**（`1`）⇒ 接第二段 `UndissolveToDeck + MoveToDeck` 的等价物 `CardFeel.ReturnToDeck`。
+        /// 逐段判据见 `PlayReturnFeel` 上面那一段，⛔ 本处不抄第二份。</para></summary>
+        void ReturnFeelArrived(CardView v, BattleEvent e)
+        {
+            if (v == null) return;   // 视图已被换局清掉 ⇒ `Begin` 那一段会统一收 `_returning`
+            int dest = (e != null && EventTiming.ReturnDestOf != null) ? EventTiming.ReturnDestOf(e) : -1;
+            var pile = (e == null || e.Player < 0) ? null : (e.Player == _me ? _myPile : _foePile);
+            if (dest == 1 && pile != null && pile.transform != null)
+            {
+                // 原版第二段是在「牌面已清空、那张卡切回牌库态」的对象上飞的；我们这张视图此刻仍标着
+                // `CardFace.Board`（倒放只是把 2D 组淡回来）⇒ 先切到手牌形态：① 视觉本来就是手牌那一套；
+                // ② `CardFeel.ReturnToHand` 的 `OnKill` 有 `if (Face == Board) SetFaceGroupVisible(false)`，
+                //    不切的话它会在第二段起播**之后**（同一个完成回调里）把整组 2D 面关掉 ⇒ 飞回去的是一个空壳。
+                v.SetFace(CardFace.Hand);
+                // ⚠️ 时长取 `EventTiming.MoveToDeckTotal`（0.4 = 移动 0.3 + 尾段 0.1）：我们的等价物是三条**并行**
+                //    同长补间、没有原版那 0.3 的 `SetDelay` ⇒ 让它在整段 0.4 内走完，收尾时刻与原版返回值对齐。
+                var tw = CardFeel.ReturnToDeck(v, pile.transform, EventTiming.MoveToDeckTotal,
+                                               isPlayer: e.Player == _me, cardBack: DeckCardBackOf(e.Player),
+                                               targetScale: DeckTargetScaleOf(pile.WorldH),
+                                               onDone: () => { _returning.Remove(v); Kill(v.gameObject); });
+                if (tw != null) return;
+                // 拿不到参考件 / 卡已经关了 ⇒ `CardFeel.ReturnToDeck` 自己已经出过声 ⇒ 落到下面销毁（⛔ 不静默）
+            }
+            else if (dest == 1 && !_warnedRecallToDeckNoPile)
+            {
+                _warnedRecallToDeckNoPile = true;
+                Debug.LogWarning("[Battle] 回牌库：**牌堆件不在**（`_myPile`/`_foePile`）⇒ 只演倒放那一半、不接「飞回牌堆」"
+                               + "（原版 `MoveToDeck` 的落点 = `DeckManager.DeckReferenceObject`）");
+            }
+            _returning.Remove(v); Kill(v.gameObject);
         }
 
     }

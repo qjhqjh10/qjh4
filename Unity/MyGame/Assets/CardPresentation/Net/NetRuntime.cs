@@ -480,6 +480,19 @@ namespace CardPresentation
         /// <summary>自检读口：掉线那扇窗（没有窗口系统时恒 null）。⛔ 生产别读。</summary>
         public static PopUpGameWindow ReconnectPopupForTest { get { return _reconnectPopup; } }
 
+        /// <summary>🆕 2026-11-03（`B124_W30`）：自检读口 —— 掉线窗**开过几次** + **最近一次的正文**。
+        /// 🔴 记在 `WindowsManager` 判空**之前**（同 <see cref="SyncErrorPopupsShownForTest"/> 的口径）：
+        /// 批处理 / 自检**没有窗口系统**，<see cref="ShowReconnectPopup"/> 会直接 return ⇒
+        /// 不在这里记的话「玩家看不看得见掉线提示」这一格在自检里**永远读成 0**
+        /// （`NetBattleTest` §9 就是这么红的：2026-11-02 `B118-W6` 把掉线窗从 `Notice` 队列
+        ///  改走 `ShowReconnectPopup` 之后，`DrainNoticesForTest()` 就再也看不到它了）。
+        /// ⛔ 只给自检读；生产别读。</summary>
+        public static int ReconnectPopupsShownForTest { get; private set; }
+        public static string LastReconnectPopupTextForTest { get; private set; }
+
+        /// <summary>自检用：把上面两个读数归零（几个用例之间互相串数会看错，同 <see cref="ResetSyncErrorPopupCountForTest"/>）。</summary>
+        public static void ResetReconnectPopupForTest() { ReconnectPopupsShownForTest = 0; LastReconnectPopupTextForTest = null; }
+
         /// <summary>**开窗那一刻** —— 弹出掉线窗（= 原版 `ShowDisconnectionPopUp`，**零颗钮、`closeOnEsc = 0`**）。
         /// <para>⚠️ 与 <see cref="Notice"/> 分开（那条是**全部**联机通知共用的，别处要那颗 OK 钮）。
         /// ⛔ 别在这里用 `Notice` 的队列语义 —— 那是「新弹一条」，掉线只该有一扇窗。</para>
@@ -487,6 +500,8 @@ namespace CardPresentation
         public static void ShowReconnectPopup(string text)
         {
             if (string.IsNullOrEmpty(text)) return;
+            ReconnectPopupsShownForTest++;          // 🆕 2026-11-03（`B124_W30`）：自检读口 —— 记在无窗口那支**之前**
+            LastReconnectPopupTextForTest = text;
             var wm = WindowsManager.Instance;
             if (wm == null)
             {

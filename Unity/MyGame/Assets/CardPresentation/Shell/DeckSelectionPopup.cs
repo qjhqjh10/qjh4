@@ -79,7 +79,7 @@
 //     ShowPrebuiltDecks(true)` 传 3，三个切页入口也都传 3 ⇒ 玩家点得到行那一刻就是 3。
 //     信息窗在 state 3 ⇒ 只露 `Select Deck` + `Switch Deck Info`（其余 7 颗按判据藏）。
 //   · **预组卡组也能开**：原版两边都是 `CardDeck`；我们给那扇窗现造一个只读 `PlayerDeck`（`PrebuiltPlayerDeck`）。
-//   · **队列**：信息窗必须画在本窗（3125–3129）**之上** ⇒ 它那一支用 `DeckInfoPopup.QDIOver`(3130)，
+//   · **队列**：信息窗必须画在本窗（3122–3127）**之上** ⇒ 它那一支用 `DeckInfoPopup.QDIOver`(3130)，
 //     默认档 `QDI`(3120) 会给本窗整块盖死（判据与撞档说明 → `DeckInfoPopup.QDIOver` 那段）。
 //   · `Random` 那颗**仍然直接选中 + 关窗**（原版 `DeckSelectionTabController__RandomizeDeck.c` 两步与 `Select` 逐句相同）。
 //
@@ -132,23 +132,23 @@ namespace CardPresentation
         //   `QDs` 3 处（`Editor/MainMenuScene.cs` 的「弹窗压住整条顶栏」比较 · `CheckAbsorbRule` 的档参）、
         //   `QDsHit` 2 处（`CheckShadeRule` · `CheckAbsorbRule`）；`QDsRow`/`QDsText` **外部引用 = 0** ⇒ 回 `const`。
         //   ⚠️ 另核过：同文件里的另一个类 `DeckPick` 不用它们；`class X : DeckSelectionPopup` 全 0。
-        public const int QDs = 3125;        // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（3 处）
+        public const int QDs = 3123;        // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（3 处）
         /// <summary>🔴 **2026-10-18（底纹红黑根因，`R_底纹红黑_根因.md` §五·2）：压暗层单独一档，压到 `QDs` 之下。**
-        /// <para>改前：压暗层（视觉 + 命中区）与红底板 `UI_Deck_Information_Back` **同为 `QDs`(3125) 且 z 都是 0**
+        /// <para>改前：压暗层（视觉 + 命中区）与红底板 `UI_Deck_Information_Back` **同为 `QDs`(3123) 且 z 都是 0**
         /// ⇒ Unity 同队列按「到相机距离」排序 ⇒ **谁压谁不确定**（子件大小不同 ⇒ 距离不同 ⇒ 可能整块压暗层盖住红底
         /// = 画面上「该红的地方发黑」）。</para>
         /// <para>⚠️ **只下沉压暗层**（它本来就该在整窗最底），内容四档（`QDsHi`–`QDsHit`）一个都不动 ——
         /// 不动 `QDs` 本身是因为 `Editor/MainMenuScene.cs` 有 3 处按 `QDs` 比较「弹窗压顶栏」。</para>
-        /// <para>⚠️ 3124 与 `Shell/BaseEventPopup.cs` 的 `QShade` 撞号 —— **两窗不同屏**（仓内已有同类撞号注释的先例）。</para></summary>
-        const int QDsShade = QDs - 1;       // 3124 压暗层（视觉 + ShadeHit）
+        /// <para>⚠️ 3122 与 `CampaignRewardWindow.QTitleText`(3122)、3124 与 `Shell/BaseEventPopup.cs` 的 `QShade`(3124) 撞号 —— **两窗不同屏**（仓内已有同类撞号注释的先例）。🔴 **2026-11-03（`B124_W36` · `B121-COLL-12`）整条梯子再下移 2 档**：原 `QDs` 3125 ⇒ 本窗内容占 3124–3129，而 `MenuDraw.DeckCell` 的 Ban 档 = `qOverlay + 1` = **3130** 与 `DeckInfoPopup.QDIOver`(3130) / `ImportDeckPopup.QImp`(3130) 同号，且 3130–3156 无空档 ⇒ 本窗整梯 −2（压暗 3124→3122 · `QDs` 3125→3123 · 金环 3126→3124 · 行 3127→3125 · 字 3128→3126 · 命中 3129→3127），Ban 落 **3128**、`Banned Text` **3129**，仍严格低于 3130 ⇒ 不与两扇信息窗撞号。⛔ 别再单降 Ban 一档（它必须高于本格全部内容层 = 3127）。</para></summary>
+        const int QDsShade = QDs - 1;       // 3122 压暗层（视觉 + ShadeHit）
         // 🔴 **2026-10-17（A1529①）**：新开 `QDsHi` = 卡组格选中金环那一档 —— 原版 `Highlight` 是
         //    `Deck` 的 child[0]（**最底**，`menu_dump --rt -1941218197625697718 --depth 3` 实读）
-        //    ⇒ 必须**高于压暗层 `QDs`、低于卡组行 `QDsRow`**。原来行/字/命中三档顺延 +1（3127/3128/3129），
+        //    ⇒ 必须**高于压暗层 `QDs`、低于卡组行 `QDsRow`**。原来行/字/命中三档顺延 +1（3125/3126/3127），
         //    彼此相对关系一个字没动（`QDsRow`/`QDsText` 外部引用 = 0；`QDsHit` 仍 `public`、引用处都走常量）。
-        const int QDsHi = 3126;             // 3126 卡组格的选中金环（原版 `Highlight`，最底层）
-        const int QDsRow = 3127;            // 3127 卡组行
-        const int QDsText = 3128;           // 3128 行上的字
-        public const int QDsHit = 3129;     // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（2 处）
+        const int QDsHi = 3124;             // 3124 卡组格的选中金环（原版 `Highlight`，最底层）
+        const int QDsRow = 3125;            // 3125 卡组行
+        const int QDsText = 3126;           // 3126 行上的字
+        public const int QDsHit = 3127;     // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（2 处）
 
         // ---- 几何（A1 §3 逐条；2026-09-24 从根节点复核过，见文件头）----
         public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
@@ -487,15 +487,15 @@ namespace CardPresentation
             _emptyNode = null; _emptyLabel = null;      // 旧的那件随子件一起没了 ⇒ 引用也要清（同 `CardDetailPopup.Build`）
 
             // 1) 压暗 + 点背景关窗（原版 `backgroundCloseButton`）
-            //    🔴 **2026-10-18**：视觉与命中区都走新档 `QDsShade`(3124) —— 它必须**严格低于红底板那一档 `QDs`**，
+            //    🔴 **2026-10-18**：视觉与命中区都走新档 `QDsShade`(3122 —— 🔴 2026-11-03 整梯 −2 后的现读；A1149 当时是 3124) —— 它必须**严格低于红底板那一档 `QDs`**，
             //    否则同队列同 z 时压暗层会盖住红底（判据 → `资料/普查产出_1018/R_底纹红黑_根因.md` §五·2）。
             var shade = MenuDraw.Rect(root, CardArt.Solid(), ShadeRect, "Menu Dark Background", QDsShade, ShadeColor);
             if (shade == null)
                 MenuDraw.Rect(root, CardArt.Solid(), new PxRect(0f, 0f, 1920f, 1080f), "Menu Dark Background", QDsShade, ShadeColor);
-            // 🔴 **2026-10-04（A47 接线批）订正档号：`QDsHit − 1`(3127) → `QDs`(3125)** ——
+            // 🔴 **2026-10-04（A47 接线批）订正档号：`QDsHit − 1`(3127) → `QDs`(3125)** ——（A47 当时的号；🔴 **2026-11-03 整梯 −2 后的现读：`QDsHit` = 3127 · `QDs` = 3123**，实际落点在下面 2026-10-18 那条 `QDsShade`）
             //   规矩 = 「压暗层的命中区落在**压暗层自己那一档**，且严格低于本窗任何内容命中区档」
             //   （判据 → `MenuDraw.ShadeHit` 的注释 · `资料/待办判据_阶段二与联机.md` §A25·补（一））。
-            //   ⚠️ 3127 恰好是 `QDsText`（文字那一档）。
+            //   ⚠️ **A47 当时** 3127 恰好是 `QDsText`（文字那一档）；🔴 现读 `QDsText` = 3126、3127 = `QDsHit`（整梯 2026-11-03 又 −2）。
             //   🔴 **2026-10-18**：再下沉到 `QDsShade` —— 与上面视觉层同一档（「命中区跟着自己那层走」）。
             MenuDraw.ShadeHit(root, ShadeRect, QDsShade, QDsHit, () => Close(), "BackgroundHit");
 
@@ -964,7 +964,7 @@ namespace CardPresentation
                 Cells.Add(MenuDraw.DeckCell(this, parent, cellName, r, pick.Info, sel,
                                             // 🆕 **2026-10-17（A1529①）**：`qBelow` = 选中金环那一档 ——
                                             //   原版 `Highlight` 是 `Deck` 的 child[0]（最底），必须落在 `QDsRow` **之下**、
-                                            //   压暗层 `QDs` **之上** ⇒ `QDsHi`（3126）。⛔ 别改回「行那一档」或更高。
+                                            //   压暗层 `QDs` **之上** ⇒ `QDsHi`（3124；🔴 2026-11-03 整梯 −2 后的现读，原 3126）。⛔ 别改回「行那一档」或更高。
                                             QDsRow, QDsHi, QDsText, QDsText + 1, QDsHit,
                                             // 🆕 **2026-10-17（T24）**：原来是 `() => Pick(pick)`（直接选中 + 关窗）——
                                             //   **与原文相反**。原版点一行 = `DeckSelectionPopup.UpdateInfo` = **开信息窗**

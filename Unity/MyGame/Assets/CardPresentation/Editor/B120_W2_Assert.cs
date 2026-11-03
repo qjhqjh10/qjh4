@@ -244,8 +244,10 @@ public static class B120_W2_Assert
         int i = src.IndexOf("_endPanel.Show(", StringComparison.Ordinal);
         Check(i >= 0, "（前提）找得到 `_endPanel.Show(` 那个调用点");
         if (i < 0) return;
-        int len = Math.Min(700, src.Length - i);
-        string slice = src.Substring(i, len);
+        // 🔴 2026-11-03（`B124-W28`）：原来这里切的是**固定 700 字**窗口 —— 本轮就地改判：
+        //    `-1` 那行的判据说明一长（250 字），`skipSequence:` 就被挤出了 700 字窗口 ⇒ 前提假红
+        //    （切到的根本不是同一个调用）。改成「截到**配对的 `)`**」，与注释长短无关。
+        string slice = CallSlice(src, i);
         Check(slice.Contains("int.MaxValue ? -1 :"),
               "★ B5 「最低生命未知」时传 **-1**（= `EndPanel.Show` 的「只说回合数、不编数」语义，`EndPanel.cs:658-660`）"
             + "｜🧨 改回 `? 30 :` ⇒ 本行红");
@@ -426,6 +428,28 @@ public static class B120_W2_Assert
             var u = board[i];
             if (u != null && u.Ability != null) { cand = u; slot = i; break; }
         }
+        // 🔴 2026-11-03（`B124-W28`）：`Run()` 开头那句 `Begin(...)` 起手**棋盘是空的** ⇒ 上面那一圈
+        //    永远找不到（这条前提一直假红，W26 换 C1 夹具后暴露）。这里按本仓通行的**白盒摆盘**补一个
+        //    带主动能力的单位（夹具同 `B110_C09_Assert.B110C09Power`；正文走 `keywords` 那一路）。
+        //    ⚠️ 摆完**收尾要清掉** —— 后面几节不许继承这格棋。
+        CardDef fixture = null;
+        if (cand == null)
+        {
+            fixture = new CardDef("B120W2AbilityFixture", "B120W2AbilityFixture", "unit", "", "common",
+                                  "Ultramarines", 0, 0, 0, 0, new[] { "Ability: Damage 4 EnemyUnit" },
+                                  subtype: "Infantry", hasActiveAbility: 1);
+            fixture.AttachActiveAbilityCost(2, 0, 0, 0);
+            Check(fixture.Ability != null, "（前提）夹具卡的 `Ability` 解析出来了（`Ability: Damage 4 EnemyUnit`）");
+            for (int i = 0; i < board.Length; i++)
+                if (BoardSpec.IsDeployable(i) && board[i] == null) { slot = i; break; }
+            if (fixture.Ability != null && slot >= 0)
+            {
+                cand = new UnitState(driver.Ctx.NewInstance(fixture), false);
+                cand.DeployedTurn = driver.Ctx.Turn;
+                cand.PlayOrder = driver.Ctx.TakePlayOrder();
+                board[slot] = cand;
+            }
+        }
         Check(cand != null, "（前提）我方棋盘上有**带主动能力**的单位（没有就验不出这一格）");
         if (cand == null) return;
 
@@ -445,6 +469,7 @@ public static class B120_W2_Assert
         finally
         {
             if (driver.skillPanel != null) driver.skillPanel.Hide();
+            if (fixture != null && slot >= 0 && board[slot] == cand) board[slot] = null;   // 收尾清掉夹具（别留给后面几节）
         }
     }
 
@@ -500,6 +525,30 @@ public static class B120_W2_Assert
     // ==================================================================
     //  工具
     // ==================================================================
+    /// <summary>从 `at`（指向调用名）截到**配对的那个 `)` 之后**。
+    /// <para>为什么不用固定字数窗口：2026-11-03（`B124-W28`）实测 `_endPanel.Show(` 与本行之间隔了 250 字注释，
+    /// 700 字窗口切不到 `skipSequence:` ⇒ 断言变成假红（切到的是半截）。括号配对与注释长短无关。</para></summary>
+    static string CallSlice(string src, int at, int maxLen = 4000)
+    {
+        int open = src.IndexOf('(', at);
+        if (open < 0) return "";
+        int end = Math.Min(src.Length, open + maxLen);
+        int depth = 0;
+        for (int i = open; i < end; i++)
+        {
+            char c = src[i];
+            if (c == '"')                        // 跳过字符串字面量（里面的括号不算）
+            {
+                i++;
+                while (i < end && src[i] != '"') { if (src[i] == '\\') i++; i++; }
+                continue;
+            }
+            if (c == '(') depth++;
+            else if (c == ')') { depth--; if (depth == 0) return src.Substring(at, i - at + 1); }
+        }
+        return src.Substring(at, end - at);
+    }
+
     static string ReadAsset(string assetRelativePath)
     {
         try

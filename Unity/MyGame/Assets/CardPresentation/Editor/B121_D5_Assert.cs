@@ -96,7 +96,7 @@ public static class B121_D5_Assert
             else
             {
                 var crit = Criteria(10);
-                crit.FriendlyUnits = 1; crit.IncludeMinions = 1; crit.EnemyUnits = 0;
+                crit.FriendlyUnits = 1; crit.IncludeMinions = 1; crit.EnemyUnits = 0; crit.IncludeSelf = 1;   // 🔴 2026-11-03（B124-W7 · δ）：`Criteria()` 的 `IncludeSelf` 恒 0，而本夹具**我方只有载体一个单位** ⇒ 候选被 `TargetCriteriaEval.cs:252` 剔成空集 ⇒ 执行器没走到登记那一句（实得 0）。判据 = 原版 `FilterMethods__CheckIfMeetsCriteria.c:232-238`
                 var tpl = Template("B121D5TplCodex410", Trig, ca: 410, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
                 var e = Attach(ctx, carrier, tpl);
                 int gapBefore = RuleCore.EnchantRowsDataGapForTest;
@@ -217,8 +217,8 @@ public static class B121_D5_Assert
                           "E2 ★★★ **灭自证**：**只有一个**目标掉血（原版 `GetItem(targets, 0)` 只打第一个）"
                         + $"｜实际 载体掉血={carrierHit} 第二个掉血={secondHit}"
                         + "｜🧨 改成逐目标打 ⇒ 两个都掉 ⇒ 红");
-                Check(opp.AttacksThisTurn, 0,
-                      "E3 ★★ **反证**：`ca 236` **不碰行动额度**（原版 `AddRedirectedAttack` 里 `RemoveAttackThisTurn` 0 命中）");
+                Check(opp.AttacksThisTurn, 1,
+                      "E3 ★★ **反证**：`ca 236` **消耗 1 次行动额度**（原版 `AddRedirectedAttack` 只是**不预扣不退还**；`+0x48 += 1` 在结算期的攻击动画里 —— 近战 `CardScript._AttackMeleeAnim_d__357__MoveNext.c:116` 无条件 +1、远程 `CardScript._ResolveAttackRangedAnim_d__360__MoveNext.c:69` 在 `isAttacker=1` 时 +1；`AllowResolveAttack.c:134` 对 0x4a 早退只是**跳过可用性闸**、不是不扣额度）｜🧨 改成「不计数」⇒ 本行红");
             }
 
             var ctx2 = MakeBattle(out var carrier2, out var opp2);
@@ -226,7 +226,7 @@ public static class B121_D5_Assert
             else
             {
                 var crit = Criteria(10);
-                crit.FriendlyUnits = 1; crit.IncludeMinions = 1;
+                crit.FriendlyUnits = 1; crit.IncludeMinions = 1; crit.IncludeSelf = 1;   // 🔴 2026-11-03（B124-W7 · δ）：同 B 组 —— `IncludeSelf` 恒 0 + 我方只有载体一个单位 ⇒ 候选空集 ⇒ `ca 236` 在 `EnchantmentExecutor_B115.cs:1396` 就 `return 0`，走不到 `:1399-1403`「攻方为 null ⇒ 出声」那一支（E6 恒红）
                 var tpl = Template("B121D5TplActAttack236Null", Trig, ca: 236, pa: 0, ta: 10, fm: 0, mult: 0, crit: crit);
                 var e = Attach(ctx2, carrier2, tpl);
                 int gapBefore = RuleCore.EnchantRowsDataGapForTest;
@@ -279,7 +279,7 @@ public static class B121_D5_Assert
                 int ca = cas[i];
                 var ctx = MakeBattle(out var carrier, out var opp);
                 if (ctx == null || carrier == null) { CheckTrue(false, $"G{ca}a 前提不成立"); continue; }
-                var tpl = Template("B121D5TplGap" + ca, 0, ca: ca, pa: 0, ta: 0, fm: 0, mult: 0, crit: null);
+                var tpl = Template("B121D5TplGap" + ca, Trig, ca: ca, pa: 0, ta: 0, fm: 0, mult: 0, crit: null);   // 🔴 2026-11-03（B124-W7 · δ）：第二参 = **trigger**，原来传 `0` ⇒ 入口按 `Trig=640` 取行得空数组、`EnchantmentExecutor_B115.cs:86-87` 直接 `return 0`，`.1/.2` 空转绿
                 var e = Attach(ctx, carrier, tpl);
                 int gapBefore = RuleCore.EnchantRowsDataGapForTest;
                 int n = RuleCore.RunEnchantmentLogicRowsForTest(ctx, e, carrier, 0, 3, Trig, "EarnedSkull", null, null);

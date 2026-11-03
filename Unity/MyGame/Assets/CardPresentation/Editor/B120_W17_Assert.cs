@@ -229,9 +229,10 @@ public static class B120_W17_Assert
             Check(enq != null && enq.Contains("PickClip"),
                   "B6 ★ `Enqueue` 里挑 clip（`WFSoundBank.PickClip`）"
                 + "｜🧨 把挑选挪回出队 ⇒ 本行红");
-            Check(drain != null && drain.Contains("Play(p.clip") && !drain.Contains("PickClip"),
-                  "B6b ★ `DrainOne` 播的是载荷里的 `p.clip`、且**没有** `PickClip`（出队不查表）"
-                + "｜🧨 改回 `Play(cue, …)` ⇒ 本行红");
+            Check(drain != null && drain.Contains("(p.clip") && !drain.Contains("PickClip"),
+                  "B6b ★ `DrainOne` 播的是载荷里的 `p.clip`（现读 `PlayLegacyOnMaster(p.clip, …)`）、且**没有** `PickClip`（出队不查表）"
+                + "｜🔴 2026-11-03（`B124-W10`）：判据从整串 `Play(p.clip` 改成语义串 `(p.clip` —— `B120-W29`（F22）已把出队那一跳改成原版 `BattleManager.audioSource` 的 `PlayLegacyOnMaster`，再钉死播放器函数名会一直漂"
+                + "｜🧨 改回 `Play(cue, …)`（按 cue 查表播）⇒ 本行红");
         }
     }
 

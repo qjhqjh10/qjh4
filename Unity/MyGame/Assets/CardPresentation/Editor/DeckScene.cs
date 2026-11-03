@@ -2055,8 +2055,8 @@ public static class DeckScene
             //   原版 `CollectionFilterController.NotifyFilterChange` 在 `FillToggleList` 把副本 Instantiate 到抽屉行后
             //   **立刻 `SetParent(filterIconHolder)` 搬进页头**（`…__NotifyFilterChange__15f01a0.c:154`）
             //   ⇒ **抽屉行里一颗 chip 都不留**、Army 行也**不因选择而长高**（判据全文 → `报告/B121_COLL16_页头chip.md` §五.1）。
-            //   🧨 改坏法：① `FilterPanelModel.Build` 里把任一 `AppendChips(...)` 写回来 ⇒ 下面第一条红；
-            //              ② 把 `ComputeLayout(facs.Count)` 改回 `facs.Count + armySel` ⇒ 第二条红。
+            //   🧨 改坏法：① 在 `FilterPanelModel.Build` 里把 `$chip:` 格写回抽屉行（`AppendChips`）⇒ `:2074` 红（行内必须 0 颗）；
+            //              ② 让 `Build` 传给 `ComputeLayout` 的格数把 chip 算进去 ⇒ `:2085` 红（稀有度格 y 必须与 `LNo` 逐位相同）。〔原 ①② 旧写法「比 `ComputeLayout(nFac+4)` 行顶」已于 2026-11-03（B124-W1）删除 —— 恒不可能绿〕
             //   ⚠️ 旧注那两条（Army 行被 CSF 撑高 / 另三行溢出）说的都是**行内 chip** ⇒ 行内没了、两条判据一起退场。
             Section("chip 行：原版是【搬】进页头 ⇒ 抽屉行内 0 颗、Army 行车位不随选择变");
             {
@@ -2074,10 +2074,10 @@ public static class DeckScene
                 Check(chipInRow, 0, "★ 选 4 个阵营后，抽屉行内的 `$chip:` 格 = **0 颗**（原版 `SetParent` 搬走；实得 " + chipInRow + "）");
                 // Army 行的车位：**只看阵营格数**（chip 搬走后不再参与）—— 这一条同时钉住「公式 + 调用点」两半。
                 var LNo = FilterPanelModel.ComputeLayout(nFac);
-                var LSel = FilterPanelModel.ComputeLayout(nFac + 4);
-                CheckNear(LSel.RarityTop - LNo.RarityTop, 0f, 0.001f,
-                          "（判据）多选 4 个 ⇒ 若还按旧写法把 chip 算进格数，Rarity 行顶会往下挪 100px"
-                        + " —— 现在必须**一动不动**");
+                // ⛔ 2026-11-03（`B124-W1`）· 这里原有 `LSel` + 三条断言，它们**永远不可能绿**，已删成这 4 行等行数注释（保行号、不动下游账落点）。
+                //   原因：`ComputeLayout(nFac + 4)` 的语义就是「多 4 个阵营格」（`FilterPanelModel.cs:65` rows=ceil(n/3) · `:82` RarityTop 随 rows 走，`ArmyCell = 100`）
+                //   ⇒ 13 → 17 必然跨一行，`RarityTop` 差值**恒 +100**——与 chip 选没选**毫无关系**，写成什么样都必红。
+                //   真正的判别式在下一段（拿真 `Build` 输出的 `$rar:common` y 比 `LNo.RarityTop + RarityContentTop`）—— 它✓，够了。
                 FilterPanelModel.Build(s, CollectionWindow.FltW, cellsSel);   // 同一份筛选再 Build 一次：车位取自 `ComputeLayout(facs.Count)`
                 float rarityTopSel = float.MaxValue;
                 for (int i = 0; i < cellsSel.Count; i++)
@@ -3283,7 +3283,7 @@ public static class DeckScene
             //    ⇒ uGUI 跑完 = **85×70 @ (592.2, 78.5)**（x = 容器左沿 + 0；y = 71 + (85−70)/2）。
             //    ⚠️ dump 那行仍印 1488.6 / 250×60 —— 那是**布局前的模板位**（Grid 系 `menu_dump` 不套算）。
             //    ⛔ 别改回 1218.6（那会把钮摆到四个稀有度计数那一带）。
-            CheckRect("hdr_clear", 592.2f, 78.5f, 85f, 70f);
+            CheckRect("hdr_clear", 592.2f, 78.5f, 85f, 70f); B124W43_ProbeHdrClear();   // ← 尾部：🔬 2026-11-03（B124_W43）只读探针：`B121-COLL-25` 的 x 两说（⭐ 只打印；同物理行追加 ⇒ 行数零变化）
             CheckRect("hdr_sep", 167.2f, 151f, 1752.8f, 10f);
             // 🔴 **2026-10-04（A51 F10）：页头分隔线原版也是【九宫格】，我们原来是单块拉伸。**
             //   判据 = dump 那行 `Separator Line [167.2,151]–[1920,161] 1752.83×10 | 40k_main_line 171×6
@@ -8812,6 +8812,7 @@ public static class DeckScene
                                           + "（`RefreshCosmoFilters` 那条链原来只调 `BuildCosmetics`）");
                     if (al != null)
                     {
+                        B124W43_ProbeArmyTitle(al);   // 🔬 2026-11-03（B124_W43）只读探针：`B123-ARMYTITLE`（⭐ 只打印）
                         // 🔴 **2026-10-18（A891 的续）改「随语档」**：这颗的字从本批起走词条
                         //   （`DeckRuntime.cs` 那处 `Txt("cosmoflt_title", Loc.T("MenuDeck/Filters/Army"), …)`，
                         //   词条键 = 原版那颗 `Localize.mTerm` 的原文）⇒ 宿主跑中文档时写死的 `"Army"` 必红。
@@ -10482,5 +10483,95 @@ public static class DeckScene
             RuleEngine.DeckStore.OverridePath = TempStorePath();
             Build(DeckLibrary.Load(), out var root);
             return root;
+        }
+
+        // ============================================================ 🔬 **2026-11-03（B124_W43）只读探针**
+        // ⛔ 只打印、**不判绿红**、**不改任何实现**（`B123-ARMYTITLE` 前两次盲改都无效，其中一次把整页搞空）。
+        // 输出统一前缀 `[B124W43]`、**一行一个值**（方便调度台 grep）。
+        // 调用点 ①：`CheckRect("hdr_clear", …)` 前 —— 任务 `B121-COLL-25`（`n==0` 时 `Clear filters` 的 x 两说：
+        //            `DeckRuntime.HdrClearX = 592.2` vs `FilterPanelModel.HdrClearX(0) = 612.17`）。
+        static void B124W43_ProbeHdrClear()
+        {
+            if (_rt == null) { Debug.Log("[B124W43] COLL25.rt=NULL"); return; }
+            if (_rt.UiQuadRect("hdr_clear", out float cx, out float cy, out float gw, out float gh))
+            {
+                Debug.Log("[B124W43] COLL25.quad.centerPx=" + cx.ToString("F2") + "," + cy.ToString("F2"));
+                Debug.Log("[B124W43] COLL25.quad.sizePx=" + gw.ToString("F2") + "x" + gh.ToString("F2"));
+                Debug.Log("[B124W43] COLL25.quad.leftPx=" + (cx - gw * 0.5f).ToString("F2"));
+                Debug.Log("[B124W43] COLL25.quad.topPx=" + (cy - gh * 0.5f).ToString("F2"));
+            }
+            else Debug.Log("[B124W43] COLL25.quad=NOTFOUND");
+            var node = FindDeep(_rt.Root, "hdr_clear");
+            if (node == null) { Debug.Log("[B124W43] COLL25.node=NOTFOUND"); return; }
+            var wpx = DeckRuntime.PxOfWorld(node.position);
+            Debug.Log("[B124W43] COLL25.node.name=" + node.name);
+            Debug.Log("[B124W43] COLL25.node.localPos=" + node.localPosition.x.ToString("F4") + "," + node.localPosition.y.ToString("F4"));
+            Debug.Log("[B124W43] COLL25.node.worldPx=" + wpx.x.ToString("F2") + "," + wpx.y.ToString("F2"));
+            var p = node.parent;
+            if (p == null) { Debug.Log("[B124W43] COLL25.parent=NULL"); return; }
+            var ppx = DeckRuntime.PxOfWorld(p.position);
+            Debug.Log("[B124W43] COLL25.parent.name=" + p.name);
+            Debug.Log("[B124W43] COLL25.parent.localPos=" + p.localPosition.x.ToString("F4") + "," + p.localPosition.y.ToString("F4"));
+            Debug.Log("[B124W43] COLL25.parent.worldPx=" + ppx.x.ToString("F2") + "," + ppx.y.ToString("F2"));
+            Debug.Log("[B124W43] COLL25.parent.lossyScale=" + p.lossyScale.x.ToString("F4") + "," + p.lossyScale.y.ToString("F4"));
+            Debug.Log("[B124W43] COLL25.node.relParentX_Px=" + (wpx.x - ppx.x).ToString("F2"));
+            var nrt = node as RectTransform;
+            Debug.Log("[B124W43] COLL25.node.isRectTransform=" + (nrt != null));
+            if (nrt != null) Debug.Log("[B124W43] COLL25.node.anchoredPosition=" + nrt.anchoredPosition.x.ToString("F4") + "," + nrt.anchoredPosition.y.ToString("F4"));
+            var prt = p as RectTransform;
+            if (prt == null) Debug.Log("[B124W43] COLL25.parent.isRectTransform=False（裸 Transform，无 rect/pivot）");
+            else
+            {
+                Debug.Log("[B124W43] COLL25.parent.rect=" + prt.rect.xMin.ToString("F2") + "," + prt.rect.yMin.ToString("F2") + "," + prt.rect.width.ToString("F2") + "x" + prt.rect.height.ToString("F2"));
+                Debug.Log("[B124W43] COLL25.parent.pivot=" + prt.pivot.x.ToString("F4") + "," + prt.pivot.y.ToString("F4"));
+                Debug.Log("[B124W43] COLL25.parent.anchorMin=" + prt.anchorMin.x.ToString("F4") + "," + prt.anchorMin.y.ToString("F4"));
+                Debug.Log("[B124W43] COLL25.parent.anchorMax=" + prt.anchorMax.x.ToString("F4") + "," + prt.anchorMax.y.ToString("F4"));
+                Debug.Log("[B124W43] COLL25.parent.anchoredPosition=" + prt.anchoredPosition.x.ToString("F4") + "," + prt.anchoredPosition.y.ToString("F4"));
+            }
+        }
+
+        // 调用点 ②：D43 的 `cosmoflt_title` 断言段 —— 任务 `B123-ARMYTITLE`（`Army` 小标题画到屏幕右上）。
+        // 目的：分清「局部坐标 vs 绝对设计坐标」到底差在哪一层（前两次盲改都栽在这）。
+        static void B124W43_ProbeArmyTitle(Label al)
+        {
+            if (al == null) { Debug.Log("[B124W43] ARMYTITLE.label=NULL"); return; }
+            var t = al.transform;
+            var tw = DeckRuntime.PxOfWorld(t.position);
+            Debug.Log("[B124W43] ARMYTITLE.localPos=" + t.localPosition.x.ToString("F4") + "," + t.localPosition.y.ToString("F4"));
+            Debug.Log("[B124W43] ARMYTITLE.worldPx=" + tw.x.ToString("F2") + "," + tw.y.ToString("F2"));
+            var p = t.parent;
+            if (p == null) Debug.Log("[B124W43] ARMYTITLE.parent=NULL");
+            else
+            {
+                var pw = DeckRuntime.PxOfWorld(p.position);
+                Debug.Log("[B124W43] ARMYTITLE.parent.name=" + p.name);
+                Debug.Log("[B124W43] ARMYTITLE.parent.localPos=" + p.localPosition.x.ToString("F4") + "," + p.localPosition.y.ToString("F4"));
+                Debug.Log("[B124W43] ARMYTITLE.parent.worldPx=" + pw.x.ToString("F2") + "," + pw.y.ToString("F2"));
+                Debug.Log("[B124W43] ARMYTITLE.parent.lossyScale=" + p.lossyScale.x.ToString("F4") + "," + p.lossyScale.y.ToString("F4"));
+                var prt = p as RectTransform;
+                if (prt == null) Debug.Log("[B124W43] ARMYTITLE.parent.isRectTransform=False（裸 Transform）");
+                else
+                {
+                    Debug.Log("[B124W43] ARMYTITLE.parent.rect=" + prt.rect.xMin.ToString("F2") + "," + prt.rect.yMin.ToString("F2") + "," + prt.rect.width.ToString("F2") + "x" + prt.rect.height.ToString("F2"));
+                    Debug.Log("[B124W43] ARMYTITLE.parent.pivot=" + prt.pivot.x.ToString("F4") + "," + prt.pivot.y.ToString("F4"));
+                }
+            }
+            // `FilterDrawer.BasePos` 是 `DeckRuntime` 的私有嵌套字段（产品代码 ⛔ 这轮不动）⇒ 只读反射取。
+            float bx = float.NaN, by = float.NaN;
+            try
+            {
+                var f = typeof(DeckRuntime).GetField("_cosmoFltSlide", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                var d = f != null ? f.GetValue(_rt) : null;
+                if (d != null)
+                {
+                    var bf = d.GetType().GetField("BasePos", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
+                    if (bf != null) { var bv = (Vector3)bf.GetValue(d); bx = bv.x; by = bv.y; }
+                }
+            }
+            catch (Exception ex) { Debug.Log("[B124W43] ARMYTITLE.BasePos.ERR=" + ex.GetType().Name + ":" + ex.Message); }
+            Debug.Log("[B124W43] ARMYTITLE.parent.BasePos=" + bx.ToString("F4") + "," + by.ToString("F4"));
+            Debug.Log("[B124W43] ARMYTITLE.label.WorldW=" + al.WorldW.ToString("F4"));
+            Debug.Log("[B124W43] ARMYTITLE.slide=" + _rt.CosmoFilterDrawerSlide.ToString("F4"));
+            Debug.Log("[B124W43] ARMYTITLE.worldLeftPx=" + (tw.x - al.WorldW * PxPerUnit * 0.5f).ToString("F2"));
         }
 }

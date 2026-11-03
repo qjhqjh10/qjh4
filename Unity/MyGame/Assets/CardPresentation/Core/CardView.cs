@@ -6866,7 +6866,7 @@ namespace CardPresentation
         /// 改名 `Spawn Particles`、先关掉**。
         /// <para>`instance` = 由调用方实例化好的那件（`WarpforgeEffectPlayer.Play` 的产物）——
         /// `localPosition` 由调用方传 **prefab 自己的值**（原版 `set_localPosition(prefab 自身)`）。
-        /// 同时给 `Trail` 补上 <see cref="ParticleEmitOnEnable"/>（我们导入的 prefab 里没有那个组件）。</para>
+        /// 同时给 `Trail` 补上 <see cref="ParticleEmitOnEnable"/>（我们导入的 prefab 里没有那个组件）；🔴 2026-11-03（`B124-W34`）：**挂上来的这一刻把 `Trail` 关掉** —— 原版 clip `Card Hand To Board` 的 `ToBoardFX/Spawn Particles/Trail.m_IsActive` **t=0 键 = 0**（0.55 才 1；判据 `d:/2/tools/assetripper_out/ExportedProject/Assets/AnimationClip/Card Hand To Board.anim` 的 `m_FloatCurves`，原版 prefab 序列化同样是 1），不关就会在 0.0167 父实例一开时提前 0.53 s 看到拖尾。</para>
         /// <returns>挂上了没有。</returns></summary>
         public bool MountSpawnParticles(GameObject instance)
         {
@@ -6877,7 +6877,7 @@ namespace CardPresentation
             instance.SetActive(false);                 // 原版 `SetActive(false)`，等 clip 在 0.0167 打开
             _spawnParticles = instance;
             var trail = instance.transform.Find("Trail");
-            _trail = trail;
+            _trail = trail; if (trail != null) SetTrailActive(false);   // clip 的 t=0 键（= 0）—— 见上面对 `Trail` 的说明
             if (trail != null && trail.GetComponent<ParticleEmitOnEnable>() == null)
                 trail.gameObject.AddComponent<ParticleEmitOnEnable>();
             return true;
@@ -16079,7 +16079,7 @@ namespace CardPresentation
             c.center = new Vector3(0.013507843f, 1.55f, -0.016031265f);
             c.isTrigger = false;
             c.enabled = true;
-            body.layer = gameObject.layer;   // 场上 = `ArenaSlots.ArenaLayer`(8) ⇒ 落在 `TapParticleController.CollisionMask` 的 bit8；换层由 `SetLayer` 递归跟进
+            body.layer = gameObject.layer;   // 场上 = `ArenaSlots.BoardCardLayer`(**10** = 原版 `BoardElements`)；⚠️ 2026-11-03 `B124-W23` 就地订正（铁律 5）：原写「ArenaLayer(8) / bit8」已过期 —— `B120-W27` 把所有场上卡迁到层 10、`TapParticleController.CollisionMask` 显式含 bit10；换层由 `SetLayer` 递归跟进
             _bodyCollider3D = c;
         }
 

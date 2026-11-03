@@ -178,8 +178,16 @@ public static class B120_W11_Assert
                "B4 ★ 灭自证：此时**不再等于** `VoicesGroup`（两档的判别式，结构上不可能同时满足）");
 
             // OnValidate：字段为空时自动 GetComponent<AudioSource>()
-            var f2 = go.AddComponent<AudioSourceMixerGroupFixer>();       // 新的一件，`audioSource` 为空
-            Tr(f2.Source == null, "B5 前提：新建的这一件 `audioSource` 是空的");
+            // 🔴 2026-11-03（`B124-W27`）：**编辑器下 `AddComponent` 会自动跑一次 `OnValidate`**
+            //   （`Core/AudioSourceMixerGroupFixer.cs:90-93` 第一句就补 `GetComponent<AudioSource>()`）
+            //   ⇒ 原来那句「新建的这一件 `audioSource` 是空的」前提**必假**。按真实时序改成两条：
+            //   ① 建出来就该被自动补上（编辑器行为 = 真实兜底）；② 反射清空后再显式喊一次，验回调本身。
+            var f2 = go.AddComponent<AudioSourceMixerGroupFixer>();
+            Tr(f2.Source == src, "B5 ★ 编辑器 `AddComponent` 即跑 `OnValidate` ⇒ 字段一建就被补上（实得 "
+                + (f2.Source == null ? "null" : f2.Source.name) + "，⛔ 不是像原来那样断「一建就是空」）");
+            typeof(AudioSourceMixerGroupFixer).GetField("audioSource",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).SetValue(f2, null);
+            Tr(f2.Source == null, "B5b 前提：反射清空之后字段确实为空（否则 B6 无判别力）");
             f2.SendMessage("OnValidate", SendMessageOptions.DontRequireReceiver);   // 私有、编辑器回调 ⇒ 显式喊一次
             Tr(f2.Source == src,
                "B6 ★ `OnValidate()` 把同 GO 上的 `AudioSource` 补进字段（`AudioSourceMixerGroupFixer__OnValidate.c`）");

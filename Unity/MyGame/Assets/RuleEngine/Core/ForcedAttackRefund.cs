@@ -11,7 +11,7 @@
 //   · `233` `0xe9` → `AddForceAttackFriendlyUnits`（该族签名里**根本没有**这一格）；
 //   · `235` `0xeb` → `AddScriptedAttack`（签名到 `blockPlayerActions` 就完了，`dump.cs:32502`；
 //     方法体 `BattleManager__AddScriptedAttack.c` 里 `RemoveAttackThisTurn` / `+0x48` **0 命中**）；
-//   · `236` `0xec` → `AddRedirectedAttack`（`dump.cs:32505` 同，方法体同 `0 命中`）。
+//   · `236` `0xec` → `AddRedirectedAttack`（`dump.cs:32505` 同，方法体同 `0 命中`）—— ⚠️ 这只说明它**不预扣、不退还**；**消耗照常发生**（`+0x48 += 1` 写在结算期的攻击动画协程：`CardScript._AttackMeleeAnim_d__357__MoveNext.c:116` 无条件 / `_ResolveAttackRangedAnim_d__360__MoveNext.c:69` 仅 `isAttacker`；判据 → `判据/B124_CA236_强制攻击行动额度.md` §2）。
 //
 // 退还**怎么发生**（两条合起来，判据全文 → `RuleCore.DeclareAttack` 旁边的注释块）：
 //   入队预扣 + 记 `wasFree`（`BattleManager__AddForceAttack.c:39-43` /

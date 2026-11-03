@@ -117,9 +117,9 @@ namespace RuleEngine
                 fired++;
 
                 // ② 正文那一半：今天只有**文本 op** 能跑（见文件头「如实差异 ①」）。
-                //    🆕 2026-11-01（`B115_S5` 波 1）：正文**为空**时改交给 `ca` 执行器（`Core/EnchantmentExecutor_B115.cs`）；正文非空时⛔ 别再跑数据行（= 双发）。
+                //    🆕 2026-11-01（`B115_S5` 波 1）：正文**为空**时改交给 `ca` 执行器（`Core/EnchantmentExecutor_B115.cs`）；正文非空时⛔ 别再跑数据行（= 双发）。🆕 2026-11-03（`B124_W6`）：正文为空时还要先过**双发闸第二档** `CarrierBodyCoversSelfEnchantment`（自挂附魔 + 载体卡正文非空 ⇒ 让路；判据链见类尾那个方法的头注）。
                 var eops = e.Card.TriggerOpsByNumber(triggerNumber);
-                if (eops == null || eops.Count == 0) { RunEnchantmentLogicRows(ctx, e, u, owner, slot, triggerNumber, tn, actingCard, targetCard); continue; }
+                if (eops == null || eops.Count == 0) { if (CarrierBodyCoversSelfEnchantment(e, u)) continue; RunEnchantmentLogicRows(ctx, e, u, owner, slot, triggerNumber, tn, actingCard, targetCard); continue; }
 
                 // 两道（target / board）ability 级 criteria：读**附魔卡的行**、被筛对象是**载体**。
                 // `abilityActingGate: true` 打开第一道（acting）—— 原版 `CanTriggerAbility.c:127-130` 对
@@ -197,6 +197,148 @@ namespace RuleEngine
                                                                   UnitState actingCard, UnitState targetCard)
         {
             return FireEnchantmentAbilitiesByNumber(ctx, u, triggerNumber, tn, owner, slot, actingCard, targetCard);
+        }
+
+        // ================================================================================================
+        //  🆕 2026-11-03 · `B124_W6` —— 双发闸**第二档**：载体自己那张卡的正文已经覆盖了这件「自挂附魔」
+        //  ⚠️ 加在**类尾**（本文件在此之后没有成员）：文件内已引用的行号（`账/战斗逻辑驱动.tsv` 的
+        //     `:69` A 档落点 / `:162` 次处）一个都不动。
+        //
+        //  ── 判据链（三层，⛔ 别只读一层）────────────────────────────────────────────────────────
+        //   ① 原闸（本文件 `FireEnchantmentAbilitiesByNumber` 内那句 `if (eops == null …)`）：只比
+        //      **附魔卡自己**的正文（`e.Card.TriggerOpsByNumber(triggerNumber)`）。而**模板的正文恒空**
+        //      ⇒ 凡模板带着 `ca` 数据行，这条闸必然放行（不是 bug，是它只回答了「附魔卡有没有正文」）。
+        //   ② 自挂点（`Core/EffectResolverPartial_B97W2.cs:755`）：`buffType 12/15/16` 的附魔由
+        //      `Enchantments.AttachGrantedByPlayedCard`（`Core/Enchantment.cs:1654-1657`）挂到 `chosen` 身上，
+        //      `source = playedInst.Card.Name`。**单位部署时 `chosen` 就是它自己** ⇒ 这类附魔的
+        //      `e.Effect.Source == u.Card.Name`（= 「载体自己那张卡挂自己的」唯一可判的形状）。
+        //   ③ 回归点：`RunDoDamageRowOfEnchantment` **2026-11-03 02:59 才落地**（`EnchantmentExecutor_B115.cs:860`）；
+        //      15:24 那次基线它只出声不结算 ⇒ 在此之前「正文跑一遍 + 模板行空转」看起来是对的。
+        //
+        //  ── 为什么第二档必须存在（实测样本 `GOF56 Deffkopta`）────────────────────────────────────
+        //   `cards_engine.json`：`GOF56` 的 `enchantment` 列 = `{trigger 0, buffType 15, token c40a0661…}`，
+        //   指向模板 `c40a06616a2968240b1f765d0f919b69`（`mName = 28 Goff-Deffkopta_enchantment`），
+        //   模板唯一那条 ability = `trigger 0 / ca 10 / damage {2,2}` —— **与卡面正文
+        //   「Rally: Other friendly Deffkopta deal 2 damage to a random enemy」是同一件事的两种表示**。
+        //   ⇒ 正文那一趟（`eachunitdeal`）打 2、模板那一趟（`ca 10`）又打 2 = 4（断言期望 2）。
+        //
+        //  ── 判法：谁有正文谁就跑 ─────────────────────────────────────────────────────────────────
+        //   · 附魔卡自己有正文 ⇒ 走原路（`eops` 非空，⛔ 不进本方法）；
+        //   · 否则：**自挂**（`IsSelfGrantedEnchantmentOf` = 载体卡自己的数据行挂的）**且载体卡有正文 op** ⇒ 模板行**让路**；
+        //   · 其它一切（他挂的附魔 / 载体正文为空 / 数据里不是载体自己那张卡挂的）⇒ 模板照跑（= 模板独有的行不丢）。
+        //
+        //  ── 🔴 2026-11-03 `B124_W18` 订正（**上一版修复没生效**，铁律 5 就地改）──────────────────────
+        //   ① **事实（实跑日志，非推断）**：`_tmp_view/ruleengine.log:825825` 的同一行里写着
+        //      `附魔层：把「Deffkopta」挂到「Deffkopta」身上（#id 0，buffType 15，spellType 0，**来源 Deffkopta**）`
+        //      ⇒ 这条路上 `Effect.Source` **就是卡名**（`Enchantments.AttachGrantedByPlayedCard`
+        //      在 `Enchantment.cs:1654-1657` 传的 `source: playedInst.Card.Name`），
+        //      W6 那句「`Source` 在别的路是日志标签」（`B124_W6` 报告 §六·1）当**隐患**成立、当**本次根因不成立**。
+        //   ② **真根因 = 闸没被调用**：本文件那个 `if` 在 `FireEnchantmentAbilitiesByNumber` 里，服务的是
+        //      **数值路**（`FireTriggerByNumberWithSink`，现读只跑 60/185/187/210/410 —— `EffectResolver.cs:20605-20607`
+        //      / `:20679` / `B97W2.cs:549` / `RuleCore.cs:13035`）；而 `Rally` 走的是**关键词路**
+        //      `RuleCore.cs:13019` → `RunEnchantmentLogicRowsByKeyword` → `RunEnchantmentLogicRows`
+        //      （`EnchantmentExecutor_B115.cs:77`）—— **那条路一次都不经过本文件**。
+        //      实证：整份日志里 `[B124_W6]` 让路告警只出现 2 次（`FPrayer` / `FX13Prayer`，走数值路），
+        //      `Deffkopta` **0 次**；且 `身上的附魔「Deffkopta」触发 RALLY`（数值路的 `ctx.Log`，本文件 `:148`）
+        //      全份日志 **0 行** ⇒ 数值路根本没为这次 Rally 跑过。
+        //      ⇒ 闸现在同时挂到 `RunEnchantmentLogicRows`（**两条路共用的执行口**）：`EnchantmentExecutor_B115.cs:84`
+        //        同物理行追加 `|| CarrierBodyCoversSelfEnchantment(e, carrier)`（零行数变化，见 W18 报告）。
+        //   ③ **判据换成了「数据行身份」**（`IsSelfGrantedEnchantmentOf`）：`Effect.Source` 是**字符串标签**，
+        //      同一个类型在两条挂载路上语义不同（`AttachGrantedByPlayedCard` 传卡名、`ApplyAbilityBuff` 传
+        //      `who`/`by` 日志标签，`EffectResolverPartial_B97W2.cs:755` 的 `source: who`）⇒ 拿它比卡名
+        //      「在这条路上碰巧成立、在另一条路上必然不成立」，是**静默陷阱**。
+        //      换成「这件附魔的模板 id 出现在**载体卡自己**的 `enchantment` 数据行里（且那行 `trigger == 0 打出即挂`）」
+        //      —— 那是**对象身份**（唯一 id，Ordinal 全等），与「谁挂的」是同一件事，不受日志标签影响。
+        //   ⚠️ 现读爆半径 = **1 张**：54 张带 `enchantment` 行的卡里，只有 `GOF56` 是**单位**且在
+        //     `trigger 0` 自挂（其余 `type 20` 是战术卡，挂的是**被选中的单位**，模板来自战术卡的行
+        //     ⇒ 条件①不成立；SOR 那批单位在 `trigger 655/180` 挂，不走 `AttachGrantedByPlayedCard`）。
+        //   ⚠️ 已知残余（未修，记账用）：若某张卡的正文只能表达它自挂附魔的**一部分**，本闸是**整件让路**
+        //     （二选一，不是逐行）—— 要逐行只可能在 `RunEnchantmentLogicRows` 里逐行判。
+        //   🧨 灭自证：把这里的 `return true` 改成恒 `false`（= 删掉让路闸）⇒ `RuleEngineTest.TestA5Batch3` 那条
+        //     「只有「别的」那一只开火（2 点）」立刻回到 4（红）；把条件①（`IsSelfGrantedEnchantmentOf`）
+        //     删成恒 `true`（= 永远让路）⇒ **他挂的**附魔也被让路，`B109_E6_EnchantDispatch_Assert` 的派发计数、
+        //     `EnchantmentTemplateCheck` 那批「模板行要真执行」的断言、`B97W35` 的 A2/A3 全红。
+        // ================================================================================================
+
+        /// <summary>「这件附魔是**载体自己那张卡**挂的，而那张卡的正文已经解析成 op」⇒ 模板行让路。
+        /// <para>判据链 / 为什么 / 爆半径 / 灭自证 → 上面那一节的头注（⛔ 别在这里抄第二份）。</para>
+        /// <para>⚠️ **不判触发数值**：样本里正文那条 `eachunitdeal` 挂在 `Rally`（`trigger 81`）上，
+        /// 而模板那条 `ca 10` 挂在 `trigger 0` 上 —— 按 trigger 逐格比会**两边都对不上**（实测：
+        /// `GOF56.TriggerOpsByNumber(0)` 为空）。这里问的是「这张卡的正文整体能不能表达效果」，
+        /// 不是「这一格有没有正文」。</para></summary>
+        static bool CarrierBodyCoversSelfEnchantment(ActiveEnchantment e, UnitState u)
+        {
+            if (e == null || e.Effect == null || u == null || u.Card == null) return false;
+            // ① 自挂闸（🔴 2026-11-03 `B124_W18` 换成**数据行身份**；⛔ 不再比 `Effect.Source` / 卡名 —— 理由见上方头注 ③）
+            if (!IsSelfGrantedEnchantmentOf(e, u.Card)) return false;
+            var rts = CardDef.RoutableTriggers;
+            if (rts == null) return false;
+            // ② 载体卡正文闸：只要**有一个**可路由触发词解析出了 op，就说明这张卡的正文能表达效果
+            for (int i = 0; i < rts.Length; i++)
+            {
+                string kw = rts[i];
+                if (string.IsNullOrEmpty(kw)) continue;
+                var ops = u.Card.TriggerOps(kw);
+                if (ops == null || ops.Count == 0) continue;
+                string key = (u.Card.Id ?? u.Card.Name ?? "?") + "|" + (e.Card != null ? (e.Card.Name ?? "?") : "?");
+                if (_b124w6SelfEnchantCovered.Add(key))
+                    UnityEngine.Debug.LogWarning(
+                        $"[B124_W6] 「{u.Card.Name}」自挂的附魔「{(e.Card != null ? e.Card.Name : "?")}」的模板行**让路**："
+                      + $"载体卡自己的正文已经解析成 op（触发词 `{kw}`）⇒ 正文那一趟已经做过同一件事，"
+                      + "模板再跑一遍 = 双发（判据 → `EffectResolverPartial_B109E6.cs` 的 `CarrierBodyCoversSelfEnchantment` 头注）。");
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>`CarrierBodyCoversSelfEnchantment` 的「只喊一次」闩（键 = `载体卡|附魔卡`）。</summary>
+        static readonly HashSet<string> _b124w6SelfEnchantCovered =
+            new HashSet<string>(System.StringComparer.Ordinal);
+
+        // ================================================================================================
+        //  🆕 2026-11-03 · `B124_W18` —— 自挂判据换成**数据行身份**（替掉 `Effect.Source == 卡名`）
+        //  ⚠️ 加在**类尾**（本文件在此之后没有成员）：`账/战斗逻辑驱动.tsv:1285` 引的 `:69` / `:162` 一个都不动。
+        //
+        //  ── 为什么这个判据稳定（问的是「谁挂的」，答的是**对象身份**）──────────────────────────────────
+        //   ① 唯一事实源 = 卡表 `enchantment` 列（`cards_engine.json` v38，`CardDatabase.EnchantmentGrantsOf`
+        //      在 `Data/CardDatabase.cs:3910-3938` 建索引）：每一行 = `{SourceCardId, TemplateCardId, Trigger, …}`。
+        //      载体卡自己那张卡的 id ⇒ 它自己「打出即挂」那几行 —— 行里的 `TemplateCardId` 就是
+        //      `CardDatabase.FindEnchantmentTemplate(id)` 用的**同一个 `CardDef.Id`**（`BattleContext.cs:2395-2407`
+        //      按 `CardDef.Id == id` 命中；模板 `CardDef` 的 `Id` 由 `CardDatabase.cs:3784` 的
+        //      `new CardDef(t.id, …)` 直接落）⇒ 两边比的是**唯一 id**，不是名字。
+        //   ② 为什么「载体卡自己的行」= 「自挂」：`Enchantments.AttachGrantedByPlayedCard`
+        //      （`Core/Enchantment.cs:1624`，挂载行取自 `playedInst.Card`、载体是 `chosen`）在**单位部署**那条路上
+        //      的 `chosen` 就是它自己（`RuleCore.cs:4212`）⇒ 这条附魔的模板只可能来自**载体自己的数据行**。
+        //      他挂的附魔（战术卡挂给被选中的单位）⇒ 模板来自**战术卡**的行，载体卡的行里没有它 ⇒ 判 false（模板照跑）。
+        //   ③ 为什么⛔ 不能比 `Effect.Source`：`ActiveCardEffect.Source` 的注释只说「日志用」（`Enchantment.cs:89`），
+        //      而现读两条挂载路的实参语义**不同** —— `AttachGrantedByPlayedCard` 传卡名（`Enchantment.cs:1655`），
+        //      `ApplyAbilityBuff` 传 `who`（日志标签，`EffectResolverPartial_B97W2.cs:755`）⇒
+        //      「`Source` == 某张卡的卡名」在一半的路上**恒不成立**，写出来的闸会**静默失效**（W6 那次就是）。
+        //   ④ 三态照本项目口径：数据源没注册 / 卡表 < v38 ⇒ `GrantedEnchantmentRowsOf` 返回 `null`
+        //      ⇒ 本方法判 `false`（**判不了就不让路**，模板照跑 = 改前行为）—— ⛔ 不拿名字顶替。
+        //      ⚠️ `ruleprobe` 里就是这个状态（`Stub.Resources.Load` 恒 null ⇒ 没有附魔实例 ⇒ 闸根本到不了）。
+        // ================================================================================================
+
+        /// <summary>「这件附魔是**由 <paramref name="carrierCard"/> 自己这张卡的「打出即挂」数据行**挂上去的」。
+        /// <para>判据 = 附魔模板的 `CardDef.Id` 逐字等于载体卡某条 `enchantment` 行的 `TemplateCardId`
+        /// （且那行 `trigger == ThisCardPlayed(0)`）⇒ 唯一 id 全等，⛔ 不比卡名、⛔ 不比 `Effect.Source`。</para>
+        /// <para>⚠️ `false` 有两种含义（都是「不让路」）：① 明确不是载体自己挂的；② 数据源拿不到、判不了。
+        /// 两者都走「模板照跑」= 改前行为，**不会**把模板独有的行吞掉。</para></summary>
+        static bool IsSelfGrantedEnchantmentOf(ActiveEnchantment e, CardDef carrierCard)
+        {
+            if (e == null || e.Card == null || carrierCard == null) return false;
+            string tmplId = e.Card.Id;
+            if (string.IsNullOrEmpty(tmplId)) return false;          // 模板没有唯一 id ⇒ 判不了（⛔ 不猜）
+            var rows = Enchantments.GrantedEnchantmentRowsOf(carrierCard);
+            if (rows == null) return false;                          // 数据源没注册 / 这张卡没有数据行
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var r = rows[i];
+                if (r == null) continue;
+                if (r.Trigger != Enchantments.TriggerThisCardPlayed) continue;
+                if (string.Equals(r.TemplateCardId, tmplId, System.StringComparison.Ordinal)) return true;
+            }
+            return false;
         }
     }
 }

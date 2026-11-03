@@ -198,9 +198,9 @@ public static class CardBaseDemo
 
         // 拖到督军左边那个格位
         int targetSlot = BoardLayout.WarlordSlot - 1;
-        it.SimulatePress(hoverCard.transform.position);
+        it.SimulatePress(homeBefore);                 // 🔴 2026-11-03（B124-W7 · δ，判据 `判据/B124_PlayCommitGate与提手量.md` §四）：这里喂的是**指针的按下点**，⛔ 不是卡。卡已被悬停抬起 2.91 单位（≈314 px，`HandLayout.cs:265` `hoverLift = 30 × OurUnitsPerWorldUnit`），拿 `hoverCard.transform.position` 当按下点 ⇒ 与目标槽位（−0.89）几乎等高 ⇒ `PlayCommitGate` 第一道恒不过。`homeBefore` = 悬停**前**的卡位（`:189`），即玩家光标真正停的那条手牌带。
         Step(0.2f);                                   // 拿起动画
-        var slotPos = board.SlotPosition(targetSlot);
+        var slotPos = board.SlotPosition(targetSlot); Check(LayoutSpace.ToNormalized(homeBefore).y < BoardLayout.HandLimitY, $"（前提）按下点在**手牌带**里：归一化 y {LayoutSpace.ToNormalized(homeBefore).y:F4} < `BoardLayout.HandLimitY` {BoardLayout.HandLimitY:F4}（= 300/1080）｜判据 `CardInteraction.cs:2352` 第二道门"); Check(slotPos.y - homeBefore.y >= CardInteraction.PlayLiftWorld, $"（前提）这一拖抬高 {slotPos.y - homeBefore.y:F4} ≥ `PlayLiftWorld` {CardInteraction.PlayLiftWorld:F5}（原版 `minMovementToPlayCard` 0.3 原版世界单位 = 4.45 px，`CardInteraction.cs:2345/2351`）"); Check(!CardInteraction.PlayCommitGate(hoverCard.transform.position, slotPos), "★ 灭自证：把**抬起后的卡位**当按下点 ⇒ 闸必假（这正是改前那 2 条红的来由；⛔ 别为了让夹具绿去放宽闸 —— 闸的语义/抬起量都与原版逐句对上，见 `判据/B124_PlayCommitGate与提手量.md` §一/§二）");
         for (int i = 0; i < 20; i++) { it.SimulateDrag(slotPos, 1f / 30f); Step(1f / 30f); }
         Debug.Log(P + $"  拖拽跟手：卡到 {hoverCard.transform.position}  目标槽位 {slotPos}");
         Shot(cam, 1920, 1080, "03_拖拽中");
@@ -238,7 +238,7 @@ public static class CardBaseDemo
         Step(0.05f);
         it.SimulatePress(backCard.transform.position);
         Step(0.2f);
-        var nowhere = LayoutSpace.ToWorld(0.12f, 0.88f);      // 战场上方，离任何格位都远
+        var nowhere = LayoutSpace.ToWorld(0.12f, 0.15f);      // 🔴 2026-11-03（B124-W7 · α）：改成**停在手牌带里**（归一化 y = 0.15 < `BoardLayout.HandLimitY` = 300/1080 = 0.2778）⇒ `PlayCommitGate` 第二道「越手牌限位线」不放行 ⇒ 真被拒。原来取 (0.12, 0.88)「离任何格位都远」—— `allowNearest: true`（= 原版 `GetClosestAvailableSlot`，`CardInteraction.cs:1394`）之后，棋盘上方**任何**点都会取最近可用格，那条不再是非法落点（判据 `BattleManager__Update.c:249-288`）
         for (int i = 0; i < 20; i++) { it.SimulateDrag(nowhere, 1f / 30f); Step(1f / 30f); }
         it.SimulateRelease(nowhere);
         Step(0.5f);
@@ -576,12 +576,12 @@ public static class CardBaseDemo
         }
         float tiltDeg = Quaternion.Angle(tilt.transform.localRotation, Quaternion.identity);
         float rootZ = Mathf.DeltaAngle(0f, card.transform.localEulerAngles.z);
-        Check(tiltDeg > 0.5f && tiltDeg <= 10.01f,
-              $"快拖 20 帧后卡面**真的歪了**：{tiltDeg:F2}°（上限 10°，下限只表示「看得见」）");
+        Check(tiltDeg > 0.5f && tiltDeg <= 14.15f,
+              $"快拖 20 帧后卡面**真的歪了**：{tiltDeg:F2}°（**10° 是【每轴】上限**（`AutoCardRotation.MaxXAngle/MaxYAngle`，153/153 prefab 实例），两个 10° 正交轴旋转的**合成角**可达 2·acos(cos5°·cos5°) ≈ **14.12°** ⇒ 上界 14.15°；判据 `AutoCardRotation__GetRotation.c` + `AutoCardRotation.cs:144-150`；下限只表示「看得见」）");
         Check(Mathf.Abs(rootZ - fanZ) < 0.01f,
               $"……而**卡根的扇形角没被抹掉**：{fanZ:F2}° → {rootZ:F2}°（倾摆与扇形角合成一层时这条必红）");
-        Check(Mathf.Abs(Mathf.DeltaAngle(0f, tilt.transform.localEulerAngles.z)) < 0.01f,
-              "……倾摆**没有绕 Z 转**（原版那两个轴只出 X/Y 的倾斜，不是把卡当纸片转）");
+        Check(Mathf.Abs(Mathf.DeltaAngle(0f, tilt.transform.localEulerAngles.z)) < 0.5f,
+              $"……倾摆的 **Z 残角 ≤ 0.5°**（实测 {Mathf.DeltaAngle(0f, tilt.transform.localEulerAngles.z):F3}°）—— `AngleAxis(a,−Y) · AngleAxis(b,X)` 的四元数 `z = sin(a/2)·sin(b/2) ≠ 0`，阻尼 `Lerp` 期间欧拉分解必然出 Z（我们估 ≤0.22°）；**原版就是同一条算式、同样出 Z**，⛔ 不是「把卡当纸片转」（🔴 2026-11-03 `B124-W7` 订正：原断言钉 0.01° 且称「只出 X/Y」—— 那是**推断不是判据**；判据 `AutoCardRotation__GetRotation.c` + `AutoCardRotation.cs:144-150`）");
 
         // ④ 回正：不喂位移 ⇒ 目标回正，2 秒后收敛到 0
         for (int i = 0; i < 120; i++) tilt.Step(1f / 60f);

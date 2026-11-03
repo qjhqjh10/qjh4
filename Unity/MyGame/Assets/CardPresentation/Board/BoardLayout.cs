@@ -104,7 +104,7 @@ namespace CardPresentation
         //     `decomp_full/MinionManager__GetClosestAvailableSlot.c:35-145`）——
         //    候选集 + 2D 欧氏 + 「一个候选都没有才返回无格」。⛔ 别把这两个字段（或任何等价阈值）写回来：
         //    `CardPresentation/Editor/B121_WB_Assert.cs` 的 A 段用反射钉住「这两个字段不存在」。
-        //    （删掉之后 `ExplainDrop` / `DropRejectKindForTest` 的「命中不了格位」只会在**候选集为空**时出现。）
+        //    （删掉之后 `ExplainDrop` / `DropRejectKindForTest` 的「命中不了格位」只会在**候选集为空**时出现；⚠️ 但 `CardInteraction.DropReject` 的**侧别判定**当时依赖它 —— 已于 2026-11-03 `B124-W9` 改成与解析无关的 `PointerOverBoard`。）
 
         [Tooltip("落上去的卡缩放 —— 原版实测场卡 137.2 px / 卡设计宽 1.45×108")]
         public float placedScale = DefaultPlacedScale;
@@ -315,8 +315,8 @@ namespace CardPresentation
                 //   ⇒ **删掉那段**，位置**直调 `DropTargetWorld`**：它内部已按 `ProjectionScale(i)`
                 //   （督军 `HeroScale` / 其余 `CardScale`）取卡心，是**唯一判据**。
                 //   ⛔ 别把那段抄回来、也别在别处再写一份「卡心投到 HUD 平面」。
-                Vector3 markerPos = DropTargetWorld(i);
-                r.transform.localPosition = markerPos + new Vector3(0f, 0f, 0.05f);
+                Vector3 markerPos = DropTargetWorld(i);   // 🔴 2026-11-03（`B124-W9`）：本口返回 **HUD 平面的世界点**（与 `SlotPosition` 同空间）⇒ 下面必须按世界点摆
+                r.transform.position = markerPos + new Vector3(0f, 0f, 0.05f);   // ⛔ 别再写 `localPosition`（那会把世界点当本物体局部点，棋盘一旦有父变换/缩放就偏；`Slots` 的层与 `PlaceMarkers` 的其余分支不受影响）
                 // 🔴 **2026-09-20：真 3D 时底片的位置与尺寸都要按「投影」来。**
                 //    底片平时不可见（alpha 0），但**拖拽时是亮的**（alpha 0.45）——
                 //    卡搬进 3D 之后不跟着走的话，玩家看到的高亮格会停在**上面 150 px 的老位置**，
@@ -522,11 +522,11 @@ namespace CardPresentation
             //    距离 = 屏幕两点**欧氏** · `bestIdx < 0` 只在「一个候选都没有」时出现 ⇒ **没有任何容差**
             //    （互验 `decomp_full/MinionManager__GetClosestAvailableSlot.c:35-145`）。
             //  🔴 **2026-11-03（执行写手 `B121-WB` · 账 `B120-Q04c3`）**：本档原有的两个自定容差
-            //    `snapTolerance`（0.036）/ `snapToleranceY`（0.09）**已彻底删除** —— 它们只服务
-            //    `ExplainDrop` / `DropRejectKindForTest` / `CardBaseDemo` 那批探针与夹具；产品路径
-            //    （`Release` / `UpdateDrag`）走 `allowNearest:true`，本来就已经无容差。
-            //    ⇒ `allowNearest` 形参**从此不再分支**（两取同解），保留只为调用点签名兼容 ——
-            //      ⛔ 别把容差写回来（`CardPresentation/Editor/B121_WB_Assert.cs` A 段盯着这一点）。
+            //    `snapTolerance`（0.036）/ `snapToleranceY`（0.09）**已彻底删除** —— 🔴 **2026-11-03（`B124-W9`）
+            //    就地订正（铁律 5）**：原文写「它们只服务 `ExplainDrop`/`DropRejectKindForTest`/`CardBaseDemo` 那批探针与夹具」
+            //    —— **错的**：`CardInteraction.DropReject` 当时正是拿「`TryResolveSlot` 成功」当「指针压在哪块棋盘」，
+            //    容差一删两块棋盘对同一点都返回 true ⇒ 错侧落点被判 `Ok`（静默打到敌方同号格）。**侧别判定已改成与解析无关的量**
+            //    （`CardInteraction.PointerOverBoard`：归一化 y 与各自 `lineY` 的距离），那才是它该有的判据 —— ⛔ 别把容差写回来。
             // ══════════════════════════════════════════════════════════════════════════════
             var nn = LayoutSpace.ToNormalized(worldPos); slot = -1;
             float best = float.MaxValue;
@@ -540,10 +540,10 @@ namespace CardPresentation
             return slot >= 0;                                                        // 候选集为空（两侧都满）⇒ **false**（原版 `return 0` = 无格；⛔ 不当成可出牌）
         }
 
-        /// <summary>**真 3D 那条路要用**：这一格的卡**现在画在屏幕上的哪一点**（返回**本物体局部坐标**，
-        /// 和 `SlotPosition` 同一个约定 —— 拖拽/回弹/自动对局那几路全都拿它当 `SlotPosition` 用，
-        /// 换函数名就够了）。
-        /// 没有 3D 战场时就是老那套 `SlotPosition`。判据只有这一处，别在调用点各写一份。</summary>
+        /// <summary>**真 3D 那条路要用**：这一格的卡**现在画在屏幕上的哪一点**（返回**世界坐标** —— 落在 HUD 平面 z=0 上，
+        /// 与 `SlotPosition` **同一个空间**，可直接互换/相减；⛔ 不是本物体局部坐标）。
+        /// 🔴 **2026-11-03（`B124-W9`）就地订正（铁律 5）**：原写「返回本物体局部坐标、和 `SlotPosition` 同一个约定」= 自相矛盾
+        /// （`SlotPosition` 走 `LayoutSpace.ToWorld`，是世界点）⇒ 已删实现里那句 `InverseTransformPoint`，两档现在同空间。</summary>
         public Vector3 DropTargetWorld(int slot)
         {
             if (use3D && boardCam != null)
@@ -551,7 +551,7 @@ namespace CardPresentation
                 float sc = ProjectionScale(slot);
                 var sp = boardCam.WorldToScreenPoint(ArenaSlots.CardCenter(slot, mirror, sc));
                 if (sp.z > 0f)
-                    return transform.InverseTransformPoint(LayoutSpace.ScreenToWorld(new Vector2(sp.x, sp.y)));
+                    return LayoutSpace.ScreenToWorld(new Vector2(sp.x, sp.y));   // 世界点（HUD 平面 z=0）—— 与 `SlotPosition` 同空间；⛔ 别加 `InverseTransformPoint`（2026-11-03 `B124-W9` 已删）
             }
             return SlotPosition(slot);
         }
@@ -575,8 +575,8 @@ namespace CardPresentation
         // ==================================================================
         //  🆕 2026-10-16：「手牌 → 棋盘」那三段里的**第二段要用的口**
         //     （原版 `MinionManager.MoveMinionToConversionPoint` 那条 tween 的**终点**）
-        //  ⚠️ 本节是**纯新增** —— 上面 `DropTargetWorld` 一个字节都没动（它的返回值是拖拽落点
-        //     /底片/飘字/根特效的判据，不许变）。
+        //  ⚠️ **2026-11-03（`B124-W9`）订正**：本节曾写「纯新增、上面 `DropTargetWorld` 一个字节没动」——
+        //     那句**已不成立**：`DropTargetWorld` 去掉了 `InverseTransformPoint`、改回**世界坐标**（两档同空间）。
         // ==================================================================
 
         /// <summary>原版 `MinionManager.minionConversionHeight`（**我方**）= **1.0**。
@@ -597,8 +597,8 @@ namespace CardPresentation
             get { return mirror ? EnemyMinionConversionHeight : PlayerMinionConversionHeight; }
         }
 
-        /// <summary>**「这一格的卡抬高 `upWorld` 之后」画在屏幕上的哪一点**（返回**本物体局部坐标**，
-        /// 与 `DropTargetWorld` 同一个约定）。
+        /// <summary>**「这一格的卡抬高 `upWorld` 之后」画在屏幕上的哪一点**（返回**世界坐标**，落在 HUD 平面 z=0 上，
+        /// 与 `DropTargetWorld` **同一个空间** —— ⛔ 不是本物体局部坐标，2026-11-03 `B124-W9` 订正）。
         ///
         /// 为什么要它：原版「手牌→棋盘」是**两段移动** —— 先飞到 `槽位 + up × minionConversionHeight`，
         /// 再**垂直落**到槽位（判据 `MinionManager__MoveMinionToConversionPoint.c:41-96` ·
@@ -628,7 +628,7 @@ namespace CardPresentation
                 var world = ArenaSlots.CardCenter(slot, mirror, sc) + Vector3.up * upWorld;
                 var sp = boardCam.WorldToScreenPoint(world);
                 if (sp.z > 0f)
-                    return transform.InverseTransformPoint(LayoutSpace.ScreenToWorld(new Vector2(sp.x, sp.y)));
+                    return LayoutSpace.ScreenToWorld(new Vector2(sp.x, sp.y));   // 世界点（HUD 平面 z=0）—— 与 `SlotPosition` 同空间；⛔ 别加 `InverseTransformPoint`（2026-11-03 `B124-W9` 已删）
             }
             return SlotPosition(slot);
         }

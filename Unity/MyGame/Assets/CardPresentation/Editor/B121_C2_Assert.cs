@@ -121,12 +121,21 @@ public static class B121_C2_Assert
               "A4 ★ 施工单 #4：**空串不报错** —— 照原版造出一个卡组对象、`why` 是空串（原版 `CardDeck__DeserializeDeckString.c` 没有空串守卫）"
             + "｜实得 " + (empty == null ? "null（= 又加回守卫了）" : ("非null / why「" + why2 + "」"))
             + "｜🧨 把 `ParseDeck` 改回 `ImportEmpty` 那一支 ⇒ 本条红");
-        if (empty != null)
-            Check(string.IsNullOrEmpty(empty.Name) && (empty.CardIds == null || empty.CardIds.Count == 0)
-                  && string.IsNullOrEmpty(empty.WarlordId),
-                  "A5 ★ 那一副是「**无名 / 无卡 / 无督军**」的畸形卡组（原版原样：`Split(';')` 长度 1 ⇒ `gameMode=0`、"
-                + "`Split(':')[0]` 空 ⇒ 名字空）｜实得 名「" + (empty.Name ?? "") + "」/ 卡 " + (empty.CardIds == null ? 0 : empty.CardIds.Count)
-                + " / 督军「" + (empty.WarlordId ?? "") + "」");
+        // 🔴 2026-11-03（`B124_W35`）：同一条静默跳过债 —— 原来是 `if (empty != null) Check(A5)`。
+        Check(empty != null, "A5 前提 ★ `ParseDeck(\"\")` 回了**非 null** 对象（⛔ 为 null ⇒ A5 必须红，不得静默跳过）");
+        Check(empty != null && string.IsNullOrEmpty(empty.Name) && (empty.CardIds == null || empty.CardIds.Count == 0)
+              && string.IsNullOrEmpty(empty.WarlordId),
+              "A5 ★ 那一副是「**无名 / 无卡 / 无督军**」的畸形卡组（原版原样：`Split(';')` 长度 1 ⇒ `gameMode=0`、"
+            + "`Split(':')[0]` 空 ⇒ 名字空）｜实得 " + (empty == null ? "null" : "名「" + (empty.Name ?? "") + "」/ 卡 " + (empty.CardIds == null ? 0 : empty.CardIds.Count)
+            + " / 督军「" + (empty.WarlordId ?? "") + "」"));
+
+        // 🔴 A5b 灭自证（`B124_W2` · 调度台 2026-11-03 补）：**未走解析路**的 `PlayerDeck` ctor 仍应补「新卡组」——
+        //   防「把 ctor 那条兜底整条删掉」也能让 A5 变绿（`ParseDeck` 现在显式写 `Name = ""`）。
+        //   判据 = `RuleEngine/Core/DeckRules.cs:768`（`Name = string.IsNullOrEmpty(name) ? "新卡组" : name;`，ctor 口径不变）。
+        Check(new PlayerDeck("", null, null, null, 0).Name == "新卡组",
+              "A5b 灭自证：`new PlayerDeck(\"\", …)` **仍被 ctor 补成「新卡组」**"
+            + "（判据 `RuleEngine/Core/DeckRules.cs:768`；A5 走的是 `ParseDeck` 那条**显式写空名**的路，两条路互不相同）"
+            + "｜🧨 把 ctor 那条兜底删掉 ⇒ 本条红（而 A5 仍绿 ⇒ 两条路被合并了）");
 
         // A6：ParseDeck **不落库**
         int n0 = CollectionData.DeckCount();
@@ -156,8 +165,11 @@ public static class B121_C2_Assert
         Check(mismatch == 0, "A8 ★ `DeckAt(i)` 与 `InfoOf(Raw(i))` 六个字段逐下标全等（共 " + CollectionData.DeckCount()
                       + " 套，不等 " + mismatch + " 套）—— 规约只留一份，⛔ 别在两个口各写一套"
                     + "｜🧨 只改其中一个口（例如给 `InfoOf` 加卡背兜底）⇒ 本条红");
-        Check(CollectionData.InfoOf(null).Name == "" && CollectionData.InfoOf(null).Count == 0,
-              "A9 `InfoOf(null)` 回一个字段全默认的 `DeckInfo`（不抛）");
+        // 🔴 2026-11-03（`B124_W2`）：原文案说「字段全默认」却断 `Name == ""` —— 字段默认是 **`null`**
+        //   （`CollectionData.InfoOf:660-663` 的 `if (d == null) return info;` 不给 `Name` 赋值）⇒ 自相矛盾。
+        //   改断「**不抛、且是空**」（null 与 "" 都算空）；文案与实现哪一支都不会假绿。
+        Check(string.IsNullOrEmpty(CollectionData.InfoOf(null).Name) && CollectionData.InfoOf(null).Count == 0,
+              "A9 `InfoOf(null)` 回一个**字段全默认**的 `DeckInfo`（不抛；`Name` 空（null/\"\" 都算空）、`Count` = 0）");
     }
 
     // ==================================================================
@@ -249,20 +261,24 @@ public static class B121_C2_Assert
         Check(CollectionData.DeckCount() == before,
               "C3 ★ **这一站不落库**（`DeckCount()` 前后都是 " + before + "；保存要等玩家在编辑器点 `Done`）"
             + "｜🧨 在 `TryImport` 里调 `CollectionData.ImportDeck` ⇒ 本条红");
-        if (opened != null)
-        {
-            Check(opened.State == DeckInfoPopup.DeckInfoState.Import,
-                  "C4 ★ 那一扇的 `State = Import(1)`（原版 `DeckInfoContext{State = 1}`）｜实得 " + opened.State);
-            Check(opened.OverrideDeck != null,
-                  "C5 ★ 它拿的是**刚解析出来的那个对象**（`OverrideDeck != null`；库里没有它的下标 ⇒ `DeckIndex = −1`）"
-                + "｜实得 OverrideDeck=" + (opened.OverrideDeck == null ? "null" : "非null") + " / DeckIndex=" + opened.DeckIndex);
-            Check(!opened.SelectButtonProvided,
-                  "C6 ★ `Select Deck` 那颗**藏着**（原版 `SelectButton = null`）｜实得 " + opened.SelectButtonProvided);
-            Check(opened.IsItemShown("Btn:Edit Deck") && !opened.IsItemShown("Opt:Share") && !opened.IsItemShown("Btn:Practice Deck"),
-                  "C7 ★ 该态下只有 `Edit Deck` / `Switch Deck Info` 这类露：`Edit Deck` 露、`Share` 藏、`Practice Deck` 藏"
-                + "（判据 = `DeckInfoControls__Initialize.c` 的 SetActive 表）");
-            opened.Close();
-        }
+        // 🔴 2026-11-03（`B124_W35`）：同一条静默跳过债 —— 原来是 `if (opened != null) { C4…C7 }`，
+        //   前提一破这四条**从未执行**。改成逐条挂 `opened != null` 前缀（空安全、不抛异常拖垮后面的组）。
+        Check(opened != null && opened.State == DeckInfoPopup.DeckInfoState.Import,
+              "C4 ★ 那一扇的 `State = Import(1)`（原版 `DeckInfoContext{State = 1}`）｜实得 "
+            + (opened == null ? "窗没开 ⇒ 无从判" : opened.State.ToString()));
+        Check(opened != null && opened.OverrideDeck != null,
+              "C5 ★ 它拿的是**刚解析出来的那个对象**（`OverrideDeck != null`；库里没有它的下标 ⇒ `DeckIndex = −1`）"
+            + "｜实得 OverrideDeck=" + (opened == null ? "窗没开 ⇒ 无从判" : (opened.OverrideDeck == null ? "null" : "非null"))
+            + (opened == null ? "" : " / DeckIndex=" + opened.DeckIndex));
+        Check(opened != null && !opened.SelectButtonProvided,
+              "C6 ★ `Select Deck` 那颗**藏着**（原版 `SelectButton = null`）｜实得 "
+            + (opened == null ? "窗没开 ⇒ 无从判" : opened.SelectButtonProvided.ToString()));
+        Check(opened != null && opened.IsItemShown("Btn:Edit Deck") && !opened.IsItemShown("Opt:Share")
+              && !opened.IsItemShown("Btn:Practice Deck"),
+              "C7 ★ 该态下只有 `Edit Deck` / `Switch Deck Info` 这类露：`Edit Deck` 露、`Share` 藏、`Practice Deck` 藏"
+            + "（判据 = `DeckInfoControls__Initialize.c` 的 SetActive 表）"
+            + "｜🧨 窗没开 ⇒ 本条红（旧写法会静默跳过）");
+        if (opened != null) opened.Close();
     }
 
     // ==================================================================
@@ -273,7 +289,12 @@ public static class B121_C2_Assert
         var mgr = WindowsManager.Get();
         if (mgr == null) { Check(false, "D0 前提：拿得到 `WindowsManager`"); return; }
 
-        var deck = new PlayerDeck("C2 cardback probe", null, null, new List<string>(), 0);
+        // 🔴 2026-11-03（`B124_W2`）：夹具原来给的是**无督军**的空卡组 ⇒ `InfoOf` 的 `Faction` 是空串
+        //   ⇒ `CardArt.DeckCardback(null, "")` 回 null ⇒ `DeckInfoPopup.cs:2145-2147` 整块跳过
+        //   （日志 `[DeckInfo] 卡背取不到（`` / 阵营 ）`）⇒ D1 红、D2/D3 静默没跑。
+        //   给一个**真督军**（取库里第 0 套的；判据 = 原版 `Deck Info ▸ Cardback` 只在 `GetDeckCardback()` 有值时才建）。
+        var probeHero = CollectionData.Raw(0);
+        var deck = new PlayerDeck("C2 cardback probe", probeHero != null ? probeHero.WarlordId : null, null, new List<string>(), 0);
         var info = CollectionData.InfoOf(deck);
         var w = DeckInfoPopup.CreateForPicked(mgr, -1, deck, info, DeckInfoPopup.DeckInfoState.Edit, true, null, null);
         made.Add(w.gameObject);
@@ -283,31 +304,29 @@ public static class B121_C2_Assert
         Check(front != null,
               "D1 ★ 施工单 #5：`Cardback Front` 这一层**建出来了**（原版 `Deck Info ▸ Cardback ▸ Cardback Front`）"
             + "｜🧨 只画父层（= 改前）⇒ 本条红");
-        if (front != null)
-        {
-            // 世界角 = 父 +1.60° + 子 −3.43° = −1.83°（Unity 的 `eulerAngles.z` 落在 [0,360) ⇒ 归一到 (−180,180]）
-            float z = front.localRotation.eulerAngles.z;
-            if (z > 180f) z -= 360f;
-            Check(Mathf.Abs(z - (-1.83f)) < 0.05f,
-                  "D2 ★ 子件的世界角 = 父 `+1.60°` + 子 `−3.43°` = **−1.83°**（判据 = `menu_dump` 的 `↻1.60°` / `↻-3.43°`）"
-                + "｜实得 " + z.ToString("F2") + "°｜🧨 子件也设成 +1.60°（漏掉自己那一转）⇒ 本条红");
+        // 🔴 2026-11-03（`B124_W35`）：原来是 `if (front != null) { … }` —— 前提一破，**D2/D3 静默不跑**
+        //   （看着只有 D1 一条红，其实两条从没执行过）。改成「先硬断前提、再无条件断结论」：
+        //   取值一律走空安全三元（落 `float.NaN`）⇒ 前提破了结论那条照样红，且不抛异常把后面的组带崩。
+        Check(front != null, "D2 前提 ★ `Cardback Front` 拿到手了（⛔ 不在 ⇒ D2/D3 必须红，不得静默跳过）");
+        // 世界角 = 父 +1.60° + 子 −3.43° = −1.83°（Unity 的 `eulerAngles.z` 落在 [0,360) ⇒ 归一到 (−180,180]）
+        float z = front != null ? front.localRotation.eulerAngles.z : float.NaN;
+        if (z > 180f) z -= 360f;
+        Check(Mathf.Abs(z - (-1.83f)) < 0.05f,
+              "D2 ★ 子件的世界角 = 父 `+1.60°` + 子 `−3.43°` = **−1.83°**（判据 = `menu_dump` 的 `↻1.60°` / `↻-3.43°`）"
+            + "｜实得 " + z.ToString("F2") + "°｜🧨 子件也设成 +1.60°（漏掉自己那一转）⇒ 本条红");
 
-            // 位置：相对父层 `Cardback` 的中心偏 (+20.72, −9.07) 屏幕 px ⇒ 距离 22.62 px
-            //   （原版父局部 (+11.2, −4.9) × localScale 1.85；`menu_dump` 的父/子绝对矩形中心差也是 22.62）
-            //   ⚠️ 用「**两节点之间的距离**」而不是绝对坐标：窗根挂在哪由 `AttachToAnchor` 决定，
-            //      绝对坐标会随宿主漂；距离是这套几何里唯一不随宿主变的量。
-            var cb = w.transform.Find("Deck Info/Cardback");
-            Check(cb != null, "D2b 前提：父层 `Cardback` 节点在（⛔ 不在 ⇒ D3 无从量起，不会假绿）");
-            if (cb != null)
-            {
-                float d = Vector3.Distance(front.position, cb.position);
-                Check(Mathf.Abs(d - LayoutSpace.Px(22.62f)) < LayoutSpace.Px(2f),
-                      "D3 ★ 子件中心相对父件偏 **(+20.72, −9.07) 屏幕 px ⇒ 距离 22.62px**"
-                    + "（原版父局部 (+11.2, −4.9) × 1.85；`menu_dump` 的两个绝对矩形中心差同样是 22.62）"
-                    + "｜实得 " + (d / LayoutSpace.Px(1f)).ToString("F2") + "px（容差 2px）"
-                    + "｜🧨 把子件摆在父件正中（偏移 0）⇒ 本条红");
-            }
-        }
+        // 位置：相对父层 `Cardback` 的中心偏 (+20.72, −9.07) 屏幕 px ⇒ 距离 22.62 px
+        //   （原版父局部 (+11.2, −4.9) × localScale 1.85；`menu_dump` 的父/子绝对矩形中心差也是 22.62）
+        //   ⚠️ 用「**两节点之间的距离**」而不是绝对坐标：窗根挂在哪由 `AttachToAnchor` 决定，
+        //      绝对坐标会随宿主漂；距离是这套几何里唯一不随宿主变的量。
+        var cb = w.transform.Find("Deck Info/Cardback");
+        Check(cb != null, "D2b 前提：父层 `Cardback` 节点在（⛔ 不在 ⇒ D3 无从量起，不会假绿）");
+        float d = (cb != null && front != null) ? Vector3.Distance(front.position, cb.position) : float.NaN;
+        Check(Mathf.Abs(d - LayoutSpace.Px(22.62f)) < LayoutSpace.Px(2f),
+              "D3 ★ 子件中心相对父件偏 **(+20.72, −9.07) 屏幕 px ⇒ 距离 22.62px**"
+            + "（原版父局部 (+11.2, −4.9) × 1.85；`menu_dump` 的两个绝对矩形中心差同样是 22.62）"
+            + "｜实得 " + (d / LayoutSpace.Px(1f)).ToString("F2") + "px（容差 2px）"
+            + "｜🧨 把子件摆在父件正中（偏移 0）⇒ 本条红");
         w.Close();
     }
 

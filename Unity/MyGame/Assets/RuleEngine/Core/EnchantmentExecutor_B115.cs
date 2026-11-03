@@ -81,7 +81,7 @@ namespace RuleEngine
             if (ctx == null || e == null || e.Card == null || carrier == null) return 0;
             var card = e.Card;
             // ⛔ 双发闸（见文件头）：这两张的效果已由手写等价物承担。
-            if (IsHandWrittenEnchantmentLane(card)) return 0;
+            if (IsHandWrittenEnchantmentLane(card) || CarrierBodyCoversSelfEnchantment(e, carrier)) return 0;   // 🆕 2026-11-03（`B124_W18`）：**两条路（数值路 + 关键词路）共用的双发闸** —— 本方法是它们唯一的执行口，而闸原来只挂在数值路 `FireEnchantmentAbilitiesByNumber` 上 ⇒ `Rally` 这类**关键词路**的附魔模板行一次都没被拦过（判据/实测 → `Core/EffectResolverPartial_B109E6.cs` 类尾那一节头注「为什么换了判据」§①②）。⛔ 判据在那边，别在这里抄第二份。
 
             var rows = card.TriggerAbilityRowsOf(triggerNumber);      // `null` = 列未知；`[]` = 明确没有
             if (rows == null || rows.Length == 0) return 0;
@@ -1270,7 +1270,7 @@ namespace RuleEngine
         //  ⚠️ **为什么 236 用 `DeclareAttackCore` 而不是 `DeclareAttack(forced:true)`**：后者的「退不退还」
         //     由 `ForcedAttackRefunds(ctx)` 按**卡 id 查表**决定，而那张表只装 `cards_engine.json`
         //     （`Data/ForcedAttackRefundMap.cs`）⇒ 附魔模板卡恒 `Unknown` ⇒ **一律按退还**。
-        //     `ca 236` 原版不退（`AddRedirectedAttack` 不碰额度）⇒ 走 `DeclareAttackCore`（不预扣、不退还）；
+        //     `ca 236` 原版**不预扣、不退还**（`AddRedirectedAttack` 里 `RemoveAttackThisTurn` 0 命中）⇒ 走 `DeclareAttackCore`（不预扣、不退还）；⚠️ 这一记的额度**照常被消耗 1 次**（`+0x48 += 1` 在结算期动画协程：`CardScript._AttackMeleeAnim_d__357__MoveNext.c:116` / `_ResolveAttackRangedAnim_d__360__MoveNext.c:69`），⛔ 别把「不退还」读成「不计数」（判据 → `判据/B124_CA236_强制攻击行动额度.md`）；
         //     `ca 238` 原版退 ⇒ 走类尾 `DeclareScriptedForceAttack238`（预扣 + 退还，逐句同
         //     `DeclareAttackRefundingForced`，只是 `refunds` 恒真 —— 那一支传的就是 `1`）。
         //     理想修法 = 给 `DeclareAttackRefundingForced` 加一个 `forceRefund` 形参（`RuleCore.cs` 本波白名单外，
@@ -1439,8 +1439,8 @@ namespace RuleEngine
             return hit;
         }
 
-        /// <summary>`ca 236` 那一记：原版 `AddRedirectedAttack` **不碰行动额度**
-        /// ⇒ 绕过 `DeclareAttackRefundingForced` 的预扣/退还，直接走声明层 + 结算。
+        /// <summary>`ca 236` 那一记：原版 `AddRedirectedAttack` **不预扣、不退还** —— ⚠️ 但**额度照常被消耗 1 次**（`+0x48 += 1` 写在结算期的攻击动画里：`CardScript._AttackMeleeAnim_d__357__MoveNext.c:116` 无条件 / `_ResolveAttackRangedAnim_d__360__MoveNext.c:69` 仅 `isAttacker` 时；旧口径「不碰行动额度」是**推理漏洞**，判据 → `判据/B124_CA236_强制攻击行动额度.md`）
+        /// ⇒ 绕过 `DeclareAttackRefundingForced` 的预扣/退还，直接走声明层 + 结算（`DeclareAttackCore` 里那记无条件 `AttacksThisTurn++` = 原版行为，⛔ 别改）。
         /// <para>⚠️ `BeginAction` 必须自带 —— `DeclareAttack` 就是在它里面包的 `DeclareAttackCore`。</para></summary>
         static int DeclareScriptedAttack236(BattleContext ctx, int p, int atkSlot, int tgtP, int tgtSlot, bool ranged)
         {
@@ -1875,25 +1875,16 @@ namespace RuleEngine
         }
 
         /// <summary>`ca 70` 的**请求落点**（原版 `PlayAbility.c:759-793` 的四档 `createAtPos`）。
-        /// <para>⛔ 这里不另写落点算法 —— 只做「拿谁当锚点」这一跳，格号仍由
+        /// <para>⛔ 这里不另写落点算法 —— 四档判据**只有一处**：`RuleCore.SummonRequestSlotCore`
+        /// （`EffectResolver.cs` 类尾，与正文路 `SummonRequestSlotFor` 共用），格号仍由
         /// <see cref="RuleCore.NextSlotToCard"/>（= 原版 `GetNextSlotToCard`）算。</para></summary>
         static int SummonRequestSlotOf(BattleContext ctx, int side, CardDef.AbilitySummonSpec spec,
                                        UnitState carrier, UnitState targetCard, string by)
         {
             if (ctx == null || spec == null) return -1;
-            int cap = spec.CreateAtPos;
-            if (cap < 0) return -1;                                  // 缺键/坏值 = 不知道（同 `SummonRequestSlotFor`，⛔ 别当 0）
-            switch (cap)
-            {
-                case 0: return NextSlotToCard(ctx, side, carrier);    // `.c:760-767`：贴**施放者**（thisCard = 载体）
-                case 1: return NextSlotToCard(ctx, side, targetCard); // `.c:769-774`：贴**卡目标**（abilityData.targetCard）
-                case 3: return -1;                                    // `.c:775-790`：督军 ⇒ `GetNextSlotToCard` 直接返默认
-                default:
-                    // `.c:792-793`：`AddMinionOccupation(area, 0)` + `LogWarning`，**落点仍取默认**（`14` 也在这档）
-                    ctx.Log($"{by}：`chosenAbility 70` 的 `createAtPos = {cap}` 不在 0 self / 1 cardTarget / 3 friendlyHero 三档内"
-                          + " —— 原版 `AddMinionOccupation(area,0)` + LogWarning、落点仍取默认（我们的棋盘无占用表 ⇒ 只出声）");
-                    return -1;
-            }
+            // 🔴 2026-11-03（`B124_W39` · 账 `B121-D5R-01`）：四档判据只留一处 —— 共用件在
+            //    `EffectResolver.cs` 类尾 `RuleCore.SummonRequestSlotCore`（⛔ 别在这里留第二份）。
+            return SummonRequestSlotCore(ctx, side, spec.CreateAtPos, carrier, targetCard, by);
         }
 
         // ---- 自检门（⚠️ 加在类尾；⛔ 生产侧别调 —— 纪律同 `RunRemoveThisEnchantmentForTriggerForTest`）----
@@ -1918,6 +1909,30 @@ namespace RuleEngine
         /// ⚠️ 别拿 `EnchantRowsDataGapForTest` 顶：那是 `_b121d1EnchantRowsDataGap`（另一条出声口），
         /// 本档走的是 `NoteEnchantBuffGap`。</para></summary>
         public static int EnchantBuffGapForTest { get { return _b115s5EnchantRowsUnsupported; } }
+
+        // ================================================================================================
+        //  🆕 2026-11-03（`B124_W39` · 账 `B124-TA10`）：附魔「打出即挂」的**载体集**解算薄口
+        // ================================================================================================
+        //  为什么要有这一层：`Enchantments`（`Enchantment.cs`）是**另一个类**，拿不到 `RuleCore` 的私有
+        //  `ResolveEnchantmentTargets`；而「按 `ta` 建池 + `TargetCriteriaEval` 筛 + `maxTargets` 裁」
+        //  **只能有一份实现**（⛔ 别在 `Enchantment.cs` 再写一份第二套判据）。
+        //  判据（`AbilityLogic__PlayAbility.c` 逐句现读）：**载体 = 目标表的每一个元素**，两支各自成立 ——
+        //   · `ca 30/31`（`:1183-1224`）：对目标表逐元素 `CardEffect__GetNewInstanceOfThisEffect` +
+        //     `BattleManager__AddEffect`（每个目标**各一份**新实例）；
+        //   · `ca 260`（`0x104`，`:2534-2551` → `LAB_18081e1c0` `:2851-2877`）：对目标表逐元素
+        //     `CardScript__TriggerOtherCardAbility(target, buffEffect.enchantment)`。
+        //  ⚠️ 两支的**动作**不同（挂载 vs 触发模板能力），本薄口只统一「**载体集**」这一层。
+        /// <summary>`ta` → 载体集（`null` = 目标集判不了 ⇒ 调用方退回改前行为；空表 = 判得出、一个都没有）。
+        /// <para><paramref name="owner"/> 由调用方给（出牌钩子上没有「打牌那一侧的实例」可查 ⇒
+        /// 传 `ctx.Active`，两处调用点都是「当前行动方出牌」）。<paramref name="chosen"/> 同时兼
+        /// `ta 20 self` 的锚点：出牌钩子上没有「载体单位」这一档（战术路 = 点选目标、单位路 = 刚落场的它自己）。</para></summary>
+        public static List<UnitState> ResolveGrantedEnchantmentCarriers(BattleContext ctx, int owner,
+                                                                        UnitState chosen, CardDef card,
+                                                                        int ab, int lg, int ta)
+        {
+            var row = new CardDef.TriggerAbilityIndexSpec { Ab = ab, Lg = lg, Ta = ta };
+            return ResolveEnchantmentTargets(ctx, owner, chosen, chosen, ta, card, row, "ThisCardPlayed");
+        }
 
     }
 }

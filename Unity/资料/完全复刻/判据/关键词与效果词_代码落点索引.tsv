@@ -84,6 +84,7 @@ stun	卡面动词	EffectResolver.DoStun	MyGame/Assets/RuleEngine/Core/EffectReso
 jam	卡面动词	EffectResolver.DoJam	MyGame/Assets/RuleEngine/Core/EffectResolver.cs:16300	EffectResolver.cs:1093 EffectDispatch["jam"]	解析产出点：EffectText.TryJam:7335
 blind	卡面动词	EffectResolver.DoBlind	MyGame/Assets/RuleEngine/Core/EffectResolver.cs:4510	EffectResolver.cs:1094 EffectDispatch["blind"]	解析产出点：EffectText.TryBlind:7285
 noeffect	卡面动词	EffectResolver.DoNoEffect	MyGame/Assets/RuleEngine/Core/EffectResolver.cs:15477	EffectResolver.cs:1096 EffectDispatch["noeffect"]	解析产出点：EffectText.TryNoEffect:8933
+warlordtransform	卡面动词	EffectResolver.DoWarlordTransform	MyGame/Assets/RuleEngine/Core/EffectResolver.cs:21866	EffectResolver.cs:1096 EffectDispatch["warlordtransform"]	解析产出点：**EffectText 里没有字面量产出点**（可能由别的动词合成/或从数据直读）
 costwhen	卡面动词	EffectResolver.DoCostWhenStub	MyGame/Assets/RuleEngine/Core/EffectResolver.cs:15442	EffectResolver.cs:1097 EffectDispatch["costwhen"]	解析产出点：EffectText.TryCostWhenStub:8740
 whenclause	卡面动词	EffectResolver.DoWhenClauseStub	MyGame/Assets/RuleEngine/Core/EffectResolver.cs:15429	EffectResolver.cs:1101 EffectDispatch["whenclause"]	解析产出点：EffectText.TryWhenSuffixStub:8842、EffectText.TryWhenPrefixStub:8884
 costifcontrol	卡面动词	EffectResolver.DoCostIfControlStub	MyGame/Assets/RuleEngine/Core/EffectResolver.cs:15463	EffectResolver.cs:1103 EffectDispatch["costifcontrol"]	解析产出点：EffectText.TryCostIfControl:8912
@@ -145,4 +146,4 @@ Stimulation(710)	trigger	ActionPump.TriggerNameOfKeyword	MyGame/Assets/RuleEngin
 Ecstasy(715)	trigger	ActionPump.TriggerNameOfKeyword	MyGame/Assets/RuleEngine/Core/ActionPump.cs:1118	ActionPump.cs:1118 case KeywordTable.Ecstasy	关键词 `Ecstasy` → 原版 trigger 名；**发射点**见本表「关键词」段那一行
 Cruelty(720)	trigger	ActionPump.TriggerNameOfKeyword	MyGame/Assets/RuleEngine/Core/ActionPump.cs:1119	ActionPump.cs:1119 case KeywordTable.Cruelty	关键词 `Cruelty` → 原版 trigger 名；**发射点**见本表「关键词」段那一行
 Ferocity(725)	trigger	ActionPump.TriggerNameOfKeyword	MyGame/Assets/RuleEngine/Core/ActionPump.cs:1120	ActionPump.cs:1120 case KeywordTable.Ferocity	关键词 `Ferocity` → 原版 trigger 名；**发射点**见本表「关键词」段那一行
-# 统计：共 140 行（trigger 22 · 关键词 64 · 卡面动词 54）；有落点 140 行 · 查不到 0 行
+# 统计：共 141 行（trigger 22 · 关键词 64 · 卡面动词 55）；有落点 141 行 · 查不到 0 行

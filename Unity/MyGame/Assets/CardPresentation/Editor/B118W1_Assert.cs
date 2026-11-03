@@ -362,11 +362,11 @@ public static class B118W1_Assert
         string c = FindLine(drv, "const float FatigueBannerHold");
         Check(c != null && c.Contains("0.5f"),
               "E1 🧨 节拍常量 = **0.5**（原版 `_ResolveFatigue` 末句 `WaitForSeconds(0.5f)`，`read_literal 0x1834b2bb4`）");
-        Check(src.Contains("_fatigueHoldEvent = e;"),
-              "E2 弹横幅那一条 `Hit` 被记下来（`NoteFatigueBanners`）");
+        Check(src.Contains("e.Kind != EvtKind.Fatigue") && src.Contains("_fatigueHoldEvent = h;"),
+              "E2 🧨 横幅判据 = **`EvtKind.Fatigue`**（判据 `BattleDriver.cs:30940-30943`）· 0.5 s 尾拍挂在**伤害那一条 `Hit`（`h`）**上（`:30955-30962`，原版次序 `ShowError` → `DealMultiDamage` → `WaitForSeconds(0.5)`）；⛔ 别退回「拿 `EvtKind.Hit` 反推」那六道闸");
         string loop = FindLine(drv, "ReferenceEquals(e, _fatigueHoldEvent)");
-        Check(loop != null && loop.Contains("t += beatGap") && loop.Contains("FatigueBannerHold"),
-              "E3 🧨 那 0.5 s 加在**这一拍之后**（`t += beatGap` 之后再 `+= FatigueBannerHold`）"
+        Check(loop != null && loop.Contains("t += FatigueBannerHold") && loop.Contains("EventTiming.DurationOf(e)") && loop.IndexOf("EventTiming.DurationOf(e)") < loop.IndexOf("t += FatigueBannerHold"),
+              "E3 🧨 那 0.5 s 加在**这一拍演完之后**（同一物理行：`t += EventTiming.DurationOf(e)` 之后再 `+= FatigueBannerHold`，`BattleDriver.cs:19700`）"
             + " —— 原版次序是「先伤害、后等 0.5」，不是「先等再伤害」");
         Check(src.Contains("_fatigueHoldEvent = null;"),
               "E4 批次之间把记账清掉（合成夹具喂的旧事件不会给下一批凭空加 0.5 s）");
