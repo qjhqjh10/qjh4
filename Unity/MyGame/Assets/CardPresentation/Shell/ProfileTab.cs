@@ -244,7 +244,7 @@ namespace CardPresentation
         static readonly PxRect CrDivR = new PxRect(366.58f, 457.65f, 757.50f, 457.65f);
         static readonly PxRect HrDivR = new PxRect(760.37f, 448.49f, 1151.30f, 448.49f);
         /// <summary>段位大图的**边长 = 卡宽 × 本系数**（512² 方图 + `preserveAspect` ⇒ 画出来是正方形）。
-        /// <para>🔴 **这是「我们挑的」，不是 prefab 字段值** —— 三段判据照实写在这里：
+        /// <para>🔶 自己设计（非原版）：DivArtSideRatio=0.72 · 判据为空（prefab `DivisionImage` 高度 0.00 伪值，宽度 390.922 才是真值），用实拍反算左 0.722/右 0.688 · 调度台 2026-11-04 定 —— 三段判据照实写在这里：
         /// ① prefab 那个 `DivisionImage` **只有宽度是真值（390.922）、高度是 0.00**（布局伪值，见上）
         ///    ⇒ 「画多大」在原版本来就不是这个矩形说了算，而是运行时 `set_sprite` 之后
         ///    `Image.preferredHeight` 参与 VLG 重排的结果 ⇒ **字段里查不到**（铁律 2：查不到就说查不到）。

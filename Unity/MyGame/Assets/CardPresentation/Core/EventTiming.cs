@@ -211,8 +211,8 @@ namespace CardPresentation
         /// · **`disappearFromHand(56)`（`chosenAbility 162`）**：`_ResolveDisappearFromHand_d__545__MoveNext.c:134`
         ///   `DestroyCard(card, 0.3f, 1, 0)` ⇒ `_DestroyCard_d__269__MoveNext.c` 状态 1 只有一次 `WaitForSeconds(0.3)` ⇒ **0.3 s**（= `CardFeel.HandDissolveBlockSeconds`；⛔ 不是「回手 0.75」）。
         /// · **`ephemeral`（临时卡移出游戏）**：**判据为空** ⇒ **保持 0**（铁律 11 例外①）。判别式 = `Effect == "ephemeral"`。</para>
-        /// <para>⛔ 判据只此一处：`BattleDriver.PlayReturnFeel` 播的那条表现补间（0.9167 s）**不是**这个数 ——
-        /// 原版队列只等上面那几段，clip 剩下的时间与下一批动作**重叠**。</para></summary>
+        /// <para>🔴 **2026-11-04（`B140_WC` · 账 `B124-RETHOLD`）回牌库那一支按【实演】算 0.9167**：原版队列只等 clip 的 AnimationEvent（**0.55**），clip 尾巴与第二段**重叠**；我们**没有那条截断点** —— 第二段挂在倒放的 `onDone`（`CardFeel.HandToBoardEnd` **0.9167**）之后才起（`BattleDriver.PlayReturnFeel` → `ReturnFeelArrived` → `CardFeel.ReturnToDeck`，现读 `BattleDriver.cs:25692` / `:42040`，`CardFeel.cs:1905` 的 `AppendInterval(HandToBoardEnd)`）⇒ 回牌库 = **0.9167 + 0.4 = 1.3167**（第二段仍是 `MoveToDeckTotal` 0.4，⛔ 不改补间）。
+        /// ⚠️ 这一支**替换**第一段（⛔ 不是 `0.55 + 0.9167 + 0.4` —— 那会把下一条事件**多**推后 0.55）；回手 / `Slot<0` / `teleport` 加数那几支**一个字不动**（`teleport` 的 +0.55 照旧叠加）。</para></summary>
         public static float ReturnHoldOf(BattleEvent e)
         {
             if (e == null) return 0f;
@@ -221,10 +221,10 @@ namespace CardPresentation
             if (e.Slot < 0)
                 return e.Effect == "disappearFromHand" ? CardFeel.HandDissolveBlockSeconds : e.Effect == "ephemeral" ? 0f : ReturnGraveHold;   // 🆕 2026-10-31（B105_W2）162 的溶解：判据 = `_ResolveDisappearFromHand_d__545__MoveNext.c:134` 的 `DestroyCard(card, 0.3f, 1, 0)`
 
-            float s = ReturnCardAnimHold;
             int dest = ReturnDestOf != null ? ReturnDestOf(e) : -1;
             bool deck = dest == 1;
             if (dest < 0) WarnNoReturnDest();
+            float s = deck ? CardFeel.HandToBoardEnd : ReturnCardAnimHold;   // 🔴 2026-11-04（B140_WC）：回牌库的第一段 = 倒放整条 clip 的**实演** 0.9167（判据见上面 `<para>`），⛔ 不是 0.55 —— 那是原版 AnimationEvent 的时刻，我们没有那个截断点
             s += deck ? MoveToDeckTotal : ReturnHandRelayoutHold;
 
             if (HasTraitOf == null) WarnNoTraitHook();
@@ -239,8 +239,8 @@ namespace CardPresentation
             _warnedNoReturnDest = true;
             UnityEngine.Debug.LogWarning(
                 "[EventTiming] `ReturnDestOf` 没挂 / 判不出这一条的**目的地** ⇒ `EvtKind.Return` 按**回手**那一档 "
-              + $"{ReturnCardAnimHold + ReturnHandRelayoutHold:F2}s 排（回牌库应 {ReturnCardAnimHold + MoveToDeckTotal:F2}s，"
-              + $"差 {MoveToDeckTotal - ReturnHandRelayoutHold:F2}s）。生产路径由 `BattleDriver.HookEventTimingCardSource` 挂钩。");
+              + $"{ReturnCardAnimHold + ReturnHandRelayoutHold:F2}s 排（回牌库应 {CardFeel.HandToBoardEnd + MoveToDeckTotal:F2}s，"
+              + $"差 {CardFeel.HandToBoardEnd + MoveToDeckTotal - ReturnCardAnimHold - ReturnHandRelayoutHold:F2}s）。生产路径由 `BattleDriver.HookEventTimingCardSource` 挂钩。");
         }
 
         static bool _warnedNoTraitHook;
@@ -1230,10 +1230,10 @@ namespace CardPresentation
                                          + " **+ 收尾**：回手 `:55-60` `AddCardNotDrawnToHand` 等 `timeToPositionCard` **0.2**"
                                          + "（`_d__40:42-47`）⇒ **0.75**；回牌库 `_ResolveRecallToDeck:350-356` 等"
                                          + " `MoveToDeck(…,1,0)` 的返回值 = `timeToScaleIntoMoving 0.1 + 0.3` = **0.4**"
-                                         + " ⇒ **0.95**（🔴 `J1` §3 订正：上一版记 0.85 只算了 0.3）；"
+                                         + " ⇒ **1.3167**（🔴 `J1` §3 订正：上一版记 0.85 只算了 0.3；🔴 2026-11-04 `B140_WC`：原版队列等的是 0.55，但**我们**第二段挂在倒放 `onDone`（0.9167）之后 ⇒ 值 = 0.9167 + 0.4，判据见 `ReturnHoldOf`）；"
                                          + "卡背朝上那一档 0.65 的判据已闭合（`J3` §1：`ShouldShowCardback(cardState) || "
                                          + "card+0x54 = EntityScript.armedTrap`）但**我们那两条路都不存在** ⇒ ⛔ 不改；"
-                                         + "⚠️ 带 `teleport`(0x4ce=1230) 的卡 state 1 再等一次 ⇒ 回手 **1.30** / 回牌库 **1.50**；"
+                                         + "⚠️ 带 `teleport`(0x4ce=1230) 的卡 state 1 再等一次 ⇒ 回手 **1.30** / 回牌库 **1.8667**（= 1.3167 + 0.55）；"
                                          + "⚠️ `Slot < 0`：墓地取回 `CreateCardInGame` 等 `timeToDrawPlayerCard` **0.3**（`J1` §4），"
                                          + "`ephemeral` 原版无此链 ⇒ **0**";
                 case EvtKind.AmbushExit: return "**占 0**（原版 `CardScript.SetAmbush(card,false)` 是普通方法、不阻塞，"

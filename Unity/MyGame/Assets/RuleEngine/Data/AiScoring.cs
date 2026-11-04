@@ -462,8 +462,8 @@ namespace RuleEngine
         ///   · **其余全部不加**（尤其 **3 `addTrait` / 4 `removeTrait` = 0 分**）
         ///
         /// 🔴 **我们的实现边界（如实标注，⛔ 别当成「原版同款」）**：
-        ///   ① **`addStats` 那一档已按原版算** —— 我们的引擎把属性 buff 直接折进
-        ///      `UnitState.Attack/RangedAttack/MaxHealth`，所以「运行时 − 卡面」就是那些 delta 的和；
+        ///   ① **`addStats` 那一档只数【非 extrinsic】的修饰**（2026-11-04 `B140_WN` 就地改）：原版跳过
+        ///      `extrinsic(+0x30) != 0` 的记录 ⇒ 我们改为扫 `UnitState.StatMods` 里 `BuffType==1 ∧ !IsSet ∧ !Extrinsic` 的行求和；
         ///   ② **12/15/16 那一档做不到** —— 引擎里没有 `activeEffects` 与 `CardEffect` 对象表，
         ///      而**关键词增量分不出 addTrait（原版 0 分）与 enchantment（+1）**
         ///      （实测：运行时 `AddKeyword(droppod)` 会把 `addTrait` 误算成 +1）。
@@ -473,15 +473,15 @@ namespace RuleEngine
         public static float ValueOfEnchantments(UnitState u)
         {
             if (u == null || u.Card == null) return 0f;
-            var card = u.Card;
+            // 🔴 2026-11-04（`B140_WN`）：原来这里缓存 `var card = u.Card;` 用来算「运行时 − 卡面」—— 改成扫 `StatMods` 后不再需要（上面那一行已判过 `u.Card == null`）。
 
             float sum = 0f;
 
-            // ① buffType == addStats(1)：原版 `CardEffect` 0x48/0x50/0x60 = melee/range/health。
-            // ⚠️ 原版**不读** 0x58（armourChange）—— 这里也不读。
-            int dm = u.Attack - card.Attack;
-            int dr = u.RangedAttack - card.RangedAttack;
-            int dh = u.MaxHealth - card.Health;
+            // ① buffType == addStats(1)：原版**只数 `activeEffects` 里 `extrinsic == 0` 的那几条**（`AI__ValueOfEnchantments.c:25-30`）；等价字段 = `UnitState.StatMod.Extrinsic`。
+            //    ⚠️ 原版不读 0x58(armourChange)，也不数 set 档(70/85/9) ⇒ 只认 `BuffType==1 ∧ !IsSet ∧ !Extrinsic`（旧实现「运行时 − 卡面」把这些都算进去了）。
+            int dm = 0, dr = 0, dh = 0;
+            var mods = u.StatMods;
+            for (int i = 0; i < mods.Count; i++) { var m = mods[i]; if (m == null || m.Extrinsic || m.IsSet || m.BuffType != 1) continue; if (m.Attr == "attack") dm += m.Value; else if (m.Attr == "ranged") dr += m.Value; else if (m.Attr == "health") dh += m.Value; }
             if (dm != 0 || dr != 0 || dh != 0) sum += (dm + dr + dh) * 0.5f;
 
             // ② enchantment / singleUse / choice —— **接 E3 建的真实附魔层**
@@ -542,8 +542,8 @@ namespace RuleEngine
         {
             var u = t.Unit;
             if (u == null || !u.IsAlive) return 0f;
-            // 原版 `GetPotentialBuffedAttackActions` 的**第一道闸** = `MightAttackBuffedCard(card, buff)`（`.c:48`，逐句判据 → `SimpleAI.MightAttackBuffedCard` 的 doc）。🔴 只对**带 buff 那一档**（`meleeDelta != 0`）套它 —— 原版 `ScoreFromBestAttack.c:21` 只调一次带 buff 的列表，`meleeDelta == 0` 是「不带 buff」的对照分、原版不过本闸。⚠️ 旧口径 `Exhausted || IsStunned`（= 我们侧 `canAct`）**保留**：原版 `get_mightAct` 并不读 `canAct`（见那个方法的 doc ③），两者谁该管这一格**待引擎线裁决**（2026-10-26 `B8_E` 顺手发现，已记账）
-            if (u.Exhausted || u.IsStunned) return 0f;
+            // 原版 `GetPotentialBuffedAttackActions` 的**第一道闸** = `MightAttackBuffedCard(card, buff)`（`.c:48`）；🔴 只对**带 buff 那一档**（`meleeDelta != 0`）套它（`meleeDelta == 0` 是「不带 buff」的对照分，原版不过本闸）。
+            // 🔴 2026-11-04（`B140_WN` · 铁律 5 就地改）：这里原来还有一句 `if (u.Exhausted || u.IsStunned) return 0f;`（= 我们侧 `canAct` 的近似）—— **已删**。原版一道都不读 `Exhausted`/`canAct`（`BattleManager__MightAttackBuffedCard.c:10-27` 三闸 = mightAct ∧ 攻≥1 ∧ state==2；`CardScript__get_mightAct.c` 只读 attacksThisTurn/stun(100)/cantAttack(150)/nonCombatant(880)）⇒ 本回合已行动但未眩晕的单位**仍计入** option 5；眩晕由 case 5 外层的 `mightAct` 挡掉。
             if (meleeDelta != 0 && !SimpleAI.MightAttackBuffedCard(ctx, t, meleeDelta, 0)) return 0f;
             var board = ctx.Players[t.Side].Board;
             int slot = -1;

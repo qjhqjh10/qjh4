@@ -4351,7 +4351,7 @@ public static class RewardsScene
                     //   判据全部**照 UGUI 源码**（原版跑的滚动就是它，本地就能读：
                     //   `Library/PackageCache/com.unity.ugui@…/Runtime/UGUI/UI/Core/ScrollRect.cs`）：
                     //   `m_DecelerationRate = 0.135` · `m_Elasticity = 0.1` · `RubberDelta` :1084 ·
-                    //   拖拽阈值 = `EventSystem.m_DragThreshold = 10`（`EventSystem.cs:68`）；
+                    //   拖拽阈值 = `EventSystem.m_DragThreshold = 5`（原版串行值 `Intro.unity:5429`；⚠️ 2026-11-04 订正：原写 `EventSystem.cs:68` 的 **10** —— 那是 **uGUI 默认值**，不是原版值）；
                     //   悬停色 = 原版 prefab 里 1276 个按钮共用的 `m_Colors.m_HighlightedColor = 0.9607843`。
                     {
                         // ① 悬停（原版 = UGUI `IPointerEnter/Exit`）
@@ -4391,17 +4391,17 @@ public static class RewardsScene
                             //   （锻造轨道视口里的页坐标）⇒ 每个点先过唯一换算口；`owner` = `Forge Tab` 页根。
                             //   ⚠️ 换算口是「绕画布中心缩放」的仿射 ⇒ 相邻两点的**设计距**按 k 同比缩放（口径一致）。
                             var dragP0 = MenuCheck.PointerFramePxFromDesign(new Vector2(1125f, 700f), forge);
-                            var dragP1 = MenuCheck.PointerFramePxFromDesign(new Vector2(1131f, 700f), forge);
-                            var dragP2 = MenuCheck.PointerFramePxFromDesign(new Vector2(1160f, 700f), forge);
+                            var dragP1 = MenuCheck.PointerFramePxFromDesign(new Vector2(1129f, 700f), forge);
+                            var dragP2 = MenuCheck.PointerFramePxFromDesign(new Vector2(1131f, 700f), forge);
                             var dragP3 = MenuCheck.PointerFramePxFromDesign(new Vector2(1170f, 700f), forge);
                             var downBtn = layer.ButtonAt(dragP0.x, dragP0.y);
                             layer.PressAt(dragP0.x, dragP0.y);
                             CheckTrue(downBtn == null || downBtn.Pressed,
                                       "按下时命中的那一颗进 **Pressed** 态（原版 `SelectionState.Pressed`）");
                             CheckTrue(!layer.MoveTo(dragP1.x, dragP1.y),
-                                      "按住只挪 **6px** ⇒ **还没到** `m_DragThreshold = 10`（不算拖）");
+                                      "按住只挪 **4px** ⇒ **还没到** `m_DragThreshold = 5`（不算拖）");
                             CheckTrue(layer.MoveTo(dragP2.x, dragP2.y),
-                                      "挪过 10px ⇒ 转成**拖拽**（原版 `EventSystem.m_DragThreshold = 10`）");
+                                      "挪到 **6px** ⇒ 已过 5、转成**拖拽**（原版 `EventSystem.m_DragThreshold = 5`，`Intro.unity:5429`）");
                             CheckTrue(s.Dragging, "滚动区自己知道在被拖");
                             CheckTrue(!Mathf.Approximately(s.Offset, o1), "拖动**真的改了偏移**（内容跟着手走）");
                             layer.TickAt(1f / 60f);                     // 一帧 ⇒ 攒速度

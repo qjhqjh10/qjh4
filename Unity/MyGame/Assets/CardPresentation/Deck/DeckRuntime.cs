@@ -1406,7 +1406,7 @@ namespace CardPresentation
             //      「这个命中区没有绑动作」，而那颗按钮的动作其实走 `_btns` 那条路）⇒ 给真机诊断添噪声；
             //   ③ `Shell/PointerLayer.cs` 里那条「收口不到卡组编辑那一套」 早就写明「**收口不到卡组编辑那一套**，两者语义相同、
             //      **各写一份（明账）**」（同「滚动也是两份」）⇒ 悬停这一份跟着这条既有口径走。
-            //   代价（如实记）：本窗**没有** `PointerLayer` 那套「按下越过 10px 判成拖拽」的语义 ——
+            //   代价（如实记）：本窗**没有** `PointerLayer` 那套「按下越过 5px 判成拖拽」的语义 ——   // 🔴 2026-11-04（B140_WG）就地订正（铁律 5）：本行原来写「10px」—— 那是 **uGUI 默认值、不是原版值**；原版串行值 = `d:/2/tools/assetripper_out/ExportedProject/Assets/Data/Scenes/Intro.unity:5429 m_DragThreshold: 5`，`PointerLayer.DragThreshold` 已 10→5（`B140_WL` 2026-11-04 核实）
             //   但本类的拖拽是**行拖出删除**，判据本来就在 `EndDrag` 里，与按钮无关。
             //
             // 🔴 **2026-10-12（A364）就地订正（铁律 5）**：上面这段说的是「**本类自己不去建**指针层」，
@@ -2572,7 +2572,7 @@ namespace CardPresentation
             if (_cosmoArmyTitle != null)
             {
                 _cosmoArmyTitle.SetGlyphHeight(LayoutSpace.Px(FilterPanelModel.TitleFontPx));
-                MenuDraw.AlignLeft(_cosmoArmyTitle, cosmoArmyR); SetTmpMargin(_cosmoArmyTitle, new Vector4(22.7f, 0f, 0f, 0f));   // 🔴 2026-10-31（B108_A3）：HA=1 + 原版 `m_margin = (22.7,0,0,0)`（AUD02 行 462）｜🔴 2026-11-03（B123 真机）：**已知缺陷** —— 这颗标题被画到屏幕右上（实拍 x≈1900，应在抽屉内 x≈25），见活状态表 `B123-ARMYTITLE`。试过两种局部坐标修法（`CosmoFltLocal` / `AlignLeftOn`）在现场都不生效（且第一版 `RectTransform` 强转在 world 档会抛，导致整页空白）⇒ 已回退到原实现，留待带探针的下次修
+                MenuDraw.AlignLeft(_cosmoArmyTitle, cosmoArmyR); SetTmpMargin(_cosmoArmyTitle, new Vector4(22.7f, 0f, 0f, 0f));   // 🔴 2026-10-31（B108_A3）：HA=1 + 原版 `m_margin = (22.7,0,0,0)`（AUD02 行 462）｜⚠️ **2026-11-04（B140_WG）就地订正（铁律 5）**：本行原来写「试过两种局部坐标修法在现场都不生效 ⇒ **已回退到原实现，留待带探针的下次修**」—— **那一句已过期**：2026-11-03 **同日**公式已改成选项 (c)（`Battle/Label.cs:1951-1958`：设计点经**顶层祖先**（= 设计帧）`TransformPoint` 再 `parent.InverseTransformPoint` 折回父局部；旧式 `worldX − P/k` 只留作 `k` 非有限/≈0 的兜底）。真机缺陷（实拍 x≈1900、应在抽屉内 x≈25，账 `B123-ARMYTITLE`）的根因守卫 = `Editor/B124_W44_Assert.cs`（k=1 / 根偏移 / 1.2× / −1× 镜像四组），**已接线**到 `Editor/DeckScene.cs` 的 D43 段之后。⚠️ 批处理探针 `[B124W43]` 现读 worldLeftPx=2.20 · 父 lossyScale=1.0000 · 父 BasePos=0 · slide=1 ⇒ 那一环境下新旧两式**逐位相同** ⇒ **批处理绿证明不了真机那条链**；真机四值（本件 `localPosition` / 父 `position` / 父 `lossyScale` / `BasePos`）待真机波次现读
             }
 
             // 出厂两栏都收着 ⇒ 按进度 0 摆一次（位置 / 显隐 / 命中）。

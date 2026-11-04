@@ -377,7 +377,7 @@ public static class ShellScene
         int n = nodes != null ? nodes.Count : -1;
         Check(n, wantLabels.Length,
               $"★★ 灭自证：{winName} 左栏**真的建出 {wantLabels.Length} 颗事件钮**"
-            + $"（实测 {n}；⛔ 删掉 `Build()` 里那句 `SetupTabs(...)` ⇒ 0 颗 ⇒ 本条红）");
+            + $"（实测 {n}；⛔ 把轴改回「每扇窗列其它 3 种窗」⇒ 3 颗 ⇒ 本条红）");
         Check(labels != null ? labels.Count : -1, wantLabels.Length,
               $"{winName}：事件钮文字与按钮**一一对应**（{wantLabels.Length} 条）");
         if (n != wantLabels.Length) return;      // 数目不对 ⇒ 下面按下标读会越界，先收
@@ -387,7 +387,7 @@ public static class ShellScene
             var lb = labels != null && i < labels.Count ? labels[i] : null;
             string got = lb != null ? lb.Text : "<无文字组件>";
             Check(got, wantLabels[i],
-                  $"{winName}：第 {i + 1} 颗事件钮的文字 = `{wantLabels[i]}`（顺序 = `EventWindowKind` 值序、跳过自己）");
+                  $"{winName}：第 {i + 1} 颗事件钮的文字 = `{wantLabels[i]}`（顺序 = 目录原序；原版是服务端序、本地无此信息）");
             Check(nodes[i] != null ? nodes[i].name : "<节点没了>", wantLabels[i],
                       $"{winName}：第 {i + 1} 颗事件钮的**节点名 = 页签文字**（判据 = `AddTabButton` 的 `set_name(label)`）");
             var wb = nodes[i] != null ? nodes[i].GetComponentInChildren<WindowButton>(true) : null;
@@ -9870,57 +9870,57 @@ public static class ShellScene
         //  · `OpenEventButton__OpenWindow.c`：事件钮 → `WindowsManager.OpenWindow(GetComponentReference(ev,10), ev)`。
         //  · `bundle_menus_assets_all/AssetBundle/AssetBundle_1.json` 的 `m_Container`（键 = GUID）→ PathID →
         //    UnityPy 读名：Parent 事件 `MainWindow` = `Parent Event Window` · Scoring 事件 `Tab` = `Expansion Pass Tab`。
-        // 🔴 **期望值一律独立**：时刻用**写死的 UTC 字面量**（⛔ 不读被测实现的 `NowUtc`）、页签名对**官方词条**、
-        //    数目对**本机四扇活动窗**（不是对实现里的常量）；下面还带两条**灭自证**（见 ★★ 那两条）。
+        // 🔴 **期望值一律独立**：时刻用**写死的 UTC 字面量**（⛔ 不读被测实现的 `NowUtc`）、数目对**用户数据**
+        //     （本地 13 份 SO 无带 `TabButton(13)` ⇒ 左栏 0 颗，判据见 `B140_WY`），并带 ★★ 灭自证（旧轴 3 颗 ≠ 0）。
         Section("活动线：`SetupTabs` 事件钮（原版 `BaseParentEventWindow.SetupTabs` 等价物）+ 唯一入口 `OpenEventHub`");
         {
             var utcExpired = new System.DateTime(2026, 10, 23, 0, 0, 0, System.DateTimeKind.Utc);  // 今天：13 份 SO 全过期
             var utcOrks    = new System.DateTime(2025, 4, 15, 0, 0, 0, System.DateTimeKind.Utc);   // ExpansionOrks1 在期
             var utcSW      = new System.DateTime(2025, 10, 25, 0, 0, 0, System.DateTimeKind.Utc);  // SWRelease(Scoring) 在期
 
-            // ---- ① 名单：除本窗以外的那几扇；顺序 = `EventWindowKind` 的值序 ----
+            // ---- ① 名单：轴 = **活动实例**（原版 `GetAllEvents(2 /*Parent*/)` → `HasComponent(ev,13 /*TabButton*/)`）----
+            //   🔴 2026-11-04（`B140_WT` 订正 · 依据 `B140_WY`）：原版钮的轴是「活动实例」，**不是**「窗种类」。
             var tForParent = ParentEventWindow.BuildEventTabs(ParentEventWindow.EventWindowKind.Parent, utcExpired);
-            Check(tForParent.Count, 3, "`BuildEventTabs(Parent)` = **3** 颗（本机 4 扇活动窗，去掉本窗自己）");
-            CheckTrue(tForParent.Count == 3
-                   && tForParent[0].Kind == ParentEventWindow.EventWindowKind.Gacha
-                   && tForParent[1].Kind == ParentEventWindow.EventWindowKind.Raid
-                   && tForParent[2].Kind == ParentEventWindow.EventWindowKind.ExpansionPass,
-                      "顺序 = `EventWindowKind` 的值序（原版取 `GetAllEvents` 的返回序；本机按窗登记表，如实标）");
-            bool allOpenable = true;
-            foreach (var t in tForParent) if (t.Open == null) allOpenable = false;
-            CheckTrue(allOpenable, "每一颗都有**去向**（原版 `b__2` = `WindowsManager.OpenWindow(...)`；null ⇒ 点了没反应）");
+            Check(tForParent.Count, 0, "`BuildEventTabs(Parent)` = **0** 颗（本地 13 份 SO 无一带 `TabButton(13)`；旧的 3 颗 = 旧轴「按窗种类遍历」的假钮）");
+            // ★★ 灭自证：旧轴（遍历窗种类、跳过自己）会建 `EventWindowRootNames.Length - 1` 颗 ⇒ 新轴颗数**必须 ≠ 它**
+            int oldAxisCount = ParentEventWindow.EventWindowRootNames.Length - 1;
+            CheckTrue(tForParent.Count != oldAxisCount,
+                      "★★ 灭自证：新轴颗数 ≠ 旧轴（" + oldAxisCount + " 颗）⇒ 把实现改回遍历窗种类 ⇒ 本条红");
+            // 前提·不静默：0 颗**不能**来自「目录里没有在期的 Parent 活动」
+            int activeParent = System.Linq.Enumerable.Count(LiveOpsLocalCatalog.Events, ev => ev != null && ev.LocationType == (int)LiveOpsLocationType.Parent && ev.IsCurrentlyActive(utcOrks));
+            CheckTrue(activeParent > 0, $"（前提）目录里**确实有在期的 Parent 活动**（{activeParent} 场）⇒ 0 颗来自 `HasComponent(13)` 闸，不是没数据");
 
-            // ---- ② 页签名（今天全过期 ⇒ 走官方词条兜底）----
-            CheckTrue(tForParent.Count == 3
-                   && tForParent[0].Label == Loc.T(GachaEventWindow.TermTitle)
-                   && tForParent[1].Label == Loc.T(RaidEventWindow.TermTabTitle)
-                   && tForParent[2].Label == Loc.T(ExpansionPassEventWindow.TermTabTitle),
-                      "页签名逐个对上各自那扇窗的官方词条（`Event_Description/Gacha/TabTitle` · "
-                    + "`Event_Description/General/Raid` · `Event_Description/ExpansionPass/TabTitle`）");
-            CheckTrue(tForParent.Count == 3
-                   && tForParent[0].Label != tForParent[1].Label
-                   && tForParent[1].Label != tForParent[2].Label
-                   && tForParent[0].Label != tForParent[2].Label,
-                      "★★ 灭自证：三颗的文字**互不相同**（把三颗都写死成同一个字串的实现在这条上红）");
-            CheckTrue(tForParent.Count == 3 && tForParent[0].Label != GachaEventWindow.TermTitle,
-                      "页签名**不是键名本身**（词条查不到时 `Loc.T` 会回键 —— 那会印一串 `Event_Description/…` 到界面上）");
-            CheckTrue(tForParent.Count == 3 && string.IsNullOrEmpty(tForParent[0].EventId)
-                   && string.IsNullOrEmpty(tForParent[2].EventId),
-                      "今天（2026-10-23）13 份 SO **全部过期** ⇒ 不带任何活动实例 id"
-                    + "（用户边界：过期活动不做、⛔ 不拿过期事件顶空态）");
+            // ---- ② 「顺序 / 页签名 / 互不相同 / 键名 / EventId」那 7 条断言**随轴变更作废** ----
+            //   它们全部按下标读 3 元素表（`tForParent[0..2]`），轴一改（0 颗）就会越界 ⇒ 已删。
+            //   等价覆盖搬到 `Editor/B140_WY_Assert.cs`：
+            //     · A 组（2 个**不同窗种类**的在期活动 ⇒ 恰好 2 颗，各自带自己的 `EventId` / 窗种类 / 去向）
+            //     · B 组（2 个**同窗种类** ⇒ 2 颗 —— 证明不是按窗种类去重）
+            //     · C 组（0 个在期活动 ⇒ 0 颗，⛔ 不退回「其它三扇窗」那 3 颗）
+            //     · D 组（混合名单 ⇒ 只留在期那颗）
+            //     · E 组（在期但不带 `TabButton(13)` ⇒ 0；带 13 的正对照 ⇒ 1）
+            //     · F 组（真目录：在期活动有、但没一份带 13 ⇒ 真实现 0 颗）+ ★ 灭自证（旧轴 3 ≠ 新实现颗数）
+            //   ⚠️ 想让那 7 条「实景」版本回来：先给某份 SO 补 `TabButton(13)`（改数据，不是改实现）。
+            //   ⛔ 别把「在期就给一颗」当原版 —— 那是把 `HasComponent(ev,13)` 那道闸拆了。
+            // ---- ② 独立判据：直接对**用户数据**断「带 13 的份数 = 0」（⛔ 不读被测实现的返回，读了就是自证）----
+            int withTab13 = 0;
+            foreach (var ev in LiveOpsLocalCatalog.Events)
+                if (ev != null && ParentEventWindow.HasComponent(ev, LiveOpsComponentRef.TabButton)) withTab13++;
+            Check(withTab13, 0, "本机活动目录**没有一份**带 `TabButton(13)` ⇒ 左栏 0 颗的根因"
+                              + "（判据 = SO 原文 `EventComponents`：13 份现读全集 = [10,20]×5 · [11,21,30]×4 · [0,12]×4）");
+            // ⚠️ 上面这条是**数据侧**判据（不是拿实现证明实现）：它红了 = 本地补了 13 号组件、期望值要跟着改。
 
-            // ---- ③ 在期事件那一支：页签名与 id 取活动实例的（label 4 ?? label 0）----
+            // ---- ③ 在期时刻那一支：⛔ 旧版断「两类各挑各的在期实例」，那是**旧轴**的产物（按下标读，已作废）----
+            //   新轴 = 活动实例 ⇒ 本机在期有活动、但**没一份带 13** ⇒ 仍是 0 颗。这一条把「过期 ⇒ 0」和
+            //   「在期 ⇒ 0」分开：0 的根因是 `HasComponent(13)`，**不是**「不在期」。
+            var tForActive = ParentEventWindow.BuildEventTabs(ParentEventWindow.EventWindowKind.Parent, utcOrks);
+            Check(tForActive.Count, 0,
+                  "在期时刻（2025-04-15 UTC，`ExpansionOrks1` 在期）**仍是 0 颗** —— 闸是 `HasComponent(ev,13)`，不是「在不在期」");
+            // 四扇窗共用**同一份**名单（原版 `SetupTabs` 是基类方法）⇒ 三个 self 全 0
             var tForGacha = ParentEventWindow.BuildEventTabs(ParentEventWindow.EventWindowKind.Gacha, utcOrks);
-            CheckTrue(tForGacha.Count == 3 && tForGacha[0].Kind == ParentEventWindow.EventWindowKind.Parent
-                   && tForGacha[0].EventId == "ExpansionOrks1",
-                      "在期时刻（2025-04-15 UTC）：Parent 那颗取到本地活动实例 `ExpansionOrks1`（`LiveOpsLocalCatalog`）");
-            CheckTrue(tForGacha.Count == 3 && tForGacha[0].Label != ParentEventWindow.P1TitleText,
-                      "在期时页签名取**活动实例的 label**（不是兜底那句出厂标题）⇒ 「有实例就走实例」这条路由是活的");
-            var tForGacha2 = ParentEventWindow.BuildEventTabs(ParentEventWindow.EventWindowKind.Gacha, utcSW);
-            CheckTrue(tForGacha2.Count == 3
-                   && tForGacha2[0].EventId == "SWRelease"
-                   && tForGacha2[2].EventId == "SWReleaseScoring",
-                      "同一时刻 Parent / Scoring 两类各挑各的在期实例（`SWRelease` / `SWReleaseScoring`）");
+            var tForRaid = ParentEventWindow.BuildEventTabs(ParentEventWindow.EventWindowKind.Raid, utcOrks);
+            var tForPass = ParentEventWindow.BuildEventTabs(ParentEventWindow.EventWindowKind.ExpansionPass, utcSW);
+            CheckTrue(tForGacha.Count == 0 && tForRaid.Count == 0 && tForPass.Count == 0,
+                      "Gacha / Raid / ExpansionPass 三扇窗左栏也各 **0** 颗（同一份名单；`self` 只进兜底文字、不参与筛选）");
 
             // ---- ④ 窗口上真的建出来了：内容页签 + 事件钮（两张表分家）----
             var pe = WindowsManager.OpenParentEvent();
@@ -9930,8 +9930,8 @@ public static class ShellScene
                 Check(pe.TabButtonNodes.Count, 2,
                       "**内容页签**仍是 2 颗（`tabs` 两个 PPtr：`Select Team Tab` / `Event On Going Tab`）"
                     + " —— 事件钮不许混进这张表");
-                Check(pe.EventTabNodes.Count, 3,
-                      "★★ 灭自证：**事件钮 = 3 颗**（把 `Build()` 里那句 `SetupTabs(...)` 删掉 ⇒ 0 颗 ⇒ 这条红）");
+                Check(pe.EventTabNodes.Count, 0,
+                      "★★ 灭自证：**事件钮 = 0 颗**（本地无带 `TabButton(13)` 的活动；把轴改回「每扇窗 3 颗」⇒ 这条红）");
                 Check(pe.EventTabLabels.Count, pe.EventTabNodes.Count, "事件钮的页签文字与按钮一一对应");
                 Check(pe.EventTabHighlights.Count, pe.EventTabNodes.Count, "每颗事件钮都带 `Highlight` 节点");
 
@@ -9973,25 +9973,25 @@ public static class ShellScene
                 Check(pe.CurrentPageIndex, 0, "切回第 1 页");
 
                 // ---- ⑤ 点事件钮 = **开另一扇窗**（原版 `b__2` 那一跳）----
+                //   🔴 2026-11-04（`B140_WT` 订正 · 依据 `B140_WY`）：本地目录**没有带 `TabButton(13)` 的活动**
+                //     ⇒ 左栏 0 颗钮 ⇒ 原先「找到 Gacha 那颗 ⇒ 点它 ⇒ Gacha 窗开出来」的**前提恒不成立**
+                //     （旧版这里会一路静默空转、看着像绿）。现在改断**事实**（⛔ 不是「没找到就算了」）。
+                //   「点钮换窗」那一跳的等价覆盖 = `Editor/B140_WY_Assert.cs` A 组（注入带 13 的夹具 ⇒
+                //     `tab.Open != null` + 点击回调非空 + `EventId` 对得上）；**实景**这一步要等某份 SO 补 13
+                //     （改数据，不是改实现 —— `报告/B140_WY_活动事件钮.md` §六.1）。
                 var beforeGacha = GachaEventWindow.LastOpened;
                 Transform gachaTab = null;
                 for (int i = 0; i < pe.EventTabNodes.Count && i < pe.EventTabLabels.Count; i++)
                     if (pe.EventTabLabels[i] != null && pe.EventTabLabels[i].Text == Loc.T(GachaEventWindow.TermTitle))
                         gachaTab = pe.EventTabNodes[i];
-                CheckTrue(gachaTab != null, "（前提）找得到 Gacha 那颗事件钮");
-                if (gachaTab != null)
-                {
-                    var wb = gachaTab.GetComponentInChildren<WindowButton>(true);
-                    CheckTrue(wb != null && wb.onClick != null, "（前提）那颗钮有回调");
-                    if (wb != null) wb.Click();
-                    var gw = GachaEventWindow.LastOpened;
-                    CheckTrue(gw != null && gw != beforeGacha,
-                              "★ 点 Gacha 事件钮 ⇒ **Gacha 抽卡窗真的开了**（`GachaEventWindow.LastOpened` 换了）");
-                    CheckTrue(gw != null && gw.name == GachaEventWindow.RootName,
-                              "开出来的那扇根名 = `" + GachaEventWindow.RootName + "`（prefab 根名，两处同源）");
-                    CheckTrue(gw != null && shell.Windows.openWindows.Contains(gw),
-                              "它进了 `WindowsManager.openWindows`（窗口管理器认账，不是只建了个物体）");
-                }
+                //   ⚠️ 这个查找循环**留着**：本地补了 13 号组件那天它自然能找到钮，改断言时不用重写查找逻辑。
+                //   ⛔ 别把整块改成「条件不成立就跳过」—— 那正是 A195 修掉的「前提不成立 ⇒ 静默跳过」老病。
+                CheckTrue(gachaTab == null,
+                          "本地数据下**没有** Gacha 那颗事件钮（没有带 `TabButton(13)` 的活动）—— "
+                        + "将来补了 13 号组件、这条变红时，请把「点钮换窗」的实景断言补回来");
+                CheckTrue(GachaEventWindow.LastOpened == beforeGacha,
+                          "（同一支）没有钮可点 ⇒ Gacha 窗**没有被开出来**（`LastOpened` 没换；⇒ 上面那 0 颗不是假绿）");
+                // ⚠️ 内容页签那一支（`SwitchPage`）**不受影响**，仍在 ④ 里逐条断（两种页签是两条机制，⛔ 别混）
             }
 
             // ---- ⑥ 唯一入口 `OpenEventHub`（= 原版 `OpenEventButton.OpenWindow` 那一跳）----
@@ -10008,10 +10008,10 @@ public static class ShellScene
             // ---- ⑦ 三扇活动窗各自的页签（L01/L02/L03 的「页签」那一半）----
             var gw2 = GachaEventWindow.LastOpened;
             // 🔴 2026-10-31（`B106_W5` · AUD11 3A-b）：`gw2` 没有前提 ⇒ 它为 null 时下面两节（页签 + 左栏事件钮）
-            //    共 14 条断言**静默空转**。⚠️ 上面那条 `gw != null` 在**块外**、判的也是 `gw` 不是这个 `gw2`，
+            //    那片断言**静默空转**。⚠️ 上面那条 `gw != null` 在**块外**、判的也是 `gw` 不是这个 `gw2`，
             //    而且中间又跑了 4 次 `OpenEventHub` ⇒ 补一条自己的前提。
             CheckTrue(gw2 != null,
-                      "（前提·不静默）`GachaEventWindow.LastOpened` 拿得到 —— 拿不到时下面两节（页签 + 左栏事件钮）共 14 条断言会静默空转");
+                      "（前提·不静默）`GachaEventWindow.LastOpened` 拿得到 —— 拿不到时下面两节（页签 + 左栏事件钮）那片断言会静默空转");
             if (gw2 != null)
             {
                 Check(gw2.TabButtonNodes.Count, 1, "Gacha：页签 **1** 颗（原版该窗只有 `The Vault` 这一页）");
@@ -10047,66 +10047,66 @@ public static class ShellScene
                           "Pass 页开着、Missions 页关着（两页互斥）");
             }
 
-            // ---- ⑧ 🆕 2026-10-23：**三扇兄弟窗各自也有左栏事件钮**（原版 `BaseParentEventWindow.SetupTabs`
-            //      是**基类**方法 ⇒ Gacha / Raid / Expansion Pass 任何一扇的左栏都列全部 live 事件）----
+            // ---- ⑧ 🆕 2026-10-23（🔴 2026-11-04 `B140_WT` 订正）：**三扇兄弟窗各自也有左栏事件钮**
+            //      原版 `BaseParentEventWindow.SetupTabs` 是**基类**方法 ⇒ Gacha / Raid / Expansion Pass 任何一扇的左栏
+            //      都列「**活动实例**」里带 `TabButton(13)` 的那些（⛔ 不是「每扇固定列其它 3 种窗」——那是旧轴）。
             // 判据：`BaseParentEventWindow__SetupTabs.c` 的 `HasComponent(ev,13 /*TabButton*/)` 那一支
             //   ＋ `TabButtons__AddTabButton.c`；四扇窗共用 `ParentEventWindow.SetupEventTabs` **一份实现**
-            //   （⛔ 谁要是各抄一份，这里还看不出差别 —— 但「名单跳过自己」那两条会先红）。
-            // ⛔ 名单与文字**写死在这**（不读 `BuildEventTabs` 的返回 —— 读了就是自证）。
+            //   （⛔ 谁要是各抄一份，这里还看不出差别 —— 但下面「三扇窗都空」与「内容页签不受污染」会先红）。
+            // ⛔ 期望值**写死在这**（不读 `BuildEventTabs` 的返回 —— 读了就是自证）：
+            //   本地 13 份 SO 无一带 13 ⇒ 三扇窗左栏各 **0** 颗（期望清单 = 空表，下面逐条断 0）。
             if (gw2 != null)
             {
-                var wantGacha = new[] { ParentEventWindow.P1TitleText,
-                                        Loc.T(RaidEventWindow.TermTabTitle),
-                                        Loc.T(ExpansionPassEventWindow.TermTabTitle) };
-                var wantRaid  = new[] { ParentEventWindow.P1TitleText,
-                                        Loc.T(GachaEventWindow.TermTitle),
-                                        Loc.T(ExpansionPassEventWindow.TermTabTitle) };
-                var wantPass  = new[] { ParentEventWindow.P1TitleText,
-                                        Loc.T(GachaEventWindow.TermTitle),
-                                        Loc.T(RaidEventWindow.TermTabTitle) };
-
-                CheckEventTabBar(gw2.EventTabNodes, gw2.EventTabLabels, gw2.TabButtonNodes, "Gacha 抽卡窗", wantGacha);
-                CheckEventTabBar(rd.EventTabNodes,  rd.EventTabLabels,  rd.TabButtonNodes,  "Raid 团队窗", wantRaid);
-                CheckEventTabBar(ep.EventTabNodes,  ep.EventTabLabels,  ep.TabButtonNodes,  "Expansion Pass 战令窗", wantPass);
+                // 期望 = 空表（`new string[0]`）—— helper 里「颗数 = 期望长度」「文字一一对应」两条照旧生效
+                CheckEventTabBar(gw2.EventTabNodes, gw2.EventTabLabels, gw2.TabButtonNodes, "Gacha 抽卡窗", new string[0]);
+                CheckEventTabBar(rd.EventTabNodes,  rd.EventTabLabels,  rd.TabButtonNodes,  "Raid 团队窗",  new string[0]);
+                CheckEventTabBar(ep.EventTabNodes,  ep.EventTabLabels,  ep.TabButtonNodes,  "Expansion Pass 战令窗", new string[0]);
 
                 // 内容页那一张表**没被事件钮污染**（否则 `ShowPage` / `SwitchPage` 会按页号去点事件钮的灯）
                 Check(gw2.TabButtonNodes.Count, 1, "Gacha：内容页签仍 **1** 颗（事件钮不许混进这张表）");
                 Check(rd.TabButtonNodes.Count, 1, "Raid：内容页签仍 **1** 颗（同上）");
                 Check(ep.TabButtonNodes.Count, 2, "Expansion Pass：内容页签仍 **2** 颗（Pass / Missions）");
 
-                // ★★ 灭自证 A：三扇窗的名单**两两不同**（每扇都跳过自己那一种）。
-                //   谁把三处都写成 `BuildEventTabs(Parent)`、或写死同一份名单 ⇒ 三张表一模一样 ⇒ 本条红。
+                // ★★ 灭自证 A（原「三扇窗名单两两不同」**随轴变更作废**：旧轴按窗种类跳自己，新轴三扇窗共用一份名单）
+                //   现在改成断**共同事实**：三扇窗**都空**。⛔ 别改回「两两不同」—— 新轴下三张表本来就该一样（都空）。
+                //   轴本身的覆盖在 `Editor/B140_WY_Assert.cs`：A/B/C/D/E/F 六组（注入夹具）+ ★ 旧轴计数 ≠ 新实现。
                 string jG = JoinTabLabels(gw2.EventTabLabels);
                 string jR = JoinTabLabels(rd.EventTabLabels);
                 string jP = JoinTabLabels(ep.EventTabLabels);
-                CheckTrue(jG != jR && jR != jP && jG != jP,
-                          "★★ 灭自证：三扇窗的事件名单**两两不同**（每扇都排除自己那一种）"
+                CheckTrue(jG == "" && jR == "" && jP == "",
+                          "★★ 三扇窗的事件名单**都是空的**（本地无带 `TabButton(13)` 的活动）"
                         + "\n    Gacha=[" + jG + "]\n    Raid=[" + jR + "]\n    Pass=[" + jP + "]");
 
-                // ★★ 灭自证 B：**点的是别的窗** —— 在 Gacha 窗里点它那颗 Raid 事件钮 ⇒ 最上面那扇变成 Raid 窗。
-                //   把 `Open` 接成「开自己」/接错窗 ⇒ 本条红。
-                //   ⚠️ **不拿「`LastOpened` 换没换」当判据**：`OpenByRef` 对「还在 `openWindows` 里」的那扇走
-                //      **复用、不重建**（照原版 `automaticallyLoadedWindows`），而 `HideAllWindows` 藏起来的窗
-                //      **本来就不摘表**（`GameWindow.Close` 首句 `if (!gameObject.activeSelf) return;` 也关不掉它）
-                //      ⇒ `LastOpened` 可能**不换** —— 那是判据本身的形状、不是缺陷。**顶窗是谁**才是判据。
+                // 三张附属表也跟着空（`EventTabLabels` / `EventTabHighlights` 是并行表，长度必须一致）
+                Check(gw2.EventTabLabels.Count, 0, "Gacha：事件钮文字表 0 条（与 0 颗钮一一对应）");
+                Check(gw2.EventTabHighlights.Count, 0, "Gacha：事件钮 `Highlight` 表 0 条（同上）");
+                Check(rd.EventTabLabels.Count, 0, "Raid：事件钮文字表 0 条");
+                Check(ep.EventTabLabels.Count, 0, "Expansion Pass：事件钮文字表 0 条");
+
+                // 前提·不静默：两个兄弟窗对象都得在（不在 ⇒ 上面那几条「0 颗」是空转）
+                CheckTrue(rd != null && ep != null, "（前提）`Raid` / `ExpansionPass` 两扇窗对象都在");
+
+                // ★★ 灭自证 B（原「在 Gacha 窗里点 Raid 事件钮 ⇒ 顶窗变 Raid」**随轴变更作废**：本地 0 颗钮、无可点）
+                //   现在改成断**事实**：那颗钮确实不存在，且**没有**因此开出别的窗（⛔ 不是「跳过整块」）。
+                //   点钮换窗那一跳的等价覆盖 = `B140_WY_Assert` A 组（注入夹具的 `tab.Open` 非空）；实景要等补数据。
                 Transform raidTabInGacha = null;
                 for (int i = 0; i < gw2.EventTabNodes.Count && i < gw2.EventTabLabels.Count; i++)
                     if (gw2.EventTabLabels[i] != null
                         && gw2.EventTabLabels[i].Text == Loc.T(RaidEventWindow.TermTabTitle))
                         raidTabInGacha = gw2.EventTabNodes[i];
-                CheckTrue(raidTabInGacha != null, "（前提）Gacha 窗左栏里找得到 Raid 那颗事件钮");
-                if (raidTabInGacha != null)
-                {
-                    var wbRaid = raidTabInGacha.GetComponentInChildren<WindowButton>(true);
-                    CheckTrue(wbRaid != null && wbRaid.onClick != null, "（前提）那颗钮有回调");
-                    if (wbRaid != null) wbRaid.Click();
-                    var wmTop = WindowsManager.Instance != null ? WindowsManager.Instance.TopWindow : null;
-                    CheckTrue(wmTop is RaidEventWindow,
-                              "★ 在 Gacha 窗里点 Raid 事件钮 ⇒ **Raid 窗真的开到了最上面**"
-                            + "（实测顶窗 = " + (wmTop != null ? wmTop.name : "(null)") + "）");
-                    CheckTrue(wmTop != null && wmTop != gw2,
-                              "★★ 灭自证：开出来的是**别的窗**，不是它自己（事件钮接成开自己 ⇒ 本条红）");
-                }
+                CheckTrue(raidTabInGacha == null, "本地数据下 Gacha 窗左栏**没有** Raid 那颗事件钮（同上：无带 13 的活动）");
+                var wmTop2 = WindowsManager.Instance != null ? WindowsManager.Instance.TopWindow : null;
+                CheckTrue(wmTop2 == null || !(wmTop2 is RaidEventWindow),
+                          "（同一支）没有钮可点 ⇒ **没有**把 Raid 窗开到最上面（实测顶窗 = " + (wmTop2 != null ? wmTop2.name : "(null)") + "）");
+                // 🧨 这 3 条「0 颗」怎么才会红（灭自证）：
+                //   ① 把 `SetupEventTabs` 的闸从 `HasComponent(ev,13)` 改成「在期就给一颗」⇒ 本地在期活动会冒出钮
+                //      （`ExpansionOrks1` / `SWRelease` 都是在期的）⇒ 这三条立刻红；
+                //   ② 把轴改回「每扇窗列其它 3 种窗」⇒ 各 3 颗 ⇒ 红（与 `B140_WY_Assert` 的 ★ 同一条）。
+                // ⚠️ 四份「作废」清单，供下一个会话核对（⛔ 别悄悄删了当没发生过）：
+                //   ① 顺序 = `EventWindowKind` 值序 ⇒ 作废（新轴顺序 = 目录原序，原版是服务端序、本地无此信息）
+                //   ② 页签名逐颗对官方词条 / 三颗互不相同 / 不是键名本身 ⇒ 搬到 `B140_WY_Assert` A·D 组
+                //   ③ 过期 ⇒ 不带活动实例 id / 在期 ⇒ 取 `ExpansionOrks1` 等实例 id ⇒ 搬到 D·F 组
+                //   ④ 「名单跳过自己」那两条（兄弟窗各列其它 3 种）⇒ **旧轴独有**，新轴下不成立（四扇窗同一份名单）
             }
 
             // 收尾：把本段开的四扇活动窗拆掉（本段是 RunCore 的最后一段，拆完只余「合计」那一行）
@@ -10735,9 +10735,9 @@ public static class ShellScene
                     CheckTrue(pl.PressAt(960f, 540f) == db, "⑤ 按下命中那颗可拖件（`PressAt` 返回它）");
                     CheckTrue(pl.ItemPressActive, "⑤ 按下后可拖件进入「按住」态（与滚动区互斥）");
                     CheckTrue(pl.DraggingScroll == null, "⑤ 可拖件优先：同时落在滚动区上时也**不**接管滚动（`DraggingScroll == null`）");
-                    CheckTrue(!pl.MoveTo(960f, 545f), "⑤ 位移 ≤ `DragThreshold`(10) ⇒ 还不算拖动");
+                    CheckTrue(!pl.MoveTo(960f, 545f), "⑤ 位移 5px ≤ `DragThreshold`(5) ⇒ 还不算拖动（原版 `m_DragThreshold = 5`，`Intro.unity:5429`）");
                     Check(drags, 0, "⑤ 阈值内不发 `onDrag`（否则轻轻一碰就变拖拽）");
-                    CheckTrue(pl.MoveTo(960f, 560f), "⑤ 越过 10px ⇒ 进入拖动（🧨 没加 move 分发 ⇒ 这里恒 false）");
+                    CheckTrue(pl.MoveTo(960f, 560f), "⑤ 越过 5px 阈值（走了 20px）⇒ 进入拖动（🧨 没加 move 分发 ⇒ 这里恒 false）");
                     Check(drags, 1, "⑤ 越阈值那一下**也发**一次 `onDrag`");
                     CheckTrue(pl.ItemDragging && pl.DraggingItemButton == db, "⑤ `ItemDragging` / `DraggingItemButton` 读口对");
                     pl.MoveTo(960f, 580f);

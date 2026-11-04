@@ -663,7 +663,7 @@ namespace CardPresentation
         /// 那三条**不矛盾**：它们说的是「**建的时候就是活的**那些脚本，编辑模式下 `OnEnable` 不会再触发」——
         /// `OnEnable` 只在**激活那一刻**跑。
         /// ⚠️ 拿不到字体资产（点阵后端）时 `_tmp == null` ⇒ 待办恒空。</para></summary>
-        void OnEnable() { TryApplyPendingWrap(); }
+        void OnEnable() { TryApplyPendingWrap(); ForceMeshUpdateOnce(); }
 
         /// <summary>有待办就兑现：**生成**一整个版面 + **重新量一次**（新版面要落回 `_tmpW/_tmpH`，
         /// 否则 `WorldW` 还停在旧值）。⛔ 只做这两件 —— **不回写**模式 / 宽度（理由见 `SetWrapWidth`）。
@@ -676,7 +676,7 @@ namespace CardPresentation
             if (!_tmp.isActiveAndEnabled) return;
             _pendWrapW = -1f;
             PendingWrapAppliedCount++;          // 🔴 2026-10-11（FX4）：只记账、不改行为（见下面那个只读口）
-            TmpFont.GenerateLayout(_tmp);
+            ApplyPendingWrapConverged();        // 🔴 2026-11-04（B140_WC · 自检-X5）：**收敛化**（改前 = 单跑一遍 `TmpFont.GenerateLayout`，批处理/首帧没有帧循环 ⇒ 自适应档排不出来）；判据与灭自证开关见那个方法
             RefreshBounds();
         }
 
@@ -2800,6 +2800,84 @@ namespace CardPresentation
         {
             var pt = transform.parent; if (pt == null) return 1f;
             return pt.lossyScale.x < 0f ? -1f : 1f;
+        }
+
+        // ==================================================================
+        //  🔴 2026-11-04（执行写手 `B140_WC` · 自检-X5「延后生成 / 若证实则修」）
+        //  `TryApplyPendingWrap` 那一刀**收敛化** —— 判据与灭自证都在下面这段里。
+        //  ⚠️ 一律追加在**类尾**（本文件被账按 `文件:行号` 引用多处、最深 `:2696`；插在中段会让下游落点整体漂移）。
+        // ==================================================================
+
+        /// <summary>🧨 **自检开关**：把 <see cref="ApplyPendingWrapConverged"/> 退回**单跑一遍**（改前的行为）。
+        /// 断言 `Editor/B140_WC_Assert.cs` 用它做灭自证（开 ⇒ 那颗标签量不到真尺寸 ⇒ 红）。默认 false、生产路径不碰。</summary>
+        public static bool DisableWrapConvergenceForTest;
+
+        /// <summary>自检用：本标签的「折行待办兑现」**没排出一个可用 `textBounds`** 的次数（**只增不减**、只记账）。
+        /// ⚠️ 与 <see cref="PendingWrapAppliedCount"/> 分开数：「兑现了几次」与「兑现出没出真测量」是两件事。</summary>
+        public int PendingWrapNotConvergedCount { get; private set; }
+
+        /// <summary>🔴 **2026-11-04（`B140_WC` · 自检-X5）**：把 <see cref="TryApplyPendingWrap"/> 欠下的那一刀
+        /// **推到收敛**，而不是只跑一遍（改前 = 单跑 `TmpFont.GenerateLayout` + `RefreshBounds`）。
+        ///
+        /// <para>**为什么一遍不够**（判据 = TMP 源码现读，`Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TextMeshPro.cs`）：
+        /// `TmpFont.GenerateLayout` 走的是 `GetTextInfo`（`:360-374`）—— 它只调**一次** `GenerateTextMesh()`（`:369`），
+        /// 而**自适应**的「超框 ⇒ 缩字号 ⇒ `return`」那一族 early-return 全在 Phase II 之前
+        /// （`:3542` 超横界 / `:4139` 字号二分），`m_textInfo.characterCount` 是 **Phase II** 才赋值的
+        /// ⇒ 那一遍排完 `characterCount` 仍是 0、`textBounds` 退化成空集哨兵（±2.147e9）
+        /// ⇒ `RefreshBounds` 早退 ⇒ `_tmpW` 停在 `1e-4`、`WorldW` 是个垃圾值（**而且一个字都不报**）。
+        /// 激活对象本来靠 TMP 自己 `OnPreRenderObject` 的 `while (m_IsAutoSizePointSizeSet == false)` 收敛
+        /// （`:2171`）—— 但那条路要**帧循环**（批处理 / 首帧没有）⇒ 我们这条「激活时补做」的路必须自己推。</para>
+        ///
+        /// <para>**为什么反复调能收敛**：每次 early-return 都按 TMP 自己的二分把 `m_fontSize` 挪一步
+        /// （`m_maxFontSize`/`m_minFontSize` 是**类字段**、跨调用保留）；到 `fontSizeDelta ≤ 0.051` 那一遍就走完整条
+        /// Phase I+II ⇒ 有真 `textBounds`。上限 32（TMP 自己的 `m_AutoSizeMaxIterationCount` = 100，二分实测 ≤ ~15 步）
+        /// —— **到不了 ⇒ 出声 + 计数**（⛔ 不静默：调用方以为框宽已经生效）。
+        /// ⚠️ 没开自适应 ⇒ 第一遍就是最终版面，**照旧只跑一遍**（再推多少遍都是同一版）。</para>
+        ///
+        /// <para>⚠️ 与 <see cref="PushLayoutInactive"/> 的差别只有一条：那个服务**未激活**对象（不能走
+        /// `ForceMeshUpdate`，它被 `IsActive()` 闸掉，`:2119`），这个服务**已激活**对象（`TryApplyPendingWrap` 有那道闸）。
+        /// 判据与 32 这个上限**同源**，⛔ 别各写一份数。</para></summary>
+        void ApplyPendingWrapConverged()
+        {
+            if (_tmp == null) return;
+            bool ok = false;
+            if (string.IsNullOrEmpty(_text)) { TmpFont.GenerateLayout(_tmp); ok = true; }   // 空串没有东西可排（同 `PushLayoutInactive` 的理由）
+            else if (DisableWrapConvergenceForTest) { TmpFont.GenerateLayout(_tmp); }       // 🧨 灭自证档 = 改前的「单跑一遍」
+            else
+            {
+                for (int i = 0; i < 32; i++)
+                {
+                    TmpFont.GenerateLayout(_tmp);
+                    var b = _tmp.textBounds;
+                    if (UsableBounds(b.size) && UsableBounds(b.min) && Mathf.Abs(b.size.x) > 1e-3f) { ok = true; break; }
+                    if (!_tmp.enableAutoSizing) break;      // 没开自适应 ⇒ 再推多少遍都是同一版
+                }
+            }
+            if (!ok) NotePendingWrapNotConverged();
+        }
+
+        /// <summary>收敛化那一刀**没排出来**时的出声（每个标签一次）+ 计数（断言读 <see cref="PendingWrapNotConvergedCount"/>）。</summary>
+        void NotePendingWrapNotConverged()
+        {
+            PendingWrapNotConvergedCount++;
+            if (_warnedWrapNotConverged) return;
+            _warnedWrapNotConverged = true;
+            Debug.LogWarning("[Label] 折行待办兑现：32 遍 `GenerateLayout` 仍没量到一个可用 `textBounds`"
+                           + "（自适应排不出来）⇒ 这一颗按「没量到」处理（⛔ 不拿哨兵去摆位）。节点 = " + name);
+        }
+        bool _warnedWrapNotConverged;
+
+        /// <summary>🔴 **2026-11-04（`B140_WC`）**：`OnEnable` 之后补一次 `ForceMeshUpdate` —— 把**渲染网格**也推上去。
+        /// <para>为什么补：<see cref="ApplyPendingWrapConverged"/> 走的是 `GetTextInfo`（`TextRenderFlags.DontRender`，
+        /// Phase III 被跳过）⇒ 它只保证**版面数**对；网格要 TMP 自己 `OnPreRenderObject`（而批处理 / 首帧没有帧循环）。
+        /// 已激活档 `ForceMeshUpdate()` **不会早退**（`TextMeshPro.cs:347` → `OnPreRenderObject`，那道 `IsActive()` 闸在这里为真），
+        /// 而且它内部那圈 `while` 会把自适应收敛到 `m_IsAutoSizePointSizeSet`（`:2171`）。</para>
+        /// <para>⚠️ 未激活 / 还没 `Awake` ⇒ TMP 自己早退（`:2119`）⇒ 这里显式跳过（不做无用功，也不假装做了）。</para></summary>
+        void ForceMeshUpdateOnce()
+        {
+            if (_tmp == null) return;
+            if (!_tmp.isActiveAndEnabled) return;
+            _tmp.ForceMeshUpdate();
         }
     }
 }

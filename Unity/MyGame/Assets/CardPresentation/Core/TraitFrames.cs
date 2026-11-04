@@ -1030,7 +1030,42 @@ namespace CardPresentation
                 if (lib != null && lib.TryGet(prefabName, out e) && e != null && e.destroyTime < 0f)
                     life = float.PositiveInfinity;  // `Play` 的约定：`autoDestroySeconds >= 0` ⇒ 调用方说了算
             }
-            var p = WarpforgeEffectPlayer.Play(prefabName, _anchor, Vector3.zero, 1f, life);
+            // 🆕 2026-11-04（`B140_WE` · 账 `B139-G3`）：**建框这一拍要把「这张框所属的卡」交给 `WFEffectCards`**。
+            //   原版：`BattleManager.CreateAnim` 把卡塞进 `AnimFXController.actingCard`，模块 `Initialize` 里读它 ——
+            //   · `AnimFXModuleChangeMaterial.ToggleMaterial` 要 `actingCard` 才换卡面材质（`StealthEffect` 31 张）；
+            //   · `AnimFXModuleTransformModifier` 的 caster 目标（`objective == Caster`）也是它（`StunEffect` 绕 X −11.12°）。
+            //   ⛔ 不挂 ⇒ 这两支**静默不执行**（模块只打一条「拿不到出手卡」的警告）。
+            //   ⚠️ `Resolver` 是**全局静态**（`BattleDriver.HookAnimFxCards` 常驻挂着自己那份 `_animfxCtx`）⇒
+            //   **不能就地顶掉**：这里装的是「按实例查表 + 转发给外层」的那一份（`InstallFrameResolver`），
+            //   别的系统问的时候原样转给 `_outerResolver`（= 装之前那一份，通常就是 BattleDriver 的）。
+            //   ⚠️ **只包住 `Play` 不够**：`ChangeMaterial.Restore()` 在 `Exit()`/`ModuleTick` 的**延迟**恢复里
+            //   才读 `actingCard`（`StealthEffect`：`fade=1` + `toggleMaterialOffOnExit=1` ⇒ 走 `_restoreAt` 倒计时），
+            //   那时 `Play` 早已返回 ⇒ 必须**按实例长期记住**这张卡（`RegisterFrameCard`），否则
+            //   「材质换上去、永远换不回来」（比不换更糟）。
+            //   ⚠️ 模块 `Initialize` 读上下文那一下**还没有实例**（`Play` 正在建它）⇒ 用 `_pendingActor` 这个
+            //   **同步窗口**顶住（`Play` 整条是同步的：`Init → BuildModules → Initialize`）。
+            InstallFrameResolver();
+            var actor = _card != null ? (Transform)_card.transform : null;
+            var prevPendingActive = _pendingActive;
+            var prevPendingActor = _pendingActor;
+            _pendingActive = true;                       // 「这一拍有一张明确的卡（可能是 null）」≠「没有窗口」
+            _pendingActor = actor;
+            // 断言用：**直接问装上的那个 resolver**（模块 `Initialize` 走的是同一次 `TryGet`）——
+            //   ⛔ 别改成「记下我们打算给什么」：那样删掉 `InstallFrameResolver()` 断言照样绿（自证）。
+            WFEffectCardContext probing;
+            LastCardContextActor = WFEffectCards.TryGet(null, out probing, false) ? probing.actingCard : null;
+            if (LastCardContextActor != null) CardContextPlays++; else CardContextMissing++;
+            WarpforgeEffectPlayer p;
+            try
+            {
+                p = WarpforgeEffectPlayer.Play(prefabName, _anchor, Vector3.zero, 1f, life);
+            }
+            finally
+            {
+                _pendingActive = prevPendingActive;       // 窗口只在本次 `Play` 的同步段内有效
+                _pendingActor = prevPendingActor;
+            }
+            if (p != null) RegisterFrameCard(p, actor);  // 实例 ← 卡（延迟恢复那一跳要用）
             if (p == null)
                 Debug.LogWarning($"[TraitFrames] 效果库里没有 `{prefabName}` ⇒ 这张状态框挂不上"
                                + "（是不是重导过 prefab 没重建效果库？Tools > Warpforge > 生成效果库）");
@@ -1379,6 +1414,138 @@ namespace CardPresentation
             for (int i = 0; i < _allRows.Length; i++)
                 if (string.Equals(_allRows[i].Trait, t, System.StringComparison.Ordinal)) l.Add(_allRows[i]);
             return l.ToArray();
+        }
+
+        // ══════════════════════════════════════════════════════════════════════════════════════
+        //  🆕 2026-11-04（`B140_WE` · 账 `B139-G3`）：建框这一拍的「所属卡」上下文
+        //  ⛔ 新增成员一律放类尾（CLAUDE.md §三：插中间会让整本账的落点行号整体漂移）。
+        // ══════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>建框这一拍交给 `WFEffectCards` 的「所属卡」（原版 `AnimFXController.actingCard`）。
+        /// <para>判据形状：原版 `BattleManager.CreateAnim` 把**这张框所属的那张卡**交给新建的控制器
+        /// （`decomp_full/BattleManager__CreateAnim.c:56-81`），模块 `AnimFXModuleBase.Initialize` 在该控制器上读
+        /// `actingCard` / `targetCard`。状态框不是「A 打 B」⇒ 只有 `actingCard` 这一张（`targetCard` 留空）。</para>
+        /// <para>⚠️ `actingIsPlayer` 这一格原版读 `CardScript+0x40`，而我们 `CardView` **不带阵营字段**
+        /// ⇒ 用项目既有的兜底口径 `CardFeel.IsPlayerRow(卡的世界 z)`（与 `CardFeel.ApplyDepthScale` /
+        /// `CardFeel.PlayTweenDepthScale` / `UnitTweenTable` 同一条，⛔ 不是这里新造的判据）。
+        /// 它只在**棋盘两行**上结构可靠；手牌/牌库里的卡拿不到阵营时给的可能是错的一侧
+        /// （如实记 —— 目前 `actingIsPlayer` 的两个消费者 `WFModuleCardback` / `WFModuleInstanceParticleAdjacent`
+        /// 都不出现在状态框的效果上）。</para></summary>
+        public static WFEffectCardContext CardContextOf(CardView card)
+        {
+            return ContextOfTransform(card != null ? card.transform : null);
+        }
+
+        /// <summary><see cref="CardContextOf"/> 的 Transform 版（实例查表里存的就是 `Transform`）。</summary>
+        static WFEffectCardContext ContextOfTransform(Transform card)
+        {
+            var ctx = new WFEffectCardContext { valid = true };
+            if (card == null) return ctx;                 // 挂点不是卡（`Attach(Transform)` 那条探针路）⇒ 空上下文
+            ctx.actingCard = card;
+            ctx.actingIsPlayer = CardFeel.IsPlayerRow(card.position.z);
+            return ctx;
+        }
+
+        // ---- 全局 resolver 的那一份（本类自己装，转发给外层）------------------------------------
+        //  🔴 为什么不是「Play 前后临时换一下」：`ChangeMaterial.Restore()` 在**延迟**恢复里才读
+        //     `actingCard`（`StealthEffect`：`fade=1` + `toggleMaterialOffOnExit=1` ⇒ 走 `ModuleTick` 的
+        //     `_restoreAt` 倒计时），那时 `Play` 早就返回了 ⇒ 只包住 `Play` 会让「材质换上去、永远换不回来」。
+        //  🔴 为什么不是「就地写 `Resolver = _ => 我的卡`」：那是**全局静态**，会顶掉 `BattleDriver` 常驻那份
+        //     （它按事件给 `_animfxCtx`）⇒ 别的效果全读错卡。所以这里**按实例查表**，查不到就**转发**给外层。
+
+        /// <summary>特效实例 → 它的「所属卡」（`null` Transform = 挂点不是卡，不查表、直接转发）。</summary>
+        static readonly Dictionary<WarpforgeEffectPlayer, Transform> _frameCard
+            = new Dictionary<WarpforgeEffectPlayer, Transform>();
+
+        /// <summary>装本类那份 resolver **之前**的那一份（通常 = `BattleDriver.HookAnimFxCards` 的 `_ => _animfxCtx`）。</summary>
+        static System.Func<WarpforgeEffectPlayer, WFEffectCardContext> _outerResolver;
+        /// <summary>本类装上去的那一份（存实例 ⇒ `ReferenceEquals` 判「现在还是不是我们」）。</summary>
+        static System.Func<WarpforgeEffectPlayer, WFEffectCardContext> _ourResolver;
+
+        /// <summary>`Play` 的**同步窗口**（`Init → BuildModules → Initialize`）里「这一拍是谁的框」。
+        /// 那时实例还没建出来、查不了表 ⇒ 用这一格顶住。
+        /// ⚠️ 必须和 <see cref="_pendingActive"/> 成对：`_pendingActive == true` 且 `_pendingActor == null`
+        /// 表示「这一拍**明确**没有卡」—— ⛔ 那时**不许**落到外层 resolver（否则会拿到别人的卡）。</summary>
+        static bool _pendingActive;
+        static Transform _pendingActor;
+
+        /// <summary>本类那份 resolver：先按实例查表，再吃同步窗口，最后转发给外层。</summary>
+        static WFEffectCardContext ResolveFrameContext(WarpforgeEffectPlayer p)
+        {
+            if (p != null)
+            {
+                Transform card;
+                if (_frameCard.TryGetValue(p, out card))
+                {
+                    if (card != null) return ContextOfTransform(card);
+                    _frameCard.Remove(p);            // 卡已经销毁（Unity 假 null）⇒ 表项作废
+                }
+            }
+            if (_pendingActive) return ContextOfTransform(_pendingActor);
+            return _outerResolver != null ? _outerResolver(p) : default(WFEffectCardContext);
+        }
+
+        /// <summary>把本类那份 resolver 装上（幂等）。**外层那一份只在「现在装的不是我们」时才重记**
+        /// —— 别人（`BattleDriver.Begin`）重新挂过 resolver 时，这里会自动跟到新的那一份。</summary>
+        static void InstallFrameResolver()
+        {
+            if (_ourResolver == null) _ourResolver = ResolveFrameContext;
+            var cur = WFEffectCards.Resolver;
+            if (!ReferenceEquals(cur, _ourResolver)) _outerResolver = cur;
+            WFEffectCards.Resolver = _ourResolver;
+        }
+
+        /// <summary>记下「这个实例的框属于哪张卡」（延迟恢复 / 后续 `TryGet` 都要用）。</summary>
+        static void RegisterFrameCard(WarpforgeEffectPlayer p, Transform card)
+        {
+            if (p == null) return;
+            if (card != null) _frameCard[p] = card;
+            else _frameCard.Remove(p);
+            if (_frameCard.Count > 64) PruneFrameCards();
+        }
+
+        /// <summary>清掉「实例已经销毁」的表项（Unity 假 null ⇒ 用 `== null` 判，⛔ 别用 `ReferenceEquals`）。</summary>
+        static void PruneFrameCards()
+        {
+            List<WarpforgeEffectPlayer> drop = null;
+            foreach (var kv in _frameCard)
+            {
+                if (kv.Key == null || kv.Value == null)
+                    (drop ?? (drop = new List<WarpforgeEffectPlayer>())).Add(kv.Key);
+            }
+            if (drop == null) return;
+            for (int i = 0; i < drop.Count; i++) _frameCard.Remove(drop[i]);
+        }
+
+        /// <summary>断言用：**按实例**问一次上下文（`WFEffectCards.TryGet(p, …)` 的同一条路 ——
+        /// 模块在 `Exit()` / `ModuleTick` 的延迟恢复里就是这么问的）。</summary>
+        public static bool TryGetFrameCard(WarpforgeEffectPlayer p, out Transform card)
+        {
+            WFEffectCardContext ctx;
+            if (WFEffectCards.TryGet(p, out ctx, false) && ctx.actingCard != null)
+            {
+                card = ctx.actingCard;
+                return true;
+            }
+            card = null;
+            return false;
+        }
+
+        /// <summary>断言用：最近一次建框时，装上的 resolver **解析出来**的那张「所属卡」（null = 解析不出）。
+        /// ⚠️ 值是「问 resolver 本身」得到的（与模块 `Initialize` 同一个 `TryGet`），
+        /// ⛔ 不是「我们打算给什么」—— 删掉 `Play` 里那句 `InstallFrameResolver()` 它就会变回 null。</summary>
+        public static Transform LastCardContextActor { get; private set; }
+        /// <summary>断言用：建框时**解析出**「所属卡」的累计次数。</summary>
+        public static int CardContextPlays { get; private set; }
+        /// <summary>断言用：建框时**解析不出**「所属卡」的累计次数（挂点不是卡 / 卡已销毁）。</summary>
+        public static int CardContextMissing { get; private set; }
+
+        /// <summary>断言用：清零上面三个计数器。</summary>
+        public static void ResetCardContextDiagnostics()
+        {
+            LastCardContextActor = null;
+            CardContextPlays = 0;
+            CardContextMissing = 0;
         }
     }
 }

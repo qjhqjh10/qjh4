@@ -2813,10 +2813,10 @@ namespace CardPresentation
         /// ⚠️ 这**只是「没有 matchType 覆盖」时的默认值** —— 本局实际用多少见 `TurnSecondsForThisMatch`。</summary>
         public float turnSeconds = 60f;
 
-        /// <summary>本局的 matchType。原版拿它覆盖一整套数值（时钟、换牌倒计时跳不跳…）。
-        /// 🔴 **我们取 80 = EventAI**（原版「对 AI 打一局」的那个模式）。理由：它是唯一一个
-        /// **「对 AI」且换牌倒计时仍然生效**的模式（只有 `0x32`(50, PracticeOffline) 会整段跳过倒计时）
-        /// ⇒ 与我们按用户要求做出来的换牌倒计时自洽（见 `mulliganSeconds`）。</summary>
+        /// <summary>本局的 matchType（原版 `MatchData.matchType` @0x1C）—— 原版拿它覆盖一整套数值（时钟、换牌倒计时跳不跳…）。
+        /// ✅ **已复刻（2026-11-04 · `B140_WM`）**：每局开局由模式号现算（`Begin` → `ApplyMatchTypeFromContext`，唯一出处 = `MatchTypeForPlayMode`）：
+        /// 练习 50 · 遭遇 200/210 · 排位 10/20 · EventAI 80（判据 = `MatchData..ctor` + `MatchData__SetBotOpponent.c:27-41`）。
+        /// 字段初值 80 **只是兜底**（没走 `Begin` 的探针/自检）；⛔ 别把它改回「恒 80」—— 那会让时钟恒 240 s。</summary>
         public int matchType = 80;
 
         /// <summary>本局实际的回合时长（秒）—— **照原版 `ClockManager.GetTotalTime` 的三步结构**：
@@ -2827,17 +2827,17 @@ namespace CardPresentation
         ///      已用 `工具/read_literal.py` 复核：`0x1834b31c4` = **240.0**、`0x1834b2ed8` = **600.0**）。
         /// 🔴 **2026-09-17 用户拍板「按原版设计执行」** —— 原来这里写的是
         ///    「600 s 等于没有压力，所以默认取 60」，那是**按我们的口味改了原版的取值**，已去掉。
-        ///    ⇒ 本局（matchType 80）= **240 s**。</summary>
+        ///    ⇒ 本局用多少**按模式号现算**（练习 600 / 遭遇·排位 60 / EventAI 240），见 `matchType`。</summary>
         public float TurnSecondsForThisMatch
         {
             get
             {
-                float v = turnSeconds;                  // ① ScenarioVariables 的默认
-                // ② 缩时标志（原版 `ClockManager__GetTotalTime.c:10-25`：`if (manager+0x4dd) v = +0x38`）
-                if (_reducedNextTurn) v = reducedTurnSeconds;
-                if (matchType == 80) v = 240f;          // ③ EventAI（⚠️ 覆盖在缩时之后 —— 原版同序）
-                else if (matchType == 50) v = 600f;     // ③ PracticeOffline
-                return v;
+                // ✅ 2026-11-04（`B140_WM`）：三步结构（① 基准 ② 缩时 ③ matchType 覆盖）**只在 `TurnSecondsFor` 一处**
+                //   判据 = `ClockManager__GetTotalTime.c:10-36`；常量实读 240.0 / 600.0（`工具/read_literal.py`）。
+                //   ① 基准 = `turnSeconds`（60）· ② 缩时标志（`manager+0x4dd`）⇒ 10
+                //   ③ **matchType 覆盖在缩时之后**：`0x50`(80) → 240 s · `0x32`(50) → 600 s（原版同序）
+                //   ⛔ 别把这三步再抄一份 —— 两处写同一条规则 = 迟早不一致。
+                return TurnSecondsFor(matchType, _reducedNextTurn, turnSeconds, reducedTurnSeconds);
             }
         }
         /// <summary>「缩时」时长（原版 `clockTimeLimitReduced = 10`，同上 :20）。</summary>
@@ -5529,7 +5529,7 @@ namespace CardPresentation
             //   「卡组 / 种子 / 参数」，模式号是**入口窗**的事（见 `_pendingPlayMode` 那段）。
             //   没显式给 ⇒ 退回「这副牌自己带的模式」：与 `_vars` **同一条判据**（§2.7），
             //   所以「自检直接调 `Begin`」与「老调用点没传」这两条路**与今天逐字一致**。
-            Ctx.PlayMode = ResolvePlayMode(playMode); NotifyGameModesMatchStarted(); _foeDisplayName = null;   // 🆕 2026-10-31（`B108_A2` · AUD08）：每局清掉上一局的离线 bot 名（**懒生成**，见类尾 `FoeDisplayName()`；⛔ 不在这里摇 —— 本局是联机时 `_net` 此刻还没 `Attach`，在这摇会白摇）｜🆕 2026-10-31（B106_W2 · AUD10 §二 #1b）：原版 `PlayEvent.StartMatchNoCheck` 首句就是 `GameModes.SetAsCurrentlyPlayingEvent(this)`（判据 `decomp_b91/…StartMatchNoCheck__1127900.c:64-66`）—— 少了这一跳 `CurrentPlayingEvent` 恒 null ⇒ 结算的 `CombatFinished` 必然早退
+            Ctx.PlayMode = ResolvePlayMode(playMode); ApplyMatchTypeFromContext(); NotifyGameModesMatchStarted(); _foeDisplayName = null;   // 🆕 2026-10-31（`B108_A2` · AUD08）：每局清掉上一局的离线 bot 名（**懒生成**，见类尾 `FoeDisplayName()`；⛔ 不在这里摇 —— 本局是联机时 `_net` 此刻还没 `Attach`，在这摇会白摇）｜🆕 2026-10-31（B106_W2 · AUD10 §二 #1b）：原版 `PlayEvent.StartMatchNoCheck` 首句就是 `GameModes.SetAsCurrentlyPlayingEvent(this)`（判据 `decomp_b91/…StartMatchNoCheck__1127900.c:64-66`）—— 少了这一跳 `CurrentPlayingEvent` 恒 null ⇒ 结算的 `CombatFinished` 必然早退｜✅ 2026-11-04（`B140_WM` · `B140-WM-01`）：`ApplyMatchTypeFromContext()` —— 本局 `matchType` 的唯一赋值口（原版 `MatchData..ctor` + `SetBotOpponent` 翻转），原先恒 80 ⇒ 时钟恒 240 s
             _playMode = Ctx.PlayMode; InstallMissionChallengeMatchGates(); AssignAiDifficultyForThisMatch();   // 🆕 2026-10-29（B98_H4 · `报告/B98_A11.md` §4·3）：把 `MissionChallenge` 的三个模式闸装上（原来生产代码**一个都没装** ⇒ `ValidateMatchConditions()` 恒真）。同一物理行追加 ⇒ 零行数漂移；摘在 `OnDestroy` 的 `DetachStaticHooks()` 那一行
             // 🔴 **2026-10-24（执行代理 `W9`）**：**回放逐动作全量指纹的那一格「开局」** ——
             //   录制端（`RecBegin` → `ReplayFingerprintTrace.RecordStart`）与回放端
@@ -14557,7 +14557,7 @@ namespace CardPresentation
         /// <summary>轮到玩家时把表拨回去（原版 `ClockManager.StartTimer` 的等价物）。</summary>
         void ResetClock()
         {
-            _clockLeft = TurnSecondsForThisMatch;
+            _clockLeft = ClockSuppressedForThisMatch ? 0f : TurnSecondsForThisMatch;   // ✅ 2026-11-04（`B140_WM` · `B140-WM-02`）：教程/战役局原版 `StartTimer` 在置数之前就 return ⇒ **不启表、无倒计时、不自动结束**（`ClockManager__StartTimer.c:14-33`）；`TickClock` 本来就以 `_clockLeft <= 0` 早退 ⇒ 表不走
             _clockInCountdown = false;
             _hurrySaidThisTurn = false;             // 原版 `ClockManager.StartTimer`：`latch_0xb8 = 0`
             _noActionsUiShown = false;              // 同上，`+0xb0` 那一格也在 `StartTimer` 里复位
@@ -23739,7 +23739,7 @@ namespace CardPresentation
                 if (anchor != null)
                 {
                     EnsureAnchorSpace(anchor);
-                    CardEffects.Fire(vfx, Vector3.zero, anchor);
+                    WarpforgeVFX.WarpforgeEffectHook.FireCardAnchored(vfx, Vector3.zero, anchor);   // ✅ 已复刻（2026-11-04 · B140_WD · 账 `B139-G1` · 判据 `decomp_full/BattleManager__CreateAnim.c:56-72`）：原版 `Instantiate(prefab, anchor.position, prefab.localRotation, anchor)` ⇒ **世界旋转 = prefab 自身、不吃锚点/卡旋转**；走 `FireCardAnchored`（同步作用域）而不是绕开 `CardEffects.Fire` —— 后者还要跑 `StampNewChildren`（卡上特效的排序段）
                 }
                 else AttachVfxOwner(CardEffects.FireGet(vfx, pos), self);   // 🆕 2026-10-31（`B107_W24` · `FX-04`；接线 `B107_W29`）：根退路补挂持有者（与 `PlayPlacedOne` 同口径）
                 _animfxCtx = default;
@@ -23754,7 +23754,7 @@ namespace CardPresentation
             var carrier = carrierGo.transform;
             // 🔴 **2026-10-19（T05 · 锚点空间）**：载体**挂到锚点上**（原版那一件就挂在锚点下），
             //   并把载体的层也设成锚点的层 —— `WarpforgeEffectHook` 是按**直接父节点**的层给特效定层的
-            //   （`WarpforgeEffectHook.cs:36`），载体若留在层 0，特效就还是 HUD 画的。
+            //   （`WarpforgeEffectHook.cs:84`；2026-11-04 `B140_WD` 就地订正：原写 `:36`，`Spawn` 已提到类级 ⇒ 行号变了），载体若留在层 0，特效就还是 HUD 画的。
             if (anchor != null)
             {
                 EnsureAnchorSpace(anchor);
@@ -23813,7 +23813,7 @@ namespace CardPresentation
             //   ⚠️ `CardEffects.Fire` 是**同步**的（`WarpforgeEffectPlayer.Play` 里 `Instantiate` 完立刻返回），
             //      所以调用前后 `carrier.childCount` 的差就是这一拍新生出来的实例（同 `CardEffects` 自己的口径）。
             int beforeFire = carrier.childCount;
-            CardEffects.Fire(vfx, Vector3.zero, carrier);
+            WarpforgeVFX.WarpforgeEffectHook.FireCardAnchored(vfx, Vector3.zero, carrier);   // ✅ 已复刻（2026-11-04 · B140_WD · 账 `B139-G1` · 判据 `decomp_full/BattleManager__CreateAnim.c:56-72`）：同上一处 —— 世界旋转 = prefab 自身。⚠️ `orient` 那一档随后由 `FlattenNewEffectRotation` 把实例的 `localRotation` 归零 ⇒ 世界旋转 = 载体的**瞄准朝向**（原版 `CardAnimController.RotateAnim` 写 `transform.forward` 那一跳），两种情形都与原版一致
             FlattenNewEffectRotation(carrier, beforeFire, orient);
             _animfxCtx = default;
 
@@ -24420,7 +24420,7 @@ namespace CardPresentation
 
         /// <summary>🆕 2026-10-19（T05 · 「锚点空间换算（HUD vs 竞技场）」）：把锚点的**层**校正到
         /// 「它现在住在哪个空间」该有的那一层 —— 特效实例的层是 `WarpforgeEffectHook` 按**直接父节点**
-        /// 继承的（`WarpforgeEffectHook.cs:36`），锚点层错了特效就由错的相机画。
+        /// 继承的（`WarpforgeEffectHook.cs:84`；2026-11-04 `B140_WD` 就地订正：原写 `:36`），锚点层错了特效就由错的相机画。
         ///
         /// <para>三类锚点：</para>
         /// <list type="bullet">
@@ -25497,7 +25497,7 @@ namespace CardPresentation
                 //      视图可能已经不在表里）。
                 bool popWarlord = layout != null && layout.IsWarlord(e.Slot);
                 Vector3 popAt = at + PopOffsetWorldFor(e.Player, popWarlord);
-                LastPop = PopNumber.PopDamage(transform, popAt, e.Amount, enemy: popFoe);
+                LastPop = PopNumber.PopDamage(transform, popAt, e.Amount, enemy: popFoe, key: v);   // ✅ 已复刻（2026-11-04 · B140_WD · 账 `B139-E2` · 判据 `decomp_full/CardDamageCounterController__DamageReceived.c:10-18`）：原版每张卡**只有一颗** `DamageCounter`，再挨一下是 `SetActive(true)` + `SetText` + `Animation.Play()`（**重播同一颗**、不叠加）⇒ 传**受击那张卡**（`v`，上面 `PlayHitFeel` 的 `ViewAt(e.Player, e.Slot)`）当 `key`；⛔ 不传它 = 每一下都新建一颗（B139-E2 的「每次新建不重播」）
             }
         }
 
@@ -42052,6 +42052,72 @@ namespace CardPresentation
             }
             _returning.Remove(v); Kill(v.gameObject);
         }
+
+        // ==================================================================
+        //  ✅ 2026-11-04（执行代理 `B140_WM` · 账 `B140-WM-01` / `B140-WM-02`）
+        //  回合时钟的两条**原版参数 / 流程**：
+        //   ① `ClockManager__GetTotalTime.c:10-36` —— 时长三步（基准 → 缩时 → **matchType 覆盖**）。
+        //   ② `ClockManager__StartTimer.c:14-33` —— 教程 / 战役局**在置数之前就 return**（不启表）。
+        //  另外 `matchType` 本身也在这里定（原版 `MatchData..ctor` + `MatchData__SetBotOpponent.c:27-41`）。
+        //  ⛔ 判据只放下面这几个成员里，别在别处再写一份（两处写同一条规则 = 迟早不一致）。
+        //  成员一律追加在**类尾**（本仓账按 `文件:行号` 引用；类尾之后没有账落点 ⇒ 零漂移）。
+        // ==================================================================
+
+        /// <summary>✅ 已复刻（2026-11-04 · `B140_WM` · `ClockManager__GetTotalTime.c:10-36`）：
+        /// 本局回合时长的**三步结构**：① 基准（`clockTimeLimit` = 60）→ ② 缩时标志 ⇒ `clockTimeLimitReduced`（10）
+        /// → ③ **最后按 matchType 覆盖**（`0x50`(80, EventAI) ⇒ **240 s** · `0x32`(50, PracticeOffline) ⇒ **600 s**）。
+        /// 那两个常量在 DLL 的 `.rdata` 里，`工具/read_literal.py` 实读 = `0x1834b31c4` → 240.0 · `0x1834b2ed8` → 600.0。
+        /// ⚠️ **唯一实现处** —— `TurnSecondsForThisMatch` 与自检都走它。</summary>
+        public static float TurnSecondsFor(int matchType, bool reducedNextTurn, float baseSeconds, float reducedSeconds)
+        {
+            float v = baseSeconds;                       // ① `ScenarioVariables.clockTimeLimit`
+            if (reducedNextTurn) v = reducedSeconds;     // ② `manager+0x4dd` 为真 ⇒ `clockTimeLimitReduced`
+            if (matchType == (int)RuleEngine.MatchType.EventAI) v = 240f;                // ③ 覆盖在缩时**之后**（原版同序）
+            else if (matchType == (int)RuleEngine.MatchType.PracticeOffline) v = 600f;
+            return v;
+        }
+
+        /// <summary>✅ 已复刻（2026-11-04 · `B140_WM` · `MatchData..ctor` + `MatchData__SetBotOpponent.c:27-41`）：
+        /// **本局 `matchType` 的唯一来源** —— 模式号 → `MatchType`，对手是电脑时再翻转一次
+        /// （10→20 / 110→120 / 170→180 / 200→210）。
+        /// ⚠️ 翻转表**只在 `RuleEngine.MatchTypes.Effective` 一处** ⇒ 这里用一条最小 ctx 走同一个口，
+        /// ⛔ 别抄第二份 switch（两处写同一条规则 = 迟早不一致）。</summary>
+        public static int MatchTypeForPlayMode(GameMode playMode, bool botOpponent)
+        {
+            var probe = new RuleEngine.BattleContext(0);
+            probe.PlayMode = playMode;
+            if (botOpponent) probe.BotSeat = 1;          // `Players[1]` 是 null ⇒ setter 的「后设护栏」不会误报
+            return (int)RuleEngine.MatchTypes.Effective(probe);
+        }
+
+        /// <summary>✅ 已复刻（2026-11-04 · `B140_WM` · `MatchData..ctor`）：把本局 `matchType` 按 `Ctx` 现算一次。
+        /// 调用点**只有 `Begin`**（`Ctx.PlayMode` 刚落地那一句）⇒ 原版「建 `MatchData` 时算号」的等价物。
+        /// ⛔ 别改成 `matchType = 80` —— 那正是本笔修掉的缺陷（时钟恒 240 s），自检 `B140_WM_Assert` A 组会红。</summary>
+        void ApplyMatchTypeFromContext()
+        {
+            matchType = MatchTypeForPlayMode(Ctx.PlayMode, Ctx.BotSeat >= 0);
+        }
+
+        /// <summary>✅ 已复刻（2026-11-04 · `B140_WM` · `ClockManager__StartTimer.c:14-33`）：
+        /// **教程局 / 战役局不跑回合时钟** —— 原版 `StartTimer` 在置 `+0x78/+0x90/+0x94/+0x84` 之前就 `return`
+        /// ⇒ 表不走、无倒计时、不会自动结束回合。判据 = `MatchTypes.IsCampaignLike`（130 Campaign / 190 Scene）
+        /// ∨ `MatchTypes.IsTutorialMatch`（100 Tutorial / 140 TutorialReplay），与原版那两个函数**逐字同义**
+        /// （⚠️ 原版 `IsCampaignLike` **不含** 140、`IsTutorialMatch` 才含 —— ⛔ 别合并成一张表）。
+        /// ⚠️ **练习局不受影响**（用户 2026-09-17 要求保留练习档的换牌倒计时；`B124-NOPRACTICE` 口径）。</summary>
+        public bool ClockSuppressedForThisMatch
+        {
+            get
+            {
+                if (Ctx == null) return false;
+                var t = Ctx.MatchType;
+                return RuleEngine.MatchTypes.IsCampaignLike(t) || RuleEngine.MatchTypes.IsTutorialMatch(t);
+            }
+        }
+
+        /// <summary>自检用：走**产品那一个赋值口**（`ApplyMatchTypeFromContext`），不另写一份表达式。
+        /// ⚠️ 装 `Ctx` 用已有的 <see cref="SetCtxForTest"/>、再拨表用已有的 <see cref="SimulateResetClockForTest"/>
+        /// —— 本单**不新增**第三个夹具口（那两个老口分别在第 31k / 39k 行，这里只是把「算号」那一半补齐）。</summary>
+        public void ApplyMatchTypeFromContextForTest() { ApplyMatchTypeFromContext(); }
 
     }
 }

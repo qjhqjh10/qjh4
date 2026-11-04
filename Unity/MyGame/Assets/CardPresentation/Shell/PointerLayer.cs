@@ -19,8 +19,8 @@
 //   ① 滚轮 → 命中哪个滚动区就滚哪个（`MenuScroll.Wheel`）
 //   ② 左键 → **按下与抬起落在同一个 `WindowButton` 上**才算点中（UGUI 的语义），调它的 `onClick`
 //   ③ 🆕 **悬停**（`HoverAt`）→ 指针下那一颗进/出悬停态（原版 UGUI 的 `IPointerEnter/Exit`）
-//   ④ 🆕 **拖拽**（`DragAt`）→ 越过 **10px** 阈值就把这一套动作判成「拖滚动区」，
-//      抬起时**不再点按钮**（原版 EventSystem 的 `m_DragThreshold = 10`，`EventSystem.cs:68`）
+//   ④ 🆕 **拖拽**（`DragAt`）→ 越过 **5px** 阈值就把这一套动作判成「拖滚动区」，
+//      抬起时**不再点按钮**（原版串行值 `m_DragThreshold = 5`，`Intro.unity:5429`；⚠️ 2026-11-04 订正：原写 `EventSystem.cs:68` 的 **10** —— 那是 **uGUI 默认值**，不是原版值）
 //   ⑤ 🆕 **推进滚动区的惯性/回弹**（`TickScrolls` → `MenuScroll.Tick`）
 //   ⑥ 🆕 **A49 键盘导航**：ESC 关当前窗（门槛 = 那扇窗自己的 `closeOnEsc`）+ 方向键选 + 回车确认
 //      （`KeyFrame`；判据与「我们挑的」三处 → 下面「键盘导航（A49）」那一节）
@@ -93,9 +93,9 @@ namespace CardPresentation
         WindowButton _down;
 
         // ---- 悬停 / 按下 / 拖拽 的运行时状态（照 UGUI `EventSystem` + `StandaloneInputModule`）----
-        /// <summary>原版 `EventSystem.m_DragThreshold` 的默认值（`EventSystem.cs:68`）。
+        /// <summary>原版 `EventSystem.m_DragThreshold` 的**序列化值 = 5**（`Intro.unity:5429`；⚠️ 2026-11-04 订正：原写「默认值（`EventSystem.cs:68`）」= 10，那是 **uGUI 默认值**、不是原版值）。
         /// 越过它 ⇒ 这一套「按下 → 抬起」判成拖拽，**抬起时不再点按钮**。</summary>
-        public const float DragThreshold = 10f;
+        public const float DragThreshold = 5f;
 
         WindowButton _hover;
         MenuScroll _dragScroll;
@@ -433,8 +433,8 @@ namespace CardPresentation
             //    ⚠️ **按钮命中那一半（`HitButton`/`CollectHits`）本来就不偏** —— 它的中心与半宽都从
             //    **同一个世界坐标**算出来，倍率会自己约掉；本行换帧之后 `HitBoxPx` **必须跟着换**
             //    （否则两边不再同一帧 —— 那才是真会点不中），见那里的注释。
-            //    ⚠️ 副作用（如实记）：`_lastPx` 的「指针动了多少」与 `DragThreshold`（10px）也跟着换了量纲
-            //    —— 16:9 下**逐位不变**；非 16:9 下「10 设计 px」比「10×108 帧 px」在横向小 `r` 倍
+            //    ⚠️ 副作用（如实记）：`_lastPx` 的「指针动了多少」与 `DragThreshold`（5px）也跟着换了量纲
+            //    —— 16:9 下**逐位不变**；非 16:9 下「5 设计 px」比「5×108 帧 px」在横向小 `r` 倍
             //    （两条都不是屏幕 px，原版那个 `m_DragThreshold` 我们本来就没有等价物）。
             Vector2 px = MenuDraw.PixelOfDesign(wp);
 
@@ -446,7 +446,7 @@ namespace CardPresentation
                 HoverAt(px.x, px.y);
             }
 
-            // ② 拖拽 + 点击（同一套「按下 → 移动 → 抬起」；照原版 EventSystem 的 10px 阈值）
+            // ② 拖拽 + 点击（同一套「按下 → 移动 → 抬起」；照原版 EventSystem 的 5px 阈值，`Intro.unity:5429`）
             if (mouse.leftButton.wasPressedThisFrame)
             {
                 _pressed = true; _dragging = false;

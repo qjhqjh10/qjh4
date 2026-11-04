@@ -15,58 +15,94 @@ namespace WarpforgeVFX
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Install()
         {
-            // 🆕 2026-10-31（`B107_W24` · `FX-04`；接线 `B107_W29`）：实体抽成局部函数 —— 两个钩子共用同一份实现。
-            //   `PlayInstance` 与 `Play` 的唯一区别 = 多返回一个实例根（根特效 `parent == null` 时
-            //   `CardEffects` 靠 childCount 差认不出实例）。⛔ 不要让它俩各实例化一次（`FireOne` 里是 if/else）。
-            GameObject Spawn(string name, Vector3 pos, Transform parent)
-            {
-                if (string.IsNullOrEmpty(name)) return null;
-                if (WarpforgeEffectLibrary.Instance == null)
-                {
-                    Debug.LogWarning($"[WarpforgeVFX] 没有特效库，'{name}' 播不了");
-                    return null;
-                }
-                // 🔴 **2026-10-22（W64 · `B17`）**：**落地扬尘**那一族在原版是
-                //   `localScale = Vector3.one × desiredScale`（**赋值**，`CardScript__LandOnGround.c:87-106`）——
-                //   不是「乘在 prefab 自带根缩放之上」。我们挂在卡视图上（父节点已经带 desiredScale）
-                //   ⇒ 根缩放必须是 **1**；照「乘」写会让自带 0.9913 的那件大 0.9%。
-                //   名字从 `BattleDriver` 那两枚常量取（判据只留一处，⛔ 别在这儿抄字面量）。
-                bool assignScale = name == CardPresentation.BattleDriver.LandDustMinion
-                                || name == CardPresentation.BattleDriver.LandDustLegendary;
-                var fx = WarpforgeEffectPlayer.Play(name, parent, pos, 1f, -1f, assignScale);
-                if (fx == null) { Debug.Log($"[WarpforgeVFX] 特效没播出来：{name} @ {pos}"); return null; }
-                // 🔴 2026-11-02（执行代理 `B118_W22` · 账 `D118-75`）：**真机 trace 落盘口**。
-                //   为什么必须在这儿：`S3VfxTrace`（`Editor/BattleScene.cs:51091`）挂在 `CardEffects.Play` 上，
-                //   而**真机 player** 装的是 `PlayInstance`（下面那句）⇒ `FireOne` 走那条路、一条都记不到。
-                //   本文件在**运行时程序集**（player 里有），所以补这一口。列序与 `S3VfxTrace.Columns`
-                //   **逐字一致**（`cardId / evt / fx / t / x / y / z / parentLayer`），下游 join 才对得上。
-                //   ⚠️ `pos` 在 `parent != null` 时是**局部坐标**（`CardEffects.FireGet` 的约定）⇒ 这里换回世界点。
-                //   ✅ **记在 `fx != null` 之后**（= 真的建出了实例）—— 这一条与 Editor 那份**不同**（那份记的是
-                //      「钩子被调」）：验收要的是「播没播」，把「库里查不到这件」也记成一行会把缺口误判成已覆盖。
-                //      播不出来时那句 `[WarpforgeVFX] 特效没播出来` 仍然照打（⛔ 不静默）。
-                //   默认关：环境变量 `WF_S3_TRACE=1` 才开；关着时 `Capture` 第一句就 return、一个字节都不写。
-                S3Trace.Capture(name,
-                                parent != null ? parent.TransformPoint(pos) : pos,
-                                parent != null ? parent.gameObject.layer : -1);
-
-                // 🆕 2026-10-16：**实例跟随父节点的层**（`parent != null` 时才管）。
-                //   为什么需要：原版那些「挂在卡 / 棋盘上的特效」（落地扬尘、逐卡演出…）是由**透视战场相机**画的
-                //   —— 它们跟卡活在同一层（`ArenaLayer`）。而 **Unity 的层不继承**：
-                //   `Instantiate(prefab, parent)` 保的是 **prefab 自己的层**（我们那批是 0）⇒
-                //   不补这一步，挂在卡上的特效会停在层 0、被 HUD 的正交相机画 ⇒ **位置和大小的量纲全错**。
-                //   ⚠️ `parent = null` 的**根特效**不走这一步 —— 它们由谁画是另一笔账（`A367`），
-                //     那一路的位置判据是「投到 HUD 平面」（见 `BoardLayout.DropTargetWorld`）。
-                // 🆕 2026-10-25（`B14` · `X10`）：这一句**会盖掉 `Play` 里刚设的层** ⇒ 必须同样过
-                //   `GrabScreen501.FinalLayer`（否则失真效果被搬去 501 层之后又被这里搬回父层，
-                //   501 那一步就什么都画不到；开关关着时它原样返回父层，与改前同值）。
-                if (parent != null)
-                    SetLayerRec(fx.gameObject,
-                                GrabScreen501.FinalLayer(fx.gameObject, parent.gameObject.layer));
-                return fx.gameObject;
-            }
-
+            // 🆕 2026-11-04（`B140_WD` · 账 `B139-G1`）：实体从**局部函数**提到**类级** `Spawn`（见它的 doc）——
+            //   两个钩子仍然共用同一份实现：`PlayInstance` 与 `Play` 的唯一区别 = 多返回一个实例根
+            //   （根特效 `parent == null` 时 `CardEffects` 靠 childCount 差认不出实例）。
+            //   ⛔ 不要让它俩各实例化一次（`FireOne` 里是 if/else）。
             CardPresentation.CardEffects.Play = (name, pos, parent) => { Spawn(name, pos, parent); };
-            CardPresentation.CardEffects.PlayInstance = Spawn;
+            CardPresentation.CardEffects.PlayInstance = (name, pos, parent) => Spawn(name, pos, parent);
+        }
+
+        /// <summary>按名字播一件特效 —— **两个钩子共用的唯一实现**。
+        ///
+        /// <para>✅ 已复刻（2026-11-04 · `B140_WD` · 账 `B139-G1` · 判据 `decomp_full/BattleManager__CreateAnim.c:56-72`）：
+        /// <paramref name="worldRotationStays"/> = 原版 `Instantiate(prefab, 位置, prefab.localRotation, 锚点)` 的**旋转**语义 ——
+        /// 世界旋转 = **prefab 自身**，完全不吃锚点/卡/载体的旋转。透传给
+        /// <see cref="WarpforgeEffectPlayer.Play(string,Transform,Vector3,float,float,bool,int,bool)"/>（那边在 `Init` **之前**生效）。</para>
+        ///
+        /// <para>⛔ **默认 `false` 别改成 `true`**：原版还有**另一条**实例化路 `CardScript.PlayTriggerAnim`
+        /// （`decomp_full/CardScript__PlayTriggerAnim.c:29-33` —— 两参 `Instantiate(prefab, cardEffectsAnchor)`），
+        /// 那条**要**继承锚点旋转（状态框那一族走的就是它）；派给谁由**调用点**决定。</para>
+        ///
+        /// <para>🔴 生产里「按卡锚点播」的那几条**不走这个形参** —— 它们经 `CardEffects.Fire`（三参委托）⇒
+        /// 用 <see cref="FireCardAnchored"/> 的**同步作用域**把这一位捎过来（`_cardAnchorDepth`）。</para></summary>
+        public static GameObject Spawn(string name, Vector3 pos, Transform parent, bool worldRotationStays = false)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            if (WarpforgeEffectLibrary.Instance == null)
+            {
+                Debug.LogWarning($"[WarpforgeVFX] 没有特效库，'{name}' 播不了");
+                return null;
+            }
+            // 🔴 **2026-10-22（W64 · `B17`）**：**落地扬尘**那一族在原版是
+            //   `localScale = Vector3.one × desiredScale`（**赋值**，`CardScript__LandOnGround.c:87-106`）——
+            //   不是「乘在 prefab 自带根缩放之上」。我们挂在卡视图上（父节点已经带 desiredScale）
+            //   ⇒ 根缩放必须是 **1**；照「乘」写会让自带 0.9913 的那件大 0.9%。
+            //   名字从 `BattleDriver` 那两枚常量取（判据只留一处，⛔ 别在这儿抄字面量）。
+            bool assignScale = name == CardPresentation.BattleDriver.LandDustMinion
+                            || name == CardPresentation.BattleDriver.LandDustLegendary;
+            // 🔴 2026-11-04（`B140_WD` · 账 `B139-G1`）：`worldRotationStays` 的两条来源合并在这里 ——
+            //   ① 显式形参（自检 / 将来的直接调用点）；② `FireCardAnchored` 的同步作用域（生产那几条）。
+            var fx = WarpforgeEffectPlayer.Play(name, parent, pos, 1f, -1f, assignScale, -1,
+                                                worldRotationStays || _cardAnchorDepth > 0);
+            if (fx == null) { Debug.Log($"[WarpforgeVFX] 特效没播出来：{name} @ {pos}"); return null; }
+            // 🔴 2026-11-02（执行代理 `B118_W22` · 账 `D118-75`）：**真机 trace 落盘口**。
+            //   为什么必须在这儿：`S3VfxTrace`（`Editor/BattleScene.cs:51091`）挂在 `CardEffects.Play` 上，
+            //   而**真机 player** 装的是 `PlayInstance`（下面那句）⇒ `FireOne` 走那条路、一条都记不到。
+            //   本文件在**运行时程序集**（player 里有），所以补这一口。列序与 `S3VfxTrace.Columns`
+            //   **逐字一致**（`cardId / evt / fx / t / x / y / z / parentLayer`），下游 join 才对得上。
+            //   ⚠️ `pos` 在 `parent != null` 时是**局部坐标**（`CardEffects.FireGet` 的约定）⇒ 这里换回世界点。
+            //   ✅ **记在 `fx != null` 之后**（= 真的建出了实例）—— 这一条与 Editor 那份**不同**（那份记的是
+            //      「钩子被调」）：验收要的是「播没播」，把「库里查不到这件」也记成一行会把缺口误判成已覆盖。
+            //      播不出来时那句 `[WarpforgeVFX] 特效没播出来` 仍然照打（⛔ 不静默）。
+            //   默认关：环境变量 `WF_S3_TRACE=1` 才开；关着时 `Capture` 第一句就 return、一个字节都不写。
+            S3Trace.Capture(name,
+                            parent != null ? parent.TransformPoint(pos) : pos,
+                            parent != null ? parent.gameObject.layer : -1);
+
+            // 🆕 2026-10-16：**实例跟随父节点的层**（`parent != null` 时才管）。
+            //   为什么需要：原版那些「挂在卡 / 棋盘上的特效」（落地扬尘、逐卡演出…）是由**透视战场相机**画的
+            //   —— 它们跟卡活在同一层（`ArenaLayer`）。而 **Unity 的层不继承**：
+            //   `Instantiate(prefab, parent)` 保的是 **prefab 自己的层**（我们那批是 0）⇒
+            //   不补这一步，挂在卡上的特效会停在层 0、被 HUD 的正交相机画 ⇒ **位置和大小的量纲全错**。
+            //   ⚠️ `parent = null` 的**根特效**不走这一步 —— 它们由谁画是另一笔账（`A367`），
+            //     那一路的位置判据是「投到 HUD 平面」（见 `BoardLayout.DropTargetWorld`）。
+            // 🆕 2026-10-25（`B14` · `X10`）：这一句**会盖掉 `Play` 里刚设的层** ⇒ 必须同样过
+            //   `GrabScreen501.FinalLayer`（否则失真效果被搬去 501 层之后又被这里搬回父层，
+            //   501 那一步就什么都画不到；开关关着时它原样返回父层，与改前同值）。
+            if (parent != null)
+                SetLayerRec(fx.gameObject,
+                            GrabScreen501.FinalLayer(fx.gameObject, parent.gameObject.layer));
+            return fx.gameObject;
+        }
+
+        /// <summary>「按卡锚点播」的**同步作用域**深度（见 <see cref="FireCardAnchored"/>）。</summary>
+        static int _cardAnchorDepth;
+
+        /// <summary>✅ 已复刻（2026-11-04 · `B140_WD` · 账 `B139-G1`）—— **按卡锚点播**的那几条调用点专用：
+        /// 世界旋转 = prefab 自身（原版 `BattleManager.CreateAnim` 的 `Instantiate(prefab, pos, prefab.localRotation, parent)`）。
+        ///
+        /// <para>🔴 **为什么不加个形参、而是用同步作用域**：生产那条路是
+        /// `CardEffects.Fire(name, pos, parent)`（三个形参的委托，`Core/CardEffects.cs` **不在本件白名单**），
+        /// 而 `CardEffects.FireOne` 里还要跑 `StampNewChildren`（把特效根登记到卡的排序段，
+        /// 见 `CardView.StampEffectRoot`）⇒ **不能绕开它直接调 `Spawn`**（那会让卡上特效丢掉排序段）。
+        /// `CardEffects.Fire` → 钩子 → `Spawn` **全程同步**，所以用 `try/finally` 括起来的一格深度
+        /// 既能把这一位捎过去，又不会漏到别的特效上（自检里换成假钩子时 `Spawn` 根本不跑 ⇒ 深度的副作用为零）。</para></summary>
+        public static void FireCardAnchored(string name, Vector3 pos, Transform parent)
+        {
+            _cardAnchorDepth++;
+            try { CardPresentation.CardEffects.Fire(name, pos, parent); }
+            finally { _cardAnchorDepth--; }
         }
 
         /// <summary>把这个实例整棵子树设到某一层（层**不会**从父节点继承，必须自己走一遍）。</summary>

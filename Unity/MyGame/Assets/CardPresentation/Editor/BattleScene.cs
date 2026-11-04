@@ -250,8 +250,8 @@ public static class BattleScene
         if (driver != null) driver.animateFeel = true;
         // 开局换牌（原版单机是进的；批处理自检默认跳过，见 `BattleDriver.mulliganEnabled`）
         if (driver != null) driver.mulliganEnabled = true;
-        Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
-        EditorSceneManager.SaveScene(scene, ScenePath); B139_S_CameraSerialized_Assert.CheckSavedScene(ScenePath);   // ✅ 已复刻（2026-11-04 · B139-S · 判据 = 原版 `Battle Arena 1.unity` 逐字段）—— 存盘后**回读刚写出的那份 YAML**，逐字段自证不再把包 Y 的相机值写回旧值
+        Directory.CreateDirectory(Path.GetDirectoryName(ScenePath)); B140_WF_Assert.ApplyStitchSeams(scene);   // ✅ 已复刻（2026-11-04 · B140-WF · 14-05）：存盘**前**把全部 MeshRenderer/SkinnedMeshRenderer 的 `m_StitchLightmapSeams` 写 0（原版 18/18 = 0、13 场 1,206 个 = 0；Unity 新建默认 1 ⇒ 不写就每次重建回退；判据 = 判据/B140_对账_G6_审计指针.md:159-162）
+        EditorSceneManager.SaveScene(scene, ScenePath); B139_S_CameraSerialized_Assert.CheckSavedScene(ScenePath); ArenaBuilder.PatchLightmapEditorSettings(ScenePath, true); B140_WF_Assert.CheckSceneRenderBake(ScenePath);   // ✅ 已复刻（2026-11-04 · B139-S · 判据 = 原版 `Battle Arena 1.unity` 逐字段）—— 存盘后**回读刚写出的那份 YAML**，逐字段自证不再把包 Y 的相机值写回旧值；✅ B140-WF · B139-N1：存盘后同一趟把 7 格（环境光 3 + 烘焙 4）按原版落回 YAML 并回读自证
         SceneStubAudit.Run(ScenePath);   // 🆕 A1506：存盘后自证「不许有 !u!115 存根」（干净时零输出）
         EnsureInBuildSettings(ScenePath);
         AssetDatabase.Refresh();
@@ -1725,7 +1725,7 @@ public static class BattleScene
             //  判据（AU1 现查，逐条写在各自断言里；⛔ 没重新考据）：
             //   · `EvtKind.Return`：原版 `_ResolveRecallToHand` 两段 `yield`（0.55 + 0.2 = **0.75**）；
             //     带 `teleport`(1230) 的卡多等一次同一个 0.55 ⇒ **1.30**；
-            //     🔴 **2026-10-25（`R18-6` · J1 §3 订正）**：回牌库 = **0.95**（0.55 + `MoveToDeck` 0.1+0.3），
+            //     🔴 **2026-11-04（`B140_WC` · 账 `B124-RETHOLD`）**：回牌库 = **0.9167 + 0.4 = 1.3167**（第二段挂倒放 clip 的 `onDone` 之后），
             //     原稿的 0.85 是只算了一段；0.65 只在我们没有的那两条路上成立。
             //   · `startDelay`（`AnimInfo+0x28`）：全池唯一非 0 一行 = `Cuts Brutal Warp Spider` **0.5 s**。
             //   · 命中帧同帧次序 = `CardScript.__c__DisplayClass357_0___AttackMeleeAnim_b__1.c:16-27`
@@ -1772,10 +1772,10 @@ public static class BattleScene
                               $"★ R10①：**带 `teleport`(1230) 的回手 = 1.30 s**"
                             + $"（state 1 之后再等一次 0.55；实得 {dTp:F3}s）"
                             + "｜🧨 漏掉 teleport 那一档 ⇒ 回 0.75 ⇒ 红");
-                        // 🔴 **2026-10-25（`R18-6` · AU1/J1 §3）：**从场上回牌库 = 0.95**（`ReturnDestOf` 已接）。
-                        //   0.95 = 0.55（`TransformUnitInPlayToCard`）+ **0.4**（`MoveToDeck` 返回值 = 0.1 尾段缩放 +
-                        //   0.3 移动/翻转）。**判不出目的地**（本夹具 `CardId` 是卡名、没有实例）⇒ 退回**回手 0.75**
-                        //   并出声（上面那条 hand 就是这个口径）。
+                        // 🔴 **2026-11-04（`B140_WC` · 账 `B124-RETHOLD`）：从场上回牌库 = 0.9167 + 0.4 = 1.3167**（`ReturnDestOf` 已接）。
+                        //   第一段 = `CardFeel.HandToBoardEnd` **0.9167**（倒放整条 clip 的**实演**；⛔ 不是原版 AnimationEvent 的 0.55 ——
+                        //   我们没有那个截断点，第二段挂在倒放的 `onDone` 之后才起）；第二段 = `EventTiming.MoveToDeckTotal` 0.4。
+                        //   **判不出目的地**（本夹具 `CardId` 是卡名、没有实例）⇒ 退回**回手 0.75** 并出声（上面那条 hand 就是这个口径）。
                         //   🧨 凭「卡背就该 0.65」改成 0.65 ⇒ 红（0.65 只在我们引擎**没有**的两条路上成立：
                         //     卡没离过牌库 / `armedTrap == 1` —— 见 `ReturnHoldOf` 的 doc）。
                         var r18DestBackup = EventTiming.ReturnDestOf;
@@ -1784,10 +1784,10 @@ public static class BattleScene
                             EventTiming.ReturnDestOf = _ => 1;      // 1 = Deck（见 `ReturnHoldOf` 的 `dest == 1`）
                             var eDeck = new BattleEvent { Kind = EvtKind.Return, Player = 0, Slot = 0, CardId = plainName };
                             float dDeck = EventTiming.DurationOf(eDeck);
-                            Check(Mathf.Abs(dDeck - 0.95f) < 1e-3f,
-                                  "★ R10①/R18-6：**从场上回牌库 = 0.95 s**（0.55 + `MoveToDeck` 的 0.1 + 0.3；"
-                                + $"实得 {dDeck:F3}s）"
-                                + "｜🧨 改成 0.65（那两条路我们没有）/ 0.75（回手档）⇒ 红");
+                            Check(Mathf.Abs(dDeck - (CardFeel.HandToBoardEnd + EventTiming.MoveToDeckTotal)) < 1e-3f && Mathf.Abs(dDeck - (EventTiming.ReturnCardAnimHold + EventTiming.ReturnHandRelayoutHold)) > 1e-3f,
+                                  "★ R10①/R18-6/B124-RETHOLD：**从场上回牌库 = 0.9167 + 0.4 = 1.3167 s**（第二段挂倒放 clip 的 `onDone` 之后；"
+                                + $"实得 {dDeck:F3}s，期望 {CardFeel.HandToBoardEnd + EventTiming.MoveToDeckTotal:F4}s）"
+                                + "｜🧨 退回 0.95（0.55 口径）/ 0.65 / 0.75（回手档）⇒ 红");
                         }
                         finally { EventTiming.ReturnDestOf = r18DestBackup; }
                         // 🔴 **2026-10-25（`R17-1` · AU1/J1）：`Slot < 0` 两档**拆开断**（原来一句「照旧 0」已过期）：
@@ -19411,12 +19411,12 @@ public static class BattleScene
                 //   ⚠️ 只推事件时间线，**不推** `TickClock` ⇒ 下面那串 `ClockLeft` 断言一格不变。
                 StepThrough(drv);
                 { int wgClock = 0; while (drv.WaitingForBlockingAction && wgClock++ < 400) Step(1f / 30f); }
-                // 🔴 2026-09-17：时长**照原版的三步结构算**（`TurnSecondsForThisMatch` =
-                // ScenarioVariables 默认 → 缩时标志 → **matchType 覆盖**）。本局 matchType=80(EventAI)
-                // ⇒ 覆盖成 **240 s**（`ClockManager__GetTotalTime.c`；常量 `0x1834b31c4` 复核过 = 240.0）。
+                // 🔴 2026-09-17 / 📌 2026-11-04（`B140_WT` 现核订正）：时长**照原版的三步结构算**（`TurnSecondsForThisMatch` =
+                // ScenarioVariables 默认 → 缩时标志 → **matchType 覆盖**）。本局 `Begin` **没传 `playMode`** ⇒
+                // `ResolvePlayMode` 给 `PlayMode = Classic`(10)、`matchType` 再经 `MatchTypes.Effective` 翻成 10/**20**(RankedBot) ⇒ 无 80/50 覆盖 ⇒ **基准 60 s**（`DefaultScenario.json:19` `clockTimeLimit = 60`；原版只有 matchType 80⇒240 / 50⇒600 两档覆盖）。
                 float total = drv.TurnSecondsForThisMatch;
-                Check(Mathf.Abs(total - 240f) < 0.01f,
-                      $"本局时长 = 原版 GetTotalTime 算出来的 {total:F0} s（matchType {drv.matchType} = EventAI ⇒ 240）");
+                Check(Mathf.Abs(total - 60f) < 0.01f,
+                      $"本局时长 = 原版 GetTotalTime 算出来的 {total:F0} s（matchType {drv.matchType} = Classic 10 或对 AI 翻转的 20 ⇒ 基准 clockTimeLimit 60，无 matchType 覆盖）");
                 Check(drv.ClockCountingDown == false, "开局不在倒计时那一段");
                 Check(Mathf.Abs(drv.ClockLeft - total) < 0.01f, $"开局表是满的（{drv.ClockLeft:F1} s）");
                 // 🔴 **2026-10-22（`W63` P1）**：`ClockText`（自建 `TurnClock` 那颗常显 `m:ss`）已整颗删除

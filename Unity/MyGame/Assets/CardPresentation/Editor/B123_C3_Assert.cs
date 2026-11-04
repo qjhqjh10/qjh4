@@ -313,21 +313,29 @@ public static class B123C3_Assert
         return cv;
     }
 
-    /// <summary>把一对假的 `Spawn Particles` / `Trail` 挂上去（真件由驱动层挂，自检里自己造）。
+    /// <summary>挂一对**真件** `Spawn Particles` / `Trail`（= 原版 prefab `Invoke Minion Card Fade Default`
+    /// 的实例，产品路径 `BattleDriver.MountSpawnParticlesUnderToBoardFx` 挂的就是它）。
     /// ⚠️ 不挂 ⇒ 那两项断言永远读到 `false` ⇒ 空转绿。</summary>
     static void MountFx(CardView cv)
     {
-        var fx = new GameObject("B123C3_SpawnParticles");
-        var trail = new GameObject("Trail");
-        // 🔴 2026-11-03（`B124_W19`）：`new GameObject` 默认 `activeSelf = true`，而
-        //   `CardView.MountSpawnParticles` 只 `instance.SetActive(false)`（= 关**实例**本身），**不看**子节点；
-        //   而 `TrailActive` 读的是 `activeSelf`（不是 `activeInHierarchy`）⇒ 夹具不自己关，起播前就是「开着」的
-        //   （原版 `ToBoardFX/Spawn Particles/Trail.m_IsActive` 起播前 = 0，0.55 那一拍才 1）。
-        //   ⇒ 按产品语义把夹具建对（⛔ 别去改产品那一行 —— 它照原版只管实例）。
-        trail.SetActive(false);
-        trail.transform.SetParent(fx.transform, false);
-        bool ok = cv.MountSpawnParticles(fx);
-        Check(ok && cv.SpawnParticlesMounted, "P2 前提：`Spawn Particles` / `Trail` 挂上了（否则两颗粒子那两项空转）");
+        WarpforgeVFX.WFEffectEntry entry = null;
+        var lib = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
+        bool have = lib != null && lib.TryGet(BattleDriver.SummonVfxMinion, out entry)
+                    && entry != null && entry.prefab != null;
+        var fx = have ? UnityEngine.Object.Instantiate<GameObject>(entry.prefab) : null;
+        var trail = fx != null ? fx.transform.Find("Trail") : null;
+        // 🔴 2026-11-04（`B140_WB`）：夹具**不再自建** `new GameObject("Trail")` —— 自建件只能证明
+        //   「属性读写对」，证明不了「真 prefab 上**真有这颗** `Trail`、clip 真能拨它」。
+        //   判据 = 原版 `ToBoardFX/Spawn Particles/Trail.m_IsActive` 曲线 t=0→0 / t=0.55→1
+        //   （见 `CardView.MountSpawnParticles` 的头注）；`MountSpawnParticles` 照原版只管**实例**
+        //   （`instance.SetActive(false)`），`Trail` 的 t=0 键由产品侧 `SetTrailActive(false)` 落。
+        bool ok = fx != null && trail != null && cv.MountSpawnParticles(fx);
+        Check(ok && cv.SpawnParticlesMounted,
+              "P2 前提：**真 prefab** 的 `Spawn Particles` / `Trail` 挂上了（⛔ 自建件不算 —— "
+            + "取不到就在这一条红，别让下面两颗粒子那两项空转）");
+        Check(trail != null && !cv.TrailActive && !trail.gameObject.activeSelf,
+              "P2b ★ 真 prefab 的 `Trail` 节点存在，且 t=0 键 = **关**（`cv.TrailActive` 与真节点 `activeSelf` 同假）"
+            + "｜🧨 夹具自建节点 / 把 t=0 键写成 1 ⇒ 红");
     }
 
     /// <summary>复位断言：**9 项**（逐项一格）＋ 三档 α（无条件复位那一批）。</summary>

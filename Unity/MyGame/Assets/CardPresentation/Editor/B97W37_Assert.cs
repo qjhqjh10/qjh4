@@ -76,8 +76,8 @@ public static class B97W37_Assert
     //  账 381：`GetTargetInPos` 的等价物 = `HitSlot`（只认【棋盘元素】）
     //    判据 = `decomp_full/BattleManager__GetTargetInPos.c:204-265`（真生效支）
     //         · 2D 支 `Physics2D.GetRayIntersectionNonAlloc(ray, buf, -1f)` 负距离 = **死支**、照抄不实现
-    //    我们侧 = `BattleDriver.HitSlot`（`:33202`）→ `CardHit`（`:33233`，3D 档 4 角投影 / 2D 档 `HitByCollider`）
-    //    桥 = `PointerAtWorldForTest`（卡的世界点 → 生产指针那个正交平面）
+    //    我们侧 = `BattleDriver.HitSlot`（3D 档 → `TryHitSlotByBoardRay`：`Physics.RaycastNonAlloc` 200f · 掩码 `1<<10` → 字面 `hits[0]`）
+    //    桥 = `PointerAtWorldForTest`（卡的世界点 → 生产指针那个正交平面）；`CardHit`（4 角投影 / `HitByCollider`）只剩 2D 烘图兜底档
     // ==================================================================
     static void Check381HitSlotIsBoardElements(BattleDriver drv)
     {
@@ -106,12 +106,12 @@ public static class B97W37_Assert
         C(drv.HitSlotForTest(side, ptr), slot,
             "W37-381-2 ★ 把一张卡**画在屏幕上的那个位置**喂给 `HitSlot` ⇒ 必须返回**这一格**"
           + "（= 原版真生效支：射线命中 `BoardElements` 层的棋盘元素）"
-          + "｜🧨 把 `CardHit` 的「3D 档 4 角投影桥」删掉（直接拿指针点问 `Physics2D`）⇒ 我方整排点不到 ⇒ 本条红；"
+          + "｜🧨 把 `TryHitSlotByBoardRay` 的「屏幕点 → `boardCam.ScreenPointToRay`」桥删掉（直接拿指针点问 `Physics2D`）⇒ 我方整排点不到 ⇒ 本条红；"
           + "🧨 把 `HitSlot` 改成只认手牌 `CardInteraction.Frontmost` ⇒ 红");
 
         C(drv.HitSlotForTest(side, new Vector3(9000f, 9000f, 0f)), -1,
             "W37-381-3 ★ 远离所有卡的指针点 ⇒ **−1**"
-          + "｜🧨 让 `CardHit` 恒 true、或给 `HitSlot` 加「没命中就兜底第 0 格」⇒ 本条红"
+          + "｜🧨 让 `TryHitSlotByBoardRay` 的命中判定恒 true（缓冲第 0 条硬当卡）、或给 `HitSlot` 加「没命中就兜底第 0 格」⇒ 本条红"
           + "（原版那条 `GetComponentInParent<CardScript>()` 空 ⇒ 返回 null，同样是「没点中」）");
     }
 

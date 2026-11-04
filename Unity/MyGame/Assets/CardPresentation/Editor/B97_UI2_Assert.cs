@@ -99,7 +99,7 @@ public static class B97_UI2_Assert
                 "B1 ★ 指针压在**我方棋盘单位**上 ⇒ 棋盘拾取判回它自己（`BattleDriver.HitSlot` = 原版 "
               + "`GetTargetInPos` 真生效支「`boardCamera` 射线 → `BoardElements` 层 → `GetComponentInParent<CardScript>`」的对应物）");
             Tr(drv.HitSlotHitCountForTest(side, ptr) >= 1,
-                "B2（前提）这确实是「真 collider」那一条命中（`CardHit` / `CardView.HitByCollider`），不是退回手算矩形");
+                "B2（前提）这确实是**原版射线链**那一条命中（`TryHitSlotByBoardRay` = `Physics.RaycastNonAlloc` 打层 10 的 `BoxCollider` → 字面 `hits[0]`；计数出参 = 首条命中 0/1，原版 miss 即 null、⛔ 不回落投影）");
 
             drv.TickBoardHoverForTest(ptr);
             Tr(ReferenceEquals(drv.HoverBoardCardView, v),
@@ -120,7 +120,7 @@ public static class B97_UI2_Assert
             go.SetActive(false);
             C(drv.HitUnitSlotForTest(side, ptr), -1,
                 "D1 ★ **藏起来的卡不参与命中**（原版 `Physics.RaycastNonAlloc` 打不到 inactive 对象上的 collider；"
-              + "我们 = `CardHit` 的 `activeInHierarchy` 闸）");
+              + "我们 3D 档 = 同一条 `Physics.RaycastNonAlloc`（inactive 的 collider 本就不参与）；2D 烘图兜底档 = `CardHit` 的 `activeInHierarchy` 闸）");
             drv.TickBoardHoverForTest(ptr);
             Tr(drv.HoverBoardCardView == null, "D2 …悬停也不该停在它身上");
             go.SetActive(true);

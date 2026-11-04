@@ -680,6 +680,63 @@ public static class EnchantmentTemplateCheck
              + "（🧨 删掉 `AttachGrantedByPlayedCard` 里 `g.TargetsAffected == TargetsAffectedInHand` 那道闸 ⇒ 挂错人 + 双发）");
         }
 
+        // ---- H7 · 逐目标挂载：载体 = **目标集的每一个元素**（`B124-TA10COVER`）----
+        //  判据：`Enchantments.AttachGrantedByPlayedCard`（`Enchantment.cs:1624`）→ 逐目标 helper
+        //    `AttachRowToCarrierSet`（`Enchantment.cs:2131-2157`）对载体集**每个元素**各 `Attach` 一次；
+        //    原版 `AbilityLogic__PlayAbility.c:1183-1224` 对目标表逐元素 `AddEffect`
+        //    （`ca 260` `:2534-2551` → `LAB_18081e1c0` 同族口径）。
+        //  🧨 灭自证（**两个方向都杀**）：
+        //    ① 退回「只挂 `chosen`」⇒ H7b（第 2/3 个载体）变 0 ⇒ 红；
+        //    ② 「不看目标集、见谁都挂」⇒ H7c（敌方小兵 / 双方督军）变 >0 ⇒ 红。
+        {
+            var savedGrant = Enchantments.GrantedEnchantmentsProvider;
+            try
+            {
+                var grant = MultiCarrierGrantCard("B140WBGrantTactic");
+                Enchantments.GrantedEnchantmentsProvider = GrantProviderFor(grant.Id, CadiaTemplateId, 10);
+                BattleContext bctx5; List<UnitState> mine;
+                bool built = BuildMultiCarrierFixture(grant, 20261205, out bctx5, out mine);
+                bool pre = Ok(built && bctx5 != null && mine.Count == 3,
+                              $"H7 前提：夹具建成（3 个己方小兵 + 1 个敌方小兵；实得 {mine.Count} 个己方）"
+                            + " —— ⛔ 建不起来 ⇒ 本组全部无效（别把 0 == 0 当绿）");
+                pre &= Ok(bctx5 != null && bctx5.FindEnchantmentTemplate(CadiaTemplateId) != null,
+                          "H7 前提：本局查得到附魔模板 `Cadia Stands_enchantment`"
+                        + " —— ⛔ 查不到时 `Attach` 会静默跳过（只涨 `GrantedTemplateMissing`）⇒ 别当成「没挂」");
+                if (pre)
+                {
+                    int fallbackBefore = Enchantments.GrantedTargetResolveFallback;
+                    var played = bctx5.NewInstance(grant);
+                    int attached = Enchantments.AttachGrantedByPlayedCard(bctx5, played, mine[0]);
+                    Ok(attached == 3,
+                       $"★ H7a 载体集有 3 个元素 ⇒ 挂上 **{attached}** 条（期望 3）"
+                     + " —— 🧨 只挂 `chosen` ⇒ 1；载体集判不了退回 `chosen` ⇒ 也是 1");
+                    int each = 0;
+                    for (int i = 0; i < mine.Count; i++)
+                    {
+                        var rec = (mine[i] != null && mine[i].Instance != null) ? mine[i].Instance.ActiveEnchantments : null;
+                        if (rec != null && rec.Count == 1 && rec[0].Card != null && rec[0].Card.Id == CadiaTemplateId) each++;
+                    }
+                    Ok(each == 3,
+                       $"★ H7b **每一个**载体身上各 1 条同模板附魔：{each}/3"
+                     + " —— 🧨 只挂 `chosen` ⇒ 1/3 ⇒ 红（`chosen` 之外那两个载体就是这条的鉴别力）");
+                    int enemy = 0, heroes = 0;
+                    var oppUnit = bctx5.Players[1].Board[3];
+                    if (oppUnit != null && oppUnit.Instance != null) enemy = oppUnit.Instance.ActiveEnchantments.Count;
+                    if (bctx5.Players[0].Warlord != null && bctx5.Players[0].Warlord.Instance != null)
+                        heroes += bctx5.Players[0].Warlord.Instance.ActiveEnchantments.Count;
+                    if (bctx5.Players[1].Warlord != null && bctx5.Players[1].Warlord.Instance != null)
+                        heroes += bctx5.Players[1].Warlord.Instance.ActiveEnchantments.Count;
+                    Ok(enemy == 0 && heroes == 0,
+                       $"★ H7c **目标集之外**一个都没挂：敌方小兵 {enemy} 条 / 双方督军 {heroes} 条（期望都 0）"
+                     + " —— 🧨 改成「见谁都挂」（不看 36 格）⇒ 这里 >0 ⇒ 红；与 H7b 合起来 = 两个方向都杀");
+                    Ok(Enchantments.GrantedTargetResolveFallback == fallbackBefore,
+                       "★ H7d 载体集**真解出来了**（`GrantedTargetResolveFallback` 没涨）"
+                     + " —— 🧨 把 `ta=10` 那条改成「判不了就退回 `chosen`」⇒ 本行红、H7a/H7b 同时变 1/3");
+                }
+            }
+            finally { Enchantments.GrantedEnchantmentsProvider = savedGrant; }
+        }
+
         Debug.Log(P + $"H·读数：卡表 `enchantment` 列 = 池内 {withRows} 张挂载者 / 其中 `trigger 0` {trigger0} 张；"
                      + "白名单（3 张）仍是「数据源不可用」时的兜底");
     }
@@ -969,5 +1026,87 @@ public static class EnchantmentTemplateCheck
     static void SegFail(string section, Exception e, int rest)
     {
         Ok(false, section + " 段异常（算红，⛔ 不是跳过；其后 " + rest + " 条没跑）: " + e);
+    }
+
+    // ==================================================================
+    //  §H7 的夹具（追加在**类尾**：本文件 141/217 两处账落点按行号引，
+    //  ⛔ 别把成员插进它们上面 —— 插一行就让整片账漂）
+    // ==================================================================
+
+    /// <summary>H7 的合成「打出即挂」牌：1 条 ability / 1 行 logic ＋ `ta = 10 (allFiltered)` 的 36 格。
+    /// <para>载体集判据 = `EnchantmentExecutor_B115.ResolveEnchantmentTargets`（`ta 10` ⇒ 双方全场建池，
+    /// 再按 36 格逐候选筛）：`friendlyUnits = 1` / `enemyUnits = 0` / `includeMinions = 1` / `includeHero = 0`
+    /// ⇒ 只留**出牌方的小兵**。`includeSelf = 1` 是必须的 —— 候选之一就是 `chosen`（本调用的 `thisCard`），
+    /// 为 0 会被 `TargetCriteriaEval` ②③ 那两格把它自己筛掉。</para></summary>
+    static CardDef MultiCarrierGrantCard(string id)
+    {
+        var c = new CardDef(id, id, "tactic", "", "", "", 0, 0, 0, 0, null);
+        var s = new CardDef.CountSetSpec();
+        s.PlayerTurn = -1;                       // 结构上不适用（同生成器 `has_player_turn=False`）
+        s.TargetsAffected = 10;                  // allFiltered
+        s.ChosenArmy = 0; s.ArmyFilter = 0; s.KeywordFilter = 0; s.TraitsFilter = 0;
+        s.MaxTargets = 0; s.TargetSelectMethod = 0;
+        s.AttackFilter = 0; s.AttackFilterOption = 0;
+        s.CurrentHealthFilter = 0; s.CurrentHealthFilterOption = 0;
+        s.ManaCostFilter = 0; s.ManaCostFilterOption = 0;
+        s.RarityFilter = 0; s.RarityFilterOption = 0;
+        s.SpellType = 0;
+        s.FriendlyUnits = 1; s.EnemyUnits = 0;   // 只留出牌方那一侧
+        s.IncludeHero = 0; s.IncludeMinions = 1; s.IncludeSpells = 0; s.IncludeWhispers = 0;
+        s.IncludeWeapons = 0; s.IncludeRemnants = 0; s.IncludeHeroParts = 0;
+        s.IncludeSelf = 1;                       // 见上面 doc：`chosen` 自己也是候选
+        s.ExcludeNotSelf = 0; s.ExcludeSimilarCards = 0; s.ExcludeTargetted = 0;
+        s.ExcludeFriendlyHero = 0; s.ExcludeEnemyHero = 0; s.ExcludeRace = 0; s.ExcludeTrait = 0;
+        s.SelectFromChooseResolution = 0;
+        s.FilterSpecificCardIds = new string[0];
+        s.ExcludeEnchantmentIds = new string[0];
+        c.AttachAbilityTargetCriteria(new[]
+        {
+            new CardDef.TargetCriteriaRowSpec { Ability = 0, Logic = 0, Trigger = 0, Criteria = s },
+        });
+        return c;
+    }
+
+    /// <summary>H7 的数据源替身：只认这一张牌，给一行 `trigger 0` / 指定 `ta` 的挂载行
+    /// （`buffType 12` = 原版 `CardScript__AddEffect.c:826-828` 的 `case 0xc ⇒ AddEnchantment`）。</summary>
+    static Func<string, List<Enchantments.GrantedEnchantmentRow>> GrantProviderFor(
+        string sourceId, string templateId, int ta)
+    {
+        return delegate (string id)
+        {
+            if (id != sourceId) return null;
+            var one = new List<Enchantments.GrantedEnchantmentRow>(1);
+            one.Add(new Enchantments.GrantedEnchantmentRow
+            {
+                SourceCardId = sourceId,
+                TemplateCardId = templateId,
+                BuffType = 12,
+                Trigger = Enchantments.TriggerThisCardPlayed,
+                TargetsAffected = ta,
+                AbilityIndex = 0,
+                LogicIndex = 0,
+            });
+            return one;
+        };
+    }
+
+    /// <summary>H7 夹具：3 个己方小兵（格 3/4/6）+ 1 个敌方小兵（格 3）。行动方钉成 **0** ——
+    /// `AttachRowToCarrierSet` 的 `owner` 取的是 `ctx.Active`（`Enchantment.cs:2140`）。</summary>
+    static bool BuildMultiCarrierFixture(CardDef grant, int seed,
+                                         out BattleContext ctx, out List<UnitState> mine)
+    {
+        mine = new List<UnitState>(3);
+        var pool = CardDatabase.Load();
+        var d0 = new List<CardDef> { Hero("B140WBHero0", "Ultramarines"), grant };
+        var d1 = new List<CardDef> { Hero("B140WBHero1", "Goff") };
+        ctx = RuleCore.NewBattle(d0, d1, seed: seed, shuffle: false, cardPool: pool);
+        if (ctx == null) return false;
+        if (ctx.Turn == 0) RuleCore.BeginTurn(ctx);
+        ctx.Active = 0;
+        mine.Add(Place(ctx, 0, 3, BareCard("B140WBCarrierA")));
+        mine.Add(Place(ctx, 0, 4, BareCard("B140WBCarrierB")));
+        mine.Add(Place(ctx, 0, 6, BareCard("B140WBCarrierC")));
+        Place(ctx, 1, 3, BareCard("B140WBOppCarrier"));
+        return mine[0] != null && mine[1] != null && mine[2] != null;
     }
 }

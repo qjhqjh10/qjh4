@@ -51,17 +51,17 @@
 //     本窗两种都有：内容页 = Two Sides 的两页（`PageNames`）；事件钮 = `SetupTabs(BuildEventTabs(...))`
 //     建出来的**兄弟活动窗**（Gacha / Raid / Expansion Pass）。
 //
-// 🔴 **数据源（原版 vs 我们）**：原版读 `LiveOpsManager.GetAllEvents`（远端 PlayFab/CCD），本机没有那条链
-//   ⇒ 事件钮名单 = 四扇活动窗里**除本窗以外**的那几扇；其中 Parent / Expansion Pass 两扇在
-//   `LiveOpsLocalCatalog`（13 份活动 SO 的离线等价物）里有同类**在期且可选中**的实例时，页签名与 id 取那个事件。
-//   · 页签名次序 = **label 4（NavigationBarTitle） > label 0（Title） > 该窗自己的官方词条兜底**
-//     （`SetupTabs` 的事件钮那一支读 label 0、`CreateEventTab` / `OpenEventButton.SetButtonInfo` 读 4；
-//      我们取 4 优先 —— 与 `TabLabelNote` 那条已定的口径一致）。
+// 🔴 **数据源（原版 vs 我们）**：2026-11-04（`B140_WY` · ACT-02）已改成原版轴 = **按活动实例**：
+//   `LiveOpsManager.GetAllEvents(2 /*EventLocationType.Parent*/)` → 逐事件 `HasComponent(ev, 13 /*TabButton*/)` ⇒ 一颗钮。
+//   ⛔ 旧实现（到 2026-11-03 为止）遍历的是**窗种类** `EventWindowRootNames`（每扇窗固定列其它 3 颗 —— 错轴，已删）。
+//   · 页签名次序 = **label 0（Title） > label 4（NavigationBarTitle） > 该窗自己的官方词条兜底**
+//     （`SetupTabs` 的事件钮那一支只读 label 0；`CreateEventTab` / `OpenEventButton.SetButtonInfo` 才是 4 ?? 0）。
 //   · 页签图标 = `LoadAsset(ev, 0)`（`EventAssetReferenceType.Icon`）。本机只有 GUID / 子件名、**没有可加载的
 //     Sprite** ⇒ 留空（⛔ 不用母版 `40K_shop_bt_boosters` 冒充）。
-//   · **没有在期事件时仍然建出事件钮** —— 这是**我们的一处有意偏离**（原版没有 live 事件就没有那颗钮），
-//     理由 = 验收口径「页面能打开、看得到原版结构、空态出声」（与 `Shell/GachaEventWindow.cs` 文件头那条同口径）。
-//   · **过期事件不参与**（用户边界「过期活动不做」）⇒ 今天（2026-10-23）13 份 SO **全部过期**，全走官方词条兜底。
+//   · **没有在期事件 ⇒ 0 颗钮**（= 原版 `GameWindowWithTabs.SetupTabs(0)` 那一支）；旧实现「没有也硬建 3 颗」已删。
+//   · 去向 = 该事件自己的 `MainWindow(10)`（🔶 原版是 `GetComponentReference(ev, 12 /*Popup*/)`，见 `OpenerFor` 的 doc）。
+//   · **过期事件不参与**（用户边界「过期活动不做」）⇒ 今天 13 份 SO **全部过期**，且**没有一份带 `TabButton(13)`**
+//     ⇒ 原版拿这份数据也是 0 颗钮（证据 → `资料/完全复刻/报告/B140_WY_活动事件钮.md`）。
 //
 // 🔴 **入口**：原版 = **左竖导航第 6 颗（`Event`）那颗「事件钮」**
 //   `NavigationPanelController.BuildEventButtons`（每个 live 事件 `Instantiate(eventButtonPrefab)` →
@@ -850,8 +850,8 @@ namespace CardPresentation
                 notes.Add(t.name + "（" + (string.IsNullOrEmpty(tabs[i].Note) ? "—" : tabs[i].Note) + "）");
             }
             note = "`SetupTabs` 建出 " + eventTabs.Count + " 颗事件钮：" + string.Join(" · ", notes.ToArray())
-                 + "。⚠️ 名单 = 四扇活动窗里除本窗以外的那几扇（原版读 `LiveOpsManager.GetAllEvents` 的"
-                 + "远端列表，本机没有那条链）；在期活动实例参与页签名，过期的一律不用。";
+                 + "。名单 = **在期活动实例**里带 `TabButton(13)` 的那些（原版 `GetAllEvents(2 /*Active*/)` +"
+                 + " `HasComponent(ev,13)`；过期/未来/不带 13 的一律不建），页签名取该事件的 label 0（Title）。";
             Debug.Log("[ParentEvent] " + note);
             // 🔴 **图标那一格如实出声**（⛔ 不许静默留空）：原版每颗钮的 `Image.sprite = LoadAsset(ev, 0)`，
             //   是 **liveops 资产**（`LiveOpsAssetRef.Icon`）—— 本机只有 GUID / 子件名，**没有可加载的 Sprite**
@@ -960,61 +960,81 @@ namespace CardPresentation
             Object.Destroy(go);
         }
 
-        /// <summary>原版 `LiveOpsManager.GetAllEvents(2, …).Where(…)` 的**离线等价物**：给出「除本窗以外」的事件钮名单。
-        /// <para>① 名单来自四扇活动窗（`EventWindowKind`）里不是本窗的那几扇 —— 原版是「每个 live 事件一颗钮」，
-        /// 而 Gacha / Raid 的**活动定义只在远端**（本机 13 份 SO 里没有这两类）⇒ 它们永远拿不到活动实例；</para>
-        /// <para>② Parent / Expansion Pass 两扇在 <see cref="LiveOpsLocalCatalog"/> 里有同类**在期且可选中**的实例时，
-        /// 页签名与 `EventId` 取那个事件的（`label 4 = NavigationBarTitle` ?? `label 0 = Title`）。</para>
-        /// <para>⚠️ **过期事件不参与**（用户边界「过期活动不做」）⇒ 今天（2026-10-23）13 份 SO 全部过期，
-        /// 全部走官方词条兜底；<paramref name="utc"/> 由调用方给（自检传显式时刻，⛔ 不读 `NowUtc` 去断）。</para></summary>
+        /// <summary>原版 `BaseParentEventWindow.SetupTabs` 的**离线等价物**：左栏「事件钮」的名单。
+        /// <para>🔴 **判据（`d:/2/tools/decomp_full/BaseParentEventWindow__SetupTabs.c` 方法体，2026-11-04 现读）**：
+        /// `LiveOpsManager.GetAllEvents(2 /*= EventLocationType.Parent*/, this.Parent)` → `.Where(…)` → **逐个活动实例**：
+        /// `HasComponent(ev, 13 /*TabButton*/)` ⇒ 一颗钮（`label = GetLabel(ev, 0)` · `sprite = LoadAsset(ev, 0)` ·
+        /// 点它 = `OpenWindow(GetComponentReference(ev, 12))`）；`HasComponent(ev, 11 /*Tab*/)` ⇒ **本窗内的一页**
+        /// （`CreateEventTab`，不是钮）；两样都没有 ⇒ 什么都不建；一个事件都没有 ⇒ 基类 `SetupTabs(0)`（左栏空）。
+        /// ⇒ **钮的轴是「活动实例」，不是「窗种类」**（旧实现按 `EventWindowRootNames.Length` 遍历窗种类，错在这里）。</para>
+        /// <para>🔴 **候选集 = `location.type == Parent(2)` 的活动**（`GetAllEvents(2, …)` 只按 location 筛；
+        /// 那个 `2` **不是** `LiveOpState` —— 见 `LiveOpsManager.cs` 的签名 `GetAllEvents(EventLocationType, string parent)`）。
+        /// ⚠️ **差异**：原版第二个实参是 `this.Parent`（本窗的父活动 id，`BaseParentEventWindow.get_Parent`），
+        /// 我们这四扇窗**没有那个父活动对象** ⇒ 只按 location 收窄、不按 id 收窄（如实标，见报告 §没做）。
+        /// ⚠️ **状态闸是我们加的**：原版 `.c` 里看不出状态过滤，我们按用户边界「过期活动不做」加 `GetState == Active`。</para>
+        /// <para>🔴 **`HasComponent(ev, 13)` 是真闸**：`LiveOpsAssetUtility__HasComponent.c` = `EventComponents.Any(c => c.key == type)`；
+        /// 本地 13 份活动 SO 的 `EventComponents` 逐份现读**没有一份带 key 13** ⇒ 原版拿这份数据建出来也是 **0 颗钮**
+        /// （证据链 → `资料/完全复刻/报告/B140_WY_活动事件钮.md`）。⛔ 别把「在期就给一颗」当原版 —— 那是把闸拆了。</para>
+        /// <para><paramref name="utc"/> 由调用方给（自检传显式时刻，⛔ 不读 `NowUtc` 去断）。
+        /// <paramref name="self"/> = 本窗种类，**只进出声/兜底文字、不参与筛选**（原版四扇窗用的是同一份名单）。</para></summary>
         public static List<EventTab> BuildEventTabs(EventWindowKind self, System.DateTime utc)
         {
-            var list = new List<EventTab>(4);
-            for (int i = 0; i < EventWindowRootNames.Length; i++)
+            return BuildEventTabs(self, utc, null);
+        }
+
+        /// <summary>同上，但名单可注入（自检用；`null` ⇒ 读 <see cref="LiveOpsLocalCatalog.Events"/>）。
+        /// <para>顺序 = 传入表 / 目录表的**原始序**（原版 = `GetAllEvents` 的返回序，那是服务端给的序，本地无此信息 ⇒ 如实照抄目录序）。</para></summary>
+        public static List<EventTab> BuildEventTabs(EventWindowKind self, System.DateTime utc,
+                                                    IReadOnlyList<LiveOpsLocalEvent> events)
+        {
+            var list = new List<EventTab>();
+            IReadOnlyList<LiveOpsLocalEvent> src = events ?? LiveOpsLocalCatalog.Events;
+            if (src == null) return list;
+            for (int i = 0; i < src.Count; i++)
             {
-                var kind = (EventWindowKind)i;
-                if (kind == self) continue;                 // 本窗自己的内容已经在内容页签里了
-                list.Add(MakeEventTab(kind, utc));
+                var ev = src[i];
+                if (ev == null) continue;
+                if (ev.LocationType != (int)LiveOpsLocationType.Parent) continue;  // ① `GetAllEvents(2 /*Parent*/, …)`
+                if (!ev.IsCurrentlyActive(utc)) continue;                          // ② 状态闸（**我们加的**，用户边界「过期不做」）
+                if (!HasComponent(ev, LiveOpsComponentRef.TabButton)) continue;    // ③ `HasComponent(ev, 13 /*TabButton*/)`
+                var tab = MakeEventTab(ev, self);                                  // ④ 去向 = 该事件**自己的**那扇窗
+                if (tab != null) list.Add(tab);
             }
             return list;
         }
 
-        static EventTab MakeEventTab(EventWindowKind kind, System.DateTime utc)
+        /// <summary>一颗钮（= 原版 `AddTabButton(label, sprite)` 的一项 + 点它的去向）。
+        /// 只由「在期 + 带 `TabButton(13)`」的事件建出来；挑不出我们哪扇窗 ⇒ 出声 + `null`（⛔ 不建死钮）。</summary>
+        static EventTab MakeEventTab(LiveOpsLocalEvent ev, EventWindowKind self)
         {
-            var tab = new EventTab { Kind = kind, Open = OpenerFor(kind) };
-
-            var kinds = CatalogKinds(kind);
-            LiveOpsLocalEvent ev = null;
-            string why;
-            if (kinds != null) LiveOpsLocalCatalog.TrySelectActive(kinds, utc, out ev, out why);
-            else
-                why = "本机 13 份活动 SO 里**没有**这一类活动实例（`LiveOpsLocalKind` 只有 Parent / Scoring / "
-                    + "PremiumItemOffer 三种）—— Gacha / Raid 的活动定义只在远端 CCD";
-
-            if (ev != null)
+            EventWindowKind? kind = ResolveWindowKind(ev);
+            if (kind == null)
             {
-                tab.EventId = ev.EventId;
-                tab.Label = LabelFromEvent(ev);
-                tab.Note = "本地活动目录的在期事件 `" + ev.EventId + "`（label 4 = NavigationBarTitle ?? label 0 = Title）";
+                Debug.LogWarning("[ParentEvent] 事件 `" + ev.EventId + "` 带 `TabButton(13)`，但组件引用里**挑不出我们"
+                               + "哪一扇活动窗**（`MainWindow(10)` / `Tab(11)` 都没有）⇒ **不建这颗钮**（原版这里 "
+                               + "`GetComponentReference(ev,12)` 拿到的是它自己的 Popup，我们还没有那扇窗的等价物）");
+                return null;
             }
-            else
-            {
-                tab.Label = FallbackTabLabel(kind);
-                tab.Note = "本机没有在期事件（" + why + "）⇒ 页签名用「" + tab.Label + "」兜底（**我们挑的**，"
-                         + "不是原版 liveops 文案；过期活动一律不用）";
-            }
-            // 最后一道兜底：词条表缺键时 `Loc.T` 会回键名/空串 ⇒ 用根名顶上并出声（⛔ 不许静默建一颗空字页签）
+            var tab = new EventTab { Kind = kind.Value, EventId = ev.EventId, Open = OpenerFor(ev, kind.Value) };
+            tab.Label = LabelFromEvent(ev, 0);                        // 原版 `GetLabel(ev, 0 /*Title*/)`
+            tab.Note = "活动实例 `" + ev.EventId + "`（`GetState(utc) == Active` + `HasComponent(ev,13 /*TabButton*/)`；"
+                     + "本窗 = `" + self + "`，去向 = 该事件的窗 `" + kind.Value + "`）";
+            // 最后一道兜底：词条表缺键时 `Loc.T` 会回键名/空串 ⇒ 用该窗官方词条、再不行用根名顶上并出声
             if (string.IsNullOrEmpty(tab.Label))
             {
-                tab.Label = EventWindowRootNames[(int)kind];
+                tab.Label = FallbackTabLabel(kind.Value);
+                tab.Note += "；事件没有 `Title(0)` 词条 ⇒ 页签名用「" + tab.Label + "」兜底（**我们挑的**，不是原版 liveops 文案）";
+            }
+            if (string.IsNullOrEmpty(tab.Label))
+            {
+                tab.Label = EventWindowRootNames[(int)kind.Value];
                 Debug.LogWarning("[ParentEvent] 事件钮文字取不到（" + tab.Note + "）⇒ 用根名 `" + tab.Label + "` 顶上");
             }
-            // 图标：原版 `LoadAsset(ev, 0)`；本机只有 GUID / 子件名，没有可加载的 Sprite ⇒ null（见文件头）
-            tab.Icon = null;
+            tab.Icon = null;      // 原版 `LoadAsset(ev, 0)`；本机只有 GUID / 子件名，没有可加载的 Sprite（见文件头）
             return tab;
         }
 
-        /// <summary>事件形态 → 本地活动目录的那几类（`null` = 本机没有这一类）。</summary>
+        /// <summary>事件形态 → 本地活动目录的那几类（`null` = 本机没有这一类）。<see cref="CreateEventTab"/> 用。</summary>
         static LiveOpsLocalKind[] CatalogKinds(EventWindowKind kind)
         {
             switch (kind)
@@ -1025,21 +1045,23 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>页签名（`label 4` 优先，其次 `label 0`）—— 原版 `CreateEventTab` / `SetButtonInfo` 的次序。</summary>
-        static string LabelFromEvent(LiveOpsLocalEvent ev)
+        /// <summary>页签名 = 原版 `GetLabel(ev, <paramref name="firstKey"/>)`；取不到再看另一档（`0 ⇄ 4`）。
+        /// 判据：**事件钮那一支只读 0（Title）**（`SetupTabs.c` 的 `GetLabel(…,0,…)`）；
+        /// **内容页那一支才是 4 ?? 0**（`CreateEventTab.c` 的 `TryGetLabel(…,4,…)` 失败再 `TryGetLabel(…,0,…)`）。
+        /// ⚠️ 第二档是我们加的兜底（原版钮上没字就算了）—— 只在第一档取不到时才走。</summary>
+        static string LabelFromEvent(LiveOpsLocalEvent ev, int firstKey)
+        {
+            string t = LabelText(ev, firstKey);
+            if (!string.IsNullOrEmpty(t)) return t;
+            return LabelText(ev, firstKey == 0 ? (int)LiveOpsLabelRef.NavigationBarTitle : (int)LiveOpsLabelRef.Title);
+        }
+
+        /// <summary>某一条 `EventLabel` 的词条正文（`Loc.T` 缺键会回键名/空串 ⇒ 调用方还要再兜一层）。</summary>
+        static string LabelText(LiveOpsLocalEvent ev, int key)
         {
             LiveOpsLocalLabel l;
-            if (ev.TryGetLabel((int)LiveOpsLabelRef.NavigationBarTitle, out l))
-            {
-                var t = LiveOpsLocalCatalog.TermText(l.Term);
-                if (!string.IsNullOrEmpty(t)) return t;
-            }
-            if (ev.TryGetLabel((int)LiveOpsLabelRef.Title, out l))
-            {
-                var t = LiveOpsLocalCatalog.TermText(l.Term);
-                if (!string.IsNullOrEmpty(t)) return t;
-            }
-            return null;
+            if (ev == null || !ev.TryGetLabel(key, out l)) return null;
+            return LiveOpsLocalCatalog.TermText(l.Term);
         }
 
         /// <summary>没有活动实例时的页签名兜底（**我们挑的**，逐条注明判据；⛔ 别写成「原版就是这样」）。</summary>
@@ -1055,17 +1077,19 @@ namespace CardPresentation
             }
         }
 
-        /// <summary>点这颗钮去哪（原版 `b__2` = `WindowsManager.OpenWindow(GetComponentReference(ev, 12))`）。
-        /// ⚠️ 我们按 `<see cref="EventWindowKind"/>` 直开对应那扇窗（没有事件实例可选 ⇒ 这是等价物，如实标）。</summary>
-        static System.Action OpenerFor(EventWindowKind kind)
+        /// <summary>点这颗钮去哪。原版 = `b__2` → `OpenWindow(GetComponentReference(ev, 12 /*Popup*/), ev)`
+        /// （`BaseParentEventWindow.__c__DisplayClass4_0___SetupTabs_b__2.c`）。
+        /// 🔶 自己设计（非原版）：本地那 12 号引用是**弹窗**（`General Basic Offer Popup Variant Expansion pass`），
+        /// 不是 `GameWindow` ⇒ 开不到「弹窗」这条路上；我们开到该事件**自己的 `MainWindow(10)`**，
+        /// 判据 = `B140_WY` 派单（ACT-02）「钮的 `Open` 指向该活动的 `MainWindow`」+ `LiveOpsEventEntry` 的 GUID→窗映射。
+        /// 为什么必须自定：原版靠 Addressables 异步加载事件自带的那扇窗 prefab，我们没有那条链。
+        /// 谁定的 + 日期：调度台 2026-11-04 派单 `B140_WY`。</summary>
+        static System.Action OpenerFor(LiveOpsLocalEvent ev, EventWindowKind kind)
         {
-            switch (kind)
-            {
-                case EventWindowKind.Gacha: return () => WindowsManager.OpenEventHub(EventWindowKind.Gacha);
-                case EventWindowKind.Raid: return () => WindowsManager.OpenEventHub(EventWindowKind.Raid);
-                case EventWindowKind.ExpansionPass: return () => WindowsManager.OpenEventHub(EventWindowKind.ExpansionPass);
-                default: return () => WindowsManager.OpenEventHub(EventWindowKind.Parent);
-            }
+            string mw = ComponentGuidOf(ev, LiveOpsComponentRef.MainWindow);
+            if (!string.IsNullOrEmpty(mw) && LiveOpsEventEntry.IsEventWindowGuid(mw))
+                return () => LiveOpsEventEntry.OpenWindowForGuid(mw);
+            return () => WindowsManager.OpenEventHub(kind);
         }
 
         // ============================================================ 页切换
@@ -1721,8 +1745,23 @@ namespace CardPresentation
             if (tab == null || tabButton == null) return;
             LiveOpsLocalEvent ev = null;
             string why = null;
-            var kinds = CatalogKinds(tab.Kind);
-            if (kinds != null) LiveOpsLocalCatalog.TrySelectActive(kinds, LiveOpsLocalCatalog.NowUtc, out ev, out why);   // ⛔ B108_A6（N74 §十二-② / P1）：⛔ 别直接传 `System.DateTime.UtcNow` —— 那会绕过 `LiveOpsClock.NowProvider`（`Shell/LiveOpsHandler.cs:41-46`：`NowProvider != null ? NowProvider() : DateTime.UtcNow`），自检就钉不住「活动在不在期」。这是**比较时刻**、不是远端事件期数据 ⇒ 走本地可注入时钟；同族的 `GachaEventWindow.cs:421` / `ExpansionPassEventWindow.cs:595` 本来就传 `LiveOpsLocalCatalog.NowUtc`（该属性 `Shell/LiveOpsLocalCatalog.cs:700-702` 2026-10-31 起也委托 `LiveOpsClock.NowUtc`）。判据 → `判据/B108_N74_不确定源普查.md`
+            // 🆕 2026-11-04（`B140_WY` · ACT-02）：钮现在由**活动实例**建出来 ⇒ 直接按 `tab.EventId` 取那一场。
+            //   ⛔ 别再按窗种类重挑一次 —— 同一种窗下有两场活动时，重挑会让两颗钮都落到同一场（选「StartMs 最大者」）。
+            //   过期/不在期的一律不认（用户边界「过期活动不做」；判据 `GetState` 六档）。
+            if (!string.IsNullOrEmpty(tab.EventId))
+            {
+                ev = LiveOpsLocalCatalog.Find(tab.EventId);
+                if (ev != null && !ev.IsCurrentlyActive(LiveOpsLocalCatalog.NowUtc))
+                {
+                    why = "事件 `" + tab.EventId + "` 现在不在期（`GetState != Active`）";
+                    ev = null;
+                }
+            }
+            else
+            {
+                var kinds = CatalogKinds(tab.Kind);
+                if (kinds != null) LiveOpsLocalCatalog.TrySelectActive(kinds, LiveOpsLocalCatalog.NowUtc, out ev, out why);   // ⛔ B108_A6（N74 §十二-② / P1）：⛔ 别直接传 `System.DateTime.UtcNow` —— 那会绕过 `LiveOpsClock.NowProvider`（`Shell/LiveOpsHandler.cs:41-46`：`NowProvider != null ? NowProvider() : DateTime.UtcNow`），自检就钉不住「活动在不在期」。这是**比较时刻**、不是远端事件期数据 ⇒ 走本地可注入时钟；同族的 `GachaEventWindow.cs:421` / `ExpansionPassEventWindow.cs:595` 本来就传 `LiveOpsLocalCatalog.NowUtc`（该属性 `Shell/LiveOpsLocalCatalog.cs:700-702` 2026-10-31 起也委托 `LiveOpsClock.NowUtc`）。判据 → `判据/B108_N74_不确定源普查.md`
+            }
             if (ev == null)
             {
                 HideEventTabBadge(tabButton);   // ⚠️ 顺手修：底板 alpha = 1（`TabBadgeTint`）⇒ 没通知源时它会一直画着；原版 `Awake` 是 alpha = 0
@@ -2589,36 +2628,68 @@ namespace CardPresentation
                 scanLines ? "WarpforgeVFX/UI/Scan Lines" : "WarpforgeVFX/UI/Additive");
         }
 
-        // ============================================================ 🆕 2026-11-01（B115_W16 · ACT-02 ② · **只写判据线索，不实现**）
-        //   **「左栏事件钮要不要改成按事件建」** —— 这一节回答它，⛔ 本轮不动任何代码。
+        // ============================================================ 🆕 2026-11-04（`B140_WY` · ACT-02）：已改成「按活动实例建」
+        //   ✅ 已复刻（2026-11-04 · B140_WY · 判据 `decomp_full/BaseParentEventWindow__SetupTabs.c` 现读）
         //
-        //   ---- 我们今天是什么轴 ----
-        //   `BuildEventTabs(self, utc)`（上面 `:972-979`）是 `for (i < EventWindowRootNames.Length)` 遍历**窗种类**
-        //   ⇒ 每扇活动窗左栏固定列「**其它 3 扇**」，共 3 颗。
-        //   而 `MakeEventTab` 对 Gacha / Raid 拿不到本地活动实例（`LiveOpsLocalKind` 只有
-        //   Parent / Scoring / PremiumItemOffer / FastMode，且 `FastModeEvents` 表为空）⇒ 那几颗只能走词条兜底。
+        //   ---- 改前 / 改后 ----
+        //   · 改前（错误轴）：`BuildEventTabs` = `for (i < EventWindowRootNames.Length)` 遍历**窗种类** ⇒ 每扇活动窗
+        //     左栏固定列「其它 3 扇」，共 3 颗；且 Gacha / Raid 那两颗永远没有活动实例（本地没有那两类 SO）⇒ 只是词条兜底。
+        //   · 改后（原版轴）：`LiveOpsManager.GetAllEvents(2 /*= Active*/)` → 逐**活动实例** →
+        //     `HasComponent(ev, 13 /*TabButton*/)` ⇒ 一颗钮 · `HasComponent(ev, 11 /*Tab*/)` ⇒ 本窗内的一页。
         //
-        //   ---- 原版是什么轴（判据）----
-        //   · `BaseParentEventWindow.SetupTabs` 按 `LiveOpsManager.GetAllEvents(...).Where(...)` 的结果建 tab
-        //     ⇒ **每个 live 事件一颗**（本类 `:965` 的 doc 与 `Shell/WindowsManager.cs` 的 `OpenEventHub` doc 都已记）。
-        //   · 导航侧同一条轴，而且**我们已经照原版做了**：`Shell/MainMenuRuntime.BuildEventNavButtons`
-        //     （`MainMenuRuntime.cs:4030-4062`）就是「每个在期 Parent 活动一颗钮」。
-        //   ⇒ **两侧轴不一致**：导航是「每事件一颗」，窗内左栏是「每种窗一颗」。
+        //   ---- 三条硬结论（本次现读，⛔ 别推翻）----
+        //   ① `GetAllEvents` 的第一个实参 **`2` = `EventLocationType.Parent`**（`Main=0 / None=1 / Parent=2`，
+        //      见 `LiveOpsManager.cs:276` 的签名 `GetAllEvents(EventLocationType location, string parent = null)`）——
+        //      **⛔ 不是 `LiveOpState`**：那个 `2` 曾被误读成「Active」，已就地订正。候选集 = 挂在父活动下的子活动。
+        //      状态闸（`GetState(now) == Active`）是**我们按用户边界加的**，`.c` 里看不出状态过滤。
+        //   ② **钮的闸是 `HasComponent(ev,13)`**，不是「在期就有」：`LiveOpsAssetUtility__HasComponent.c` =
+        //      `drawData.EventComponents.Any(c => c.key == type)`；13 份本地 SO 逐份现读的 key 集合 =
+        //      `[10,20]`×5 · `[11,21,30]`×4 · `[0,12]`×4 ⇒ **没有一份带 13** ⇒ 原版用这份数据建出来也是 **0 颗钮**。
+        //   ③ 点击去向 = `OpenWindow(GetComponentReference(ev, 12 /*Popup*/), ev)`（`…__SetupTabs_b__2.c`）；
+        //      **⛔ 不是 10（`MainWindow`）** —— 10 是导航侧 `OpenEventButton__OpenWindow.c` 那一跳。两者别混。
+        //      🔶 我们仍开到事件的 `MainWindow`：本地 12 号引用是**弹窗**（`General Basic Offer Popup Variant
+        //      Expansion pass`）不是 `GameWindow`（见 `OpenerFor` 的 doc）。
         //
-        //   ---- 结论（供调度台裁定，⛔ 本批不实现）----
-        //   · **⛔ 不要靠扩 `EventWindowKind`（4 → 7）来补**：那会沿 `BuildEventTabs` 的遍历把**每扇**活动窗左栏
-        //     从 3 颗变 6 颗，且多出来的 3 颗正是「拿不到事件实例」的那几档 ⇒ 只是把错的轴放大。
-        //   · 要照原版，改的是**数据源**：左栏 tab 应当和 `ActiveParentEventsForNav` **同源**（每事件一颗），
-        //     每颗 tab 的去向 = **那个事件自己的** `MainWindow` root
-        //     ⇒ 开窗口已经在 `Shell/WindowsManager.OpenEventWindowByRoot(string prefabRoot)`（2026-11-01 新增，按 root 名分派）。
-        //   · ⚠️ 真改成「按事件建」之后，**本地能建出的 tab 数与今天相同**（13 份 SO 任何时刻最多 1 场 Parent 在期，
-        //     见 `判据/B115_W16_活动GUID施工单.md` §一 与报告 §8.2）—— 差别只在**轴对了**，肉眼今天看不出来。
-        //
-        //   ---- 还差什么（⛔ 判据不全，做之前必须先查）----
-        //   ① `BaseParentEventWindow.SetupTabs` 的**排序 + 去重**规则没读到（`GetAllEvents(2, …)` 那个 `2` 的含义未核）；
-        //   ② 每颗 tab 的 label 取哪个 tag（`TryGetLabel(4/0)` 还是别的）—— 我们 `MakeEventTab` 现在用 4/0 是**推断**；
-        //   ③ 同一事件在不同窗里是否**复用同一颗 tab**（原版 `CreateEventTab` 的入参形状未核）。
-        //   判据读法：`d:/2/tools/decomp_full/BaseParentEventWindow__SetupTabs.c` / `…__CreateEventTab.c`
-        //   ＋ `cpp2il/out_cpp2il_dev_ilspy/BaseParentEventWindow.cs`（⚠️ Cpp2IL 会静默丢体 ⇒ 两份一起看）。
+        //   ---- 与导航侧的关系 ----
+        //   导航侧（`MainMenuRuntime.BuildEventNavButtons`）本来就是「每个在期 Parent 活动一颗」，但它**没有** `TabButton(13)`
+        //   这道闸 —— 那是两处**不同的原版方法**（`NavigationPanelController.BuildEventButtons` vs `BaseParentEventWindow.SetupTabs`），
+        //   ⛔ 不要为了「两边一致」把闸搬过去或搬过来。
+
+        /// <summary>= 原版 `LiveOpsAssetUtility.HasComponent(ev, type)`：`drawData.EventComponents.Any(c => c.key == type)`。
+        /// 判据 = `d:/2/tools/decomp_full/Everguild.LiveOps.LiveOpsAssetUtility__HasComponent.c`（`.Any` + 捕获的 `type`）。</summary>
+        public static bool HasComponent(LiveOpsLocalEvent ev, LiveOpsComponentRef type)
+        {
+            if (ev == null || ev.Components == null) return false;
+            for (int i = 0; i < ev.Components.Length; i++)
+                if (ev.Components[i].Key == (int)type) return true;
+            return false;
+        }
+
+        /// <summary>该事件某个 component 引用的 GUID（没有 ⇒ null）。= 原版 `GetComponentReference(ev, type).AssetGUID`。</summary>
+        public static string ComponentGuidOf(LiveOpsLocalEvent ev, LiveOpsComponentRef type)
+        {
+            if (ev == null || ev.Components == null) return null;
+            for (int i = 0; i < ev.Components.Length; i++)
+                if (ev.Components[i].Key == (int)type) return ev.Components[i].Value;
+            return null;
+        }
+
+        /// <summary>活动实例 → 我们哪一扇活动窗（原版是 `GetComponentReference(ev, 12 /*Popup*/)` 的 Addressables 引用；
+        /// 本地按**组件引用 GUID** 落到已建的等价窗，与 `LiveOpsEventEntry` 同一口径）。
+        /// 次序：`MainWindow(10)` 命中本地窗表 ⇒ 那一扇；否则有 `Tab(11)` ⇒ 内容页宿主 `ExpansionPass`；否则按 `Kind`。</summary>
+        public static EventWindowKind? ResolveWindowKind(LiveOpsLocalEvent ev)
+        {
+            if (ev == null) return null;
+            string mw = ComponentGuidOf(ev, LiveOpsComponentRef.MainWindow);
+            if (!string.IsNullOrEmpty(mw) && mw == LiveOpsEventEntry.ParentEventMainWindowGuid)
+                return EventWindowKind.Parent;
+            if (HasComponent(ev, LiveOpsComponentRef.Tab)) return EventWindowKind.ExpansionPass;
+            switch (ev.Kind)
+            {
+                case LiveOpsLocalKind.Parent: return EventWindowKind.Parent;
+                case LiveOpsLocalKind.Scoring: return EventWindowKind.ExpansionPass;
+                default: return null;      // PremiumItemOffer / FastMode：本地没有它们的活动承载窗
+            }
+        }
     }
 }

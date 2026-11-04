@@ -116,7 +116,7 @@ namespace CardPresentation
         /// 现建时 **先 `SetActive(false)` → `AddComponent<EventSystem>()` → `AddComponent&lt;InputSystemUIInputModule&gt;()`
         /// → `SetActive(true)`** —— 编辑模式只有「激活那一刻」派 `OnEnable`（见文件头那条坑）。</para>
         /// <para>🔴 **收养（①②）时校验并修好输入模块**（审计 `P3-2`）：见 `EnsureCompatibleModules` ——
-        /// 合规零动作；挂错（`StandaloneInputModule` 之类）⇒ 拆掉 + 补上 + `LogWarning` 一次。🔴 **三条路（①②收养 / ③现建）都设 `pixelDragThreshold = (int)AttackSelector.PopDragThresholdPx`（= 5）** —— 判据 = 原版 `d:/2/tools/assetripper_out/ExportedProject/Assets/Data/Scenes/Intro.unity:5429` `m_DragThreshold: 5`（uGUI 序列化初值 = 10，且 `decomp_full` 里 0 处读写 ⇒ 奔跑值就是 5）；⛔ 收养路漏设 = 外部建的 EventSystem 停在 10 px，拖拽比原版**钝一倍**（`B120-A13` 埋着的那条）。</para>
+        /// 合规零动作；挂错（`StandaloneInputModule` 之类）⇒ 拆掉 + 补上 + `LogWarning` 一次。🔴 **三条路（①②收养 / ③现建）都设 `pixelDragThreshold = (int)AttackSelector.PopDragThresholdPx`（= 5）** —— 判据 = 原版 `d:/2/tools/assetripper_out/ExportedProject/Assets/Data/Scenes/Intro.unity:5429` `m_DragThreshold: 5`（uGUI 序列化初值 = 10，且 `decomp_full` 里 0 处读写 ⇒ 奔跑值就是 5）；⛔ 收养路漏设 = 外部建的 EventSystem 停在 10 px，拖拽比原版**钝一倍**（`B120-A13` 埋着的那条）。🔴 **三条路还都设 `sendNavigationEvents = false`** —— 判据 = 同一块的 `Intro.unity:5428` `m_sendNavigationEvents: 0`（原版关掉 uGUI 自己的「方向键/回车在 Selectable 间导航」；我们的键盘导航走 `PointerLayer.KeyFrame`，⛔ 两套同时开会一次按键走两步）。</para>
         /// <para>建/收养完都会 `SyncRaycasters()`（把已存在的 `GraphicRaycaster` 补登记）。</para></summary>
         public static EventSystem Ensure()
         {
@@ -130,7 +130,7 @@ namespace CardPresentation
             var cur = EventSystem.current;
             if (cur != null)
             {
-                Instance = cur; cur.pixelDragThreshold = (int)AttackSelector.PopDragThresholdPx;   // 判据：原版 `Intro.unity:5429` `m_DragThreshold = 5`（uGUI 默认是 10）；与 `AttackSelector.PopDragThresholdPx` 同源 —— 收养路也必须设，外部建的 EventSystem 仍是默认 10
+                Instance = cur; cur.pixelDragThreshold = (int)AttackSelector.PopDragThresholdPx; cur.sendNavigationEvents = false;   // 判据：原版 `Intro.unity:5429` `m_DragThreshold = 5`（uGUI 默认是 10）；与 `AttackSelector.PopDragThresholdPx` 同源 —— 收养路也必须设，外部建的 EventSystem 仍是默认 10。`sendNavigationEvents = false` 的判据 = 同块 `:5428` `m_sendNavigationEvents: 0`（✅ 已复刻 2026-11-04 · B140-WL · Intro.unity:5428-5429）
                 EnsureCompatibleModules(cur);        // 🔴 审计 `P3-2`：收养前先查模块（New-only 下挂错 = 静默全废）
                 SyncRaycasters();
                 return Instance;
@@ -150,7 +150,7 @@ namespace CardPresentation
                     if (existing[i] != null) { pick = existing[i]; break; }
                 if (pick != null)
                 {
-                    Instance = pick; pick.pixelDragThreshold = (int)AttackSelector.PopDragThresholdPx;   // 判据：同上（`Intro.unity:5429` = 5）；收养路也要设，否则外部建的 EventSystem 停在 uGUI 默认 10
+                    Instance = pick; pick.pixelDragThreshold = (int)AttackSelector.PopDragThresholdPx; pick.sendNavigationEvents = false;   // 判据：同上（`Intro.unity:5429` = 5；`m_sendNavigationEvents: 0` 见 `:5428`）；收养路也要设，否则外部建的 EventSystem 停在 uGUI 默认 10 / `sendNavigationEvents` = true
                     EnsureCompatibleModules(pick);   // 🔴 同上：这条收养路一样要查模块
                     EnsureCurrentInEditMode(Instance);   // 编辑器里它可能没进 `m_EventSystems`
                     SyncRaycasters();
@@ -161,7 +161,7 @@ namespace CardPresentation
             // ③ 现建
             var go = new GameObject("EventSystem");
             go.SetActive(false);                 // 见文件头：编辑模式只有「激活那一刻」派 OnEnable
-            var es = go.AddComponent<EventSystem>(); es.pixelDragThreshold = (int)AttackSelector.PopDragThresholdPx;   // 判据：原版 `Intro.unity:5429` `m_DragThreshold = 5`（uGUI 默认是 10）；与 `AttackSelector.PopDragThresholdPx` 同源
+            var es = go.AddComponent<EventSystem>(); es.pixelDragThreshold = (int)AttackSelector.PopDragThresholdPx; es.sendNavigationEvents = false;   // 判据：原版 `Intro.unity:5429` `m_DragThreshold = 5`（uGUI 默认是 10）；与 `AttackSelector.PopDragThresholdPx` 同源。`sendNavigationEvents = false` 的判据 = 同块 `:5428` `m_sendNavigationEvents: 0`（✅ 已复刻 2026-11-04 · B140-WL · Intro.unity:5428-5429）
             var mod = go.AddComponent<InputSystemUIInputModule>();
             go.SetActive(true);
             Instance = es;

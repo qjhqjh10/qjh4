@@ -1451,6 +1451,62 @@ def _png_size(p):
         return (-1, -1)
     return struct.unpack('>II', head[16:24])
 
+# 🔶 自己设计（非原版）：`is_already_sprite_rect_crop` 防回退闸 · 原版没有对应物（这是我们自己的导入工具行为，
+#   不是游戏内容）· 2026-11-04 B140_WH 定
+def is_already_sprite_rect_crop(src, dst, name, bundle):
+    """目标**已经是「按原版 `m_Rect` 裁出来的形态」**时，`Texture2D/` 整张直拷会把裁切打回满图 ⇒ 该跳过。
+
+    🔴 2026-11-04（B140_WH · 活状态表 `B139-I4`）：`40K_shop_offer_bg_SW` 原版 sprite 的
+    `m_Rect = m_RD.textureRect = {x:31, y:0, w:450, h:512}`，工程里已按它裁成 **450×512**；
+    而 `MENU_TEXTURE_IMAGES` 那条路是从 `assets_full/.../Texture2D/` **整张直拷 512×512**
+    ⇒ 重跑本脚本会把那张打回 512（左右各多 31 px 透明边）。
+    判据 = `ui_sprite_pad(name, bundle)`（`m_Rect` 宽高）· 只在 `MENU_TEXTURE_IMAGES` 那批上生效。
+
+    :return: True = 盘上已经是 `m_Rect` 裁切形态（且源是更大的满图）⇒ **跳过覆盖**。
+    """
+    pad = ui_sprite_pad(name, bundle)
+    if pad is None or not os.path.exists(dst):
+        return False
+    tw, th = pad[0], pad[1]
+    if _png_size(dst) != (tw, th):
+        return False
+    return _png_size(src) != (tw, th)
+
+
+# 🔶 自己设计（非原版）：`ui_sprite_rect` 把原版 `m_Rect` 的 **x/y** 也交出来 · 原版没有对应物
+#   （本脚本自己的读判据代码）· 2026-11-04 B140_WH 定
+def ui_sprite_rect(name, bundle):
+    """原版 `Sprite/<名>.json` 里 `m_Rect` 的 **完整矩形 + `textureRectOffset`**。
+
+    🔴 2026-11-04（B140_WH · 活状态表 `B139-I4`）：`40K_shop_offer_bg_SW` 的
+    `m_Rect = {x:31, y:0, w:450, h:512}` —— sprite 只取 512 宽贴图中间的 450 px。
+    `ui_sprite_pad` 只回宽高，够「补画布」用，**不够「从整张贴图里裁出 sprite」**（那需要 x/y）⇒ 本函数补前两位。
+    ⚠️ `m_Rect.y` 是 **Unity 的底边坐标**（原点左下），换成 PIL 的上边距 = `H - (y + h)`。
+
+    :return: `(x, y, w, h, ox, oy)`（取整像素；`ox/oy` = `textureRectOffset`，`oy` 是下偏移）；
+             查不到 / 多处判据打架 ⇒ **None**（调用方照拷并出声，⛔ 不猜）。
+    """
+    import glob as _glob
+    import json
+    jp = os.path.join(UNPACK, 'bundle_' + bundle, 'Sprite', name + '.json')
+    cand = [jp] if os.path.exists(jp) else sorted(
+        _glob.glob(os.path.join(UNPACK, '*', 'Sprite', _glob.escape(name) + '.json')))
+    found = set()
+    for p in cand:
+        try:
+            with io.open(p, encoding='utf-8') as f:
+                j = json.load(f)
+            r = j['m_Rect']
+            off = j['m_RD'].get('textureRectOffset') or {'x': 0.0, 'y': 0.0}
+            found.add((int(round(r['x'])), int(round(r['y'])),
+                       int(round(r['width'])), int(round(r['height'])),
+                       int(round(off.get('x', 0.0))), int(round(off.get('y', 0.0)))))
+        except Exception:
+            continue
+    if len(found) != 1:
+        return None
+    return found.pop()
+
 
 def ui_sprite_pad(name, bundle):
     """`ui_extract/<bundle>/Sprite/<名>.png` **该贴回多大的画布、贴在哪个偏移**。
@@ -1469,26 +1525,13 @@ def ui_sprite_pad(name, bundle):
     :return: `(w, h, ox, oy)` = `m_Rect` 的宽高 + `textureRectOffset`（取整像素；
              ⚠️ **`oy` 是 Unity 的下偏移**，调用方 `copy_ui_sprite` 贴图前要换算成上偏移）；
              查不到那份 json / 字段缺失 / 多处判据打架 ⇒ **None**（调用方整张照拷并**出声**，⛔ 不猜位置）。
+             🔶 2026-11-04（B140_WH）：判据本体已挪进 `ui_sprite_rect`（那边**多回 `m_Rect.x/y`**，供
+             `copy_texture2d_sprite` 从整张贴图里裁 sprite 用）；本函数**保持 4 元组不变**，免得打断既有调用点。
     """
-    import glob as _glob
-    import json
-    jp = os.path.join(UNPACK, 'bundle_' + bundle, 'Sprite', name + '.json')
-    cand = [jp] if os.path.exists(jp) else sorted(
-        _glob.glob(os.path.join(UNPACK, '*', 'Sprite', _glob.escape(name) + '.json')))
-    found = set()
-    for p in cand:
-        try:
-            with io.open(p, encoding='utf-8') as f:
-                j = json.load(f)
-            r = j['m_Rect']
-            off = j['m_RD'].get('textureRectOffset') or {'x': 0.0, 'y': 0.0}
-            found.add((int(round(r['width'])), int(round(r['height'])),
-                       int(round(off.get('x', 0.0))), int(round(off.get('y', 0.0)))))
-        except Exception:
-            continue
-    if len(found) != 1:
+    rect = ui_sprite_rect(name, bundle)
+    if rect is None:
         return None
-    return found.pop()
+    return (rect[2], rect[3], rect[4], rect[5])
 
 
 def copy_ui_sprite(src, dst, bundle):
@@ -1524,6 +1567,40 @@ def copy_ui_sprite(src, dst, bundle):
     canvas.save(dst)
     im.close()
     return 'padded'
+
+
+# 🔶 自己设计（非原版）：`copy_texture2d_sprite` 按原版 `m_Rect` 从整张 `Texture2D` 里裁 sprite
+#   · 原版没有对应物（本脚本自己的导入行为）· 2026-11-04 B140_WH 定
+def copy_texture2d_sprite(src, dst, name, bundle):
+    """`MENU_TEXTURE_IMAGES` 那条路（源 = `assets_full/.../Texture2D/<名>.png` **整张贴图**）：
+    有原版 sprite 判据时**按 `m_Rect` 裁**，不再整张直拷。
+
+    🔴 2026-11-04（B140_WH · 活状态表 `B139-I4`）：`40K_shop_offer_bg_SW` 的原版 sprite 只画 512 宽贴图的
+    `x ∈ [31, 481)` ⇒ 整张直拷会让画面多出左右各 31 px 透明边（相对原版被压扁约 12.2%）。
+    本函数让**首次导入**就产出 `m_Rect` 尺寸（450×512），不依赖「盘上已经裁过」。
+
+    :return: `'cropped'`（裁过）/ `'asis'`（源本来就是 `m_Rect` 大小，照拷）
+             / `'noinfo'`（无判据 或 矩形越出贴图 ⇒ 照拷并出声，⛔ 不猜）。
+    """
+    rect = ui_sprite_rect(name, bundle)
+    if rect is None:
+        shutil.copyfile(src, dst)
+        return 'noinfo'
+    x, y, w, h, _ox, _oy = rect
+    sw, sh = _png_size(src)
+    if (sw, sh) == (w, h):
+        shutil.copyfile(src, dst)
+        return 'asis'
+    if x < 0 or y < 0 or x + w > sw or y + h > sh:
+        # 矩形越出贴图（数据自相矛盾）⇒ 照拷 + 出声，⛔ 不把图贴到画布外
+        shutil.copyfile(src, dst)
+        return 'noinfo'
+    from PIL import Image
+    im = Image.open(src).convert('RGBA')
+    top = sh - (y + h)              # Unity 的 m_Rect.y 从**底边**量，PIL 的 crop 是上边距
+    im.crop((x, top, x + w, top + h)).save(dst)
+    im.close()
+    return 'cropped'
 
 
 def ui_sprite_expected(src, pad):
@@ -2170,6 +2247,10 @@ def main() -> int:
                      for name, bundle in MENU_TEXTURE_IMAGES]
     print(f'菜单 UI 图（Texture2D 直拷）：{len(menu_tex_jobs)} 张')
     jobs += menu_tex_jobs
+    # 🔶 自己设计（非原版）：上面那批 `Texture2D/` 整张直拷的**防回退闸**登记表 · 原版没有对应物
+    #   （本脚本自己的行为）· 2026-11-04 B140_WH。键 = 落盘路径，值 = (原版名, bundle)。
+    menu_tex_guard = {os.path.join(MENU_OUT, name.replace(' ', '_') + '.png'): (name, bundle)
+                      for name, bundle in MENU_TEXTURE_IMAGES}
 
     # ---- 🆕 2026-10-29（B97_W17）：锻造/开卡包那件 3D 卡包的资源（表与理由见 `BOOSTERPACK_IMAGES`）----
     booster_jobs = []
@@ -2271,6 +2352,7 @@ def main() -> int:
     meta_fixed = 0                   # ⚠️ 初值必须在这儿：`--check` 那条路不会进下面的 `if not args.check`
     #    （2026-09-15 修：原来它在 `if not args.check` 里初始化，`--check` 跑到底就 UnboundLocalError）
     padded_menu, noinfo_menu = [], []   # 🔴 菜单 UI 图里「补过画布」/「拿不到 m_Rect 判据」的（见 `copy_ui_sprite`）
+    cropped_tex = []                     # 🔶 2026-11-04 B140_WH：`Texture2D/` 直拷里**按 `m_Rect` 裁**过的（`copy_texture2d_sprite`）
     stale_menu, ok_menu = [], []        # 🆕 补过画布那批里：**盘上还是旧内容** / **盘上已经对了**（`--check` 用）
 
     def _job_tag(p):
@@ -2305,7 +2387,15 @@ def main() -> int:
                 elif st == 'noinfo':
                     noinfo_menu.append(_job_tag(dst))
             else:
-                shutil.copyfile(src, dst)
+                # 🔶 自己设计（非原版）：`Texture2D/` 那条路**按原版 `m_Rect` 裁**（目标已裁过则跳过）
+                #   · 原版没有对应物（本脚本自己的行为）· 2026-11-04 B140_WH
+                if dst in menu_tex_guard and is_already_sprite_rect_crop(src, dst, *menu_tex_guard[dst]):
+                    print(f'[skip] 已是原版裁切形态：{_job_tag(dst)}（跳过覆盖）')
+                elif dst in menu_tex_guard:
+                    if copy_texture2d_sprite(src, dst, *menu_tex_guard[dst]) == 'cropped':
+                        cropped_tex.append(_job_tag(dst))
+                else:
+                    shutil.copyfile(src, dst)
         elif dst in menu_pad:
             # `--check` 不写盘，但也要能看见「哪几张会因为紧裁而丢留白」
             pad = ui_sprite_pad(os.path.splitext(os.path.basename(src))[0], menu_pad[dst])
@@ -2321,6 +2411,8 @@ def main() -> int:
         ok += 1
 
     print(f'{"检查" if args.check else "拷贝"}完成：{ok} / {len(jobs)}')
+    if cropped_tex:
+        print(f'  ✂️ `Texture2D/` 直拷里**按原版 `m_Rect` 裁**的 {len(cropped_tex)} 张：{", ".join(sorted(cropped_tex))}')
     if padded_menu:
         print(f'  🔴 菜单 UI 图里**按 `m_Rect` 补回透明画布**的 {len(padded_menu)} 张'
               f'（源被紧裁过；判据 → `ui_sprite_pad` 的 doc）：{", ".join(sorted(padded_menu))}')

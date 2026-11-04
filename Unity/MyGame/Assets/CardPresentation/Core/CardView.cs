@@ -8641,7 +8641,7 @@ namespace CardPresentation
         //  · 那条 clip（legacy · 60fps · 不循环 · 曲线走到 **0.25 s**）：
         //    `m_Color.a` **0 → 1**，**外加一条 `m_PositionCurves`：y 1.7100 → 2.8380**（上浮 1.128）。
         //    ⚠️ 曲线里 `z = −0.2`（≠ Transform 序列化的 −0.128）—— **播放期间以曲线为准**，所以本节按 −0.2 用。
-        //  ⇒ 这一层 = **淡入 + 向上飘**（原写「就是个淡入」只翻了 `m_FloatCurves`，2026-09-29 更正）。
+        //  ⇒ 这一层 = **淡入 + 向上飘**（原写「就是个淡入」只翻了 `m_FloatCurves`，2026-09-29 更正）。🔴 **2026-11-04（`B140_WO`）**：那两条曲线**两端切线全 0** ⇒ Hermite **精确等于 smoothstep `3u²−2u³`**（不是线性）⇒ 补间缓动改走 `CardFeel.ClipSmoothStep`（同例程，判据只留那一处）；原来写的是 `Ease.Linear`。
         //  ⚠️ **只在场上的卡上调用** —— 原版也只有棋盘单位有它（手牌那条路没接，见 §8b 的「要查清的那条」）。
         static readonly Vector3 WillDieFrom = From3DBody(0f, 1.7100f, -0.2f);
         static readonly Vector3 WillDieTo   = From3DBody(0f, 2.8380f, -0.2f);
@@ -8681,7 +8681,7 @@ namespace CardPresentation
                 _willDie.transform.localPosition = Vector3.Lerp(WillDieFrom, WillDieTo, v);
                 if (mr != null && mr.sharedMaterial != null) mr.sharedMaterial.color = new Color(1f, 1f, 1f, v);
             }, 1f, WillDieAnimTime);
-            _willDieTween = CardTween.Use(tw, Ease.Linear, this);
+            _willDieTween = CardTween.Use(tw, Ease.Linear, this).SetEase(CardFeel.ClipSmoothStep);   // `Use` 只给推进方式 + 生命周期；缓动立刻覆盖成原版曲线形状（smoothstep，见本节头部 2026-11-04）
         }
 
         void BuildWillDie()
@@ -9160,6 +9160,13 @@ namespace CardPresentation
             _healText.transform.localPosition = HealTextLocalPos;
             _healText.alignment = TextAlignmentOptions.Center;    // 原版 H=Center(2) / V=Middle(512)
             _healText.gameObject.SetActive(false);
+            // 🆕 2026-11-04（`B140_WE` · 账 `B139-E3`）：**原版 `HealText` 底下挂着一颗 `HealIcon`** ——
+            //   `CardPrefab.prefab` 的 `Board Elements/HealText/HealIcon`（渲染件 212692131138185966：
+            //   `localScale 0.56046` · `sortingOrder 100` · `m_Color.a 0.853` 恒定）⇒ 我们的飘字此前只有 TMP、少这一层。
+            //   `PopNumber.AttachHealIcon` 就是那条接线口（幂等；取不到 `CardPrefab/HealIcon` 时自己出声）。
+            //   ⚠️ 挂在**已经存在的 `HealText`** 下（卡局部空间）⇒ 位置 `(0,0,0)`、**不乘飘字桥**
+            //   （与 `Pop()` 那条「飘字根顶替 HealText」的档不同，见 `AttachHealIcon` 的 doc）。
+            PopNumber.AttachHealIcon(_healText.transform);
             // ⚠️ **不进 `_layers`**：它是「只属于治疗那一下」的飘字，颜色由自己说了算
             //    （同 `Minion Death Icon` / `SwarmIcon` 的理由）。
         }
@@ -10518,7 +10525,7 @@ namespace CardPresentation
             ApplyScale();
         }
 
-        /// <summary>高亮的放大/还原（带 `AnimTime` 补间）。由 `SetHighlight` 调，外部一般不用直接调。</summary>
+        /// <summary>高亮的放大/还原（带 `AnimTime` 补间）。由 `SetHighlight` 调，外部一般不用直接调。🔴 **2026-11-04（`B140_WO`）：缓动 = OutQuad** —— 原版 `CardHighlight.ChangeTargetScale` 的 `DOScale(target, 0.1, snapping:0)` **不写 `SetEase`** ⇒ 吃 `DOTween.defaultEaseType` = 6 OutQuad（`CardHighlight__ChangeTargetScale.c:36`）；原来写的是 `Ease.Linear`。</summary>
         public void SetHighlightScale(bool on)
         {
             float target = on ? CardHighlight.ScaleFactor : 1f;
@@ -10527,7 +10534,7 @@ namespace CardPresentation
             float from = _hlMul;
             var t = DOTween.To(() => from, v => { from = v; _hlMul = v; ApplyScale(); },
                                target, CardHighlight.AnimTime);
-            _hlTween = CardTween.Use(t, Ease.Linear, this);
+            _hlTween = CardTween.Use(t, Ease.OutQuad, this);   // 原版无 `SetEase` ⇒ DOTween 默认 6 = OutQuad（2026-11-04 `B140_WO`）
         }
 
         // ---- 原版那圈高亮描边（SDF 层材质的 `_Outline`）----
@@ -12921,16 +12928,16 @@ namespace CardPresentation
         // 卡名 / 效果文字的**原版颜色**（A3 表「颜色确认」）：
         //   卡名橙 (0.9922,0.6039,0.3451) → (253,154,88)；效果文字米白 (0.9804,0.9137,0.8667) → (250,233,221)
         // ⚠️ 2026-09-12 改：原来卡名用白、效果文字用灰，**没有出处**（是我们挑的）。
-        /// <summary>卡名：**数字版材质 `Pragati-Regular Light Cream` 的 `_FaceColor`** = (0.992, 0.868, 0.733)
-        /// → `Color32(253, 221, 187)`（顶点色白 ⇒ 屏上就是材质本色）。
-        /// <para>🔴 **2026-10-17（界面线 `T07` · `A1753` #18）就地改判（铁律 5）**：原来这里写「卡名**白**」、
-        /// 依据是 `D:/2/Warpforge部队卡片/` 的**成品卡图**（PnP）。**那条判据不成立** ——
-        /// 铁律 10 第 3 条：「PnP 成品卡图是**印刷品**，不是数字版规格」，它的白是印刷版式，不是屏上值。
-        /// 数字版真值 = 原版 TMP 的 `m_sharedMaterial`（`NameTextUnit` / `NameTextTactic` 逐颗实读）
-        /// 所挂 **`Pragati-Regular Light Cream`**，`_FaceColor = (0.992, 0.868, 0.733)`（暖白）、顶点白。
-        /// 判据全文 = `资料/普查产出_1017/UI/R_T07_剩余四项.md` §4·2 #18。</para>
-        /// <para>⚠️ 数值取法与 <see cref="InkArmy"/> 同一档（3 位小数 × 255 取整）：0.992→253 · 0.868→221 · 0.733→187。</para>
-        static readonly Color32 InkName   = new Color32(253, 221, 187, 255);
+        /// <summary>卡名：**原版 TMP 组件的 `m_fontColor`** = (0.992157, 0.603922, 0.345098) → `Color32(253, 154, 88)` = **#FD9A58**。
+        /// ⚠️ **屏上色 = 顶点色 × 材质 `_FaceColor`**，而 `NameText*` 挂的 `Asar-Regular White-Card name` 的 `_FaceColor` 是**纯白** ⇒ 屏上就是这个顶点色本身。</summary>
+        /// <para>🔴 **2026-11-04（`B140_WO` · 铁律 5 就地订正）**：本行原来是 `(253, 221, 187)` = `#FDDDBB`，
+        /// 依据写成「材质 `Pragati-Regular Light Cream` 的 `_FaceColor`」—— **判据链读错了材质**：
+        /// 那颗是 878 颗 TMP 共用的一颗，`NameTextUnit` / `NameTextTactic` / `…Big` / `…No Description` **6/6 都不挂它**。
+        /// 原版真值 = 两处 bundle 亲核的 `m_fontColor`（`MonoBehaviour_-6860425428091954240.json`，menus 副本同值），
+        /// 用户 2026-11-04 已裁定**照原版 `#FD9A58`**（⛔ 别再按成品卡图那行白名 / 实拍翻案 —— PnP 是**印刷品**不是数字版规格，2026-10-17 `T07`/`A1753` #18）。
+        /// 判据全文 = `报告/B131_审计_色彩材质与渲染.md` 的 `B1` / §五·1；定案 = `方案_审计修复总方案_B138.md` §8 #1。</para>
+        /// <para>⚠️ 数值取法与 <see cref="InkArmy"/> 同一档（3 位小数 × 255 取整）：0.992157→253 · 0.603922→154 · 0.345098→88。</para>
+        static readonly Color32 InkName   = new Color32(253, 154, 88, 255);
         /// <summary>阵营行 / 兵种行：原版材质 `Pragati-Regular Card Unit type` 的 `_FaceColor` = (1.0, 0.6055, 0.3443)
         /// ⇒ (255, 154, 88)。🆕 **2026-10-17（`A1753` #19）**：红通道由 **253 → 255**（原来取的是 0.9922 那个
         /// 「卡名橙」的近似值；这里改用材质原值 ⇒ 字面量能逐位对上 (255, 154, 88)）。</summary>

@@ -40,7 +40,7 @@ namespace CardPresentation.Net
 
         public static string Path
         {
-            get { return OverridePath ?? System.IO.Path.Combine(SaveRoot.Path, FileName); }
+            get { return !string.IsNullOrEmpty(OverridePath) ? OverridePath : SaveSandbox.Dir(FileName); }   // 🆕 2026-11-04（`B140_V4b`）批处理 ⇒ 沙箱（`Core/SaveSandbox.cs`）；非批处理 ⇒ `SaveRoot.Path`，逐字节不变
         }
 
         /// <summary>当前设置（第一次访问时读盘；读不出来就返回出厂值，**不抛**）。</summary>

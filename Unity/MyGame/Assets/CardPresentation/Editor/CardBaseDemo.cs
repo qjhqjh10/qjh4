@@ -4108,21 +4108,21 @@ public static class CardBaseDemo
                   && Mathf.Abs(anchor.localPosition.z - CardView.ToBoardFxAnchorZ) < 1e-6f,
                   "★ `ToBoardFX` 锚点是卡的子件、localPos 与原版逐位相同 "
                 + $"(0.0033340454, 0.007981658, 0.046000004)（实测 {anchor.localPosition}）");
-            // 模拟「驱动层把 normalSummon 的实例挂上来」：一个根 + 一个 Trail 子件（关着）
-            var inst = new GameObject("Invoke Minion Card Fade Default");
-            var trail = new GameObject("Trail");
-            trail.transform.SetParent(inst.transform, false);
-            var probePs = trail.AddComponent<ParticleSystem>();
-            // ⚠️ 探针把 `playOnAwake` 关掉：原版 `Trail` 是 1（Unity 自己会起播 ⇒ 组件的
-            //    `if (isPlaying) return` 会早退，`PlayCalls` 恒 0）。本探针要单独验**组件**这一句，
-            //    所以让「起播」只能由组件完成 —— ⛔ 不改产品侧行为，只改夹具。
-            probePs.playOnAwake = false;
-            trail.SetActive(false);
+            // 真件夹具：取**原版 prefab** `Invoke Minion Card Fade Default`（= `BattleDriver.SummonVfxMinion`，产品挂的就是它）
+            WarpforgeVFX.WFEffectEntry fxEntry = null;
+            var fxLib = WarpforgeVFX.WarpforgeEffectLibrary.Instance;
+            bool haveFx = fxLib != null && fxLib.TryGet(BattleDriver.SummonVfxMinion, out fxEntry) && fxEntry != null && fxEntry.prefab != null;
+            var inst = haveFx ? UnityEngine.Object.Instantiate<GameObject>(fxEntry.prefab) : null;
+            var trail = inst != null ? inst.transform.Find("Trail") : null;
+            // ⚠️ 探针只在**实例**上把 `playOnAwake` 关掉（原版 prefab 是 1；Unity 自己起播 ⇒ 组件的
+            //    `if (isPlaying) return` 会早退、`PlayCalls` 恒 0）——⛔ 不改资产，也不自建任何节点。
+            if (trail != null) { var ps0 = trail.GetComponent<ParticleSystem>(); if (ps0 != null) ps0.playOnAwake = false; }
+            Check(inst != null && trail != null, "★ 前提：取到**真 prefab** 的 `Trail` 子件（⛔ 自建件不算）");
             bool mounted = cv.MountSpawnParticles(inst);
-            Check(mounted && inst.name == CardView.SpawnParticlesNodeName && !inst.activeSelf,
+            Check(mounted && inst != null && inst.name == CardView.SpawnParticlesNodeName && !inst.activeSelf,
                   "★ 挂上来之后**改名 `Spawn Particles` 且先关掉**（原版 `CardSetup.c:330` + `SetActive(false)`）"
                 + $"（实测 name=`{inst.name}`、active={inst.activeSelf}）");
-            Check(trail.GetComponent<ParticleEmitOnEnable>() != null,
+            Check(trail != null && trail.GetComponent<ParticleEmitOnEnable>() != null,
                   "★ `Trail` 上补了 **`ParticleEmitOnEnable`**（我们导入的 prefab 里没有它；"
                 + "`Trail` 的 `rateOverTime = 0` ⇒ 不补就一发粒子都不出）"
                 + "｜🧨 删掉 `MountSpawnParticles` 里那一步 ⇒ 红");
@@ -4149,8 +4149,8 @@ public static class CardBaseDemo
             //   ⛔ 这不是放宽：组件没挂 / 没进 `OnEnable` / 早退没调 `Play` ⇒ 计数恒 0 ⇒ 照红。
             var tps = trail != null ? trail.GetComponent<ParticleSystem>() : null;
             var pem = trail != null ? trail.GetComponent<ParticleEmitOnEnable>() : null;
-            Check(trail != null && trail.gameObject.activeInHierarchy && trail.gameObject.activeSelf,
-                  "★ `Trail` 在 0.55 那一拍**真的被激活了**（`activeSelf` + `activeInHierarchy`）");
+            Check(trail != null && trail.gameObject.activeInHierarchy && trail.gameObject.activeSelf && cv.TrailActive,
+                  "★ 真 prefab 的 `Trail` 在 0.55 那一拍**真的被激活了**（`activeSelf` + `activeInHierarchy` + `cv.TrailActive`）");
             Check(pem != null,
                   "★ `Trail` 上**挂着 `ParticleEmitOnEnable`**（没挂 ⇒ 下面那条没验到，不是通过）");
             if (pem != null)

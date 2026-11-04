@@ -7054,7 +7054,7 @@ namespace RuleEngine
                 // 🔴 **2026-10-19（`D28` 施工单 E）**：闸门改成照原版 —— `!attackerDiesFromPending`
                 //   （= 原版那个 `!EnoughPendingDamageToDie(attacker)`，见上面那段）。
                 if (!attackerDiesFromPending && attacker.IsAlive && ctx.Players[p].Board[atkSlot] == attacker)
-                    FireTriggerAt(ctx, attacker, KeywordTable.Strike, p, atkSlot, chosen: StrikeChosenOrNull(attacker, target));   // ✅ 2026-11-02（`B116_W39` · `ENG-16`①，**候选①**）：按原版 `CardScript__ResolveUnitAttacked.c:99-101`（`OnTrigger(0x244, …, actingCard=param_1, targetCard=param_2)`）**接上 `chosen: 被打者`**。⚠️ 2026-11-01（`B115_W14`）试过又回退过 —— 当时卡在「触发正文的 op 拿不到 `ta`」：`chosen` 会经 `FireTriggerDeferred` → `ResolveOps(chosen:)` 落进 `EffectResolver.ResolveTargetsCore` 的兜底（`EffectResolver.cs:1966` 的 `op.SubjectTargetsAffected < 0` ⇒ `list.Clear(); list.Add(chosen);`）⇒ `TL30 Tyrannofex` 的 8 次随机伤害全变 0（净伤 25→0）。🔴 **真正的传参闸在 `FireTriggerAt` 入口**（`StrikeChosenOrNull`：该卡这条 `strike` 的**每一条 op 都有已知 `ta`** 才真传）—— 单变量实测：`GSC17 Locus`（2 条 ability ⇒ 片段支不给挂 `ta` ⇒ `subjTa=-1`）无条件传会把卡面「Stun a **random** enemy」换成「打者点名的那个」= **与卡面相反**；`TAU18`（`ta=30`）与 `TL30`（`ta=10`）都朝原版。判据与归因 → `报告/B116_W39_三件引擎.md` §追加。⛔ 别把那道兜底的 `< 0` 去掉（战术路 21 张靠它）
+                    FireTriggerAt(ctx, attacker, KeywordTable.Strike, p, atkSlot, chosen: StrikeChosenOrNull(attacker, target));   // ✅ 2026-11-02（`B116_W39` · `ENG-16`①，**候选①**）：按原版 `CardScript__ResolveUnitAttacked.c:99-101`（`OnTrigger(0x244, …, thisCard=param_1, actingCard=param_2, targetCard=param_3)`）**接上 `chosen: 被打者`**。⚠️ 2026-11-01（`B115_W14`）试过又回退过 —— 当时卡在「触发正文的 op 拿不到 `ta`」：`chosen` 会经 `FireTriggerDeferred` → `ResolveOps(chosen:)` 落进 `EffectResolver.ResolveTargetsCore` 的兜底（`EffectResolver.cs:1966` 的 `op.SubjectTargetsAffected < 0` ⇒ `list.Clear(); list.Add(chosen);`）⇒ `TL30 Tyrannofex` 的 8 次随机伤害全变 0（净伤 25→0）。🔴 **真正的传参闸在 `FireTriggerAt` 入口**（`StrikeChosenOrNull`：该卡这条 `strike` 的**每一条 op 都有已知 `ta`** 才真传）—— 单变量实测：`GSC17 Locus`（2 条 ability ⇒ 片段支不给挂 `ta` ⇒ `subjTa=-1`）无条件传会把卡面「Stun a **random** enemy」换成「打者点名的那个」= **与卡面相反**；`TAU18`（`ta=30`）与 `TL30`（`ta=10`）都朝原版。判据与归因 → `报告/B116_W39_三件引擎.md` §追加。⛔ 别把那道兜底的 `< 0` 去掉（战术路 21 张靠它）
 
                 // 群体（Mob）：「**近战**攻击后触发」（规则书 :193）—— **远程不算**，
                 // 这是它和 Strike 唯一的差别（原版 `CardScript__ResolveUnitAttacked` 判
@@ -11808,7 +11808,7 @@ namespace RuleEngine
                      targetCardId: chosen != null ? chosen.Name : null,
                      instanceId: u.InstanceId, priority: 1);   // 🆕 2026-10-27（`B88-E14`）主动技那一支**固定 1**（判据 `decomp_full/RawCardScript__ResolveActiveAbility.c:47`，施工单 §二 ①）—— 走 `BattleContextPartial_B88E14.cs` 那个带 `priority` 的重载
             // 🆕 2026-10-27（`B9_W54ENG2`）：把目标列表挂到**刚发的那一条**上（判据/为什么不用两处各拼一份 → `AttachAbilityTargets`）
-            AttachAbilityTargets(ctx, p, u, spec, chosen);
+            AttachAbilityTargetsWithCriteria(ctx, p, u, spec, chosen, u != null ? u.Card : null, TriggerNameOfKeyword(KeywordTable.Ability));   // ✅ 已复刻（2026-11-04 · `B140_WA` · 战-多目标③）：改前只传 `criteria = null` ⇒ 目标表恒 ≤1 个；现在把这张卡 `Ability` 那一行 `abilityTargetCriteria` 的多目标表补上（`TriggerNameOfKeyword(KeywordTable.Ability)` 今天**无映射** ⇒ `criteria == null` ⇒ 与改前逐字等价，见 `AttachAbilityTargetsWithCriteria` 的 doc）
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 发动技能「{spec.Source}」");
 
             // ⚠️ **2026-09-13 A2 更正**：这里原来还发一条 `When a friendly unit prays`（`Prays`）——
@@ -12141,8 +12141,8 @@ namespace RuleEngine
             if (!HasAlternativeAction(u, keyword)) return RuleCodes.ErrNoAction;
             if (u.IsStunned) return RuleCodes.ErrStunned;
             if (u.Exhausted) return RuleCodes.ErrExhausted;
-            // 职责：**本局一次**（`Exhausted` 每回合重置，这个不重置）
-            if (keyword == KeywordTable.Duty && u.DutyUsed) return RuleCodes.ErrDutyUsed;
+            // 职责：**本局一次**（`Exhausted` 每回合重置，这个不重置）· ✅ 已复刻（2026-11-04 · `B140_WA` · 战-U3·T1 · 判据 `decomp_full/BattleManager__CanUseActiveAbility.c:92-97`：`HasCurrentTrait(param_2, 0x4c4 /*duty*/) && *(char*)(param_2 + 0x4C) != 0` ⇒ 原版读的是**「本局用过任一主动能力族（duty/ferocity/agenda/oath）」那个布尔位**，不是 `duty` 自己那一位；`+0x4C` 的四个写点 = `CardScript__UsedActiveAbility.c:29/34/41/50`。我们对应 `+0x4C` 的字段 = `ActiveAbilityUsed`（四族共用、本局一次；写点见 `:12215` 一带，清零点见 `UnitState.ActiveAbilityUsed` 的 doc）—— ⛔ 不是 `DutyUsed`（那一位只对 `duty` 置位，是 `CanUseAlternative` 自己的旧近似，两者分工见 `UnitState.cs:3126`））
+            if (keyword == KeywordTable.Duty && u.ActiveAbilityUsed) return RuleCodes.ErrDutyUsed;
             return RuleCodes.OK;
         }
 
@@ -12244,7 +12244,7 @@ namespace RuleEngine
                      instanceId: u.InstanceId, priority: AlternativeAbilityTriggerPriority(ctx, u.Card, keyword));   // 🆕 2026-10-27（`B88-E14`）替代行动：查这张卡 `AbilityTrigger` 名（Duty/Pray/Ferocity/Agenda）的 `CardAbility.priority`（施工单 §二 ③；缺键 = `CardDef.DefaultTriggerPriority` = 1）
             // 🆕 2026-10-27（`B9_W54ENG2`）：同 `UseAbilityCore`。⚠️ 这一支 `ops != null` 时没有 `EffectSpec`
             //   ⇒ `AttachAbilityTargets` 回落「就把 `chosen` 当唯一目标」（⛔ 不猜第二个）。
-            AttachAbilityTargets(ctx, p, u, spec, chosen);
+            AttachAbilityTargetsWithCriteria(ctx, p, u, spec, chosen, u != null ? u.Card : null, TriggerNameOfKeyword(keyword));   // ✅ 已复刻（2026-11-04 · `B140_WA` · 战-多目标③）：这一支的 ability 行 = 卡自己的 `cardAbilities[trigger = TriggerNameOfKeyword(keyword)]`（`duty` 662 / `pray` 655 / `ferocity` 725 / `agenda` 705，与原版替代行动各有一条 `CardAbility` 同形）⇒ 把那一行的多目标表补上；认不出（`criteria == null`）⇒ 与改前逐字等价
             // 【功能】修女会「祈祷」Pray 支（关键词定义 `CardDef.cs:7660`；原版 `DefinedTrait.pray = 1185`，本支落点 = trigger 655）—— 「正在祈祷」= **状态**，真值区间 = 「**祈祷那一刻**」→「**下一个回合开始（不分敌我）**」
             //   或 「**自己挨一次伤害**」，**以先到者为准**
             //   ✅ **2026-10-14（账 `A1155②`）时长【已核】—— 原来这一行写的是「一直挂到
@@ -15629,7 +15629,7 @@ namespace RuleEngine
             int executed = 0;
             foreach (var step in plan)
             {
-                int ca = step[0], ta = step[1];
+                int ca = step[0], ta = step[1]; PublishRowAbilityTargetTable(ctx, p, u, chosen, step);   // ✅ 已复刻（2026-11-04 · `B140_WA` · 战-多目标②）：原版**每一行**各一次 `GetTargets + PlayAnim`（`AbilityLogic__PlayAbility.c:262/273`，第二处 `:1524-1531`）⇒ 效果层消费的「当前 ability 目标表」也必须**按行**重挂，而不是整条 ability 只挂一行。⚠️ 只挂**零随机消费**的那一档（`ta ∈ {0,10,110,140,150}` ∧ 不限张数），见该方法的 doc；事件那一份仍是一张表（结构约束，见 `ActiveAbilityTargetCriteriaForPlan` 的 doc）。⚠️ 写在同一物理行（铁律 18·b）：本文件有 500+ 处账按行号引用
                 if (ca == 30 || ca == 31)
                 {
                     var useTgt = ta == 20 ? null : chosen;   // ⚠️ `ta == 20 (self)` 的行不吃调用方给的目标（原版 `GetTargets` 对 `self` 直接放 thisCard）⇒ 传 `null` 让它落到施放者自己
@@ -17961,7 +17961,7 @@ namespace RuleEngine
         /// （`AbilityLogic__GetTargets.c:1258`），所以这是照抄而不是新增。</para>
         /// </summary>
         static List<BattleEventTarget> AbilityTargetListFromCriteria(
-            BattleContext ctx, int owner, CardDef.CountSetSpec criteria, UnitState source, UnitState chosen, bool publishTable = false)
+            BattleContext ctx, int owner, CardDef.CountSetSpec criteria, UnitState source, UnitState chosen, bool publishTable = false, List<UnitState> unitOut = null)
         {
             if (ctx == null || criteria == null || ctx.Players == null || ctx.Players.Length < 2) return null;
             if (owner < 0 || owner > 1) return null;
@@ -18099,13 +18099,13 @@ namespace RuleEngine
                             break;
                         }
 
-                    case 2:
-                    case 3:
-                        NoteAbilityTargetTable("sel:" + cardId + ":" + method,
-                            $"「{source?.Name}」的 ability 目标表要按 `targetSelectMethod={method} (valueInPlay)` 截到 {max} 个，"
-                          + "而本版**没有** `CardScript.GetValueInPlay()` 的等价字段 ⇒ **退回改前的单数路**（⛔ 不拿随机 / 池序冒充）。"
-                          + "判据 `AbilityLogic__GetTargets.c:1215-1261`。");
-                        return null;
+                    case 2:      // highestValueInPlay（`:1215-1246`）：`OrderByDescending(GetValueInPlay())`
+                    case 3:      // lowestValueInPlay（`:1247-1261`）：`OrderBy(GetValueInPlay())`
+                        // ✅ 已复刻（2026-11-04 · `B140_WA` · 战-多目标①）：键链判据 = `out_il2csharp/Assembly-CSharp/AbilityLogic.cs`
+                        //   的 `switch (targetSelectMethod - 1)`（`case 2` ⇒ `OrderByDescending<CardScript,float>(pool, __9__26_3)`、`case 3` ⇒ `OrderBy<CardScript,float>(pool, __9__26_4)`，两个闭包体都是 `unit.GetValueInPlay()`）。
+                        //   `GetValueInPlay` 的等价物与「`Core/` 这一次为什么引用 `Data/`」→ 类尾 `KeepByValueInPlay` 的 doc。
+                        pool = KeepByValueInPlay(pool, method, max);
+                        break;
 
                     default:     // `0 random` / `4 cardTarget`（原版两支都进同一个随机抽循环，`:1252-1273`）
                         if (method != 0 && method != 4)
@@ -18150,7 +18150,7 @@ namespace RuleEngine
             // 🆕 2026-10-31（`B104_MT`）：**发布「当前 activeAbility 的目标表」**（只有 `UseActiveAbilityCore` 传 `publishTable: true`）
             //   —— 效果层（`ResolveTargetsCore` 的 `spec.Random` 分支）有这张表就**直接吃表、不再抽随机数**（原版效果消费的就是 `GetTargets` 那张表；那一抽已经在**产表时**发生过一次，⛔ 别再抽第二次）。
             //   ⚠️ 清空由 `UseActiveAbilityCore` 的入口/出口两行负责（⛔ 这里不管生命周期）。
-            if (publishTable && tableUnits.Count > 0) { ctx.AbilityTargetTable = tableUnits; ctx.AbilityTargetTableOwner = source; }
+            if (publishTable && tableUnits.Count > 0) { ctx.AbilityTargetTable = tableUnits; ctx.AbilityTargetTableOwner = source; } if (unitOut != null) unitOut.AddRange(tableUnits);   // 🆕 2026-11-04（`B140_WA` · 战-多目标②）：`unitOut` = 同一次展开的**棋盘项**（供 `PublishRowAbilityTargetTable` 按行重挂 `ctx.AbilityTargetTable`，⛔ 不另写一份建池/筛/截断）
             return list;
         }
 
@@ -18481,6 +18481,116 @@ namespace RuleEngine
         public static CardDef.CountSetSpec TriggerAbilityTargetCriteriaByNumberForTest(CardDef card, int triggerNumber)
         {
             return TriggerAbilityTargetCriteriaByNumber(card, triggerNumber);
+        }
+
+        // ================================================================================================
+        //  🆕 2026-11-04（执行写手 `B140_WA` · 活状态表 `战-多目标` / `引擎-N4④`）
+        //  ⚠️ 追加在**类尾**（本文件有 500+ 处账按 `RuleEngine/Core/RuleCore.cs:行号` 引用）。
+        // ================================================================================================
+
+        /// <summary>
+        /// `targetSelectMethod = 2 highestValueInPlay` / `3 lowestValueInPlay` 的截断
+        /// （原版 `AbilityLogic__GetTargets.c:1215-1261`）。
+        ///
+        /// <para>**键链判据**（🥇 `out_il2csharp/Assembly-CSharp/AbilityLogic.cs` 的 `switch (targetSelectMethod - 1)`）：
+        /// `case 2` ⇒ `Enumerable.OrderByDescending&lt;CardScript, float&gt;(pool, __9__26_3)`、
+        /// `case 3` ⇒ `Enumerable.OrderBy&lt;CardScript, float&gt;(pool, __9__26_4)`，两个闭包体的方法体都是
+        /// `return unit.GetValueInPlay();`（`_003CGetTargets_003Eb__26_3/4`）。非 `default` 的六档末尾统一
+        /// `Take(maxTargets)`。⚠️ **⛔ 别用 `decomp_full` 的 C 伪码判「这是在筛还是在排」** —— 那一层会把返回值吞掉。</para>
+        ///
+        /// <para>**`GetValueInPlay` 的等价物 = `SimpleAI.ValueInPlay`**（全仓唯一那份；判据
+        /// `AI__GetCardValueInPlay` 逐指令：`2×rawCard.manaCost + 1 + ValueOfEnchantments`，受伤再
+        /// `×(0.5×当前血/上限+0.5)`、眩晕/压制再 `×0.8`；逐行 → `Data/SimpleAI.cs` 的 `ValueInPlay` 的 doc）。
+        /// 🔴 **`Core/` 这一次引用 `Data/` 是破一次例，理由两条**：
+        /// ① `Core/` 里**没有任何**等价的卡价值函数，另写一份 = 同一条规则两处写（`CLAUDE.md` §三）；
+        /// ② 旧口径「`Core/` 不许依赖 `Data/`」的**唯一理由是 `ruleprobe` 只编 `Core/*.cs`**（`Core/IAiScorer.cs:5`）——
+        /// 而 `工具/ruleprobe/ruleprobe.csproj` 自 2026-10-25（`R11` 的 `ai` 档）起**已显式编进**
+        /// `Data/SimpleAI.cs` / `AiScoring.cs` / `AiTargets.cs`，那条理由今天不成立（`typecheck` 与
+        /// `play check` 两边都验过）。若将来有人把 `SimpleAI.cs` 从 csproj 拿掉，这里是**构建期** `CS0103`，⛔ 不会静默。
+        /// ⚠️ 副作用：`SimpleAI` 的静态构造会 `InstallAiScorer()`（`Data/SimpleAI.cs:1997-2000`）——
+        /// 在只编 `Core`＋`Data` 的探针里，这会**第一次**把 `AiScorerHook.Scorer` 装上（改前探针里恒 `null`，
+        /// 走 `ResolveBerzerkAttacks` 的回退路径）⇒ 该路径的取值可能与改前不同（如实记在报告里）。</para>
+        ///
+        /// <para>📊 **今日零可观测**：池内 `targetSelectMethod` 现读只有 `0`（191 行）与 `7`（2 行）⇒ 本档休眠；
+        /// 唯一会走到它的入口是夹具（`AbilityTargetListFromCriteriaForTest`）。</para>
+        /// </summary>
+        static List<UnitState> KeepByValueInPlay(List<UnitState> pool, int method, int max)
+        {
+            bool desc = method == 2;
+            var idx = new List<int>(pool.Count);
+            for (int i = 0; i < pool.Count; i++) idx.Add(i);
+            idx.Sort((a, b) =>
+            {
+                float va = SimpleAI.ValueInPlay(pool[a]), vb = SimpleAI.ValueInPlay(pool[b]);
+                int c = desc ? vb.CompareTo(va) : va.CompareTo(vb);
+                return c != 0 ? c : a.CompareTo(b);   // 平手保持池序（LINQ 的排序是稳定的）
+            });
+            var keep = new List<UnitState>(max);
+            for (int i = 0; i < max && i < idx.Count; i++) keep.Add(pool[idx[i]]);
+            return keep;
+        }
+
+        /// <summary>
+        /// **`EvtKind.Ability` 的目标列表：先按改前的单数路算一次，再把这一条 ability 行自己的多目标表覆盖上去**
+        /// （`UseAbilityCore` / `UseAlternativeCore` 两发点专用 —— 改前它们只传 `criteria = null`，
+        /// 于是 `AttachAbilityTargets` 恒走 `AbilityTargetsFor` ⇒ 目标表长度 ≤ 1，多目标档全瞎）。
+        ///
+        /// <para>🔴 **为什么不是一句 `AttachAbilityTargets(..., criteria)`**：那样一旦多目标表产出了，
+        /// `AbilityTargetsFor` 就**不再被调用**，而它会 `ResolveTarget(...)`（`random` 目标那档**消费一格
+        /// `ctx.GetRandomInt`**）⇒ 随机序列整体错位。两次调用里第一次保持改前的消费次序，第二次只**覆盖**
+        /// `AbilityTargetList`（`TriggerAbilityTargetCriteria` 只放行 `ta ∈ {0,10,110,140,150}` 且
+        /// `MaxTargets < 1` 的行 —— 那一批**纯函数、零随机消费**，见它的 doc），⇒ **改前改后随机序列逐格相同**。</para>
+        ///
+        /// <para>⚠️ `card` / `triggerName` 认不出 ⇒ 原样不动（与改前逐字等价）。</para>
+        /// </summary>
+        internal static void AttachAbilityTargetsWithCriteria(BattleContext ctx, int owner, UnitState source,
+                                                              EffectSpec spec, UnitState chosen, CardDef card, string triggerName)
+        {
+            AttachAbilityTargets(ctx, owner, source, spec, chosen);          // 改前口径（含 `ResolveTarget` 的随机消费）
+            var criteria = TriggerAbilityTargetCriteria(card, triggerName);
+            if (criteria == null) return;
+            var tbl = AbilityTargetListFromCriteria(ctx, owner, criteria, source, chosen, false);
+            if (tbl == null || tbl.Count == 0) return;
+            if (ctx.Signals == null || ctx.Signals.Count == 0) return;
+            var e = ctx.Signals[ctx.Signals.Count - 1];
+            if (e != null) e.AbilityTargetList = tbl;
+        }
+
+        /// <summary>
+        /// **按行重挂「当前 activeAbility 目标表」** —— 原版 `AbilityLogic.PlayAbility` 是**每一行**各调一次
+        /// `GetTargets(criteria)` 再 `PlayAnim(bm, data, abilityTargets, 0)`（`AbilityLogic__PlayAbility.c:262/273`，
+        /// 第二处 `:1524-1531`），效果层的目标集就是**那一行**刚算出来的表。
+        /// 我们一条 `EvtKind.Ability` 管整条 ability ⇒ 改前只挂了「计划里挑中的那一行」的整张表，
+        /// 别的行执行时用的是**别人的**目标表（多行 ability 的近似，见 `ActiveAbilityTargetCriteriaForPlan` 的 doc）。
+        ///
+        /// <para>🔴 **只挂「零随机消费」的那一档**：`ta ∈ {0,10,110,140,150}` ∧ `MaxTargets &lt; 1`
+        /// （判据 = `GetTargets.c:884-891` / `:972-1060` 那几支建完池直接 `return`，不落截断；
+        /// `TargetCriteriaEval.Matches` 与 `AddSide` 也不消费 `ctx.GetRandomInt`）⇒ **改前改后随机序列逐格相同**。
+        /// 其余档（`20 self` / `30 target` / 需要截断的）**不挂**：挂了要么烧随机数、要么把别人的表顶掉。</para>
+        ///
+        /// <para>⚠️ **事件那一份（`BattleEvent.AbilityTargetList`）仍只有一张表** —— `BattleEvent` 只有一格，
+        /// 而 `Editor/RuleEngineTest.cs` 有按 `EvtKind.Ability` 字面量做的结构断言 ⇒ 不改事件形状（本批白名单外）。</para>
+        /// </summary>
+        static void PublishRowAbilityTargetTable(BattleContext ctx, int owner, UnitState source, UnitState chosen, int[] step)
+        {
+            if (ctx == null || source == null || source.Card == null || step == null || step.Length < 4) return;
+            if (step[2] < 0 || step[3] < 0) return;                       // `ca == 462` 那类行没有 (ability, logic) 二元组
+            var set = source.Card.ActiveAbilityTargetCriteriaAt(step[3], step[2]);
+            if (set == null) return;                                      // 这一行没落 36 格数据 ⇒ 保持上一张表（与改前同向）
+            int ta = set.TargetsAffected;
+            if (ta != 0 && ta != 10 && ta != 110 && ta != 140 && ta != 150) return;
+            if (ta != 0 && set.MaxTargets >= 1) return;
+            var units = new List<UnitState>();
+            AbilityTargetListFromCriteria(ctx, owner, set, source, chosen, false, units);
+            if (units.Count == 0) return;
+            ctx.AbilityTargetTable = units; ctx.AbilityTargetTableOwner = source;
+        }
+
+        /// <summary>自检门：<see cref="PublishRowAbilityTargetTable"/>（**会写 `ctx.AbilityTargetTable`** ——
+        /// 只在测试里对独立 `ctx` 调；⛔ 产品路径别调，唯一产品调用点是 `UseActiveAbilityCore` 的行循环）。</summary>
+        public static void PublishRowAbilityTargetTableForTest(BattleContext ctx, int owner, UnitState source, UnitState chosen, int[] step)
+        {
+            PublishRowAbilityTargetTable(ctx, owner, source, chosen, step);
         }
     }
 }

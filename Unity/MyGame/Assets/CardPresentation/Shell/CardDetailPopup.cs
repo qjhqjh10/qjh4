@@ -167,10 +167,10 @@ namespace CardPresentation
         {
             get
             {
-                // 🆕 2026-10-31（`B104_P3`）：自检可以用 `OverridePath` 指到别处（含**非法路径**，用来强制写盘失败）
-                return string.IsNullOrEmpty(OverridePath)
-                     ? System.IO.Path.Combine(SaveRoot.Path, SaveFileName)
-                     : OverridePath;
+                // 🆕 2026-10-31（`B104_P3`）自检用 `OverridePath` 改道；🆕 2026-11-04（`B140_V4b`）批处理 ⇒ 沙箱，非批处理 ⇒ `SaveRoot.Path`（逐字节不变）
+                return !string.IsNullOrEmpty(OverridePath)
+                     ? OverridePath
+                     : SaveSandbox.Dir(SaveFileName);
             }
         }
 

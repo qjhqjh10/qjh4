@@ -2654,7 +2654,7 @@ namespace CardPresentation
             //     `ModeContentX2 − ModeViewport.x2` = 2405 − 1920 = **485 px** ⇒ **485 ÷ 120 ≈ 4 格到底**
             //     （⚠️ 派单里写「447 px」与这里按 `ModeContentX2` 算出的 485 差 38 px —— 按本文件实际几何记 485，
             //      两者都 ≈ 4 格，不影响这条改动）。
-            //   ⚠️ **拖拽一点没动**（`MenuScroll.BeginDrag / DragTo` + `PointerLayer` 那条 10px 阈值照旧）；
+            //   ⚠️ **拖拽一点没动**（`MenuScroll.BeginDrag / DragTo` + `PointerLayer` 那条 **5px** 阈值照旧 —— 原版 `m_DragThreshold = 5`，`Intro.unity:5429`；⚠️ 2026-11-04 订正：原写 10，那是 uGUI 默认值、不是原版值）；
             //      ⛔ 别把这个 120 写成「原版 `m_ScrollSensitivity`」—— 原版值是 1.0、且那是横向的。
             _modeScroll = new MenuScroll(ModeViewport, CardCol0, ModeContentX2, 120f);
             _modeScroll.Owner = gameObject;

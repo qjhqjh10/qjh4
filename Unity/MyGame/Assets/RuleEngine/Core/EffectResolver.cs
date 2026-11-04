@@ -1444,7 +1444,7 @@ namespace RuleEngine
                                                      EffectOp op = null, CardInstance actingInst = null, List<CardRef> refsOut = null)   // 🔴 2026-11-01（`B115_W23` · E7/E8）：`actingInst` = 手牌打出的那张牌的实例（原版 `abilityData.thisCard + 0x10`，380 写表与 200/201 读表都要它）；`refsOut` = 收「不在棋盘的候选」（手牌 / 已离场）
         {
             var list = (op != null && op.SubjectTargetsAffected == 60) ? ResolveCemeteryTargetsAsUnits(ctx, owner, spec, op) : ResolveTargetsCore(ctx, owner, spec, source, chosen, structuredCondition, op, actingInst, refsOut); list = CountEval.ApplySelectFromChooseResolution(ctx, SelectFromChooseResolutionOf(source, op), FilterSingleUseMutationTargets(ctx, list, source != null ? source.Instance : null, TraitsFilterOf(source, op), "目标池"), "目标池");   // 🔴 2026-10-29（B98_G2 · 账 534②）：`ta = 60`（`inCemeteryFiltered`）**不再落到棋盘扫描** —— 原版那一支（`AbilityLogic__GetTargets.c:949-960` → `BattleManager.GetCardsInCemetery`）的候选是**墓地的 `CardInstance`**，而本函数只收 `UnitState` ⇒ 走 `ResolveCemeteryTargetsAsUnits`（候选由 `ResolveCemeteryTargets` 算出、经 `Debug.LogWarning` 出声，返回**空表**：墓地里的牌不在棋盘上，⛔ 不当成「棋盘上一个都没选到」）。⛔ 别在这里 `ctx.Log`（会进 `ctx.Events` ⇒ 动联机指纹）；取走/搬运那半仍在 `ReturnFromCemetery` / `DoDeployOnce` 各自的入口。  // 🆕 2026-10-29（B97_W5 · 账 676 的 (a) 格 + 账 1254）：原版 `AbilityLogic__GetTargets` 末尾两段 —— **顺序照原版**：`traitsFilter == 780` 的单次变异去重（`.c:155-172`）在内层、`selectFromChooseResolution`（`.c:1101-1140`）在外层
-            NoteTriggerTargetSink(ctx, list); if (refsOut != null) for (int i = 0; i < list.Count; i++) if (list[i] != null) refsOut.Add(CardRef.Of(list[i]));   // 🔴 2026-11-01（`B115_W23` · E8）：**在收口这一层**把棋盘目标折成 `CardRef` 填进去（它有 13 个 `return`，⛔ 别逐出口插）；手牌项由 `ResolveTargetsCore` 自己先填（顺序 = 手牌 → 棋盘，不参与任何判定）
+            NoteTriggerTargetSink(ctx, list); NoteTriggerTargetSinkHand(ctx, refsOut); if (refsOut != null) for (int i = 0; i < list.Count; i++) if (list[i] != null) refsOut.Add(CardRef.Of(list[i]));   // 🔴 2026-11-01（`B115_W23` · E8）：**在收口这一层**把棋盘目标折成 `CardRef` 填进去（它有 13 个 `return`，⛔ 别逐出口插）；手牌项由 `ResolveTargetsCore` 自己先填（顺序 = 手牌 → 棋盘，不参与任何判定）。🆕 2026-11-04（`B140_WA` · 战-T21）：`NoteTriggerTargetSinkHand` = **手牌通道**（棋盘一个都没填上时才落 `Slot = -1` + `InstanceId`）；⚠️ 它必须在上面那句 `refsOut.Add` **之前**跑 —— 此刻 `refsOut` 里**只有手牌项**（棋盘项是下一句才加进去的）
             return list;
         }
 
@@ -21934,6 +21934,58 @@ namespace RuleEngine
                           + " —— 原版 `AddMinionOccupation(area,0)` + LogWarning、落点仍取默认；我们的棋盘无占用表 ⇒ 只出声）");
                     return -1;
             }
+        }
+    }
+}
+
+// ====================================================================================================
+//  🆕 2026-11-04（执行写手 `B140_WA` · 活状态表 `战-T21`）：**触发事件目标的手牌通道**
+//  ⚠️ 追加在**文件末尾的新 partial 块**（本文件被账按 `文件:行号` 引用 ⇒ 往既有成员之间插会让下游整体漂移）
+// ====================================================================================================
+namespace RuleEngine
+{
+    public static partial class RuleCore
+    {
+        /// <summary>
+        /// 🔴🆕 **2026-11-04（`B140_WA` · 战-T21）：`TriggerTargetSink` 的【手牌通道】** ——
+        /// <see cref="RuleCore"/> 的 `NoteTriggerTargetSink(ctx, List&lt;UnitState&gt;)` 只写**棋盘格**通道
+        /// （`TargetPlayer` / `TargetSlot` / `TargetCardId`），而原版**手牌与场上同为 `CardScript`**
+        /// （`dump.cs:35370`）⇒ 「这条 ability 落到的目标」也可以是一张**手牌**。
+        ///
+        /// <para>**写法与 `BattleEventTarget` 同形**（`Slot = -1` 表示不在棋盘上，`InstanceId` 是稳定身份）：
+        /// 见 `RuleCore.AbilityTargetListFromCriteria` 收尾那句手牌项输出（`Slot = -1`）
+        /// 与表现层的回落 `CardPresentation/Battle/BattleDriver.cs` 的 `AbilityTargetView`（`Slot = -1` ⇒ 按
+        /// `InstanceId` 认那张手牌）。⛔ **不改 `EvtKind` 语义、不新增事件种类** —— 只填同一条 `EvtKind.Trigger` 的三格。</para>
+        ///
+        /// <para>**调用纪律（与棋盘通道同一条）**：
+        /// ① 棋盘那一路**先跑**（`ResolveTargets` 收口那一行是同一条语句里的两跳），它填上了就**不再落手牌**；
+        /// ② 必须**在 `refsOut` 被追加棋盘项之前**调 —— 那一刻 `refsOut` 里**只有手牌 / 已离场项**；
+        /// ③ `refsOut == null`（大多数调用点）⇒ 没有手牌候选可读，本通道**什么都不做**（与改前逐字等价）。</para>
+        /// </summary>
+        static void NoteTriggerTargetSinkHand(BattleContext ctx, System.Collections.Generic.List<CardRef> handRefs)
+        {
+            var evt = ctx?.TriggerTargetSink;
+            if (evt == null || ctx.TriggerTargetSinkDone || handRefs == null) return;
+            for (int i = 0; i < handRefs.Count; i++)
+            {
+                var r = handRefs[i];
+                if (r.Unit != null) continue;          // 棋盘载体那一项归上面那条通道（它有 `FindSlot`）
+                var inst = r.Inst;
+                if (inst == null) continue;            // 模板降级项没有稳定身份 ⇒ 表达不了（⛔ 不拿 0 顶）
+                evt.TargetPlayer = SeatOfInstance(ctx, inst);
+                evt.TargetSlot = -1;                   // 不在棋盘上（`BattleEventTarget.Slot = -1` 同一约定）
+                evt.TargetCardId = r.Name;
+                evt.TargetInstanceId = r.InstanceId;
+                ctx.TriggerTargetSinkDone = true;
+                return;
+            }
+        }
+
+        /// <summary>自检门：<see cref="NoteTriggerTargetSinkHand"/>（**只读/旁路**，⛔ 产品路径别调 ——
+        /// 产品唯一调用点是 `ResolveTargets` 收口那一句）。</summary>
+        public static void NoteTriggerTargetSinkHandForTest(BattleContext ctx, System.Collections.Generic.List<CardRef> handRefs)
+        {
+            NoteTriggerTargetSinkHand(ctx, handRefs);
         }
     }
 }

@@ -16,7 +16,10 @@
 //   COLL-07 chip 上限 = 5（判据 = `FillToggleList(toggleOptions, 5)` + `if (5 < count) break`）
 //   COLL-01 `PointerLayer.InsertText`：允许 `\n`、丢 `\r`/其它控制字符、按上限截断
 //   COLL-09 模式页进入条件（离线等价表 2 项 ⇒ 进模式页）
-//   （COLL-02/03/08 需要真实窗口 + 存档，见 §B：本宿主只报「未验」，不伪造）
+//   COLL-08 卡面灰度（未拥有 / 禁卡 ⇒ 全灰）· COLL-09a `Import` 的 114 闸 ——
+//     🆕 **2026-11-04（`B140_WG`）纯离线夹具**（空 `CollectionWindow` 壳 + 临时卡组库，不建真窗、不动玩家真档）
+//   （只剩 COLL-03 一条「未验」：真机 2026-11-03 已过、离线档本类仍验不了。COLL-02 早已是
+//     `Editor/CollectionScene.cs:2235-2244` 的离线断言 ⇒ 原来那条「未验」是过期文案，已删 —— 见 §B）
 using System.Collections.Generic;
 using UnityEngine;
 using CardPresentation;
@@ -54,13 +57,18 @@ public static class B121_C1_Assert
         GroupChipLimit();
         GroupInsertText();
         GroupModePage();
+        GroupCardGrey();          // 🆕 2026-11-04（B140_WG）：COLL-08 —— 纯离线（空窗壳 + 反射调真实现）
+        GroupDeckImportGate();    // 🆕 2026-11-04（B140_WG）：COLL-09a —— 纯离线（临时卡组库 113 / 114 两档）
 
-        // ---------------- B 组：需要真窗口（本宿主不建窗） ----------------
-        MarkUnverified("COLL-02 点格不再改「当前卡组」：需要 `CollectionWindow` + 真实存档（宿主里点 `SelectDeck(i)` 后比 "
-                     + "`CollectionData.CurrentIndex()` 未变）");
-        MarkUnverified("COLL-03 Deck 页 `Clear filters` 显隐：需要 `CollectionWindow` 实例（选一个阵营后 `_hdrClearQ[0].gameObject.activeSelf` 为真）");
-        MarkUnverified("COLL-08 卡面灰度：需要 `CardView` + 一张未拥有/被禁的卡（本机全解锁 + 无 LiveOps ⇒ 常态不可达）");
-        MarkUnverified("COLL-09 `Import` 可点闸：需要 `CollectionWindow`（卡组数 ≥114 时才翻假，本机到不了）");
+        // ---------------- B 组：真机 / 建真窗才验得了的（本宿主只报「未验」，⛔ 不伪造） ----------------
+        // 🔴 **2026-11-04（`B140_WG`）就地订正（铁律 5）**：本组原来挂了 **4** 条 `MarkUnverified`，其中 **3 条已过期**：
+        //   · **COLL-02**（点格不改「当前卡组」）**早已是离线断言** —— `Editor/CollectionScene.cs:2235-2244`
+        //     （`int before = CollectionData.CurrentIndex(); … Check(CurrentIndex(), before, …)`，随 `CollectionScene.Run`
+        //     跑、不读盘）⇒ 本条「未验」已删，⛔ 别再写回来。
+        //   · **COLL-08 / COLL-09a** 自 2026-11-04 起走上面 A 组那两条**纯离线夹具** ⇒ 也已删。
+        MarkUnverified("COLL-03 Deck 页 `Clear filters` 显隐：**真机 2026-11-03 已过**"
+                     + "（`_tmp_view/shots/20261103_s123/29_faction_pick.png`：选阵营后页头出现 chip + 清除过滤钮）"
+                     + "· 本类不建真窗 ⇒ 离线档**仍验不了**（不是待办，只是真机证据，所以仍单独计数、⛔ 不算通过）");
 
         Debug.Log(Tag + " ==== 合计：通过 " + _pass + " · 失败 " + _fail + " · 未验 " + _unverified + " ====");
     }
@@ -168,4 +176,184 @@ public static class B121_C1_Assert
         Check(CollectionWindow.ShouldOpenDeckModePage(), "COLL-09 离线等价表 2 项 ⇒ >1 ⇒ 进模式页");
         Check(CollectionWindow.DeckModeCards.Length == 2, "COLL-09 灭自证：离线等价表就是 2 项（改表要同步改这条）");
     }
+
+    // ============================================================ 🆕 2026-11-04（`B140_WG`）· COLL-08 / COLL-09a 的**纯离线**夹具
+    //   本节**追加在类尾**（本文件被 `判据/*` 按行号引用过 ⇒ 新成员别插进既有组之间）。
+    //   两条都**不建真窗、不读玩家存档**：用一个空 `CollectionWindow` 壳 + 反射直调真实现，
+    //   判据值全部走 `Shell/CollectionWindow.cs` 里那两段（⛔ 本文件不写第二份判据 —— 那是自证）。
+
+    /// <summary>COLL-08：卡池格的**整卡灰度** = `grey = !owned || isBanned`（未拥有/禁卡 ⇒ `SetGrey(1, 0f)` 瞬时）。
+    /// <para>判据 = 原版 `CardCollectionDisplay__SetCell.c` 末段（逐字；实现见 `Shell/CollectionWindow.cs:7011-7023`）。
+    /// 本组走**真实现**（`CollectionWindow.ApplyCardGrey`，反射调私有方法）：它只读两个静态判据 + `CardView.SetGrey`，
+    /// 不碰窗体状态 ⇒ 一个 `AddComponent` 出来的**空窗壳**就够。</para>
+    /// <para>数据怎么造（不碰玩家真档）：未拥有 = 背包里给这张卡塞一条**数量 0** 的条目（`CardOwned` 首查背包）；
+    /// 禁卡 = 临时把 `DeckRuntime.CurrentEventData` 赋成只带一条禁卡的 `PlayEventData`（活动线同一个写入口），`finally` 还原。</para></summary>
+    static void GroupCardGrey()
+    {
+        var mi = typeof(CollectionWindow).GetMethod("ApplyCardGrey",
+                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Check(mi != null, "COLL-08 前提：`CollectionWindow.ApplyCardGrey(CardView, CardDef)` 存在（判据落点没被改签名）");
+        if (mi == null) return;
+
+        var host = new GameObject("B121_C1_GreyHost");
+        var win = host.AddComponent<CollectionWindow>();
+        var ownedDef = new RuleEngine.CardDef("B121C1GreyOwned", "B121C1GreyOwned", "unit", "", "common", "Test", 1, 1, 1, 0, null);
+        var unownedDef = new RuleEngine.CardDef("B121C1GreyUnowned", "B121C1GreyUnowned", "unit", "", "common", "Test", 1, 1, 1, 0, null);
+        var bannedDef = new RuleEngine.CardDef("B121C1GreyBanned", "B121C1GreyBanned", "unit", "", "common", "Test", 1, 1, 1, 0, null);
+        var cards = Inventories.Cards;
+        var oldEvt = DeckRuntime.CurrentEventData;
+        var pre = cards.Get(unownedDef);
+        CardView v1 = null, v2 = null, v3 = null;
+        try
+        {
+            // 前提①：未拥有那一档**必须**在背包里有一条数量 0 的条目 —— 否则 `CardOwned` 会回退到
+            //   `CardProgress.Owned` 的「给足」口径（恒 > 0）⇒ 这一档根本造不出来（假绿来源）。
+            cards.Create(unownedDef);
+            Check(cards.Get(unownedDef) != null && cards.Get(unownedDef).Amount == 0,
+                  "COLL-08 前提：`unownedDef` 在背包里是**数量 0** 的条目（`CardOwned` 走背包、答 false）");
+            Check(cards.Get(ownedDef) == null, "COLL-08 前提：`ownedDef` 不在背包 ⇒ 走「给足」口径（= 已拥有）");
+
+            v1 = ProbeCard("B121_C1_GreyOwned");
+            v2 = ProbeCard("B121_C1_GreyUnowned");
+            v3 = ProbeCard("B121_C1_GreyBanned");
+            v1.SetGrey(1f, 0f);   // ⚠️ 先**人为全灰**：已拥有那一条要证明 `ApplyCardGrey` **主动把灰清回 0**，而不是「本来就是 0」的假绿
+
+            mi.Invoke(win, new object[] { v1, ownedDef });
+            CheckNear(v1.Grey, 0f, 1e-4f, "COLL-08 已拥有 ⇒ 卡面**不灰**（原版 `grey = !owned || isBanned`）");
+            mi.Invoke(win, new object[] { v2, unownedDef });
+            CheckNear(v2.Grey, 1f, 1e-4f,
+                      "COLL-08 **未拥有 ⇒ 整卡全灰**（`CardCollectionDisplay__SetCell.c` 末段；"
+                    + "🧨 把 `ApplyCardGrey` 的判据改反 ⇒ 本条红）");
+
+            DeckRuntime.CurrentEventData = Event(bannedDef.Id);
+            mi.Invoke(win, new object[] { v3, bannedDef });
+            CheckNear(v3.Grey, 1f, 1e-4f, "COLL-08 **禁卡 ⇒ 整卡全灰**（`PlayEventData.IsCardBanned` 灌进一张）");
+            DeckRuntime.CurrentEventData = null;
+            mi.Invoke(win, new object[] { v3, bannedDef });
+            CheckNear(v3.Grey, 0f, 1e-4f,
+                      "COLL-08 灭自证：摘掉禁卡事件后**同一张卡回原色**"
+                    + "（🧨 写成恒灰 / 恒不灰 ⇒ 与本组前三条只能对一半）");
+        }
+        catch (System.Exception e)
+        {
+            Check(false, "COLL-08 夹具**抛了**（" + e.GetType().Name + "：" + e.Message
+                       + "）⇒ 本组结论不成立（⛔ 不许当通过）");
+        }
+        finally
+        {
+            DeckRuntime.CurrentEventData = oldEvt;
+            var mine = cards.Get(unownedDef);
+            if (mine != null) mine.SetAmount(pre != null ? pre.Amount : 0);   // 还原那一格（原来没有就回 0）
+            DestroyCard(v1); DestroyCard(v2); DestroyCard(v3);
+            Object.DestroyImmediate(host);
+        }
+    }
+
+    /// <summary>COLL-09a：`Import` 钮的可点闸 = **`卡组数 &lt; 114`**。
+    /// <para>判据 = 原版 `importDeck.interactable = InventoryManager.GetOwnedCount&lt;CardDeck&gt;() &lt; GameStaticData.totalCustomDecks`
+    /// （`SelectDecksTab__Setup.c:44-53`；`totalCustomDecks = 114`，`GameStaticData.cs:2419`）。实现 → `Shell/CollectionWindow.cs:7040-7046`。</para>
+    /// <para>🔴 卡组库是**临时沙箱**造的（`DeckStore.OverridePath` + 三个钩子临时置空 ⇒ 玩家真档一个字节都不碰，
+    /// 跑完 `finally` 全还原）；造完直接塞回 `CollectionData._lib`，让 `DeckCount()` 读到同一份 —— ⛔ 不复制判据。</para></summary>
+    static void GroupDeckImportGate()
+    {
+        var mi = typeof(CollectionWindow).GetMethod("RefreshDeckImportGate",
+                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var fi = typeof(CollectionWindow).GetField("_deckImportHit",
+                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        var lf = typeof(CollectionData).GetField("_lib",
+                     System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+        Check(mi != null && fi != null && lf != null,
+              "COLL-09a 前提：`RefreshDeckImportGate` / `_deckImportHit` / `CollectionData._lib` 都在（判据落点没被改名）");
+        if (mi == null || fi == null || lf == null) return;
+
+        var host = new GameObject("B121_C1_ImportGateHost");
+        var win = host.AddComponent<CollectionWindow>();
+        var hitGo = new GameObject("B121_C1_ImportHit");
+        var wb = hitGo.AddComponent<WindowButton>();
+        object keepHit = fi.GetValue(win);
+        object keepLib = lf.GetValue(null);
+
+        string oldOver = RuleEngine.DeckStore.OverridePath;
+        var oldRead = RuleEngine.DeckLibrary.ReadLegacyText;
+        var oldSave = RuleEngine.DeckLibrary.SaveLegacyText;
+        var oldExists = RuleEngine.DeckLibrary.CentralSaveExists;
+        string tmpDir = System.IO.Path.Combine(Application.temporaryCachePath, "B121_C1_coll19");
+        bool sandboxed = false;
+        try
+        {
+            System.IO.Directory.CreateDirectory(tmpDir);
+            RuleEngine.DeckStore.OverridePath = System.IO.Path.Combine(tmpDir, "B121_C1_decks.json");
+            RuleEngine.DeckLibrary.ReadLegacyText = null;      // ⛔ 别让 Shell 的中央档钩子把临时库遮掉
+            RuleEngine.DeckLibrary.SaveLegacyText = null;      // ⛔ 落盘只准进临时文件（玩家真档一个字节都不碰）
+            RuleEngine.DeckLibrary.CentralSaveExists = null;
+            sandboxed = true;
+
+#pragma warning disable 0618   // `DeckLibrary.Create` 标了 `[Obsolete]`（自陈「本口只服务自检夹具」）—— 本处正是那个用途
+            var lib = RuleEngine.DeckLibrary.Load();
+            // ⚠️ 循环带**上限**：万一 `Create` 哪天不再入库，这里必须**停下来判红**，⛔ 不能把宿主挂死。
+            int guard = 0;
+            while (lib.Decks.Count < 113 && guard++ < 200) lib.Create("B121C1Deck" + lib.Decks.Count);
+            Check(lib.Decks.Count == 113, "COLL-09a 前提：夹具造出 **113** 套卡组（实得 " + lib.Decks.Count + "）");
+
+            lf.SetValue(null, lib);
+            Check(CollectionData.DeckCount() == 113,
+                  "COLL-09a 前提：`CollectionData.DeckCount()` 读到 113（实得 " + CollectionData.DeckCount() + "）");
+
+            fi.SetValue(win, hitGo.transform);
+            mi.Invoke(win, null);
+            Check(wb.Interactable, "COLL-09a **113 < 114 ⇒ `Import` 可点**（原版 `interactable = 卡组数 < 114`）");
+
+            lib.Create("B121C1Deck113");
+#pragma warning restore 0618
+            Check(lib.Decks.Count == 114, "COLL-09a 前提：第 **114** 套造出来了（实得 " + lib.Decks.Count + "）");
+            mi.Invoke(win, null);
+            Check(!wb.Interactable,
+                  "COLL-09a **114 不 < 114 ⇒ `Import` 灰掉**（🧨 把 `114` 改成 `113` ⇒ 上一条 + 本条必红）");
+
+            lib.Delete(0);
+            mi.Invoke(win, null);
+            Check(wb.Interactable,
+                  "COLL-09a 灭自证：删回 **113** 套后 `Import` **又亮了**（🧨 写成恒假 / 只判一次 ⇒ 本条红）");
+        }
+        catch (System.Exception e)
+        {
+            Check(false, "COLL-09a 夹具**抛了**（" + e.GetType().Name + "：" + e.Message
+                       + "）⇒ 本组结论不成立（⛔ 不许当通过）");
+        }
+        finally
+        {
+            if (sandboxed)
+            {
+                lf.SetValue(null, keepLib);
+                RuleEngine.DeckLibrary.ReadLegacyText = oldRead;
+                RuleEngine.DeckLibrary.SaveLegacyText = oldSave;
+                RuleEngine.DeckLibrary.CentralSaveExists = oldExists;
+                RuleEngine.DeckStore.OverridePath = oldOver;
+                try { if (System.IO.Directory.Exists(tmpDir)) System.IO.Directory.Delete(tmpDir, true); } catch { }
+            }
+            fi.SetValue(win, keepHit);
+            Object.DestroyImmediate(hitGo);
+            Object.DestroyImmediate(host);
+        }
+    }
+
+    /// <summary>`CardView` 探针（不建卡面层 —— 本组只读 `Grey` 这一格）。</summary>
+    static CardView ProbeCard(string name)
+    {
+        var go = new GameObject(name);
+        return go.AddComponent<CardView>();
+    }
+
+    static void DestroyCard(CardView v) { if (v != null) Object.DestroyImmediate(v.gameObject); }
+
+    /// <summary>造一个只带一条禁卡的 `PlayEventData`（走活动线同一个写入口 `SetBannedCards`）。</summary>
+    static PlayEventData Event(string bannedId)
+    {
+        var evt = new TestEvent();
+        evt.SetBannedCards(string.IsNullOrEmpty(bannedId) ? null : new List<string> { bannedId });
+        return evt;
+    }
+
+    /// <summary>禁卡表夹具（`PlayEventData` 是 abstract；`SetBannedCards` 是 Shell 侧的扩展）。</summary>
+    sealed class TestEvent : PlayEventData { }
 }

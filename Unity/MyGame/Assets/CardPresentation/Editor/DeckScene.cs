@@ -8839,7 +8839,7 @@ public static class DeckScene
                     }
                     _rt.UiToggleFilters();
                     _rt.UiSetTab(0);
-                }
+                } B124_W44_Assert.Run(); _sink.Pass += B124_W44_Assert.Pass; _sink.Fail += B124_W44_Assert.Fail;   // 🆕 2026-11-04（B140_WG）：`B123-ARMYTITLE` 的**根因守卫**接线（`Label.AlignLeftOn` 的「设计帧 → 父局部」四组：k=1 / 根偏移 / 1.2× / −1× 镜像）。⛔ 排在本段**之后**（同一物理行追加 ⇒ 行数零变化）；判据 → `Editor/B124_W44_Assert.cs` 文件头
 
                 // ---- ⑪·b 🆕 **2026-10-18（第三轮整改 · 审查 P4）：卡背抽屉那条空态** ----
                 //   原版 `…/Cosmetic Display/Scroll View/Empty Collection Warning/Warning` 挂

@@ -270,8 +270,8 @@ public static class B121_D5_Assert
             }
         }
 
-        // ---- G 组：`unitsToSummon` 卡 id 列**已由 `B121-D4` 就位**；本组是「夹具没带这一列」的反证 -------------
-        Section("G 反证：`ca 70 / 100`（夹具未带 `unitsToSummon` 列 ⇒ `null` = **未知**、⛔ 不当空表）⇒ 仍然 **精确出声、不静默**");
+        // ---- G 组：真闸 = `AbilitySummonAt` 返回 `null`（`summonCriteria` **整格缺失**，⛔ 不是 `unitsToSummon` 单列）----
+        Section("G 反证：`ca 70 / 100`（夹具没落 `summonCriteria` 整格 ⇒ `AbilitySummonAt` 返回 `null` = **未知**、⛔ 不当空表）⇒ 仍然 **精确出声、不静默**");
         {
             int[] cas = { 70, 100 };
             for (int i = 0; i < cas.Length; i++)

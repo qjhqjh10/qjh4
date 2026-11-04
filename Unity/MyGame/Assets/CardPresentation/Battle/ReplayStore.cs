@@ -450,13 +450,13 @@ namespace CardPresentation
             get
             {
                 // 玩家目录的「根」：平时就是 `persistentDataPath`；只有自检验 `ResetForTest` 的硬挡时才被改到临时目录
-                // （见 `PlayerRootForTest` 的注 —— 那一格不是产品路径，⛔ 运行时没人设它）。
-                var root = string.IsNullOrEmpty(PlayerRootForTest)
-                         ? SaveRoot.Path
-                         : PlayerRootForTest;
-                var d = string.IsNullOrEmpty(OverrideDir)
-                      ? Path.Combine(root, DirName)
-                      : OverrideDir;
+                // （见 `PlayerRootForTest` 的注 —— 那一格不是产品路径，⛔ 运行时没人设它）；🆕 2026-11-04（`B140_V4b`）批处理 ⇒ 沙箱（`Core/SaveSandbox.cs`），非批处理 ⇒ `SaveRoot.Path`（逐字节不变）
+                var root = !string.IsNullOrEmpty(PlayerRootForTest)
+                         ? PlayerRootForTest
+                         : SaveSandbox.Dir();
+                var d = !string.IsNullOrEmpty(OverrideDir)
+                      ? OverrideDir
+                      : (root == null ? null : Path.Combine(root, DirName));
                 return d;
             }
         }

@@ -1905,15 +1905,15 @@ namespace CardPresentation
             //   （同一份 dump；`Alliance Member Entry` 那一族 ⇒ **同名不同档**，与 `Individual rating value`
             //   那两族一样要**按祖先链各取各的**，见本文件头 `alignLeft` 表那一段）。
             MenuDraw.SetVAlign(lbIdx, Label.VAlign.Midline, idxR);
-            // 头像（`Avatar Item Small`：Highlight + Border + Image）—— 立绘走 `CardArt.Cosmetics`
+            // 头像（`Avatar Item Small`：Highlight + Border + Image ⇒ 层号 0/1/2）—— 立绘走 `CardArt.Cosmetics`。✅ 已复刻（2026-11-04 · B140 · 画序 1/2 原来对调致 Border 压死立绘（同 `AvatarTab.cs:443-451` 那 469 格全黑），已改回；断言 `Editor/B140_WQ_Assert.cs`）
             var av = new PxRect(r.x1 + 50.57f, r.y1 + 11.87f, r.x1 + 149.44f, r.y1 + 114.93f);
             var avn = MenuDraw.Node(row, "Avatar Item Small", av);
             v.Rect(avn, "Player_Avatar_selected", AllianceMemberRowAvatarGeo.HighlightRect(av),
                    "Highlight", RowArtQueue(v, rowNumber >= 0 ? rowNumber : m.Index, 0), null, true);
             var imgC = MenuDraw.Node(avn, "Image Container", new PxRect(av.x1, av.y1, av.x2, av.y1 + 65.69f));
-            v.Cosmetic(imgC, m.AvatarArt, AllianceMemberRowAvatarGeo.ImageRect(av), "Image", RowArtQueue(v, rowNumber >= 0 ? rowNumber : m.Index, 1));
+            v.Cosmetic(imgC, m.AvatarArt, AllianceMemberRowAvatarGeo.ImageRect(av), "Image", RowArtQueue(v, rowNumber >= 0 ? rowNumber : m.Index, 2));
             v.Rect(avn, "Player_Profile_Border", AllianceMemberRowAvatarGeo.BorderRect(av),
-                   "Border", RowArtQueue(v, rowNumber >= 0 ? rowNumber : m.Index, 2), null, true);
+                   "Border", RowArtQueue(v, rowNumber >= 0 ? rowNumber : m.Index, 1), null, true);
             // 在线状态点 —— 🔴 **2026-10-31（`B106_W12` · AUD05 社交窗 §1·2 A26）：原版是【单颗 Image + 三档颜色】**，
             //   不是我们原来那两颗（绿 `40K_icon_status_online` / 红 `40K_icon_status_offline`）。
             //   判据（逐句）：`decomp_full/AllianceMemberEntry__Initialize.c:166-192` +
@@ -2821,7 +2821,7 @@ namespace CardPresentation
         //       ⇒ `rowNumber` **never 超过 20** ⇒ **一次折叠都不会发生**（`% 22` 只是防御）。
         //    ⚠️ 可见行数上界（另一条独立上界）：视口高 586.42 / 行距 107.22 ⇒ 每列最多 6 行同屏。
         const int QRowArtBase = 3210;   // 这一段与奖杯格带（`QCellBase` 3210）**共用**，靠上面 ①② 两条闸
-        const int QRowArtStride = 4;    // 一行 4 层：0 `Highlight` < 1 `Image` < 2 `Border` < 3 字/状态点
+        const int QRowArtStride = 4;    // 一行 4 层：0 `Highlight` < 1 `Border` < 2 `Image` < 3 字/状态点（1/2 于 2026-11-04 `B140_WQ` 对调，判据 = prefab 子件序）
         const int QRowArtBands = 22;    // 22 行 × 4 层 = 88 个号（3210–3297，3298/3299 留空）
 
         /// <summary>某一行的**某一层**该用的**页内偏移**（`SocialView.Rect/Cosmetic/Text` 会再加

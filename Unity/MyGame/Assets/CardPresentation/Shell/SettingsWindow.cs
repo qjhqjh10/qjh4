@@ -5178,7 +5178,7 @@ namespace CardPresentation
                 else _fpsDragging = false;
             }
             // 🔴 **拖这根滑块时不滚这一列** —— 原版是 uGUI `Slider` 自己吃掉了拖拽事件（不会冒泡到 `ScrollRect`）。
-            //    我们这套里「拖拽归谁」由 `PointerLayer` 判（只看 10px 阈值，它不认识滑块）⇒ 拖滑块会顺手把整列也滚了。
+            //    我们这套里「拖拽归谁」由 `PointerLayer` 判（只看 **5px** 阈值 —— 原版 `m_DragThreshold = 5`，`Intro.unity:5429`；⚠️ 2026-11-04 订正：原写 10，那是 uGUI 默认值、不是原版值；它不认识滑块）⇒ 拖滑块会顺手把整列也滚了。
             //    兜底：拖动期间每帧把这一区停掉（`MenuScroll.Stop` 清 `_dragging`，`PointerLayer` 下一帧再调
             //    `DragTo` 就是空操作，惯性/回弹也一起清掉）。
             //    ⚠️ 正解在**共用件**（让「按钮吃掉拖拽」或给 `MenuScroll` 一个 `NoDrag`）—— 那两件不在本件白名单，

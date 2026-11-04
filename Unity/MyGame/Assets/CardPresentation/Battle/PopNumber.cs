@@ -211,7 +211,7 @@ namespace CardPresentation
         /// <summary>最近一次飘字的补间（自检核对总时长用；原在 `CardFeel.LastPopTween`）。</summary>
         public static Tween LastPopTween;
 
-        /// <summary>伤害档（原版 `DamageText` 那一路）。`amount` 可正可负，显示恒为**纯整数、无符号**（见 <see cref="Pop"/>）。
+        /// <summary>伤害档（原版 `DamageText` 那一路）。`amount` 可正可负，**原版逐字 = `Int32.ToString()`**（负数就印 `-N`，⛔ 别再套 `Abs`；2026-11-04 `B140_WP` 收紧，判据 `CardDamageCounterController__DamageReceived.c:11`，断言 `Editor/B140_WP_Assert.cs`）（见 <see cref="Pop"/>）。
         /// <paramref name="enemy"/> = 挨打的是**敌方**那一行（原版飘字挂在卡上 ⇒ 玩家 65.57 / 敌方 59.48 px/卡单位）· <paramref name="key"/> = 「这是哪一张卡的伤害计数器」的稳定标识（原版每卡**只有一颗** `DamageCounter`，再中一次是**重播同一颗**）；不传 = 每次新建（自检里那些「同一帧连建两颗、比字号」的用例靠这一档）。</summary>
         public static Label PopDamage(Transform parent, Vector3 worldPos, int amount, bool enemy = false, object key = null)
         {
@@ -232,8 +232,8 @@ namespace CardPresentation
             //    判据 = `decomp_full/CardDamageCounterController__DamageReceived.c:10-16`：原版把
             //    `System.Int32.ToString()` 的结果**直接**塞进 TMP，**没有任何符号前缀**（例：`5`）；
             //    prefab `MonoBehaviour_5890981294211439552.json` 里那颗 `m_text = "-5"` 只是**占位**，
-            //    运行时被覆盖。⇒ 伤害档 = 纯整数；治疗档的 `"+"` 是原版真值（`CardScript._Heal…:155-204` 的 `"+"+量`），保留。
-            string txt = heal ? ("+" + Mathf.Abs(amount)) : Mathf.Abs(amount).ToString();
+            //    运行时被覆盖。⇒ 伤害档 = 纯整数；治疗档的 `"+"` 是原版真值（`CardScript._Heal…:155-204` 的 `"+"+量`），保留。  ｜ ✅ 已复刻（2026-11-04 · `B140_WP` · 判据 `decomp_full/CardDamageCounterController__DamageReceived.c:10-11` 的 `System_Int32__ToString` 直接塞 TMP ⇒ 伤害档去掉 `Mathf.Abs`，负数印 `-N`；治疗档原样；断言宿 `Editor/B140_WP_Assert.cs`）
+            string txt = heal ? ("+" + Mathf.Abs(amount)) : amount.ToString();
             // 🔴 颜色照原版：两颗 TMP 的 `m_fontColor` **都是纯白 (1,1,1,1)**
             //    （`MonoBehaviour_5890981294211439552` / `…_-7677963611639080000`，2026-09-17 亲读）。
             //    「受伤红 / 治疗绿」是**我们挑的**，不是原版的做法 —— ⛔ 别改回去。

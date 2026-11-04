@@ -5481,7 +5481,7 @@ public static class ArenaBuilder
             bool changed = ti.textureType != TextureImporterType.Sprite
                         || ti.spriteImportMode != SpriteImportMode.Single
                         || Mathf.Abs(ti.spritePixelsPerUnit - ptu) > 0.01f
-                        || !SpriteBorderOk(ti, border);   // 🆕 2026-11-04（B139_H · 15-05）：九宫格 border 也要进 changed
+                        || !SpriteBorderOk(ti, border) || ti.mipmapEnabled != SpriteMipEnabled(path, false);   // 🆕 2026-11-04（B139_H · 15-05）：border 也要进 changed；✅ 已复刻（2026-11-04 · B140-WF · B139-H1）：mip 也按真值表进 changed —— 否则「textureType/ptu/border 本来就对」的精灵会跳过 `SaveAndReimport`，mip 永远修不回来
             if (needFullRect)
             {
                 // ⚠️ `spriteMeshType` **不在 `TextureImporter` 上**（Unity 6000.3 实测 CS1061），
@@ -5506,7 +5506,7 @@ public static class ArenaBuilder
                 //   （原版 sororitas 的 3 个 `Bottom Filler *`，原版值 `(7, 0, 7, 9)`）**整张被平铺**。
                 if (border != null && border.Length >= 4) ti.spriteBorder = new Vector4(border[0], border[1], border[2], border[3]);
                 ti.alphaIsTransparency = true;
-                ti.mipmapEnabled      = false;
+                ti.mipmapEnabled      = SpriteMipEnabled(path, false);   // ✅ 已复刻（2026-11-04 · B140-WF · B139-H1）：原版逐张真值（`m_MipCount > 1` 才开；表外 = false，与 `ApplyOriginalImport` 同一口径）—— 原来是无条件 false，与真值表打架
                 ti.SaveAndReimport();
             }
         }
@@ -6590,35 +6590,35 @@ public static class ArenaBuilder
         //   场景 YAML 做定点改写。场景本身就是本生成器的产物，改它等于把值写进生成链。
     }
 
-    /// <summary>🆕 2026-11-04（`B139_H` · 审计 14-04）：**把烘焙四格按原版值落到生成出来的场景 YAML 上**。
+    /// <summary>🆕 2026-11-04（`B139_H` · 审计 14-04）：**把烘焙四格（+ 可选的环境光三格）按原版值落到生成出来的场景 YAML 上**。
     /// <para>原版 13 场 `!u!157 LightmapSettings.m_LightmapEditorSettings` 实读（B139-Y 逐场回读通过）：
-    /// `m_BakeBackend 0` · `m_PVRSampleCount 500` · `m_PVRFilteringGaussRadiusIndirect 5` · `m_PVRFilteringGaussRadiusAO 2`。
-    /// 我们原来是 Unity 默认 `2 / 512 / 1 / 1`。</para>
-    /// <para>⚠️ 只改这四行、只改 `!u!157` 块内的 `m_LightmapEditorSettings` 子块；行尾按原样保留（Unity 写的是 LF）。
-    /// 写完**当场回读**（先断前提再断结论：4 格一个都没命中 = 这条什么都没做）。</para></summary>
-    static void PatchLightmapEditorSettings(string scenePath)
+    /// `m_BakeBackend 0` · `m_PVRSampleCount 500` · `m_PVRFilteringGaussRadiusIndirect 5` · `m_PVRFilteringGaussRadiusAO 2`；我们原来是 Unity 默认 `2/512/1/1`。
+    /// ✅ 2026-11-04（`B140-WF` · `B139-N1`）：`patchAmbient=true` 时**同一趟**再落 `!u!104 RenderSettings` 的三格（值见类尾常量）。
+    /// ⚠️ 只改这几行；行尾按原样保留（Unity 写的是 LF）。写完**当场回读**（先断前提再断结论：一格都没命中 = 这条什么都没做）。
+    /// 🔴 名字沿用（账里那条 `A` 行按 `PatchLightmapEditorSettings(string scenePath)` 引用），⛔ 不改名。</para></summary>
+    public static void PatchLightmapEditorSettings(string scenePath, bool patchAmbient = false)
     {
         if (!File.Exists(scenePath)) { Debug.LogWarning($"[Arena] 烘焙参数：场景不在 {scenePath} ⇒ 没写"); return; }
         string text = File.ReadAllText(scenePath);
         string nl = text.Contains("\r\n") ? "\r\n" : "\n";
         var lines = text.Split(new[] { "\r\n", "\n" }, System.StringSplitOptions.None);
-        bool inLms = false, inLes = false;
+        bool inLms = false, inLes = false, inRs = false;
         int n = 0;
         var want = new Dictionary<string, string>
         {
-            { "m_BakeBackend", "0" },
-            { "m_PVRSampleCount", "500" },
-            { "m_PVRFilteringGaussRadiusIndirect", "5" },
-            { "m_PVRFilteringGaussRadiusAO", "2" },
+            // ✅ B140-WF · B139-N1：三格环境光只在 `patchAmbient` 时进表（13 场 arena 那侧由清单写 RenderSettings，⛔ 不重复写）
+            { "m_BakeBackend", BakeBackendValue.ToString() }, { "m_PVRSampleCount", PvrSampleCountValue.ToString() },
+            { "m_PVRFilteringGaussRadiusIndirect", GaussIndirectValue.ToString() }, { "m_PVRFilteringGaussRadiusAO", GaussAOValue.ToString() },
         };
+        if (patchAmbient) { want["m_AmbientEquatorColor"] = AmbientEquatorYaml; want["m_AmbientGroundColor"] = AmbientGroundYaml; want["m_SubtractiveShadowColor"] = SubtractiveShadowYaml; }
         for (int i = 0; i < lines.Length; i++)
         {
             var t = lines[i];
-            if (t.StartsWith("--- ")) { inLms = t.StartsWith("--- !u!157 "); inLes = false; continue; }
-            if (!inLms) continue;
-            if (t.StartsWith("  m_LightmapEditorSettings:")) { inLes = true; continue; }
-            if (!inLes) continue;
-            if (t.Length > 2 && !t.StartsWith("    ")) { inLes = false; continue; }   // 出了子块
+            if (t.StartsWith("--- ")) { inLms = t.StartsWith("--- !u!157 "); inRs = t.StartsWith("--- !u!104 "); inLes = false; continue; }
+            if (!inLms && !inRs) continue;
+            if (inLms && t.StartsWith("  m_LightmapEditorSettings:")) { inLes = true; continue; }
+            if (inLms && !inLes) continue;
+            if (inRs && !(t.Length > 2 && t.StartsWith("  ") && !t.StartsWith("    "))) continue; if (inLms && t.Length > 2 && !t.StartsWith("    ")) { inLes = false; continue; }   // RenderSettings 只认两空格顶格；LightmapEditorSettings 出了子块
             int idx = t.IndexOf(':');
             if (idx < 0) continue;
             string key = t.Substring(0, idx).Trim();
@@ -6629,7 +6629,7 @@ public static class ArenaBuilder
         }
         if (n == 0)
         {
-            Debug.LogWarning("[Arena] 🔴 烘焙四格**一格都没命中**（场景 YAML 里找不到 `m_LightmapEditorSettings`）⇒ 这条等于没做");
+            Debug.LogWarning("[Arena] 🔴 场景参数**一格都没命中**（场景 YAML 里找不到 `m_LightmapEditorSettings` / `RenderSettings`）⇒ 这条等于没做");
             return;
         }
         File.WriteAllText(scenePath, string.Join(nl, lines));
@@ -6638,9 +6638,9 @@ public static class ArenaBuilder
         int ok = 0;
         foreach (var kv in want)
             if (back.Contains("    " + kv.Key + ": " + kv.Value) || back.Contains("  " + kv.Key + ": " + kv.Value)) ok++;
-        Debug.Log(ok == 4
-            ? "[Arena] 烘焙参数已落 4/4 格（BakeBackend 0 · PVRSampleCount 500 · Gauss 5/2）"
-            : $"[Arena] 🔴 烘焙参数回读只命中 {ok}/4 格（写了 {n} 行）—— 需要人读那份场景 YAML");
+        Debug.Log(ok == want.Count
+            ? $"[Arena] 场景参数已落 {ok}/{want.Count} 格（BakeBackend 0 · PVRSampleCount 500 · Gauss 5/2" + (patchAmbient ? " · 环境光三格" : "") + "）"
+            : $"[Arena] 🔴 场景参数回读只命中 {ok}/{want.Count} 格（写了 {n} 行）—— 需要人读那份场景 YAML");
     }
 
     /// <summary>🆕 2026-11-04（`B139_H` · 审计 16-04 / 16-05 / 16-06 + 14-05）：
@@ -6707,5 +6707,32 @@ public static class ArenaBuilder
         return Mathf.Abs(cur.x - border[0]) < 0.01f && Mathf.Abs(cur.y - border[1]) < 0.01f
             && Mathf.Abs(cur.z - border[2]) < 0.01f && Mathf.Abs(cur.w - border[3]) < 0.01f;
     }
+
+    // ───────── 🆕 2026-11-04（`B140-WF`）：精灵 mip 走**同一份**原版真值表 + 7 格的唯一数值来源 ─────────
+    // 判据 → `判据/B140_对账_G4_B139新账.md:22`（`B139-H1`）· 原版 `Battle Arena 1.unity` `!u!104 &2` / `!u!157 &3`
+    //        （13 场逐字同值，B139-Y 回读通过；`14-05` 的旁证见 `判据/B140_对账_G6_审计指针.md:159-162`）。
+    // 🔴 为什么放类尾：本文件被账按行号引用，新成员插在中间会让下游行号整体漂移（与上面那段旁挂表同一条纪律）。
+
+    /// <summary>精灵贴图该不该开 mip —— **直接读原版真值表**（`ArtBaker.OriginalMipEnabled`：先查
+    /// `vfx_texture_mips.tsv`、再查 `arena_texture_import.tsv`，`m_MipCount > 1` 才开）。
+    /// <para>⚠️ 与 `ApplyOriginalImport`（同文件）是**同一份表、同一条口径**，⛔ 不许在这里各写一套。
+    /// 表里没有这张 ⇒ **保留传入的现值**（`current`），⛔ 不猜、也不静默当成「原版没有 mip」。</para></summary>
+    public static bool SpriteMipEnabled(string path, bool current) => ArtBaker.OriginalMipEnabled(path, current);
+
+    // ---- `PatchLightmapEditorSettings` 的**唯一数值来源**（生产侧与 `B140_WF_Assert` 引用同一组，⛔ 别在断言里另抄一份）----
+    /// <summary>原版 `RenderSettings` 三格（原版 `Battle Arena 1.unity` `!u!104 &2`；13 场逐字同值 = B139-Y 14-02/03）。</summary>
+    public const string AmbientEquatorYaml = "{r: 0.3254717, g: 0.5862051, b: 1, a: 1}";
+    /// <summary>见 `AmbientEquatorYaml`。</summary>
+    public const string AmbientGroundYaml = "{r: 0.5896226, g: 0.5896226, b: 1, a: 1}";
+    /// <summary>见 `AmbientEquatorYaml`。</summary>
+    public const string SubtractiveShadowYaml = "{r: 0.6367924, g: 0.7275943, b: 1, a: 1}";
+    /// <summary>原版 `m_LightmapEditorSettings.m_BakeBackend`（14-04）。</summary>
+    public const int BakeBackendValue = 0;
+    /// <summary>原版 `m_PVRSampleCount`（14-04）。</summary>
+    public const int PvrSampleCountValue = 500;
+    /// <summary>原版 `m_PVRFilteringGaussRadiusIndirect`（14-04）。</summary>
+    public const int GaussIndirectValue = 5;
+    /// <summary>原版 `m_PVRFilteringGaussRadiusAO`（14-04）。</summary>
+    public const int GaussAOValue = 2;
 
 }

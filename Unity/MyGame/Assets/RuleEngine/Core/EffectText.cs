@@ -3378,7 +3378,7 @@ namespace RuleEngine
         ///   deal → stun → destroy → heal → draw → return → refill → deploy → give/lose/gain
         /// ⚠️ **顺序本身是语义的一部分**（先具体后一般），别按字母序重排。
         /// </summary>
-        public static SegResult ParseSegment(string seg)
+        public static SegResult ParseSegment(string seg, string handKindHint = null)
         {
             var r = new SegResult { Ops = new List<EffectOp>() };
             if (string.IsNullOrEmpty(seg)) { r.Kind = SegKind.KeywordOnly; return r; }
@@ -3794,7 +3794,7 @@ namespace RuleEngine
             //    （前缀挂在 `r` 上，`r = Dispatch(...)` 一赋值就没了 —— 2026-10-11 离线探针
             //      当场抓到过：`1 [Spirit Stone]: Give +1 [Melee] …` 那 28 张的 `cost` 全变 0）。
             int paidCost2 = r.PaidCost; string paidKind2 = r.PaidKind;
-            r = Dispatch(low, s);
+            r = Dispatch(low, s, handKindHint);   // 🆕 2026-11-04（`B140_WA` · 引擎-N4④）：`handKindHint` = 「本句的 it/they 指谁」的**外部提示**（只有 `TryForEach` 的「`repeat for each <X> in your hand` + 尾句」那一支传，见那里的调用点）；`null` ⇒ 与改前逐字等价
             // 付费代价记到**这一句产出的每条 op** 上（`12 [Energy]: Draw 3 cards`）
             // 🔴 **2026-10-11（`A1346` ②乙 / `A1358`）**：走 `StampPaidCost` ——
             //    **组里第一条付钱**、其余挂 `CostShared`。原来这里是「每条都贴同一个 `Cost`」，
@@ -3814,7 +3814,7 @@ namespace RuleEngine
         }
 
         /// <summary>handler 管线（付费前缀已由调用方剥掉、记在 op.Cost 上）</summary>
-        static SegResult Dispatch(string low, string src)
+        static SegResult Dispatch(string low, string src, string handKindHint = null)
         {
             var r = new SegResult { Ops = new List<EffectOp>() };
             EffectOp op;
@@ -4121,7 +4121,7 @@ namespace RuleEngine
             //      `ReSubjectCostLess` 要求 `N less`，本来不会撞，但顺序写死更省心。
             op = TrySelfCostMore(low, src);
             if (op != null) return Finish(r, op, src);
-            op = TryLowerCost(low, src);
+            op = TryLowerCost(low, src, handKindHint);
             if (op != null) return Finish(r, op, src);   // `and give it X` 的尾巴靠 Finish 解
 
             // ---- 7d) `Lower its Health to 1`（2026-09-13 A4）----
@@ -5080,7 +5080,7 @@ namespace RuleEngine
                     // 尾句**只结算一次**（`them` 指受 for-each 影响的那批，不是每份再来一遍）
                     if (tail != null)
                     {
-                        var sub = ParseSegment(tail);
+                        var sub = ParseSegment(tail, (body.Trim() == "repeat" ? countRef : null));   // 🆕 2026-11-04（`B140_WA` · 引擎-N4④）：**唯一**传 `handKindHint` 的地方 —— 形状 = `Repeat for each <X> in your hand and lower their cost by 1`（`GSC75`）⇒ 尾句里的 `their` 指**手牌里那一类牌**（`countRef` = `vehicle in your hand`），不是「指代上一张」。其它形态（`body` 不是 `repeat`）传 `null` ⇒ 与改前逐字等价
                         if (sub.Ops != null) r.Ops.AddRange(sub.Ops);
                         if (sub.Kind != SegKind.Ok && sub.Kind != SegKind.KeywordOnly) r.Kind = SegKind.Partial;
                     }
@@ -8157,7 +8157,7 @@ namespace RuleEngine
         /// ⚠️ `rule_core.gd` 是**我们自己的上一版 Godot 复刻**（旁证、非权威，见文件头）—— 这两句写的是
         /// 「我们当时照什么形状抄的」，**不是原版语义判据**。
         /// </summary>
-        static EffectOp TryLowerCost(string low, string src)
+        static EffectOp TryLowerCost(string low, string src, string handKindHint = null)
         {
             // `Lower its cost by 2 **and give it Flank**` —— 四条正则都锚了 `$`，
             // 尾巴一出现就整条失配（`Oath 2:` 那句就是这么掉出去的）。先切尾巴。
@@ -8211,14 +8211,14 @@ namespace RuleEngine
                     Instead = instead,
                 };
             }
-            // ② `Lower/Reduce its cost by N` —— 指代**前一句刚回手/刚造出来**的那张
+            // ② `Lower/Reduce its cost by N` —— 指代**前一句刚回手/刚造出来**的那张。（🔴 2026-11-04 `B140_WA` · 引擎-N4④：`handKindHint` 非空 ⇒ 「它们」指**手牌里那一类牌** —— 唯一形态 = `Repeat for each Vehicle in your hand and lower their cost by 1`（`GSC75 Roaming Outriders`）；判据 = 卡面原文 + `AbilityLogic__GetTargets.c:884-892` 的 `inHandFiltered(50)`。⚠️ **只由 `TryForEach` 的尾句那一支传**，`Dispatch` 的其它递归一律默认 `null` ⇒ `AM54`/`GSC29`/`GSC55` 那 4 张照旧走 `(指代上一张)`。写在同一物理行（铁律 18·b）：本文件有账按行号引用）
             var m2 = ReLowerItsCost.Match(low);
             if (m2.Success)
             {
                 return new EffectOp
                 {
                     Verb = "lowercost", Source = src, Amount = int.Parse(m2.Groups[1].Value),
-                    Payload = "(指代上一张)", Duration = Dur(m2.Groups[2]), Tail = tail,
+                    Payload = handKindHint ?? "(指代上一张)", Duration = Dur(m2.Groups[2]), Tail = tail,
                     Instead = instead,
                 };
             }

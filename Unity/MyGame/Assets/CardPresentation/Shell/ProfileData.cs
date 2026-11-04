@@ -1012,7 +1012,7 @@ namespace CardPresentation
             get
             {
                 if (!string.IsNullOrEmpty(SavePathOverrideForTest)) return SavePathOverrideForTest;
-                return System.IO.Path.Combine(System.IO.Path.Combine(SaveRoot.Path, SaveDirName), SaveFileName);
+                var dir = SaveSandbox.Dir(SaveDirName); return dir == null ? null : System.IO.Path.Combine(dir, SaveFileName);   // 🆕 2026-11-04（`B140_V4b`）批处理 ⇒ 沙箱（`Core/SaveSandbox.cs`）；非批处理 ⇒ `SaveRoot.Path`，逐字节不变
             }
         }
 

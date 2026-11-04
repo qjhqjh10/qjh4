@@ -177,12 +177,12 @@ namespace CardPresentation
         {
             get
             {
-                return string.IsNullOrEmpty(OverrideDir)
-                    ? Path.Combine(SaveRoot.Path, "WarpforgeRanked")
-                    : OverrideDir;
+                return !string.IsNullOrEmpty(OverrideDir)   // 🆕 2026-11-04（`B140_V4b`）：批处理 ⇒ 沙箱（`Core/SaveSandbox.cs`）；非批处理 ⇒ `SaveRoot.Path`，逐字节不变
+                    ? OverrideDir
+                    : SaveSandbox.Dir("WarpforgeRanked");
             }
         }
-        public static string StorePath { get { return Path.Combine(StoreDir, "ranked.json"); } }
+        public static string StorePath { get { var d = StoreDir; return d == null ? null : Path.Combine(d, "ranked.json"); } }   // 🆕 2026-11-04（`B140_V4b`）：沙箱建不出来 ⇒ `null`（`SaveNow` 会出声并跳过，⛔ 不回落真根）
 
         [Serializable]
         class Save

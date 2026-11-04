@@ -220,6 +220,8 @@ class EffectsProbe
             var op = ops[i];
             Console.WriteLine("   op[" + i + "] Verb=" + (string.IsNullOrEmpty(op.Verb) ? "-" : op.Verb)
                               + " · Cost=" + op.Cost + (string.IsNullOrEmpty(op.CostKind) ? "" : "(" + op.CostKind + ")")
+                              + " · Amount=" + op.Amount + " · AmountMax=" + op.AmountMax
+                              + "（" + AmountOrigin(op) + "）"
                               + " · Target=" + TargetText(op.Target)
                               + " · Target2=" + TargetText(op.Target2));
         }
@@ -235,6 +237,20 @@ class EffectsProbe
              + " ×" + t.Count
              + (t.Random ? " random" : "")
              + (t.Adjacent ? " adjacent" : "");
+    }
+
+    /// <summary>`Amount` / `AmountMax` 这两列**取自哪儿**（`B124-PROBEAMT`）。
+    /// <para>判据 = `EffectText` 的 op 产生点：**唯一按卡表注入 op** 的是
+    /// `InjectChoicesDefinitionOp`（`EffectText.cs:2537-2552`，`Source = EffectText.ChoiceResolutionSource`）；
+    /// 其余 `new EffectOp { … Source = src … }` 全部由卡面 `desc` 那句解析出来。
+    /// （另一个卡表侧修正 `ApplyDataOutlierDurations` 只改 `Duration`，**不碰这两列**。）</para>
+    /// <para>⚠️ 将来**新增卡表注入口**时必须在这里补一条，否则本列会把卡表值冒充成正文值 ——
+    /// 那是读数口最坏的一种假读数（读数看着有依据）。`Source` 为空 ⇒ 如实打 `?`，⛔ 不猜。</para></summary>
+    static string AmountOrigin(RuleEngine.EffectOp op)
+    {
+        if (op == null) return "?";
+        if (op.Source == RuleEngine.EffectText.ChoiceResolutionSource) return "卡表";
+        return string.IsNullOrEmpty(op.Source) ? "?" : "正文";
     }
 
     // ==================================================================
