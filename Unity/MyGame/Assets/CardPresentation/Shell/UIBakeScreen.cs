@@ -74,7 +74,7 @@ namespace CardPresentation
         public const string RTName = "RT Background bake";
 
         // ---- 原版字段（名字逐字照抄）----
-        /// <summary>烘哪台相机（原版 `cameraToBake`；我们 = `Camera.main` = `LayoutSpace.Apply` 用的那台）。</summary>
+        /// <summary>烘哪台相机（原版 `cameraToBake`；我们 = `LayoutSpace.Cam` = `LayoutSpace.Apply` 用的那台 UI 相机 —— 2026-11-04 起 ⛔ 不是 `Camera.main`）。</summary>
         public Camera cameraToBake;
         /// <summary>整屏那块图（原版是 uGUI `RawImage`；我们 = 世界空间 `ImageQuad`）。</summary>
         public ImageQuad image;
@@ -147,7 +147,7 @@ namespace CardPresentation
                 }
             }
 
-            if (cameraToBake == null) cameraToBake = Camera.main;
+            if (cameraToBake == null) cameraToBake = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：原版 `cameraToBake` = UI 相机；⛔ 不用 `Camera.main`（战斗场景那台是 3D BoardCamera））
             _rtW = EffScreenW;
             _rtH = EffScreenH;
         }
@@ -229,9 +229,9 @@ namespace CardPresentation
             }
 
             // 🔴 原版 `cameraToBake` 是序列化字段；我们的壳相机会**随场景切换被销毁**（`ShellRuntime.LoadMainMenu`
-            //    把壳相机关了、主菜单场景有自己那台）⇒ 这里取「当前那台」：字段活着就用它，否则问 `Camera.main`。
+            //    把壳相机关了、主菜单场景有自己那台）⇒ 这里取「当前那台」：字段活着就用它，否则走 `LayoutSpace.ResolveHudCamera()`（原版 `SceneCameraManager.GetUICamera` 三档）。
             var cam = cameraToBake;
-            if (cam == null || !cam.isActiveAndEnabled) cam = Camera.main;
+            if (cam == null || !cam.isActiveAndEnabled) cam = LayoutSpace.ResolveHudCamera();   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：`Cam`→`UICamera`→`MainCamera`，原版 `SceneCameraManager.GetUICamera` 三档；⛔ 不直接取 `Camera.main`）
             cameraToBake = cam;
             if (cam == null)
             {

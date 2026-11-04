@@ -88,7 +88,7 @@ public static class EndPanelProbe
         if (Application.isBatchMode) EditorApplication.Exit(bad == 0 && shotFail == 0 ? 0 : 1);
     }
 
-    /// <summary>拍一张图。**拍成了返回 `true`**；拿不到相机（`Camera.main == null`）时返回 `false`
+    /// <summary>拍一张图。**拍成了返回 `true`**；拿不到相机（`LayoutSpace.Cam == null`）时返回 `false`
     /// （并**出声** + 记进调用方的失败账）。
     /// <para>🔴 **2026-10-19（`A1082`）就地改**：`cam == null` 那一支原来是**裸 `return`** —— 不报错、也不写图
     /// ⇒ 五张截图（四档骷髅 + 投降档）**一张都拍不出来**、日志里却只剩「探针跑完」那一行（本工程最忌讳的**静默失败**；
@@ -104,10 +104,10 @@ public static class EndPanelProbe
     /// 也拖进这一笔改动（而它正被别的写手改）。</para></summary>
     static bool Shot(string file)
     {
-        var cam = Camera.main;
+        var cam = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：本探针建场时 `LayoutSpace.Apply(cam)` 过；⛔ 不用 `Camera.main`（战斗场景那台是 3D BoardCamera））
         if (cam == null)
         {
-            Debug.LogError(P + "  ✗ 截图 " + file + "：**没拍成** —— `Camera.main == null`"
+            Debug.LogError(P + "  ✗ 截图 " + file + "：**没拍成** —— `LayoutSpace.Cam == null`"
                            + "（改前这一支是**静默 return**：不报错、也不写图 ⇒ 谁都不知道这一张没拍）");
             return false;
         }

@@ -1385,8 +1385,8 @@ namespace CardPresentation
         public void OnMessageBodyClick()
         {
             if (_mdBody == null) return;
-            var cam = Camera.main;
-            if (cam == null) return;                        // 原版 `GetUICamera()` 取不到 ⇒ 不做
+            var cam = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：原版 `TryProcessText` 传的是 `Camera.main`（菜单里那台 = UI 相机）；⚠️ 2026-11-04 订正：战斗场景的 `MainCamera` 已归 3D BoardCamera ⇒ 改取 HUD 相机）
+            if (cam == null) { Debug.LogWarning("[Inbox] 取不到 HUD 相机（`LayoutSpace.Cam` 为空）⇒ 正文链接这一下不动作（原版 `GetUICamera()` 取不到时也是不动作）"); return; }   // 原版 `GetUICamera()` 取不到 ⇒ 不做
             Vector3 m = PointerOverrideForTest ?? PointerScreenForLink();   // 🆕 B107_W15：自检注入（null ⇒ 真实设备，生产路径不变）
             float z = cam.WorldToScreenPoint(_mdBody.transform.position).z;
             string url = _mdBody.LinkAt(cam.ScreenToWorldPoint(new Vector3(m.x, m.y, z)), cam);
@@ -1442,7 +1442,7 @@ namespace CardPresentation
             var q = _rowBgs[i];
             if (q == null) return;
             var rt = q.transform as RectTransform;
-            var cam = Camera.main;
+            var cam = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：原版 `IsVisibleFrom(rt, Camera.main)`，那台在菜单里 = UI 相机；⛔ 战斗场景的 `MainCamera` 现在是 3D BoardCamera）
             if (rt == null || cam == null) return;                       // 批处理/无相机 ⇒ 不播（原版这一档 NRE，我们降级）
             if (!RendererExtensions.IsVisibleFrom(rt, cam)) return;      // 原版：不在屏幕内 ⇒ 静默
             WindowSounds.PlayFx(WindowSounds.BoosterCardClickCue, "InboxWindow 入场 slotting（原版 MessageContainer.slottingSound）");

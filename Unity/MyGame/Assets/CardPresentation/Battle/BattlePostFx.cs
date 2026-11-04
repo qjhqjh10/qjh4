@@ -127,7 +127,7 @@ namespace CardPresentation
         /// 返回 false = 这一局没有后期链（**会计数**）。
         /// <param name="boardCamera">原版那句 `UpdateVolumeStack` 的目标相机（= `BattleManager.boardCamera`）。
         /// 传 null ⇒ 自己找：优先 `CameraRenderType.Base` 那台（URP 里唯一一台 base，就是战场相机），
-        /// 退 `Camera.main`。**找不到会出声 + 计数**，不会静默少这一跳。</param></summary>
+        /// 退 `Camera.main`（2026-11-04 起 = 3D 战场相机，与原版同）。**找不到会出声 + 计数**，不会静默少这一跳。</param></summary>
         public bool Attach(Volume vol, Camera boardCamera = null)
         {
             if (vol == null) { MissingVolume++; return false; }
@@ -239,7 +239,7 @@ namespace CardPresentation
         }
 
         /// <summary>找战场那台相机：URP 里 `CameraRenderType.Base` **只有一台**，就是它；
-        /// 取不到再退 `Camera.main`。两样都没有 ⇒ null（调用方出声 + 计数）。</summary>
+        /// 取不到再退 `Camera.main`（2026-11-04 起 `MainCamera` 标签 = 3D 战场相机，与原版 `boardCamera` 同义）。两样都没有 ⇒ null（调用方出声 + 计数）。</summary>
         static Camera ResolveBoardCamera()
         {
             var cams = Camera.allCameras;
@@ -250,7 +250,7 @@ namespace CardPresentation
                 var uad = c.GetComponent<UniversalAdditionalCameraData>();
                 if (uad != null && uad.renderType == CameraRenderType.Base) return c;
             }
-            return Camera.main;
+            return Camera.main;   // ✅ 已复刻（2026-11-04 · B139-D4 · 3D 档：原版 `UpdateVolumeStack` 拍的是 `BattleManager.boardCamera`，而 2026-11-04 起 `MainCamera` 标签就归 3D 那台（原版 GO `&348`）⇒ 这里的 `Camera.main` **就是要 3D 战场相机**，⛔ 别改成 `LayoutSpace.Cam`）
         }
 
         static RenderTexture NewRt(int w, int h, string name)

@@ -388,6 +388,18 @@ namespace WarpforgeVFX
             if (unParentAtStart)
             {
                 transform.SetParent(null);
+                // ✅ 已复刻（2026-11-04 · B139-G · decomp_full/AnimFXModuleTransformModifier__Initialize.c:123-140）—— 条目 12-03：脱父之后**特效与卡彻底脱钩**
+                //    ⇒ 播放器那句「持有者离场 ⇒ 自毁」必须一起摘掉（`ClearOwner`）。
+                //    ⛔ 不摘的后果（我们原来的状态）：`Teleport Trait Summon` / `Teleport Trigger Effect Quick`
+                //      两件都是 `preventDestroy = 1`（没有计时销毁），原版脱父之后**永久驻留**
+                //      （= 原版自己的泄漏，照抄，铁律 18·0）；我们会因为 `_ownerWatch` 还指着原父，
+                //      卡一离场就把它收掉 ⇒ 比原版**少活**。
+                //    判据：原版 `AnimFXModuleTransformModifier__Initialize.c:123-140`（`transform.parent = null`，
+                //    此后与卡无任何关系）+ `AnimFXController__OnEnable.c`（`preventDestroy` ⇒ 不排销毁）。
+                //    ⚠️ **只有「被脱父的就是特效根」时才摘**：模块挂在子节点上时，特效根仍跟着卡走
+                //    （原版同样如此 —— 脱的只是那个子节点），这时摘掉 `_ownerWatch` 会让整件特效泄漏。
+                //    现读那两件的 `__node` 都是特效根（`animfx_modules.json`）。
+                if (Controller != null && Controller.transform == transform) Controller.ClearOwner();
                 if (setDefaultUnitTransformScaleWhenUnParenting)
                 {
                     // ✅ **2026-10-26（批次 6 · G12）已接线**（本节原来是「没还原 ①」）：
@@ -717,7 +729,11 @@ namespace WarpforgeVFX
         /// <para>我们的等价判据 = <see cref="CardView.EffectAnchor"/>（它内部就按「在不在场上」二分，
         /// ⛔ 别在这里再写一遍那张卡型表）；「在不在场上」取 `CardView.Face == CardFace.Board`。</para>
         /// <para>卡不是 `CardView`（理论上没有这类调用点）⇒ 返回 null（调用方报错 + 计数，不静默）。</para></summary>
-        static Transform ResolveEffectAnchor(Transform card)
+        /// <summary>卡的 effect anchor（原版 `CardScript.GetEffectAnchor()`）——
+        /// ✅ **2026-11-04 起是 `public static`**：`WFModuleScaleByTarget` 的 `doParentRelation` 也要它
+        /// （条目 12-02 的 `ParentConstraint` 等价物），判据**只此一处**（⛔ 别在那边再写一遍取法）。
+        /// 载体 = `CardView.EffectAnchor(onBoard)`，`onBoard = Face == CardFace.Board`。</summary>
+        public static Transform ResolveEffectAnchor(Transform card)
         {
             if (card == null) return null;
             var cv = card.GetComponent<CardView>();

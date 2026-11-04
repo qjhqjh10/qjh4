@@ -5457,7 +5457,7 @@ namespace CardPresentation
         ///      ⚠️ **还开着的那一半 = 载入模式**（要**做**，⛔ 不是「影响小、不做」那一类）：把它做成
         ///      **additive**（编辑器叠在窗上、主菜单相机让位）—— 判据已经齐了（「叠窗 + 关窗」，见上面两处出处），
         ///      做法 = `LoadScene(…, LoadSceneMode.Additive)` + `SetActiveScene` + 显式关掉一台 `MainCamera`
-        ///      （现成写法 → `Shell/ShellRuntime.cs` 切场景前那句 `Camera.main.enabled = false`）。
+        ///      （现成写法 → `Shell/ShellRuntime.cs` 切场景前那句 `LayoutSpace.Cam.enabled = false`，2026-11-04 `B139-D4` 改）。
         ///      ⚠️ **本波范围外**（简报明写「本波只做『作废缓存』那一环」）⇒ 账记在这里，别当成已经做完。</summary>
         public void EditDeck(int i) { GoEdit(i); }
 

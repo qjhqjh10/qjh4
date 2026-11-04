@@ -58,6 +58,11 @@
       0.589623,
       1.0
     ],
+    "subtractiveShadow": [
+      0.636792,
+      0.727594,
+      1.0
+    ],
     "intensity": 0.41,
     "fog": false,
     "fogColor": [
@@ -794,7 +799,10 @@
       "active": true,
       "hasShadow": true,
       "shadowCast": 1,
-      "shadowReceive": 1
+      "shadowReceive": 1,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Tank distortion 1 (1)",
@@ -1465,7 +1473,10 @@
       "active": true,
       "hasShadow": true,
       "shadowCast": 1,
-      "shadowReceive": 1
+      "shadowReceive": 1,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Cauldron 1",
@@ -2133,7 +2144,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Glass Tube 4",
@@ -2801,7 +2815,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Moon 11",
@@ -3469,7 +3486,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Hook 2",
@@ -4137,7 +4157,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Machinery 1",
@@ -4805,7 +4828,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Glass Tube 3",
@@ -5473,7 +5499,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Curtain 6",
@@ -6081,7 +6110,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Moon 2",
@@ -6749,7 +6781,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Trophy Rack",
@@ -7417,7 +7452,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Spike 5",
@@ -8085,7 +8123,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Cauldron 2",
@@ -8753,7 +8794,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 9",
@@ -9421,7 +9465,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Chain 2",
@@ -10089,7 +10136,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Machinery 2",
@@ -10757,7 +10807,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Ornament 3",
@@ -11425,7 +11478,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Curtain 5",
@@ -12033,7 +12089,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Shadow Receiver",
@@ -12134,7 +12193,10 @@
       "active": false,
       "hasShadow": true,
       "shadowCast": 1,
-      "shadowReceive": 1
+      "shadowReceive": 1,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipes 10",
@@ -12802,7 +12864,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Midground 2",
@@ -13470,7 +13535,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Chain 1",
@@ -14138,7 +14206,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Ornament 1",
@@ -14806,7 +14877,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Cache Stealth",
@@ -15494,7 +15568,10 @@
       ],
       "texOpaquePct": 57.7,
       "texClearPct": 0.0,
-      "active": false
+      "active": false,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Moon 8",
@@ -16162,7 +16239,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Curtain 3",
@@ -16770,7 +16850,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Lines 2",
@@ -17438,7 +17521,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Moon 1",
@@ -18106,7 +18192,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe Claw",
@@ -18774,7 +18863,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Background growth",
@@ -19442,7 +19534,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Curtain 2",
@@ -20050,7 +20145,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Curtain 4",
@@ -20718,7 +20816,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Hook 3",
@@ -21386,7 +21487,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Curtain 9",
@@ -21994,7 +22098,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Spike 7",
@@ -22662,7 +22769,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Weapon Rack",
@@ -23330,7 +23440,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Hook 1",
@@ -23998,7 +24111,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Moon 10",
@@ -24666,7 +24782,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crate 4",
@@ -25334,7 +25453,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Hook 4",
@@ -26002,7 +26124,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Spike 6",
@@ -26670,7 +26795,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Background Sky",
@@ -27338,7 +27466,10 @@
       ],
       "texOpaquePct": 96.1,
       "texClearPct": 3.8,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Spike 1",
@@ -28006,7 +28137,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Midground 3",
@@ -28674,7 +28808,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Hook 7",
@@ -29342,7 +29479,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Glass Tube 2",
@@ -30010,7 +30150,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 5",
@@ -30678,7 +30821,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Hook 5",
@@ -31346,7 +31492,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Hook 6",
@@ -32014,7 +32163,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 4",
@@ -32682,7 +32834,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crate 3",
@@ -33350,7 +33505,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Spike 3",
@@ -34018,7 +34176,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Curtain 7",
@@ -34626,7 +34787,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 2",
@@ -35294,7 +35458,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Gun 3",
@@ -35962,7 +36129,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crate 2",
@@ -36630,7 +36800,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Moon 4",
@@ -37298,7 +37471,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Moon 5",
@@ -37966,7 +38142,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Throne",
@@ -38634,7 +38813,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crate 1",
@@ -39302,7 +39484,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 1",
@@ -39970,7 +40155,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Midground 4",
@@ -40638,7 +40826,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Gun 1",
@@ -41306,7 +41497,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Floor",
@@ -41954,7 +42148,10 @@
       ],
       "texOpaquePct": 96.1,
       "texClearPct": 3.8,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 8",
@@ -42622,7 +42819,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Midground 1",
@@ -43290,7 +43490,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Moon 3",
@@ -43958,7 +44161,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 7",
@@ -44626,7 +44832,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Lines 1",
@@ -45294,7 +45503,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Moon 6",
@@ -45962,7 +46174,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Glass Tube 1",
@@ -46630,7 +46845,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Curtain 8",
@@ -47238,7 +47456,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Spike 2",
@@ -47906,7 +48127,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 3",
@@ -48574,7 +48798,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Moon 12",
@@ -49242,7 +49469,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Gun 2",
@@ -49910,7 +50140,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Spike 4",
@@ -50578,7 +50811,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Ornament 2",
@@ -51246,7 +51482,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Moon 7",
@@ -51914,7 +52153,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Curtain 1",
@@ -52582,7 +52824,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Moon 9",
@@ -53250,7 +53495,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 6",
@@ -53918,7 +54166,10 @@
       ],
       "texOpaquePct": 28.6,
       "texClearPct": 69.3,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     }
   ],
   "particles": [
@@ -54118,6 +54369,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -54222,6 +54474,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -54238,7 +54492,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Fire",
@@ -54451,6 +54719,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -54758,6 +55027,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -54774,7 +55045,21 @@
       "uvTimeMode": 2,
       "uvFps": 20.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Smoke",
@@ -55055,6 +55340,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -55371,6 +55657,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": true,
       "tilesX": 6,
@@ -55379,7 +55667,21 @@
       "uvTimeMode": 2,
       "uvFps": 10.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Bubbles (1)",
@@ -55583,6 +55885,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -55687,6 +55990,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -55703,7 +56008,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Embers",
@@ -56020,6 +56339,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 1,
       "mesh": null,
       "scalingMode": 1,
@@ -56332,6 +56652,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": false,
       "tilesX": 6,
@@ -56340,7 +56662,21 @@
       "uvTimeMode": 2,
       "uvFps": 10.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Embers",
@@ -56657,6 +56993,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 1,
       "mesh": null,
       "scalingMode": 1,
@@ -56969,6 +57306,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": false,
       "tilesX": 6,
@@ -56977,7 +57316,21 @@
       "uvTimeMode": 2,
       "uvFps": 10.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Cauldron Fire Left",
@@ -57198,6 +57551,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -57495,6 +57849,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": true,
       "tilesX": 7,
@@ -57503,7 +57859,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Gem Glow",
@@ -57665,6 +58035,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -57983,6 +58354,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -57999,7 +58372,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Bubbles",
@@ -58203,6 +58590,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -58307,6 +58695,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -58323,7 +58713,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Smoke",
@@ -58604,6 +59008,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -58920,6 +59325,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": true,
       "tilesX": 6,
@@ -58928,7 +59335,21 @@
       "uvTimeMode": 2,
       "uvFps": 10.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Cauldron Fire Right",
@@ -59149,6 +59570,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -59446,6 +59868,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": true,
       "tilesX": 7,
@@ -59454,7 +59878,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Bubbles Child",
@@ -59652,6 +60090,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -59756,6 +60195,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -59772,7 +60213,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Fire",
@@ -59985,6 +60440,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -60292,6 +60748,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -60308,7 +60766,21 @@
       "uvTimeMode": 2,
       "uvFps": 20.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     }
   ],
   "tapHits": [

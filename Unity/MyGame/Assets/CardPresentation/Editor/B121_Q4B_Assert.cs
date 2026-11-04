@@ -26,6 +26,9 @@
 //  🧨 B2 ← 撤销时不撤 blocking window ⇒ 玩家被锁 1.3 s / 撞 20 s 安全阀 ⇒ 红。
 //  🧨 B4 ← 去掉 `MaybeStartHandToBoardClip` 的闸 ⇒ 0.3 s 那条登场 clip 照旧起播 ⇒ 红；B6 是它的判别式。
 //  🧨 C1 ← 把撤销判定写成「指针在线下就撤」（不看有没有票）⇒ 未提交那一拖也会撤 ⇒ 红。
+//  🧨 C2 的**前提** ← 2026-11-04（`B139-D2`）：旧前提用 `2×TapThreshold` 横向补足算拖距，阈值一改就与横向差**静默相消**
+//     ⇒ 前提假绿、`ApplyOutFromPlayingArea` 不调 ⇒ ★C2 连带红。现改成**绝对拖距 0.25 世界单位**，
+//     并由 E 组（短拖 < 阈值 ⇒ 灯必须是 0）证明「过阈值」这条前提**不是恒真**。
 //
 // ============================ ⚠️ 覆盖边界（如实记）============================
 //  · **不跑 Unity 帧循环**：补间一律 `CardTween.Mode = Manual`（退出时原样还原），`DOTween` 由 `CardTween.Advance` 手动推。
@@ -37,8 +40,7 @@
 //    取不到 effect library / 3D 网格而**出声警告**（`CardFeel.HandToBoard` / `MountSpawnParticlesUnderToBoardFx` 的守卫），
 //    这是夹具边界、不是缺陷。
 //  · **不验手感/观感**（撤销后卡跟手的顺滑度、倾角）：那要真 Play（`资料/真Play待验清单.md`）—— 本件只验「`_dragging` 回来了」＋「下一帧真的跟手」＋「能立刻重提」这三件**可观测**的。
-//  · **本件还没接线**：入口 `Run()`（无参、零前提）。建议接在 `Editor/BattleScene.cs` 的聚合行上，
-//    `B121_WB_Assert.Run();` 之后（同一族：手牌拖拽 / 出牌）。
+//  · **接线**：入口 `Run()`（无参、零前提），已接在 `Editor/BattleScene.cs` 方法尾聚合行上（`B121_WB_Assert.Run();` 之后，行号会漂、按符号搜）。
 using System;
 using System.Collections.Generic;
 using DG.Tweening;                 // `Transform.DOKill()`（`Fixture.Dispose` 的收尾）
@@ -86,6 +88,7 @@ public static class B121_Q4B_Assert
             Group("B·驱动层那一半（blocking window / 已排程 clip）", B_DriverHalf);
             Group("C·反证：未提交时拖回线下**不**走撤销", C_NotCommitted);
             Group("D·灭自证（Kill 之前它本来会真的落地）", D_AntiSelfProof);
+            Group("E·灭自证②：短拖（< 阈值）⇒ 那道闸真的挡住（C2 的前提不是恒真）", E_ShortDragBelowThreshold);
         }
         catch (Exception e)
         {
@@ -344,20 +347,32 @@ public static class B121_Q4B_Assert
         try
         {
             Vector3 home = f.card.transform.position;
-            Vector3 inHand = LayoutSpace.ToWorld(0.5f, 0.12f);   // 还在手牌带里（线下）⇒ `PlayCommitGate` 不过
-            // 🔴 2026-11-03（`B124-W27`）：**量纲** —— `TapThreshold` = 10 真实 px ÷ 屏高（批处理 480p ⇒ 0.2083 我们单位），
-            //   而单张手牌会被 `Relayout` 摆到手牌中心 ⇒ 原写法 `inHand = ToWorld(0.5, 0.12)` 与 `home` **几乎同一点**
-            //   （实测位移 ≈ 0）⇒ `_travel >= TapThreshold` 闸不过（`Hand/CardInteraction.cs:1550`）⇒ `ApplyOutFromPlayingArea` 不调。
-            //   ⇒ 横向补足拖距（落点 y 不变 ⇒ 仍在手牌带 / 线下，语义不变）。
-            float needTravel = CardInteraction.TapThreshold * 2f;
-            if (Vector3.Distance(inHand, home) < needTravel) inHand += new Vector3(needTravel, 0f, 0f);
+            // 🔴 2026-11-04（`B139-D2` · 铁律 5 就地订正）。原文案写着「`TapThreshold` = 10 真实 px ÷ 屏高（批处理 480p ⇒ 0.2083）」，**两处都已过期**：
+            //   ① 阈值现为 **5**（原版 `Intro.unity:5429` 的 `m_DragThreshold: 5`，`B130` 落在 `Hand/CardInteraction.cs:110`）
+            //      ⇒ 同为 480p 屏时是 **0.1042**，不是 0.2083。
+            //   ② 旧写法 `needTravel = TapThreshold * 2` 再 `inHand += (needTravel,0,0)` 是**带符号的横向补足**：卡 `home` 与 `inHand`
+            //      横差约 0.1234 且**与补足方向相反** ⇒ 实得拖距 = `2T − 0.1234`。阈值 10→5 后 2T 由 0.4167 掉到 0.2083
+            //      ⇒ 落点 0.0849 < 0.1042 ⇒ 前提静默不成立 ⇒ `ApplyOutFromPlayingArea` 不调 ⇒ ★C2 连带红
+            //      （诊断 → `资料/完全复刻/报告/B139_DIAG_BattleScene9红.md` §1 的 #8/#9）。
+            //   ⇒ 改成**绝对拖距**（与阈值表达式彻底脱钩），并把「拖距 = 常量」「过阈值」「仍在手牌带」**各断一条硬前提** ——
+            //      阈值将来再变，前提会自己报红，而不是又静默相消一次。
+            const float DragDistWorld = 0.25f;   // 绝对距离：480p 阈值 0.1042 / 1080p 0.0463 ⇒ 明确大于任何一档合理的轻点阈值
+            Vector3 inHand = home + new Vector3(DragDistWorld, 0f, 0f);   // 只横移：y 不变 ⇒ 仍在手牌带（线下）、`PlayCommitGate` 必不过
+            float travel = Vector3.Distance(inHand, home);
+            float th = CardInteraction.TapThresholdWorldAt(Screen.height);
+            Check(Mathf.Abs(travel - DragDistWorld) < 1e-4f,
+                "（前提）C1 拖距 = **显式常量** " + DragDistWorld.ToString("F4") + " 世界单位（实得 " + travel.ToString("F4")
+                + "）—— ⛔ 与轻点阈值无耦合（旧写法 `2×TapThreshold` 会被横向差相消，见本段注释）");
+            Check(travel >= th,
+                "（前提）C2 这一拖**超过轻点阈值**（" + travel.ToString("F4") + " ≥ `TapThresholdWorldAt(" + Screen.height + ")` "
+                + th.ToString("F4") + "）—— 否则它按「轻点」处理、下面那条会空转绿"
+                + "｜🧨 这条红 = 固定拖距已不大于阈值 ⇒ **调大 `DragDistWorld`**，⛔ 别去改阈值（原版就是 5 px）");
+            Check(!CardInteraction.IsInPlayArea(inHand),
+                "（前提）C2b 落点仍在**手牌带**（线下）⇒ `PlayCommitGate` 必不过 —— 这一手验的是「没提交」那一支，不是「拖上去出牌」");
             f.it.SimulateHover(home);
             f.it.SimulatePress(home);
             Check(f.it.IsDragging, "（前提）抓起来了");
             f.it.SimulateDrag(inHand, 1f / 60f);
-            Check(Vector3.Distance(inHand, home) >= CardInteraction.TapThreshold,
-                "（前提）C2 这一拖**超过轻点阈值**（" + Vector3.Distance(inHand, home).ToString("F4") + " ≥ `TapThreshold` "
-                + CardInteraction.TapThreshold.ToString("F4") + "；靠横向补足）—— 否则它按「轻点」处理、下面那条会空转绿");
             Check(f.flights == 0 && !f.it.CanCancelDeployForTest,
                 "（前提）一直在手牌带里 ⇒ **没有提交**、也没有撤销票（`PlayCommitGate` 那两道门）");
 
@@ -437,5 +452,38 @@ public static class B121_Q4B_Assert
         else
             Debug.Log(P + "ⓘ " + where + " 批处理补刀：撤销后仍活着、时长 ≈ " + dur.ToString("F2")
                       + " s 的落位序列真杀 " + n + " 条（0 = 产品那句 `Kill` 已生效 / 本来没起过）");
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════════════════════
+    //  🆕 2026-11-04（`B139-D2` · 灭自证 ②：**拖距小于轻点阈值** ⇒ 那道闸真的挡住）
+    //  为什么要有这一组：C 组的「（前提）C2 这一拖超过轻点阈值」在旧写法里是**和阈值同一个表达式**算出来的
+    //  （`inHand += TapThreshold*2` 的横向补足）⇒ 阈值一减半，前提与实际拖距**一起变**、静默相消，C2 才翻红。
+    //  ⇒ 补一组「同夹具、同路径、只把拖距减到阈值以下」的对照：`OnLightPlayableHand` **必须**是 0。
+    //  这样「前提成立」就不是空话 —— 阈值被改小 / 那道闸被删 ⇒ 这里会亮灯变 1 ⇒ 红（判据 `Hand/CardInteraction.cs:1550`）。
+    // ══════════════════════════════════════════════════════════════════════════════════════════════
+    static void E_ShortDragBelowThreshold()
+    {
+        var f = Make("B121Q4B_E");
+        try
+        {
+            Vector3 home = f.card.transform.position;
+            float th = CardInteraction.TapThresholdWorldAt(Screen.height);
+            const float Ratio = 0.5f;                      // 拖距 = 阈值 × 0.5（只为「明确比它小」；C 组那边用的是**绝对常量**）
+            Vector3 shortInHand = home + new Vector3(th * Ratio, 0f, 0f);
+            float travel = Vector3.Distance(shortInHand, home);
+            Check(travel < th,
+                "（前提）E1 这一拖**短于**轻点阈值（" + travel.ToString("F4") + " < " + th.ToString("F4") + "）");
+            Check(!CardInteraction.IsInPlayArea(shortInHand), "（前提）E1b 落点仍在手牌带（线下）");
+            f.it.SimulateHover(home);
+            f.it.SimulatePress(home);
+            Check(f.it.IsDragging, "（前提）抓起来了");
+            f.it.SimulateDrag(shortInHand, 1f / 60f);
+            f.it.SimulateRelease(shortInHand);
+            Check(f.lights == 0 && f.returns == 1,
+                "★E2 **灭自证**：拖距短于阈值 ⇒ `_travel >= TapThreshold` 那道闸**真的挡住**"
+                + "（`OnLightPlayableHand` " + f.lights + " / `OnReturned` " + f.returns + "，应为 0 / 1）"
+                + "｜🧨 阈值被改小 / 那道闸被删 / C 组前提恒真 ⇒ 这里变 1 ⇒ 红");
+        }
+        finally { f.Dispose(); }
     }
 }

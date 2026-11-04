@@ -442,6 +442,13 @@ def main():
                 'sprite': S.get('m_Name', ''), 'ptu': S.get('m_PixelsToUnits', 100.0),
                 'rect': [rect.get('x', 0), rect.get('y', 0), rect.get('width', 0), rect.get('height', 0)],
                 'pivot': v3(S.get('m_Pivot', {})),
+                # 🆕 2026-11-04（`B139_H` · 审计 15-05）：**Sprite 的九宫格 border**
+                #   （原版 `Sprite.m_Border`，Unity `Sprite.border` = (left, bottom, right, top)）。
+                #   为什么必须抽：`m_DrawMode = 2 (Tiled)` 的精灵靠 border 决定「哪几条边不许平铺」，
+                #   我们原来没抽也没设 ⇒ 导入出来的 Sprite `spriteBorder` 恒 (0,0,0,0)
+                #   ⇒ **整张贴图被平铺**（原版 sororitas 的 3 个 `Bottom Filler *` 是 `(7,0,7,9)`）。
+                'border': [round(float((S.get('m_Border') or {}).get(k) or 0.0), 6)
+                           for k in ('x', 'y', 'z', 'w')],
                 'tex': texname, 'texPathId': texid,
                 'color': q4(sr.get('m_Color', {})), 'drawMode': sr.get('m_DrawMode', 0),
                 'size': v3(sr.get('m_Size', {})), 'flipX': sr.get('m_FlipX', False), 'flipY': sr.get('m_FlipY', False),

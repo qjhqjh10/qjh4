@@ -398,17 +398,17 @@ public static class MenuCheck
                              bool allowBlank = false, bool guardBlank = false,
                              System.Func<Texture2D, float> meanBrightness = null)
     {
-        var cam = Camera.main;
+        var cam = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：整屏截图要的是宿主那台 **UI 相机**（`LayoutSpace.Apply` 设的权威档）。⛔ 原来是 `Camera.main` —— 2026-11-04 起战斗场景的 `MainCamera` 是 3D BoardCamera，用它会把战场相机渲进图里）
         if (cam == null)
         {
             // 🔴 **2026-10-18（`A1007`）就地改**：这里原来是**裸 `return`** —— 不报错、也不写图，
             //   于是整条截图断言链会**靠「什么都没发生」假装通过**（本工程最忌讳的静默失败；
             //   与「把实现拿掉它还是绿的」同一族）。
             //   **行为那半句一个字不变**（照旧不写图、照旧不渲），变的是：**必须记一条 ✗ 并出声**。
-            //   ⛔ 别改回裸 `return`：`Editor/DeckScene.cs` 那条**判别式探针**（摘掉 `MainCamera`
-            //   标签造出无相机上下文、判「恰好一条 ✗」）会当场红。
+            //   ⛔ 别改回裸 `return`：`Editor/DeckScene.cs` 那条**判别式探针**（2026-11-04 `B139-D4` 起：
+            //   把静态档 `LayoutSpace.Cam` 置空 + 摘掉 `MainCamera` 标签造出无相机上下文、判「恰好一条 ✗」）会当场红。
             s.Fail++;
-            var miss = $"截图 {file}：**没拍成** —— `Camera.main == null`"
+            var miss = $"截图 {file}：**没拍成** —— `LayoutSpace.Cam == null`（宿主没 `LayoutSpace.Apply` 过相机）"
                      + "（改前这一支是**静默 return**：不报错、也不写图 ⇒ 谁都不知道这一张没拍）";
             s.Failures.Add(miss);
             Debug.LogError(s.P + $"   ✗ {miss}");

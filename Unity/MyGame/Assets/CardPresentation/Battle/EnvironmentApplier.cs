@@ -9,7 +9,7 @@
 //   `SO.EnableEnvironment(instant)`：
 //     ① `ApplyAmbientColor`：`RenderSettings.ambientLight` ＋ **补间** `_AmbientColorBlend`（时长 `SO.blendTime`）
 //     ② `ApplyFog`：**补间** `RenderSettings.fogColor / fogDensity`（`ToggleFog` 只切 `fog` 开关）
-//     ③ `scenarioObjects` 有值 ⇒ `Instantiate(prefab, Camera.main.pos/rot)` →
+//     ③ `scenarioObjects` 有值 ⇒ `Instantiate(prefab, battleCenterAnchor.pos)`（⚠️ 2026-11-04 订正：原写 `Camera.main.pos/rot` 是**错的** —— 现读 `out_il2csharp/ScenarioEnvironmentConditionSO.cs` 是 `BattleManager.Instance.battleCenterAnchor.position` + `Quaternion.identity`，与本文件 `:167` 那条一致）→
 //        **对子树里每个 blendable 调 `DoScenarioBlend{duration=blendTime, direction=true, targetValue=1}`**
 //     · **返回** 另一份 options：`{direction = targetValue = SO.defaultScenarioObjectsState}`
 //   `SO.DisableEnvironment(instant)`：对**旧实例**的每个 blendable 调

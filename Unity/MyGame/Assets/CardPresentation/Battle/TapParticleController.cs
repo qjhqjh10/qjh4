@@ -16,7 +16,7 @@
 //   ⑤ 移动端分支取 `pointerId`（桌面恒 −1；见判据 §3.4 B-1，本类走桌面口径）
 //   ⑥ `IsPointerOverGameObject(pointerId)` ⇒ return（指针压在 uGUI 射线靶上）
 //   ⑦ **`!Input.GetMouseButtonDown(0)` ⇒ return（按下沿，不是松手）**
-//   ⑧ `Camera.main` 取不到 ⇒ return
+//   ⑧ `Camera.main` 取不到 ⇒ return（2026-11-04 起它 = **3D 战场相机**：`MainCamera` 标签归 BoardCamera，原版 GO `&348`）
 //   ⑨ `ray = cam.ScreenPointToRay(mousePosition)`
 //   ⑩ **`Physics.RaycastNonAlloc(ray, hits[3], float.MaxValue, 0x40000C01)`**（原版 mask **本来含 bit10 = 卡**；本工程再加 bit8 ⇒ `0x40000D01`，见常量处）
 //   ⑪ `n < 1` ⇒ return
@@ -209,15 +209,15 @@ namespace CardPresentation
             // ⑥ 指针压在 uGUI 射线靶上 ⇒ 不算点地面（原版 `IsPointerOverGameObject(pointerId)`，桌面 −1）
             if (PointerOverUi()) return;
 
-            // ⑧ 相机：**照原版取 `Camera.main`**；取不到退 `BattleDriver.cam` 并出声（⛔ 不静默）
+            // ⑧ 相机：**3D 档** —— ✅ 已复刻（2026-11-04 · B139-D4 · 原版 `TapParticleController__Update.c:140-144` 取的就是 `Camera.main`，而 2026-11-04 起 `MainCamera` 标签归 **3D 透视 BoardCamera**（原版 GO `&348`）⇒ 这条地面 `Physics.Raycast` 要的正是战场相机，⛔ 别改成 `LayoutSpace.Cam`）。取不到退 `_driver.boardCam`（**同是 3D 档**）并出声（⛔ 不静默）
             var cam = Camera.main;
-            if (cam == null && _driver != null) cam = _driver.cam;
+            if (cam == null && _driver != null) cam = _driver.boardCam;
             if (cam == null)
             {
                 if (!_warnedNoCamera)
                 {
                     _warnedNoCamera = true;
-                    Debug.LogWarning("[Tap] `Camera.main` 与 `BattleDriver.cam` 都取不到 ⇒ 点地面反馈跳过"
+                    Debug.LogWarning("[Tap] `Camera.main`（3D 战场相机）与 `BattleDriver.boardCam` 都取不到 ⇒ 点地面反馈跳过"
                                    + "（原版 `.c:140-144` 取不到就整段不做事）。");
                 }
                 return;

@@ -26,12 +26,16 @@
 //   A. **两张卡从哪来**：原版从 `AnimFXController.actingCard/targetCard`（`CardScript`）拿；
 //      我们的 `WarpforgeEffectPlayer` **不持有卡片**（只有 `IsRetaliation`）⇒ 本类开两个 `Transform` 字段
 //      （手挂 / 由下游钩子 `CardResolver` 填）。**填不出来就照原版那一支 LogError 并 return**（不静默）。
-//   B. **`ParentConstraint` 我们没有** ⇒ 用 `SetParent(锚点, worldPositionStays: true)` 替代：
-//      位置/旋转跟着锚点走（= 原版的开关组合），`worldPositionStays: true` 保住世界缩放（≈ 原版「不继承缩放」）。
-//      ⚠️ **差异**：原版那份是「约束」（把锚点的位置/旋转**贴过来**），父子关系则连**层级**一起变（后面谁在这个
-//      节点下找东西，看到的树不一样），而且父级销毁时子物体会跟着没。语义上够用，但**不是逐字段同构**。
-//   C. **锚点**：原版是 `targetCard.GetEffectAnchor()`（卡片预制体上一个专用锚点）；我们没有这个概念 ⇒
-//      直接用 `targetCard` 本身。
+//   B. **`ParentConstraint` 我们没有** ⇒ ✅ **2026-11-04（`B139-G` · 审计 B8）已按原版语义自建等价约束**：
+//      每帧把粒子节点的**世界位/世界旋转**贴到「锚点 + 初始相对位姿」上，**不继承缩放**、**层级不变**、
+//      锚点/目标卡被销毁后**停在原地**（原版 `ParentConstraint__Sync.c` 就是这个形状）。
+//      🔴 **本条原写作**「用 `SetParent(锚点, worldPositionStays: true)` 替代 ≈ 不继承缩放」——
+//      **那不成立**（已按铁律 5 就地订正）：父子化会让①**层级变**（谁在这个节点下找东西看到的树不同）
+//      ②**父级销毁时子物体跟着没**（原版卡走特效**仍在世界**）③卡旋转时绕的是**卡根**不是锚点 ⇒ 193/314
+//      个 `doParentRelation = 1` 的实例全长在这三条上。⛔ 别改回 `SetParent`。
+//   C. **锚点**：原版是 `targetCard.GetEffectAnchor()`；我们的载体 = `CardView.EffectAnchor(onBoard)`
+//      （判据 `CardScript__GetEffectAnchor.c`）—— 解析走 `WFModuleTransformModifier.ResolveEffectAnchor`
+//      （**判据只此一处**，⛔ 别在本类里再写一遍取法）。
 //   D. **`Configure` 里只记引用字符串、不解析**：原版没有 `Configure` 这一步（字段是 Inspector 里连的），
 //      我们的数据装配在 `Configure` → `Initialize` 之间注入 `Controller`，而 `@node:` 路径要**从 prefab 根起算**
 //      ⇒ 解析一律放到 `Initialize`（那时 `Controller` 才是非 null）。
@@ -62,8 +66,8 @@ namespace WarpforgeVFX
         [Tooltip("原版 Tooltip：Particle effects that will get the target scale")]
         public ParticleSystem[] particleSystems = new ParticleSystem[0];
 
-        [Tooltip("原版 Tooltip：This will do a parent relation without changing the hierarchy。" +
-                 "⚠️ 我们用的是父子挂接（见文件头 B），层级会变。")]
+        [Tooltip("原版 Tooltip：This will do a parent relation without changing the hierarchy。\n" +
+                 "✅ 2026-11-04 起按原版语义实现（`ParentConstraint` 等价约束：贴位置+旋转、不继承缩放、层级不变）。")]
         public bool doParentRelation;
 
         [Header("Change shape angle by distance and scale")]
@@ -97,10 +101,34 @@ namespace WarpforgeVFX
         public static int ShapeAngleNotApplied;
         static bool _shapeAngleWarned;
 
+        // ---- 🆕 2026-11-04（`B139-G` · 审计 `B135_生命周期` B8 / 条目 12-02）：`ParentConstraint` 等价物 ----
+        /// <summary>一条约束：每帧把 <see cref="target"/> 的世界位/旋转贴到
+        /// 「<see cref="source"/> 的世界位姿 × 挂上那一刻记下的相对位姿」（**缩放不参与**）。</summary>
+        public struct ConstraintPair
+        {
+            public Transform target;      // 被约束的粒子节点
+            public Transform source;      // 目标卡的 effect anchor（原版 `Init(targetCard.GetEffectAnchor())`）
+            public Vector3 localOffset;   // 初始相对位（在 source 的**旋转坐标**里，**不乘 source 的缩放**）
+            public Quaternion localRot;   // 初始相对旋转
+        }
+        readonly System.Collections.Generic.List<ConstraintPair> _constraints =
+            new System.Collections.Generic.List<ConstraintPair>();
+        /// <summary>本实例上挂了几条约束（断言读数；`doParentRelation` 为假 ⇒ 0）。</summary>
+        public int ConstraintCount { get { return _constraints.Count; } }
+        /// <summary>累计挂上的约束条数（跨实例）。</summary>
+        public static int ConstraintsAdded;
+        /// <summary>取不到目标卡 effect anchor、退回卡根的次数（出声）。</summary>
+        public static int ConstraintAnchorFallbacks;
+        static bool _warnedAnchorFallback;
+        /// <summary>约束真的把节点贴过去过几帧（断言读数；0 = 每帧那一跳没跑）。</summary>
+        public static int ConstraintTicks;
+
         public static void ResetDiagnostics()
         {
             MissingCardRefs = 0; MissingParticleRefs = 0; ScaleApplied = 0;
             ShapeAngleApplied = 0; ShapeAngleNotApplied = 0; _shapeAngleWarned = false;
+            ConstraintsAdded = 0; ConstraintAnchorFallbacks = 0; ConstraintTicks = 0;
+            _warnedAnchorFallback = false;
         }
 
         /// <summary>两条**兵线中心**（原版 = `BattleParticleColliderManager` 上 `playerMinionCollider` /
@@ -152,6 +180,28 @@ namespace WarpforgeVFX
             Vector3 ratio = new Vector3(ts.x / acts.x, ts.y / acts.y, ts.z / acts.z);
 
             // ---- ③ 逐个粒子系统 ----
+            _constraints.Clear();                        // 重复 `Initialize`（自检里会）⇒ 约束按本次重挂，别累积
+            Transform boundAnchor = null;
+            if (doParentRelation)
+            {
+                boundAnchor = WFModuleTransformModifier.ResolveEffectAnchor(targetCard);
+                if (boundAnchor == null)
+                {
+                    // 原版 `Init(targetCard.GetEffectAnchor())` 拿不到锚点 = 卡片类型不对（我们这边 = 它不是 CardView）。
+                    // 退回卡根并**出声**（⛔ 不静默改锚点：锚点相对卡根偏 10.5% 卡高）。
+                    ConstraintAnchorFallbacks++;
+                    if (!_warnedAnchorFallback)
+                    {
+                        _warnedAnchorFallback = true;
+                        Debug.LogWarning("[WarpforgeVFX] `ScaleByTarget.doParentRelation` 取不到 `targetCard` 的 effect anchor" +
+                                         "（原版 `targetCard.GetEffectAnchor()`；我们的载体 = `CardView.EffectAnchorBoard/Hand`）" +
+                                         "⇒ 这一批退回**卡根**当约束源（位置会差 `(0,1.34,−0.128)` 原版单位）。" +
+                                         "这条警告每进程只报一次。");
+                    }
+                    boundAnchor = targetCard;
+                }
+            }
+
             for (int i = 0; i < particleSystems.Length; i++)
             {
                 var ps = particleSystems[i];
@@ -167,12 +217,24 @@ namespace WarpforgeVFX
                 pt.localScale = new Vector3(s.x * ratio.x, s.y * ratio.y, s.z * ratio.z);
                 ScaleApplied++;
 
-                if (doParentRelation)
+                if (doParentRelation && boundAnchor != null)
                 {
-                    // 原版：AddComponent<ParentConstraint>() + Init(targetCard.GetEffectAnchor())
-                    //       + ToggleParentingOptions(position:true, rotation:true, scale:false)
-                    // 我们：SetParent(锚点, worldPositionStays:true) —— 见文件头 B / C
-                    pt.SetParent(targetCard, true);
+                    // ✅ 2026-11-04（`B139-G` · 条目 12-02）：原版 = `AddComponent<ParentConstraint>()` +
+                    //   `Init(targetCard.GetEffectAnchor())` + `ToggleParentingOptions(position:true, rotation:true, scale:false)`
+                    //   （`decomp_full/AnimFXModuleScaleByTarget__Initialize.c:96-118`）。
+                    //   `ParentConstraint.Init(source)` 的语义 = **记下当前位姿相对 source 的偏移**，之后保持该偏移跟随
+                    //   ⇒ 这里同样**先记偏移、不搬位置**（初始画面与改前逐位相同，差别只在「之后怎么跟」）。
+                    //   ⚠️ 偏移的**位置部分不乘锚点缩放**（原版 scale 跟随是关的）。
+                    var rot = boundAnchor.rotation;
+                    var pair = new ConstraintPair
+                    {
+                        target = pt,
+                        source = boundAnchor,
+                        localOffset = Quaternion.Inverse(rot) * (pt.position - boundAnchor.position),
+                        localRot = Quaternion.Inverse(rot) * pt.rotation,
+                    };
+                    _constraints.Add(pair);
+                    ConstraintsAdded++;
                 }
             }
 
@@ -271,6 +333,32 @@ namespace WarpforgeVFX
                 arr[i] = WFEffectModule.ResolveNode<T>(root, refs[i], who);
             }
             return arr;
+        }
+
+        /// <summary>✅ 已复刻（2026-11-04 · B139-G · decomp_full/AnimFXModuleScaleByTarget__Initialize.c:96-118）——
+        /// `ParentConstraint` 的等价实现（条目 12-02）：每帧把每个被约束的
+        /// 粒子节点贴到「锚点世界位姿 × 挂上那一刻的相对位姿」。
+        ///
+        /// <para>判据（`decomp_full/AnimFXModuleScaleByTarget__Initialize.c:96-118` +
+        /// `ParentConstraint__Sync.c`）：**位置/旋转跟随、缩放不继承、层级不变**；
+        /// 目标卡被销毁 ⇒ 约束源没了 ⇒ 特效**留在世界**（原版同样是「约束失效、物体留在原地」）。</para>
+        ///
+        /// <para>⚠️ 与 `SetParent` 的三条差别（就是本条的缺陷本身）：层级不变 · 卡走特效仍在 · 绕**锚点**转。
+        /// ⛔ 别把这一跳改回 `SetParent`（`B139_G` 断言会红）。</para>
+        ///
+        /// <para>⚠️ 锚点被销毁后 `pair.source == null` ⇒ 跳过（Unity fake-null，⛔ 别写成 `!= null &amp;&amp;` 的反面）。</para></summary>
+        public override void ModuleTick(float dt)
+        {
+            if (_constraints.Count == 0) return;
+            for (int i = 0; i < _constraints.Count; i++)
+            {
+                var c = _constraints[i];
+                if (c.target == null || c.source == null) continue;     // 目标/锚点没了 ⇒ 原版约束也停手
+                var rot = c.source.rotation;
+                c.target.position = c.source.position + rot * c.localOffset;   // ⛔ 不乘 source 的缩放
+                c.target.rotation = rot * c.localRot;
+                ConstraintTicks++;
+            }
         }
     }
 }

@@ -111,7 +111,7 @@ public static class ArenaBuilder
     {
         // 2026-09-20 更正：原来只有 sky/ground/intensity。原版 13 场 m_AmbientMode **全是 3（Flat）**，
         // 不是 1（Trilight）—— 模式错了，抄对颜色也没用。equator/fog 一并带上。
-        public int mode; public float[] sky; public float[] equator; public float[] ground;
+        public int mode; public float[] sky; public float[] equator; public float[] ground; public float[] subtractiveShadow;
         public float intensity; public bool fog; public float[] fogColor; public float fogDensity;
         // 🔴 **2026-09-30 新增：雾的「形状」三项**（`m_FogMode` / 线性雾起止）。
         //    为什么非带不可：`ScenarioEnvironmentConditionSO` 的字段表里**只有 fogColor / fogDensity**，
@@ -196,7 +196,7 @@ public static class ArenaBuilder
         /// `hasShadow = false`（旁挂没覆盖到这个对象）= **退回旧行为**（`Off/false`，或诊断开关 `WF_SHADOWCAST`）。
         /// ⚠️ **必须靠 `hasShadow` 判**，不能拿 `shadowCast == 0` 当「没覆盖」——
         /// 原版真的有对象就是 `m_CastShadows = 0`（`blacklegion` 67 个里 52 开 / 15 关）。</summary>
-        public bool hasShadow; public int shadowCast; public int shadowReceive;
+        public bool hasShadow; public int shadowCast; public int shadowReceive; public long renderingLayerMask = 1; public int lightProbeUsage = 1; public int sortingOrder;
         /// <summary>🆕 2026-09-21：**整张属性表的原样副本** —— 见 `SubMatEntry.props`（同一份判据）。</summary>
         public WarpforgeVFX.MatProp[] props;
         /// <summary>见 `SubMatEntry.blendAuthoritative`（同一个判据，顶层材质那份）。</summary>
@@ -273,7 +273,7 @@ public static class ArenaBuilder
         /// 空 = 没有它的网格 info ⇒ 建场时**如实退回 Billboard**（见 `ParticleMesh` 的调用点）。
         /// ⚠️ 旧清单没有这个字段 ⇒ null ⇒ 老行为。</summary>
         public string mesh;
-        public float duration; public bool looping; public bool prewarm;
+        public float duration; public bool looping; public bool prewarm; public int cullingMode; public int emitterVelocityMode;
         /// <summary>🔴 **判「清单里到底有没有这个模块」的唯一判据 = 这几个布尔量。**
         ///
         /// 踩过的大坑（2026-09-22，**静默、而且吃掉了全部 13 场**）：
@@ -300,7 +300,7 @@ public static class ArenaBuilder
         // 不开 Texture Sheet Animation 就会把整张图集贴到每个粒子上，渲染成一格格白方块）
         public bool uvEnabled; public int tilesX; public int tilesY;
         public int uvAnimationType; public int uvTimeMode; public float uvFps;
-        public float uvCycles; public int uvRowIndex;
+        public float uvCycles; public int uvRowIndex; public bool uvFlipU; public bool uvFlipV; public int uvMode; public int uvRowMode = 1; public int uvChannelMask = -1; public CurveData uvStartFrame; public float[] uvSpeedRange;
         // 🆕 2026-09-21：原版关着的对象不要再建（`m_IsActive` 逐层与起来，见生成器 `active_in_hierarchy`）。
         //    实测受害：arena3 的 `TorchEffectNecron/Fire/Light` ×2（淡绿、原版 aih=False）⇒ 「arena3 绿光溢出」。
         public bool active = true;
@@ -368,7 +368,7 @@ public static class ArenaBuilder
         public bool size3D;                                // 为真时 startSize 只给 X，Y/Z 另有值
         public CurveData startSizeY, startSizeZ;
         public float[] shapePos, shapeRot, shapeScale;     // ShapeModule 的 localspace 位置/欧拉角/缩放
-        public float shapeRadiusThickness = 1f;
+        public float shapeRadiusThickness = 1f; public float shapeLength = 5f;
 
         // 🆕 **2026-10-11（A1552）：原版 `ParticleSystemRenderer.m_Pivot`** —— 原来是**从来没抽过**的字段。
         //    判据（原版 prefab，`d:/2/解包整理/07_场景/<场>/` 按 PathID 解外链）· 由
@@ -578,7 +578,7 @@ public static class ArenaBuilder
     /// <summary>把 13 个战场**全建一遍**（每个存一个独立场景）—— 批量入口，串行跑。</summary>
     public static void BuildAll()
     {
-        foreach (var s in AllArenas) BuildInternal(s);
+        foreach (var s in AllArenas) BuildInternal(s); B139_H_Assert.VerifyAll();   // 🆕 B139_H：建完立刻自检（13 场全绿才算数）
     }
 
     // ==================================================================
@@ -2298,7 +2298,7 @@ public static class ArenaBuilder
                         // `shadowReceive`，生成器直读原版 MeshRenderer）—— 旁挂 `_shadowflags.json`
                         // 里不会有它（旁挂是从**已建出的清单**反向生成的，先有鸡还是蛋）。
                         if (e.hasShadow) ApplyShadowFlags(bMr, e.shadowCast > 0, e.shadowReceive > 0);
-                        else             ApplyShadowFlags(bMr);
+                        else             ApplyShadowFlags(bMr); ApplyRendererParams(bMr, e);   // 🆕 B139_H：16-04/05/06 + 14-05（⛔ 别写进 if 分支，会抢走下面的 else）
                         bMr.sharedMaterial = GetOrCreateMaterial(mf.scene, matCache, e);
                         if (meshKw.TryGetValue(goName, out var mkwB) && mkwB.Length > 0)
                         {
@@ -2349,7 +2349,7 @@ public static class ArenaBuilder
                             //    症状是「`battlearena2` 旁挂点了 53 个网格、只挂上 20 个」（31 个静态合批对象没挂）。
                             //    ⇒ 两条分支都改，别再只改一条。
                             if (e.hasShadow) ApplyShadowFlags(subMr, e.shadowCast > 0, e.shadowReceive > 0);
-                            else             ApplyShadowFlags(subMr);
+                            else             ApplyShadowFlags(subMr); ApplyRendererParams(subMr, e);   // 🆕 B139_H：16-04/05/06 + 14-05
                             var m = (e.subMats != null && i < e.subMats.Length)
                                   ? GetOrCreateMaterial(mf.scene, matCache, e.subMats[i], e.go)
                                   : GetOrCreateMaterial(mf.scene, matCache, e);
@@ -2397,7 +2397,7 @@ public static class ArenaBuilder
                                 // 🆕 2026-09-30（①-l）：**逐对象的原版真值**优先；旁挂没覆盖到这个对象
                                 //   才退回旧行为（全 Off ＋ 诊断开关 `WF_SHADOWCAST`）。
                                 if (e.hasShadow) ApplyShadowFlags(mr, e.shadowCast > 0, e.shadowReceive > 0);
-                                else             ApplyShadowFlags(mr);
+                                else             ApplyShadowFlags(mr); ApplyRendererParams(mr, e);   // 🆕 B139_H：16-04/05/06 + 14-05
                                 // ⚠️ 单文件（Unity 导成 1 个子网格）时，清单里的 `subMats` 若有多条也没用
                                 //    —— 那是「原版有多个材质但拆不出来」的残留，这里如实报一句。
                                 if (e.subMats != null && e.subMats.Length > 1)
@@ -2549,6 +2549,11 @@ public static class ArenaBuilder
                 main.gravityModifier = CurveFrom(p.gravityCurve, new ParticleSystem.MinMaxCurve(p.gravityModifier));
                 main.maxParticles    = Mathf.Max(1, p.maxParticles);
                 main.simulationSpace = (ParticleSystemSimulationSpace)Mathf.Clamp(p.simulationSpace, 0, 2);
+                // 🆕 2026-11-04（`B139_H` · 审计 8-03 / 8-05）：两个原来**没抽也没接**的字段 ——
+                //   `cullingMode`（原版 191 个对象 ≠ 0：离屏时继续模拟/追帧）·
+                //   `emitterVelocityMode`（原版 805 个 ≠ 0，几乎全是 1 = Rigidbody）。
+                main.cullingMode = (ParticleSystemCullingMode)Mathf.Clamp(p.cullingMode, 0, 3);
+                main.emitterVelocityMode = (ParticleSystemEmitterVelocityMode)Mathf.Clamp(p.emitterVelocityMode, 0, 2);
                 // 🆕 `scalingMode` 决定父物体 scale 影不影响粒子大小（原版 leviathan 4 个 Hierarchy / 3 个 Shape）
                 main.scalingMode     = (ParticleSystemScalingMode)Mathf.Clamp(p.scalingMode, 0, 2);
 
@@ -2593,6 +2598,9 @@ public static class ArenaBuilder
                 sh.rotation = ToVec3(p.shapeRot, Vector3.zero);
                 sh.scale    = ToVec3(p.shapeScale, Vector3.one);
                 sh.radiusThickness = Mathf.Clamp01(p.shapeRadiusThickness);
+                // 🆕 2026-11-04（`B139_H` · 审计 8-04）：`ShapeModule.length` 原来没接 ⇒ 一律吃默认 5.0；
+                //   原版 13 场 **56 个对象 ≠ 默认**（0.12 / 0.85 / 2.86 / 2.9 / 4.42），只对 Cone / Box 一类形状生效。
+                sh.length = p.shapeLength > 0f ? p.shapeLength : 5f;
                 // Unity 的 ShapeModule.arc 单位是「度」，而清单里存的是 Unity 原始的「弧度」值。
                 // 用数值大小兜底：<= 2π+ε 当弧度转，否则认为已经是度。
                 if (p.shapeArc > 0f)
@@ -2748,6 +2756,15 @@ public static class ArenaBuilder
                     if (p.uvFps > 0f)    tsa.fps = p.uvFps;
                     if (p.uvCycles > 0f) tsa.cycleCount = Mathf.Max(1, Mathf.RoundToInt(p.uvCycles));
                     tsa.rowIndex = Mathf.Max(0, p.uvRowIndex);
+                    // 🆕 2026-11-04（`B139_H` · 审计 8-06）：UV 模块另外 6 个字段（原版 arena1 只有 2 个对象有非默认项）。
+                    //   ⚠️ 清单里的 `uvMode`（原版 `UVModule.mode`）**在 Unity 6 没有对应 API** —— 它是
+                    //   Unity 5.5 之前的 legacy 字段（后来被 `animation` 取代）⇒ **只抽不接**，写的是原版真值。
+                    tsa.flipU = p.uvFlipU ? 1f : 0f; tsa.flipV = p.uvFlipV ? 1f : 0f;   // ⚠️ Unity 6000.3 这两个属性是 **float**（不是 bool）
+                    tsa.rowMode = (ParticleSystemAnimationRowMode)Mathf.Clamp(p.uvRowMode, 0, 1);
+                    tsa.uvChannelMask = (UnityEngine.Rendering.UVChannelFlags)Mathf.Clamp(p.uvChannelMask, -1, 15);
+                    tsa.startFrame = CurveFrom(p.uvStartFrame, new ParticleSystem.MinMaxCurve(0f));
+                    if (p.uvSpeedRange != null && p.uvSpeedRange.Length >= 2)
+                        tsa.speedRange = new Vector2(p.uvSpeedRange[0], p.uvSpeedRange[1]);
                 }
 
                 var rend = go.GetComponent<ParticleSystemRenderer>();
@@ -3961,8 +3978,8 @@ public static class ArenaBuilder
         }
 
         // ---- 保存场景 ----
-        Directory.CreateDirectory(ScenesDir);
-        EditorSceneManager.SaveScene(scene, ScenePath(mf.scene));
+        Directory.CreateDirectory(ScenesDir); ApplySceneRenderAndBakeSettings(mf);
+        EditorSceneManager.SaveScene(scene, ScenePath(mf.scene)); PatchLightmapEditorSettings(ScenePath(mf.scene));   // 🆕 B139_H：烘焙四格按原版落 YAML（必须在 SaveScene 之后）
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
@@ -5039,6 +5056,9 @@ public static class ArenaBuilder
     }
 
     /// <summary>为本体网格建 URP/Unlit 材质（原版战场是烘焙贴图 + 无光照，Unlit 最接近）。
+    /// 🔶 自己设计（非原版）：**本体网格的 shader 用 `URP/Unlit` 兜底**，原版是 `Everguild/UnlitAmbient` 等 60 个自定义 shader（523 个槽） ·
+    /// 为什么必须自己定：原版 shader 是**运行时从 bundle 加载**的、落不成工程资产（写进场景存盘就丢 ⇒ 渲成品红），要真复刻得逐份按字节码重写成工程 shader ·
+    /// 调度台 2026-11-04 裁定（`B138` §8-02 只要求先补标记；逐份重写属资源线）。
     /// 🔴 2026-09-20：拆出下面那层**逐材质**的实现 —— 一个网格可能有**多个子网格、每个一个材质**
     /// （见 `BuildContent` 里多子网格那一段）。</summary>
     /// <summary>诊断：查**原版网格 shader 为什么渲成洋红**（2026-09-20 加）。
@@ -5341,7 +5361,7 @@ public static class ArenaBuilder
         public string go; public string chain;
         public float[] pos; public float[] rot; public float[] scale; public float[] world;
         public string sprite; public string tex; public float ptu;
-        public float[] rect; public float[] pivot; public float[] color; public float[] size;
+        public float[] rect; public float[] pivot; public float[] color; public float[] size; public float[] border;
         public int drawMode; public int sortOrder; public int sortLayer;
         public bool flipX; public bool flipY;
         /// <summary>原版 `activeInHierarchy`（沿父链逐层与）。
@@ -5449,7 +5469,7 @@ public static class ArenaBuilder
     ///   画法要求 Sprite 的 **Mesh Type = FullRect**（原版 `sororitas` 的 3 个 `Bottom Filler *` 是
     ///   `m_DrawMode = 2`；Tight 网格下 Unity 会对 Sliced/Tiled 报错并按错的方式画）。
     ///   判据 → `资料/完全复刻/报告/B9_W59ARENA_战场贴图清单修复.md`。</summary>
-    static Sprite LoadSpriteAsset(string sceneName, string tex, float ptu, int drawMode = 0)
+    static Sprite LoadSpriteAsset(string sceneName, string tex, float ptu, int drawMode = 0, float[] border = null)
     {
         if (string.IsNullOrEmpty(tex)) return null;
         var path = $"{ArenaDir(sceneName)}/Sprites/{tex}.png";
@@ -5460,7 +5480,8 @@ public static class ArenaBuilder
         {
             bool changed = ti.textureType != TextureImporterType.Sprite
                         || ti.spriteImportMode != SpriteImportMode.Single
-                        || Mathf.Abs(ti.spritePixelsPerUnit - ptu) > 0.01f;
+                        || Mathf.Abs(ti.spritePixelsPerUnit - ptu) > 0.01f
+                        || !SpriteBorderOk(ti, border);   // 🆕 2026-11-04（B139_H · 15-05）：九宫格 border 也要进 changed
             if (needFullRect)
             {
                 // ⚠️ `spriteMeshType` **不在 `TextureImporter` 上**（Unity 6000.3 实测 CS1061），
@@ -5480,6 +5501,10 @@ public static class ArenaBuilder
                 ti.spriteImportMode   = SpriteImportMode.Single;   // 原版 `m_Rect` 就是整张图
                 ti.spritePixelsPerUnit = ptu;                      // 原版 `m_PixelsToUnits`（这批是 25 / 100）
                 ti.spritePivot        = new Vector2(0.5f, 0.5f);   // 原版 `m_Pivot` = 0.5,0.5
+                // 🆕 2026-11-04（`B139_H` · 审计 15-05）：**九宫格 border**（原版 `Sprite.m_Border`）——
+                //   原来从没写过 ⇒ `spriteBorder` 恒 (0,0,0,0) ⇒ `m_DrawMode = 2 (Tiled)` 的精灵
+                //   （原版 sororitas 的 3 个 `Bottom Filler *`，原版值 `(7, 0, 7, 9)`）**整张被平铺**。
+                if (border != null && border.Length >= 4) ti.spriteBorder = new Vector4(border[0], border[1], border[2], border[3]);
                 ti.alphaIsTransparency = true;
                 ti.mipmapEnabled      = false;
                 ti.SaveAndReimport();
@@ -5575,7 +5600,7 @@ public static class ArenaBuilder
         {
             if (e == null || string.IsNullOrEmpty(e.go)) continue;
             if (!e.active) { nInactive++; continue; }        // 原版关着的，不建（见 SpriteEntry.active）
-            var sp = LoadSpriteAsset(sceneName, e.tex, e.ptu, e.drawMode);
+            var sp = LoadSpriteAsset(sceneName, e.tex, e.ptu, e.drawMode, e.border);
             if (sp == null) { nSkip++; continue; }
             var go = new GameObject(e.go);
             go.transform.SetParent(root.transform, false);
@@ -5929,7 +5954,7 @@ public static class ArenaBuilder
             MakeTransparent(mat);
         }
 
-        var reused = SaveOrReuse(sceneName, mat);
+        ApplyInferredParticleBlendPreSave(mat, p); var reused = SaveOrReuse(sceneName, mat);
 
         if (p.matProps != null && p.matProps.Length > 0)
         {
@@ -6523,6 +6548,164 @@ public static class ArenaBuilder
         }
         Debug.Log($"[Arena] Timeline（{mf.scene}）：PlayableDirector {nDir} 个 · 补 `Animator` {nAnim} 个 · "
                 + $"数据 = `Resources/arena_timelines.json`（{arena.directors.Length} 条 director 描述）");
+    }
+
+    // ───────── 🆕 2026-11-04（`B139_H` · H-1）：**把包 Y 改在盘上的原版场景值写进生成器** ─────────
+    // 判据 → `报告/B139_Y_YAML与ProjectSettings.md` §一（14-02 / 14-03 / 14-04 / 14-05 逐场回读通过）。
+    // 🔴 **为什么必须写进生成器**：13 场 `Scenes/battlearena*.unity` 是 `.gitignore:64` 的**生成产物**
+    //   （`B125-ARENAGITIGNORE`）⇒ 只改盘上 YAML，**重生成即失效、新克隆即没有**。
+    //
+    // 五个字段的原版值（13 场 `!u!104` / `!u!157` 实读，B139-Y 逐场核过）：
+    //   · `m_AmbientEquatorColor`   (0.3254717, 0.5862051, 1, 1)  ← 清单 `ambient.equator`
+    //   · `m_AmbientGroundColor`    (0.5896226, 0.5896226, 1, 1)  ← 清单 `ambient.ground`
+    //   · `m_SubtractiveShadowColor`(0.6367924, 0.7275943, 1, 1)  ← 清单 `ambient.subtractiveShadow`
+    //   · `LightmapSettings.m_LightmapEditorSettings` 四格：`m_BakeBackend 0` · `m_PVRSampleCount 500` ·
+    //     `m_PVRFilteringGaussRadiusIndirect 5` · `m_PVRFilteringGaussRadiusAO 2`
+    //     ⚠️ **这四格不在 bundle 里**（原版包内 `LightmapSettings` 资产只有运行时字段，
+    //     `m_LightmapEditorSettings` 是编辑器专用、被剥离）⇒ 判据只能取原版场景 YAML（同 B139-Y）；
+    //     13/13 同值 ⇒ 常量 + 此处注明出处。
+    //   · 每个 `MeshRenderer` 的 `m_StitchLightmapSeams = 0`（原版 13 场 **1206 个** + `Battle.unity` 18 个全是 0；
+    //     Unity 新建 Renderer 默认是 **1** ⇒ 不写就差这一格）。见 `ApplyRendererParams`。
+    public static void ApplySceneRenderAndBakeSettings(Manifest mf)
+    {
+        if (mf == null) return;
+        // ---- ① RenderSettings 三项（逐场来自清单 = 原版实读，⛔ 不写死）----
+        var a = mf.ambient;
+        if (a == null) Debug.LogWarning("[Arena] 清单里没有 `ambient` ⇒ 环境光三项不写（留 Unity 默认）");
+        else
+        {
+            RenderSettings.ambientMode = (AmbientMode)Mathf.Clamp(a.mode, 0, 3);
+            if (a.equator != null && a.equator.Length >= 3) RenderSettings.ambientEquatorColor = ToColor(a.equator);
+            if (a.ground != null && a.ground.Length >= 3) RenderSettings.ambientGroundColor = ToColor(a.ground);
+            if (a.subtractiveShadow != null && a.subtractiveShadow.Length >= 3)
+                RenderSettings.subtractiveShadowColor = ToColor(a.subtractiveShadow);
+            else
+                Debug.LogWarning("[Arena] 清单 `ambient` 里没有 `subtractiveShadow`（老清单？）⇒ 保留 Unity 默认 (0.42,0.478,0.627)，原版是 (0.6368,0.7276,1)");
+        }
+
+        // ---- ② LightmapSettings 的烘焙四格：**在 `SaveScene` 之后按 YAML 落**（见 `PatchLightmapEditorSettings`）----
+        //   ⚠️ 为什么不用 `UnityEditor.LightmapEditorSettings`：Unity 6 里那组 API **已标 Obsolete**
+        //   （"Use LightingSettings.indirectSampleCount"），而 `m_LightmapEditorSettings` 又**没有对象访问口**
+        //   （`UnityEngine.LightmapSettings` 只暴露 lightmaps/lightProbes/lightmapsMode）⇒ 只能对生成出来的
+        //   场景 YAML 做定点改写。场景本身就是本生成器的产物，改它等于把值写进生成链。
+    }
+
+    /// <summary>🆕 2026-11-04（`B139_H` · 审计 14-04）：**把烘焙四格按原版值落到生成出来的场景 YAML 上**。
+    /// <para>原版 13 场 `!u!157 LightmapSettings.m_LightmapEditorSettings` 实读（B139-Y 逐场回读通过）：
+    /// `m_BakeBackend 0` · `m_PVRSampleCount 500` · `m_PVRFilteringGaussRadiusIndirect 5` · `m_PVRFilteringGaussRadiusAO 2`。
+    /// 我们原来是 Unity 默认 `2 / 512 / 1 / 1`。</para>
+    /// <para>⚠️ 只改这四行、只改 `!u!157` 块内的 `m_LightmapEditorSettings` 子块；行尾按原样保留（Unity 写的是 LF）。
+    /// 写完**当场回读**（先断前提再断结论：4 格一个都没命中 = 这条什么都没做）。</para></summary>
+    static void PatchLightmapEditorSettings(string scenePath)
+    {
+        if (!File.Exists(scenePath)) { Debug.LogWarning($"[Arena] 烘焙参数：场景不在 {scenePath} ⇒ 没写"); return; }
+        string text = File.ReadAllText(scenePath);
+        string nl = text.Contains("\r\n") ? "\r\n" : "\n";
+        var lines = text.Split(new[] { "\r\n", "\n" }, System.StringSplitOptions.None);
+        bool inLms = false, inLes = false;
+        int n = 0;
+        var want = new Dictionary<string, string>
+        {
+            { "m_BakeBackend", "0" },
+            { "m_PVRSampleCount", "500" },
+            { "m_PVRFilteringGaussRadiusIndirect", "5" },
+            { "m_PVRFilteringGaussRadiusAO", "2" },
+        };
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var t = lines[i];
+            if (t.StartsWith("--- ")) { inLms = t.StartsWith("--- !u!157 "); inLes = false; continue; }
+            if (!inLms) continue;
+            if (t.StartsWith("  m_LightmapEditorSettings:")) { inLes = true; continue; }
+            if (!inLes) continue;
+            if (t.Length > 2 && !t.StartsWith("    ")) { inLes = false; continue; }   // 出了子块
+            int idx = t.IndexOf(':');
+            if (idx < 0) continue;
+            string key = t.Substring(0, idx).Trim();
+            string v;
+            if (!want.TryGetValue(key, out v)) continue;
+            lines[i] = t.Substring(0, idx) + ": " + v;
+            n++;
+        }
+        if (n == 0)
+        {
+            Debug.LogWarning("[Arena] 🔴 烘焙四格**一格都没命中**（场景 YAML 里找不到 `m_LightmapEditorSettings`）⇒ 这条等于没做");
+            return;
+        }
+        File.WriteAllText(scenePath, string.Join(nl, lines));
+        // 回读（⛔ 不信「写过了」）
+        var back = File.ReadAllText(scenePath);
+        int ok = 0;
+        foreach (var kv in want)
+            if (back.Contains("    " + kv.Key + ": " + kv.Value) || back.Contains("  " + kv.Key + ": " + kv.Value)) ok++;
+        Debug.Log(ok == 4
+            ? "[Arena] 烘焙参数已落 4/4 格（BakeBackend 0 · PVRSampleCount 500 · Gauss 5/2）"
+            : $"[Arena] 🔴 烘焙参数回读只命中 {ok}/4 格（写了 {n} 行）—— 需要人读那份场景 YAML");
+    }
+
+    /// <summary>🆕 2026-11-04（`B139_H` · 审计 16-04 / 16-05 / 16-06 + 14-05）：
+    /// 把 `MeshRenderer` 的四个字段按**清单里的原版值**写上去。
+    /// <para>`m_RenderingLayerMask`：原版 battlearena1 `Scenario` 子树 31 个可比渲染器里 **26 个 = All(4294967295)**、
+    /// 5 个 = 1；我们原来一律落 Unity 默认 1。`m_LightProbeUsage`：原版 **13 个 = 1(BlendedProbes)**、18 个 = 0，
+    /// 我们原来一律 0。`m_SortingOrder`：原版 **1 个 = 1**（`Particles/Battle/TinyExplosion_Far/Shockwave`），我们 0。
+    /// `m_StitchLightmapSeams`：原版 13 场 1206 个渲染器**全是 0**（Unity 新建默认 1）。</para>
+    /// <para>⚠️ `stitchLightmapSeams` **没有公开 API** ⇒ 只能走 `SerializedObject`（同 `SpriteMeshType` 那条路）。</para></summary>
+    static void ApplyRendererParams(MeshRenderer mr, MeshEntry e)
+    {
+        if (mr == null || e == null) return;
+        mr.renderingLayerMask = e.renderingLayerMask < 0 ? 1u
+                              : (e.renderingLayerMask > uint.MaxValue ? uint.MaxValue : (uint)e.renderingLayerMask);
+        mr.lightProbeUsage = (LightProbeUsage)Mathf.Clamp(e.lightProbeUsage, 0, 4);
+        mr.sortingOrder = e.sortingOrder;
+        var so = new SerializedObject(mr);
+        var p = so.FindProperty("m_StitchLightmapSeams");
+        if (p == null)
+        {
+            if (!_warnedStitchSeams)
+            {
+                _warnedStitchSeams = true;
+                Debug.LogWarning("[Arena] `MeshRenderer.m_StitchLightmapSeams` 属性不存在 ⇒ 没法照原版写 0（Unity 版本变了？）");
+            }
+            return;
+        }
+        p.boolValue = false;                       // 原版 13 场 + Battle.unity 全部是 0
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+    static bool _warnedStitchSeams;
+
+    /// <summary>🆕 2026-11-04（`B139_H` · 审计 8-01）：**在 `SaveOrReuse` 之前**把推断出来的混合先写进
+    /// 新建的那份 `Material` 上。
+    /// <para>🔴 为什么要有它（实证，不是推测）：`GetOrCreateParticleMaterial` 里那段
+    /// `ShouldInferParticleBlend → InferBlendFromShaderName → SetBlend` 写在 `SaveOrReuse` **之后**，
+    /// 而 `SaveOrReuse` 走的是 `EditorUtility.CopySerialized(fresh, existing)` —— 实测**后写的混合没有落盘**：
+    /// 建场日志逐条打印「按 shader 名推断成 `Blend 5/1`」（`_tmp_view/arenabuild.log`），
+    /// 而盘上 `battlearena3/Materials/PS_citclr_light.mat` 仍是 `_SrcBlend: 5 / _DstBlend: 10`
+    /// （Alpha 混合，原版 `Mobile/Particles/Additive` 是 `SrcAlpha, One`）—— 同族的 6 份材质 / 30 颗粒子。
+    /// 现在**在拷进资产之前写一遍**（`CopySerialized` 会把它带过去），后面那段保留（幂等 + 回读校验）。</para></summary>
+    static void ApplyInferredParticleBlendPreSave(Material mat, ParticleEntry p)
+    {
+        if (mat == null || p == null || p.matProps == null || p.matProps.Length == 0) return;
+        if (!WarpforgeVFX.ArenaOriginalMaterial.ShouldInferParticleBlend(p.matProps, p.matShader)) return;
+        int sb, db; float zw; bool tr;
+        WarpforgeVFX.ArenaOriginalMaterial.InferBlendFromShaderName(
+            p.matShader, mat.shader != null ? mat.shader.name : null, out sb, out db, out zw, out tr);
+        WarpforgeVFX.ArenaOriginalMaterial.SetBlend(mat, sb, db, zw);
+        // `_Blend` 是 URP 材质面板的**档位枚举**（0=Alpha 1=Premultiply 2=Additive 3=Multiply），
+        // 渲染只看 `_SrcBlend/_DstBlend`；但原版那 84 份加性材质在面板上是 2 ⇒ 这里保持同一语义，
+        // 免得同一族材质在 Inspector 里一半显示 Alpha、一半显示 Additive（8-01 的审计表就是按这一列比对的）。
+        if (mat.HasProperty("_Blend"))
+            mat.SetFloat("_Blend", (sb == 5 && db == 1) ? 2f : (sb == 1 && db == 10) ? 1f : (sb == 2 && db == 0) ? 3f : 0f);
+    }
+
+    /// <summary>🆕 2026-11-04（`B139_H` · 审计 15-05）：Sprite 的九宫格 border 是否已经等于原版值。
+    /// **必须进 `changed` 判据** —— 否则「别的设置本来就对」的精灵会跳过 `SaveAndReimport`，
+    /// border 永远写不进去（第一次建场时 `textureType/ptu` 往往已经是对的）。</summary>
+    static bool SpriteBorderOk(TextureImporter ti, float[] border)
+    {
+        if (border == null || border.Length < 4) return true;
+        var cur = ti.spriteBorder;
+        return Mathf.Abs(cur.x - border[0]) < 0.01f && Mathf.Abs(cur.y - border[1]) < 0.01f
+            && Mathf.Abs(cur.z - border[2]) < 0.01f && Mathf.Abs(cur.w - border[3]) < 0.01f;
     }
 
 }

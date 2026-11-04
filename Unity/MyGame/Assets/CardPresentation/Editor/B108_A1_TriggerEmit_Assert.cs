@@ -60,7 +60,8 @@ public static partial class RuleEngineTest
                            WhenEventKind.CreatesSecret, 0, true, WhenEventKind.GainFaith);
         B108A1ListenerBeat("OnSabotageCreated", 701,
                            "When you create a Sabotage, deal 2 damage to the enemy warlord",
-                           WhenEventKind.CreatesSabotage, 0, true, WhenEventKind.GainFaith);
+                           WhenEventKind.CreatesSabotage, 0, true, WhenEventKind.GainFaith,
+                           subjectSide: 1);   // 🔴 2026-11-04（`B139_V5`）：`who` = 施放方(0)，`subject` = **收牌方**(1) —— 原版 `GetHero(造出来那张的 isPlayer)`，判据见 `BroadcastCreatedCardWithWarlordPreCall` 的 doc
         B108A1ListenerBeat("UnitLoseStealth", 647,
                            "When a friendly unit loses Stealth, deal 2 damage to the enemy warlord",
                            WhenEventKind.LosesStealth, 0, false, WhenEventKind.GainFaith);
@@ -68,6 +69,7 @@ public static partial class RuleEngineTest
                            "When an enemy receives a Stun, deal 2 damage to it",
                            WhenEventKind.GetsStun, 1, false, WhenEventKind.GainFaith);
         B108A1WhitelistTables();
+        CheckB139V5SabotageSubject();   // 🆕 2026-11-04（`B139_V5`）：701 的 subject = 收牌方督军（真生产链 + 灭自证），断言全文在 `RuleEngine/Editor/B139_V5_Assert.cs`
     }
 
     // ==================================================================
@@ -169,8 +171,14 @@ public static partial class RuleEngineTest
     /// </summary>
     static void B108A1ListenerBeat(string triggerName, int triggerNumber, string listenerText,
                                    string kind, int eventWho, bool boardAndPersistentOnly,
-                                   string otherKind)
+                                   string otherKind, int subjectSide = -1)
     {
+        // 🔴 2026-11-04（`B139_V5`）：**`subject` 放在哪一侧**与「`who` 是谁」是**两件事**，⛔ 不许再合成一个
+        //   `eventWho`。原版 `OnSabotageCreated`(701) 的 `targetCard` = **收牌方**督军，而 `who`（`When you …`
+        //   的归属）仍是**施放方** ⇒ 只有 701 那一族把 `subjectSide` 传成 `1`（施放方 = 0 时的敌方）。
+        //   判据：`_ResolveCreateHandCard_d__512__MoveNext.c:95-98` 的 `GetHero(造出来那张的 isPlayer)`。
+        //   `-1`（缺省）= 老规则（`subject` 跟 `eventWho` 同侧）—— 其余五族逐字不变。
+        int subjectOn = subjectSide >= 0 ? subjectSide : (eventWho == 0 ? 0 : 1);
         // ---- 正例 ----
         {
             var listener = E6Listener("B108A1L" + triggerNumber, listenerText, triggerNumber, E6Criteria(1, 0));
@@ -183,7 +191,7 @@ public static partial class RuleEngineTest
 
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             Place(ctx, 0, 2, listener);
-            var subj = Place(ctx, eventWho == 0 ? 0 : 1, 1,
+            var subj = Place(ctx, subjectOn, 1,
                              Unit("B108A1Sub" + triggerNumber, 1, 2, 9));
             ctx.ClearSignals();
             RuleCore.BroadcastWhen(ctx, kind, eventWho, subj.Card, subject: subj,
@@ -202,7 +210,7 @@ public static partial class RuleEngineTest
             var listener = E6Listener("B108A1X" + triggerNumber, listenerText, triggerNumber, E6Criteria(1, 0));
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             Place(ctx, 0, 2, listener);
-            var subj = Place(ctx, eventWho == 0 ? 0 : 1, 1,
+            var subj = Place(ctx, subjectOn, 1,
                              Unit("B108A1SubX" + triggerNumber, 1, 2, 9));
             ctx.ClearSignals();
             RuleCore.BroadcastWhen(ctx, otherKind, eventWho, subj.Card, subject: subj);
@@ -225,7 +233,7 @@ public static partial class RuleEngineTest
                   $"★ {triggerName} ③（前提）它的 `abilityTriggers` 不含 {triggerNumber}（presence = 0）");
             var ctx = ProbeBattle(new CardDef[0], new CardDef[0]);
             Place(ctx, 0, 2, bare);
-            var subj = Place(ctx, eventWho == 0 ? 0 : 1, 1,
+            var subj = Place(ctx, subjectOn, 1,
                              Unit("B108A1SubB" + triggerNumber, 1, 2, 9));
             ctx.ClearSignals();
             RuleCore.BroadcastWhen(ctx, kind, eventWho, subj.Card, subject: subj,

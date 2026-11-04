@@ -1161,30 +1161,34 @@ public static class DeckScene
             SaveScene();
 
             // ============================================================
-            //  🆕 2026-10-18（`A1007`）：`MenuCheck.Shoot` 的 `Camera.main == null` 那一支
+            //  🆕 2026-10-18（`A1007`）：`MenuCheck.Shoot` 的「没有相机」那一支
             //    —— **判别式探针**（自备 `CheckSink`，⛔ 不污染本宿主的合计）。
             //
             //  🔴 **为什么必须单开一条**：那一支原来是**裸 `return`**（不报错、也不写图）
             //     ⇒ 整条截图断言链可以「靠什么都没发生」假装通过。只把 `return` 改成出声**还不够**：
             //     那条路平时**走不到**（本宿主的相机是好的）⇒ 不造局面就永远验不了它。
-            //     这里把 `MainCamera` 标签临时摘掉 + 关掉相机，**造出无相机上下文**再调 `Shoot`。
+            //     ✅ 已复刻（2026-11-04 · B139-D4）：`Shoot` 现在读 **`LayoutSpace.Cam`**（HUD 相机的权威档）
+            //     ⇒ 造局面要**两件一起做**：摘掉 `MainCamera` 标签 + 关相机（断 `Camera.main` 那条链）、
+            //     并把静态档 `LayoutSpace.Cam` 置空（断 `Shoot` 真正的输入）。
             //
             //  🧨 **灭自证**：`MenuCheck.Shoot` 那一支改回裸 `return` ⇒ 探针读到 **0 条 ✗** ⇒ 红；
             //     要让它重新变绿只能**连这条断言一起删/改**（那是看得见的改动）。
             //     「把实现改回去」与「把断言改回去」在结构上不可能同时满足。
             // ============================================================
             {
+                var savedHudCam = LayoutSpace.Cam;      // 收尾要原样还回去（⛔ 别让本块废掉后面的截图）
                 var taggedCams = new List<Camera>();
                 foreach (var c in UnityEngine.Object.FindObjectsByType<Camera>(
                                      FindObjectsInactive.Include, FindObjectsSortMode.None))
                     if (c.CompareTag("MainCamera")) { taggedCams.Add(c); c.tag = "Untagged"; c.enabled = false; }
+                LayoutSpace.Cam = null;                 // `MenuCheck.Shoot` 的输入（2026-11-04 起是它，不是 `Camera.main`）
 
-                bool noCam = Camera.main == null;
+                bool noCam = Camera.main == null && LayoutSpace.Cam == null;
                 CheckTrue(taggedCams.Count > 0,
                           $"（前提）本宿主建场时挂了 `MainCamera`（摘到 {taggedCams.Count} 台）"
                         + " —— 一台都摘不到 ⇒ 下一条验不了");
                 CheckTrue(noCam,
-                          "（前提）摘标签 + 关相机 ⇒ `Camera.main == null`（**下一条的前提**，不是结论）"
+                          "（前提）摘标签 + 关相机 + 清 `LayoutSpace.Cam` ⇒ `Camera.main == null` 且 `LayoutSpace.Cam == null`（**下一条的前提**，不是结论）"
                         + "｜⚠️ 本条若红 = 这台 Unity 的 `Camera.main` 不吃「摘标签/关相机」，"
                         + "先查这个再怀疑下面那条");
 
@@ -1217,8 +1221,9 @@ public static class DeckScene
                 }
 
                 foreach (var c in taggedCams) { c.tag = "MainCamera"; c.enabled = true; }
-                CheckTrue(Camera.main != null,
-                          "（收尾）相机还回去 ⇒ `Camera.main` 又有了（⛔ 别让本块废掉后面的截图）");
+                LayoutSpace.Cam = savedHudCam;
+                CheckTrue(Camera.main != null && LayoutSpace.Cam != null,
+                          "（收尾）相机还回去 ⇒ `Camera.main` 与 `LayoutSpace.Cam` 又都有了（⛔ 别让本块废掉后面的截图）");
             }
 
             // ---- 🆕 `A1007`：本宿主的**空图护栏**（`guardBlank: true`）真的接上了没有 ----

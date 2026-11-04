@@ -58,6 +58,11 @@
       0.589623,
       1.0
     ],
+    "subtractiveShadow": [
+      0.636792,
+      0.727594,
+      1.0
+    ],
     "intensity": 0.41,
     "fog": false,
     "fogColor": [
@@ -791,7 +796,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker Antenna 1",
@@ -1459,7 +1467,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 16",
@@ -2127,7 +2138,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 12",
@@ -2795,7 +2809,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker Gun .001",
@@ -3463,7 +3480,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker Foreground",
@@ -4131,7 +4151,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 6",
@@ -4799,7 +4822,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Tarantula Base 1",
@@ -5467,7 +5493,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 17",
@@ -6135,7 +6164,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker 1",
@@ -6803,7 +6835,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 2",
@@ -7471,7 +7506,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 9",
@@ -8139,7 +8177,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 19",
@@ -8807,7 +8848,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Background Buildings 2.001",
@@ -9475,7 +9519,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crane 4",
@@ -10143,7 +10190,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Tarantula 2 turret",
@@ -10811,7 +10861,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crane 2",
@@ -11479,7 +11532,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Tarantula 1 legs",
@@ -12147,7 +12203,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 5",
@@ -12815,7 +12874,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 1",
@@ -13483,7 +13545,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Shadow Receiver",
@@ -13584,7 +13649,10 @@
       "active": false,
       "hasShadow": true,
       "shadowCast": 1,
-      "shadowReceive": 1
+      "shadowReceive": 1,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Barricade 2",
@@ -14252,7 +14320,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Chimera",
@@ -14920,7 +14991,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker 1 Tower",
@@ -15588,7 +15662,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Background Buildings 1",
@@ -16256,7 +16333,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 8.1",
@@ -16924,7 +17004,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 8",
@@ -17592,7 +17675,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 1",
@@ -18260,7 +18346,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crane 1",
@@ -18928,7 +19017,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker Antenna 3",
@@ -19596,7 +19688,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Banner 1",
@@ -20204,7 +20299,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Banner 2",
@@ -20812,7 +20910,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 20",
@@ -21480,7 +21581,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 3",
@@ -22148,7 +22252,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 7",
@@ -22816,7 +22923,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Cache Stealth",
@@ -23504,7 +23614,10 @@
       ],
       "texOpaquePct": 57.7,
       "texClearPct": 0.0,
-      "active": false
+      "active": false,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker 2",
@@ -24172,7 +24285,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Barricade 3",
@@ -24840,7 +24956,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker 5",
@@ -25508,7 +25627,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Barricade 1",
@@ -26176,7 +26298,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Background Buildings 2",
@@ -26844,7 +26969,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crane 3",
@@ -27512,7 +27640,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Tank 2",
@@ -28180,7 +28311,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Barricade 4",
@@ -28848,7 +28982,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Tarantula 1 turret",
@@ -29516,7 +29653,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker 4",
@@ -30184,7 +30324,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 5",
@@ -30852,7 +30995,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Statue",
@@ -31520,7 +31666,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Tarantula 2 legs",
@@ -32188,7 +32337,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Generator ",
@@ -32856,7 +33008,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 15",
@@ -33524,7 +33679,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker 3",
@@ -34192,7 +34350,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Valkyrie",
@@ -34860,7 +35021,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "BunkerSandbags 1",
@@ -35528,7 +35692,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Background Buildings 5",
@@ -36196,7 +36363,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Background Buildings 4",
@@ -36864,7 +37034,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Background Buildings 3",
@@ -37532,7 +37705,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Floor",
@@ -38180,7 +38356,10 @@
       ],
       "texOpaquePct": 90.9,
       "texClearPct": 9.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker Missiles",
@@ -38848,7 +39027,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Banner 5",
@@ -39456,7 +39638,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Barrels",
@@ -40124,7 +40309,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Banner 4",
@@ -40732,7 +40920,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Tarantula Base 2",
@@ -41400,7 +41591,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker Antenna 4",
@@ -42068,7 +42262,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 4",
@@ -42736,7 +42933,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Banner 3 replaced",
@@ -43344,7 +43544,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 14",
@@ -44012,7 +44215,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Valkyrie Pad",
@@ -44680,7 +44886,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 11",
@@ -45348,7 +45557,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Barricade 5",
@@ -46016,7 +46228,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 13",
@@ -46684,7 +46899,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 3",
@@ -47352,7 +47570,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 10",
@@ -48020,7 +48241,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 4",
@@ -48688,7 +48912,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker Gun ",
@@ -49356,7 +49583,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker Gun Huge",
@@ -50024,7 +50254,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Tank 1",
@@ -50692,7 +50925,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crates 18",
@@ -51360,7 +51596,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Pipe 2",
@@ -52028,7 +52267,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Bunker Antenna 2",
@@ -52696,7 +52938,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Tank 3",
@@ -53364,7 +53609,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Crane 1 chain",
@@ -54032,7 +54280,10 @@
       ],
       "texOpaquePct": 42.8,
       "texClearPct": 55.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     },
     {
       "go": "Background Sky",
@@ -54800,7 +55051,10 @@
       ],
       "texOpaquePct": 90.9,
       "texClearPct": 9.0,
-      "active": true
+      "active": true,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0
     }
   ],
   "particles": [
@@ -54964,6 +55218,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -55320,6 +55575,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -55336,7 +55593,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Ground Light 2",
@@ -55498,6 +55769,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -55855,6 +56127,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -55871,7 +56145,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Box light (1)",
@@ -56037,6 +56325,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -56393,6 +56682,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -56409,7 +56700,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Box light (3)",
@@ -56571,6 +56876,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -56927,6 +57233,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -56943,7 +57251,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Platform dust",
@@ -57190,6 +57512,7 @@
         1.0
       ],
       "shapeRadiusThickness": 0.28,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -57508,6 +57831,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": true,
       "tilesX": 6,
@@ -57516,7 +57841,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Box light (2)",
@@ -57682,6 +58021,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -58038,6 +58378,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -58054,7 +58396,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Particle System",
@@ -58290,6 +58646,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -58606,6 +58963,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": false,
       "tilesX": 6,
@@ -58614,7 +58973,21 @@
       "uvTimeMode": 2,
       "uvFps": 20.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Antenna Light (2)",
@@ -58776,6 +59149,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -59132,6 +59506,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -59148,7 +59524,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Box light",
@@ -59314,6 +59704,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -59670,6 +60061,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -59686,7 +60079,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Platform sand",
@@ -59904,6 +60311,7 @@
         1.0
       ],
       "shapeRadiusThickness": 0.28,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -60220,6 +60628,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": false,
       "tilesX": 2,
@@ -60228,7 +60638,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.9999,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Ground Light 1",
@@ -60390,6 +60814,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -60747,6 +61172,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -60763,7 +61190,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Antenna Light (1)",
@@ -60925,6 +61366,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -61281,6 +61723,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -61297,7 +61741,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Ground Light 4",
@@ -61459,6 +61917,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -61816,6 +62275,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -61832,7 +62293,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Ground Light 3",
@@ -61994,6 +62469,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -62351,6 +62827,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -62367,7 +62845,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Steam (5)",
@@ -62637,6 +63129,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 0,
@@ -62942,6 +63435,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 1,
+      "cullingMode": 3,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": true,
       "tilesX": 8,
@@ -62950,7 +63445,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Steam (2)",
@@ -63220,6 +63729,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 0,
@@ -63538,6 +64048,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 1,
+      "cullingMode": 3,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": true,
       "tilesX": 6,
@@ -63546,7 +64058,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Steam (3)",
@@ -63816,6 +64342,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 0,
@@ -64134,6 +64661,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 1,
+      "cullingMode": 3,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": true,
       "tilesX": 6,
@@ -64142,7 +64671,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Steam (4)",
@@ -64412,6 +64955,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 0,
@@ -64717,6 +65261,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 1,
+      "cullingMode": 3,
+      "emitterVelocityMode": 1,
       "bursts": [],
       "uvEnabled": true,
       "tilesX": 8,
@@ -64725,7 +65271,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Cogitator",
@@ -64887,6 +65447,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -65103,6 +65664,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -65119,7 +65682,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     },
     {
       "go": "Cogitator (1)",
@@ -65281,6 +65858,7 @@
         1.0
       ],
       "shapeRadiusThickness": 1.0,
+      "shapeLength": 5.0,
       "renderMode": 0,
       "mesh": null,
       "scalingMode": 1,
@@ -65497,6 +66075,8 @@
       ],
       "matQueue": 3000,
       "simulationSpace": 0,
+      "cullingMode": 0,
+      "emitterVelocityMode": 1,
       "bursts": [
         {
           "time": 0.0,
@@ -65513,7 +66093,21 @@
       "uvTimeMode": 0,
       "uvFps": 30.0,
       "uvCycles": 1.0,
-      "uvRowIndex": 0
+      "uvRowIndex": 0,
+      "uvFlipU": false,
+      "uvFlipV": false,
+      "uvMode": 0,
+      "uvRowMode": 1,
+      "uvChannelMask": -1,
+      "uvStartFrame": {
+        "isConst": true,
+        "c": 0.0,
+        "cMin": 0.0
+      },
+      "uvSpeedRange": [
+        0.0,
+        1.0
+      ]
     }
   ],
   "tapHits": [

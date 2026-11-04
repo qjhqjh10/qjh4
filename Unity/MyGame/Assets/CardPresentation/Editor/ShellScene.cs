@@ -1042,7 +1042,7 @@ public static class ShellScene
         Debug.Log(P + "=== 外壳自检 开始 ===");
 
         var shell = Build(out var root);
-        var cam = Camera.main;
+        var cam = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：`Build()` 里 `LayoutSpace.Apply(cam)` 已设好权威档；⛔ 不用 `Camera.main`（战斗场景那台是 3D BoardCamera））
 
         // ---------------- ① 骨架
         Section("骨架：相机 / 三个锚点（正本 §三 第 7 条：主菜单那层三个 Holder 缺一不可）");

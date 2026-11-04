@@ -14,12 +14,19 @@
 //  · `Shell/LegacySaveReader.cs:492`（轮抽 → `ActiveEvent`）· `:498`（卡牌等级 → `OursCardProgress`）
 //  · 模板 = `Editor/B116W16_Assert.cs`（收件箱）· `Editor/B116W21_Assert.cs`（活动通行证）
 //
+// ⚠️ 2026-11-04 更正（`B139_V1`）：`SaveCenter.LegacyMirrorOn`（`Shell/SaveCenter.cs:915`）自 `81ea4fbb` 起是
+//    `!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WF_LEGACY_MIRROR"))`（用户 2026-11-03 裁定「关双写」）
+//    ⇒ **默认 false**。本夹具原来**没显式打开**、靠旧默认值 `true`，所以 A2 / A3 / C1 一族在这道默认值改掉后全倒。
+//    现在 `Run()` 开头**显式 `= true`**、`finally` 还原原值（先例 = `Editor/B102DECK_Assert.cs:132`）。
+//    ⛔ 别把开关默认值改回 `true`（那是上一会话的正式决定，见 `SaveCenter.cs:913-915`）。
+//
 // ============================ 灭自证（🧨 结构上不可能同时满足）============================
 //  🧨 写口退回裸写 ⇒ 中央档不存在 ⇒ `*-A1` / `*-A3` 当场红。
 //  🧨 读口退回「裸读旧档」⇒ B 段让中央档与旧档**值不同** ⇒ `*-B1` 读到旧档那个值 ⇒ 红。
 //  🧨 读口改成「只读中央」⇒ C 段删掉中央档 ⇒ `*-C1` 读到出厂值 ⇒ 红。
 //  🧨 轮抽删档只删旧档 ⇒ E 段 `_run == null` 之后中央档还在 ⇒ 重读**复活**上一局 ⇒ `F4-D-E2` 红。
 //  🧨 门位：D 段只注入子系统自己的门（**不**注入 `SaveCenter.OverrideRoot`）⇒ 中央档必须一个字节都不动。
+//  🧨 双写开关「关着」⇒ `F4-P-A4''` 断旧档**一个字节都不动** —— 没有这条，整套只剩「开着能写」，分不出开/关。
 //
 // ============================ 怎么接 ============================
 //  `Editor/ShellScene.cs:11093` 的聚合行（`Debug.Log(… 合计 …)` 之前）**同一物理行**追加：
@@ -135,6 +142,7 @@ public static class B117_F4_Assert
         string prevDraftMirror = SaveCenter.LegacyMirrorPathOf(SaveKeys.ActiveEvent);
         string prevDraftDir = DraftModeWindow.OverrideDir;
         DraftRunSave prevRun = DraftModeWindow.RunForTest;
+        bool prevMirrorOn = SaveCenter.LegacyMirrorOn;      // ⚠️ 2026-11-04（B139_V1）：默认已改成 false（见文件头）
 
         string root = Path.Combine(Path.GetTempPath(), "wf_b117f4");
         string cardLegacy = Path.Combine(root, "card", "WarpforgeCardLevels.json");   // 卡牌等级旧档位
@@ -145,6 +153,9 @@ public static class B117_F4_Assert
         try
         {
             TryDelete(root);
+            // ⚠️ 2026-11-04（B139_V1）：双写开关默认已是 false（用户 2026-11-03 裁定「关双写」）⇒ 本夹具要验
+            //    「中央档 + 旧档同时写」，必须**显式**打开；`finally` 还原原值（⛔ 别留脏状态给同进程后续套件）。
+            SaveCenter.LegacyMirrorOn = true;
 
             // ================================================================ 前提：键表一个字没动
             MenuCheck.Section(_sink, "F4-0 键表 / 旧档映射表（两个通道都不许进 `All`）");
@@ -173,8 +184,29 @@ public static class B117_F4_Assert
             string cardLegacyText = TextOf(cardLegacy);
             Tr(cardLegacyText != null, "F4-P-A2 ★ 旧档**照旧写**（双写期：回滚旧客户端还读得到）");
             Tr(cardLegacyText != null && !cardLegacyText.Contains("\"_v\""), "F4-P-A2' ★ 旧档**不带 `_v`** ⇒ 旧客户端照旧解析得动");
+            // ⚠️ 2026-11-04（`B139_V1` 补齐）：P 段原来只有 `A2` / `A2'`，比 D 段与 W21 / W16 两族少一条牙口。
+            //    这里**不照抄** W21 / W16 的 `TrimStart().StartsWith("{\"version\"")` —— 卡牌等级走的是
+            //    `JsonUtility.ToJson(d, true)`（**pretty**）⇒ 文本是 `{` 换行 `"version": 1` 开头，字面比对必然假红。
+            //    改成「能被**切换前那份 DTO** 原样解析回来」：`_v` 信封解出来会是默认 `version=1` + `levels` 为空 ⇒ 抓得住。
+            var legacyDto = string.IsNullOrEmpty(cardLegacyText) ? null : JsonUtility.FromJson<CardProgressSave>(cardLegacyText);
+            Tr(legacyDto != null && legacyDto.version == 1 && legacyDto.levels != null && legacyDto.levels.Count == 1,
+               "F4-P-A2'' ★ 旧档形状没变：能被**切换前那份 DTO** 原样解析（顶层 `version` + `levels` 一条），不是中央的 `_v` 信封");
             C(SaveCenter.DiffWithLegacy(SaveKeys.OursCardProgress), "",
               "F4-P-A3 ★★ 中央档与旧档**逐字段相等**（Step 4 的验收判据）");
+
+            // ---- P-A4：灭自证 —— 开关**关着** ⇒ 旧档不写（🧨 熔断这条，整套就只剩「开着能写」，分不出开/关）
+            //  ⚠️ 2026-11-04（`B139_V1`）：`LegacyMirrorOn` 现在默认 false ⇒ 这一段必须**先显式 false** 才有意义；
+            //    它同时是「上面 A2 / A3 绿是因为开关真的开着、不是因为别的东西顺手写了旧档」的反证。
+            SaveCenter.LegacyMirrorOn = false;
+            try
+            {
+                Tr(CardProgress.SetLevel("UM82", 3), "F4-P-A4 前提：开关**关着**时 `SetLevel` 仍返回 true（中央档照写，只挡双写）");
+                Tr(HasNum(SaveCenter.GetRaw(SaveKeys.OursCardProgress), "v", 3),
+                   "F4-P-A4' 前提：中央档确实是新值（`UM82` = 3）—— 证明这一趟真的走了写口");
+                C(TextOf(cardLegacy), cardLegacyText,
+                  "F4-P-A4'' ★★ 开关**关着** ⇒ 旧档**一个字节都没动**（仍是 A2 那份）—— 熔断这条，整套就只剩「开着能写」，分不出开/关");
+            }
+            finally { SaveCenter.LegacyMirrorOn = true; }
 
             // ---- P-B：读口「中央优先」（中央 = 2，旧档 = 4，值故意不同）
             SaveCenter.UnregisterLegacyMirror(SaveKeys.OursCardProgress);   // 别让 `SetRaw` 把探针双写进旧档
@@ -307,6 +339,7 @@ public static class B117_F4_Assert
             DraftModeWindow.SetRunForTest(prevRun);
             DraftModeWindow.OverrideDir = prevDraftDir;
             SaveCenter.OverrideRoot = prevRoot;
+            SaveCenter.LegacyMirrorOn = prevMirrorOn;      // ⚠️ 2026-11-04（B139_V1）：还原双写开关（⛔ 别留给同进程后续套件）
             SaveCenter.UnregisterLegacyMirror(SaveKeys.OursCardProgress);
             if (prevCardMirror != null) SaveCenter.RegisterLegacyMirror(SaveKeys.OursCardProgress, prevCardMirror);
             SaveCenter.UnregisterLegacyMirror(SaveKeys.ActiveEvent);

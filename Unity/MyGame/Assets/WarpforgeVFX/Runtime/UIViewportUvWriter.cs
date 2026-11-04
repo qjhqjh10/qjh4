@@ -56,7 +56,7 @@ namespace WarpforgeVFX
     [DisallowMultipleComponent]
     public class UIViewportUvWriter : MonoBehaviour
     {
-        /// <summary>投影用的相机。**留空 ⇒ `Camera.main`**（与原版 `CalculateViewPosition` 一致，取到就缓存）。</summary>
+        /// <summary>投影用的相机。**留空 ⇒ `CardPresentation.LayoutSpace.ResolveHudCamera()`**（原版 `CalculateViewPosition` 是 `Camera.main`，那台在菜单里 = UI 相机；2026-11-04 起战斗场景 `MainCamera` 是 3D BoardCamera，所以改走 HUD 三档。取到就缓存）。</summary>
         public Camera cam;
 
         /// <summary>取哪个点的视口坐标。**留空 ⇒ 本组件自己的 `transform`**（原版就是 `transform.position`）。</summary>
@@ -138,11 +138,11 @@ namespace WarpforgeVFX
 
         Camera ResolveCamera()
         {
-            if (cam == null) cam = Camera.main;      // 原版同上（取到就缓存）
+            if (cam == null) cam = CardPresentation.LayoutSpace.ResolveHudCamera();   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：原版 `CalculateViewPosition` 取 `Camera.main`（菜单里那台 = UI 相机）；我们走 `LayoutSpace` 三档（`Cam`→`UICamera`→`MainCamera`），⛔ 不直接取 `Camera.main`（战斗场景那台是 3D BoardCamera）
             if (cam == null && !_warnedNoCamera)
             {
                 _warnedNoCamera = true;
-                Debug.LogWarning($"[UIViewportUvWriter] 《{name}》取不到相机（`cam` 为空且 `Camera.main` 为空）⇒ " +
+                Debug.LogWarning($"[UIViewportUvWriter] 《{name}》取不到相机（`cam` 为空且 `LayoutSpace` 三档全空）⇒ " +
                                  $"`uv0.zw` 恒为 {FallbackViewPosition}（原版同值，但原版是静默的 —— 我们出声）。");
             }
             return cam;

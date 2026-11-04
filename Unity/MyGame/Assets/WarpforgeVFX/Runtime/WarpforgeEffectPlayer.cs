@@ -229,7 +229,8 @@ namespace WarpforgeVFX
             float scale = 1f,
             float autoDestroySeconds = -1f,
             bool assignScale = false,
-            int layer = -1)
+            int layer = -1,
+            bool worldRotationStays = false)
         {
             var lib = WarpforgeEffectLibrary.Instance;
             if (lib == null)
@@ -243,13 +244,14 @@ namespace WarpforgeVFX
                 Debug.LogWarning($"[WarpforgeVFX] 效果库里没有 '{effectName}'");
                 return null;
             }
-            return Play(entry, parent, localPosition, scale, autoDestroySeconds, assignScale, layer);
+            return Play(entry, parent, localPosition, scale, autoDestroySeconds, assignScale, layer, worldRotationStays);
         }
 
         /// <summary>照着台账判定的名字播 —— 找不到精确名时退化成模糊匹配，并把命中的名字打出来。</summary>
         public static WarpforgeEffectPlayer PlayFuzzy(
             string keyword, Transform parent = null, Vector3 localPosition = default(Vector3),
-            float scale = 1f, float autoDestroySeconds = -1f, bool assignScale = false, int layer = -1)
+            float scale = 1f, float autoDestroySeconds = -1f, bool assignScale = false, int layer = -1,
+            bool worldRotationStays = false)
         {
             var lib = WarpforgeEffectLibrary.Instance;
             if (lib == null) { Debug.LogWarning("[WarpforgeVFX] 没有效果库"); return null; }
@@ -257,13 +259,29 @@ namespace WarpforgeVFX
             if (hit.Count == 0) { Debug.LogWarning($"[WarpforgeVFX] 没有名字含 '{keyword}' 的效果"); return null; }
             if (hit.Count > 1)
                 Debug.Log($"[WarpforgeVFX] '{keyword}' 命中 {hit.Count} 个，取最短的 '{hit[0].name}'");
-            return Play(hit[0], parent, localPosition, scale, autoDestroySeconds, assignScale, layer);
+            return Play(hit[0], parent, localPosition, scale, autoDestroySeconds, assignScale, layer, worldRotationStays);
         }
 
         /// <param name="layer">`-1` = 跟父节点层（`parent == null` 时保持 prefab 自带层）；
         /// `>= 0` = **显式**设成这一层。语义与判据见上面那个按名字的 `Play` 的 doc。
         /// 🆕 2026-10-25（`B14`）：`WF_GRAB501=1` 时**抓屏扭曲那一族**会被 `GrabScreen501.FinalLayer`
         /// 覆盖成 501 那一层（显式 `layer` 也一样 —— 否则它会被默认透明 pass 和 501 各画一遍）。</param>
+        /// <param name="worldRotationStays">✅ 已复刻（2026-11-04 · B139-G · decomp_full/BattleManager__CreateAnim.c:56-72）——
+        /// **原版 `BattleManager.CreateAnim` 的旋转语义** ——
+        /// `Instantiate(prefab, anchor.position, **prefab.localRotation 当世界旋转**, anchor)`
+        /// （`d:/2/tools/decomp_full/BattleManager__CreateAnim.c:56-72`，逐句：`get_position(anchor)` +
+        /// `get_localRotation(prefab.transform)` 两个实参直接传给 `Object.Instantiate`）。
+        /// Unity 的四参 `Instantiate` 把第 3 个实参当**世界旋转** ⇒ **世界旋转 = prefab 自身旋转，
+        /// 完全不吃锚点/卡/载体的旋转**。
+        ///
+        /// <para>我们 `Instantiate(prefab, parent)` 的世界旋转 = 父旋转 × prefab.localRotation ⇒
+        /// **多乘了父旋转**（手牌扇形 / 攻击倾摆 / AI 落位飞行中的斜置都会命中）。
+        /// 传 `true` ⇒ 实例化后写 `t.rotation = prefab.rotation`（= 原版那一跳）。</para>
+        ///
+        /// <para>⛔ **默认 false = 改前行为，别顺手改成 true**：原版还有**另一条**实例化路
+        /// `CardScript.PlayTriggerAnim`（`decomp_full/CardScript__PlayTriggerAnim.c:29-33`）用的是
+        /// **两参** `Instantiate(prefab, cardUI.effectsAnchor)` ⇒ 那条**要**继承锚点旋转
+        /// （状态框那一族走的就是它）。两条路在原版就不同，派给谁由**调用点**决定。</para></param>
         public static WarpforgeEffectPlayer Play(
             WFEffectEntry entry,
             Transform parent = null,
@@ -271,7 +289,8 @@ namespace WarpforgeVFX
             float scale = 1f,
             float autoDestroySeconds = -1f,
             bool assignScale = false,
-            int layer = -1)
+            int layer = -1,
+            bool worldRotationStays = false)
         {
             if (entry == null)
             {
@@ -311,15 +330,31 @@ namespace WarpforgeVFX
             if (assignScale) t.localScale = Vector3.one * scale;
             else if (!Mathf.Approximately(scale, 1f)) t.localScale = t.localScale * scale;
 
+            // 🆕 2026-11-04（`B139-G` · 审计 B5）：原版 `CreateAnim` 那条路的**世界旋转**语义 ——
+            //   `Instantiate(prefab, anchor.position, prefab.localRotation, anchor)` ⇒ 世界旋转 = prefab 自身，
+            //   **不吃父/卡旋转**（判据逐句见上面 `worldRotationStays` 的 param doc）。
+            //   ⚠️ 写在 `localPosition` 之后：`t.rotation` 是**世界量**，与 localPosition 互不影响；
+            //     但必须在 `Init` 之前 —— 模块 `Initialize` 里会读 `transform.rotation`（TransformModifier 的目标件）。
+            if (worldRotationStays)
+            {
+                t.rotation = entry.prefab.transform.rotation;
+                WorldRotationStaysApplied++;
+            }
+
             var p = go.GetComponent<WarpforgeEffectPlayer>();
             if (p == null) p = go.AddComponent<WarpforgeEffectPlayer>();
-            p.Init(entry, autoDestroySeconds);
 
             // 🔴 2026-10-25（D 域 · 完全复刻第 1 轮 · K5 `P1-4`）：`preventDestroy` 的实例**没有计时销毁**
             //    （原版语义），它靠「挂在卡的 `effectsAnchor` 下、卡离场整棵子树一起没」收场。
             //    我们记下持有者，由 `Tick` 盯它（见 `_ownerWatch` 的注释）。
             //    ⚠️ 只认 `parent != null`：根特效没有持有者，⛔ 不猜一个。
+            //    🔴 **2026-11-04（`B139-G` · 条目 12-03）**：这一句**必须在 `Init` 之前**。模块的
+            //    `Initialize`（`Init` → `BuildModules`）里那一跳 `unParentAtStart ⇒ SetParent(null)` 会调
+            //    `ClearOwner()`（原版脱父后与卡再无关系）—— 放在 `Init` 之后会把刚摘掉的监视**又设回去**，
+            //    等于没修（`Teleport Trait Summon` / `Teleport Trigger Effect Quick` 两件会继续被误收）。
             if (entry.preventDestroy && parent != null) { p._ownerWatch = parent; p._hasOwnerWatch = true; }
+
+            p.Init(entry, autoDestroySeconds);
 
             // ---- 层：**在 `Init` 之后**刷，这样模块 `Initialize` 万一挂出新子件也一起搬到同一层 ----
             // 🔴 **2026-10-24（战斗线 `C6·Q1`）：这条规则原来只在 `WarpforgeEffectHook`（`CardEffects.Play`
@@ -377,10 +412,22 @@ namespace WarpforgeVFX
             // ---- 模块：先按数据装配（原版那批），放粒子之前建好 ----
             BuildModules(entry);
 
+            // ✅ 已复刻（2026-11-04 · B139-G · decomp_full/AnimFXController__OnEnable.c + Unity prewarm 语义）—— 条目 13-05：
+            //   `prewarm` 的循环系统只 Play、不 Clear（原来无条件 Clear 会把预热好的粒子清空 ⇒ 从 0 淡入）。
+            //   原版 `AnimFXController.OnEnable` **一处都不碰粒子** ⇒ 起播交给 `playOnAwake` + `prewarm`。
+            //   现读 274 颗循环系统 / 37 个 prefab 属这一档（战斗侧 11 件）。⛔ 别把这一支改回无条件 `Clear`（`B139_G` 断言会红）。
             foreach (var ps in GetComponentsInChildren<ParticleSystem>(true))
             {
+                if (ps == null) continue;
+                if (ps.main.prewarm)
+                {
+                    PrewarmKept++;                       // 自检读数：这一支真的走过
+                    if (!ps.isPlaying) ps.Play(true);    // ⛔ 不 Clear（见上）
+                    continue;
+                }
                 ps.Clear(true);
                 ps.Play(true);
+                InitCleared++;
             }
 
             // 🔴 2026-10-25：**非 AnimFX 模块**的那些 MonoBehaviour（`SyncParticleSeeds` / `DestroyByTime` /
@@ -530,15 +577,22 @@ namespace WarpforgeVFX
             //    `gameObject` 读都会抛 MissingReferenceException（2026-10-26 `AnimFXCheck.Run` R24 实测：断在 `PlayOneSound` 的 `transform.position`）。
             //    运行期 `Destroy` 是**帧末**生效 ⇒ 同一帧还读得到、不抛；但实例已经判死，**不该再推音效/计时** ⇒ 两条路都从这里返回（正常收场，不是错误）。
             if (_destroyed || this == null) { Debug.Log("[WarpforgeVFX] 跳过一次对已销毁特效的 Tick 尾部（宿主已被模块销毁 —— 正常收场，不是错误）。"); return; }
+
+            // ✅ 已复刻（2026-11-04 · B139-G · decomp_full/AnimFXController__Update.c + __OnEnable.c）—— 条目 12-05：
+            //   音效提到两条寿命判定**之前**。原版先 `currentTime += dt` → 逐条 `sounds[i].Update`，销毁是
+            //   `Object.Destroy(gameObject, destroyTime)` **帧末**生效 ⇒ 到寿命那一帧的 Update 照跑、音照响。
+            //   我们原来先判寿命就 `return` ⇒ 那一帧该响的音被吞。现读命中面 0/937 ⇒ 本次零听感变化，纯机制对齐。
+            //   ⛔ 别把 `TickSounds()` 挪回两条 Destroy 之后（`B139_G` 断言会红）。
+            TickSounds();
+
             if (!_exiting && _destroyAfterAt >= 0f && _time >= _destroyAfterAt) { DestroyAtLifetime(); return; }
 
             // 原版 `AnimFXController.OnEnable` 那句 `Object.Destroy(gameObject, destroyTime)` 到点 ⚠️ **不走 `Exit()`** —— 原版那条路上不调 Exit、不广播模块、不停发射、不播 exitSounds（判据见文件头）；`_destroyHandedOff` 也不挡：原版这句在 OnEnable 就排好了。
             if (!_exiting && _time >= _lifetime) { DestroyAtLifetime(); return; }
 
-            // 音效在**模块广播旁**（原版 `AnimFXController.Update` 里就是逐条 `sounds[i].Update(currentTime, …)`）。
-            // ⚠️ 排在 `Exit()` **之后**：`exitSounds` 只有在 `exiting` 之后才开始判
-            //    （但它的**时间基准仍是 Play**，见 `TickSounds` 里 2026-10-25 那条注）。
-            TickSounds();
+            // 音效在**模块广播旁**（原版 `AnimFXController.Update` 里就是逐条 `sounds[i].Update(currentTime, …)`）——
+            // 本函数里那次 `TickSounds()` 已经在两条寿命判定**之前**（2026-11-04 条目 12-05，见上面的注释）；
+            // `exitSounds` 只有在 `exiting` 之后才开始判（时间基准仍是 Play，见 `TickSounds` 里 2026-10-25 那条注）。
 
             if (_exiting && !_destroyHandedOff && _time - _exitAt >= _exitDelay)
             {
@@ -967,5 +1021,59 @@ namespace WarpforgeVFX
             _hasOwnerWatch = true;
             _ownerWasActive = false;   // 「见过它活着一次」由 Tick 自己记（同 `Play` 里那条）
         }
+
+        // ==================================================================
+        //  🆕 2026-11-04（`B139-G`）—— 本轮四处改动留下的**观测口**
+        //  ------------------------------------------------------------------
+        //  全部是 `static` 累计量，由断言 `WarpforgeVFX/Editor/B139_G_Assert.cs` 读；
+        //  ⛔ 不要拿它们当产品判据（它们是「代码走了哪一支」的读数，不是行为本身）。
+        // ==================================================================
+
+        /// <summary>`Play(..., worldRotationStays: true)` 真的生效过几次（= 写了
+        /// `t.rotation = prefab.rotation`）。判据 → 原版 `BattleManager__CreateAnim.c:56-72`。</summary>
+        public static int WorldRotationStaysApplied { get; private set; }
+
+        /// <summary>`Init` 里**跳过 `Clear`** 的 `prewarm` 粒子系统数（条目 13-05）。</summary>
+        public static int PrewarmKept { get; private set; }
+
+        /// <summary>`Init` 里仍走「`Clear` + `Play`」的粒子系统数（对照组，证明另一支没被删）。</summary>
+        public static int InitCleared { get; private set; }
+
+        /// <summary>累计「模块脱父 ⇒ 摘掉持有者」的次数（条目 12-03 的 `ClearOwner`）。</summary>
+        public static int OwnerCleared { get; private set; }
+
+        /// <summary>把上面四个读数清零（断言开跑前调一次）。</summary>
+        public static void ResetB139Diagnostics()
+        {
+            WorldRotationStaysApplied = 0;
+            PrewarmKept = 0;
+            InitCleared = 0;
+            OwnerCleared = 0;
+        }
+
+        /// <summary>✅ 已复刻（2026-11-04 · B139-G · decomp_full/AnimFXModuleTransformModifier__Initialize.c:123-140）——
+        /// 摘掉「持有者离场 ⇒ 自毁」这一跳（条目 12-03）。
+        ///
+        /// <para>**什么时候调**：模块把**特效根**脱父之后（原版 `AnimFXModuleTransformModifier.Initialize` 的
+        /// `unParentAtStart ⇒ transform.parent = null`，`decomp_full/AnimFXModuleTransformModifier__Initialize.c:123-140`）。
+        /// 原版那一跳之后特效**与卡彻底脱钩** ⇒ 卡离场不该再收它。</para>
+        ///
+        /// <para>**为什么必须调**：`Play` 在 `parent != null` 时记了 `_ownerWatch = parent`（原版那一批
+        /// `preventDestroy = 1` 靠「挂在卡下、卡走整棵没」收场）；而 `unParentAtStart` 把它从父链上摘下来之后，
+        /// **原版这两个效果（`Teleport Trait Summon` / `Teleport Trigger Effect Quick`，都 `preventDestroy = 1`）
+        /// 既没有计时销毁、也不再跟着卡走 ⇒ 永久驻留**（= 原版自己的泄漏，**照抄**，铁律 18·0）。
+        /// 我们不摘 `_ownerWatch` 的话，卡一离场就把它们收掉 —— 比原版**少活**。</para>
+        ///
+        /// <para>⚠️ 与 `_lifetime` 无关：那两个效果 `preventDestroy = 1` ⇒ `_lifetime = +∞`，本来就不会到点自毁。</para></summary>
+        public void ClearOwner()
+        {
+            if (!_hasOwnerWatch) return;
+            _hasOwnerWatch = false;
+            _ownerWatch = null;
+            OwnerCleared++;
+        }
+
+        /// <summary>当前这个实例还盯不盯持有者（断言用；`ClearOwner` 之后必须为 false）。</summary>
+        public bool HasOwnerWatch { get { return _hasOwnerWatch; } }
     }
 }

@@ -8549,7 +8549,7 @@ public static class MainMenuScene
                         // `09_档案窗_Profile页.png` 拍的其实是**默认页 = 头衔页**，名字与内容对不上 —— 铁律 5 就地订正）。
                         // 现在按「页 → 文件名」逐页切过去再拍，一次补齐用户点名的四页。
                         // 🔴 **每一张都先删旧文件、拍完再断「文件真的写出来了」** ——
-                        //    `Shoot` 在 `Camera.main == null` 时**只记 ✗、不写图**（判据 `Editor/MenuCheck.cs` 的 `Shoot` 头部），
+                        //    `Shoot` 在 `LayoutSpace.Cam == null` 时**只记 ✗、不写图**（判据 `Editor/MenuCheck.cs` 的 `Shoot` 头部；2026-11-04 `B139-D4` 起它读 HUD 相机权威档，⛔ 不是 `Camera.main`），
                         //    不断文件的话「没拍成」会**被上一次留下的旧图掩护成绿的**。
                         {
                             var shotTabs = new[] { 0, 1, 2, 4, 5 };
@@ -8585,7 +8585,7 @@ public static class MainMenuScene
                                 Shoot(shotFiles[si]);
                                 CheckTrue(System.IO.File.Exists(shotPath),
                                           $"★ 截图 `{shotFiles[si]}` **真的写盘了**（{shotWhat[si]}页）"
-                                        + " —— 🧨 把这一句挪到切页之前 / 让 `Shoot` 早退（`Camera.main == null`）⇒ 红");
+                                        + " —— 🧨 把这一句挪到切页之前 / 让 `Shoot` 早退（`LayoutSpace.Cam == null`）⇒ 红");
                             }
                         }
 
@@ -16898,7 +16898,7 @@ public static class MainMenuScene
         //  🆕 2026-10-18（`A1007`）：本宿主的**空图护栏**（`guardBlank: true`）真的接上了没有
         //    + 它的判据函数 `MeanBrightness`（本文件**新增**的那一份）对不对。
         //
-        //  ⚠️ `MenuCheck.Shoot` 的 `Camera.main == null` 那一支（原来**静默** return）在本文件里
+        //  ⚠️ `MenuCheck.Shoot` 的「没有相机」（`LayoutSpace.Cam == null`）那一支（原来**静默** return）在本文件里
         //     **不重复造第二份同形探针** —— 它是**共用件里唯一一份实现**，判别式探针在
         //     `Editor/DeckScene.cs` 收尾那一段（摘 `MainCamera` 标签造出无相机上下文、判「恰好一条 ✗」）。
         //     本文件钉的是**另一半**：护栏的接线 + 护栏判据的**量纲/分母**。

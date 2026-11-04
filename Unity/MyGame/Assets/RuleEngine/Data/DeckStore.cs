@@ -3,7 +3,7 @@
 // ⚠️ 本文件用 UnityEngine（`JsonUtility`）+ `CardPresentation.SaveRoot`（存档根）。
 //    `Core/` 下的东西一律不碰 Unity，规则/模型在 `Core/DeckRules.cs` 里。
 //
-// 存在哪：`SaveRoot.Path/WarpforgeDecks.json`（🆕 2026-11-03 B128：根从 `Application.persistentDataPath` 收到 **`C:\warpforgesave`**）
+// 存在哪：`SaveRoot.Path/WarpforgeDecks.json`（🆕 2026-11-03 B128：根从 `Application.persistentDataPath` 收到 **`C:\warpforgesave`**）· 🆕 2026-11-04（`B139_V4`）：**批处理（`-batchmode`）且没注入 `OverridePath` ⇒ 落临时沙箱**（类尾 `BatchSafePath`，玩家真根一个字节都不碰）
 //   · ⚠️ 本条是 `RuleEngine`→`CardPresentation` 的**唯一**引用（只碰一个纯路径字符串）；`工具/ruleprobe` 的 csproj **不编本文件** ⇒ 不影响 headless 探针。
 //   · 旧位置 `%USERPROFILE%\AppData\LocalLow\<公司名>\<产品名>\` 的旧档**永不删除**，只是不再读写。
 //   · 原版的卡组存在**服务器**（`CardDeck.syncedToServer` / `deckId`），单机只能落到本地 —— 这一点和原版不同。
@@ -29,7 +29,7 @@ namespace RuleEngine
         {
             get
             {
-                return OverridePath ?? System.IO.Path.Combine(CardPresentation.SaveRoot.Path, FileName);   // 🆕 2026-11-03 B128：根 = `C:\warpforgesave`（⚠️ 本条是 RuleEngine→CardPresentation 的**唯一**引用，见文件头注）
+                return OverridePath ?? BatchSafePath();   // 🆕 2026-11-03 B128：根 = `C:\warpforgesave`（⚠️ 本条是 RuleEngine→CardPresentation 的**唯一**引用，见文件头注）· 🆕 2026-11-04（`B139_V4`）：第二档改走 `BatchSafePath()` = **批处理且没注入 ⇒ 沙箱**（`??` 语义未变：`null` 才走第二档，空串照旧原样返回）
             }
         }
 
@@ -318,6 +318,70 @@ namespace RuleEngine
         public static void DeleteFile()
         {
             try { if (File.Exists(Path)) File.Delete(Path); } catch { /* 自检里失败无所谓 */ }
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  🔶 自己设计（非原版）：**批处理存档沙箱** · 判据 = 原版没有自检宿主（存档在服务端）· 调度台 2026-11-04（`B139_V4`）
+        //  🆕 追加在**类尾**（`DeleteFile` 之后 ⇒ 上面所有账行号零漂移）；断言宿主 `Editor/B139_V4_Assert.cs` → `RuleEngineTest.Run`
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>沙箱目录名（`Application.temporaryCachePath` 下的一层）。</summary>
+        public const string BatchSandboxDirName = "wfcheck_save";
+
+        static string _sandboxFile;        // 本进程的沙箱文件（`null` = 还没算过）
+        static bool _sandboxSaid;          // 「实际落点 / 建不出目录」只出声一次（⛔ 不刷屏）
+        static readonly string _sandboxTag = Guid.NewGuid().ToString("N").Substring(0, 8);   // 一次进程一个沙箱
+
+        /// <summary>批处理判据口。⚠️ **只给自检用** —— 宿主在交互式编辑器里跑时靠它把闸强制打开/关掉
+        /// （否则「批处理才改道」这条判据在非批处理环境里根本跑不到，只能写成 `if (前提) Check(结论)` 那种静默跳过）。
+        /// 正式代码恒为 `null` ⇒ 用 `Application.isBatchMode`。</summary>
+        public static Func<bool> BatchModeProbe;
+
+        /// <summary>这一趟算不算批处理（`BatchModeProbe` 优先，正式代码恒 `null`）。</summary>
+        static bool BatchNow { get { return BatchModeProbe != null ? BatchModeProbe() : Application.isBatchMode; } }
+
+        /// <summary>🔶 自己设计（非原版）：**批处理下、且没人注入 `OverridePath` 时**，`Path` 的落点改到临时沙箱。
+        /// <para>· 这是什么：`Path` 的第二档。**非批处理时原样返回玩家真路径**（正式运行零变化）。</para>
+        /// <para>· 为什么必须自己定：原版**没有自检宿主**（卡组存在服务端 `CardDeck.syncedToServer`）⇒
+        ///   「自检别写玩家真档」这条判据在**原版里根本不存在**、本地也拿不到 ⇒ 只能我们定。</para>
+        /// <para>· 谁定的 + 日期：调度台 **2026-11-04**（`B139_V4`；用户 2026-11-04 要求「一个任务就彻底完成」）。</para>
+        /// <para>🔴 **为什么是「改道」不是「拒绝写」**：`CardPresentation/Editor/B102DECK_Assert.cs:191` 与
+        ///   `RuleEngine/Editor/DeckRulesTest.cs:251` 都直接调 `SaveAll` 并断「写成功」⇒ 拒绝会让它们红；
+        ///   改道 = 行为不变、只搬落点。</para>
+        /// <para>🔴 **为什么目录名带一次性的进程 tag**：一次进程一个新沙箱 ⇒ 上一次自检留下的卡组**不会污染这一次**
+        ///   （否则会出现「明明 `NoSaveFile` 却读回上一次那 2 套」的幽灵夹具）。目录落在系统临时区
+        ///   （`Application.temporaryCachePath`），不占工程目录。</para>
+        /// <para>⚠️ 建目录失败 ⇒ `LogError` **出声**、仍返回沙箱路径（`SaveAll` 那一步会自己回 `false`）；
+        ///   ⛔ **绝不因此回落到玩家真存档根**。</para></summary>
+        static string BatchSafePath()
+        {
+            // ⚠️ **先判批处理、再算真路径**：`CardPresentation.SaveRoot.Path` 会触发它的 `Resolve()`（建目录 + 写一个
+            //    探针文件再删掉）⇒ 批处理这一趟**连它都不解析**，这才叫「玩家真存档根一个字节都不碰」。
+            if (!BatchNow) return System.IO.Path.Combine(CardPresentation.SaveRoot.Path, FileName);
+            if (_sandboxFile != null) return _sandboxFile;
+            var dir = System.IO.Path.Combine(Application.temporaryCachePath, BatchSandboxDirName, _sandboxTag);
+            _sandboxFile = System.IO.Path.Combine(dir, FileName);
+            try
+            {
+                Directory.CreateDirectory(dir);
+                if (!_sandboxSaid)
+                {
+                    _sandboxSaid = true;
+                    Debug.Log("[DeckStore] 批处理（自检）⇒ 卡组存档落点 = 沙箱「" + _sandboxFile
+                              + "」；玩家真存档根**一个字节都不碰**（本进程连 `SaveRoot.Path` 都不解析）"
+                              + "（要落真根：显式设 `DeckStore.OverridePath`，或起一个非批处理进程）");
+                }
+            }
+            catch (Exception e)
+            {
+                if (!_sandboxSaid)
+                {
+                    _sandboxSaid = true;
+                    Debug.LogError("[DeckStore] 批处理沙箱目录建不出来（" + dir + "）：" + e.GetType().Name + ": " + e.Message
+                                   + " ⇒ 本进程的卡组存档**读写会失败**（⛔ 但绝不回落到玩家真存档根）");
+                }
+            }
+            return _sandboxFile;
         }
     }
 }

@@ -83,8 +83,8 @@ public static class B107W15_Assert
         T(hb != null && hb.onDown != null && hb.onDown == (System.Action)inbox.OnMessageBodyClick,
           "（前提）`onDown` 接的就是本窗 `OnMessageBodyClick`（原版 `MessageDisplay.OnPointerClick` 那一下）");
 
-        var cam = Camera.main;
-        T(cam != null, "（前提）`Camera.main` 在（原版 `TryProcessText` 就把它喂给 `FindIntersectingLink`；没有相机 ⇒ 整条链不动作）");
+        var cam = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：原版 `TryProcessText` 传的是 `Camera.main`，而 2026-11-04 起战斗场景的 `MainCamera` 归 3D BoardCamera ⇒ 我们的等价物 = `LayoutSpace.Cam`（生产侧 `InboxWindow` 也改成了它）；本宿主的 UI 相机由 `Build()` 的 `LayoutSpace.Apply` 设进来）
+        T(cam != null, "（前提）`LayoutSpace.Cam`（HUD 相机）在（原版 `TryProcessText` 就把它喂给 `FindIntersectingLink`；没有相机 ⇒ 整条链不动作）");
         var body = inbox.MessageBodyForTest;
         T(body != null, "（前提）拿到正文 `Label`（`MessageBodyForTest`）");
         if (cam == null || body == null) return;

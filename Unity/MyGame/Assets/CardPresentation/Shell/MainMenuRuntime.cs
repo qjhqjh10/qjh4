@@ -453,7 +453,7 @@ namespace CardPresentation
             //   ⇒ **命中永远落在屏幕正中那一件上**（实测：四个完全不同的位置点下去，命中都是中间那张模式卡）。
             //   同族先例：进战场时 `BattleDriver` 也这么做；这条坑本来就记在 `资料/已知的坑.md`
             //   （「`LayoutSpace.Cam` 是静态字段 … 场景里要有个 `Start()` 重新 `Apply(cam)`」）。
-            LayoutSpace.Apply(Camera.main); ShellRuntime.EnsureAspectClamp(Camera.main);   // 🆕 B109_E16 · AUD05 S4：比例夹取 [4:3, 22:9]（原版主菜单场景 `MB1987` 挂在 UI 相机上；判据/调用点 → `ShellRuntime` 类尾那一节）
+            { var c0 = LayoutSpace.ResolveHudCamera(); if (c0 != null) { LayoutSpace.Apply(c0); ShellRuntime.EnsureAspectClamp(c0); } else Debug.LogWarning("[MainMenu] 取不到 HUD 相机（`LayoutSpace.Cam` / `UICamera` / `MainCamera` 三档全空）⇒ 布局基准没重设，屏幕→世界换算会退化（见 A1494）"); }   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：原来取 `Camera.main`，2026-11-04 起那台在战斗场景是 3D BoardCamera ⇒ 改走 `ResolveHudCamera()`（原版 `SceneCameraManager.GetUICamera` 三档））🆕 B109_E16 · AUD05 S4：比例夹取 [4:3, 22:9]（原版主菜单场景 `MB1987` 挂在 UI 相机上；判据/调用点 → `ShellRuntime` 类尾那一节）
 
             // ============================================================ 🆕 2026-10-12（A384）每日重置那一拍
             //

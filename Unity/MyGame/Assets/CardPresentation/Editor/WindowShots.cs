@@ -477,8 +477,8 @@ public static class WindowShots
     /// <param name="root">这一扇的**窗根** —— 结构判据② 要数它子树里的可渲染件（见 <see cref="Measure"/>）。</param>
     static int Render(string file, Transform root, out string detail)
     {
-        var cam = Camera.main;
-        if (cam == null) { detail = "**没拍成** —— `Camera.main == null`（宿主没建出带 `MainCamera` 标签的相机）"; return 2; }
+        var cam = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：拍的是宿主那台 UI 相机（`LayoutSpace.Apply` 设的权威档）；⛔ 不用 `Camera.main`（战斗场景那台是 3D BoardCamera））
+        if (cam == null) { detail = "**没拍成** —— `LayoutSpace.Cam == null`（宿主没 `LayoutSpace.Apply` 过相机）"; return 2; }
 
         RenderTexture rt = null;
         Texture2D tex = null;
@@ -759,7 +759,7 @@ public static class WindowShots
             //   ⇒ 把**这一趟真正的帧尺寸**显式喂给它（`UIBakeScreen.ScreenSizeOverride`，那边打了 `🔶 自己设计`）。
             //   ⛔ 真机不经过这里（`ShellRuntime` 自己建本件、`Screen` 是真的）⇒ 真机语义一位不变。
             bake.ScreenSizeOverride = new Vector2Int(W, H);
-            bake.cameraToBake = Camera.main;
+            bake.cameraToBake = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：烘的是 UI 相机；⛔ 不用 `Camera.main`）
             bake.Build();          // 批处理/编辑模式下 `Awake` 不跑 ⇒ 显式调（同 `ShellRuntime.Build` 的规矩）
 
             if (bake.image == null)

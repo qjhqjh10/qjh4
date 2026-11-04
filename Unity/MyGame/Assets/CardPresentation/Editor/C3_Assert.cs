@@ -313,11 +313,57 @@ public static class C3_Assert
         return -1;
     }
 
+    // ============================================================ 滚动到某一格（**夹具动作**，⛔ 不是产品行为）
+    // 🔴 **2026-11-04（`B139_V2`）新增**：上一会话（`81ea4fbb`）把卡包格从旧「第 1/4 格」挪到**第 7 格（index 6）**。
+    //   连登轨 7 格、视口 `S_Scroll` 的 x∈[0,1920]，那一格左沿 = **2443.83**
+    //   （`ContentPadL 2 + Σ(EntryAdvance + EntrySpacing)`，见 `DailyStreakPopup.BuildTrack`）⇒ **整格在视口外**
+    //   ⇒ `MenuDraw.Hit` 的 `ClipRect` 判「不建」⇒ `PreviewRewardsHitForTest` 回 null ⇒ D2 红、D3–D11 级联。
+    //   `DailyStreakPopup.FocusCurrentDay()` 在 `StreakCollected = 5` 时**早退不滚**（照原版那条 `if (5 < 当前天)`）
+    //   ⇒ 「那一格会自己出现在视口内」是**夹具的过期前提**，⛔ 不是产品缺陷（铁律 18·0：产品行为不改）。
+    //   所以：**夹具自己滚过去**，滚完再断「整格在视口内」（D1b），然后才取样。
+
+    /// <summary>第 <paramref name="day"/> 格在**内容坐标**里的左沿 —— 与 <see cref="DailyStreakPopup"/> 的 `BuildTrack`
+    /// **同一套步进**（`ContentPadL` + Σ(`EntryAdvance(k)` + `EntrySpacing`)；三个常量都是 `public`）。
+    /// ⛔ 不在这里另发明一套布局：判据只有那一处，这里只是把同一份公开常量再算一遍。</summary>
+    static float DayLeftInContent(int day)
+    {
+        float x = DailyStreakPopup.ContentPadL;
+        for (int k = 0; k < day; k++) x += DailyStreakPopup.EntryAdvance(k) + DailyStreakPopup.EntrySpacing;
+        return x;
+    }
+
+    /// <summary>把连登轨滚到第 <paramref name="day"/> 格（让它落进视口）。
+    /// <para>⚠️ `MenuScroll.SetOffset` 会触发 `OnChanged` ⇒ `BuildTrack()` **重建** `entries`
+    /// ⇒ 调用方必须在那之后**重新取** <see cref="DailyStreakPopup.PreviewRewardsHitForTest"/>
+    /// （拿滚动前那一份 = 已销毁的旧节点 ⇒ 读数全是 null）。</para></summary>
+    static void ScrollDayIntoView(DailyStreakPopup ds, int day)
+    {
+        if (ds == null || ds.TrackScroll == null) return;
+        if (day < 0 || day >= DailyData.StreakDays) return;
+        ds.TrackScroll.SetOffset(DayLeftInContent(day) - ds.TrackScroll.Viewport.x1);
+    }
+
+    /// <summary>那一格（内容坐标 + 当前偏移换算到屏幕）是不是**整格**落在视口里。
+    /// <para>这是 D 段的**前提硬断言**：`hit != null` 只是它的**后果**（`MenuDraw.Hit` 的 `ClipRect` 判不建）；
+    /// 直接量几何，坏掉时能说清是「没滚」还是「滚过头」。</para></summary>
+    static bool DayFullyInViewport(DailyStreakPopup ds, int day, out float sx1, out float sx2)
+    {
+        sx1 = sx2 = -1f;
+        if (ds == null || ds.TrackScroll == null || day < 0 || day >= DailyData.StreakDays) return false;
+        sx1 = DayLeftInContent(day) - ds.TrackScroll.Offset;
+        sx2 = sx1 + DailyStreakPopup.EntryAdvance(day);
+        var vp = ds.TrackScroll.Viewport;
+        return sx1 >= vp.x1 - 0.5f && sx2 <= vp.x2 + 0.5f;
+    }
+
     // ============================================================ D · 第一道闸（`showItemInfoOnClick == 0` ⇒ 整条 return）
     // 🆕 2026-10-31（`B110_W1`）：原版 `ItemDrawer<object>.OnPointerClick` **第一句** =
     //   `if (*(char*)(this + 0x44) == 0) return;`（`decomp_generic_trial/out/ItemDrawer_object___OnPointerClick.c:14`）
     //   ⇒ 闸关时**不开窗、不预览、连 `inspectSound.Play2D()` 都不放**（那一句写在闸内，同文件 `:31-34`）。
     // 我们这一侧的闸 = `DailyData.RewardClickable` / `StreakRewardClickable`（= 抽屉 prefab 的 `showItemInfoOnClick`）。
+    // ⚠️ **2026-11-04 更正（`B139_V2`）**：本段原文默认「卡包那一格在视口内、命中件一定建得出来」——
+    //   **已过期**：`81ea4fbb` 把卡包格挪到第 7 格（index 6，左沿 2443.83 > 视口右沿 1920）⇒ 命中件恒 null。
+    //   现在本段**先由夹具把轨滚到那一格**（`ScrollDayIntoView`）并断「整格在视口内」（D1b / D9b），再验闸。
     static void SectionD_ShowItemInfoGateOff(WindowsManager wm)
     {
         MenuCheck.Section(_sink, "D 第一道闸（`showItemInfoOnClick == 0` ⇒ 整条 return）：不开窗、不出声、不挂回调");
@@ -337,8 +383,15 @@ public static class C3_Assert
         for (int i = 0; i < DailyData.StreakDays; i++)
             if (DailyData.StreakRewardIcon(i) == "40k_main_bt_rewards" && !DailyData.StreakRewardUnlocked(i)) { pack = i; break; }
         Tr(pack >= 0, "D1 **前提**：连登轨里找得到一格「卡包（闸关）+ 未领」");
+        // 🔴 2026-11-04（B139_V2）：那一格现在是**第 7 格（index 6）**，出厂偏移下整块在视口外 ⇒ 夹具自己滚过去。
+        ScrollDayIntoView(ds, pack);
+        float sx1 = -1f, sx2 = -1f;
+        bool packInView = pack >= 0 && DayFullyInViewport(ds, pack, out sx1, out sx2);
+        Tr(packInView,
+          "D1b **前提**：夹具滚过去之后那一格**整格在视口内**（实测 x " + sx1.ToString("0.##") + " → " + sx2.ToString("0.##")
+        + "，视口 x∈[0,1920]）｜🧨 不滚就取样 ⇒ 命中件 null ⇒ D2–D11 全红（= 2026-11-04 之前的形状）");
         var hitPack = pack >= 0 ? ds.PreviewRewardsHitForTest(pack) : null;
-        Tr(hitPack != null, "D2 **前提**：那一格的命中件建出来了（视口内）");
+        Tr(hitPack != null, "D2 **前提**：那一格的命中件建出来了（= `ClipRect` 判它在视口内、`MenuDraw.Hit` 真建了）");
         Tr(hitPack != null && hitPack.Interactable,
           "D3 **前提**：命中件**可点**（⛔ 不是被 `Interactable = false` 挡住的 —— 那样 D4-D8 就成了空转绿）");
         Tr(hitPack != null && hitPack.onClick == null,
@@ -368,6 +421,10 @@ public static class C3_Assert
         DailyData.RewardClickableOverrideForTest = true;   // 连登窗读同一个口（`StreakRewardClickable` 共享它）
         var ds2 = BuildStreak(wm);
         if (ds2 == null) { Tr(false, "D9 **前提不成立**：灭自证那一份连登窗没建出来"); return; }
+        ScrollDayIntoView(ds2, pack);        // 同一格、同样要夹具自己滚进视口（新建的窗偏移又从 0 起）
+        float ox1 = -1f, ox2 = -1f;
+        Tr(pack >= 0 && DayFullyInViewport(ds2, pack, out ox1, out ox2),
+          "D9b **前提**：灭自证那一份也滚到了那一格（整格在视口内，实测 x " + ox1.ToString("0.##") + " → " + ox2.ToString("0.##") + "）");
         var hitOpen = pack >= 0 ? ds2.PreviewRewardsHitForTest(pack) : null;
         Tr(hitOpen != null && hitOpen.onClick != null,
           "D9 ★（灭自证）**同一格**把闸摆成开 ⇒ `onClick` **挂上了**（D4 读的确实是闸，不是「这一格恒 null」）");

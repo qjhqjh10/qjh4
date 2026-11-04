@@ -32,7 +32,7 @@ namespace CardPresentation
         /// 尺寸静默变成 1/108、`rect` 元数据全错（**画面常常看不出**：那些节点的子件走绝对坐标、不读父 `rect`）。
         /// ✅ 要「1920×1080」就用 <see cref="DesignPxW"/> / <see cref="DesignPxH"/>，或直接写 px 字面量。
         /// ⚠️ **别给这两对改名** —— `Apply` 里的 `Camera.orthographicSize` / `VisibleWidth` / `Scale` /
-        /// `ImageQuad.Create` / `SetAspect` 与 `DeckScene` / `ShellScene` 一大片在用。</summary>
+        /// `ImageQuad.Create` / `SetAspect` 与 `DeckScene` / `ShellScene` 一大片在用。🔶 **自己设计（非原版）**：运行期用**正交相机**（`Apply` 里 `cam.orthographic = true`），原版是**透视**（fov 40 / near 0.3 / far 300）—— 原因：本工程 2D 世界件按「可见高 10 单位 = 108 px/单位」布局，改透视会整体缩到 0.687 倍；判据 = 架构项 `A2098`（我们钉高 vs 原版 `CanvasScaler Expand` 钉宽）。调度台 2026-11-04 裁定「按原版」⇒ **这是待还的技术债，⛔ 不是终态**。</summary>
         public const float DesignHeight = 10f;
 
         /// <summary>设计基准宽高比（16:9）—— 布局按这个宽度设计的</summary>
@@ -153,8 +153,8 @@ namespace CardPresentation
             //   ⇒ 原来直接 `return Vector3.zero` ⇒ **每一次换算都退化成世界原点**
             //   ⇒ `PixelOfDesign(0,0)` 恒等于画布正中 **(960, 540)** ⇒ **命中永远落在屏幕正中那一件上**
             //   （实测：四个完全不同的屏幕位置，`click_log` 里命中都是中间那张模式卡、画布列恒为 960,540）。
-            //   ⇒ 改成**回落 `Camera.main`**，并把 `Cam` 顺手修正回来：任何「壳相机先关、再切场景」的路径都不会再退化。
-            if (cam == null) { cam = Camera.main; if (cam != null) Cam = cam; }
+            //   ⇒ 改成**回落 HUD 相机**（`ResolveHudCamera()`：`UICamera` 标签 → `MainCamera` 标签，原版 `SceneCameraManager.GetUICamera` 那三档），并把 `Cam` 顺手修正回来：任何「壳相机先关、再切场景」的路径都不会再退化。✅ 已复刻（2026-11-04 · B139-D4 · 判据 = `decomp_full/SceneCameraManager__GetUICamera.c` + `PopUpGameWindow__GetUICamera.c`；⛔ 2026-11-04 起 `Camera.main` = 3D BoardCamera，不再当 HUD 相机用）
+            if (cam == null) { cam = ResolveHudCamera(); if (cam != null) Cam = cam; }
             if (cam == null) return Vector3.zero;
             var w = cam.ScreenToWorldPoint(new Vector3(screenPos.x, screenPos.y, -cam.transform.position.z));
             w.z = 0f;
@@ -299,6 +299,33 @@ namespace CardPresentation
         public static Vector2 ToDesignPixel(Vector3 world)
         {
             return new Vector2(world.x * PxPerWorldX + DesignPxW * 0.5f, PxY(world.y));
+        }
+
+        // ============================================================ HUD 相机解析（2026-11-04 · B139-D4 · 追加在类尾）
+        //  为什么要有这一条：**2026-11-04 起 `MainCamera` 标签归 3D 透视的 BoardCamera**（原版 GO `&348`；
+        //  `Editor/B139_S_CameraSerialized_Assert.cs` 的 `BoardTag`），HUD 那台改叫 `UICamera`（原版 GO `&350`）
+        //  ⇒ `Camera.main` 拿到的是**战场相机**，⛔ 不能再当 HUD/UI 相机用。
+        //  解析序 = 原版 `SceneCameraManager.GetUICamera` / `PopUpGameWindow__GetUICamera.c` 那三档：
+        //    ① 缓存（我们的缓存口 = `Cam`，由 `Apply` 设）② `UICamera` 标签 ③ `MainCamera` 标签（原版第二档；
+        //    单相机的 UI 场景 —— 壳 / 卡组 / 主菜单 / 各 Editor 宿主 —— 那台就是它）④ 都没有 ⇒ null（调用方出声）。
+
+        /// <summary>解析 HUD（UI 正交）相机 —— `Cam` 失效时的兜底（<see cref="ScreenToWorld"/> 用它）。
+        /// <para>✅ 已复刻（2026-11-04 · B139-D4 · 判据 = `decomp_full/SceneCameraManager__GetUICamera.c` 的
+        /// 「缓存 → `UICamera` 标签 → `MainCamera` 标签 → 空」三档 + `PopUpGameWindow__GetUICamera.c:20-45`）。</para>
+        /// <para>⚠️ **消费者首选仍是 <see cref="Cam"/>**（`Apply` 设的权威档）；本方法是「`Cam` 已经不可用」时的兜底，
+        /// 解析到了就顺手写回 `Cam`（与原版缓存语义一致）。</para></summary>
+        public static Camera ResolveHudCamera()
+        {
+            if (Cam != null) return Cam;
+            var go = GameObject.FindWithTag("UICamera");           // 原版第二档：战斗场景里的 HUD 相机
+            if (go != null)
+            {
+                var c = go.GetComponent<Camera>();
+                if (c != null) { Cam = c; return c; }
+            }
+            var m = Camera.main;                                   // 原版第三档：`MainCamera` 标签（单相机 UI 场景）
+            if (m != null) { Cam = m; return m; }
+            return null;
         }
     }
 }

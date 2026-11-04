@@ -13,6 +13,11 @@
 //  · `DailyData.cs:1969 / :2109` = 已切通道的**同一份模板**（本文件 A3 的「逐字段相等」就是它那条验收）
 //  · `InboxData.cs:427`（读）/ `:488`（写）—— 本批改的就是这两处
 //
+// ⚠️ 2026-11-04 更正（`B139_V1`）：`SaveCenter.LegacyMirrorOn`（`Shell/SaveCenter.cs:915`）自 `81ea4fbb` 起是
+//    `!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WF_LEGACY_MIRROR"))`（用户 2026-11-03 裁定「关双写」）
+//    ⇒ **默认 false**。本夹具原来**没显式打开**、靠旧默认值 `true`，所以 A2 / A2' / A2'' / A3 / C1' 五条全倒。
+//    现在 `Run()` 开头**显式 `= true`**、`finally` 还原原值（先例 = `Editor/B102DECK_Assert.cs:132`）。
+//
 // ============================ 灭自证（🧨 结构上不可能同时满足）============================
 //  🧨 A1：把写口退回裸 `File.WriteAllText` ⇒ 中央档不存在 ⇒ A1/A1'/A1''/A3 四条**当场红**。
 //  🧨 B1：把读口退回「裸 `File.ReadAllText(旧档)`」⇒ B1 读到 0（旧档那份），期望 777000 ⇒ 红。
@@ -20,6 +25,7 @@
 //  🧨 C1：把读口改成「只读中央」⇒ 中央档被 `Delete` 之后读到出厂态 ⇒ C1（claim=0 但 read 必须 true）与 C1' 红。
 //  🧨 D1：把 `StoreOn` 那道门弄丢（不管 `SaveCenter.StoreOn` 都去写中央）⇒ 自检常态下会写到玩家真档；
 //     这一段用「只注入 `InboxData.OverrideDir`」把它钉住：旧档必须照样写、形状与切换前逐字节同。
+//  🧨 双写开关「关着」⇒ `W16-A4'` 断旧档**一个字节都不动** —— 没有这条，整套只剩「开着能写」，分不出开/关。
 //
 // ============================ 怎么接 ============================
 //  `Editor/RewardsScene.cs` 的聚合行（`:13725`，`Debug.Log(… 合计 …)` 之前）**同一物理行**追加：
@@ -66,6 +72,7 @@ public static class B116W16_Assert
         string prevInboxDir = InboxData.OverrideDir;
         string prevRoot = SaveCenter.OverrideRoot;
         string prevMirror = SaveCenter.LegacyMirrorPathOf(SaveKeys.OursInbox);
+        bool prevMirrorOn = SaveCenter.LegacyMirrorOn;      // ⚠️ 2026-11-04（B139_V1）：默认已改成 false（见文件头）
 
         var msgs = InboxData.Messages;
         int n = msgs.Count;
@@ -81,6 +88,9 @@ public static class B116W16_Assert
         try
         {
             TryDelete(root);
+            // ⚠️ 2026-11-04（B139_V1）：双写开关默认已是 false（用户 2026-11-03 裁定「关双写」）⇒ 本夹具要验
+            //    「中央档 + 旧档同时写」，必须**显式**打开；`finally` 还原原值（⛔ 别留脏状态给同进程后续套件）。
+            SaveCenter.LegacyMirrorOn = true;
 
             // ---------------------------------------------------------------- 前提：键表一个字没动
             C(SaveKeys.ValidateTable(), "", "W16-0 前提：`SaveKeys.ValidateTable()` 通过");
@@ -114,6 +124,25 @@ public static class B116W16_Assert
                "W16-A2'' ★ 旧档**不带 `_v`** ⇒ 旧客户端照旧解析得动");
             C(SaveCenter.DiffWithLegacy(SaveKeys.OursInbox), "",
               "W16-A3 ★★ 中央档与旧档**逐字段相等**（施工面 §3 B4 = Step 4 的验收判据）");
+
+            // ---------------------------------------------------------------- A4：灭自证 —— 开关**关着** ⇒ 旧档不写
+            // ⚠️ 2026-11-04（`B139_V1`）：`LegacyMirrorOn` 现在默认 false ⇒ 这一段必须**先显式 false** 才有意义；
+            //    它同时是「上面 A2 / A3 绿是因为开关真的开着、不是因为别的东西顺手写了旧档」的反证。
+            InboxData.ReloadForTest();          // 回到盘上那一份（`local_welcome` 已读、claim 0）
+            welcome.ClaimedAtMs = 424242L;      // 换一个**必然不同**的值 ⇒ 下一拍落盘一定会改中央档
+            welcome.Read = false;               // `MarkRead` 只在「未读」时落盘，复位一下制造一次确定会发生的写
+            SaveCenter.LegacyMirrorOn = false;
+            try
+            {
+                InboxData.MarkRead(welcome);
+                string centralOff = SaveCenter.GetRaw(SaveKeys.OursInbox);
+                Tr(centralOff != null && centralOff.Contains("424242"),
+                   "W16-A4 前提：中央档确实是新值（`claimedAt:424242`）—— 证明这一趟真的走了写口");
+                string legacyOff = File.Exists(legacyPath) ? File.ReadAllText(legacyPath) : null;
+                C(legacyOff, legacyText,
+                  "W16-A4' ★★ 开关**关着** ⇒ 旧档**一个字节都没动**（仍是 A2 那份）—— 熔断这条，整套就只剩「开着能写」，分不出开/关");
+            }
+            finally { SaveCenter.LegacyMirrorOn = true; }
 
             // ---------------------------------------------------------------- B：读口「中央优先」
             // 🔴 先撤双写登记 —— 否则 `SetRaw` 会把这份探针 payload **也双写进旧档**，两边就一样了、B 段失去意义。
@@ -164,6 +193,7 @@ public static class B116W16_Assert
             // ---- 逐样还原（⛔ 不给后面的断言段留脏状态）
             InboxData.OverrideDir = prevInboxDir;
             SaveCenter.OverrideRoot = prevRoot;
+            SaveCenter.LegacyMirrorOn = prevMirrorOn;      // ⚠️ 2026-11-04（B139_V1）：还原双写开关（⛔ 别留给同进程后续套件）
             for (int i = 0; i < n; i++)
             {
                 var m = InboxData.Find(ids[i]);

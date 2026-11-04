@@ -13724,7 +13724,7 @@ public static class CollectionScene
         /// 相机是正交的（`LayoutSpace.Apply`：`cam.orthographic = true`）⇒ 这条投影就是 Unity 的透明排序键。</para></summary>
         static float LayerDepth(MeshRenderer mr)
         {
-            var cam = LayoutSpace.Cam != null ? LayoutSpace.Cam : Camera.main;
+            var cam = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：`Cam` 是 `Apply` 设的权威档；本宿主 `Build()` 建场时一定 Apply 过。⛔ `Camera.main` 现在是 3D 战场相机）
             if (mr == null || cam == null) return float.NaN;
             return Vector3.Dot(mr.bounds.center - cam.transform.position, cam.transform.forward);
         }
@@ -13732,7 +13732,7 @@ public static class CollectionScene
         /// 收藏窗是正交相机，真正的排序键是上一条的视线投影）。</summary>
         static float LayerDist(MeshRenderer mr)
         {
-            var cam = LayoutSpace.Cam != null ? LayoutSpace.Cam : Camera.main;
+            var cam = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：`Cam` 是 `Apply` 设的权威档；本宿主 `Build()` 建场时一定 Apply 过。⛔ `Camera.main` 现在是 3D 战场相机）
             if (mr == null || cam == null) return float.NaN;
             return Vector3.Distance(mr.bounds.center, cam.transform.position);
         }

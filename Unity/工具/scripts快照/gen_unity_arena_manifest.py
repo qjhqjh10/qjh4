@@ -873,6 +873,19 @@ def uv_fields(ps):
         'uvFps': r6(_f(uv.get('fps'), 30.0)),
         'uvCycles': r6(_f(uv.get('cycles'), 1.0)),
         'uvRowIndex': int(_f(uv.get('rowIndex'), 0)),
+        # 🆕 2026-11-04（`B139_H` · 审计 8-06）：**UV 模块另外 7 个字段** —— 原版 arena1 只有
+        #   2 个对象有非默认项（`startFrame`），但按铁律 11「全部都要做」照抽照接。
+        #   现读 13 场 368 个「UV 模块开着」的粒子：`flipU/flipV` 全 0 · `mode` 0×365/1×3 ·
+        #   `rowMode` 全 1 · `uvChannelMask` 全 −1（Everything）· `speedRange` 全是 `(0,1)`。
+        #   ⚠️ `speedRange` 是 **Vector2**（`{x,y}`），不是 MinMaxCurve —— 用 `mm()` 会只取 x。
+        'uvFlipU': bool(uv.get('flipU', False)),
+        'uvFlipV': bool(uv.get('flipV', False)),
+        'uvMode': int(_f(uv.get('mode'), 0)),
+        'uvRowMode': int(_f(uv.get('rowMode'), 1)),
+        'uvChannelMask': int(_f(uv.get('uvChannelMask'), -1)),
+        'uvStartFrame': mm(uv.get('startFrame'), 0.0),
+        'uvSpeedRange': (lambda s: [r6(_f((s or {}).get('x'), 0.0)), r6(_f((s or {}).get('y'), 1.0))])(
+            uv.get('speedRange')),
     }
 
 
@@ -1685,13 +1698,20 @@ def build_manifest(a, include_all_particles=False):
     # `defaultEnvironment.ambientColor` 覆盖 `RenderSettings.ambientLight`（见 default_env()）。
     ambient = {'mode': 3, 'sky': [1.0, 1.0, 1.0], 'equator': [0.3255, 0.5862, 1.0],
                'ground': [0.59, 0.59, 1.0], 'intensity': 0.41, 'fog': False,
-               'fogColor': [1.0, 1.0, 1.0], 'fogDensity': 0.0}
+               'fogColor': [1.0, 1.0, 1.0], 'fogDensity': 0.0,
+               # 🆕 2026-11-04（`B139_H` · 审计 14-02）：兜底值 = 原版 13 场恒值
+               'subtractiveShadow': [0.6368, 0.7276, 1.0]}
     for r in a.REN.values():
         ambient = {
             'mode': int(r.get('m_AmbientMode', 3)),
             'sky': color3(r.get('m_AmbientSkyColor'), (1.0, 1.0, 1.0)),
             'equator': color3(r.get('m_AmbientEquatorColor'), (0.3255, 0.5862, 1.0)),
             'ground': color3(r.get('m_AmbientGroundColor'), (0.59, 0.59, 1.0)),
+            # 🆕 2026-11-04（`B139_H` · 审计 14-02）：`m_SubtractiveShadowColor` —— 原版 13 场
+            #   `!u!104` 实读恒为 `(0.6367924, 0.7275943, 1, 1)`（Unity 默认是 `(0.42,0.478,0.627)`）。
+            #   它只在 Subtractiv 光照模式下参与运算，但按铁律 11「全部都要做」照抽照写，
+            #   否则 `ArenaBuilder` 重生成场景就把它写回 Unity 默认值。
+            'subtractiveShadow': color3(r.get('m_SubtractiveShadowColor'), (0.6368, 0.7276, 1.0)),
             'intensity': r6(r.get('m_AmbientIntensity', 0.41)),
             'fog': bool(r.get('m_Fog', False)),
             'fogColor': color3(r.get('m_FogColor'), (1.0, 1.0, 1.0)),
@@ -1928,6 +1948,20 @@ def build_manifest(a, include_all_particles=False):
             entry['shadowCast'] = int(_f(_mr.get('m_CastShadows'), 1))
             entry['shadowReceive'] = int(_f(_mr.get('m_ReceiveShadows'), 1))
 
+        # 🆕 2026-11-04（`B139_H` · 审计 16-04 / 16-05 / 16-06）：`MeshRenderer` 的三个字段
+        #   **原来没抽也没接** ⇒ `ArenaBuilder` 建出来的每个 MeshRenderer 都落 Unity 默认
+        #   （`m_RenderingLayerMask = 1` · `m_LightProbeUsage = 0` · `m_SortingOrder = 0`）。
+        #   原版 battlearena1 的 `Scenario` 子树 31 个可比渲染器实读：
+        #     · `m_RenderingLayerMask` —— **26 个 = 4294967295（All）**、5 个 = 1；
+        #     · `m_LightProbeUsage`   —— **13 个 = 1（BlendedProbes）**、18 个 = 0；
+        #     · `m_SortingOrder`      —— **1 个 = 1**（`Particles/Battle/TinyExplosion_Far/Shockwave`）。
+        #   ⚠️ 用 `mr_of` 现取（与上面内置网格那一支同一个来源）；缺字段才落 Unity 默认
+        #      （新建 MeshRenderer 的 `m_LightProbeUsage` 默认就是 1 = BlendedProbes）。
+        _mr3 = mr_of(a, gopid) or {}
+        entry['renderingLayerMask'] = int(_f(_mr3.get('m_RenderingLayerMask'), 1))
+        entry['lightProbeUsage'] = int(_f(_mr3.get('m_LightProbeUsage'), 1))
+        entry['sortingOrder'] = int(_f(_mr3.get('m_SortingOrder'), 0))
+
         meshes.append(entry)
 
     # ---------------- 粒子 ----------------
@@ -2140,6 +2174,11 @@ def build_manifest(a, include_all_particles=False):
             'shapeRot': v3(shp.get('m_Rotation')),
             'shapeScale': v3(shp.get('m_Scale'), (1.0, 1.0, 1.0)),
             'shapeRadiusThickness': r6(_f(shp.get('radiusThickness'), 1.0)),
+            # 🆕 2026-11-04（`B139_H` · 审计 8-04）：**`ShapeModule.length` 原来没抽也没接** ⇒
+            #   构建侧一律吃 Unity 默认 5.0。原版 13 场 **56 个对象 ≠ 默认**（0.12 / 0.85 / 2.86 /
+            #   2.9 / 4.42），只对 Cone / Box 一类形状生效 ⇒ 锥形那一族差得最明显。
+            #   判据 = 原版 `ParticleSystem.ShapeModule.length`（bundle JSON 逐颗实读）。
+            'shapeLength': r6(_f(shp.get('length'), 5.0)),
             'renderMode': int(_f(render_mode, DEF_RENDER_MODE)),
             # 🔴 2026-09-25：`renderMode = 4 (Mesh)` 时要用的网格（`Models/` 里的 OBJ 文件名）。
             #    空 = 场景里没这颗的网格 info（见上面那条长注释）⇒ 建场侧退回 Billboard。
@@ -2183,6 +2222,15 @@ def build_manifest(a, include_all_particles=False):
             'matProps': (list(getattr(mats[0], 'raw_props', None) or []) if mats else []),
             'matQueue': (int(mats[0].custom_queue) if (mats and getattr(mats[0], 'custom_queue', None) is not None) else -1),
             'simulationSpace': int(_f(ps.get('moveWithTransform'), DEF_SIM_SPACE)),
+            # 🆕 2026-11-04（`B139_H` · 审计 8-03 / 8-05）：两个**原来没抽也没接**的粒子字段。
+            #   · `cullingMode` —— 原版 13 场 **191 个对象 ≠ 0**（3=AlwaysSimulate / 1=PauseAndCatchup）；
+            #     我们原来一律吃默认 0（Automatic）⇒ 离屏时原版继续模拟/追帧、我们会暂停，
+            #     重新入画那一刻的粒子相位就与原版不同；
+            #   · `emitterVelocityMode` —— 原版 **805 个对象 ≠ 0**（几乎全是 1 = Rigidbody）；
+            #     静止发射体上净效果相同，只有「发射体本身在动」的对象才分叉。
+            #   兜底值 = Unity 新建 ParticleSystem 的默认（0 / 0），⛔ 不拿「原版大概是」去填。
+            'cullingMode': int(_f(ps.get('cullingMode'), 0)),
+            'emitterVelocityMode': int(_f(ps.get('emitterVelocityMode'), 0)),
             'bursts': burst_list(em, warn, gname),
         })
         particles[-1].update(uv_fields(ps))

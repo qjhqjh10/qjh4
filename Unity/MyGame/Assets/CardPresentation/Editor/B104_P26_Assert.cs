@@ -81,6 +81,9 @@ public static class B104_P26_Assert
             CollectionData.PendingNewDeck = keepPendNew;
             CollectionData.PendingReturn = keepReturn;
             DeckStore.OverridePath = keepStorePath;
+            // 🔴 2026-11-04（`B139_V2`）：P52 段会临时换存档根造卡组 ⇒ 路径还原之后**必须**再作废一次
+            //   进程级缓存（`CollectionData._lib` 是 static），否则后面每一节都看到那两套夹具卡组。
+            CollectionData.InvalidateLibrary();
         }
 
         CheckP6StaticEventLiveness();
@@ -160,6 +163,9 @@ public static class B104_P26_Assert
     {
         if (mgr == null) { Tr(false, "P22（前提）没有 `WindowsManager` ⇒ 本段空转（上面已有红）"); return; }
 
+        // 🔴 **2026-11-04 更正（`B139_V2`）**：本段原来在 `finally` 里把 `DeckStore.OverridePath` 还原成**字面 `null`**
+        //   —— 那是「进来时恰好是 null」的巧合，会把**外层注入的值清掉**。改成「先存进来时那份、`finally` 还原它」。
+        string keepPath = DeckStore.OverridePath;
         string tmpDeck = System.IO.Path.GetFullPath(
             System.IO.Path.Combine(Application.dataPath, "../Temp/_p26_deckwin.json"));
         DeckStore.OverridePath = tmpDeck;
@@ -199,7 +205,7 @@ public static class B104_P26_Assert
             if (deW != null && deW.gameObject != null) UnityEngine.Object.DestroyImmediate(deW.gameObject);
             if (mgr != null) mgr.HidePopUp(true);      // `force`：本段可能把栈顶换成别的窗，收尾要保证那扇消息弹窗一定关掉
             DeckStore.DeleteFile();
-            DeckStore.OverridePath = null;
+            DeckStore.OverridePath = keepPath;         // ⛔ 不是字面 `null`（会把外层注入的值清掉）
         }
     }
 
@@ -210,33 +216,84 @@ public static class B104_P26_Assert
     {
         if (mgr == null) { Tr(false, "P52（前提）没有 `WindowsManager` ⇒ 本段空转（上面已有红）"); return; }
 
-        var deck = new PlayerDeck { Name = "P26 选择失败夹具", WarlordId = "AM1", GameMode = 0 };
-        var info = new CollectionData.DeckInfo
+        // 🔴 **2026-11-04 更正（`B139_V2`）· 夹具前提过期，不是产品缺陷**：
+        //   本段原来假设「`CollectionData.Select(-1)` **必然**越界」。上一会话（`81ea4fbb`）把存档根迁到
+        //   `C:\warpforgesave` ⇒ 新根下卡组库是**空表**（`current:-1, decks:[]`）⇒ `Lib.CurrentIndex == -1 == i`
+        //   ⇒ `Select(-1)` 被读成「选中成功」（P52a 红），还走 `Lib.Save()` 然后关窗（P52b 红）。
+        //   ⛔ 别拿「环境里恰好没有卡组」当越界样本 —— 夹具**自己造两套**（临时 `DeckStore.OverridePath`，
+        //   与 `Editor/B104_P4_Assert.cs` 的 `MakeTwoSameName` 同一条路；⛔ 不碰玩家真卡组），
+        //   跑完删文件 + 还原路径 + **作废 `CollectionData` 的进程级缓存**（`Lib` 是 static，
+        //   不作废就会把这两套夹具卡组带进后面每一节）。
+        string keepPath = DeckStore.OverridePath;
+        string tmpDeck = System.IO.Path.GetFullPath(
+            System.IO.Path.Combine(Application.dataPath, "../Temp/_p26_select.json"));
+        DeckStore.OverridePath = tmpDeck;
+        DeckStore.DeleteFile();
+        CollectionData.InvalidateLibrary();          // 丢掉此前那份进程级缓存（否则 `Lib` 还读老库）
+
+        DeckInfoPopup pop = null;
+        try
         {
-            Name = deck.Name, WarlordId = "AM1", Count = 0, CardbackId = null, GameMode = 0, Faction = "",
-        };
-        // `DeckIndex = -1` + `OnSelectDeck = null` ⇒ 走 `CollectionData.Select(-1)`，它必然失败（越界）
-        var pop = DeckInfoPopup.CreateForPicked(mgr, -1, deck, info,
+            // ---- 造两套卡组进临时存档，再**从盘上重读**（⛔ 不用内存那份当证据）
+            //      ⚠️ 用 `NewUnsaved` + `Insert`：`DeckLibrary.Create` 已 `[Obsolete]`（只服务夹具），
+            //         这里走的是同一条「入库的唯一入口」（`Insert`）⇒ 零警告、语义一样。
+            var seed = DeckLibrary.Load();           // 临时路径刚删过 ⇒ 空库
+            seed.Insert(seed.NewUnsaved("P26 选择失败夹具 1"));
+            seed.Insert(seed.NewUnsaved("P26 选择失败夹具 2"));
+            var reread = DeckLibrary.Load();
+            Tr(reread.Decks.Count >= 2,
+               "P52 **前提 ①**：夹具卡组库里有 ≥ 2 套（临时存档 `Temp/_p26_select.json`，⛔ 不碰玩家真卡组）—— 实测 "
+             + reread.Decks.Count + " 套");
+            Tr(reread.CurrentIndex != -1,
+               "P52 **前提 ②**：库的 `CurrentIndex` **不是** −1 ⇒ `Select(-1)` 才是一次**真越界**（当前 = " + reread.CurrentIndex + "）");
+            if (reread.Decks.Count < 2 || reread.CurrentIndex == -1) return;
+
+            CollectionData.InvalidateLibrary();      // 让 `CollectionData.Lib` 重读这份临时库
+            Tr(CollectionData.DeckCount() >= 2,
+               "P52 **前提 ③**：`CollectionData` 看到的就是这份临时库（实测 " + CollectionData.DeckCount() + " 套）"
+             + "｜🧨 不是 ⇒ P52a 可能验到的只是「空库恰好 `CurrentIndex == -1`」那条假失败");
+
+            var deck = new PlayerDeck { Name = "P26 选择失败夹具", WarlordId = "AM1", GameMode = 0 };
+            var info = new CollectionData.DeckInfo
+            {
+                Name = deck.Name, WarlordId = "AM1", Count = 0, CardbackId = null, GameMode = 0, Faction = "",
+            };
+            // `DeckIndex = -1` + `OnSelectDeck = null` ⇒ 走 `CollectionData.Select(-1)`，前提已在上三档断过
+            pop = DeckInfoPopup.CreateForPicked(mgr, -1, deck, info,
                                                 DeckInfoPopup.DeckInfoState.Edit, true, "Select deck", null);
-        Tr(pop != null, "（前提）详情窗建出来了");
-        if (pop == null) return;
-        mgr.OpenWindow(pop);
-        Tr(pop.IsItemShown("Btn:Select Deck"), "（前提）给了文案 ⇒ `Select Deck` 露着");
+            Tr(pop != null, "（前提）详情窗建出来了");
+            if (pop == null) return;
+            mgr.OpenWindow(pop);
+            Tr(pop.IsItemShown("Btn:Select Deck"), "（前提）给了文案 ⇒ `Select Deck` 露着");
 
-        var t = pop.Btn("Select Deck");
-        var wb = t != null ? t.GetComponent<WindowButton>() : null;
-        Tr(wb != null, "（前提）`Select Deck` 有点击区");
-        if (wb != null) wb.Click();
+            var t = pop.Btn("Select Deck");
+            var wb = t != null ? t.GetComponent<WindowButton>() : null;
+            Tr(wb != null, "（前提）`Select Deck` 有点击区");
+            if (wb != null) wb.Click();
 
-        Tr(!string.IsNullOrEmpty(CollectionData.LastSelectError)
-           && CollectionData.LastSelectError.IndexOf("越界", StringComparison.Ordinal) >= 0,
-           "P52a ★ 选中失败 ⇒ **说出了原因**（`LastSelectError` 含「越界」）");
-        Tr(pop.IsOpen(),
-           "P52b ★ …而且**不关窗**（玩家能看见失败、不是「窗没了 = 以为选中了」）"
-         + "｜🧨 在失败支里把 `Close()` 加回去 ⇒ 本条红");
-
-        pop.Close();
-        if (pop.gameObject != null) UnityEngine.Object.DestroyImmediate(pop.gameObject);
+            Tr(!string.IsNullOrEmpty(CollectionData.LastSelectError)
+               && CollectionData.LastSelectError.IndexOf("越界", StringComparison.Ordinal) >= 0,
+               "P52a ★ 选中失败 ⇒ **说出了原因**（`LastSelectError` 含「越界」）"
+             + "｜🧨 失败支不写 `LastSelectError` ⇒ 红。实测 = " + (CollectionData.LastSelectError ?? "<null>"));
+            Tr(pop.IsOpen(),
+               "P52b ★ …而且**不关窗**（玩家能看见失败、不是「窗没了 = 以为选中了」）"
+             + "｜🧨 在失败支里把 `Close()` 加回去 ⇒ 本条红");
+            C(CollectionData.CurrentIndex(), reread.CurrentIndex,
+              "P52c 灭自证：越界那一下**没有**改掉当前选中项（仍是 " + reread.CurrentIndex + "）"
+            + "｜🧨 若 `Select(-1)` 把 `_current` 写成 −1（= 2026-11-04 之前那条「假成功」的形状）⇒ 本条红");
+        }
+        finally
+        {
+            if (pop != null)
+            {
+                try { pop.Close(); } catch { }
+                if (pop.gameObject != null) UnityEngine.Object.DestroyImmediate(pop.gameObject);
+            }
+            MessageToast.DisposeForTest();            // 失败支会弹红横幅（`ShowError`）⇒ 收尾拆掉，别留给后面的宿主
+            DeckStore.DeleteFile();
+            DeckStore.OverridePath = keepPath;
+            CollectionData.InvalidateLibrary();       // 🔴 必须：否则进程级缓存会留着这两套夹具卡组
+        }
     }
 
     // ==================================================================
@@ -246,6 +303,9 @@ public static class B104_P26_Assert
     {
         if (mgr == null) { Tr(false, "P56（前提）没有 `WindowsManager` ⇒ 本段空转（上面已有红）"); return; }
 
+        // 🔴 **2026-11-04 更正（`B139_V2`）**：同 P2-2 —— `finally` 原来还原成**字面 `null`**，
+        //   会把外层注入的 `DeckStore.OverridePath` 清掉（= 自检污染宿主）。改成还原「进来时那份」。
+        string keepPath = DeckStore.OverridePath;
         string tmpDeck = System.IO.Path.GetFullPath(
             System.IO.Path.Combine(Application.dataPath, "../Temp/_p26_cardback.json"));
         DeckStore.OverridePath = tmpDeck;
@@ -285,7 +345,7 @@ public static class B104_P26_Assert
             Application.logMessageReceived -= h;
             if (go != null) UnityEngine.Object.DestroyImmediate(go);
             DeckStore.DeleteFile();
-            DeckStore.OverridePath = null;
+            DeckStore.OverridePath = keepPath;         // ⛔ 不是字面 `null`（会把外层注入的值清掉）
         }
     }
 

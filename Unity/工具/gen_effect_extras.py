@@ -59,6 +59,10 @@ WANT = {
 
 G2A = {}   # guid -> .asset 文件名（presetSO / AudioCue）
 
+# 🆕 2026-11-04（`B139_G` · 条目 13-03）：`particlesSystems` 里**解析不出**的引用（既不是空槽也不是本文件里的 PS）
+# —— 跑完打出来，⛔ 不静默。
+UNRESOLVED_PS = set()
+
 
 def class_by_guid():
     g2c = {}
@@ -130,6 +134,38 @@ def field_in(blk, key):
     return float(m.group(1)) if m else 0.0
 
 
+def sub_emitter_indexes(body):
+    """`SubEmitterManualTrigger.subEmitterIndexes` → int 列表（🆕 2026-11-04 · `B139_G` 条目 13-04）。
+
+    ⚠️ 原版这份 int[] 在 AssetRipper 的 YAML 里**有两种写法**，都要认：
+      · 空数组 ⇒ `  subEmitterIndexes:` 后面什么都没有（现读 12 个挂载里 11 个是这种）；
+      · 非空 ⇒ 导出成**十六进制字节串**（小端 int32 序列），例如 `01000000` = `[1]`
+        （`Sau_ParticleWhip/Beam#6/Necron Gauss ` 那颗；**不是**「四个元素 1/0/0/0」）。
+      另外兼容正常的 YAML 列表写法（`  - 1`）。
+    """
+    lines = body.split(NL)
+    for i, ln in enumerate(lines):
+        m = re.match(r"^  subEmitterIndexes:(.*)$", ln)
+        if not m:
+            continue
+        rest = m.group(1).strip()
+        if rest:
+            if re.fullmatch(r"[0-9a-fA-F]+", rest) and len(rest) % 8 == 0:
+                return [int.from_bytes(bytes.fromhex(rest[k:k + 8]), "little", signed=True)
+                        for k in range(0, len(rest), 8)]
+            return []
+        out = []
+        j = i + 1
+        while j < len(lines):
+            mm = re.match(r"^  - (-?\d+)\s*$", lines[j])
+            if not mm:
+                break
+            out.append(int(mm.group(1)))
+            j += 1
+        return out
+    return []
+
+
 def scan_prefab(path, g2c):
     t = io.open(path, encoding="utf-8", errors="ignore").read()
     parts = re.split(r"%s--- !u!(\d+) &(-?\d+)" % NL, t)
@@ -164,10 +200,11 @@ def scan_prefab(path, g2c):
 
     comp_go = {}
     for pid, (ty, body) in docs.items():
-        if ty == "114":
-            g = re.search(r"m_GameObject: \{fileID: (-?\d+)\}", body)
-            if g:
-                comp_go[pid] = g.group(1)
+        # ⚠️ 原来只收 `114`（MonoBehaviour）。2026-11-04（`B139_G` · 条目 13-03）起也要 `198`（ParticleSystem）——
+        #    `SyncParticleSeeds.particlesSystems` 引用的是**PS 组件**，要靠这一跳换成 GameObject 路径。
+        g = re.search(r"m_GameObject: \{fileID: (-?\d+)\}", body)
+        if g:
+            comp_go[pid] = g.group(1)
 
     go2tr = {}
     for tpid, (g, _f, _s) in tr.items():
@@ -197,10 +234,42 @@ def scan_prefab(path, g2c):
         if cls not in WANT:
             continue
         rec = {"kind": cls, "node": path_of(comp_go.get(pid, ""))}
+        # ⚠️ 2026-11-04（`B139_G` · 条目 13-02 的**数据半边**）：原版 `m_Enabled`。9 个挂载是 0
+        #    （3 个 DestroyByTime / 1 个 SubEmitterManualTrigger / 5 个嵌套 AnimFXController），
+        #    运行时按 `disabled > 0` **不挂**（原版那个组件根本不跑）。
+        #    ⚠️ 用「disabled」而**不是**「enabled」：缺键时 JsonUtility 给的是字段默认值 0 ⇒ 旧表行为不变。
+        if re.search(r"^  m_Enabled: 0\s*$", body, re.M):
+            rec["disabled"] = 1
         if cls == "DestroyByTime":
             rec["f0"] = fnum(body, "lifeTime")
+        elif cls == "SyncParticleSeeds":
+            # 🆕 2026-11-04（`B139_G` · 条目 13-03）：原版 `particlesSystems` 是**手挑的一小串**（40 挂载共 90 颗），
+            #   不是「整棵子树」。这里逐个 PPtr → PS 组件的 GameObject → 节点路径（与 `ResolvePath` 同一套约定）。
+            #   ⚠️ 列表为空 ⇒ 照样写 `ps: []`（= 原版数组确实为空，运行时**一颗都不同步**）；
+            #      **键缺了**才由运行时报「旧表」并退回超集行为。
+            psl = []
+            for blk in yaml_block(body, "particlesSystems"):
+                mm = re.search(r"fileID: (-?\d+)", blk)
+                if not mm:
+                    continue
+                ref = mm.group(1)
+                if ref == "0":
+                    # 🔴 原版数组里的**空槽**（`m_PathID 0`）—— `SyncParticleSeeds__Awake.c` 的循环
+                    # 遇到 null 元素是 **`break`**（不是 continue）⇒ 后面的一律不再处理。
+                    # 这里写空串占位，运行时见了**停在原地**（保持数组长度与语义）。
+                    psl.append("")
+                    continue
+                pp = path_of(comp_go.get(ref, ""))
+                if pp:
+                    psl.append(pp)
+                else:
+                    # 解析不出来的引用（跨文件 / 嵌套 prefab）—— 也按空槽处理，并留痕给调度台查。
+                    psl.append("")
+                    UNRESOLVED_PS.add(ref)
+            rec["ps"] = psl
         elif cls == "SubEmitterManualTrigger":
             rec["f0"] = fnum(body, "triggerOnSecond")
+            rec["se"] = sub_emitter_indexes(body)      # 🆕 条目 13-04：原版下标数组（空 = 一次都不触发）
         elif cls == "InitiMaterialWithRandomValue":
             rec["f0"] = fnum(body, "minValue")
             rec["f1"] = fnum(body, "maxValue")

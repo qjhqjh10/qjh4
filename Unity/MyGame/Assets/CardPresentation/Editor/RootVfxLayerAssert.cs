@@ -11,7 +11,7 @@
 //   ③ **灭自证**：同一段生产代码在「2D 档（卡在层 0）」下必须落在 **HUD** 那一侧
 //      ⇒ 任何把层写死成 0 或 8 的改法，都必然把其中一档弄红（结构上不可能同时满足）。
 //
-// 相机从**存盘的 `Battle.unity`**里取（`BoardCamera*` / tag=MainCamera），不是自己再造一对 ——
+// 相机从**存盘的 `Battle.unity`**里取（战场 = 名 `BoardCamera*` / tag=`MainCamera`；HUD = tag=`UICamera`），不是自己再造一对 ——
 // 造一对就是拿我们的常量证明我们的常量（CI 会绿，屏幕照样错）。
 //
 // 宿主 = `WarpforgeArena1/Editor/AnimFXCheck.Run`（`工具/_run_8_checks.sh` 的第 13 条）。
@@ -54,7 +54,7 @@ namespace CardPresentation
                       "① 能取到**战场透视相机**（`Battle.unity` 里名字以 `BoardCamera` 开头的那台；"
                     + "取不到 ⇒ 下面「∈ 战场相机 cullingMask」这条断不了）");
                 check(hudCam != null,
-                      "① 能取到 **HUD/UI 相机**（`Battle.unity` 里 tag=MainCamera 那台）");
+                      "① 能取到 **HUD/UI 相机**（`Battle.unity` 里 tag=`UICamera` / 名 `UI Camera` 那台；⚠️ 2026-11-04 更正：原写 tag=MainCamera，tag 已按原版对调）");
                 if (boardCam == null || hudCam == null)
                 {
                     Debug.LogWarning(P + $"  （相机取不到：场景有效 = {battle.IsValid()}、"
@@ -305,7 +305,7 @@ namespace CardPresentation
                     if (board == null && !string.IsNullOrEmpty(c.name)
                         && c.name.StartsWith("BoardCamera", StringComparison.Ordinal))
                         board = c;
-                    if (hud == null && c.CompareTag("MainCamera")) hud = c;
+                    if (hud == null && (c.CompareTag("UICamera") || c.name == "UI Camera")) hud = c;   // ⚠️ 2026-11-04 更正：原写 CompareTag("MainCamera") —— 包 S 按原版把 tag 对调后，MainCamera 是**战场**相机
                 }
             }
         }

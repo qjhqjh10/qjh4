@@ -187,7 +187,7 @@ namespace CardPresentation
         public void OnDrag(PointerEventData eventData)
         {
             if (!dragging || draggable == null || eventData == null) return;
-            var cam = eventData.pressEventCamera != null ? eventData.pressEventCamera : Camera.main;
+            var cam = eventData.pressEventCamera != null ? eventData.pressEventCamera : LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：拖拽预览贴在指针上，原版读 `pressEventCamera`（uGUI 画布相机）；本仓无 EventSystem ⇒ 那一支恒 null，等价物 = HUD 相机。⛔ `Camera.main` 现在是 3D BoardCamera）
             var wp = LayoutSpace.ScreenToWorld(eventData.position, cam);
             var t = draggable.transform;
             t.position = new Vector3(wp.x, wp.y, t.position.z);      // 原版那一跳写的就是 `localPosition`

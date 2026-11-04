@@ -497,7 +497,7 @@ namespace CardPresentation
 
         /// <summary>原版 `boardCamera`（透视/正交的**战场**相机）—— 我们**只**用它当「有没有 3D 战场」那道闸（见 `ResolveAim`）</summary>
         public Camera boardCam;
-        /// <summary>原版 `hudCamera`（UHD 那一台）—— `WorldToScreenPoint` **与** `ScreenPointToRay` 都用它（同一台往返，见 `ResolveAim`）。空则退回 <see cref="Camera.main"/></summary>
+        /// <summary>原版 `hudCamera`（UHD 那一台）—— `WorldToScreenPoint` **与** `ScreenPointToRay` 都用它（同一台往返，见 `ResolveAim`）。空则退回 <see cref="LayoutSpace.Cam"/>（HUD 相机；✅ 已复刻（2026-11-04 · B139-D4 · 原版 `TargetReticleController` 的 `hudCamera` = UI 相机，⛔ 不是 `Camera.main` —— 后者现在是 3D BoardCamera））</summary>
         public Camera hudCam;
         /// <summary>`floorPlane` 的高度（原版 = `floorReference.position.y`）；我们地面在 y=0</summary>
         public float floorY = 0f;
@@ -516,8 +516,8 @@ namespace CardPresentation
             if (boardCam == null) { LastAim = reticleWorld; LastAimOnPlane = false; return reticleWorld; }   // 🔶 自己设计（非原版）：2D 兜底布局没有战场相机 ⇒ 不做平面求交（原版此处会 NRE）；调度台 2026-10-29 B94_X2
 
             // 🔴 2026-11-01（`B-162`）：**不再取 `boardCam` 参与求交** —— 投屏与出射都用 `hc`（同一台往返，见文件头那段「我们的口径」）
-            var hc = hudCam != null ? hudCam : Camera.main;
-            if (hc == null) { AimMisses++; LastAim = reticleWorld; LastAimOnPlane = false; return reticleWorld; }
+            var hc = hudCam != null ? hudCam : LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：原版 `hudCamera` = 场景里的 `UI Camera`；⛔ 别退回 `Camera.main`，那台现在是 3D BoardCamera）
+            if (hc == null) { AimMisses++; LastAim = reticleWorld; LastAimOnPlane = false; Debug.LogWarning("[Reticle] 取不到 HUD 相机（`hudCam` 与 `LayoutSpace.Cam` 都为空）⇒ 准星不做双平面求交（原版这一支会 NRE；我们出声 + 计数）"); return reticleWorld; }
 
             Vector3 screen = hc.WorldToScreenPoint(reticleWorld);   // 原版 `.c:58` = `hudCamera`(+0xA0)；旧实现误用 `boardCam`（两台对调）
             if (screen.z < 0f)

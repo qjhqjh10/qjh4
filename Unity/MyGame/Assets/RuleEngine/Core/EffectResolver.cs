@@ -4295,10 +4295,10 @@ namespace RuleEngine
                         //   （隐秘的广播只剩两条「造进牌库」的路：DA44 的 `todeck` 与 `QuestPointThreshold`。）
                         if (c != null && c.SpellType == SpellTypeSabotage)   // 🔴 2026-10-29（B94_B14 · 账 506③）：原版判据 = **数据面 `rawCardData.spellType == 0xe6(230)`**（`_ResolveCreateHandCard_d__512__MoveNext.c:90`），改前我们用 `CreatePool.MatchesKind(c, "sabotage")`（按 subtype 词）—— 现池两口径**恰好等价**（`cards_engine.json` 现读：spellType==230 的 4 张 = subtype==Sabotage 的 4 张，`Cult Propaganda`/`Improvised Barricade`/`Jammed Communications`/`Poisoned Supplies`）⇒ 零行为变化，只是口径改回原版。
                         {
-                            // 🔴 2026-10-28（B89-E3b · 账 L638）：**预调主体 = 造牌那一方的督军**（不是造出来那张卡）。
+                            // 🔴 2026-10-28（B89-E3b · 账 L638）：**预调主体 = 造出来那张卡所在那一侧的督军**（不是造出来那张卡）。🔴 2026-11-04 更正（`B139_V5`）：那一侧 = **收牌方**，不是施放方 —— 破坏造进敌方手牌（卡面 `Create a random Sabotage in the enemy hand`；`cards_truth.json` GSC7 `summon.isForEnemy = 1`），手牌侧由创牌目的侧决定（`isPlayer = param_4 = 收牌方`，`BattleManager__AddNewCardToHand.c:52-57` → `BattleCardManager__CreateCard.c:90` → `CardScript__CardSetup.c:42`）⇒ 原版 `targetCard` = **敌方**督军；我们改前传 `owner` ⇒ 同侧 ⇒ `TargetCriteriaEval.cs:222-237` 查 `friendlyUnits`（`GSC68` 那格 = 0）⇒ 闸判死 ⇒ 池内唯一监听 701 的卡**静默失效**。
                             //   判据 = `_ResolveCreateHandCard_d__512__MoveNext.c:96-98` 的实参
                             //   `BattleManager__GetHero(mgr, 造出来那张的 isPlayer)` ⇒ `BroadcastSabotageCreated(mgr, 督军)`。
-                            BroadcastCreatedCardWithWarlordPreCall(ctx, WhenEventKind.CreatesSabotage, owner, c, by);
+                            BroadcastCreatedCardWithWarlordPreCall(ctx, WhenEventKind.CreatesSabotage, owner, c, by, who);   // ✅ 已复刻（2026-11-04 · `B139_V5` · `CardScript__ReactToSabotageCreated.c:5-8` ＋ `_ResolveCreateHandCard_d__512__MoveNext.c:95-98`）：`subjectSide = who`（收牌方）· `owner`（事件归属 / `When you …` 匹配）不变，⛔ 别合并
                             // 🆕 同上：成就 `Ach_65`（`AddSabotageCard`）计数。
                             ctx.Tally.AddSabotage(owner); ctx.Emit(EvtKind.SabotageCreated, owner, -1, c.Name, targetPlayer: who, targetCardId: c.Name);   // 🔴 2026-10-30（`B102_506` · 账 `战斗逻辑驱动:506` R1）：原版 `_ResolveCreateHandCard_d__512__MoveNext.c:100-102` 在这一拍**直接调** `CardScript.DisplayEnemyCardInCenter(targetCard, timeToDraw: 0.3f, stepTime: 0.3f, changeVisibility: true)` —— 造进手牌的破坏卡要在中央亮正面。原版没有广播，我们跨层只能发一条事件（消费者 = `BattleDriver.PlaySignal` 的 `EvtKind.SabotageCreated` 支）。⚠️ `Slot = -1`（展示的是**卡**、不是单位）· `TargetPlayer` = **收牌方**（从那一侧手牌飞出）。⚠️ 实例号**没带**：`picked` 是 `CardDef` 表、`made` 才是实例表，消费端不用它 ⇒ 宁可空着也不猜。🔴 这条进 `ctx.Events.Count` ⇒ **改 `NetProtocol.Fingerprint`**（须与一次 `play check` 重钉同批）。
                         }
@@ -7820,7 +7820,7 @@ namespace RuleEngine
                 case WhenEventKind.Reanimated:        // 570（`ReactToUnitReanimated.c:7`）
                 case WhenEventKind.GetsMarkerlight:   // 515（`ReactToUnitMarkerlight.c:7`）
                 case WhenEventKind.Damaged:           // 60（`ResolveDamageDealt` 0x3c：targetCard = 被打者）
-                case WhenEventKind.GetsStun: case WhenEventKind.CreatesSabotage:   // 291（`ReactToUnitStunned.c:7`：targetCard = 被晕者）｜🔴 2026-11-03（`B128` · 引擎-165）：**701 `OnSabotageCreated` 这一族查清了** —— 判据 `decomp_full/CardScript__ReactToSabotageCreated.c:5-8` 全文 = `OnTrigger(0x2bd, mgr, thisCard=param_1, actingCard=param_2, targetCard=param_2)`，广播器 `BattleManagerSupport__BroadcastSabotageCreated.c` 的 `param_2` = **造牌那一方的督军**（两个调用点都先算 `BattleManager__GetHero(mgr, 造出来那张的 isPlayer)`，见 `BroadcastCreatedCardWithWarlordPreCall` 的 doc）⇒ 我们的 `subject` = 督军 = 原版 `targetCard`（现读 `abilityLevelCriteria` 里 701 **1 行**：`GSC68 Atalan Jackal`，且它的 trigger-701 ability **唯一定位**得到）。⚠️ 与 `AbilityActingGateCard` 里「700·701 都是 `(…, this, param_2, param_2)`」那句是**同一份判据**（那里已按 `subject` 给 actingCard）。✅ 已复刻（2026-11-03 · B128 · `CardScript__ReactToSabotageCreated.c`）
+                case WhenEventKind.GetsStun: case WhenEventKind.CreatesSabotage:   // 291（`ReactToUnitStunned.c:7`：targetCard = 被晕者）｜🔴 2026-11-03（`B128` · 引擎-165）：**701 `OnSabotageCreated` 这一族查清了** —— 判据 `decomp_full/CardScript__ReactToSabotageCreated.c:5-8` 全文 = `OnTrigger(0x2bd, mgr, thisCard=param_1, actingCard=param_2, targetCard=param_2)`，广播器 `BattleManagerSupport__BroadcastSabotageCreated.c` 的 `param_2` = **造出来那张卡所在那一侧的督军**（两个调用点都先算 `BattleManager__GetHero(mgr, 造出来那张的 isPlayer)`；⚠️ **2026-11-04 更正（`B139_V5`）**：破坏那一支 = **收牌方**，原来这句写的「造牌那一方」是错的，见 `BroadcastCreatedCardWithWarlordPreCall` 的 doc）⇒ 我们的 `subject` = 督军 = 原版 `targetCard`（现读 `abilityLevelCriteria` 里 701 **1 行**：`GSC68 Atalan Jackal`，且它的 trigger-701 ability **唯一定位**得到）。⚠️ 与 `AbilityActingGateCard` 里「700·701 都是 `(…, this, param_2, param_2)`」那句是**同一份判据**（那里已按 `subject` 给 actingCard）。✅ 已复刻（2026-11-03 · B128 · `CardScript__ReactToSabotageCreated.c`；2026-11-04 `B139_V5` 订正 subject 侧）
                     return true;
             }
             return kind == WhenEventKind.Triggers(KeywordTable.Swarm);   // 🔴 2026-11-01（`B115_W14` · `ENG-16` ②）：**620 `TriggeredSwarm` 那一族查清了** —— 原版 `CardScript.<>c__DisplayClass401_0.<ExecuteSwarm>b__0:45/51` → `BroadcastUnitSwarm(bm, param_2 = 被销毁那张, param_3 = 留下的那张)` → `TriggeredSwarm(observer, param_2, param_3)` → `OnTrigger(0x26c, …, actingCard = param_2, targetCard = param_3)` ⇒ **`just` = actingCard、`host`（留下的）= targetCard**（判据 `资料/普查产出_1025/E6_十三行接闸.md:153-156`，逐句）。⛔ 别写成 `switch` 的 `case` label —— `WhenEventKind.Triggers(kw)` 是**函数**、不是常量表达式。
@@ -18448,13 +18448,13 @@ namespace RuleEngine
         /// 逐张 `!= param_2` 再叫一次（**没有 `IsInPlay` 闸**）。**没有手牌两跳**
         /// （全文 `GetCardsInHandRef` = 0）。</para>
         ///
-        /// <para>🔴 **预调主体是「造牌那一方的督军」，不是造出来的那张卡 —— 账里原来那句是错的（铁律 5 就地订正）。**
+        /// <para>🔴 **预调主体是「造出来那张卡所在那一侧的督军」，不是造出来的那张卡 —— 账里原来那句是错的（铁律 5 就地订正）。**
         /// 判据 = 两个**唯一调用点**的实参：
         /// `_ResolveCreateDeckCard_d__513__MoveNext.c:113-119`（`spellType==0x96` 隐秘）与
         /// `_ResolveCreateHandCard_d__512__MoveNext.c:90-98`（`rawCardData.spellType==0xe6` 破坏）
         /// 都在广播前先算 `uVar5 = BattleManager__GetHero(mgr, 造出来那张的 isPlayer)`
         /// （`BattleManager__GetHero.c` = `PlayerManager.heroCard`）⇒ 传进去的是**督军**。
-        /// 那张「造出来的卡」在牌库 / 手牌里、没有 `UnitState`，原版也不是拿它当主体。</para>
+        /// 那张「造出来的卡」在牌库 / 手牌里、没有 `UnitState`，原版也不是拿它当主体。⚠️ **2026-11-04 更正（`B139_V5`）**：取的是「**造出来那张卡的 `isPlayer` 那一侧**」的督军 —— 隐秘插进**自己的牌库**（= `owner`），而破坏造进**敌方手牌**（卡面 `Create a random Sabotage in the enemy hand`；`cards_truth.json` GSC7 `summon.isForEnemy = 1`）⇒ 破坏那一支的 `param_2` 是**【收牌方】督军**，即 `subjectSide` 必须传 `who`（不是 `owner`）。</para>
         ///
         /// <para>⚠️ **我们这边 `param_2` ≡ 督军的 `UnitState`**（督军就在棋盘上）⇒ 预调能照做：
         /// 先 <see cref="PreCallBoardListener"/>（= 原版 `:22`/`:28` 那一跳），
@@ -18468,16 +18468,16 @@ namespace RuleEngine
         /// ⇒ **不需要再造一条事件**。见报告 §3。</para>
         /// </summary>
         static void BroadcastCreatedCardWithWarlordPreCall(BattleContext ctx, string kind, int owner,
-                                                          CardDef created, string by)
+                                                          CardDef created, string by, int subjectSide = -1)   // 🆕 2026-11-04（`B139_V5`）：预调 / 广播**主体**所在的那一侧（原版 `BattleManager__GetHero(造出来那张的 isPlayer)`）；`-1` = 同 `owner`。⚠️ 与 `owner`（事件归属 / `When you …` 匹配）**是两个东西，⛔ 别合并**
         {
             if (ctx == null || created == null) return;
-            var ps = (owner >= 0 && owner <= 1) ? ctx.Players[owner] : null;
+            int side = (subjectSide >= 0 && subjectSide <= 1) ? subjectSide : owner; var ps = (side >= 0 && side <= 1) ? ctx.Players[side] : null;   // ⚠️ 两条语句同一物理行：本文件下游有账的 `文件:行号` 落点（⛔ 不许加行，铁律 18·b）
             var warlord = ps != null ? ps.Warlord : null;
             if (warlord == null)
             {
                 // 没有督军（夹具 / 教程局的极早期）= 原版 `GetHero` 会 NRE；我们**出声**退回「只跑棋盘那一跳」。
                 // ⛔ 别拿「造出来的那张卡」顶替 —— 它不在棋盘上、没有 UnitState（这正是账里那句错记的来源）。
-                ctx.Log($"{by}：原版 `{kind}` 广播的预调主体 = **造牌那一方的督军**，但这一侧没有督军 ⇒ "
+                ctx.Log($"{by}：原版 `{kind}` 广播的预调主体 = **造出来那张卡所在那一侧（{side}）的督军**，但这一侧没有督军 ⇒ "
                       + "退回「只跑棋盘那一跳」（⛔ 不拿造出来的那张卡顶替）");
                 BroadcastWhen(ctx, kind, owner, created, null, boardAndPersistentOnly: true);
                 return;
@@ -18489,9 +18489,9 @@ namespace RuleEngine
                 // ① 预调督军（原版 `:22` / `:28`）—— subject / actor / target 三格都是它
                 //    （`ReactToSecretCreated.c` / `ReactToSabotageCreated.c` 的 `OnTrigger(kind, mgr, thisCard=观察者,
                 //      actingCard=param_2, targetCard=param_2)` ⇒ acting 与 target 都是预调主体）。
-                PreCallBoardListener(ctx, warlord, kind, owner, created, warlord, warlord, warlord, owner);
+                PreCallBoardListener(ctx, warlord, kind, owner, created, warlord, warlord, warlord, side);   // 🔴 2026-11-04（`B139_V5`）：`targetWho` 用 **`side`**（原版那个督军自己那一侧）；`who` 仍是 `owner`（`When you …` 归属）
                 // ② 棋盘那一跳（排除督军）+ 常驻效果跳；手牌侧三跳照旧关掉（原版 `GetCardsInHandRef` = 0）
-                BroadcastWhen(ctx, kind, owner, created, warlord, actor: warlord, target: warlord,
+                BroadcastWhen(ctx, kind, owner, created, warlord, actor: warlord, target: warlord,   // ⚠️ `subject/actor/target` = **主体侧**的督军（原版 `actingCard = targetCard = param_2`），`who` 仍 = `owner`
                               preCalled: warlord, boardAndPersistentOnly: true);
             }
         }

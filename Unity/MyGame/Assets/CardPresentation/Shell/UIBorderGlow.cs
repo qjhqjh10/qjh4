@@ -311,7 +311,7 @@ namespace CardPresentation
         // ════════════════════════════════════════════════════════════════════════
 
         /// <summary>原版 `currentCamera`（字段 `+0x48`；`CalculateViewPosition.c:20,27`）。
-        /// **取到就缓存** —— 原版只在它为 null 时才再问一次 `Camera.main`。</summary>
+        /// **取到就缓存** —— 原版只在它为 null 时才再问一次 `Camera.main`（那台在菜单里 = UI 相机；我们问 `LayoutSpace.ResolveHudCamera()`，见 2026-11-04 `B139-D4`）。</summary>
         Camera _currentCamera;
 
         /// <summary>原版 `graphicOriginalColor`（`+0x5c..+0x6b`，`UIBorderGlow__Awake.c:23-24`）。
@@ -354,14 +354,14 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `CalculateViewPosition()`（`UIBorderGlow__CalculateViewPosition.c`）逐句：
-        /// 懒取 `Camera.main` 并缓存（`:20-29`）→ 默认 **(0.5, 0.5)**（`:31-32` 两句 `0x3f000000`）
+        /// 懒取 HUD 相机并缓存（原版 `.c:20-29` 是 `Camera.main`；我们走 `LayoutSpace.ResolveHudCamera()`，2026-11-04 `B139-D4`）→ 默认 **(0.5, 0.5)**（`:31-32` 两句 `0x3f000000`）
         /// → 有相机就 `WorldToViewportPoint(transform.position)` 取 **xy**（`:39-47`）。
         /// ⚠️ 算法本体**只有一份**（`UIViewportUvWriter.CalculateViewPosition`）——「两处写同一条规则 = 迟早不一致」，
         /// 这里只补原版的**相机缓存**语义（那一半在降级实现里没有）。</summary>
         public Vector2 CalculateViewPosition()
         {
             EnsureCarrier();                                                      // 懒兜底：Awake 时还没有 ImageQuad 也能补上
-            if (!_currentCamera) _currentCamera = Camera.main;                    // `.c:24-29`
+            if (!_currentCamera) _currentCamera = LayoutSpace.ResolveHudCamera();   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：原版 `.c:24-29` 懒取 `Camera.main`（那台在菜单里就是 UI 相机）；我们走 `LayoutSpace` 三档，⛔ 不直接取 `Camera.main`（战斗场景那台是 3D BoardCamera）
             if (_uvCarrier != null && _uvCarrier.cam == null) _uvCarrier.cam = _currentCamera;
             return WarpforgeVFX.UIViewportUvWriter.CalculateViewPosition(_currentCamera, transform.position);
         }

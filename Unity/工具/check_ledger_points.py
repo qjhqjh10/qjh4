@@ -175,7 +175,17 @@ NL = chr(10)
 #   原正则不认 `.py` ⇒ 那条一加进来就是「落点里没有 `文件:行`」失败（闸的盲区，不是账的错）。
 #   ⚠️ `.py` 走**非 C#** 那条路（只要求行号在范围内、那一行非空；不做声明名核对）——
 #   与 `.json/.tsv/.asset` 同档，⛔ 没有放宽任何 C# 侧的判据。
-REF = re.compile(r"([\w\-./\\]+\.(?:cs|json|tsv|asset|py)):(\d+)")
+REF = re.compile(r"((?:[\w\-. ]*[/\\])+[\w\-. ]*\.(?:cs|json|tsv|asset|py|unity|meta)):(\d+)")
+# 🔴 2026-11-04（`B139` 补丁）：**路径里允许空格**。原字符类 `[\w\-./\\]` 不含空格，而工程里
+#   真有一批带空格的原版资产名（`…SDF Atlas.png.meta` / `Card Remnant_Remnant Anim 1_PositionTex.png.meta`），
+#   正则只能从空格后开始匹配 ⇒ 得到 `Atlas.png.meta` ⇒ 报「文件不存在」。
+#   ⚠️ 收紧了一条：现在**必须含目录分隔符**（`(?:...[/\\])+`），所以纯散文里的 `Game.cs:12` 这种裸名
+#   不会再被当成落点 —— 这反而比原来更严，⛔ 没有放宽 C# 侧的判据。
+# 🔴 2026-11-04（`B139`，沿用上面 `py` 那条的先例）：`unity` / `meta` 也认。
+#   账里现在有「落点 = 场景 YAML / 纹理 `.meta`」的行（包 Y / 包 I 的活本来就落在那儿），
+#   原正则不认这两个扩展名 ⇒ 一加进来就是「落点里没有 `文件:行`」失败（同样是**闸的盲区**）。
+#   ⚠️ 两者都走**非 C#** 那条路（只要求行号在范围内、那一行非空；不做声明名核对）——
+#   与 `.json/.tsv/.asset` 同档，⛔ 没有放宽任何 C# 侧的判据。
 DECL_TAIL = re.compile(r"\)\s*(?:\{|=>|//|where\b|:|$)")
 MODS = ("public", "private", "protected", "internal")
 STMT = ("return ", "var ", "new ", "if ", "while ", "for ", "foreach ", "switch ", "case ",
@@ -240,9 +250,21 @@ _NOT_DECL_HEAD = re.compile(
 
 def find_file(rel, roots):
     rel = rel.replace("\\", "/")
-    for c in [rel] + [os.path.join(r, rel) for r in roots]:
-        if os.path.isfile(c):
-            return c
+    # 🆕 2026-11-04（`B139`）：`REF` 现在允许路径里带空格（原版资产名真有空格），副作用是正则可能
+    #   把紧挨着的中文散文一起吞进来（`实现体 CardPresentation/…` / `广播 RuleEngine/…`）。
+    #   ⇒ 原样找不到时，**按空格逐段从左剥**再试。顺序仍是「先整条」，所以带空格的真文件名不受影响。
+    cands = [rel]
+    toks = rel.split(" ")
+    for i in range(1, len(toks)):
+        cands.append(" ".join(toks[i:]).lstrip())
+    seen = set()
+    for c0 in cands:
+        if not c0 or c0 in seen:
+            continue
+        seen.add(c0)
+        for c in [c0] + [os.path.join(r, c0) for r in roots]:
+            if os.path.isfile(c):
+                return c
     return None
 
 

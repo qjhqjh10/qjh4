@@ -546,8 +546,8 @@ namespace CardPresentation
         /// （`Battle/Label.cs:443` → `TmpFont.LinkAt`，内部就是同一个 `TMP_TextUtilities.FindIntersectingLink`）。
         /// 它吃**世界点**，所以这里把鼠标屏幕点按「文字那一个平面」换回世界点再交给它
         /// （`ScreenToWorldPoint` → `WorldToScreenPoint` 是同一台相机的往返，透视/正交都恒等）。
-        /// 相机取 `Camera.main`（与本壳其它处的取法一致，见 `Shell/ShellRuntime.cs`）、
-        /// 取不到就**不做**（= 原版 `GetUICamera()` 找不到 `UICamera`/`MainCamera` 时返回 0 那一支）。</para>
+        /// 相机取 `LayoutSpace.Cam`（HUD 相机，本壳各处同一个口）、
+        /// 取不到就**不做**（= 原版 `GetUICamera()` 找不到 `UICamera`/`MainCamera` 时返回 0 那一支）。✅ 已复刻（2026-11-04 · B139-D4：原来写 `Camera.main`，2026-11-04 起战斗场景那台是 3D BoardCamera）</para>
         /// <para>⚠️ 触发口 = `MessageText Hit` 那颗命中区的 `onDown`（原版 prefab 那颗
         /// `EventTrigger.PointerDown`，判据见 `_msgHit` 的 doc）。
         /// ⚠️ 批处理/自检里没有鼠标设备（`Mouse.current == null`）⇒ 指针退回 `(0,0)`（🔴 2026-10-26：原来读 legacy `Input.mousePosition`，本工程 `activeInputHandler: 1` ⇒ 一调用就抛 `InvalidOperationException`；现走 `PointerScreenForLink()`）⇒ 这条链**只能在真机上点**，
@@ -555,7 +555,7 @@ namespace CardPresentation
         public void CheckLinkText()
         {
             if (_msgLb == null) return;
-            var cam = Camera.main;
+            var cam = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：原版 `GetUICamera()` 的等价物 = HUD 相机；⛔ 不用 `Camera.main`（战斗场景那台是 3D BoardCamera））
             if (cam == null) return;
             Vector3 m = PointerScreenForLink();
             float z = cam.WorldToScreenPoint(_msgLb.transform.position).z;

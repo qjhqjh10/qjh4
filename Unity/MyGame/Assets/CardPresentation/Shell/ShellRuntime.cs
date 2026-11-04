@@ -722,7 +722,7 @@ namespace CardPresentation
                 DestroySafe(ch);
             }
 
-            var cam = Camera.main;
+            var cam = LayoutSpace.ResolveHudCamera();   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：本壳那台 UI 相机；`Cam`→`UICamera`→`MainCamera`，原版 `SceneCameraManager.GetUICamera` 三档。⛔ 不直接 `Camera.main`）
             if (cam != null) LayoutSpace.Apply(cam);
             else Debug.LogWarning("[Shell] 场景里没有相机（`Main Camera`）—— 界面对不上屏，先补相机");
 
@@ -1167,8 +1167,8 @@ namespace CardPresentation
                 //    （主菜单场景的根里就有 `UI Camera`，见 `资料/主菜单_原版规格.md` §一）。
                 //    我们这里是 additive 式的：壳的相机**先关掉**再切，免得两台 MainCamera 同时渲（画面会重）。
                 //    ⚠️ `AudioListener` **留在壳上**（它 `DontDestroyOnLoad`，全场只留一个）。
-                var cam = Camera.main;
-                if (cam != null) cam.enabled = false;
+                var cam = LayoutSpace.ResolveHudCamera();   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：要关的是**壳自己那台** UI 相机（`ResolveHudCamera` 的 ① `Cam` / ② `UICamera` / ③ `MainCamera`）；⛔ 不直接 `Camera.main`）
+                if (cam != null) cam.enabled = false; else Debug.LogWarning("[Shell] 切主菜单前取不到壳的 UI 相机（`LayoutSpace.Cam` / `UICamera` / `MainCamera` 三档全空）⇒ 壳相机没关，可能与主菜单场景那台同时渲染");
                 Debug.Log("[Shell] 载入主菜单场景（壳的相机已关，交棒给主菜单场景自己的相机）");
                 Debug.Log($"[Shell·自查] 切场景【前】 PL={(PointerLayer.Instance != null)} 父={(PointerLayer.Instance != null && PointerLayer.Instance.transform.parent != null ? PointerLayer.Instance.transform.parent.name : "<null>")} WM={(WindowsManager.Instance != null)}");
                 UnityEngine.SceneManagement.SceneManager.LoadScene(scene);

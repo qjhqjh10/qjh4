@@ -1354,8 +1354,8 @@ namespace CardPresentation
             _videoNode = MenuDraw.Node(chest, "Video Player", VideoPlayerR);
             _videoPlayer = _videoNode.gameObject.AddComponent<VideoPlayer>();
             _videoPlayer.enabled = false;                       // ①
-            _videoPlayer.renderMode = VideoRenderMode.CameraNearPlane; _videoPlayer.targetCamera = Camera.main;   // prefab 字段 `m_RenderMode = 1` = `CameraNearPlane`（`Awake` 五句之外）· ④（同一行 = 不加行号，先例 `:858`）
-            _videoPlayer.started += OnCrateVideoStarted;        // ③
+            _videoPlayer.renderMode = VideoRenderMode.CameraNearPlane; _videoPlayer.targetCamera = LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：原版取 `Camera.main`（菜单里那台 = UI 相机）⇒ 我们取 `LayoutSpace.Cam`；⛔ 战斗场景的 `MainCamera` 现在是 3D BoardCamera）· prefab 字段 `m_RenderMode = 1` = `CameraNearPlane`（`Awake` 五句之外）· ④（同一行 = 不加行号，先例 `:858`）
+            _videoPlayer.started += OnCrateVideoStarted; if (LayoutSpace.Cam == null) Debug.LogWarning("[Gacha] 取不到 HUD 相机（`LayoutSpace.Cam` 为空）⇒ 开箱视频 `targetCamera` 为空、渲不出来（⛔ 不静默）");        // ③
             var clip = Resources.Load<VideoClip>(CrateClipResource);
             if (clip != null) { _videoPlayer.clip = clip; return; }
             if (_noClipSaid) return;

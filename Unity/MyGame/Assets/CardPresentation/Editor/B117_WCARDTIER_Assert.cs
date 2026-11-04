@@ -184,7 +184,7 @@ public static class B117_WCARDTIER_Assert
             WindowSounds.ResetCounters();
             BoosterPackOpenWindow.ResetReOpenProtectionForTest();   // 静态跨窗计数（防连开抖）推回出厂值
 
-            if (Camera.main == null)
+            if (LayoutSpace.Cam == null)   // 2026-11-04（B139-D4）：判「有没有 HUD 相机」看 `LayoutSpace.Cam`（`Apply` 设的权威档），⛔ 不看 `Camera.main`（那台现在是 3D 战场相机）
             {
                 camGo = new GameObject("Main Camera (B117WCARDTIER)");
                 camGo.tag = "MainCamera";

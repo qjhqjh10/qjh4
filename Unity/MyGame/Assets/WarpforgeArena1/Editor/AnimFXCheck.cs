@@ -266,7 +266,7 @@ public static class AnimFXCheck
                 + "非 0 = 那条 `node` 路径在工程 prefab 里对不上，见上面逐条警告）");
             Check(WFEffectExtras.Unimplemented == 0,
                   $"表里每一种 `kind` 都有等价组件（未实现 {WFEffectExtras.Unimplemented} 处）");
-            Check(WFEffectExtras.Attached == exMounts,
+            Check(WFEffectExtras.Attached + WFEffectExtras.DisabledSkipped == exMounts,
                   $"挂载数 = 表里的 **{exMounts} 处**（实测 {WFEffectExtras.Attached}；"
                 + "🧨 删掉 `AttachAll` 里那句 `Attach(p, list[i])` ⇒ 得 0 ⇒ 红）");
         }
@@ -1835,6 +1835,7 @@ public static class AnimFXCheck
         CheckTraitStartEffects();          // 🆕 2026-10-23（A7）：`Start(0)` 那 13 条 trait effect
 
         CheckR5R8();                       // 🆕 2026-10-24（执行代理 `W5`）：AN1 `R5`（trigger 白名单）/ `R8`（trait 双播）
+        B139_G_Assert.Run();               // 🆕 2026-11-04（B139-G）：特效生命周期 / 粒子运行时 9 条（12-01/02/03/05 · 13-01/03/04/05/07）
 
         // ---- ⑤b 语音表：卡 SO 的 `summonAudio` 都要有 `deploy` 行（🆕 2026-10-24 · A8 落地 A4 的片段）----
         //  判据 = `Resources/voice_lines.json`（经 `VoiceLines` 读回来），⛔ 不是我们自己的常量：
@@ -2165,29 +2166,33 @@ public static class AnimFXCheck
                 p1.Kill();
             }
 
-            // ② `DestroyByTime`
+            // ② `DestroyByTime` —— ✅ 2026-11-04（B139-G · 13-01/13-02 改期望）：
+            //    这一条挂在 `Blast_Big_Ork_Missiles` 的**子节点**上，而原版那个组件 `m_Enabled = 0` ⇒ **不挂**；
+            //    且原版 `DestroyByTime` 只销毁**自己那个节点**、根 `destroyTime = 4.0` ⇒ 整件**不该**在 1.6 s 被收掉。
+            //    判据 → 报告/B135_审计_战斗粒子全模块.md F1/F4 · decomp_full/DestroyByTime__Start.c:23-38
             var p2 = WarpforgeEffectPlayer.Play("Blast_Big_Ork_Missiles");
-            Check(p2 != null, "R28：`Blast_Big_Ork_Missiles` 起得来（它带 `DestroyByTime lifeTime=1.5`）");
+            Check(p2 != null, "R28：`Blast_Big_Ork_Missiles` 起得来");
             if (p2 != null)
             {
                 var d = p2.GetComponentInChildren<WFExtraDestroyByTime>(true);
-                Check(d != null && Mathf.Approximately(d.lifeTime, 1.5f),
-                      "R28：`DestroyByTime` 被补上且 `lifeTime` 读到 1.5（我们以前走兜底时长）");
-                p2.Tick(1.6f);          // 超过 1.5 ⇒ 应当被销毁
-                Check(p2 == null || !p2.IsPlaying, "R28：……而且到 1.5s 真的被销毁（不是只挂了个空组件）");
+                Check(d == null, "R28：那条 `DestroyByTime` 在原版 `m_Enabled = 0` ⇒ **不挂**（B139-G 13-01/13-02）");
+                p2.Tick(1.6f);
+                Check(p2 != null && p2.IsPlaying,
+                      "R28：1.6 s 时**整件仍在播**（原版子节点那条是禁用的、根 `destroyTime = 4.0`）");
                 if (p2 != null) p2.Kill();
             }
 
-            // ③ `SubEmitterManualTrigger`
+            // ③ `SubEmitterManualTrigger` —— ✅ 2026-11-04（B139-G · 13-02/13-04 改期望）：
+            //    `Sau_ParticleWhip` 那颗原版 `m_Enabled = 0`（且 `subEmitterIndexes = [1]`）⇒ **不挂**、0 次触发。
             var ei = System.Array.FindIndex(entries, x => x != null && x.name == "Sau_ParticleWhip");
             if (ei >= 0)
             {
                 var p3 = WarpforgeEffectPlayer.Play("Sau_ParticleWhip");
-                Check(p3 != null, "R28：`Sau_ParticleWhip` 起得来（它带 `SubEmitterManualTrigger`）");
+                Check(p3 != null, "R28：`Sau_ParticleWhip` 起得来");
                 if (p3 != null)
                 {
                     var t = p3.GetComponentInChildren<WFExtraSubEmitterManualTrigger>(true);
-                    Check(t != null, "R28：`SubEmitterManualTrigger` 被补上了（子发射器不再永不触发）");
+                    Check(t == null, "R28：该组件在原版是禁用的 ⇒ **不挂**（B139-G 13-04）");
                     p3.Kill();
                 }
             }

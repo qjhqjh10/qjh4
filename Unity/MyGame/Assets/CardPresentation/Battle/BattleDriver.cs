@@ -4877,13 +4877,13 @@ namespace CardPresentation
         /// <para>**根因**：`Shell.unity` 有 **1** 台 listener（挂在 UI Camera 上），而 `Battle.unity` **0 台**
         /// （`grep -c '^--- !u!81 '` 现读）—— 进战斗后壳那台随场景一起卸掉 ⇒ 战斗里**整场没有 listener**：
         /// 所有战斗音频（音效/语音/音乐）都不会出声，而且**不报错**（`AudioSource` 照常计时、`isPlaying` 照常 true）。</para>
-        /// <para>**原版**：`level0` 的 `UI Camera` 上有一台全场唯一的 listener（`AudioListener_260.json`）。</para>
+        /// <para>**原版**：`bundle_scenes_scenes_battlearena1/AudioListener/AudioListener_1594.json` 的 `m_GameObject → &348` = **BoardCamera（透视 3D 相机）**。⚠️ **2026-11-04（`B139-D1`）就地订正（铁律 5）**：这里原来写「`level0` 的 `UI Camera` 上有一台全场唯一的 listener（`AudioListener_260.json`）」—— 那是**壳场景那台**（`level0` 的 GO `&4`），**不是战场场景的**；战场正本是 `_1594`（同结论 → `报告/B132_审计_镜头与相机.md` A25/A26）。</para>
         /// <para>⚠️ **只在「一台都没有」时补** —— 将来壳侧若真做成 `DontDestroyOnLoad` 常驻，这里不会变成两台
         /// （Unity 对多台 listener 会报错且只认其中一台）。</para></summary>
         static void EnsureAudioListener()
         {
             if (UnityEngine.Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None).Length > 0) return;
-            var cam = Camera.main;
+            var cam = Camera.main;   // ✅ 已复刻（2026-11-04 · B139-D1 · 判据 = `bundle_scenes_scenes_battlearena1/AudioListener/AudioListener_1594.json` 的 `m_GameObject → &348` = BoardCamera（同结论 → `报告/B132_审计_镜头与相机.md` A25/A26）⇒ listener 挂在 **3D 战场相机**上；包 S 把 tag 对调后 `Camera.main` 正好就是那台 ⇒ 这里**保留 `Camera.main`**，⛔ 别换成 HUD 相机（`LayoutSpace.Cam`）—— 那正是 B132 A26 记的那条差异（空间音频听点变到 HUD 上））
             if (cam == null)
             {
                 Debug.LogWarning("[Battle] 场上没有 `AudioListener`、也没有 `MainCamera` ⇒ 战斗音频不会出声"
@@ -4892,7 +4892,7 @@ namespace CardPresentation
             }
             cam.gameObject.AddComponent<AudioListener>();
             Debug.Log("[Battle] 场景里没有 `AudioListener` ⇒ 已补在 `" + cam.name + "` 上"
-                    + "（判据：原版 `level0/UI Camera` 上那台全场唯一的 listener）");
+                    + "（判据：原版 `bundle_scenes_scenes_battlearena1/AudioListener/AudioListener_1594.json` 挂在 `&348` = BoardCamera 上；`level0/UI Camera` 那台 `_260` 是壳场景的，⛔ 别混）");
         }
 
         /// <summary>
@@ -9820,7 +9820,7 @@ namespace CardPresentation
             }
             // 🆕 2026-09-30：**战场侧接上了**（§三 第 30 条 · 4 环境）。
             // 判据 = 原版 `ApplyEnvironment(so, instant:false)`：同一条不重播 · 补间雾与环境光混合 ·
-            //        `scenarioObjects` 有值就 `Instantiate(prefab, Camera.main.position/rotation)`。
+            //        `scenarioObjects` 有值就 `Instantiate(prefab, Camera.main.position/rotation)`。 ｜⚠️ 2026-11-04（`B139-D1`）核过：这句里的 `Camera.main` 是**原版自己的写法**（`ApplyEnvironment` 反编译原文），⛔ 不是我们该改的；原版的 `MainCamera` 也挂在 3D 战场 GO `&348` 上 ⇒ 这里**故意保留 `Camera.main`**，别按「HUD 相机」去换。
             // 🆕 2026-09-30 晚：那族 `IScenarioEnvironmentBlendeable` **已经接了**（`EnvironmentApplier` 里
             //    「实例侧 direction=true」＋「场景侧 direction=`SO.defaultScenarioObjectsState`」两半，
             //    以及撤环境那条「回调计数到齐才 Destroy」）—— 判据（逐句读方法体）→
@@ -15642,8 +15642,8 @@ namespace CardPresentation
             //   `ActiveSkillDisplay__OnTouchDrag.c:41-43`）；这里拦在「打法定下来」那一步 =
             //   与「主动技能拖拽禁止」同义（`AttackKind.Ability` 也走本方法）。
             //   ⚠️ 「结束回合」原版取值**未查清**（`allowPlayerActionsFlag` 反编译里没有可见调用点）
-            //      ⇒ 按**禁**处理（见 `EndPlayerTurn` 顶部那条注释）。出声，不静默。
-            if (kind == _command) return; else if (_replaySession)   // 🔴 2026-11-03（`B117-R9` 补丁③）：原版 `UnitOnBoardAttackTypeSelector__AttackButtonClick.c:28-30` **第一句**就是 `if (card.attackType(+0x120) == param_2) return;` —— **同一档不重复下单**（悬停「已选那一格」不重发指令）。⛔ **必须先有补丁②**：改前 `_command` 只有悬停才被设，单上这一条会把「上一手用近战 ⇒ 这一手再也选不了近战」锁死；现在起手就带 `card.attackType`（`OpenCommand`）⇒ 同档不用再点也打得出去。⚠️ **落点不在 `AttackSelector.Selectable`**：那里同时是 `KindAtPoint` 的受体判据，把「已选那一格」判成不可选 ⇒ 点它会被当成「槽外取消」把整条指令取消掉
+            //      ⇒ 按**禁**处理（见 `EndPlayerTurn` 顶部那条注释）。出声，不静默。 ｜🔴🆕 **2026-11-04（`B139-D1` · 铁律 5 + β 缺陷修复）：下面同档那条 `return` 现在【先对齐镜像 + 底光】再返回。** 判据（原版亲读）：`UnitOnBoardAttackTypeSelector__AttackButtonClick.c:28-30` **确实**有这条早退（`attackType(+0x120) == param_2 ⇒ return`）⇒ 早退本身是**复刻**、不能删；但原版的「这张卡自己的打法底光」是**状态派生**（`CardScript__CardSetup.c:263-267` 部署时就写 `+0x120` 并紧接着 `BasicCardUI__AttackTypeChanged` ⇒ 同档点一下时底光本来就已经亮着），而我们展示层读的是 `LastAttackType` **镜像**、镜像只在下面那一行写 ⇒ 同档时早退把镜像跳过 ⇒ **我方卡的打法底光在「选的档 = 起手档」时永远不亮**（= B139 那轮 #2 的 β）。修法 = 早退支照样把镜像与底光对齐一次，其余（声音 / 点亮目标 / 教程 / `SetSelected`）照旧不跑，与「原版同档什么都不做」一致；⚠️ `(int)kind` 就是下面 `pickedType` 三元的同值写法（`AttackKind` 与 `UnitState.AttackType*` 同号：Melee 1 / Ranged 2 / Ability 4，而 `kind == _command` 只可能是这三档）。
+            if (kind == _command) { if (kind != AttackKind.None) { int sameType = (int)kind; if (_selectedSlot >= 0 && Ctx != null && _me >= 0 && _me < Ctx.Players.Length && _selectedSlot < Ctx.Players[_me].Board.Length) { var samePicked = Ctx.Players[_me].Board[_selectedSlot]; if (samePicked != null) { samePicked.LastAttackType = sameType; RuleCore.SetCurrentAttackType(Ctx, _me, _selectedSlot, sameType); } ApplyOwnAttackType(_me, _selectedSlot, ViewAt(_me, _selectedSlot)); } } return; } else if (_replaySession)   // 🔴 2026-11-03（`B117-R9` 补丁③）：原版 `UnitOnBoardAttackTypeSelector__AttackButtonClick.c:28-30` **第一句**就是 `if (card.attackType(+0x120) == param_2) return;` —— **同一档不重复下单**（悬停「已选那一格」不重发指令）。⛔ **必须先有补丁②**：改前 `_command` 只有悬停才被设，单上这一条会把「上一手用近战 ⇒ 这一手再也选不了近战」锁死；现在起手就带 `card.attackType`（`OpenCommand`）⇒ 同档不用再点也打得出去。⚠️ **落点不在 `AttackSelector.Selectable`**：那里同时是 `KindAtPoint` 的受体判据，把「已选那一格」判成不可选 ⇒ 点它会被当成「槽外取消」把整条指令取消掉
             {
                 Debug.LogWarning("[Replay] 回放局里「选定打法（" + kind + "）」**被拒** —— 回放只读"
                                + "（判据：原版 `CardScript__OnTouchDrag` / `ActiveSkillDisplay__OnTouchDrag` 的 `0xA0` 闸）");

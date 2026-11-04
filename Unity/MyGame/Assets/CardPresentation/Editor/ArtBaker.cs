@@ -5,7 +5,7 @@
 //      用它的相机渲一张 1920×1080 存成 `Resources/Art/arena1_bg.png`。
 //      批处理下粒子不会自己走，渲之前先 `Simulate` 几秒，否则烟/火全是空的。
 //   2. **统一导入设置**：卡框要 Read/Write（`CardView` 运行时量它的不透明包围盒来对齐 UV）、
-//      全部关 mipmap、开 alphaIsTransparency。
+//      mip / wrap / filter / aniso **按原版真值表逐张设**（`数据/游戏数据/vfx_texture_mips.tsv` + `arena_texture_import.tsv`；表外保留现值）、开 alphaIsTransparency。⚠️ 2026-11-04 更正：原来这里写「全部关 mipmap」—— 那是**无条件覆盖**，会把按原版改好的 `.meta` 静默打回（`B139_H` / `B139-I2`）。
 //
 // 用法（菜单）：Tools > CardPresentation > 烘焙原版美术
 // 用法（命令行）： -executeMethod ArtBaker.BakeFromCLI
@@ -51,7 +51,7 @@ public static class ArtBaker
     ///
     /// ⛔ **不要改成「全部 Repeat」** —— 同目录的 `CardBlobShadow.png`（原版 `Card blob shadow`）
     ///    原版实读就是 **Clamp(1,1)**，改成 Repeat 反而与原版不符。
-    /// ⚠️ 原版数据只给了 `m_WrapU/V`，**`m_WrapW` 不在判据里** ⇒ 代码只写 U/V（`.meta` 的 `wrapW` 保持现值）。🔴 2026-11-01（`B111_T1C`）：`CrosshairTrail` / `LightningTrail` / `Laser_Wave_2` 三张的**原版 `.meta` 三个数都是 `0`**，已补进下表、并把它们的 `.meta` `wrapW` 也改成 0。
+    /// ⚠️ 原版数据只给了 `m_WrapU/V`，**`m_WrapW` 不在判据里** ⇒ 代码只写 U/V（`.meta` 的 `wrapW` 保持现值）。🔴 2026-11-01（`B111_T1C`）：`CrosshairTrail` / `LightningTrail` / `Laser_Wave_2` 三张的**原版 `.meta` 三个数都是 `0`**，已补进下表、并把它们的 `.meta` `wrapW` 也改成 0。🔴 2026-11-04（`B139_H` · `B139-I3`）：**本表只是 `(0,0)` 那一档**；三档（`0,0` Repeat / `1,1` Clamp / `0,1` 混合）由 `OriginalWrap` 从 `vfx_texture_mips.tsv` **逐张查原版 `m_WrapU/V`**，`Shine trail` 的 `(0,1)` 就是靠它表达的（布尔白名单表达不了 U≠V）。
     /// </summary>
     static readonly string[] RepeatTextures =
     {
@@ -457,7 +457,7 @@ public static class ArtBaker
                          && !path.EndsWith("/card_sdf/generic.png")
                          && !path.EndsWith("/card_sdf/Card_board_frame_SDF.png");
 
-            ti.textureType = TextureImporterType.Default;      // 我们自己按 UV 摆，不要 Sprite
+            ti.textureType = OriginalTextureType(path, ti.textureType);   // 原版有真值就照原版；表外的仍是 Default（我们自己按 UV 摆，不要 Sprite）
             // 🔴 **必须关掉 `alphaIsTransparency`**（2026-09-15 踩到）：
             //    开着它时 Unity 会把**透明区的 RGB 用最近邻填充补上**，而填充的划分边界正好是
             //    **多边形格子** ⇒ 整张立绘变成**彩色马赛克**（实测卡面糊成一块块的）。
@@ -466,20 +466,15 @@ public static class ArtBaker
             //    （那个脚本直接改 `.meta` 文本）—— 这里也设一遍，免得**两个工具互相打架**：
             //    我这次就是跑了本方法把 `fix_art_meta` 关掉的开关又打开了，卡面当场变马赛克。
             ti.alphaIsTransparency = false;
-            ti.mipmapEnabled = false;
-            // 🔴 **2026-10-22：Repeat 白名单放行** —— 原版那 7 张（见 `RepeatTextures` 的表）是 Repeat，
-            //   这里若仍无条件 Clamp，会把手工改好的 `.meta` **静默改回 Clamp**（本方法每次烘焙都会跑）。
-            //   白名单之外**仍然是 Clamp**（`CardBlobShadow.png` 原版就是 Clamp，别一起改）。
-            if (IsRepeatTexture(path))
-            {
-                ti.wrapModeU = TextureWrapMode.Repeat;
-                ti.wrapModeV = TextureWrapMode.Repeat;
-            }
-            else
-            {
-                ti.wrapMode = TextureWrapMode.Clamp;
-            }
-            ti.filterMode = FilterMode.Bilinear;
+            // 🔴 2026-11-04（`B139_H` · 修 15-03）：本行原来是无条件 `false` ⇒ 把按原版 `m_MipCount>1` 改好的 21 张（`ui_menu/40k_Crate_*` / `Background` / `InputFieldBackground` / `40K_icon_*` …）在下次烘焙时**静默打回**；判据 = `vfx_texture_mips.tsv` / `arena_texture_import.tsv` 的 `mipCount`，**表里查不到保留现值**。
+            ti.mipmapEnabled = OriginalMipEnabled(path, ti.mipmapEnabled);
+            // 🔴 **2026-10-22 起是白名单；2026-11-04（`B139_H` · `B139-I3`）改成【三档表】** —— U/V 分开写，
+            //   才能表达 `Shine trail` 那种原版 `(0,1)`（U Repeat / V Clamp）的**混合档**（布尔白名单表达不了）。
+            //   表外的仍按旧口径 Clamp（`CardBlobShadow.png` 原版就是 Clamp，别一起改）。
+            int _wu, _wv;
+            if (OriginalWrap(path, out _wu, out _wv)) { ti.wrapModeU = (TextureWrapMode)_wu; ti.wrapModeV = (TextureWrapMode)_wv; }
+            else ti.wrapMode = TextureWrapMode.Clamp;
+            { FilterMode _fm; int _an; if (OriginalFilterAniso(path, out _fm, out _an)) { ti.filterMode = _fm; ti.anisoLevel = Mathf.Max(1, _an); } else ti.filterMode = FilterMode.Bilinear; }   // 🆕 B139_H · B139-I3：aniso 也照原版逐张（ui_menu/Background 等 3 张原版是 16）
             // 🔴 **2026-10-31（B110_T1）：`ui_menu` / `boosterpack` 也抬到 2048** —— 别再压掉一半像素。
             //   判据（现读源 PNG 的 IHDR，逐张量的）：这两个子树里**只有 66 张**源边 > 1024 ——
             //   `ui_menu` 65 张（64 张 2048² 的 `UI_Deck_Warlord_*` + `UI_Deck_Master_Zacharial`，
@@ -620,13 +615,13 @@ public static class ArtBaker
             int cap = 512;
             while (cap < src && cap < 8192) cap *= 2;
 
-            ti.textureType = TextureImporterType.Default;
+            ti.textureType = OriginalTextureType(path, ti.textureType);   // 原版有真值就照原版；表外仍是 Default
             ti.maxTextureSize = cap;
-            ti.mipmapEnabled = false;                      // 照原版（atlas/floor 的 mipCount = 1）
+            ti.mipmapEnabled = OriginalMipEnabled(path, ti.mipmapEnabled);   // 照原版逐张（15-12 修：原来无条件 false ⇒ 把包 I 的 arena mip 打回）
             ti.npotScale = TextureImporterNPOTScale.None;
             ti.alphaIsTransparency = true;                 // ⚠️ 与卡牌立绘**相反**（见上）
-            ti.filterMode = FilterMode.Bilinear;
-            ti.wrapMode = TextureWrapMode.Repeat;
+            { int _wu, _wv; if (OriginalWrap(path, out _wu, out _wv)) { ti.wrapModeU = (TextureWrapMode)_wu; ti.wrapModeV = (TextureWrapMode)_wv; } else ti.wrapMode = TextureWrapMode.Repeat; }
+            { FilterMode _fm; int _an; if (OriginalFilterAniso(path, out _fm, out _an)) { ti.filterMode = _fm; ti.anisoLevel = Mathf.Max(1, _an); } else ti.filterMode = FilterMode.Bilinear; }
             // 原版那几张是 **DXT5Crunched（fmt=29）** —— 对应 `CompressedHQ`。用普通 `Compressed`（DXT）会把
             // 大面积渐变压出块状色带。
             // 🔴 **2026-10-31 订正（B108_A17）**：原注释写的是「BC7（fmt=29）」—— **29 = DXT5Crunched，BC7 = 25**
@@ -727,5 +722,155 @@ public static class ArtBaker
             Debug.LogWarning(P + "🔴 读音频真值表失败：" + e.GetType().Name + " " + e.Message);
             return null;
         }
+    }
+
+    // ───────── 🆕 2026-11-04（`B139_H` · `B139-I2`/`B139-I3`）：**按原版真值设导入字段，不再无条件覆盖** ─────────
+    //
+    // **为什么要有这一节**：`ApplyImportSettings` / `ApplyArenaImportSettings` 原来对
+    // `Resources/Art` 与 `arenas/**` 的贴图**无条件**写 `textureType=Default` / `mipmapEnabled=false` /
+    // `wrapMode=Clamp` ⇒ 包 I 按原版逐张改好的 55 个 `.meta`（15-02/03/04/06/07）会在下一次烘焙时
+    // **静默打回**（没有报错、没有日志，只有画面上接缝/糊度不对）。
+    //
+    // **判据（旁挂表，⛔ 不写死在代码里）**：
+    //   · `数据/游戏数据/vfx_texture_mips.tsv`（2,984 个原版 `Texture2D` 名，`工具/gen_vfx_texture_mips.py` 生成）
+    //   · `数据/游戏数据/arena_texture_import.tsv`（127 个战场名，`工具/gen_arena_texture_import.py` 生成）
+    //   两张表列序在「本方法要用的五格」上一致：`mipCount=3 · wrapU=6 · wrapV=7 · filterMode=8 · aniso=9`。
+    //
+    // **三条口径**（与 `ArenaBuilder.ApplyOriginalImport` 同一套）：
+    //   ① 表里有 ⇒ **照原版写**（`mipCount > 1` 才开 mip；wrap U/V **分开写**，能表达 `(0,1)` 混合档）；
+    //   ② 表里没有 ⇒ `mipmapEnabled` / `wrapMode` **保留现值**（⛔ 不再无条件覆盖）；wrap 另有
+    //      `RepeatTextures` 老白名单兜底（那 12 张原版 (0,0)）；
+    //   ③ 法线图（13 个原版名）**一律保留现值** —— 见 `OriginalTextureType` 的说明（15-01 三步里的第 ① 步）。
+
+    struct ArtTexTruth
+    {
+        public int MipCount, WrapU, WrapV, Filter, Aniso;
+        public bool HasWrap, HasFilter;
+    }
+
+    static System.Collections.Generic.Dictionary<string, ArtTexTruth> _artTruth;
+    static bool _artTruthTried;
+
+    /// <summary>原版法线图的名字（去后缀后的原名）。判据 → `报告/B136_审计_纹理与图集.md` #16 /
+    /// `判据/B110_R5_资源侧放回11条.md:174-196`。</summary>
+    static readonly string[] NormalMapNames =
+    {
+        "Card Booster Pack Normal", "Distortion Star", "EarthCrackNormal", "GoopSprayNormal",
+        "GoopStreakNormal", "RippleNormal", "SandDecalNormal", "SmokePuffNormal",
+        "Explosion Distort", "TinyStonesNormals", "RippleSubtle", "NoiseNRM", "SplatNormal",
+    };
+
+    /// <summary>贴图文件名 → 原版名（去掉我们的 `_sprite` / `_0` / `_1` 后缀；同一套判据见
+    /// `d:/4/_tmp_view/b139_i/analyze2.py`，包 I 用它把 3,009 个原版对象对回 1,724 张）。</summary>
+    static string[] OriginalNameCandidates(string path)
+    {
+        string k = Path.GetFileNameWithoutExtension(path);
+        var l = new System.Collections.Generic.List<string>(4) { k };
+        foreach (var s in new[] { "_sprite", "_0", "_1" })
+            if (k.EndsWith(s, System.StringComparison.OrdinalIgnoreCase))
+                l.Add(k.Substring(0, k.Length - s.Length));
+        return l.ToArray();
+    }
+
+    static System.Collections.Generic.Dictionary<string, ArtTexTruth> LoadArtTruth()
+    {
+        if (_artTruthTried) return _artTruth;
+        _artTruthTried = true;
+        var d = new System.Collections.Generic.Dictionary<string, ArtTexTruth>();
+        // 顺序：vfx 表先、arena 表后（arena 同名覆盖 —— 战场贴图以战场那张表为准）
+        foreach (var tsv in new[]
+                 {
+                     Path.GetFullPath(Path.Combine(Application.dataPath, "../../数据/游戏数据/vfx_texture_mips.tsv")),
+                     Path.GetFullPath(Path.Combine(Application.dataPath, "../../数据/游戏数据/arena_texture_import.tsv")),
+                 })
+        {
+            if (!File.Exists(tsv))
+            {
+                Debug.LogWarning(P + $"读不到原版贴图真值表（{tsv}）⇒ mip/wrap/filter/aniso **一律保留现值**（不会打回已改好的 `.meta`）");
+                continue;
+            }
+            int first = 1, bad = 0;
+            foreach (var line in File.ReadLines(tsv))
+            {
+                if (first-- > 0) continue;
+                var c = line.Split('\t');
+                if (c.Length < 5 || string.IsNullOrEmpty(c[0])) continue;
+                int mip;
+                if (!int.TryParse(c[3], out mip)) { bad++; continue; }
+                int wu = ParseCol(c, 6), wv = ParseCol(c, 7), fm = ParseCol(c, 8), an = ParseCol(c, 9);
+                d[c[0]] = new ArtTexTruth
+                {
+                    MipCount = mip,
+                    WrapU = wu, WrapV = wv, Filter = fm, Aniso = an,
+                    HasWrap = wu >= 0 && wu <= 3 && wv >= 0 && wv <= 3,
+                    HasFilter = fm >= 0 && fm <= 2,
+                };
+            }
+            if (bad > 0) Debug.LogWarning(P + $"贴图真值表 {Path.GetFileName(tsv)} 有 {bad} 行 `mipCount` 解析不了（已跳过）");
+        }
+        Debug.Log(P + $"贴图真值表已载入：{d.Count} 条（vfx_texture_mips + arena_texture_import）");
+        _artTruth = d;
+        return d;
+    }
+
+    static int ParseCol(string[] c, int i)
+    {
+        if (c == null || i < 0 || i >= c.Length) return -1;
+        int v;
+        return int.TryParse(c[i], out v) ? v : -1;
+    }
+
+    static bool TryFindTruth(string path, out ArtTexTruth row)
+    {
+        var t = LoadArtTruth();
+        foreach (var n in OriginalNameCandidates(path))
+            if (t != null && t.TryGetValue(n, out row)) return true;
+        row = default(ArtTexTruth);
+        return false;
+    }
+
+    public static bool IsOriginalNormalMap(string path)
+    {
+        foreach (var n in OriginalNameCandidates(path))
+            foreach (var nn in NormalMapNames)
+                if (string.Equals(n, nn, System.StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
+    /// <summary>`textureType` —— 原版法线图 **保留现值**（⛔ 不写 Default、也不写 NormalMap，见 15-01 三步），
+    /// 其余仍是 `Default`（我们自己按 UV 摆，不要 Sprite）。</summary>
+    public static TextureImporterType OriginalTextureType(string path, TextureImporterType current)
+        => IsOriginalNormalMap(path) ? current : TextureImporterType.Default;
+
+    /// <summary>`mipmapEnabled` —— 原版 `m_MipCount > 1` 才开；表外**保留现值**。</summary>
+    public static bool OriginalMipEnabled(string path, bool current)
+    {
+        ArtTexTruth r;
+        if (!TryFindTruth(path, out r)) return current;
+        return r.MipCount > 1;
+    }
+
+    /// <summary>wrap 的**三档**判据：`0,0` Repeat · `1,1` Clamp · `(0,1)` 混合（`Shine trail`）。
+    /// 真值表 → `RepeatTextures` 老白名单（原版 (0,0)）→ 表外 = false（调用方按旧口径走）。
+    /// 🔴 **U/V 必须分开写** —— 原版真有 U≠V 的贴图（`vfx_texture_mips.tsv` 2,984 张里 4 张）。</summary>
+    public static bool OriginalWrap(string path, out int u, out int v)
+    {
+        ArtTexTruth r;
+        if (TryFindTruth(path, out r) && r.HasWrap) { u = r.WrapU; v = r.WrapV; return true; }
+        if (IsRepeatTexture(path)) { u = 0; v = 0; return true; }
+        u = v = -1;
+        return false;
+    }
+
+    /// <summary>`filterMode` / `anisoLevel` —— 表里有就照原版，没有 = false（调用方保留现值）。</summary>
+    static bool OriginalFilterAniso(string path, out FilterMode fm, out int aniso)
+    {
+        fm = FilterMode.Bilinear; aniso = 1;
+        ArtTexTruth r;
+        if (!TryFindTruth(path, out r)) return false;
+        bool any = false;
+        if (r.HasFilter) { fm = (FilterMode)r.Filter; any = true; }
+        if (r.Aniso > 0) { aniso = r.Aniso; any = true; }
+        return any;
     }
 }

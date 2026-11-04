@@ -67,6 +67,22 @@ namespace WarpforgeVFX
         public string[] presets;
         /// <summary>`ShakeAndSoundObject.sounds[]`（原版 `PlaySoundOnTime` 条目）。</summary>
         public WFSoundSlot[] sounds;
+        /// <summary>✅ 已复刻（2026-11-04 · B139-G · 原版 MonoBehaviour `m_Enabled`）—— 条目 13-02 的运行时半边：
+        /// 原版这个组件 `m_Enabled == 0` ⇒ `1`（= **不挂**）。
+        /// <para>⚠️ 用「`disabled` 为正 ⇒ 跳过」而**不是** `enabled`（默认 1）—— `JsonUtility` 对
+        /// **缺字段**给的是「构造后的默认值」，两者的差别只在旧表上；旧表里没有这个键 ⇒ 这里读 0
+        /// ⇒ **行为与改前逐字相同**（不会因为表没重生成就把 9 个组件全停掉）。</para>
+        /// <para>现读原版 164 个挂载节点上的 266 个 MonoBehaviour 里 **9 个 `m_Enabled = 0`**：
+        /// 3 个 `DestroyByTime`（`Blast_Big_Ork_Missiles` 1.5 s · `Necrons Earthquake` ×2 3.0 s）·
+        /// 1 个 `SubEmitterManualTrigger`（`Sau_ParticleWhip`）· 5 个嵌套 `AnimFXController`（无行为差）。</para></summary>
+        public int disabled;
+        /// <summary>🆕 **2026-11-04（条目 13-03）**：`SyncParticleSeeds.particlesSystems` 里每颗 PS 所在
+        /// **节点路径**（与 `WFEffectModule.ResolvePath` 同一套 `名字#下标` 约定）。
+        /// <para>⚠️ `null`（旧表没有这个键）⇒ 运行时退回「整棵子树」的超集行为并出声；**空数组** = 原版数组确实为空。</para></summary>
+        public string[] ps;
+        /// <summary>🆕 **2026-11-04（条目 13-04）**：`SubEmitterManualTrigger.subEmitterIndexes` 原文。
+        /// <para>⚠️ 同上：`null` = 旧表 ⇒ 退回「全下标」并出声；**空数组** = 原版为空（一次都不触发）。</para></summary>
+        public int[] se;
         public override string ToString() { return kind + "@" + node; }
     }
 
@@ -128,7 +144,17 @@ namespace WarpforgeVFX
         public static int Unimplemented { get; private set; }
         /// <summary>节点解析失败数（累计；出声）。</summary>
         public static int NodeMisses { get; private set; }
-        public static void ResetDiagnostics() { Attached = 0; Unimplemented = 0; NodeMisses = 0; _warnedUnimpl.Clear(); }
+        /// <summary>🆕 **2026-11-04（`B139-G` · 条目 13-02 运行时半边）**：原版 `m_Enabled = 0` 因而**不挂**的组件数
+        /// （累计；原版现读 9 个，其中 4 个有行为 —— 3 个 `DestroyByTime` + 1 个 `SubEmitterManualTrigger`）。</summary>
+        public static int DisabledSkipped { get; private set; }
+        /// <summary>🆕 **2026-11-04（`B139-G` · 条目 13-07）**：同一节点上**已经有同语义等价件**、
+        /// 因而不重复挂的组件数（`CardPresentation.ParticleEmitOnEnable` 与 `WFExtraParticleEmitOnEnable` 那对）。</summary>
+        public static int DuplicateSkipped { get; private set; }
+        public static void ResetDiagnostics()
+        {
+            Attached = 0; Unimplemented = 0; NodeMisses = 0;
+            DisabledSkipped = 0; DuplicateSkipped = 0; _warnedUnimpl.Clear();
+        }
 
         static readonly HashSet<string> _warnedUnimpl = new HashSet<string>();
 
@@ -143,6 +169,13 @@ namespace WarpforgeVFX
         static void Attach(WarpforgeEffectPlayer p, WFEffectExtra e)
         {
             if (e == null || string.IsNullOrEmpty(e.kind)) return;
+
+            // 🆕 2026-11-04（`B139_G` · 条目 13-02 运行时半边）：原版 `m_Enabled = 0` ⇒ **不挂**（原版那个组件
+            //   在 prefab 上是禁用状态，`Start`/`Update` 都不会跑）。⛔ 别「挂上再 SetEnabled(false)」——
+            //   `DestroyByTime` 是在 `Apply()`（我们这一跳）里排销毁的，挂上就已经晚了。
+            //   判据：原版 MonoBehaviour JSON 的 `m_Enabled`（现读 9 个 0，其中 4 个有行为）。
+            if (e.disabled > 0) { DisabledSkipped++; return; }
+
             Transform host = p.transform;
             if (!string.IsNullOrEmpty(e.node) && e.node != p.gameObject.name)
             {
@@ -159,7 +192,8 @@ namespace WarpforgeVFX
             switch (e.kind)
             {
                 case "SyncParticleSeeds":
-                    host.gameObject.AddComponent<WFExtraSyncParticleSeeds>().Apply();
+                    // 🆕 2026-11-04（条目 13-03）：只同步原版 `particlesSystems` 里**点名的那几颗**。
+                    host.gameObject.AddComponent<WFExtraSyncParticleSeeds>().Apply(p.transform, e.ps);
                     break;
                 case "DestroyByTime":
                     var d = host.gameObject.AddComponent<WFExtraDestroyByTime>();
@@ -167,12 +201,24 @@ namespace WarpforgeVFX
                     break;
                 case "SubEmitterManualTrigger":
                     var s = host.gameObject.AddComponent<WFExtraSubEmitterManualTrigger>();
-                    s.triggerOnSecond = e.f0; s.Apply();
+                    s.triggerOnSecond = e.f0; s.Apply(e.se);   // 🆕 2026-11-04（条目 13-04）：只按原版下标数组触发
                     break;
                 case "ParticleFindFloorCollider":
                     host.gameObject.AddComponent<WFExtraParticleFloorCollider>().Apply();
                     break;
                 case "ParticleEmitOnEnable":
+                    // 🆕 2026-11-04（`B139_G` · 条目 13-07）：同一节点上**已经有同语义的等价件**就不重复挂。
+                    //   背景：`CardPresentation/Core/ParticleEmitOnEnable.cs`（`CardView.MountSpawnParticles` 手挂）
+                    //   与 `WFExtraParticleEmitOnEnable`（本表挂）**语义逐字相同**（`if (!ps.isPlaying) ps.Play();`），
+                    //   而 `Invoke Minion Card Fade Default/Trail#2` 这个节点**两条路都会挂** ⇒ 同节点两个组件。
+                    //   铁律「两处写同一条规则 = 迟早不一致」⇒ 这里让路给**先挂上的那个**（手挂的 CardPresentation 那份）。
+                    //   ⛔ 判据用**类型名**而不是 `using CardPresentation;` —— 依赖方向是「特效库认识卡牌」，
+                    //      但特效库**不把战场表现绑死**（`CardEffects` 那套回调就是这么解耦的）。
+                    //   ⚠️ 两个名字都查：`ParticleEmitOnEnable`（CardPresentation 那份）与 `WFExtraParticleEmitOnEnable`
+                    //      （本文件这一份）—— 后者让 `AttachAll` **重复调用也幂等**（自检会拿它验这条，见 `B139_G`）。
+                    if (HasSameSemanticsComponent(host.gameObject, "ParticleEmitOnEnable")
+                        || HasSameSemanticsComponent(host.gameObject, "WFExtraParticleEmitOnEnable"))
+                    { DuplicateSkipped++; break; }
                     host.gameObject.AddComponent<WFExtraParticleEmitOnEnable>().Apply();
                     break;
                 case "InitiMaterialWithRandomValue":
@@ -236,6 +282,19 @@ namespace WarpforgeVFX
                     return;
             }
             Attached++;
+        }
+
+        /// <summary>🆕 2026-11-04（`B139_G` · 条目 13-07）：这个 GameObject 上有没有**同语义的另一份实现**
+        /// （按**类型名**判，⛔ 不引 `CardPresentation` 的 `using` —— 见 `ParticleEmitOnEnable` 那一支的注释）。
+        /// <para>先查已挂的那些（手挂的 `CardPresentation.ParticleEmitOnEnable` 在
+        /// `CardView.MountSpawnParticles` 里先于本表执行）—— 本方法**只查、不挂**。</para></summary>
+        public static bool HasSameSemanticsComponent(GameObject go, string typeName)
+        {
+            if (go == null || string.IsNullOrEmpty(typeName)) return false;
+            var all = go.GetComponents<MonoBehaviour>();
+            for (int i = 0; i < all.Length; i++)
+                if (all[i] != null && all[i].GetType().Name == typeName) return true;
+            return false;
         }
     }
 

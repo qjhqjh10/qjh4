@@ -4,7 +4,12 @@
 TagManager:
   serializedVersion: 3
   tags:
+  - particle
   - FloorPositionReference
+  - PopUpAnchor
+  - UICamera
+  - EditorPreview
+  - MainCanvas
   layers:
   - Default
   - TransparentFX
@@ -12,11 +17,13 @@ TagManager:
   - 
   - Water
   - UI
+  - AfterTransparents
   - 
-  - 
-  - 
-  - 
+  - CustomPostEffectIgnore
+  - 2DElements
   - BoardElements
+  - BoardCardLimit
+  - ParticleTapCollider
   - 
   - 
   - 
@@ -31,12 +38,10 @@ TagManager:
   - 
   - 
   - 
+  - Blocking
   - 
   - 
-  - 
-  - 
-  - 
-  - WarpforgeIso
+  - GroundCollider
   - 
   m_SortingLayers:
   - name: Default

@@ -1276,7 +1276,7 @@ namespace CardPresentation
         public void Build(DeckLibrary lib)
         {
             Library = HostWindow != null ? SharedLibrary : (lib ?? DeckLibrary.Load());   // 🔴 B-339（2026-11-02）：**窗托管那条腿用进程级那份库** —— 卡组编辑窗关掉之后它还活着（= 原版 `PlayerDataManager` 手里那份卡组列表），失败支关窗才不会丢改动；裸 `DeckRuntime`（`Editor/DeckScene.cs` 的 `_rt` / 直起兜底）**照旧用自己的实例**（口径与新鲜度闸见文件尾「卡组库跨窗存活」那一段）
-            _cam = Camera.main;
+            _cam = LayoutSpace.ResolveHudCamera();   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：`Cam`（宿主/独立建场都由 `Apply` 设好）→ `UICamera` 标签 → `MainCamera` 标签，原版 `SceneCameraManager.GetUICamera` 那三档；⛔ 不再直接取 `Camera.main` —— 2026-11-04 起战斗场景的 `MainCamera` 是 3D BoardCamera）
             if (_cam != null) LayoutSpace.Apply(_cam); if (_cam != null && HostWindow == null) ShellRuntime.EnsureAspectClamp(_cam);   // 🆕 B109_E16 · AUD05 S4：比例夹取 [4:3, 22:9]。**只挂独立场景那一档**（`HostWindow == null`）—— 窗化档渲染相机是主菜单那颗（已经挂过），再挂一次会把它带进 `Shell.unity` 存盘（原版 `Intro` 没有该件）；判据 → `ShellRuntime` 类尾那一节
 
             Root = transform;
@@ -3982,7 +3982,7 @@ namespace CardPresentation
         /// ⚠️ **本仓没有 UGUI `EventSystem`**（`EventSystem.current` 恒 null）—— `BaseEventData` 只把这个引用
         /// 存下来、从不调用它 ⇒ 传 `null` 安全。
         /// ⚠️ `pressEventCamera` 是**只读**属性（ugui 只给 `get`）⇒ 这里填不了；`OnDrag` 那一支在它为 null 时
-        /// 退回 `Camera.main` —— 本窗的 UI 相机**就是** `Camera.main`（`Build()` 开头那句 `_cam = Camera.main`）
+        /// 退回 `LayoutSpace.Cam` —— 本窗的 UI 相机**就是** `LayoutSpace.Cam`（`Build()` 开头那句 `_cam = …`）
         /// ⇒ 与「原版读 `pressEventCamera`」同解。</summary>
         PointerEventData DragEvent(Vector2 px, Vector2 delta, bool withHovered)
         {

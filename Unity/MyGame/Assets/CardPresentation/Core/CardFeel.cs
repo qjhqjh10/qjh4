@@ -141,7 +141,7 @@ namespace CardPresentation
         ///     原版 `_ReceiveDamage` 收尾那道 `WaitForSeconds(1.0)` 的门，判据 →
         ///     `资料/普查产出_1024d/S2_受伤时长bool语义.md`）⇒ **`HitRotDuration` / `ResetDuration` 现在一个
         ///     消费者都没有**。
-        /// ⛔ **但别因为「没人用」把它们删掉**：它们是原版 `Impact Light Tween` 的**读数**（将来做远程弹着要用），
+        /// ⛔ **但别因为「没人用」把它们删掉**：它们是原版 `Impact Light Tween` 的**读数**。🔴 **2026-11-04（`B139-E` · 账 `11-06`）就地订正（铁律 5）**：本行原来写「将来做远程弹着要用」—— 那三条补间**不是没做**，它们走的是**数据驱动**那条链：`Resources/UnitTweens.json` 的 `Impact Light Tween` 四步（逐值与 `数据/游戏数据/tween/Impact Light Tween.json` 相同）→ `UnitTweenRuntime.Invoke` → `UnitTweenTable.Build`（`punch` / `resetbody` 都有实现），入口 = `BattleDriver` 装的 `WFModuleTween.OnInvoke`（`BattleDriver.cs:28725` 的 `UnitTweenRuntime.Install()`），池内 **73 个**效果（`BulletImpact_*` / `Lasrifle*`）引用它 ⇒ **这几个常量只是同一份原版读数的代码侧留痕**，⛔ 别拿它们再手写一份补间（那会变成同一下播两遍）；⚠️ 实机画面未逐帧验（要跑一次 Battle 才看得到），
         ///   而且 `Editor/BattleScene.cs:20440` 那条断言还在核 `HitRotDuration == 0.5` ——
         ///   那一处断的是**旋转 punch 的表现参数**（`DOPunchPosition` 那条），跟「命中等待门」是两件事。
         /// 下面这两段旧注释保留，它们记的是那两条 punch **本身的**读数（将来做远程弹着要用）。
@@ -3831,7 +3831,12 @@ namespace CardPresentation
             Vector3 strength = new Vector3(s * UnitShakeStrengthX, s * UnitShakeStrengthY, 0f);
             var tw = card.transform.DOShakePosition(duration, strength, UnitShakeVibrato,
                                                     UnitShakeRandomness, snapping: false, fadeOut: true);
-            return CardTween.Use(tw, Ease.Linear, card.transform).SetDelay(delay);
+            // 🔴 **2026-11-04（`B139-E` · 账 `11-09`）就地改（铁律 5）**：本行原来是 `Ease.Linear`。
+            //   原版 `CardScript.DoUnitShake`（VA 反汇编 `0x1805EB7A0`）调 `DOShakePosition` 时**没有 `SetEase`**
+            //   ⇒ 吃 `DOTweenSettings.defaultEaseType`，本工程那份资产实读 = **6（OutQuad）**
+            //   （`Assets/Resources/DOTweenSettings.asset:31`）。⇒ 这里传 `UnitShakeEase`（= OutQuad），
+            //   ⛔ 别再写 `Ease.Linear`（那是 1，把每条 DOShake 的时间重映射都掰成了匀速）。
+            return CardTween.Use(tw, UnitShakeEase, card.transform).SetDelay(delay);
         }
 
         // ==================================================================
@@ -4489,5 +4494,17 @@ namespace CardPresentation
             if (body != null) { var p = body.localPosition; p.y = bodyBase.y; body.localPosition = p; }              // ⑥ `body3D` 的 y
             if (boardEl != null) { var p = boardEl.localPosition; p.y = boardElBase.y; boardEl.localPosition = p; }  // ⑥ `Board Elements` 的 y
         }
+
+        // ==================================================================
+        //  🆕 2026-11-04（`B139-E` · 账 `11-09`）：单位抖动的缓动
+        //  ⚠️ 新成员一律追加在**类尾**（账按 `文件:行号` 引用）。
+        // ==================================================================
+
+        /// <summary>单位抖动（原版 `CardScript.DoUnitShake` → `DOShakePosition`）用的缓动。
+        /// 原版**没有 `SetEase`** ⇒ 吃 `DOTweenSettings.defaultEaseType`，本工程那份资产实读 = **6（OutQuad）**
+        /// （`Assets/Resources/DOTweenSettings.asset:31`）。⇒ 取 `Ease.OutQuad`。
+        /// ⛔ 别写 `Ease.Linear`：那是 2026-11-03 之前的值（`B135` 动画 #86 抓到的差异）。
+        /// ⚠️ 视觉影响很小 —— `DOShakePosition` 自身的振动曲线主导；但这仍是原版值，照抄。</summary>
+        public const Ease UnitShakeEase = Ease.OutQuad;
     }
 }

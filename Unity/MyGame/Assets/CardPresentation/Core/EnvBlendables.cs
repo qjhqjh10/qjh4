@@ -10,7 +10,7 @@
 //     · 否则 `DisableEnvironment(旧)` → 记下新的 → `SO.EnableEnvironment(instant)` → `SetRegisteredBlendeablesState(返回值)`
 //   `SO.EnableEnvironment(instant)`：
 //     ① 补间 `ambientColor` / 雾（时长 `SO.blendTime`，`instant` 时置 0）
-//     ② `scenarioObjects` 有值 ⇒ `Instantiate(prefab, Camera.main.pos/rot)`，然后对它子树里**每一个**
+//     ② `scenarioObjects` 有值 ⇒ `Instantiate(prefab, battleCenterAnchor.position)`（⚠️ 2026-11-04 订正：原写 `Camera.main.pos/rot` 是**错的**，判据与 `Battle/EnvironmentApplier.cs:167` 同），然后对它子树里**每一个**
 //        `IScenarioEnvironmentBlendeable` 调 `DoScenarioBlend( lVar7 )`——`lVar7` = **direction=true、
 //        targetValue=1.0**、时长 = `blendTime`
 //     ③ **返回** `lVar8` = **direction = targetValue = `SO.defaultScenarioObjectsState`**

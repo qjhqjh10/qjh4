@@ -23,9 +23,13 @@
 // ============================ 🔴 灭自证（每条怎么才能红）============================
 //  · A4/A5：`ShowAmountForReward` 恒 false ⇒ 红；写成「一律 true」⇒ A6（卡背那一族）红。
 //  · B2/B3：`Amount` 不写 ⇒ 落 0 ⇒ 红（`!= 0` 那一半直接钉死「忘了给」）。
-//  · B3 ★：换一天（150 → 20）⇒ 挡「恒写某个固定值」。
+//  · B7 ★：换一天（每日奖励表两天数量不同）⇒ 挡「恒写某个固定值」。
 //  · D4：端到端那一扇窗里必须真印出 `"150"` —— 窗侧 `BuildAmount` 断了 / `ShowAmount` 没传进去 ⇒ 红。
-//  · E：连登那边同样的形状（1 / 20），与每日奖励互为独立证据。
+//  · C（连登）：同一形状 —— C1 断第 1 格 = 它自己的数量、C4 断**另一格** = 那一格自己的数量、
+//    C5 断两格数量**确实不同**（值真的来自那一格）。
+//    ⚠️ **2026-11-04 更正（`B139_V2`）**：原文写「E：连登那边同样的形状（1 / 20）」—— 段号早已是 C，
+//    且「第 1 格 vs 第 3 格」那个固定配对**前提已过期**（`81ea4fbb` 把连登表改成 `{150,75,150,…}`
+//    ⇒ 第 1/3 格都是 150，比不出差异）⇒ 现在**现找一格数量不同的**，并把「不同」写成前提（C3）。
 //
 // ============================ 怎么接（⚠️ 本代理不动宿主）============================
 //  `Editor/<宿主>.cs` 那条聚合行**同一物理行、第一个 `//` 之前**追加（行数零变化）：
@@ -138,13 +142,33 @@ public static class B110_M2F_Assert
         var s0 = DailyStreakPopup.ItemInfoContext(0);
         C(s0.Amount, specs0[0].Quantity,
           "C1 ★★ 第 1 格 `Amount` = `StreakRewardSpecsOf(0)[0].Quantity`（= 原版抽屉 `+0x40`；同一份也是 `CollectStreak` 发的）");
-        Tr(s0.ShowAmount, "C2 ★★ 第 1 格 `ShowAmount = true`（卡包 ⇒ 主档 `Container Drawer`）｜🧨 漏传 ⇒ 红");
+        // ⚠️ **2026-11-04 更正（`B139_V2`）**：本行原文写「第 1 格（**卡包** ⇒ 主档 `Container Drawer`）」——
+        //   **已过期**：`81ea4fbb` 把卡包挪到**第 7 格**，第 1 格现在是**水晶**（`40k_topmarquee_currency_crystal`）。
+        Tr(s0.ShowAmount, "C2 ★★ 第 1 格 `ShowAmount = true`（水晶 ⇒ 主档 `Currency Drawer`）｜🧨 漏传 ⇒ 红");
 
-        var s2 = DailyStreakPopup.ItemInfoContext(2);
-        C(s2.Amount, DailyData.StreakRewardSpecsOf(2)[0].Quantity,
-          "C3 ★（灭自证）第 3 格 `Amount` = 那一格自己的数量");
-        Tr(s2.Amount != s0.Amount, "C4 ★（灭自证）两格数量不同（" + s0.Amount + " vs " + s2.Amount + "）⇒ 值真的来自那一格");
-        C(s2.ArtName, DailyData.StreakRewardIcon(2), "C5 图仍是奖格图标那张");
+        // ⚠️ **2026-11-04 更正（`B139_V2`）**：原来这两条固定比「第 1 格 vs 第 3 格」，**前提是两格数量不同**。
+        //   `81ea4fbb` 把 `_streakAmount` 改成 `{150,75,150,2,150,300,1}` ⇒ 第 1/3 格**都是 150**
+        //   ⇒ 「灭自证」当场失去判别力（日志实测 `150 vs 150`）。⛔ 产品数据不改（铁律 18·0），
+        //   改成**现找一格**「数量确实与第 1 格不同」的，并把「两格不同」写成**前提硬断言**（C3）。
+        int other = -1;
+        for (int j = 1; j < DailyData.StreakDays; j++)
+        {
+            var sp = DailyData.StreakRewardSpecsOf(j);
+            if (sp == null || sp.Length == 0) continue;
+            if (sp[0].Quantity != specs0[0].Quantity) { other = j; break; }
+        }
+        Tr(other >= 0,
+          "C3 **前提**：连登表里还有一格的数量**与第 1 格不同**（" + specs0[0].Quantity + "）—— 灭自证要的就是这个前提"
+        + "｜🧨 表改成一串相同值 ⇒ 本条红，⛔ 而不是让 C5 静默退化成恒真");
+        if (other < 0) return;
+
+        var specsOther = DailyData.StreakRewardSpecsOf(other);
+        var so = DailyStreakPopup.ItemInfoContext(other);
+        C(so.Amount, specsOther[0].Quantity,
+          "C4 ★（灭自证）第 " + (other + 1) + " 格 `Amount` = 那一格自己的数量");
+        Tr(so.Amount != s0.Amount,
+          "C5 ★（灭自证）两格数量**确实不同**（" + s0.Amount + " vs " + so.Amount + "）⇒ 值真的来自那一格，不是恒写某个值");
+        C(so.ArtName, DailyData.StreakRewardIcon(other), "C6 图仍是奖格图标那张");
     }
 
     // ============================================================ D · 端到端：窗里真印出那个数字
