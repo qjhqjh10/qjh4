@@ -741,7 +741,7 @@ namespace CardPresentation
             //   （子树根叫 `Generic Tab UI Button[ 1]`，九块子件是 `…_00..22`）。
             var tabTex = Art(on ? TabOnArt : TabOffArt);
             var tabBorder = on ? TabBorderOn : TabBorderOff;
-            MenuDraw.Nine(root, tabTex, r, tabBorder,
+            var tabBgNode = MenuDraw.Nine(root, tabTex, r, tabBorder,
                           tabTex != null ? tabTex.width : 489f, tabTex != null ? tabTex.height : 79f,
                           QDsRow, on ? TabOnColor : TabOffColor, true,
                           own ? "Generic Tab UI Button 1" : "Generic Tab UI Button",
@@ -760,7 +760,19 @@ namespace CardPresentation
             var tabLb = MenuDraw.Text(root, r, label, Color.white, "Tab Text " + (own ? "Own" : "Pre"), 34f, QDsText,
                                       TabTextW, 12f, 60f, 12f, face: TmpFont.Face.LatinCardBody);
             if (tabLb != null) tabLb.SetWrapping(false);            // 原版折行=0
-            Hit(root, "TabHit_" + (own ? "Own" : "Pre"), r, () => SwitchTab(own), QDsHit);
+            var tabHit = Hit(root, "TabHit_" + (own ? "Own" : "Pre"), r, () => SwitchTab(own), QDsHit);
+            // ✅ 已复刻（2026-11-04 · B141-W44 · 5-07）：这两颗 `Generic Tab UI Button[ 1]` 的
+            //   `m_SpriteState.m_SelectedSprite` 逐颗实读 = **`40K_tab_button_overwindow`**
+            //   （判据 → `报告/B141_W129_ButtonFx.md` §5-07；⚠️ 这两颗原版 `m_Transition = 0` ⇒ 选中图是**死值**，
+            //   指针操作下永远走不到那一档 —— 接线只为把原版字段照抄全，**不产生任何可观测变化**）。
+            //   高亮/按下两档显式传**当前常态图**：原版 `trans=0` 本来就是「四态一像素都不变」，
+            //   这样既等价、又不会往 `MissingSwapArt` 里记「`…_overwindow_hover` 取不到」那种假缺口。
+            if (tabHit != null && tabBgNode != null)
+            {
+                var tabWb = tabHit.GetComponent<WindowButton>();
+                string norm = on ? TabOnArt : TabOffArt;
+                if (tabWb != null) tabWb.BindNine(tabBgNode, norm, norm, norm, TabOffArt);
+            }
         }
 
         /// <summary>切页签（照原版：重建列表 + `Instructions` 那类提示不变）。</summary>

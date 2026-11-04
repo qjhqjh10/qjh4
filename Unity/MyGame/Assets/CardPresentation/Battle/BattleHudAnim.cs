@@ -307,7 +307,7 @@ namespace CardPresentation
             return clip;
         }
 
-        /// <summary>逐键 `new Keyframe(t, v, inTangent, outTangent)`（斜率原样写回；本表全 0 ⇒ smoothstep）。</summary>
+        /// <summary>逐键 `new Keyframe(t, v, inTangent, outTangent)`（斜率原样写回；本表全 0 ⇒ smoothstep）。✅ 已复刻（2026-11-04 · B141-W46 · 判据 = `gen_battlehud_clips.py` 键名 `si`/`so` ↔ 本类 `BattleHudKey.si/.so`；⛔ 别把 JSON 键改回 `is`/`os`，JsonUtility 按字段名绑定 ⇒ 恒 null 恒 0）</summary>
         static AnimationCurve BuildCurve(BattleHudKey[] keys, int comp)
         {
             var ks = new Keyframe[keys.Length];

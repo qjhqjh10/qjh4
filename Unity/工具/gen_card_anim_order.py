@@ -579,9 +579,20 @@ def build():
                 stats["rows_not_active"] += 1
                 stats["steps_not_active"] += len(ab.get("steps") or [])
                 continue
+            # 🔴 2026-11-04（`B141-W43` · `B141-SAN27-ROWID`）：**行归属**。
+            #   中间结构 `_assemble_cards` 早就带着 `logicIndex`（= 原版 `activeAbilityLogic[j]` 的下标），
+            #   但原来 emit 时按 `abilities[]` 拍平、把它丢了 ⇒ 表现层「这一拍该播哪一行的目标」无从判
+            #   （`CardAnimOrder.CardAnimBeat.ca` 是 **CardAnim 资产 GUID**，池内 132 张主动能力卡里
+            #   53 张多行、其中 12 张**跨行 `ca` 重复** ⇒ 拿 `ca` 反查行**不唯一**）。
+            #   判据：原版 `AbilityLogic.PlayAbility` 是**每一行**各一次 `GetTargets + PlayAnim`
+            #   （`d:/2/tools/decomp_full/AbilityLogic__PlayAbility.c:262/273`）⇒ 拍必须知道自己属于哪一行。
+            li = ab.get("logicIndex")
+            if li is None:
+                li = -1                      # 缺值 = 不知道（⛔ 别拿 0 顶：0 是合法行号）
             for st in sorted(ab.get("steps") or [], key=lambda s: s.get("i", 0)):
                 b = slim_beat(st, anims, stats)
                 if b is not None:
+                    b["li"] = li
                     steps.append(b)
         if not steps:
             stats["cards_no_steps"] += 1
@@ -604,7 +615,10 @@ def build():
                 "（2026-10-19 · 偏差 6「起→终位移 + 朝向」）· "
                 "ao=applyMovementOffsets · ont=offsetMovementAxis.useNonModifiedAnimTime · "
                 "ofx/ofy/ofz=三轴偏移曲线（同 ease 的扁平约定）· mnx/mxx/mny/mxy/mnz/mxz=各轴随机幅度区间"
-                "（2026-10-19 · 偏差 6「逐轴偏移」；只有 ao==1 的拍写这 11 个字段，其余缺省 0）",
+                "（2026-10-19 · 偏差 6「逐轴偏移」；只有 ao==1 的拍写这 11 个字段，其余缺省 0）· "
+                "li=**行归属** = 原版 `activeAbilityLogic[j]` 的下标（-1 = 不知道；"
+                "2026-11-04 `B141-SAN27-ROWID`：消费端按它取「这一行自己的目标表」，"
+                "判据 `AbilityLogic__PlayAbility.c:262/273` 每行各一次 `GetTargets + PlayAnim`）",
         "stats": stats,
         "cards": cards,
     }

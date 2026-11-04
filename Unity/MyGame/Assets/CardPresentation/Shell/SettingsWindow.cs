@@ -682,6 +682,11 @@ namespace CardPresentation
         /// 两处**各抄各的**，⛔ 别合并成一个常量。</summary>
         public static readonly Color GenFieldTint = new Color(0.286f, 0.965f, 0.686f, 1f);
         public const string ArtLangField = "40K_dropdown_field_closed";
+        /// <summary>✅ 已复刻（2026-11-04 · B141-W44 · 5-07）：**四个下拉框自己**（`LanguagesDropdown` /
+        /// `Quality DropDown` / `Text in Hand DropDown` / `Media ▸ Dropdown`）的 `m_SpriteState.m_SelectedSprite`
+        /// —— 原版 prefab 逐颗实读 = **`40K_dropdown_field_opened`**（判据 → `报告/B141_W129_ButtonFx.md` §5-07）。
+        /// ⚠️ 它同时是这几颗的 `m_HighlightedSprite`（= 悬停图，见上面那条注释）⇒ 选中那一档与悬停同图。</summary>
+        public const string ArtLangFieldSel = "40K_dropdown_field_opened";
         /// <summary>下拉箭头 —— 图名是**我们的选择**（原版那颗 PathID 没解出名字），见 `GenArrowL` 那条。</summary>
         public const string ArtLangArrow = "40K_dropdown_arrow_closed";
 
@@ -831,8 +836,8 @@ namespace CardPresentation
         public const string ArtLstItem = "40K_dropdown_item", ArtLstItemHi = "40K_dropdown_item_hover",
                             ArtLstItemPr = "40K_dropdown_item_press", ArtLstItemSel = "40K_dropdown_item_selected";
         /// <summary>`Item Background` 那颗 `Image.m_Color`（原版实读）—— 与勾选框底图那一格**同值**
-        /// （(0.2863,0.9647,0.6863,1)），但**各抄各的**（两处是两颗不同的对象）。</summary>
-        public static readonly Color LstItemTint = new Color(0.2863f, 0.9647f, 0.6863f, 1f);
+        /// （逐位 (0.28627452,0.9647059,0.6862745,1)；旧取整 (0.2863,0.9647,0.6863)），但**各抄各的**（两颗不同对象）。</summary>
+        public static readonly Color LstItemTint = new Color(0.28627452f, 0.9647059f, 0.6862745f, 1f);   // ✅ 已复刻（2026-11-04 · B141 · 判据 = `Main Menu Settings Window.prefab:16349/21477/35588/36765` 四颗 `Item Background ▸ Image.m_Color`；断言 = `B141_W70_Assert` C1/C2）
         /// <summary>勾那一层用的图 —— **我们的选择**（原版是 Unity 内置 `Checkmark`，本地没导入），见上面 ①。</summary>
         public const string ArtLstCheck = "40K_settings_icon_checkmark";
         /// <summary>滚动条两根 —— 条底照原版用内置 `Background`（我们 `ui_menu/` 里有）；
@@ -857,8 +862,9 @@ namespace CardPresentation
         //   · `Graphics Tab > Quality  Selector > Quality DropDown`（本笔：**点一下换下一个 → 真下拉**）
         //   · `Graphics Tab > Text In Hand  Selector > Text in Hand DropDown`（本笔：**整行补建**）
         //   · `Media Tab > Visual Settings > WindowMode Selector > Dropdown`（本笔：**整行补建**）
-        // 语言那颗的列表实现带着**自检钉死的几何**（面板恒 573.96 高，见 `Editor/SettingsScene.cs`）
-        // ⇒ 本笔**不动它**、另建一份**通用**实现给后三颗共用（行为逐句照 A862 与 `TMP_Dropdown`）。
+        // 语言那颗的列表实现带着**自检钉死的几何**（`Template` 原型恒 573.96 高；运行时那份按内容收缩，
+        // 见 `Editor/SettingsScene.cs` —— 2026-11-04 `B141-W13` 起自检也断收缩后的高）
+        // ⇒ 本笔**不动它的结构**、另建一份**通用**实现给后三颗共用（行为逐句照 A862 与 `TMP_Dropdown`）。
         //
         // 🔴 三颗新下拉的几何（**未缩放设计 px**，逐条出处 = `menu_dump` 实读）：
         //   · `Template` 的 RT 字段四颗**逐值相同**（`RectTransform` 实读）：
@@ -868,8 +874,9 @@ namespace CardPresentation
         //   · `Item` 高 **40.8707**、`Content` 模板高 **41.7226** ⇒ 内容高 = `n × 40.8707 + 0.8519`。
         //   · 🔴 **面板会缩到内容高**（`TMP_Dropdown.Show():929-931`：`extraSpace > 0` ⇒ `sizeDelta.y -= extraSpace`）
         //     ⇒ 2 项列表的实际面板只有 **82.59** 高，不是 573.96。
-        //     ⚠️ **语言那颗 12 项 = 491.30 < 573.96、既有实现却画 573.96** —— 那是一处**已知偏离**，
-        //     本笔不碰（它的 `bg` 矩形被自检 `SettingsScene.cs` 钉死了），记在报告里。
+        //     ✅ **2026-11-04（`B141-W13` · B138 §4 `4-05`）已修**：语言那颗也按内容收缩
+        //     —— 12 项 = **491.30**、13 项（现读 `Loc.Languages.Length`）= 532.17；`Template` 原型仍 573.96。
+        //     ⚠️ 原来这里写着「既有实现却画 573.96 —— 已知偏离、本笔不碰」，**那条已过期**（自检也同批改成按内容高断）。
         //   · `Item Checkmark` / `Item Label` / 行四态图 / 滚动条两根 —— 与语言那颗**同一个模板**，
         //     ⇒ 直接复用 `LstChk*` / `LstLbl*` / `ArtLst*` / `LstHandleH`（⛔ 别各抄一份）。
         /// <summary>`Content` 模板高（41.7226）− `Item` 高（40.8707）= **0.8519** —— `Show():926` 那条
@@ -1324,7 +1331,7 @@ namespace CardPresentation
         /// 判据 → `资料/普查产出_1003/按钮悬停图_普查.md` §一 + 块 1；同族 `PlayerProfileWindow` /
         /// `LeaderboardWindow` / `ChatPanel` / `AchievementsMenu` 四处**早就是这么写的**）。
         /// ⇒ 原版那边 `_selected` 是**悬停**图，本窗把两态配反了。</summary>
-        public const string ArtTabBgSel = "40K_settings_button_hover";
+        public const string ArtTabBgSel = "40K_settings_button_hover"; public const string ArtTabHover = "40K_settings_button_selected";   // ✅ 已复刻（2026-11-04 · B141 · 5-17）：页签**悬停**图 = 原版 `m_SpriteState.m_HighlightedSprite`（`Main Menu Settings Window.prefab` 5/5 颗逐颗现读 = `_selected`；`_hover` 是选中态 `m_SelectedSprite`）
         public const string ArtButton = "40K_button";
         public const string ArtToggleOn = "40K_toggle_on";
         public const string ArtToggleOff = "40K_toggle_off";
@@ -1995,10 +2002,10 @@ namespace CardPresentation
                 }
                 var tab = specs[i].Tab;
                 // 🆕 A17：原版页签是 `EverguildToggle`（`onSprite = 40K_settings_button_hover` ·
-                // `offSprite = 40K_settings_button`），而 **`m_SpriteState` 的悬停图是 `…_selected`**
-                // —— 正好是 `WindowButton` 那张表里的一行 ⇒ 直接按常态图名绑。
+                // `offSprite = 40K_settings_button`），而 **`m_SpriteState.m_HighlightedSprite` = `…_selected`**（5/5 颗逐颗现读）
+                // —— ✅ 已复刻（2026-11-04 · B141 · 5-17）：**显式**传 `hoverArt: ArtTabHover`，不再靠 `WindowButton` 全局表隐式兜底。
                 var tabHit = Hit(page, "Hit", TabL, t, BarR, b, QOverlay, () => OpenTab(tab), bg, ArtTabBg,
-                                 clickCue: WindowSounds.SelectToggleCue);
+                                 hoverArt: ArtTabHover, clickCue: WindowSounds.SelectToggleCue, selectedArt: ArtTabBgSel);
                 var twb = tabHit != null ? tabHit.GetComponent<WindowButton>() : null;
                 if (twb != null && !_tabWbs.Contains(twb)) _tabWbs.Add(twb);
                 // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版这五颗页签是 `EverguildToggle` +
@@ -2255,6 +2262,11 @@ namespace CardPresentation
             if (title != null)
             {
                 AlignLeft(title, new PxRect(TitleL, TitleT, TitleR, TitleB));
+                // 🔴 **2026-11-04（`B141-W13` · B138 §4 `4-10`）**：原版 `General Tab > Tab Title` 的
+                //   `m_VerticalAlignment = **8192 (Capline)**`（`Main Menu Settings Window.prefab` 实读）
+                //   ⇒ 必须显式设档；不设 = `Label` 出厂档 `Middle`（全窗 5 页标题同一条）。
+                //   ✅ 已复刻（2026-11-04 · B141 · 判据 `B141_W129_对账_UI动画.md` §4 `4-10` + prefab `m_VerticalAlignment = 8192`）
+                MenuDraw.SetVAlign(title, Label.VAlign.Capline, new PxRect(TitleL, TitleT, TitleR, TitleB));
                 _genLabels.Add(new Keyed(title, lkGenTitle));
             }
 
@@ -2316,7 +2328,7 @@ namespace CardPresentation
                 //   （点一下换下一个 = **已知偏离**，那个方法本笔已删 —— 0 调用点）。现在改接
                 //   `ToggleLangList` —— 点开/收起那 12 行列表，与 `TMP_Dropdown.OnPointerClick → Show()` 一致。
                 Hit(row, "LanguageHit", GenL, GenSelT, GenFieldR, selB, QOverlay, ToggleLangList,
-                    field, ArtLangField);
+                    field, ArtLangField, selectedArt: ArtLangFieldSel);
                 // 🆕 A862：`Template` 子树（**照原版套在 `LanguagesDropdown` 下**、恒 inactive）。
                 // ⚠️ 顺序：先 `bg` / `Label` / `Arrow` 再 `Template` —— 原版的子件序就是
                 //   `Label, Arrow, Template`（`TMP_Dropdown` 认的是 `m_Template` 引用、不认序，
@@ -3010,7 +3022,7 @@ namespace CardPresentation
             // ② `Faq Text`（**PC 档亮**）—— 这一行与下面那颗 `Faq Button` 是一组
             var faqText = SpText(page, "Faq Text", lkSupFaqText,
                                  "Questions about the game? Visit the Frequent Asked Questions",
-                                 SpFaqTextL, SpFaqTextT, SpFaqTextR, SpFaqTextB, 1, 15f, 35f, 36f, 42f, 10f);   // B106_W15：小屏档 42/10
+                                 SpFaqTextL, SpFaqTextT, SpFaqTextR, SpFaqTextB, 1, 15f, 35f, 36f, 42f, 10f, 15f);   // B106_W15：小屏档 42/10；🔴 B141-W13：`m_lineSpacing = 15`（原版 prefab 实读）
 
             // ③ `Faq Button`（`UrlButton` → FAQ 那条 URL；`External Link Icon` 是它的子件）
             var faqBtn = SpUrlButton(page, "Faq Button", SpFaqBtnL, SpFaqBtnT, SpFaqBtnR, SpFaqBtnB,
@@ -3093,7 +3105,7 @@ namespace CardPresentation
             // ⑨ 两颗 **mobile 专用**的行（**PC 档灭**；`android`/`iOS` 才亮）—— 照原版建 + 照原版关。
             var faqMob = SpText(page, "Faq Text Mobile", lkSupFaqMob,
                                 "Questions about the game? Check out the Frequent Asked Questions or contact Support",
-                                SpFaqTextMobL, SpFaqTextMobT, SpFaqTextMobR, SpFaqTextMobB, 1, 15f, 35f, 36f, 42f, 10f);   // B106_W15：小屏档 42/10
+                                SpFaqTextMobL, SpFaqTextMobT, SpFaqTextMobR, SpFaqTextMobB, 1, 15f, 35f, 36f, 42f, 10f, 15f);   // B106_W15：小屏档 42/10；🔴 B141-W13：`m_lineSpacing = 15`（原版 prefab 实读）
             var emailMob = SpText(page, "Email Text Mobile", lkSupContactTxt,
                                   "You can also contact us at support@everguild.com\nWe'll do our best to help you!",
                                   SpEmailTextMobL, SpEmailTextMobT, SpEmailTextMobR, SpEmailTextMobB, 1, 18f, 35f, 36f, 42f, 10f);   // B106_W15：小屏档 42/10（mobile 那两颗）
@@ -3133,12 +3145,19 @@ namespace CardPresentation
         /// <param name="wrapOn">原版那一颗的折行档：`1` ⇒ 折行开（框宽 = 本格框宽）、`0` ⇒ `NoWrap`。
         /// ⚠️ 传的是**原版字段值**（0/1），不是像素 —— 换算成漏斗的 `wrapPx` 那一步在函数体里。</param>
         Label SpText(Transform p, string n, string key, string en, float l, float t, float r, float b,
-                     int wrapOn, float minPx, float maxPx, float basePx, float ssMaxPx = 0f, float ssMinPx = 0f)
+                     int wrapOn, float minPx, float maxPx, float basePx, float ssMaxPx = 0f, float ssMinPx = 0f,
+                     float lineSpacingPx = 0f)
         {
             float wrap = wrapOn != 0 ? r - l : 0f;
             var lb = Text(p, n, Term(key, en), l, r, t, b, SpFontPx, Color.white, QText,
                           null, wrap, minPx, maxPx, basePx, ssMaxPx, ssMinPx);
             if (lb != null) AlignLeft(lb, new PxRect(l, t, r, b));
+            // 🔴 **2026-11-04（`B141-W13` · B138 §4 `4-13`）**：原版这几颗 TMP 的 `m_lineSpacing` 是
+            //   **序列化死的**（`Main Menu Settings Window.prefab` 逐颗实读）：只有 `Faq Text` /
+            //   `Faq Text Mobile` 是 **15**（单位 = 字体单位，与 `m_fontSize` 同档 ⇒ 原版值直接传）。
+            //   ⚠️ 必须排在 `AlignLeft` 之后（`SetLineSpacing` 内部 `ForceRelayout` 重排 mesh）。
+            //   ✅ 已复刻（2026-11-04 · B141 · 判据 `B141_W129_对账_UI动画.md` §4 `4-13` + prefab `m_lineSpacing = 15`）
+            if (lb != null && lineSpacingPx > 0f) MenuDraw.SetLineSpacing(lb, lineSpacingPx);
             OnLangText(lb, () => Term(key, en));
             return lb;
         }
@@ -3644,36 +3663,44 @@ namespace CardPresentation
         /// `withRows = false` 时 `Content` 下只放原版那个模板行（文字 `'Option A'`，prefab 里的原文）。</summary>
         void BuildLangListSubtree(Transform listRoot, bool withRows)
         {
+            // 🔴 **2026-11-04（`B141-W13` · B138 §4 `4-05`）**：**运行时那份按内容收缩**
+            //   —— 原版 `TMP_Dropdown.Show()`（本机 `Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TMP_Dropdown.cs:926-932`）：
+            //     `sizeDelta.y = itemSize.y × n + offsetMin.y − offsetMax.y`；
+            //     `extraSpace = 面板高 − 内容高`；**`if (extraSpace > 0) sizeDelta.y -= extraSpace`**
+            //   ⇒ **面板高 = 内容高 = n × 40.8707 + 0.8519**（`DropdownContentH` 那一份，⛔ 别在这儿再抄一遍算式）。
+            //   12 项 = **491.30**（B138 §4 `4-05` 的原版值）· 13 项 = **532.17**（现读 `Loc.Languages.Length = 13`）。
+            //   ⛔ `Template` 原型（`withRows = false`）仍按序列化的 **573.96** —— 原版 prefab 里它就是那么高的。
+            //   ✅ 已复刻（2026-11-04 · B141 · 判据 `B141_W129_对账_UI动画.md` §4 `4-05` + `TMP_Dropdown.Show():926-932`）
+            int total = withRows ? Loc.Languages.Length : 1;
+            float panelB = withRows ? Mathf.Min(LstB, LstT + DropdownContentH(total)) : LstB;
             // 面板底图：`40K_dropdown_bg` **Sliced**、端帽过 ppuMul 1.09、染色 (0.2863,0.9647,0.6863)
             // 🔴 **2026-10-17（T17）就地更正**：这一句原来 tint 传 **null**（= 白）—— 而原版 `Template`
             //   那颗 `Image.m_Color` 实读是 **(0.286,0.965,0.686,1)**（同一颗 MB 现读；贴图本身是灰的
             //   `(44.6,44.6,44.6)`）⇒ 照原版应染成绿。与三颗新下拉**同一个模板**，一并走 `GenFieldTint`。
-            NineOut(listRoot, "bg", LstL, LstT, LstR, LstB, ArtLstPanel, LstPanelTexW, LstPanelTexH,
+            NineOut(listRoot, "bg", LstL, LstT, LstR, panelB, ArtLstPanel, LstPanelTexW, LstPanelTexH,
                     LstPanelBorder, LstPanelBorderOut, QListBg, null, GenFieldTint);
             // `Viewport`（原版 `Mask` + `Image(UIMask, showGraphic = 0)` ⇒ **不画**、只当裁切框）
             // 🔴 裁切状态挂在它身上（= 原版那个 `RectMask2D`）—— 本工程唯一一份（`ViewportClip`）。
-            var s = Screen(LstL, LstT, LstVpR, LstB);
+            var s = Screen(LstL, LstT, LstVpR, panelB);
             var vpR = new PxRect(s.x1, s.y1, s.x2, s.y2);
             var vp = ViewportClip.Hang(listRoot, "Viewport", vpR, Vector4.zero, Vector2Int.zero).transform;
             // `Content`（`aMin(0,1) aMax(1,1) pivot(0.5,1)`）—— 高 = 行数 × 行高
             //（原版模板位是 `sizeDelta.y = 41.7226`（一个 `Item`）；运行时 `Show()` 按 `itemSize.y × 选项数` 重算）
-            int total = withRows ? Loc.Languages.Length : 1;
             var content = Node(vp, "Content", LstL, LstT, LstVpR, LstT + total * LstItemH);
-            // 滚动条：**建出来但恒关着**（原版 `m_VerticalScrollbarVisibility = 2` + 内容 490.45 < 视口 573.96
+            // 滚动条：**建出来但恒关着**（原版 `m_VerticalScrollbarVisibility = 2` + 内容 = 视口高
             // ⇒ `SetVerticalScrollbarVisibility` 会把它 `SetActive(false)`）。见 `LstHandleH` 那条。
             {
-                var sb = Node(listRoot, "Scrollbar", LstR - LstSbW, LstT, LstR, LstB);
+                var sb = Node(listRoot, "Scrollbar", LstR - LstSbW, LstT, LstR, panelB);
                 // ⚠️ 节点名 `scroll_bg`（⛔ **不叫 `bg`**）：原版那颗 `Image` 挂在 `Scrollbar` **自己**身上，
                 //    本工程不能给 `Node` 挂图 ⇒ 只能开一个子件；而面板那颗已经叫 `bg` 了 ——
                 //    两个同名会让 `FindChild(listRoot, "bg")` 的命中**取决于遍历序**（迟早不一致）。
-                Rect(sb, "scroll_bg", LstR - LstSbW, LstT, LstR, LstB, ArtLstSbBg, QScroll);
+                Rect(sb, "scroll_bg", LstR - LstSbW, LstT, LstR, panelB, ArtLstSbBg, QScroll);
                 var slide = Node(sb, "Sliding Area", LstR - LstSbW + LstSbW * 0.5f, LstT + 10f,
-                                 LstR - LstSbW + LstSbW * 0.5f, LstB - 10f);
-                Rect(slide, "Handle", LstR - LstSbW, LstB - LstHandleH, LstR, LstB, ArtLstSbHandle, QScroll);
+                                 LstR - LstSbW + LstSbW * 0.5f, panelB - 10f);
+                Rect(slide, "Handle", LstR - LstSbW, panelB - LstHandleH, LstR, panelB, ArtLstSbHandle, QScroll);
                 sb.gameObject.SetActive(false);
             }
-            int total2 = withRows ? Loc.Languages.Length : 1;
-            for (int i = 0; i < total2; i++)
+            for (int i = 0; i < total; i++)
                 BuildLangItem(content, i, withRows);
         }
 
@@ -3704,7 +3731,7 @@ namespace CardPresentation
             // 命中区 = **整行**；悬停 / 按下换图照原版那颗 `Toggle` 的 `SpriteSwap` 三档
             //（Normal = `40K_dropdown_item` · Highlighted = `_hover` · Pressed = `_press`）
             var hit = Hit3(item, "Hit", LstL, t, LstVpR, b, QListItem, () => ChooseLanguage(idx),
-                           bg, ArtLstItem, ArtLstItemHi, ArtLstItemPr);
+                           bg, ArtLstItem, ArtLstItemHi, ArtLstItemPr, ArtLstItemSel);
             _langRows.Add(new LangRow { Bg = bg, Chk = chk, Lb = lb, Hit = hit, Idx = idx });
         }
 
@@ -3712,10 +3739,12 @@ namespace CardPresentation
         /// （原版下拉的行是 `SpriteSwap` 三档，本窗其余命中区只用两档 ⇒ 那个助手没开这个形参）。
         /// ⚠️ 位置实参顺序同 `MenuDraw.Hit`：`hoverArt` 与 `pressedArt` **顺序不能反**。</summary>
         Transform Hit3(Transform p, string n, float x1, float y1, float x2, float y2, int q, Action a,
-                       ImageQuad target, string art, string hoverArt, string pressArt)
+                       ImageQuad target, string art, string hoverArt, string pressArt, string selectedArt = null)
         {
             var s = Screen(x1, y1, x2, y2);
-            return MenuDraw.Hit(p, n, new PxRect(s.x1, s.y1, s.x2, s.y2), q, a, target, art, hoverArt, pressArt);
+            var hit = MenuDraw.Hit(p, n, new PxRect(s.x1, s.y1, s.x2, s.y2), q, a, target, art, hoverArt, pressArt);
+            BindSelected(hit, target, art, hoverArt, pressArt, selectedArt);
+            return hit;
         }
 
         /// <summary>**点开 / 收起**（原版 `TMP_Dropdown.OnPointerClick → Show()` / `Blocker.onClick → Hide()`）。
@@ -3736,7 +3765,11 @@ namespace CardPresentation
             {
                 // 原版：`m_Dropdown = CreateDropdownList(m_Template.gameObject)` → `name = "Dropdown List"`
                 //   → `dropdownRectTransform.SetParent(m_Template.transform.parent, false)`
-                _langList = Node(_langField, LangListNodeName, LstL, LstT, LstR, LstB);
+                // 🔴 **2026-11-04（`B141-W13` · `4-05`）**：克隆体的**高按内容收缩**（原版 `Show():929-932` 那句
+                //   `sizeDelta.y -= extraSpace`）—— 与 `BuildLangListSubtree` 里那条算式**同一份**（`DropdownContentH`）。
+                //   ✅ 已复刻（2026-11-04 · B141 · 判据 `B141_W129_对账_UI动画.md` §4 `4-05`）
+                float listB = Mathf.Min(LstB, LstT + DropdownContentH(Loc.Languages.Length));
+                _langList = Node(_langField, LangListNodeName, LstL, LstT, LstR, listB);
                 BuildLangListSubtree(_langList, true);
             }
             _langList.gameObject.SetActive(true);
@@ -3817,7 +3850,8 @@ namespace CardPresentation
         //
         // 逐句照 A862 那份语言下拉（`BuildLangTemplate` / `ShowLangList` / `HideLangList` / `ChooseLanguage` /
         // `RefreshLangRows`）与 `TMP_Dropdown` 源码；**两份不合并**的理由见上面常量块
-        // （语言那颗的 `bg` 矩形被自检钉死、且它的面板是高 573.96 的旧口径）。
+        // （语言那颗的 `Template` 原型是 573.96 那一档、且它的 `bg` 矩形被自检钉死 ——
+        //  2026-11-04 `B141-W13` 起运行时那份也按内容收缩，但 `Template` 仍照序列化值）。
         //
         // 原版行为链（本机 `Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TMP_Dropdown.cs`）：
         //   `OnPointerClick:742 → Show():778`（克隆 `Template` → 改名 `"Dropdown List"` →
@@ -3935,7 +3969,7 @@ namespace CardPresentation
             if (!real) return;   // 原型那一行：静态样子，不接任何行为
             int idx = i;
             var hit = Hit3(item, "Hit", box.L, t, vpR, b, QListItem, () => ChooseDropdown(box, idx),
-                           bg, ArtLstItem, ArtLstItemHi, ArtLstItemPr);
+                           bg, ArtLstItem, ArtLstItemHi, ArtLstItemPr, ArtLstItemSel);
             box.Rows.Add(new DdRow { Bg = bg, Chk = chk, Lb = lb, Hit = hit, Idx = idx });
         }
 
@@ -4426,7 +4460,7 @@ namespace CardPresentation
             var qualHitR = MenuDraw.PaddedRect(new PxRect(QualL, QualT, QualBoxR, QualB), QualityPad);
             Hit(row, "QualityHit", qualHitR.x1, qualHitR.y1, qualHitR.x2, qualHitR.y2,
                 QOverlay, () => ToggleDropdown(_ddQuality),
-                qualQ, "40K_dropdown_field_closed");
+                qualQ, "40K_dropdown_field_closed", selectedArt: ArtLangFieldSel);
 
             // ② 🆕 **2026-10-17（T17）**：`Text In Hand  Selector`（原版 `Graphics Tab` 第二行、
             //   VLG spacing 23 ⇒ 行顶 = 画质行底 327.10 + 23.0 = **350.10**）。
@@ -4465,7 +4499,7 @@ namespace CardPresentation
                                               TextInHandOptionLabels, () => TextInHand.Value, ChooseTextInHandOption,
                                               "Graphics > Text In Hand");
                 Hit(tihRow, "TextInHandHit", TihL, TihT, TihBoxR, TihB, QOverlay,
-                    () => ToggleDropdown(_ddTextInHand), tihBg, ArtLangField);
+                    () => ToggleDropdown(_ddTextInHand), tihBg, ArtLangField, selectedArt: ArtLangFieldSel);
             }
             Debug.Log("[Settings] 图像页：这一列照原版运行时那**两种**排法 —— "
                     + "`Small Screen UI`(第 0 行) · **`Auto Zoom`(第 1 行, A172 补)** · "
@@ -5584,7 +5618,7 @@ namespace CardPresentation
                                               WindowModeOptionLabels, WindowModeOptionIndex, ChooseWindowModeOption,
                                               "Media > WindowMode Selector");
                 Hit(winRow, "Hit", WinL, WinT, WinBoxR, WinB, QOverlay, () => ToggleDropdown(_ddWindowMode),
-                    winBg, ArtLangField);
+                    winBg, ArtLangField, selectedArt: ArtLangFieldSel);
             }
 
             // ⛔ **2026-10-22（W62-D4 · 真机审计）删掉了原来这里那一行「音量走 AudioMixer」说明**：
@@ -6268,6 +6302,12 @@ namespace CardPresentation
         /// ⚠️ 原版这两格**只在 `EverguildTextController.Awake` 末尾**生效（`Application.isPlaying` 且
         /// `smallScreenUI` 为真）⇒ 编辑器批处理里恒不生效（`Label.SmallScreenSizeAppliedForTest` 会留痕）。</param>
         /// <param name="ssMinPx">= 原版那一颗 `smallScreenMinFontSize`（设计 px）。见上。</param>
+        /// <param name="face">= 原版那一颗 TMP 的 `m_FontAsset`（**逐窗的「站点→面」**）。
+        /// 🔴 **2026-11-04（`B141-W13` · B138 §4 `4-01`）**：本窗 **102 颗 TMP 全部**指向
+        /// `Pragati-Regular SDF`（guid `2548b731a71f84745a1b13c211c923ca`；`Main Menu Settings Window.prefab`
+        /// 逐颗实读 + `Settings Menu Tab Toggle.prefab` 同值）⇒ 本漏斗的缺省面 = `Face.LatinCardBody`（= Pragati）。
+        /// ⚠️ **汉字照样走 CJK**：`Label.ActualFace` 见 `Loc.HasCjk(文本)` 就翻回 `Cjk`（拉丁面没有汉字字形）。
+        /// ✅ 已复刻（2026-11-04 · B141 · 判据 `B141_W129_对账_UI动画.md` §4 `4-01` + prefab 102/102 `Pragati-Regular SDF`）</param>
         /// <summary>🆕 **B106_W15（2026-10-31）**：漏斗**收到的**小屏字号两格（`父节点名/本节点名` → `(maxPx, minPx)`，设计 px）。
         /// <para>⚠️ 这是**接线口径**的读口，不是「有没有生效」：原版那两格只在 `Application.isPlaying` 且
         /// `smallScreenUI` 为真时落到 TMP（`Label.ApplySmallScreenTextSize` 头两句）⇒ **编辑器批处理里恒不生效**，
@@ -6279,7 +6319,8 @@ namespace CardPresentation
         Label Text(Transform p, string n, string s0, float x1, float x2, float y1, float y2, float fs, Color c, int q,
                    PxRect? clip = null,
                    float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                   float ssMaxPx = 0f, float ssMinPx = 0f)
+                   float ssMaxPx = 0f, float ssMinPx = 0f,
+                   TmpFont.Face face = TmpFont.Face.LatinCardBody)
         {
             // 记录接线的两格（在「可见性闸」之前 —— 闸只决定今天建不建，不改变「这一站照原版传了什么」）
             if (ssMaxPx > 0f || ssMinPx > 0f)
@@ -6298,7 +6339,8 @@ namespace CardPresentation
             float fitW = wrapPx > 0f ? wrapPx : (autoMinPx > 0f ? x2 - x1 : 0f);
             var lb = MenuDraw.Text(p, r, s0, c, n, fs * RootScale, q,          // 🔴 A171：字跟着坐标一起缩
                                    fitW * RootScale, autoMinPx * RootScale,
-                                   autoMaxPx * RootScale, autoBasePx * RootScale);
+                                   autoMaxPx * RootScale, autoBasePx * RootScale,
+                                   face: face);                                 // 🔴 2026-11-04 B141-W13 · §4 `4-01`
             if (lb == null) return null;
             // 🔴 A1181：**折行 = 0 那一档还原**（`MenuDraw.Text` 顺带把它开成了 `Normal`，见方法头那段）。
             //   必须在 `ClipText` **之前**：`SetWrapping` 内部 `ForceRelayout` 会重排 mesh、把上一刀抹掉。
@@ -6316,12 +6358,29 @@ namespace CardPresentation
         }
         Transform Hit(Transform p, string n, float x1, float y1, float x2, float y2, int q, Action a,
                       ImageQuad target = null, string art = null, string hoverArt = null, PxRect? clip = null,
-                      string clickCue = null)
+                      string clickCue = null, string selectedArt = null)
         {
             var s = Screen(x1, y1, x2, y2);
             // ⚠️ 位置实参：`MenuDraw.Hit` 在 `hoverArt` 与 `clip` 之间还有一颗 `pressedArt`（本窗不用它 ⇒ 显式 null）
-            return MenuDraw.Hit(p, n, new PxRect(s.x1, s.y1, s.x2, s.y2), q, a, target, art, hoverArt, null, clip,
+            var hit = MenuDraw.Hit(p, n, new PxRect(s.x1, s.y1, s.x2, s.y2), q, a, target, art, hoverArt, null, clip,
                                 clickCue: clickCue);
+            BindSelected(hit, target, art, hoverArt, null, selectedArt);
+            return hit;
+        }
+
+        /// <summary>✅ 已复刻（2026-11-04 · B141-W44 · 5-07）：`m_SpriteState.m_SelectedSprite` 那一格。
+        /// <para>判据 = `报告/B141_W129_ButtonFx.md` §5-07 的「节点族 → 选中图」表（原版 `bundle_menus_assets_all`
+        /// 里 1276 颗 `Selectable` 中 77 颗 `m_SelectedSprite` 非空）。`MenuDraw.Hit` 的形参表**不含**
+        /// `selectedArt`（它在本包白名单外），所以这里在 `MenuDraw.Hit` 建完 `WindowButton` 之后
+        /// **按同一组常态/悬停/按下图再 `Bind` 一次**，只把第五个实参补上 —— 前四个逐位不变
+        /// （`Bind` 是幂等的：重读同一张纹理、同一个长宽比、`tintOnHover` 仍是 false）。</para>
+        /// <para>`selectedArt == null` ⇒ 一个像素都不动（= 原版那 1199 颗 `m_SelectedSprite = null`）。</para></summary>
+        static void BindSelected(Transform hit, ImageQuad target, string art, string hoverArt, string pressedArt,
+                                 string selectedArt)
+        {
+            if (hit == null || target == null || string.IsNullOrEmpty(selectedArt)) return;
+            var wb = hit.GetComponent<WindowButton>();
+            if (wb != null) wb.Bind(target, art, hoverArt, pressedArt, selectedArt);
         }
         /// <summary>左对齐到**原版（未缩放）矩形**的左边缘 —— 内部过 `Screen()`。</summary>
         static void AlignLeft(Label lb, PxRect r)
@@ -6362,7 +6421,15 @@ namespace CardPresentation
         {
             var lb = Text(page, "Tab Title", title, TitleL, TitleR, TitleT, TitleB, PageTitleFontPx, Color.white, QText,
                           null, TitleR - TitleL, autoMinPx, PageTitleFontPx, PageTitleFontPx, 62f, 10f);   // B106_W15：小屏档 62/10（§3·11 各页页标题）
-            if (lb != null) AlignLeft(lb, new PxRect(TitleL, TitleT, TitleR, TitleB));
+            if (lb != null)
+            {
+                AlignLeft(lb, new PxRect(TitleL, TitleT, TitleR, TitleB));
+                // 🔴 **2026-11-04（`B141-W13` · B138 §4 `4-10`）**：四页（Media/Graphics/Account/Support）
+                //   的 `Tab Title` 原版 `m_VerticalAlignment = **8192 (Capline)**`（prefab 逐颗实读）
+                //   ⇒ 与本窗 General 那一条**同一条规则**（那一页是内联建的，两处都必须设）。
+                //   ✅ 已复刻（2026-11-04 · B141 · 判据 `B141_W129_对账_UI动画.md` §4 `4-10` + prefab `m_VerticalAlignment = 8192`）
+                MenuDraw.SetVAlign(lb, Label.VAlign.Capline, new PxRect(TitleL, TitleT, TitleR, TitleB));
+            }
             return lb;
         }
 
@@ -6565,11 +6632,39 @@ namespace CardPresentation
         /// <summary>= 原版 `SettingsMenu.Close()` 里那一句 `if (脏位) ApplyGraphicsQuality()`。</summary>
         public static void ApplyIfDirty() { if (_dirty) Apply(); }
 
+        /// <summary>🆕 **2026-11-04（`B141-W33b`）**：原版 `QualityDefinition.enableCardsAntiAliasing`（+0x2c）
+        /// 在我们的判据表里的值 —— 五档 = **0 / 0 / 0 / 1 / 1**
+        /// （`Assets/Data/Scenes/Intro.unity` 的 `qualityDefinitions` 现读：
+        /// quality 0/1/2 = 0 · quality 3 = 1 · quality 4 = 1）⇒ `graphicsQuality >= High`。
+        /// <para>⚠️ 与原版 `allowSuperSampling`（+0x2d，五档 0/0/0/0/1）**不是同一个字段**：
+        /// 那个管 URP `renderScale`（见 <see cref="AllowedByQuality"/>），这个管 `SUPERSAMPLING_ON` 关键字
+        /// （= 卡框 / 卡背的 4-tap RGSS，见 `Core/CardView.cs` 的 `CardAaScale`）。</para></summary>
+        public static bool CardsAntiAliasingAllowed
+        {
+            get { return (int)GameStaticData.graphicsQuality >= (int)GameStaticData.EverguildQualitySetting.High; }
+        }
+
+        /// <summary>= 原版 `QualitySettingsManager__ApplyGraphicsQuality.c` 里那两句
+        /// `Shader.EnableKeyword / DisableKeyword("SUPERSAMPLING_ON")`（判据 = 该画质档的 `enableCardsAntiAliasing`）。
+        /// <para>原版**每次应用画质都无条件重设**（不只在脏位门内）⇒ 我们把它放在 <see cref="Apply"/> 开头，
+        /// 启动那一次（`ApplyAtStartup`）与关窗那一次（`ApplyGraphicsQualityOnClose`）都会走到。</para>
+        /// <para>⚠️ 这是**全局**关键字（原版也是全局）。本工程只有 `CardPresentation/CardSprite` 声明它，
+        /// 而那一支只有 `_AAScale > 0` 的材质（卡框 / 卡背 = 1.25）才真的走 RGSS ⇒ 其它卡面层不受影响。</para></summary>
+        public static void ApplyCardAntiAliasingKeyword()
+        {
+            if (CardsAntiAliasingAllowed) Shader.EnableKeyword("SUPERSAMPLING_ON");
+            else Shader.DisableKeyword("SUPERSAMPLING_ON");
+        }
+
         /// <summary>= 原版 `ChangeResolution()` 里 `set_renderScale(...)` 那一句（把三层门算出来的值写进 URP 资产）。
         /// 调用点 = 启动 / 关窗（脏位在时）/ 应用画质 —— 见类注释 ③。</summary>
         public static void Apply()
         {
             _dirty = false;
+
+            // 🆕 **2026-11-04（`B141-W33b`）**：= 原版 `ApplyGraphicsQuality` 里的 `SUPERSAMPLING_ON` 关键字那一跳。
+            //   🔴 必须放在下面两个**早退**之前 —— 原版不管 `renderScale` 写不写、URP 资产找不找得到，都会重设关键字。
+            ApplyCardAntiAliasingKeyword();
 
             // 原版 `ApplyGraphicsQuality.c:73-78`：应用到一个**不允许**超采样的档 ⇒ 把玩家那颗开关**强制清 0**
             // （不是「留着等下次」—— 原版就是不让你在允许之外留住这个值）。出声，不静默。
@@ -6711,12 +6806,16 @@ namespace CardPresentation
             float cy = (s.y1 + s.y2) * 0.5f;
             var area = new PxRect(s.x1 + inset, cy - SettingsWindow.AcAreaH * 0.5f * SettingsWindow.RootScale,
                                   s.x2 - inset, cy + SettingsWindow.AcAreaH * 0.5f * SettingsWindow.RootScale);
-            var areaN = MenuDraw.Node(f.Root, "Text Area", area);
-            // 原版那两颗 TMP：`Placeholder` 画占位（空框时）、`Text` 画真值 —— **裁切**按 `Text Area` 那框
-            //（我们这套没有 `RectMask2D`，等价物 = `MenuDraw.Text` 的 `clip` 形参，同一份裁切算法）
+            // ✅ 已复刻（2026-11-04 · B141_W68 · 判据 `判据/B141_W129_对账_UI动画.md` W11/4-23 ＋ `GenericPromptWindow.prefab:1337`）：
+            //   原版这颗 `Text Area` 上挂 `RectMask2D`（`m_Padding = (−8,−5,−8,−5)` 负=外扩 · `m_Softness = (0,0)`）。
+            //   改前它只是 `MenuDraw.Node`（裸节点，两颗字各自吃 `clip: area` = **没按 pad 外扩** ⇒ 比原版内缩 8/5 px）。
+            //   ⇒ 节点改走 `ViewportClip.Hang`（= 原版那颗 `RectMask2D` 的等价物），两颗字的 `clip` 传 `null`（由父链解析）。
+            //   ⛔ 别退回 `MenuDraw.Node`、也别把 `clip: area` 加回来（形参非空 ⇒ `Resolve` 第 1 支 ⇒ 节点白挂，静默）。
+            var areaN = ViewportClip.Hang(f.Root, "Text Area", area, TextInputField.AreaPad, TextInputField.AreaSoftness).transform;
+            // 原版那两颗 TMP：`Placeholder` 画占位（空框时）、`Text` 画真值 —— **裁切**由上面的 `Text Area` 掩码给
             f._placeholderLb = MenuDraw.Text(areaN, area, f._placeholder, new Color(1f, 1f, 1f, 0.45f),
-                                             "Placeholder", FontPx, qText, clip: area, face: TmpFont.Face.LatinCardBody);
-            f._value = MenuDraw.Text(areaN, area, "", Color.white, "Text", FontPx, qText, clip: area, face: TmpFont.Face.LatinCardBody);
+                                             "Placeholder", FontPx, qText, face: TmpFont.Face.LatinCardBody);
+            f._value = MenuDraw.Text(areaN, area, "", Color.white, "Text", FontPx, qText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(f._value, area);
             if (f._placeholderLb != null) MenuDraw.AlignLeft(f._placeholderLb, area);
             MenuDraw.Hit(f.Root, "Hit", s, qHit, () => f.Focus());
@@ -6968,10 +7067,12 @@ namespace CardPresentation
 
             // ⚠️ 剩下那几样**照实说**（不是不做，是判据落在工程资产层、且写了会被静默夹取；见 R-G §五①）
             Debug.Log("[Settings] `ApplyGraphicsQuality`（原版 `QualitySettingsManager` 那一跳）的**可落地部分**已应用"
-                    + "（`ChangeResolution()` 的等价物 = 超采样 renderScale）；**未应用**的三样在本工程没有对应物："
+                    + "（`ChangeResolution()` 的等价物 = 超采样 renderScale；`SUPERSAMPLING_ON` 关键字 = "
+                    + (SuperSampling.CardsAntiAliasingAllowed ? "开（本档 `enableCardsAntiAliasing = 1`）" : "关（本档 `enableCardsAntiAliasing = 0`）")
+                    + "，见 `SuperSampling.ApplyCardAntiAliasingKeyword`）；**未应用**的两样在本工程没有对应物："
                     + "① `GraphicsSettings.defaultRenderPipeline` 换 URP 资产、"
-                    + "② `QualitySettings.SetQualityLevel(qualityNumber)`（原版 6 档 / 我们 2 档 ⇒ 写了会被静默夹取）、"
-                    + "③ `SUPERSAMPLING_ON` 关键字。判据 → `资料/完全复刻/判据/B94_R-G_画质档位映射.md` §三 / §五①。"
+                    + "② `QualitySettings.SetQualityLevel(qualityNumber)`（原版 6 档 / 我们 2 档 ⇒ 写了会被静默夹取）。"
+                    + "判据 → `资料/完全复刻/判据/B94_R-G_画质档位映射.md` §三 / §五①。"
                     + "当前档 = " + GameStaticData.graphicsQuality + "。");
         }
 

@@ -1272,7 +1272,7 @@ namespace CardPresentation
             //    `ChatPreview/text`、模式卡 `Event Title` / `Timer Description` / `Timer Text`、
             //    `Position #` / `Position Value` / `Individual rating value` 全是 **Pragati**）⇒ 本文件全走 `LatinCardBody`。
             //    ⚠️ 场景里确有 Asar 的 `Title`/`Player Name` 等，但那些是**别的窗**（卡牌详情/顶栏）的件，不属本文件。
-            Text(b, label ?? Loc.T(locKey), textBgR.x1, textBgR.x2, textBgR.y1, textBgR.y2, 6,
+            var navText = Text(b, label ?? Loc.T(locKey), textBgR.x1, textBgR.x2, textBgR.y1, textBgR.y2, 6,
                                new Color(0.9961f, 0.9294f, 0.7098f), "Text", fontPx,
                                // 🔴 **2026-10-17（`A1233`）**：原来这里是「先 `Text`、再自己补
                                //    `navText.SetAutoFitBox(146.92/108, 39.39/108, 18, 33, 24)`」——
@@ -1283,7 +1283,7 @@ namespace CardPresentation
                                //    ⚠️ 框高按本行矩形的 `157.7 − 118.3 = 39.4`（原版 TMP 自己那份 sd.y = 39.39，
                                //       差 0.01px —— 两条边分别来自文案条与 TMP 两个节点，这里不拆第二颗节点）。
                                wrapPx: 146.92f, autoMinPx: 18f, autoMaxPx: 33f, autoBasePx: 24f,
-                               face: TmpFont.Face.LatinCardBody);
+                               face: TmpFont.Face.LatinCardBody); if (navText != null) MenuDraw.SetVAlign(navText, Label.VAlign.Capline, textBgR, Label.OrigFace.Pragati);   // ✅ 已复刻（2026-11-04 · B141 · 账 4-10）：左导航条文案纵向档 = 原版 **Capline**（五颗 TMP `m_VerticalAlignment` 全 **8192 = 0x2000**、字体 Pragati pid 3485036404935369831 逐颗现读 `MonoBehaviour_1716/1749/1750/1751/1752`；框高取文案条矩形 39.4，原版 TMP 自身 sd.y = 39.39）——⛔ 别再退回出厂 `Middle`
 
             // 🆕 **2026-10-27（B88_J2）**：`Timer` 那一格（原版 `OpenEventButton.timer` = `TimerDisplay`）。
             //   几何/字号判据见 EVENT 那颗调用点上面那段（`menu_dump … "Event Navigation Button"` 本轮现读）。
@@ -2279,7 +2279,7 @@ namespace CardPresentation
             // 🆕 2026-10-25：资源数字滚动（原版 `UIResourceCounter.SetQuantity(..., animated=1)` 的 0.5 s 递增）
             TopBar.StepCounters(_topBar, Time.deltaTime);
             TickNavPanelTween(); TickNavHighlightTween();
-            RefreshDraftModeCard(); TickChatPreviewTween(); StepEventNavTimers();
+            RefreshDraftModeCard(); TickChatPreviewTween(); StepEventNavTimers(); StepOfferRings(Time.deltaTime);   // ✅ 已复刻（2026-11-04 · B141 · 账 TOOL-03）：原版 `UI_InfiniteScroll.Update()` 每帧推进 `AutoScrollSpeed` ⇒ 生产侧必须泵 `MainMenuCarouselDrawer.Tick`（原来 0 调用）、并同泵 `RankedArmyBonusCard.Tick`
         }
 
         /// <summary>自检用：顶栏那块立绘（**一张头像图都加载不到时会是 null** —— 那种情况按出厂态处理：只剩盾）。</summary>
@@ -2527,7 +2527,7 @@ namespace CardPresentation
             // （否则滚动后 `RefreshDraftModeCard` 会去改一棵已经销毁的树）。
             _draftStateNode = null; _draftVictories = null; _draftWinsShown = -1;
             const float ColStep = CardColStep, RowStep = CardH + 20f;   // 行距 = 卡高 + `spacing (20,20)` 的 20
-            const int MaxCols = 8;                                      // 本菜单最多摆 8 列（现在用满 4 列）
+            const int MaxCols = ModeGridMaxCols;                        // ✅ 已复刻（2026-11-04 · B141 · 账 4-06）：原版 `GameModes/Content` 的 `FlexibleGridLayout` = **rows 2 / columns 20**（`MainMenu Warpforge.unity` GameObject `Content`(&28) 的 MB `&1961`：`columns: 20` · `itemSize 535×414.4` · `spacing 20×20`）；原来是 8（我们挑的）——⛔ 别再退回 8
             var used = new bool[MaxCols, 2];                            // [列, 行] 这一格占没占
             // 🔴 **2026-10-11（A1521⑦）排布从「手写死列/行号」改成【按卡片顺序 first-fit】**：
             //   `1×2` 找**整列都空的**列（一次占满上下两格）· `1×1` 找**还有空格的**列（同列内先 row0 后 row1）；
@@ -2644,19 +2644,19 @@ namespace CardPresentation
             //   在屏外」这一条缺陷的宽度（第 4 列 x 1870..2405，屏宽 1920）。
             // 🔴 **2026-10-17（`N29`）**：原版 `MainMenu` 的 `Safe area All/GameModes` ScrollRect
             //   `m_ScrollSensitivity = **1.0**`（`bundle_scenes_scenes_mainmenuwarpforge` 现读）。
-            // 🔴🔴 **2026-10-18（`N66`）就地改：最后一参 `1f → 120f` —— 这个 120 是【我们挑的】，不是原版值。**
-            //   原版那条是 **horizontal-only**（`m_Horizontal = 1 / m_Vertical = 0`）⇒ **纵向滚轮在原版
-            //   本来就不参与**（uGUI `ScrollRect.OnScroll` 只把量喂给「允许的那根轴」）⇒ 原版这一段靠**拖拽**；
-            //   `m_ScrollSensitivity = 1.0` 是**横向**的灵敏度，⛔ 不是我们这条列表「一格滚轮走多少」的判据。
-            //   照 1.0 传进来的后果：`MenuScroll.NotchK = 1 / 120` ⇒ 一格滚轮（`WHEEL_DELTA = 120`）只走 **1 px**，
-            //   滚完整个行程要 **几百格**（实测等于「滚不动」）。
+            // 🔴🔴 **2026-10-18（`N66`）就地改：最后一参 `1f → 120f` —— 这个 120 是【用户拍板的可用步长】，不是原版值。**
+            //   ✅ **2026-11-04（B141-W20）现核**（回答 `R8` 的「原版 1.0 到底能不能滚」）：原版 prefab
+            //   `bundle_scenes_scenes_mainmenuwarpforge ▸ MonoBehaviour_1982.json` 现读 = `m_Horizontal 1 / m_Vertical 0 / m_ScrollSensitivity 1.0`；
+            //   uGUI `ScrollRect.OnScroll` 在「horizontal && !vertical」时把 `delta.y` **搬进** `delta.x`（`ScrollRect.cs:665-670`，
+            //   `position += delta × sensitivity` 在 :675-676）⇒ **原版一格滚轮确实滚 1 px**（能滚，但肉眼几乎不动；原版实际靠**拖拽**）。
+            //   ⚠️ **量纲订正（铁律 5）**：原来这里写「`NotchK = 1/120`、`WHEEL_DELTA = 120`」——**已过期**。2026-10-22 真机
+            //   `WF_SCROLL_PROBE` 实测一格 = **±1 个输入单位**（`MenuScroll.ScrollUnitsPerNotch = 1`）⇒ 传 1.0 就是 `NotchK = 1`。
             //   ⇒ 给一个可用步长 **120 px / 格**（= 一屏 1080 的 1/9）：本文件几何的行程 =
-            //     `ModeContentX2 − ModeViewport.x2` = 2405 − 1920 = **485 px** ⇒ **485 ÷ 120 ≈ 4 格到底**
-            //     （⚠️ 派单里写「447 px」与这里按 `ModeContentX2` 算出的 485 差 38 px —— 按本文件实际几何记 485，
-            //      两者都 ≈ 4 格，不影响这条改动）。
-            //   ⚠️ **拖拽一点没动**（`MenuScroll.BeginDrag / DragTo` + `PointerLayer` 那条 **5px** 阈值照旧 —— 原版 `m_DragThreshold = 5`，`Intro.unity:5429`；⚠️ 2026-11-04 订正：原写 10，那是 uGUI 默认值、不是原版值）；
-            //      ⛔ 别把这个 120 写成「原版 `m_ScrollSensitivity`」—— 原版值是 1.0、且那是横向的。
-            _modeScroll = new MenuScroll(ModeViewport, CardCol0, ModeContentX2, 120f);
+            //     `ModeContentX2 − ModeViewport.x2` = 2405 − 1920 = **485 px** ⇒ **485 ÷ 120 ≈ 4 格到底**（派单里 447 px 那条按本文件实际几何记 485）。
+            //   ⚠️ **拖拽一点没动**（`MenuScroll.BeginDrag / DragTo` + `PointerLayer` 那条 **5px** 阈值照旧 —— 原版 `m_DragThreshold = 5`，`Intro.unity:5429`；⚠️ 2026-11-04 订正：原写 10，那是 uGUI 默认值）；
+            //      ⛔ 别把这个 120 写成「原版 `m_ScrollSensitivity`」—— 原版值是 1.0，且那是**横向**的。
+            //   🔴 **2026-11-04 裁定（B141-W20）**：120 **保留**（2026-10-18 用户明确拍板）；改判成 1.0 只需动 `ModeScrollNotchPx` 并同步 `Editor/B141_W20_Assert.cs`。
+            _modeScroll = new MenuScroll(ModeViewport, CardCol0, ModeContentX2, ModeScrollNotchPx);   // ✅ 已复刻/已裁定（2026-11-04 · B141 · 账 4-19）：原版灵敏度 1.0（`MB_1982`）现核「能滚但一格仅 1 px、实际靠拖拽」；这里仍用 2026-10-18 用户拍板的可用步长（`ModeScrollNotchPx`）
             _modeScroll.Owner = gameObject;
             _modeScroll.OnChanged = () => RebuildModeCards();   // ⚠️ 不能写成方法组：`RebuildModeCards` 新加了可选形参 `forceClean`，而 C# 的**方法组转换不看可选参数**（CS0123）⇒ 包一层 lambda
             PointerLayer.RegisterScroll(_modeScroll);
@@ -4881,7 +4881,7 @@ namespace CardPresentation
             d.Visible = 1;
             d.QBase = QContent;                                // 抽屉三档 = `QContent / +1 / +2`（压在卡图 `QCardArt` 之上）
             d.TypeOf = null;                                   // 谓词② `x.Item is Currency` 的输入本地没有 ⇒ 出声一次（既有口径）
-            return d;
+            RegisterOfferDrawerForTick(d); return d;           // ✅ 已复刻（2026-11-04 · B141 · 账 TOOL-03）：登记进 `Update` 的每帧泵（= 原版 `UI_InfiniteScroll.Update()`）；同一行追加 ⇒ 行数零变化
         }
     }
 
@@ -5799,6 +5799,98 @@ namespace CardPresentation
             icon.SetTexture(tex, true);                        // 只换图；比例/尺寸由下面两句摆（⛔ 别让它按贴图静默改比例）
             if (w > 0f && h > 0f) { icon.SetWorldHeight(h); icon.SetAspect(w / h); }
             icon.gameObject.SetActive(true);
+        }
+    }
+}
+
+// ============================================================ 账 4-06 / 4-19 / TOOL-03（`B141-W20` · 2026-11-04）——
+//   · **4-06** 模式卡网格列上限（原版 `FlexibleGridLayout.columns = 20`，我们原来 8）；
+//   · **4-19** 模式区横滚步长（原版 `m_ScrollSensitivity = 1.0`；实际用 2026-10-18 用户拍板的可用步长）；
+//   · **TOOL-03** `MainMenuCarouselDrawer.Tick` 的生产泵（原版 `UI_InfiniteScroll.Update()` 每帧推进 `AutoScrollSpeed`）、
+//     以及第 2 实例 `RankedArmyBonusCard` 复用同一条 `InfiniteScrollRing`。
+//
+//  🔴 为什么这些常量/方法放在**文件末尾新增的 partial 段**：本文件按 `文件:行号` 被账引用（现读 101 处引用 / 74 个不同行号），
+//    在类体中间插行会让所有下游落点整体漂移 ⇒ 新成员一律追加在这里（同既有四个 partial 段的纪律）。
+namespace CardPresentation
+{
+    public partial class MainMenuRuntime
+    {
+        /// <summary>模式卡网格**最多几列** = 原版 `GameModes/Content` 的 `FlexibleGridLayout.columns`。
+        /// <para>判据（2026-11-04 现读）：`d:/2/tools/assetripper_out/ExportedProject/Assets/Data/Scenes/MainMenu Warpforge.unity`
+        /// —— GameObject `Content`(&28) 上的 MB `&1961`：
+        /// `rows: 2` · **`columns: 20`** · `itemSize: {x: 535, y: 414.4}` · `spacing: {x: 20, y: 20}`。
+        /// 原来写死 **8**（我们挑的，见 `_placeAllCards` 里那条注释）⇒ 网格容量与原版不符（今天只有 ≤6 张卡 ⇒ 无可观差，
+        /// 但上限是原版参数，照抄）。⚠️ 列数只影响 `used[,]` 的容量与「排不下」告警阈值，不改网格几何。</para></summary>
+        public const int ModeGridMaxCols = 20;
+
+        /// <summary>模式卡区「一格滚轮走多少画布 px」（= `MenuScroll` 构造的第 4 个实参）。
+        /// <para>⚠️ **这不是原版值**：原版 prefab `MonoBehaviour_1982` 现读 `m_ScrollSensitivity = 1.0`（横向 only），
+        /// 一格滚轮 = **1 px**（能滚，但肉眼几乎不动；原版这一段实际靠**拖拽**）。2026-10-18 用户明确拍板
+        /// 「保留 120 这个可用步长」（见 `Shell/MenuScroll.cs` 的 `NotchPx` doc）⇒ 本常量是**用户裁定值**。
+        /// 改判成原版 1.0 只需改这一处（＋同步 `Editor/B141_W20_Assert.cs`）。</para></summary>
+        public const float ModeScrollNotchPx = 120f;
+
+        /// <summary>原版那台 `ScrollRect` 的 `m_ScrollSensitivity`（**只作判据留痕 / 断言读口**，⛔ 不作为实参）。
+        /// 判据 = `bundle_scenes_scenes_mainmenuwarpforge ▸ MonoBehaviour_1982.json`
+        /// （`m_Horizontal 1` / `m_Vertical 0` / `m_MovementType 1` / `m_ScrollSensitivity 1.0`）。</summary>
+        public const float OriginalModeScrollSensitivity = 1.0f;
+
+        /// <summary>已挂上、需要每帧泵 `Tick(dt)` 的报价格抽屉（= 原版 `UI_InfiniteScroll.Update()` 那一拍）。
+        /// <para>⚠️ `static`：唯一登记点是 `static BuildOfferDrawerForMenuCard`。被销毁的条目在每帧 `Prune` 里摘掉
+        /// （Unity 的「已销毁对象 `== null` 为真」⇒ 不需要额外弱引用表）。</para></summary>
+        static readonly List<MainMenuCarouselDrawer> _offerDrawerPumps = new List<MainMenuCarouselDrawer>();
+
+        /// <summary>把一颗报价格抽屉登记进每帧泵（`BuildOfferDrawerForMenuCard` 的唯一调用点）。
+        /// `null` ⇒ 忽略（⛔ 不抛、也不记 null 进来）。</summary>
+        public static void RegisterOfferDrawerForTick(MainMenuCarouselDrawer d)
+        {
+            if (d == null) return;
+            if (!_offerDrawerPumps.Contains(d)) _offerDrawerPumps.Add(d);
+        }
+
+        /// <summary>自检读口：当前登记了几颗**还活着**的抽屉（会先摘掉已销毁的）。</summary>
+        public static int OfferDrawerPumpCountForTest { get { PruneOfferDrawerPumps(); return _offerDrawerPumps.Count; } }
+
+        static void PruneOfferDrawerPumps()
+        {
+            for (int i = _offerDrawerPumps.Count - 1; i >= 0; i--)
+                if (_offerDrawerPumps[i] == null) _offerDrawerPumps.RemoveAt(i);
+        }
+
+        /// <summary>= 原版 `UI_InfiniteScroll.Update()` 的**生产泵**（`Update()` 每帧调一次）。
+        /// <para>① 逐颗已登记的 `MainMenuCarouselDrawer` 喂 `Tick(dt)`（推进环的 `ContentX` 并跑 `OnScroll` 搬件）；
+        /// ② 第 2 实例 `RankedArmyBonusCard`（若在场上）同样喂 `Tick(dt)`。</para>
+        /// <para>⚠️ 批处理下 `Update` 不跑 ⇒ 自检走 <see cref="StepOfferRingsForTest"/>/<see cref="RankedArmyBonusCard.Tick"/> 直调。</para></summary>
+        void StepOfferRings(float dt)
+        {
+            StepOfferDrawerPumps(dt);
+            if (_rankedArmyBonusCard != null) _rankedArmyBonusCard.Tick(dt);
+        }
+
+        /// <summary>泵的**纯静态那一半**（只推进已登记的抽屉环；不碰实例字段）—— 生产 `Update` 与自检共用同一条路。</summary>
+        static int StepOfferDrawerPumps(float dt)
+        {
+            PruneOfferDrawerPumps();
+            int n = 0;
+            for (int i = 0; i < _offerDrawerPumps.Count; i++)
+            {
+                var d = _offerDrawerPumps[i];
+                if (d == null) continue;
+                d.Tick(dt);
+                n++;
+            }
+            return n;
+        }
+
+        /// <summary>自检读口：跑**与生产同一条**泵（`StepOfferDrawerPumps`），返回推进了几颗。</summary>
+        public static int StepOfferRingsForTest(float dt) { return StepOfferDrawerPumps(dt); }
+
+        /// <summary>自检清理口：把一颗抽屉从泵里摘掉（⛔ 只管自己登记的那一颗 —— 别整表清空，
+        /// 那会把宿主里已在场的生产抽屉一并摘掉，而它们只在建卡时登记一次）。</summary>
+        public static void UnregisterOfferDrawerForTick(MainMenuCarouselDrawer d)
+        {
+            if (d == null) { PruneOfferDrawerPumps(); return; }
+            _offerDrawerPumps.Remove(d);
         }
     }
 }

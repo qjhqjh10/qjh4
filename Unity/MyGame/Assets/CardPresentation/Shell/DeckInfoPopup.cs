@@ -1677,7 +1677,12 @@ namespace CardPresentation
                         MenuDraw.PaddedHitRect(
                             new PxRect(fx1, fy1, fx1 + OptIconW, fy1 + OptIconH), OptPad),
                         () => OnOption(key), face, "40k_general_bt_yellow",
-                        clickCue: WindowSounds.DefaultCloseCue);
+                        clickCue: WindowSounds.DefaultCloseCue,
+                        // ✅ 已复刻（2026-11-04 · B141-W44 · 5-07）：`Deck info Popup ▸ Deck Options` 五颗里
+                        //    **只有 `Switch Deck Info Button`** 的 `m_SpriteState.m_SelectedSprite` 非空
+                        //    （= `40k_general_bt_yellow`，恰是它的常态图；其余四颗原版是 null）
+                        //    —— 判据 → `报告/B141_W129_ButtonFx.md` §5-07 / W34 的全量 prefab 扫描。
+                        selectedArt: key == "Switch Deck Info" ? "40k_general_bt_yellow" : null);
                     // 🔴 **2026-10-11（A299）**：外扩之后**相邻两颗的命中区重叠 ≈2.888px**（原版如此）——
                     //    谁赢**只能靠兄弟序**。原版判据（解包实读 + uGUI 源码）：
                     //      · `Deck Options` 的子件树序 = `Switch Deck Info Button → Duplicate Button →
@@ -2940,7 +2945,7 @@ namespace CardPresentation
 
         Transform Hit(Transform parent, Transform basis, string name, PxRect r, System.Action onClick,
                       ImageQuad target = null, string art = null, string hoverArt = null,
-                      string clickCue = null)
+                      string clickCue = null, string selectedArt = null)
         {
             var hit = new GameObject(name);
             hit.transform.SetParent(parent, false);
@@ -2971,7 +2976,7 @@ namespace CardPresentation
             wb.onClick = onClick;
             // 🆕 2026-10-17（音效线 S01）：逐颗 cue（原版 `m_onClickSound`）。
             wb.clickCue = clickCue;
-            if (target != null) wb.Bind(target, art, hoverArt);
+            if (target != null) wb.Bind(target, art, hoverArt, null, selectedArt);
             return hit.transform;
         }
 

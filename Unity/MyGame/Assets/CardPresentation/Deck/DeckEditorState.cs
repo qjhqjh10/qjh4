@@ -116,15 +116,15 @@ namespace CardPresentation
             return string.IsNullOrEmpty(f.Rarity) || string.Equals(rarity ?? "", f.Rarity, StringComparison.OrdinalIgnoreCase);
         }
 
-        /// <summary>卡类是否通过（集合非空 ⇒ 属于集合；否则单值）。</summary>
-        public static bool TypeOk(DeckFilter f, string type)
+        /// <summary>卡类是否通过（集合非空 ⇒ 属于集合；否则单值）。⚠️ 比的是 <see cref="FilterPanelModel.CardTypeBucket"/> 折算后的**原版卡型档**（`defence` ⇒ `tactic`，判据 → 那个方法）。</summary>
+        public static bool TypeOk(DeckFilter f, string type, int cardType = -1)   // ✅ 已复刻（2026-11-04 · B141_W30 · W129 `3-04`）：第三参 = 原版 `RawCardScript.cardType`（`+0x94`；`CardDef.CardType`，`-1` = 未知 ⇒ 回落到按 `type` 字符串折算）
         {
             if (f.Types != null && f.Types.Count > 0)
             {
-                foreach (var x in f.Types) if (string.Equals(type ?? "", x ?? "", StringComparison.Ordinal)) return true;
+                foreach (var x in f.Types) if (string.Equals(FilterPanelModel.CardTypeBucket(type, cardType) ?? "", x ?? "", StringComparison.Ordinal)) return true;   // ✅ 已复刻（2026-11-04 · B141_W30 · W129 `3-04`）：原版 `CardTypeFilter` 按 `cardType`(+0x94) 分档，而防御卡原版 `cardType=20`(Tactic) ⇒ `defence` 要归到 `tactic` 那一档（39 张，原版 377 / 我们改前 338）
                 return false;
             }
-            return string.IsNullOrEmpty(f.Type) || type == f.Type;
+            return string.IsNullOrEmpty(f.Type) || FilterPanelModel.CardTypeBucket(type, cardType) == f.Type;   // ✅ 已复刻（2026-11-04 · B141_W30 · W129 `3-04`）
         }
 
         /// <summary>UI 用：**这一格现在是不是「选中」状态**（与 <see cref="FactionOk"/> 的区别：
@@ -265,7 +265,7 @@ namespace CardPresentation
             //   ⚠️ **同一个串的第二处**在 `Deck/DeckRuntime.cs` 的清名那一拍（`SetDeckName`）；
             //      第三处（`Shell/CollectionData.cs:260` 的 `Lib.UniqueName("新卡组")`）**不在本笔白名单里** ⇒
             //      已写进交件报告（铁律 6：同一件事只留一条键，三处一律用 `MenuDeck/NewDeckName`）。
-            Deck = new PlayerDeck(string.IsNullOrEmpty(name) ? Loc.T("MenuDeck/NewDeckName") : name, null, null, null, gameMode); Deck.SetDeckArmyNeutral();   // 🆕 2026-11-01（`B111_R1WB`）：原版 `GetEmptyDeck` ⇒ `deckArmy = Neutral`
+            Deck = new PlayerDeck(string.IsNullOrEmpty(name) ? Loc.T("MenuDeck/NewDeckName") : name, null, null, null, gameMode); Deck.SetDeckArmyNeutral(); ResetArmyLatch();   // 🆕 2026-11-01（`B111_R1WB`）：原版 `GetEmptyDeck` ⇒ `deckArmy = Neutral`｜✅ 已复刻（2026-11-04 · B141 · W129 `B141-ARMY-LATCH`）：换卡组 = 原版新窗口新 filter 实例 ⇒ 阵营闩复位（`CardArmyFilter__SetFilterToDeck.c:22-24` 的 `setted`）
         }
 
         /// <summary>把一副卡组装进编辑器。🔴 **装的是【副本】** —— 这是原版那条链的语义。
@@ -299,7 +299,7 @@ namespace CardPresentation
         {
             // `PlayerDeck.Clone()`（`RuleEngine/Core/DeckRules.cs:342`）逐字段拷：
             // 名字 / 督军 / 防御卡 / 卡表（**新 List**，不与传入那副共享）/ 模式 / 卡背 —— 六格全在。
-            Deck = deck != null ? deck.Clone() : new PlayerDeck(); if (deck == null) Deck.SetDeckArmyNeutral();   // 🆕 2026-11-01（`B111_R1WB`）：null ⇒ 原版 `GetEmptyDeck` 那一档（`deck != null` 时靠 `Clone` 逐格拷，旧档 null 仍然 null ⇒ 读口回落派生）
+            Deck = deck != null ? deck.Clone() : new PlayerDeck(); if (deck == null) Deck.SetDeckArmyNeutral(); ResetArmyLatch();   // 🆕 2026-11-01（`B111_R1WB`）：null ⇒ 原版 `GetEmptyDeck` 那一档（`deck != null` 时靠 `Clone` 逐格拷，旧档 null 仍然 null ⇒ 读口回落派生）｜✅ 已复刻（2026-11-04 · B141 · W129 `B141-ARMY-LATCH`）：**开窗 / 换卡组 / 丢弃回滚**都走本方法（`DeckRuntime.Build:1365`、`RollBackEditingCopy:5738`）⇒ 正是原版「新 filter 实例、`setted` 从 0 起」那一拍，阵营闩在这里复位
             // ⚠️ 名字**照原样**再写一次：`PlayerDeck` 的构造器（`Clone` 走的就是它）会把**空/null 名字**
             //    替成「新卡组」（`Core/DeckRules.cs:335`），而拷贝构造要**逐格照抄**
             //    （原版 `CardDeck___ctor(副本, 原副, 0)` 就是逐格抄）——
@@ -442,7 +442,7 @@ namespace CardPresentation
             //    （原版 `DeckUtility__ValidateDeckCards.c:68-77`，`inventoryOptions` / `showInCollectionOptions`）。
             //    ⚠️ 那个函数**内部**已经照原版把 hero / 防御卡路由走（`CanAddCard.c:32-39`），
             //    所以这里不必再自己挡一遍（上面那两行早返回的仍在，是**槽位**口径不是准入口径）。
-            if (DeckRules.IsNotDeckable(c)) return DeckError.InvalidCard; if (DeckRules.CannotAddToDeck(c)) return DeckError.EffectOnlyCard;   // 🆕 2026-11-03（`B121_WC` · 账 `B120-E03g`）：`NotDeckable` 那档**排在准入判据之前**（原因不同、文案必须分开 —— 判据/落点 → `RuleEngine/Core/DeckRules.cs` 类尾 `IsNotDeckable` 的 doc）。同一物理行追加 ⇒ 行号零漂移
+            if (DeckRules.IsNotDeckable(c)) return DeckError.InvalidCard; if (DeckRules.CannotAddToDeck(c)) return DeckError.InvalidCard;   // 🆕 2026-11-03（`B121_WC` · 账 `B120-E03g`）：`NotDeckable` 那档**排在准入判据之前**（原因不同、文案必须分开 —— 判据/落点 → `RuleEngine/Core/DeckRules.cs` 类尾 `IsNotDeckable` 的 doc）。同一物理行追加 ⇒ 行号零漂移 ｜✅ 已复刻（2026-11-04 · B141_W30 · W129 `3-18` 返回码半）：准入那一档由 `EffectOnlyCard`（原版**没有**这条键 ⇒ 显示层会摊成 catch-all `InvalidDeck`）改成 **`InvalidCard`** —— 原版 `CardDeck__CanAddCard.c:40` 这个分支返回的就是 `MenuDeck/Error/InvalidCard`（`DAT_1842cf4f0`，官方 EN/ZH 齐全），条件逐字对应 `inventoryOptions(+0x4c) != 0 && showInCollectionOptions(+0x48) != 5`
 
             // 阵营：原版 `CardDeck.CanAddCard` 比的是 **`deckArmy`**（督军 > 卡表第 0 张 > Neutral），**不是督军的阵营**
             // 判据 = `CardDeck__CanAddCard.c:86-93`（`deck+0x50` vs `card+0x2c`；`IsNeutralArmy` 跳过、`CardCount(countHero:1) > 0` 才挡）· ILSpy 同形 `CardDeck.cs:812-819`
@@ -582,7 +582,7 @@ namespace CardPresentation
             // 🆕 **2026-10-18**：显示闸在两处宿主上都生效 ——
             //   · 卡组编辑（`WarlordGatedPool`）：原版 `DeckEditingWindow.GetCardCollection` 那条链；
             //   · 收藏卡牌页（`ShowInCollectionOnly`）：原版 `CardCollectionTab.GetCollection` 同一条 `Where`。
-            bool showGate = WarlordGatedPool || ShowInCollectionOnly; bool armyPicked = (f.Factions != null && f.Factions.Count > 0) || !string.IsNullOrEmpty(f.Faction);   // 🆕 2026-11-03（`B121_WC` · COLL-5①）：玩家在筛选栏**显式点了阵营** ⇒ 下面不再用督军硬闸（原版 `CardArmyFilter.SetFilterToDeck` 只是**预选** `FilterToArmy(deckArmy)`，玩家改了就以筛选为准；加牌时再由 `CanAddCard` 的 `InvalidArmy` 挡）。同一物理行追加 ⇒ 行号零漂移
+            bool showGate = WarlordGatedPool || ShowInCollectionOnly; string armyLockFaction = WarlordGatedPool ? FilterPanelModel.ArmyLockFaction(this) : null; bool armyLocked = !string.IsNullOrEmpty(armyLockFaction);   // ✅ 已复刻（2026-11-04 · B141 · W129 `B141-ARMY-LATCH`）：原版 `CardArmyFilter__SetFilterToDeck.c:16-26` —— 有督军**或有牌** ⇒ 阵营筛选被**强制成当时的 `deckArmy`**（`FilterToArmy`）且**整行隐藏**（`FilterToArmy.c` 末句 `SetActive(false)`）；**`.c:22-24` 的 `if (param_1[8] != 0) return;` = 闩：锁过就不再重算**（落地口 = `FilterPanelModel.ArmyLockFaction` → `DeckEditorState.ResolveArmyLatch`；原版锁住后换督军会**停在旧阵营**，照抄、⛔ 别「修好」）。⛔ 旧口径「玩家显式点了阵营 ⇒ 不再用督军硬闸」（`B121_WC · COLL-5①`）**已被那句早退句推翻**（行都隐藏了、原版没有切换入口）：`armyPicked` 已删
             // 🆕 2026-10-23（`W64·B-12`）：原版分支③那个字段**一次取好**（属性里要过 `GameplayVariables.For`）
             bool assignDefensiveInEditMode = AssignDefensiveCardsInEditMode;
 
@@ -592,7 +592,7 @@ namespace CardPresentation
                 if (WarlordGatedPool)
                 {
                     if (wl == null) { if (c.Type != "hero") continue; }                 // 还没督军 ⇒ 只列督军
-                    else if (!armyPicked && !DeckRules.SameFaction(c.Faction, wl.Faction)) continue;   // 定了 ⇒ 只列该阵营（🆕 `B121_WC` · COLL-5①：玩家显式点了阵营 ⇒ 以筛选为准，见上面 `armyPicked`）
+                    if (armyLocked && !DeckRules.SameFaction(c.Faction, armyLockFaction)) continue;   // ✅ 已复刻（2026-11-04 · B141 · W129 `B141-ARMY-LATCH`）：锁住时**阵营由闩里那一个（原版 `FilterToArmy(deck+0x50)` 当时的值）独占** —— 「定了督军 ⇒ 只列该阵营」与「有牌没督军 ⇒ 只列那个阵营的战将」都是它；⚠️ 用的是 `armyLockFaction`（闩）**不是** `DeckArmyFaction()`（当前值）—— 原版 `.c:22-24` 早退 ⇒ 换督军后仍停在旧阵营（🧨 改成当前值 ⇒ `B141W74` 的 L4 红）
                     // 🔴 **2026-10-18**：这一行原来是 `DeckRules.CannotAddToDeck(c)`（准入判据），
                     //   现换成**原版卡池的 `inventoryOptions` 层**。
                     //   ⛔ 别再退回准入判据：那会把「可见但加不进」的卡藏起来（原版是显示+变灰）。
@@ -605,9 +605,9 @@ namespace CardPresentation
                     continue;
                 // 🆕 2026-10-25（多选筛选）：三条判定收进 `DeckFilter.*Ok` —— **集合优先、单值兜底**
                 //   （集合为空时逐字等价于原来那三行 ⇒ 今天行为零变化）
-                if (!DeckFilter.FactionOk(f, c.Faction)) continue;
+                if (!armyLocked && !DeckFilter.FactionOk(f, c.Faction)) continue;   // ✅ 已复刻（2026-11-04 · B141_W30 · W129 `3-30`）：**锁住时**阵营那一层由 `deckArmy` 独占，`Filter.Factions` 不再参与 —— 于是「`Clear filters` 之后池子结果不变」与原版 `CardArmyFilter__ClearFilters.c:10-13`（`setted` 为真 ⇒ 直接 return、连清空都不清阵营）等价；行隐藏时也没有别的入口能改它
                 if (!DeckFilter.RarityOk(f, c.Rarity)) continue;
-                if (!DeckFilter.TypeOk(f, c.Type)) continue;
+                if (!DeckFilter.TypeOk(f, c.Type, c.CardType)) continue;   // ✅ 已复刻（2026-11-04 · B141_W30 · W129 `3-04`）：第三参传**原版卡型真值**（`CardDef.CardType` = `rawCard +0x94`）⇒ 防御卡（20 = Tactic）与附魔模板（20）都落进 Tactic 档
                 // 🆕 2026-09-28（原版两个开关，卡组编辑与收藏窗同一套）：
                 //   · `Owned`（原版**出厂就是开** —— 三路实读见 `DeckFilter.None`）：单机**全解锁**
                 //     ⇒ 打开它**筛不掉任何一张** ——
@@ -883,12 +883,12 @@ namespace CardPresentation
             foreach (var c in _pool)
                 if (!string.IsNullOrEmpty(c.Faction) && !seen.Contains(c.Faction)) seen.Add(c.Faction);
             // 🔴 按**原版 option 序号**排（见 `ArmyOrder`）；**不在表里的**（将来新增的阵营）排到最后、
-            //    内部再按字母 ⇒ **稳定**（同一批牌两次跑出同一个序，自检才不会闪）。
+            //    内部再按字母 ⇒ **稳定**（同一批牌两次跑出同一个序，自检才不会闪）。｜✅ 已复刻（2026-11-04 · B141_W30 · W129 `3-31`）：`Neutral` **排在表首** —— 原版枚举 `CardArmy.Neutral = 0`（`dump.cs:45638`，`CardArmyOrdered.Neutral = 0` 同）在 13 个真阵营（10…130）**之前**；⛔ 别把 `"Neutral"` 直接塞进 `ArmyOrder`（那是**原版 `options` 的 13 条**、且 `Editor/DeckScene.cs` 有一条断言拿 `ArmyOrder[0]` 当 Ultramarines）⇒ 这里用 rank −1 表达「枚举最前」
             seen.Sort((a, b) =>
             {
                 int ia = System.Array.IndexOf(ArmyOrder, a), ib = System.Array.IndexOf(ArmyOrder, b);
-                if (ia < 0) ia = int.MaxValue;
-                if (ib < 0) ib = int.MaxValue;
+                if (ia < 0) ia = DeckRules.IsNeutralFaction(a) ? -1 : int.MaxValue;   // ✅ W129 `3-31`：Neutral = 原版枚举 0 ⇒ 排最前
+                if (ib < 0) ib = DeckRules.IsNeutralFaction(b) ? -1 : int.MaxValue;   // ✅ W129 `3-31`（同上）
                 return ia != ib ? ia.CompareTo(ib) : string.CompareOrdinal(a, b);
             });
             return seen;
@@ -1570,6 +1570,56 @@ namespace CardPresentation
         public string DeckArmyFaction()
         {
             return DeckRules.DeckArmy(Deck, Find);
+        }
+
+        // ============================================================ ✅ 已复刻（2026-11-04 · B141 · W129 `B141-ARMY-LATCH`）
+        //   原版 `CardArmyFilter` 的阵营锁是**闩**（`d:/2/tools/decomp_full/CardArmyFilter__SetFilterToDeck.c`，逐句现读）：
+        //     · `:16-21`  `deckHero(+0x40) != null` **或** `CardDeck.CardCount(deck, 0) > 0` ⇒ 走「锁」那支；
+        //                 两者皆空 ⇒ `:29-39` 的 else 支：`setted = 0` + `ClearArmyFilter` + `SetActive(true)`。
+        //     · `:22-24`  锁那支第一句 `if (param_1[8] != '\0') return;` —— `param_1[8]` = `+0x40` = `setted`，
+        //                 **锁过就不再重算**（所以原版锁住之后又换督军，筛还是会停在**旧**阵营 —— 它自己的行为，照抄）。
+        //     · `:25-26`  `FilterToArmy(deck + 0x50)` + `setted = 1`。
+        //   复位只有两处：① **新窗口**（原版 = 新 filter 实例）⇒ 我们 = `LoadDeck`（开窗 / 换卡组 / 丢弃回滚都走它）；
+        //                 ② **卡组清空到「无督军 + 无牌」**（`.c:29-39` 的 else 支，见 `ResolveArmyLatch`）。
+        //   ⛔ 别把闩做成静态/进程级：它是**每个窗口一份**（`DeckEditorState` 实例一份）。做成静态 ⇒ 换个窗口还停在
+        //      上一副卡组的阵营（断言 `B141W74` 的 R3 会红）。⛔ 也别在 `VisibleCards` 里每拍复位（那就等于没有闩）。
+
+        string _armyLatchFaction;
+        bool _armyLatchSettled;
+
+        /// <summary>阵营锁**现在锁在哪一档**（原版 `setted` 为真时 `CardArmyFilter` 被强制成的那个 `deckArmy`）；
+        /// `null` = 还没锁过（原版 `setted = 0`）。只供读/断言，⛔ 别拿去当「当前 `deckArmy`」用。</summary>
+        public string ArmyLatchFaction { get { return _armyLatchSettled ? _armyLatchFaction : null; } }
+
+        /// <summary>阵营锁是不是**已经锁上**（原版 `CardArmyFilter.setted`，`+0x40`）。</summary>
+        public bool ArmyLatchSettled { get { return _armyLatchSettled; } }
+
+        /// <summary>复位闩（= 原版**新窗口新 filter 实例**：`setted` 从 0 开始）。
+        /// 调用点 = <see cref="LoadDeck"/> / <see cref="NewDeck"/>（= 开窗 / 换卡组 / 丢弃回滚那一拍，
+        /// 判据 `CardArmyFilter__SetFilterToDeck.c:22-24`：原版的闩活在 `CardArmyFilter` 实例上，按钮/卡组换了就是新实例）。
+        /// ⛔ 别在 `VisibleCards` 里每拍复位（那就等于没有闩）。</summary>
+        public void ResetArmyLatch() { _armyLatchSettled = false; _armyLatchFaction = null; }
+
+        /// <summary>🔴 **阵营锁的闩**（原版 `CardArmyFilter.SetFilterToDeck`，
+        /// `d:/2/tools/decomp_full/CardArmyFilter__SetFilterToDeck.c:16-39` 逐句）。
+        /// <paramref name="currentArmy"/> = **当前** `deckArmy`（<see cref="DeckArmyFaction"/>）；
+        /// <paramref name="lockable"/> = 原版 `:16-21` 那两条（有督军 **或** 有牌）—— 判据只此一处 = `FilterPanelModel.ArmyLocked`。
+        /// <para>返回**实际生效的锁定阵营**；`null` = 没锁（调用方走 `Filter.Factions` 那条普通路）。</para>
+        /// <para>语义逐条照原版：① `lockable == false`（空卡组）⇒ `.c:29-39` else 支：**清闩** + 返回 null
+        /// （Army 行重新露出来，见 `FilterPanelModel.ArmyRowVisible`）；② `lockable && 已锁` ⇒ `.c:22-24` 早退：
+        /// **返回旧阵营**（哪怕 `currentArmy` 已经变了 —— 照抄原版，⛔ 别「修好」）；③ `lockable && 未锁` ⇒
+        /// `.c:25-26`：锁成 `currentArmy` 并返回它。</para>
+        /// <para>⚠️ **它有副作用**（第 ③ 支把闩写上）—— 这正是原版 `SetFilterToDeck` 那一拍在干的事
+        /// （`DeckEditingWindow__RefreshCards.c:7` 每拍调它）。调用方只需在**卡池刷新**那一处调。</para>
+        /// <para>⚠️ `currentArmy` 为空（督军解析不出来 / 阵营是 Neutral）⇒ **不锁**，与改前
+        /// `!string.IsNullOrEmpty(deckArmy)` 那一闸同口径（现池 0 例；如实记在报告 ❓）。</para></summary>
+        public string ResolveArmyLatch(string currentArmy, bool lockable)
+        {
+            if (!lockable) { ResetArmyLatch(); return null; }               // `.c:29-39` else 支：setted = 0
+            if (_armyLatchSettled) return _armyLatchFaction;               // `.c:22-24` 早退：锁过就不再重算
+            if (string.IsNullOrEmpty(currentArmy)) return null;
+            _armyLatchSettled = true; _armyLatchFaction = currentArmy;     // `.c:25-26`：FilterToArmy(deckArmy) + settled = 1
+            return _armyLatchFaction;
         }
     }
 }

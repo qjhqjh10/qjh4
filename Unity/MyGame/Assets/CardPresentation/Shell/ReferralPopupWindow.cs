@@ -503,6 +503,10 @@ namespace CardPresentation
             // ⚠️ `TextBox` 会**无条件**把换行开成 `Normal`（`SetAutoFitBox` → `SetWrapWidth`）——
             //    原版这一格是 `m_TextWrappingMode = 0 (NoWrap)` ⇒ 建完显式关掉（同 `BaseOfferPopup` 那几处）。
             if (_placeholder != null) _placeholder.SetWrapping(false);
+            // ✅ 已复刻（2026-11-04 · B141_W68 · 判据 `判据/B141_W129_对账_UI动画.md` W11/4-23 ＋ `Referral Popup.prefab` 的 `Text Area ▸ RectMask2D`）：
+            //   原版那颗掩码对 `Placeholder` 与 `Text` **一视同仁**；改前只有下面 `_inputText` 那一句裁了、
+            //   **占位这颗漏了**（打进字之前的提示行会溢出输入框）。框 = 同一份 `TextClipRect()`（= `TextAreaR` 按 `(-8,-5,-8,-5)` 外扩）。
+            if (_placeholder != null) MenuDraw.ClipText(_placeholder, TextClipRect(), Vector2.zero);
             // `Text`：fs45 · base 14 · auto[18~45] · Center/Middle · **折行=3**（`PreserveWhitespaceNoWrap`）· 白
             _inputText = MenuDraw.TextBox(ta, TextAreaR, TxtInputEmpty, Color.white, "Text",
                                           InputTextFont, InputTextMin, QInputText, InputTextMax, InputTextBase, face: TmpFont.Face.LatinCardBody);

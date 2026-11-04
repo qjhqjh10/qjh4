@@ -1,14 +1,19 @@
 // B121_WC_Assert.cs — 执行代理 `B121_WC`（第一百二十一/二十二会话 · 2026-11-03）
 //   · 账 `B120-E03g`：「卡池可见 + 不可加入卡组」的**界面侧**落点（`DeckError.InvalidCard` / `CanAdd` / `Validate`）
 //   · `COLL-03`（行内拖动重排已关）· `COLL-04`（分享串可读头部）· `COLL-02`（卡背页小屏系数 1.2）
-//   · `COLL-5①`（卡池按督军分流：玩家显式点了阵营 ⇒ 以筛选为准，不再恒空）
+//   · `COLL-5①`（卡池按督军分流：**有督军/有牌 ⇒ 阵营筛选被锁成 `deckArmy`、整行隐藏**，玩家点不到也绕不过去）
+//     🔴 **2026-11-04（`B141_W30` · W129 `3-02`）就地订正（铁律 5）**：原来这里写的是「玩家显式点了阵营
+//     ⇒ 以筛选为准，不再恒空」—— 那条判据**已被原版早退句推翻**（`CardArmyFilter__SetFilterToDeck.c:20-25`：
+//     `setted` 为真直接 `return`；`FilterToArmy.c` 末句 `SetActive(false)` 把整行关掉 ⇒ **没有切换入口**）。
+//     `DeckEditorState` 的 `armyPicked` 已删，本文件的 `D2` 已**翻极性**（见 D 段）。
 //
 // ============================ 灭自证（🧨 结构上不可能同时满足）============================
 //  🧨 B2「`CanAdd` 回 `InvalidCard`」 vs B3「同一张卡**仍在 `VisibleCards()` 里**」：
 //     把实现改成「从卡池隐藏」（那是另一条链、原版不这么干）⇒ B3 红；把标记丢掉 ⇒ B2 红。两边不能一起绿。
-//  🧨 A3「`InvalidCard` 的人话 ≠ `EffectOnlyCard` 的人话」：把新档并回旧档 ⇒ 两句话变成同一句 ⇒ 红。
-//  🧨 D2/D3：不设阵营筛选时按督军分流（D2 看不到别的阵营）／显式点别的阵营时要看得到（D3）——
-//     把硬闸删掉 ⇒ D2 红；把硬闸改成恒生效 ⇒ D3 红。
+//  🧨 A5「`ErrorTextKey(InvalidCard) == ErrorTextKey(EffectOnlyCard)`（两档**同键** = `MenuDeck/Error/InvalidCard`）」：把 `EffectOnlyCard` 改回 `InvalidDeck` 兜底 ⇒ 两边键不同 ⇒ 红。
+//  🧨 D1/D2 × D2b：**卡组编辑**下「没点阵营」与「点了别的阵营」**都看不到**别的阵营（锁 `deckArmy`）；
+//     同一份筛选放到**收藏窗那一路**（不开 `WarlordGatedPool`）就看得见 ——
+//     把 `armyPicked`（点阵营即越权）写回来 ⇒ D2 红；把 `FactionOk` 废掉 / 把锁做成全局 ⇒ D2b 红。两边不能一起绿。
 //  🧨 F2「分享串**末行**是 base64 载荷」：导入端按最后一行取（`ImportDeckPopup__TryImport.c:14-18`）——
 //     把 base64 挪到开头 ⇒ F2 红（而 F1「前面有可读段」仍绿）。
 //
@@ -76,7 +81,7 @@ public static class B121_WC_Assert
     }
 
     // ==================================================================
-    //  A：错误码本身 —— `InvalidCard` 是**原版具名键**、与 `EffectOnlyCard` 的两句话**分得开**
+    //  A：错误码本身 —— `InvalidCard` 是**原版具名键**，`EffectOnlyCard` 与它**同键**（原版那条准入闸只有一句话）
     // ==================================================================
     static void A_ErrorCode()
     {
@@ -88,9 +93,9 @@ public static class B121_WC_Assert
         Check(Loc.HasAnyTerm(key), "A3 ★ 词条表里查得到 `" + key + "`（⛔ 查不到就会把键名印到屏幕上）");
         string txt = Loc.T(key);
         Check(!string.IsNullOrEmpty(txt) && txt != key, "A4 ★ 取到的是人话、不是键名：「" + txt + "」");
-        Check(DeckRules.ErrorTextKey(DeckError.InvalidCard) != DeckRules.ErrorTextKey(DeckError.EffectOnlyCard),
-              "A5 ★★ 与「效果生成的卡」那档**不是同一个键**（两档原因不同、文案必须分开）"
-            + " ｜🧨 把新档并回 `EffectOnlyCard` ⇒ 本句红");
+        Check(DeckRules.ErrorTextKey(DeckError.InvalidCard) == DeckRules.ErrorTextKey(DeckError.EffectOnlyCard),
+              "A5 ★★ 两档**同键** = `MenuDeck/Error/InvalidCard`（原版 `CardDeck__CanAddCard.c:40-47` 的准入闸只有这一句；官方 13 语言表里 `MenuDeck/Error/EffectOnlyCard` 0 命中）"
+            + " ｜🧨 把 `EffectOnlyCard` 改回 `InvalidDeck` 兜底 ⇒ 本句红");   // ✅ 已复刻（2026-11-04 · B141 · 判据 `CardDeck__CanAddCard.c:40-47`，同 W31 `DeckRules.Describe:596`）
         Check(DeckRuntime.DeckErrorText(DeckError.InvalidCard) == txt,
               "A6 `TryAdd` 的 `out why` 走 `DeckRuntime.DeckErrorText` ⇒ 与 A4 逐字节相同");
     }
@@ -128,8 +133,8 @@ public static class B121_WC_Assert
         var u = s.Find(UnitA);
         if (u == null) { Check(false, "C0（前提）夹具解析失败"); return; }
         s.Deck.WarlordId = HeroA;
-        // 2026-11-03（B124-W1 · δ）：原来只放 1 张 ⇒ `DeckRules.Validate` 在 ④ 张数档（`DeckRules.cs:486-488`）就回 `TooFewCards`，走不到 ⑥b（`:502` 的 `IsNotDeckable`）。
-        //   补满到合法张数（经典 30）：⑥b 在 ⑦ 同名上限**之前**返回 ⇒ 30 张同名不会先撞 `CopyLimitExceeded`；要测的那张 `notDeckable` 卡仍在。
+        // 2026-11-03（B124-W1 · δ）：原来只放 1 张 ⇒ **旧闸序**里 ④ 张数档先回 `TooFewCards`，走不到 ⑥b（`IsNotDeckable`）。
+        //   🔴 2026-11-04 就地订正（B141 · W38 现核）：④ 张数闸已挪到 ⑧ 之后（`DeckRules.cs:524-526`）；⑥b 仍在 ⑦ 同名上限之前 ⇒ 30 张同名不会先撞 `CopyLimitExceeded`，要测的那张 `notDeckable` 卡仍在。
         for (int i = 0; i < DeckRules.CardCount(s.Skirmish); i++) s.Deck.CardIds.Add(UnitA);
         u.AttachNotDeckable(true);
         var e = s.Validate();
@@ -138,7 +143,15 @@ public static class B121_WC_Assert
     }
 
     // ==================================================================
-    //  D：卡池按督军分流的两条边角（COLL-5①）
+    //  D：卡池按督军分流的边角（COLL-5①）
+    // ✅ 已复刻（2026-11-04 · B141 · 原版 `CardArmyFilter__SetFilterToDeck.c:16-25` + `FilterToArmy.c` 末句）
+    //
+    //  🔴 **2026-11-04（`B141_W30b` · W129 `3-02`）翻极性**：原版「有督军 / 有牌」那一支 =
+    //     `FilterToArmy(deckArmy)`（把阵营筛选**强制**成 `deckArmy`）+ `SetActive(false)`（整行隐藏），
+    //     而且 `.c:20` 那句 `if (param_1[8] != '\0') return;` 说明锁过就不再重算。
+    //     ⇒ **玩家没有「点阵营就绕过督军闸」这条路**（行都是隐的）。
+    //     旧口径（`B121_WC · COLL-5①`「显式点了阵营 ⇒ 以筛选为准」）已被上面那句早退句推翻，
+    //     `DeckEditorState` 的 `armyPicked` 同批删除（落点 → `Deck/DeckEditorState.cs:585/595/608`）。
     // ==================================================================
     static void D_PoolSplitEdge()
     {
@@ -154,14 +167,32 @@ public static class B121_WC_Assert
         var f = s.Filter;
         f.Factions = new HashSet<string> { FacB };
         s.Filter = f;
-        seesB = false;
+        bool seesB2 = false, seesA2 = false;
         var vis2 = s.VisibleCards();
-        for (int i = 0; i < vis2.Count; i++) if (vis2[i] != null && vis2[i].Id == UnitB) { seesB = true; break; }
-        Check(seesB,
-              "D2 ★★ **玩家显式点了别的阵营 ⇒ 卡池跟着筛过去**（原版 `CardArmyFilter.SetFilterToDeck` 只是**预选**；"
-            + "加牌时再由 `CanAddCard` 的 `InvalidArmy` 挡） ｜🧨 督军硬闸恒生效 ⇒ 本句红");
+        for (int i = 0; i < vis2.Count; i++)
+        {
+            if (vis2[i] == null) continue;
+            if (vis2[i].Id == UnitB) seesB2 = true;
+            if (vis2[i].Id == UnitA) seesA2 = true;
+        }
+        Check(!seesB2,
+              "D2 ★★ **有督军 + 筛选里残留阵营 B ⇒ 别的阵营照旧看不见**（卡池被锁在 `deckArmy`）"
+            + " —— 判据 `CardArmyFilter__SetFilterToDeck.c:20-25`（`setted` 早退 + `FilterToArmy(deckArmy)`）"
+            + " ｜🧨 把 `armyPicked`（2026-11-03 那条「点阵营即越权」）写回来 ⇒ 本句红");
+        Check(seesA2, "D2a ……而 A 阵营自己的卡**在**（锁的是阵营，不是把池子清空）");
+        // 🧨 灭自证：同一份筛选换成**收藏窗那一路**（不开 `WarlordGatedPool`）就看得见 B
+        //   ⇒ 「看不见」是**卡组编辑那把锁**造成的，不是 `FactionOk` 坏了 / 池子恒空。
+        var c = Fresh();
+        c.Deck.WarlordId = HeroA;
+        var fc = c.Filter; fc.Factions = new HashSet<string> { FacB }; c.Filter = fc;
+        bool seesBC = false;
+        var visC = c.VisibleCards();
+        for (int i = 0; i < visC.Count; i++) if (visC[i] != null && visC[i].Id == UnitB) { seesBC = true; break; }
+        Check(seesBC,
+              "D2b ★★ 同一份筛选放到**收藏窗那一路**（不开 `WarlordGatedPool`）⇒ B **看得见**"
+            + " ｜🧨 与 D2 成对：把 `FactionOk` 废掉 / 把锁做成全局 ⇒ 本句红");
         Check(s.CanAdd(s.Find(UnitB)) == DeckError.InvalidArmy,
-              "D3 ★ 看得见 ≠ 加得进：那张卡仍被 `InvalidArmy` 挡（与原版同一条路）");
+              "D3 ★ **看不见 ≠ 加得进**：那张卡直接加仍被 `InvalidArmy` 挡（与原版同一条路）");
     }
 
     // ==================================================================

@@ -383,5 +383,384 @@ namespace RuleEngine
             }
             return _sandboxFile;
         }
+
+        // ================================================================================================
+        //  🆕 2026-11-04（执行代理 `B141_W15` · UI-05 D6）· 存档 **key 形状**：`PlayerDecks` 不再折叠 `current`
+        //
+        //  原版判据（`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/` + `d:/2/tools/decomp_full/` 现读）：
+        //   · `DeckInventory.cs:209` —— `PlayerDecks` = **`AzureDeckInfo[]`**（数组，**没有 current**）。
+        //   · `DeckInventory.cs:216` + `decomp_full/DeckInventory__OnFinishUnpack.c:45-58` —— `PlayerDecksFast`
+        //     也是 `AzureDeckInfo[]`，与 `PlayerDecks` **Concat**。
+        //   · `PlayerDataManager.cs:11459-11470` —— `PlayerDecks` 缺时读 `Decks`，类型 = **`Dictionary<string, AzureDeckInfo>`**。
+        //   · `PlayerDataManager.cs:11472-11473` + `decomp_full/PlayerDataManager__set_currentDeckId.c:5` ——
+        //     `CurrentDeck` = **字符串卡组 id**（读进 `currentDeckId`，字段偏移 `+0x238`）。
+        //  ⇒ 本文件出三件：① 新写形状 `{version,decks}`（**不含 current**）② `CurrentDeck` 的序列化/解析
+        //     ③ `Decks` / `PlayerDecksFast` 的**读兜底**解析（原版客户端只读不写这两个）。
+        //  ⚠️ 旧形状（`{version,current,decks}`）的**读**保持不变（`Parse` 仍读 `Dto.current`）⇒ 旧档能读。
+        // ================================================================================================
+
+        /// <summary>**新写形状**：`{version, decks}` —— 不含 `current`（原版 `PlayerDecks` 只有卡组表；
+        /// 「当前选中」移到独立 key `CurrentDeck`，见 <see cref="SerializeCurrentDeck"/>）。
+        /// <para>与 <see cref="Serialize"/> 的分工：后者保留旧形状（带 `current`），只服务**无 Shell 的纯文件老路**
+        /// （`SaveAll`）与既有往返断言；**生产中央档走本方法**（`DeckLibrary.WriteDecksThroughHooks`）。</para>
+        /// <para>✅ 已复刻（2026-11-04 · B141 · `cpp2il/out_cpp2il_dev_ilspy/DeckInventory.cs:209` +
+        /// `DeckInventory.cs:216` + `PlayerDataManager.cs:11472`）。</para></summary>
+        public static string SerializeStore(List<PlayerDeck> decks)
+        {
+            var dto = new DtoWrite { version = 1, decks = decks ?? new List<PlayerDeck>() };
+            return JsonUtility.ToJson(dto, true);
+        }
+
+        /// <summary>`CurrentDeck` 的本地载荷 —— 原版是**裸字符串（卡组 id）**；我们的中央档
+        /// `SaveCenter.SetRaw` 只收 JSON 对象 ⇒ 本地包成 `{"id":"…"}`。
+        /// <para>🔶 自己设计（非原版）：包对象只是**本地承载**，key 名 / 语义 / 值是原版的（卡组 id 字符串）·
+        /// 为什么必须自己定：原版载荷是 PlayFab user data 的裸串，本地 `SaveCenter` 的 `_v` 信封结构上装不下标量；
+        /// 服务器已关服、判据在远端，本地只能定一个可逆封装 · 调度台 2026-11-04 裁定。</para>
+        /// <para>✅ 已复刻（2026-11-04 · B141 · `PlayerDataManager.cs:11472-11473` + `set_currentDeckId.c:5`）。</para></summary>
+        public static string SerializeCurrentDeck(string deckId)
+        {
+            return "{\"id\":" + QuoteJsonString(deckId ?? "") + "}";
+        }
+
+        /// <summary>解析 `CurrentDeck`：① 我们的 `{"id":"…"}` ② 原版裸 JSON 字符串 `"…"` ③ 裸文本。
+        /// 空 / 解不出 ⇒ `null`（调用方退回旧档 payload 里的 `current:int`）。</summary>
+        public static string ParseCurrentDeckId(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return null;
+            string t = text.Trim();
+            if (t.Length == 0) return null;
+            if (t[0] == '{')
+            {
+                try
+                {
+                    var dto = JsonUtility.FromJson<CurrentDeckDto>(t);
+                    if (dto != null && !string.IsNullOrEmpty(dto.id)) return dto.id;
+                }
+                catch (Exception) { /* 落到下面几档 */ }
+                return null;                     // 对象里没有 `id`（含 `{"id":""}`）⇒ 当作没有，⛔ 别把整段 JSON 当 id
+            }
+            if (t.Length >= 2 && t[0] == '"' && t[t.Length - 1] == '"')
+                return UnescapeJsonString(t.Substring(1, t.Length - 2));
+            return t;
+        }
+
+        /// <summary>`PlayerDecksFast` 的读兜底：原版 `GetOnlineData&lt;AzureDeckInfo[]&gt;(PlayerDataKey.PlayerDecksFast)`
+        /// （`DeckInventory.cs:216`）。⛔ 只在**读**侧用 —— 原版客户端没有写点（写走服务端）。
+        /// 解不出 ⇒ 空表 + 出声（⛔ 不静默当成「没有」）。</summary>
+        public static List<PlayerDeck> ParseAzureDeckArray(string text)
+        {
+            var list = new List<PlayerDeck>();
+            if (string.IsNullOrEmpty(text)) return list;
+            string t = text.Trim();
+            if (t.Length == 0 || t[0] != '[')
+            {
+                Debug.LogWarning("[DeckStore] `PlayerDecksFast` 不是 JSON 数组（首字符 = '" + (t.Length > 0 ? t[0] : ' ') + "'）⇒ 当作空表");
+                return list;
+            }
+            try
+            {
+                foreach (var raw in SplitTopLevelArray(t))
+                {
+                    var a = JsonUtility.FromJson<AzureDeckDto>(raw);
+                    var d = ToPlayerDeck(a, null, raw);
+                    if (d != null) list.Add(d);
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[DeckStore] `PlayerDecksFast` 解析失败（" + e.GetType().Name + ": " + e.Message + "）⇒ 当作空表");
+            }
+            return list;
+        }
+
+        /// <summary>`Decks` 的读兜底：原版 `GetOnlineData&lt;object&gt;(PlayerDataKey.Decks)` 读成
+        /// `Dictionary&lt;string, AzureDeckInfo&gt;`（`PlayerDataManager.cs:11459-11470`，只在 `PlayerDecks` 缺时读）。
+        /// 值的 `id` 缺省时用 **map 的键**（原版按 id 键存）。解不出 ⇒ 空表 + 出声。</summary>
+        public static List<PlayerDeck> ParseAzureDeckMap(string text)
+        {
+            var list = new List<PlayerDeck>();
+            if (string.IsNullOrEmpty(text)) return list;
+            string t = text.Trim();
+            if (t.Length == 0 || t[0] != '{')
+            {
+                Debug.LogWarning("[DeckStore] `Decks` 不是 JSON 对象（首字符 = '" + (t.Length > 0 ? t[0] : ' ') + "'）⇒ 当作空表");
+                return list;
+            }
+            foreach (var kv in SplitTopLevelObject(t))
+            {
+                try
+                {
+                    var a = JsonUtility.FromJson<AzureDeckDto>(kv.Value);
+                    var d = ToPlayerDeck(a, kv.Key, kv.Value);
+                    if (d != null) list.Add(d);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning("[DeckStore] `Decks` 的键 `" + kv.Key + "` 解析失败（" + e.GetType().Name + ": " + e.Message + "）⇒ 跳过它");
+                }
+            }
+            return list;
+        }
+
+        // ------------------------------------------------------------ 内部：Azure 形状 → PlayerDeck
+
+        [Serializable]
+        class DtoWrite
+        {
+            public int version;
+            public List<PlayerDeck> decks;
+        }
+
+        [Serializable]
+        class CurrentDeckDto
+        {
+            public string id;
+        }
+
+        [Serializable]
+        class AzureDeckDto
+        {
+            public string id;
+            public string name;
+            public string hero;
+            public string characterId;
+            public string defenseCard;
+            public string cardback;
+            public string warcry;
+            public string prebuiltDeckId;
+            public int deckTag;
+            public long lastEditTime;
+            public int gameMode;
+            // ⚠️ `cards` 是 `Dictionary<string,int>` —— `JsonUtility` **不支持字典** ⇒ 由 `ParseCardsMap` 单独解。
+        }
+
+        /// <summary>原版 `AzureDeckInfo` → 我们的 <see cref="PlayerDeck"/>（只用于**读兜底**）。
+        /// 字段对应：`name→Name` · `hero→WarlordId` · `defenseCard→DefensiveId` · `cards(id→张数)→CardIds`
+        /// · `gameMode→GameMode` · `cardback→CardbackId` · `warcry→WarcryId` · `id→DeckId`。</summary>
+        static PlayerDeck ToPlayerDeck(AzureDeckDto a, string idFromKey, string rawObjectJson)
+        {
+            if (a == null) return null;
+            string id = string.IsNullOrEmpty(a.id) ? idFromKey : a.id;
+            var d = new PlayerDeck(a.name ?? "未命名", a.hero ?? "", a.defenseCard ?? "",
+                                   new List<string>(), a.gameMode)
+            {
+                CardbackId = a.cardback ?? "",
+                WarcryId = a.warcry,
+                DeckId = string.IsNullOrEmpty(id) ? null : id,
+            };
+            foreach (var kv in ParseCardsMap(rawObjectJson))
+                for (int i = 0; i < kv.Value; i++) d.CardIds.Add(kv.Key);
+            return d;
+        }
+
+        // ------------------------------------------------------------ 内部：极简 JSON 扫描（⛔ 不引第三方）
+
+        static string QuoteJsonString(string s)
+        {
+            var sb = new System.Text.StringBuilder("\"");
+            foreach (char c in s ?? "")
+            {
+                switch (c)
+                {
+                    case '"': sb.Append("\\\""); break;
+                    case '\\': sb.Append("\\\\"); break;
+                    case '\n': sb.Append("\\n"); break;
+                    case '\r': sb.Append("\\r"); break;
+                    case '\t': sb.Append("\\t"); break;
+                    default: sb.Append(c); break;
+                }
+            }
+            return sb.Append('"').ToString();
+        }
+
+        static string UnescapeJsonString(string s)
+        {
+            if (string.IsNullOrEmpty(s) || s.IndexOf('\\') < 0) return s;
+            var sb = new System.Text.StringBuilder(s.Length);
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (s[i] != '\\' || i + 1 >= s.Length) { sb.Append(s[i]); continue; }
+                char n = s[++i];
+                switch (n)
+                {
+                    case '"': sb.Append('"'); break;
+                    case '\\': sb.Append('\\'); break;
+                    case '/': sb.Append('/'); break;
+                    case 'b': sb.Append('\b'); break;
+                    case 'f': sb.Append('\f'); break;
+                    case 'n': sb.Append('\n'); break;
+                    case 'r': sb.Append('\r'); break;
+                    case 't': sb.Append('\t'); break;
+                    case 'u':
+                        if (i + 4 < s.Length)
+                        {
+                            int code;
+                            if (int.TryParse(s.Substring(i + 1, 4), System.Globalization.NumberStyles.HexNumber, null, out code))
+                            { sb.Append((char)code); i += 4; }
+                        }
+                        break;
+                    default: sb.Append(n); break;
+                }
+            }
+            return sb.ToString();
+        }
+
+        static int SkipWs(string s, int i)
+        {
+            while (i < s.Length && (s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n')) i++;
+            return i;
+        }
+
+        /// <summary>`s[i] == '"'` ⇒ 返回**闭引号之后**的下标（不含引号本身）；未闭合 ⇒ `-1`。</summary>
+        static int SkipString(string s, int i)
+        {
+            if (i >= s.Length || s[i] != '"') return -1;
+            for (int p = i + 1; p < s.Length; p++)
+            {
+                if (s[p] == '\\') { p++; continue; }
+                if (s[p] == '"') return p + 1;
+            }
+            return -1;
+        }
+
+        /// <summary>`s[i]` 是 `{` 或 `[` ⇒ 返回匹配括号之后的下标；不匹配 ⇒ `-1`。</summary>
+        static int MatchBracket(string s, int i, char open, char close)
+        {
+            if (i >= s.Length || s[i] != open) return -1;
+            int depth = 0;
+            for (int p = i; p < s.Length; p++)
+            {
+                char c = s[p];
+                if (c == '"') { int e = SkipString(s, p); if (e < 0) return -1; p = e - 1; continue; }
+                if (c == open) depth++;
+                else if (c == close) { depth--; if (depth == 0) return p + 1; }
+            }
+            return -1;
+        }
+
+        /// <summary>找一个**顶层/嵌套**的 `"key":` 并把 `:` 的下标交回来（跳过字符串里的冒号；键后必须紧跟 `:`）。</summary>
+        static int FindKeyColon(string s, string key)
+        {
+            for (int i = 0; i < s.Length; i++)
+            {
+                if (s[i] != '"') continue;
+                int e = SkipString(s, i);
+                if (e < 0) return -1;
+                string name = UnescapeJsonString(s.Substring(i + 1, e - i - 2));
+                int j = SkipWs(s, e);
+                if (name == key && j < s.Length && s[j] == ':') return j;
+                i = e - 1;
+            }
+            return -1;
+        }
+
+        /// <summary>解析 `"cards": {"<id>": <张数>, …}`（`JsonUtility` 不支持字典）。失败 ⇒ 空表。</summary>
+        static List<KeyValuePair<string, int>> ParseCardsMap(string objectJson)
+        {
+            var list = new List<KeyValuePair<string, int>>();
+            if (string.IsNullOrEmpty(objectJson)) return list;
+            int colon = FindKeyColon(objectJson, "cards");
+            if (colon < 0) return list;
+            int i = SkipWs(objectJson, colon + 1);
+            if (i >= objectJson.Length || objectJson[i] != '{') return list;
+            int end = MatchBracket(objectJson, i, '{', '}');
+            if (end < 0) return list;
+            int p = i + 1;
+            while (p < end - 1)
+            {
+                p = SkipWs(objectJson, p);
+                if (p >= end - 1) break;
+                if (objectJson[p] == ',') { p++; continue; }
+                if (objectJson[p] != '"') break;
+                int ke = SkipString(objectJson, p);
+                if (ke < 0) break;
+                string key = UnescapeJsonString(objectJson.Substring(p + 1, ke - p - 2));
+                p = SkipWs(objectJson, ke);
+                if (p >= end - 1 || objectJson[p] != ':') break;
+                p = SkipWs(objectJson, p + 1);
+                int ns = p;
+                if (p < end - 1 && objectJson[p] == '-') p++;
+                while (p < end - 1 && objectJson[p] >= '0' && objectJson[p] <= '9') p++;
+                int n = 1;
+                if (p > ns) int.TryParse(objectJson.Substring(ns, p - ns), out n);
+                if (n > 0) list.Add(new KeyValuePair<string, int>(key, n));
+                p = SkipWs(objectJson, p);
+                if (p < end - 1 && objectJson[p] == ',') p++;
+            }
+            return list;
+        }
+
+        /// <summary>把顶层对象拆成「键 → 值的原文」。只给 `Decks`（`Dictionary&lt;string, AzureDeckInfo&gt;`）用。</summary>
+        static List<KeyValuePair<string, string>> SplitTopLevelObject(string text)
+        {
+            var list = new List<KeyValuePair<string, string>>();
+            int end = MatchBracket(text, 0, '{', '}');
+            if (end < 0)
+            {
+                Debug.LogWarning("[DeckStore] `Decks` 的顶层 `{` 没闭合 ⇒ 当作空表");
+                return list;
+            }
+            int p = SkipWs(text, 1);
+            while (p < end - 1)
+            {
+                if (text[p] == ',') { p = SkipWs(text, p + 1); continue; }
+                if (text[p] != '"') break;
+                int ke = SkipString(text, p);
+                if (ke < 0) break;
+                string key = UnescapeJsonString(text.Substring(p + 1, ke - p - 2));
+                p = SkipWs(text, ke);
+                if (p >= end - 1 || text[p] != ':') break;
+                p = SkipWs(text, p + 1);
+                int vs = p, ve;
+                if (p < text.Length && (text[p] == '{' || text[p] == '['))
+                    ve = MatchBracket(text, p, text[p], text[p] == '{' ? '}' : ']');
+                else if (p < text.Length && text[p] == '"')
+                    ve = SkipString(text, p);
+                else
+                {
+                    ve = p;
+                    while (ve < end - 1 && text[ve] != ',' && text[ve] != '}') ve++;
+                }
+                if (ve < 0 || ve > end - 1) break;
+                list.Add(new KeyValuePair<string, string>(key, text.Substring(vs, ve - vs)));
+                p = SkipWs(text, ve);
+                if (p < end - 1 && text[p] == ',') p++;
+            }
+            return list;
+        }
+
+        /// <summary>把顶层数组拆成「每个元素的原文」。只给 `PlayerDecksFast`（`AzureDeckInfo[]`）用。
+        /// ⚠️ 逐元素取原文是**必须的** —— `cards` 是 `Dictionary`（`JsonUtility` 不支持），
+        /// 拿整段数组去扫 `"cards"` 会把**第一副的卡表**套给每一副。</summary>
+        static List<string> SplitTopLevelArray(string text)
+        {
+            var list = new List<string>();
+            int end = MatchBracket(text, 0, '[', ']');
+            if (end < 0)
+            {
+                Debug.LogWarning("[DeckStore] `PlayerDecksFast` 的顶层 `[` 没闭合 ⇒ 当作空表");
+                return list;
+            }
+            int p = SkipWs(text, 1);
+            while (p < end - 1)
+            {
+                if (text[p] == ',') { p = SkipWs(text, p + 1); continue; }
+                int vs = p, ve;
+                if (text[p] == '{' || text[p] == '[')
+                    ve = MatchBracket(text, p, text[p], text[p] == '{' ? '}' : ']');
+                else if (text[p] == '"')
+                    ve = SkipString(text, p);
+                else
+                {
+                    ve = p;
+                    while (ve < end - 1 && text[ve] != ',' && text[ve] != ']') ve++;
+                }
+                if (ve < 0 || ve > end - 1) break;
+                list.Add(text.Substring(vs, ve - vs));
+                p = SkipWs(text, ve);
+                if (p < end - 1 && text[p] == ',') p++;
+            }
+            return list;
+        }
     }
 }

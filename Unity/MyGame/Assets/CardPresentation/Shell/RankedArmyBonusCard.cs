@@ -38,9 +38,9 @@
 //     **贴图由活动数据在运行时喂**（prefab 里没有图）⇒ 本文件只建节点 + 出声一次（⛔ 不拿纯色块冒充活动图）。
 //   · `TimerDisplay`（`Everguild` 的计时件）我们没有等价类 ⇒ 用一句 `Timer Text` 文本 + `Clock Icon` 承载，
 //     显隐/格式按 prefab 的 baked 样例（`'5d 20h 15m'`）。
-//   · `UI_InfiniteScroll` 没有运行时实现（本工程没有 uGUI / 滚动组件，滚动由 `Shell/MenuScroll.cs` 那一族自绘）
-//     ⇒ 只把原版那一位 `thresholdForAutoScroll(2) < list.Count` 的结果**算出来并暴露成断言读口**
-//     （`AutoScrollEnabled`），⛔ 不假装滚得动。
+//   · ✅ 2026-11-04（`B141-W20` · 账 `TOOL-03` 第 2 实例）：`UI_InfiniteScroll` 的**数据等价物**复用
+//     `Shell/MainMenuOfferContainer.cs` 的 `InfiniteScrollRing`（与本 prefab 第 1 实例同一条环）⇒ `thresholdForAutoScroll(2) < list.Count`
+//     仍暴露成 `AutoScrollEnabled`（= 环的 `AutoScroll`），并真正由 `MainMenuRuntime.Update ▸ StepOfferRings` 驱动 `Tick`。
 // ─────────────────────────────────────────────────────────────────────────────
 using System;
 using System.Collections.Generic;
@@ -284,7 +284,7 @@ namespace CardPresentation
             }
 
             // ④ `*(bool*)(scroll + 0x22) = thresholdForAutoScroll < list.Count`
-            AutoScrollEnabled = ThresholdForAutoScroll < _currentArmyImages.Count;
+            AutoScrollEnabled = ThresholdForAutoScroll < _currentArmyImages.Count; Ring.SetItems(_currentArmyImages.Count, ArmyIconW + ArmySpacing); Ring.AutoScroll = AutoScrollEnabled;   // ✅ 已复刻（2026-11-04 · B141 · 账 TOOL-03 第 2 实例）：环的槽距 = `Content` 的 HLG 实测 `sizeDelta.x(254.90341) + spacing(20)`（= 原版 `DisableGridComponents` 从相邻两件量出的 `_recordOffsetX`），`AutoScroll` = 原版 `scroll+0x22` 那一位
         }
 
         /// <summary>原版 `Clean()`：`SupportMethods.DestroyAllChildren(armyContentAnchor)` + 清 `currentArmyImages`。</summary>
@@ -294,7 +294,7 @@ namespace CardPresentation
                 for (int i = _content.childCount - 1; i >= 0; i--)
                     DestroySafe(_content.GetChild(i).gameObject);
             _currentArmyImages.Clear();
-            AutoScrollEnabled = false;
+            AutoScrollEnabled = false; Ring.SetItems(0, 0f);   // ✅ 已复刻（2026-11-04 · B141 · 账 TOOL-03 第 2 实例）：`Clean()` 后环也必须清空（= 原版 `DestroyAllChildren` 之后 `content.childCount` 归 0 ⇒ `SetItems` 那把尺归零）
         }
 
         /// <summary>一颗 `Simple Army Icon`（原版 prefab：白图 `Image`（`m_Sprite = 0`、`preserveAspect`）+ `SimpleArmyImage`）。</summary>
@@ -385,5 +385,23 @@ namespace CardPresentation
         /// 本工程的符号约定 **正 = 缩小、负 = 扩大**）⇒ **下边外扩 15px**，其余三边 0。
         /// 判据文件/对象 → <see cref="_clip"/> 的 doc。</para></summary>
         static readonly Vector4 MaskPadding = new Vector4(0f, -15f, 0f, 0f);
+
+        // ============================================================================================
+        //  ✅ 已复刻（2026-11-04 · `B141-W20` · 账 `TOOL-03` 第 2 实例）
+        //  ============================================================================================
+        /// <summary>= 原版 `RankedArmyBonusContainer.infiniteScroll`（prefab `Reward Event Container 1x1` 现读：
+        /// `UI_InfiniteScroll` 组件 `&114397768327470545` = `AllowManualScroll: 0` · `InitByUser: 1` ·
+        /// **`AutoScroll: 1`** · **`AutoScrollSpeed: {x: -50, y: 0}`**；容器字段 `thresholdForAutoScroll: 2`）。
+        /// <para>槽距 = `Content` 的 HLG 实测 `sizeDelta.x(254.90341) + spacing(20)` —— 原版 `DisableGridComponents`
+        /// 是从**相邻两件实测差**得出 `_recordOffsetX`，不是常量；`Threshold` 吃脚本 `Reset()` 的 **100**
+        /// （`UI_InfiniteScroll.cs:367`，prefab 里该字段未序列化 ⇒ 出厂值生效）。</para>
+        /// <para>⚠️ 与第 1 实例（`MainMenuCarouselDrawer.Ring`）同一条口径：本环**纯数据**，只推进 `ContentX` 与搬件计数，
+        /// **不移动真正的图标 quad**（原版靠 `UI_InfiniteScroll` 改 `anchoredPosition`；我们 3 枚图标本来就没溢出
+        /// `Dynamic Content`，可见效果 = 0，语义/读数先补齐）。</para></summary>
+        public readonly InfiniteScrollRing Ring = new InfiniteScrollRing();
+
+        /// <summary>= 原版 `UI_InfiniteScroll.Update()`：宿主每帧喂 <paramref name="dt"/>（秒）。
+        /// 批处理下没有帧循环 ⇒ 生产泵 = `MainMenuRuntime.Update ▸ StepOfferRings`（⛔ 不自己开 `Update`）。</summary>
+        public void Tick(float dt) { Ring.Tick(dt); }
     }
 }

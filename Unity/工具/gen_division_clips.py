@@ -65,6 +65,7 @@ gen_division_clips.py — 排位「升段窗」(`RankedEventDivisionChangeWindow
 而**真正把值画出来**走我们自己的手动通道（见 `RankedDivisionChangeWindow.cs` 的 `ApplyChannel`）。
 
 ## schema（运行期 `[Serializable]` 类逐字对应）
+## ✅ 已复刻（2026-11-04 · B141-W51 · 键名普查：产物键 ↔ `Shell/RankedDivisionChangeWindow.cs` 的 `DivisionClip{Key,Curve,Event,File}` 逐键核过，0 处不一致；顶层的 `animation`/`src` 等是 provenance，DTO 有意忽略）
 ```
 { "schema":1, "note":"…", "source":"…", "owner":"Ranked Division Change Window",
   "animation":{ "file":"…", "pid":…, "playAutomatically":false, "wrapMode":0,

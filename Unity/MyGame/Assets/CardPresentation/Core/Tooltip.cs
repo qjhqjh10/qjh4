@@ -49,8 +49,8 @@
 //          2026-10-14 已从旧缓存里解开（逐字节重复密钥 XOR）。
 //        · 「那个值本地取不到」**只对** `zh_CN.csv` 那份旧表成立（按英文源串精确查 0 命中是事实），
 //          ⛔ 不能外推成「原版没有」。该说法与 `Core/Loc.cs` 文件头的订正口径一致。
-//   ② 面板的**圆角/内边距/九宫格拉伸目标尺寸**：prefab 的 RectTransform 是 UI 布局算的，
-//      我们这套是世界空间 quad ⇒ **内边距与最小宽高是我们挑的**。
+//   ② 面板的**内边距 / 宽下限 / 高下限**已按原版 `BasicToolTip.prefab` 的矩形反推（判据见
+//      `PadX / PadY / MinW / MinH` 那一行）；仍属**自设计**的只有 `MaxW` 与 `LineH`（原版宽恒 500、正文靠 UI 布局折行，我们的 `Label` 按字符数折行且不裁切）。
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -119,14 +119,14 @@ namespace CardPresentation
         /// <summary>原版 `EverguildTooltipItem.ANIMATION_TIME = 0.3f`（桩 `.cs:10`，.rdata 实测 0.3f）</summary>
         const float FadeTime = 0.3f;
         /// <summary>1 世界单位 = 108 px（和 `LayoutSpace` 同一口径）</summary>
-        const float PxPerUnit = 1080f / 10f;
-        /// <summary>正文的字号：原版 TMP 是 **28 pt**，跨工程只能对**渲染高度**
-        /// （28 pt ⇒ 大写高 0.72 em ≈ 20.2 px ≈ 0.1867 世界单位）。同 `OvertimeSplashText` 那条教训：
-        /// **原版的 `m_fontSize` 不能照抄**，它按原版画布算。</summary>
-        const float BodyCapWorld = 0.72f * 28f / PxPerUnit;
+        public const float PxPerUnit = 1080f / 10f;   // 自检（`Editor/B141_W19_Assert.cs`）要拿它把世界单位折成 px
+        /// <summary>正文的字号：原版 `BasicToolTip ▸ Text (TMP)` 的 `m_fontSize = 28` × **Pragati 大写高比 0.656** ⇒ 大写高 18.368 px = 0.1701 世界单位（`FontSizeToPxNow` 读回 em = 28 px，与 `m_fontSize` 同值）。同 `OvertimeSplashText` 那条教训：**原版的 `m_fontSize` 不能照抄**，它按原版画布算。
+        /// 🔴 2026-11-04（`B141` · 4-22）：比值原写 **0.72**（`capLine/pointSize` 的 em 口径推算、非实测）⇒ 字大 **9.7%**（28 × 0.72 ÷ 0.656 = 30.73 px）；判据全文 → `资料/完全复刻/报告/B141_W129_Tooltip.md`。
+        /// ⚠️ 中文档走 CJK 面（`Label.SyncFace`，大写比 0.0779）⇒ 比值该**按面取** —— 面选择是**同批 `4-01`** 的事，本格只钉「拉丁面 = 0.656」这一档。 ✅ 已复刻（2026-11-04 · `B141-W19` · 原版 `BasicToolTip.prefab:481` `m_fontSize = 28` × Pragati 0.656）</summary>
+        public const float BodyCapWorld = 0.656f * 28f / PxPerUnit;
 
-        // 面板内边距与下限 —— ⚠️ **我们挑的**（原版是 UI 布局算的，见文件头 ②）
-        const float PadX = 20f, PadY = 14f, MinW = 120f, MaxW = 640f, LineH = 30f;
+        // 面板内边距 / 宽下限 / 高下限 —— **判据 = 原版 `BasicToolTip.prefab`**（`d:/2/tools/assetripper_out/ExportedProject/Assets/`）：根 `m_SizeDelta = (500, 100)` · 正文 `Text (TMP)` 宽 **468.90002** ⇒ 左右 pad = (500 − 468.9) ÷ 2 = **15.55**；`Generic Popup Background` 的 `VerticalLayoutGroup.m_Padding` = (0, 0, **10**, **10**) ⇒ 上下 pad **10**；正文那颗自定义 fitter `heightMin 90 / heightMax 200` ⇒ 面板高下限 = 90 + 2×10 = **110**（⚠️ 根上的 100 是**模板值**：布局组不控宽、高度由 fitter 撑 ⇒ 运行时从不等于 100）。🔶 自己设计（非原版）：`MaxW` 640 = 生长余量（原版宽**恒 500、无上限**；我们的 `Label` 按**字符数**折行、不裁切溢出 ⇒ 不留余量字会画到底图外）· `LineH` 30 = **我们的行高**（原版行盒：拉丁 Pragati 0.9474 em ⇒ 26.5 px、CJK 1.2933 em ⇒ 36 px —— 两个面差 9.5 px，单一常数必然折中，而我们的 `Label` 会按语种换面）—— 执行代理 `B141-W19` 2026-11-04 依 `判据/B141_W129_对账_UI动画.md` 的 4-14 落：四项照原版（`PadX`/`PadY`/`MinW`/`MinH`）、两项照旧自设计（`MaxW`/`LineH`）并标此条。 ✅ 已复刻（2026-11-04 · `B141-W19` · 原版 `BasicToolTip.prefab` 根 `:100-119` / `VerticalLayoutGroup.m_Padding` `:228` / 正文 `:406-424` / 正文 fitter `:537-544`）
+        public const float PadX = 15.55f, PadY = 10f, MinW = 500f, MaxW = 640f, MinH = 110f, LineH = 30f;
 
         // ==================================================================
         //  🆕 2026-10-23（卡牌线 `A8`）：**关键词 tooltip = 原版 `Trait Tooltip` 那个两栏版式**
@@ -605,7 +605,7 @@ namespace CardPresentation
             float bw = _body.WorldW * UnitPx;
             _w = Mathf.Clamp(bw + PadX * 2f, MinW, MaxW);
             int lines = Mathf.Max(1, wrapped.Split('\n').Length);
-            _h = lines * LineH + PadY * 2f;
+            _h = Mathf.Max(MinH, lines * LineH + PadY * 2f);   // 原版面板高下限 110（正文 fitter `heightMin 90` + 上下各 10；见 `MinH` 那条注释）
             BuildBg();
         }
 

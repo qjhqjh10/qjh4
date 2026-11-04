@@ -121,7 +121,7 @@ namespace CardPresentation
         public const float LabL = 113.48f, LabR = 268.48f;
 
         public const string ArtTabOff = "40K_settings_button";        // offSprite（未选）
-        public const string ArtTabOn = "40K_settings_button_hover";   // onSprite / m_SelectedSprite（选中）
+        public const string ArtTabOn = "40K_settings_button_hover", ArtTabHover = "40K_settings_button_selected";   // onSprite / m_SelectedSprite（选中）· ✅ 已复刻（2026-11-04 · B141 · 5-17）：`ArtTabHover` = 原版 6/6 颗页签 `m_SpriteState.m_HighlightedSprite`（`Player Profile Window.prefab` 逐颗现读 = `_selected`；`_hover` 是选中态）
 
         /// <summary>`Tab  Area`（⚠️ **名字里是两个空格**）：`pos=(1049,−540) sz=(1551.04,844)`
         /// ⇒ **273.48,118 .. 1824.52,962**。</summary>
@@ -408,6 +408,11 @@ namespace CardPresentation
                              () => { if (tabButtons != null) tabButtons.Click(captured); }, _btnBg[i], ArtTabOff,
                              clickCue: WindowSounds.SelectToggleCue);
                 if (tabHit != null) _btnWb[i] = tabHit.GetComponent<WindowButton>();
+                // ✅ 已复刻（2026-11-04 · B141-W44 · 5-07）：原版这六颗页签的 `m_SpriteState.m_SelectedSprite`
+                //   = **`40K_settings_button_hover`**（= 它们的 `onSprite`；判据 → `报告/B141_W129_ButtonFx.md` §5-07）。
+                //   `MenuDraw.Hit` 的形参表不含 `selectedArt` ⇒ 建完后按**同一组常态/悬停/按下图**再 `Bind` 一次
+                //   （前四格逐位不变；`Bind` 幂等）。⚠️ `Ranked` 那一颗按用户口径**隐藏**（上面 `continue`）⇒ 只接 5 颗。
+                if (_btnWb[i] != null) _btnWb[i].Bind(_btnBg[i], ArtTabOff, ArtTabHover, null, ArtTabOn);   // ✅ 已复刻（2026-11-04 · B141 · 5-17）：悬停图显式传 `ArtTabHover`（原版 6/6 颗 `m_HighlightedSprite` 逐颗现读 = `_selected`），不靠全局表隐式兜底
                 // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版这六颗页签是 `EverguildToggle` +
                 //   **`allowClickWhenAlreadySelected = 0`** ⇒ 再点当前页时连按钮音一起跳过。
                 if (_btnWb[i] != null)

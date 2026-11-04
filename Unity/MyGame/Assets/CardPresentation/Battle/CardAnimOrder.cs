@@ -72,6 +72,19 @@ namespace CardPresentation
     {
         /// <summary>CardAnim 资产 GUID（诊断用；生成期已按它 join 好参数）。</summary>
         public string ca;
+        /// <summary>🆕 **行归属** = 这一拍属于原版 `activeAbilityLogic` 的**第几行**（下标；`-1` = 不知道）。
+        /// ✅ 已复刻（2026-11-04 · B141-W43 · `B141-SAN27-ROWID` · 判据 `AbilityLogic__PlayAbility.c:262/273`）：
+        /// 原版是**每一行**各一次 `GetTargets + PlayAnim` ⇒ 每一拍只播**它那一行**的目标。
+        /// <para>🔴 **为什么不能用 `ca` 反查行**：`ca` 是 **CardAnim 资产 GUID**（不是一个「能力种类」号），
+        /// 而且**同一张卡的不同行会引用同一个 CardAnim** —— 池内 132 张主动能力卡里 53 张多行，
+        /// 其中 **12 张跨行 `ca` 重复**（`AM28` 两行都是 `ca=70` · `DA18` 都是 `ca=60` · `SOR13` 都是 `ca=30`）
+        /// ⇒ 反查**不唯一**。⛔ 别在运行期按 `ca` 猜行。</para>
+        /// <para>⚠️ 数据来源 = 生成器的中间结构 `_assemble_cards` 的 `logicIndex`（`工具/gen_card_anim_order.py`），
+        /// 瘦身版现读 **158 拍全部带 `li`**，其中 `li=0` 148 · `li=1` 9 · `li=2` 1；**9 张多行卡**
+        /// （`AM28`/`AM35`/`DA18`/`DA20`/`DA71`/`DA75`/`SW23`/`SW8`/`UM105`）。
+        /// ⚠️ 它是**`activeAbility` 那个对象**的行号（本表只收 `path == 'activeAbility'`）；
+        /// 替代能力（`ab = -2`）那一份不在本表里 —— 消费端必须核 `BattleEvent.AbilityRowTargetsObject`。</para></summary>
+        public int li;
         /// <summary>**播哪件** = `AnimInfo.animAdressable(0x10)` → prefab 名。
         /// 🔴 **空串 = 纯延时拍**（原版 `Wait_300ms/1s/1.5s/2s` 那 4 个）—— 没有特效，**但时长照算**
         /// （原版用它两拍之间插停顿，⛔ 别当「解不出」丢掉）。</summary>

@@ -115,7 +115,7 @@ public static class B120_W12_Assert
         C(sk.warlordLifeChange, 0, "A20 遭遇 `warlordLifeChange` = **0**（「10 less Health」是相对经典 +10；SO 基准就是这一档）");
         Tr(!sk.showMulligan, "A21 遭遇 `showMulligan` = **false**（`Skirmish/Help`「No mulligan」）");
         C(sk.handLimit, 8, "A22 遭遇 `handLimit` = **8**（只有非官方规则书:58 一条支撑 —— 如实标着）");
-        C(sk.startingHand, 4, "A23 遭遇 `startingHand` = **4**（只有非官方规则书:58 一条支撑）");
+        C(sk.startingHand, 3, "A23 遭遇 `startingHand` = **3**（原版 `DefaultScenario.startingHand`=3，与非官方规则书:58 的 4 不同）");   // ✅ 已复刻（2026-11-04 · B141 · DefaultScenario）
         C(sk.overtimeTurn.HasValue ? sk.overtimeTurn.Value : -1, 8,
           "A24 遭遇 `overtimeTurn` = **8**（🔶 自己设计：官方文案只说 `earlier`；推导见 B 组）");
         C(GameplayVariables.SkirmishOvertimeTurn, 8, "A25 常量 `SkirmishOvertimeTurn` = **8**（与 A24 同源）");

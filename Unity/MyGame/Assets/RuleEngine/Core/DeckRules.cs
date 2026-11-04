@@ -458,7 +458,7 @@ namespace RuleEngine
             // ① 全部 id 都要能在卡池里找到
             var warlord = deck.WarlordId == null ? null : PlayerDeck.ResolveEntry(deck.WarlordId, lookup, out _);
             var defensive = deck.DefensiveId == null ? null : PlayerDeck.ResolveEntry(deck.DefensiveId, lookup, out _);
-            var cards = new List<CardDef>();
+            var cards = new List<CardDef>(); if (deck.CardIds == null) { UnityEngine.Debug.LogWarning("[RuleEngine] 卡组 `CardIds` 是 null（JSON 缺键 / 存档反序列化给 null）⇒ 按**空表**校验（原版不会有这个状态；⛔ 不静默）：「" + (deck.Name ?? "") + "」"); deck.CardIds = new List<string>(); }   // 🆕 2026-11-04（`B141 · W31` · 对账 3-22）：`RemoveInvalidCards` 早就有同一条守卫（本文件 `:434`），`Validate` 这条老路一直裸 `foreach` ⇒ 反序列化给 null 时整条路径 NRE。同一物理行追加 ⇒ 行数零漂移｜✅ 已复刻（2026-11-04 · B141 · 判据 `B141_W129_对账_卡组色彩.md` 3-22）
             foreach (var id in deck.CardIds)
             {
                 var c = PlayerDeck.ResolveEntry(id, lookup, out _);
@@ -482,10 +482,7 @@ namespace RuleEngine
             //      保留无害 —— 但这不等于原版有这条校验。
             if (defensive != null && defensive.Type != "defence") return DeckError.DefensiveNotDefence;
 
-            // ④ 张数
-            int want = mode.HasValue ? CardCount(mode.Value) : CardCount(skirmish);
-            if (cards.Count > want) return DeckError.TooManyCards;
-            if (cards.Count < want) return DeckError.TooFewCards; string deckArmy = DeckArmy(deck, lookup) ?? "Neutral";   // 🆕 2026-10-31（B106_W7）：⑤ 比的是原版 `deckArmy`（`deck+0x50`），不是督军的阵营；有督军时两者恒等（`DeckArmy` 的 doc）
+            string deckArmy = DeckArmy(deck, lookup) ?? "Neutral";   // 🆕 2026-10-31（B106_W7）：⑤ 比的是原版 `deckArmy`（`deck+0x50`），不是督军的阵营；有督军时两者恒等（`DeckArmy` 的 doc）｜🆕 2026-11-04（`B141 · W31` · 对账 3-20）：④ 张数闸**已挪到 ⑧ 之后**（原版 `ValidateDeck.c` 先跑 `ValidateDeckCards`、再比张数），原位置只留这句声明
 
             // ⑤ 阵营：所有卡必须与 **`deckArmy`** 同阵营 —— 判据 = `ValidateDeckCards.c:58`（`card+0x2c != deck+0x50`）+ `ValidateDeck.c:38-40`（`hero.cardArmy == deckArmy` 才往下走）；🆕 2026-10-31（B106_W7）：有督军时 `deckArmy` 恒等于督军阵营（规则书:53 是同一条的特例），无督军时才分叉。⚠️ 原版这一支【没有】`IsNeutralArmy` 例外 —— 照抄别修
             foreach (var c in cards)
@@ -524,6 +521,9 @@ namespace RuleEngine
             foreach (var c in cards) if (IsLegendary(c.Rarity)) legendaries++;
             if (legendaries > LegendaryTotalLimit(skirmish)) return DeckError.LegendaryTotalExceeded;
 
+            // ✅ 已复刻（2026-11-04 · B141 · 判据 `B141_W129_对账_卡组色彩.md` 3-20 = `ValidateDeck.c:50,69`）④ 张数闸**挪到这里** —— 原版 `DeckUtility__ValidateDeck.c:50` 先跑 `ValidateDeckCards`（= 上面 ⑤⑥⑥b⑦ 的逐张闸）、**再**在 `.c:69` 比张数 ⇒「牌少 + 混阵营」报的必须是阵营错，⛔ 不是张数错）
+            int want = mode.HasValue ? CardCount(mode.Value) : CardCount(skirmish);
+            if (cards.Count > want) return DeckError.TooManyCards; if (cards.Count < want) return DeckError.TooFewCards;   // 原版只有「正好 N 张」一条（`.c:69` `count == iVar5`，否则 5 = `IncompleteDeck`）⇒ 我们拆的两档只为文案分开，两档都摊到 `IncompleteDeck`；⚠️ 它在 `CanAddCard` 那边也是**最后**一道闸（`.c:166` 整副满）
             return DeckError.None;
         }
 
@@ -587,18 +587,18 @@ namespace RuleEngine
         public static string Describe(DeckError e)
         {
             if (e == DeckError.None) return "";
-            // 🔴 **2026-10-17（`A1868`/`A1872`）**：原版 `MenuDeck/Error/*` **没有 `EffectOnlyCard` 这条键**
-            //   （官方具名族只有 9 条；`Core/Loc.cs` 已按判据删掉那条自造键）——
-            //   若继续拼 `TermPrefix + e`，`Loc.T` 会把**键名本身**印到屏幕上
-            //   （`DeckRuntime.DeckErrorText(DeckError.EffectOnlyCard)` 的两个调用点会现形）。
-            //   ⇒ 这一档归 **catch-all `MenuDeck/Error/InvalidDeck`**（官方表里已有、EN/ZH 两列齐全），
-            //   与 `DeckRuntime` 数字族退兜底的口径一致。
-            if (e == DeckError.EffectOnlyCard) return TermPrefix + "InvalidDeck";
-            // 🆕 **2026-10-25（`E1` · 第五段）**：这一档的原版键叫 `MaxLegendayCopiesReached`
-            //   （⚠️ 原版自己把 `Legendary` 拼成 **`Legenday`** —— 那是**本地化键的字面量**，
-            //    官方 EN/ZH 两列都在这个名字下；⛔ **别顺手把拼写改对**，改了 `Loc.T` 就取不到）。
-            //   判据 = 官方具名族地址表（`Describe` 的 doc 那张，`0x42CF8F0=MaxLegendayCopiesReached`）。
-            if (e == DeckError.LegendaryTotalExceeded) return TermPrefix + "MaxLegendayCopiesReached";
+            // ✅ 已复刻（2026-11-04 · B141 · 判据 `B141_W129_对账_卡组色彩.md` 3-18 = `CardDeck__CanAddCard.c:40-47`）🔴 **按原版 `CardDeck__CanAddCard.c:40-47` 改口径**：原版**没有** `MenuDeck/Error/EffectOnlyCard` 这条键
+            //   （官方 `MenuDeck/Error/*` 15 条里没有；2026-10-17 `A1868` 曾把它摊到 catch-all `InvalidDeck` —— 那是「不印键名」的兜底，**不是**原版那一支）。
+            //   原版那条准入闸（`inventoryOptions`，`.c:40` 的 `+0x4c != 0 && +0x48 != 5`）给的是**具名 `MenuDeck/Error/InvalidCard`**（`DAT_1842cf4f0`，`.c:41-47`）
+            //   ⇒ 这一档归 `InvalidCard`。⚠️ 与 `CardDef.NotDeckable`（我们自己的数据标记）**共用同一个键是对的** —— 原版这两类本来就是一句话，⛔ 别再拆。
+            //   （枚举名 `DeckError.EffectOnlyCard` 保留：它不再当词条键，但仍是我们这一侧「准入档」的语义标签。）
+            //   ⚠️ 于是 `EffectOnlyCard` 与 `InvalidCard` 现在**同键** —— 这是原版形状，⛔ 别再按「两档必须两句不同文案」写断言。
+            if (e == DeckError.EffectOnlyCard) return TermPrefix + "InvalidCard";
+            // 🆕 **2026-11-04（`B141 · W31` · 对账 3-18）三条键名映射**（值 = 官方 13 语言表现读；`Legendary` 那档 2026-10-25 `E1` 已做）：`LegendaryTotalExceeded ⇒ MaxLegendayCopiesReached`（⚠️ 原版把 `Legendary` 拼成 **`Legenday`** —— 键名字面量如此，⛔ 别改，改了 `Loc.T` 就取不到；判据 = 地址 `0x42CF8F0`）·
+            //   `CopyLimitExceeded ⇒ MenuDeck/Error/MaxCopiesReached`（`CardDeck__CanAddCard.c:58,65-71` 的 `GetMaxCopiesInDeck` 支）· `TooManyCards ⇒ **MenuDeck/Tip/DeckFull**`（`.c:166-174` 的 `DAT_1842d0be0`；⚠️ 不在 `MenuDeck/Error/` 前缀下）。
+            //   🔴 `MaxCopiesReached` 的文案带 **`{0}`**（= 同名份数上限）⇒ 上屏前必须 `string.Format`；**本层拿不到那张卡** ⇒ 暂**不进** `HasOfficialNamedKey`（`ErrorTextKey` 会退回 `InvalidDeck`，⛔ 绝不把 `{0}` 印到屏幕上）。接线点 = `CardPresentation/Deck/DeckRuntime.DeckErrorText`（本批白名单外，已上报）。
+            //   `Tip/DeckFull` 与 `MaxLegendayCopiesReached` 都**没有**占位符 ⇒ 已进 `HasOfficialNamedKey`。
+            if (e == DeckError.LegendaryTotalExceeded) return TermPrefix + "MaxLegendayCopiesReached"; if (e == DeckError.CopyLimitExceeded) return TermPrefix + "MaxCopiesReached"; if (e == DeckError.TooManyCards) return "MenuDeck/Tip/DeckFull";
             return TermPrefix + e;
         }
 
@@ -634,8 +634,8 @@ namespace RuleEngine
         public static bool HasOfficialNamedKey(DeckError e)
         {
             return e == DeckError.InvalidDeck                 // `MenuDeck/Error/InvalidDeck`（原版有）
-                || e == DeckError.EffectOnlyCard              // `Describe` 已把它映射成 `InvalidDeck`（原版有）
-                || e == DeckError.LegendaryTotalExceeded || e == DeckError.InvalidArmy || e == DeckError.InvalidCard;  // 后者 = `MaxLegendayCopiesReached`；`InvalidArmy` = 原版 `CardDeck.CanAddCard` 的具名键（判据见文件尾 `DeckArmy` 那段）；🆕 `InvalidCard` = `CardDeck__CanAddCard.c:40` 的具名键（官方表 EN/ZH 齐全，判据见文件尾 `IsNotDeckable`）
+                || e == DeckError.EffectOnlyCard              // `Describe` 已把它映射成 `InvalidCard`（原版有；🆕 2026-11-04 `B141 · W31` 订正 —— 原来写的 `InvalidDeck` 是兜底，不是原版那一支）
+                || e == DeckError.LegendaryTotalExceeded || e == DeckError.InvalidArmy || e == DeckError.InvalidCard || e == DeckError.TooManyCards;  // 前者 = `MaxLegendayCopiesReached`；`InvalidArmy` = 原版 `CardDeck.CanAddCard` 的具名键（判据见文件尾 `DeckArmy` 那段）；🆕 `InvalidCard` = `CardDeck__CanAddCard.c:40` 的具名键；🆕 2026-11-04（`B141 · W31` · 3-18）`TooManyCards` = `MenuDeck/Tip/DeckFull`（`.c:166-174`，无占位符 ⇒ 能直接上屏）。⚠️ `CopyLimitExceeded` **故意不在这里** —— 它的 `MaxCopiesReached` 文案带 `{0}`，本层填不了 ⇒ 让 `ErrorTextKey` 退回 `InvalidDeck`，⛔ 绝不把 `{0}` 印到屏幕上（接线点见 `Describe` 那段）
         }
 
         /// <summary>这一档是**我们自己的槽位判据**（原版不查督军/防御卡槽位）⇒ 原版**没有对应错误码**。

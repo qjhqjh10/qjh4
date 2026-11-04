@@ -578,15 +578,15 @@ namespace CardPresentation
             var scR = new PxRect(AfScL, AfScT, AfScR, AfScB);
             var sc = Node(af, "scroll rect", scR);
             // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：裁切状态**长在这个视口节点上**（= 原版 `Viewport` 那个 `RectMask2D`）。
-            //    参数 = 原版 `Ranking Tab/AllFactions/scroll rect/viewport` 实读的
-            //    `m_Padding = (0,0,0,0)` · `m_Softness = (0,0)`（硬边）—— 与迁移前的 `Clip = scR`（软边恒 0）逐位同值。
-            var vpVc = ViewportClip.Hang(sc, "viewport", scR, Vector4.zero, Vector2Int.zero);
+            //    参数 = 原版 `Player Profile Window ▸ … ▸ Ranking Tab/AllFactions/scroll rect/viewport` 实读的
+            //    `m_Padding = (0,0,0,-10)`（Top = −10 ⇒ **顶上外扩 10px**；✅ 已复刻（2026-11-04 · B141-W27 · `Player Profile Window.prefab` 现读，原写 (0,0,0,0)））· `m_Softness = (0,0)`（硬边）。
+            var vpVc = ViewportClip.Hang(sc, "viewport", scR, new Vector4(0f, 0f, 0f, -10f), Vector2Int.zero);
             var vp = vpVc.transform;
             _scroll = NewScroll(scR, 0f, 0f, true, 10f);   // 原版 `Ranking Tab/AllFactions/scroll rect` = 10（D_N29）
             // 🔴 **2026-10-13（A465 · W-A435己）**：构建循环那一行（`BuildRows` 里
             //   `if (!_scroll.Intersects(rr)) continue;`）从今天起读**同一颗节点**的状态
             //   （`MenuScroll.Intersects` 走 `ClipNode.State.RenderClip`）—— 就是上面那颗 `viewport`。
-            //   ⚠️ 今天两值同（节点框 = `scR`、`padding` 全 0）⇒ **逐个位不变**。
+            //   ⚠️ 裁切框 = `scR` 按 `m_Padding=(0,0,0,-10)` **顶上外扩 10px**（✅ 2026-11-04 B141-W27：原写「两值同、padding 全 0」已过期）⇒ 顶上多出 10px 那一截里的行现在也会建。
             _scroll.ClipNode = vpVc;
             _scroll.Owner = Root.gameObject;
             _scroll.OnChanged = RebuildRows;            // 🔴 滚轮要能重画（同其它页那条教训）

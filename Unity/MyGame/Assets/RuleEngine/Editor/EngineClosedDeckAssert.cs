@@ -105,7 +105,7 @@ public static class EngineClosedDeckAssert
         Eq(cd.showMulligan, false, "A2 `showMulligan = false` —— 原版【文案】`No mulligan`");
         Eq(cd.shouldReshuffle, false, "A2 `shouldReshuffle = false` —— 原版【文案】`No mulligan` 的同族推断");
         Eq(cd.handLimit, 8, "A2 `handLimit = 8` —— 【规则书:58，**非官方**】");
-        Eq(cd.startingHand, 4, "A2 `startingHand = 4` —— 【规则书:58，**非官方**】");
+        Eq(cd.startingHand, 3, "A2 `startingHand = 3` —— 【DefaultScenario.startingHand=3；`BattleManager.scenarioVariables` 不按模式分档】");   // ✅ 已复刻（2026-11-04 · B141 · DefaultScenario）
         Eq(cd.manaAccumulation, 1, "A2 `manaAccumulation = 1` —— 【规则书:60，**非官方**】");
         Ok(cd.IsSkirmish,
            "A2 `IsSkirmish = true`（判据 = `deckSize < 30`）—— ⚠️ 这只说明「吃的是 12 张那套参数」，"

@@ -126,7 +126,7 @@ namespace RuleEngine
             var list = ReadDecksThroughHooks(out note, out detail, out current);
             if (list != null) lib._decks.AddRange(list);
             // 「上次在编辑哪一套」也存了 —— 重新打开还停在那一套上
-            if (list != null && list.Count > 0) lib._current = (current >= 0 && current < list.Count) ? current : 0;
+            if (list != null && list.Count > 0) lib._current = (current >= 0 && current < list.Count) ? current : 0;   lib.ApplyCurrentDeckKey();   // ✅ 2026-11-04 · B141 · UI-05 D6：`CurrentDeck`（卡组 id 字符串）优先于 payload 里的旧 `current:int`（原版 `PlayerDataManager.cs:11472`）
             // 🔴 **2026-10-18（`G3`）**：类型走 `ClassifyLoad`（**不看汉字**）。
             // 🔴 **2026-10-18（`G8`）**：上面那个 `detail` 现在**是诊断串**（不是给人看的中文句子），
             //    `ClassifyLoad` 的判据照旧**只**看「有没有话」+「文件在不在」两件结构性的事
@@ -361,7 +361,7 @@ namespace RuleEngine
         /// 调用方要出声就出声；⛔ 别把它当界面文案（显示层走 `Loc`）。🆕 2026-10-30（`B99_W7` 就地订正 `B99_W6`）：真落盘走**注入钩子** `SaveLegacyText`（Shell 侧注册成 `SaveCenter.SaveThroughLegacy` = 中央档 + 旧档双写；**落盘关着**时只写旧档）；🔴 **钩子为 `null` 时走 `DeckStore.SaveAll`** —— 那是 W6 之前那条纯文件路（逐字同一调用），⛔ 别删（自检 / 编辑器 / 无 Shell 的场景全靠它）。</summary>
         public bool Save()
         {
-            string err;
+            string err;   EnsureCurrentDeckIdInMemory();   // ✅ 2026-11-04 · B141 · UI-05 D6：当前那一套必须有 id（`CurrentDeck` 要按 id 指它；这次 Save 会把 id 一起写进 PlayerDecks）
             bool ok = WriteDecksThroughHooks(out err);
             LastError = ok ? null : err;
             return ok;
@@ -479,7 +479,7 @@ namespace RuleEngine
                 if (!int.TryParse(text.Substring(semi + 1).Trim(), out gameMode))
                     return null;                                        // 尾巴不是整数 ⇒ 不是这个格式
             }
-            else return null;                                           // 连 ';' 都没有 ⇒ 不是这个格式
+            // ✅ 已复刻（2026-11-04 · B141 · 判据 `B141_W129_对账_卡组色彩.md` 3-24 = `CardDeck__DeserializeDeckString.c:54-59`）：**缺 `;` 不再早退** —— 原版只在 `Split(';').Length > 1` 时才 `Int32.Parse` 尾巴，否则 `gameMode` 保持 0（Classic = 原版 `PlayModes.Classic`）并**继续解析**（`.c:61-69` 只看 `[0]`）⇒ 一条没有 `;` 的卡组串在原版是**合法**的。我们原来在这里 `return null` = 把这类串整条判死（`Classic` 分享串尾巴被剪掉的情形就这么丢的）。⛔ 别改回去。
 
             var parts = head.Split(':');
             string name = parts.Length > 0 ? parts[0].Replace(ColonEscape, ":") : "";
@@ -544,8 +544,8 @@ namespace RuleEngine
                 string id = PlayerDeck.NormalizeEntryId(rawId, lookup);
                 var c = id == null ? null : PlayerDeck.ResolveEntry(id, lookup, out _);
                 if (c == null) { dropped.Add(rawId); continue; }
-                if (c.Type == "defence") { if (def == null) def = id; else rest.Add(id); }
-                else if (c.Type == "hero") { if (hero == null) hero = id; else rest.Add(id); }
+                if (c.Type == "defence") { if (def == null) def = id; }   // ✅ 已复刻（2026-11-04 · B141 · 判据 `B141_W129_对账_卡组色彩.md` 3-24 = `CardDeck__DeserializeDeckString.c:152-159`）：**多余的防御卡丢弃** —— 原版从尾到头扫，每遇到一张就 `RemoveAt`，只把**最后遍历到**（倒序 ⇒ 串里**第一张**）那格交给 `DeckBasicSetup` 的防御位；剩下的一张都不进卡表（我们原来 `rest.Add(id)` = 把多余防御卡当普通卡带进卡组，原版没有这个行为）
+                else if (c.Type == "hero") { if (hero == null) hero = id; }   // ✅ 同上 · 督军那一条（`.c:141-151`）：多余督军**丢弃**，只留串里第一张
                 else rest.Add(id);
             }
             var d = new PlayerDeck(name, hero, def, rest, gameMode); d.SetDeckArmyFromHeroId(hero, lookup); return d;   // 🆕 2026-11-01（`B111_R1WB`）：原版 `DeserializeDeckString` → `DeckBasicSetup` ⇒ `deckArmy` **只由督军定、⛔ 不看卡表**
@@ -638,9 +638,10 @@ namespace RuleEngine
         /// **没有钩子**走 W6 之前那条纯文件路（<see cref="DeckStore.LoadAll"/>，逐字同一调用）。</summary>
         static List<PlayerDeck> ReadDecksThroughHooks(out DeckStore.LoadNote note, out string detail, out int current)
         {
-            if (ReadLegacyText != null)
-                return DeckStore.Parse(ReadLegacyText(DeckStore.Path), out note, out detail, out current);
-            return DeckStore.LoadAll(out note, out detail, out current);
+            List<PlayerDeck> primary;
+            if (ReadLegacyText != null) primary = DeckStore.Parse(ReadLegacyText(DeckStore.Path), out note, out detail, out current);
+            else primary = DeckStore.LoadAll(out note, out detail, out current);
+            return MergeFallbackDecks(primary, ref note, ref detail);   // ✅ 2026-11-04 · B141 · UI-05 D6：原版 `PlayerDecks` 缺 ⇒ 读 `Decks`；`PlayerDecksFast` 永远 Concat（`DeckInventory.cs:209/216`）
         }
 
         /// <summary><see cref="Save"/> 的落盘一跳：**有钩子**走「中央档 + 旧档」，
@@ -649,7 +650,7 @@ namespace RuleEngine
         bool WriteDecksThroughHooks(out string error)
         {
             if (SaveLegacyText != null)
-                return SaveLegacyText(DeckStore.Path, DeckStore.Serialize(_decks, _current), out error);
+                return SaveLegacyText(DeckStore.Path, DeckStore.SerializeStore(_decks), out error) && WriteCurrentDeckKey(out error);   // ✅ 2026-11-04 · B141 · UI-05 D6：中央档 payload **不含 current**；当前选中写独立 key `CurrentDeck`（卡组 id）
             return DeckStore.SaveAll(_decks, _current, out error);
         }
         // ================================================================================================
@@ -757,6 +758,115 @@ namespace RuleEngine
         {
             if (index >= 0 && index < _decks.Count) _current = index;
             else _current = -1;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-11-04（执行代理 `B141_W15` · UI-05 D6）· 「当前卡组」拆成独立 key（原版 `CurrentDeck`）
+        //
+        //  判据（现读）：
+        //   · `d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/PlayerDataManager.cs:11472-11473` ——
+        //     `GetPlayerOnlineDataString(..., PlayerDataKey.CurrentDeck)` → `currentDeckId`（**字符串 = 卡组 id**）。
+        //   · `d:/2/tools/decomp_full/PlayerDataManager__set_currentDeckId.c:5` —— 写字段偏移 `+0x238`。
+        //   · `DeckInventory.cs:209` —— `PlayerDecks` = `AzureDeckInfo[]`（**没有 current**）。
+        //  ⇒ 本类只加**注入点**（和既有的 `ReadLegacyText` 同一套纪律：本类不认识 `SaveCenter` / `SaveKeys`）。
+        //  ⚠️ 成员追加在类尾（本文件下游有账的 `文件:行` 落点，别插进类体中间）。
+        // ================================================================================================
+
+        /// <summary>`CurrentDeck` key 的**读**注入点（返回原文；`null` = 没有）。
+        /// 注册方（Shell）接 `SaveCenter.ReadThroughLegacy(SaveKeys.CurrentDeck, null)`。
+        /// <para>`null` ⇒ 不读这个 key（退回旧形状：`PlayerDecks` payload 里的 `current:int`）。</para>
+        /// <para>✅ 已复刻（2026-11-04 · B141 · `PlayerDataManager.cs:11472-11473`）。</para></summary>
+        public static Func<string> ReadCurrentDeckText;
+
+        /// <summary>`CurrentDeck` key 的**写**注入点（参数 = **卡组 id**；返回是否写成功）。
+        /// 注册方接 `id => SaveCenter.SetRaw(SaveKeys.CurrentDeck, DeckStore.SerializeCurrentDeck(id))`。</summary>
+        public static Func<string, bool> SaveCurrentDeckText;
+
+        /// <summary>`Decks` key 的读注入点（原版 `Dictionary&lt;string, AzureDeckInfo&gt;`；**只在 `PlayerDecks` 缺时**用）。
+        /// 注册方接 `() => SaveCenter.ReadThroughLegacy(SaveKeys.Decks, null)`。</summary>
+        public static Func<string> ReadDecksKeyText;
+
+        /// <summary>`PlayerDecksFast` key 的读注入点（原版 `AzureDeckInfo[]`；**总是**与 `PlayerDecks` 拼起来）。
+        /// 注册方接 `() => SaveCenter.ReadThroughLegacy(SaveKeys.PlayerDecksFast, null)`。</summary>
+        public static Func<string> ReadPlayerDecksFastText;
+
+        /// <summary>本次落盘前保证「当前那一套」在内存里有 `DeckId`（`PlayerDecks` 要带着它一起写，
+        /// `CurrentDeck` 才能按 id 指回来）。
+        /// ⚠️ ⛔ 别改成 `EnsureDeckId(_current)` —— 那个会**再调一次 `Save()`**（递归）。</summary>
+        void EnsureCurrentDeckIdInMemory()
+        {
+            if (_current < 0 || _current >= _decks.Count) return;
+            var d = _decks[_current];
+            if (d != null && string.IsNullOrEmpty(d.DeckId)) d.DeckId = NewDeckId();
+        }
+
+        /// <summary>写 `CurrentDeck`（值 = 卡组 id）。没有注入点 ⇒ **跳过并返回 true**（无 Shell 的纯文件老路，旧行为）。</summary>
+        bool WriteCurrentDeckKey(out string error)
+        {
+            error = null;
+            if (SaveCurrentDeckText == null) return true;      // 没接键：不写（不编一个没人读的文件）
+            string id = DeckIdAt(_current);
+            if (string.IsNullOrEmpty(id)) return true;         // 空库 / 越界：原版也没有「当前」
+            if (SaveCurrentDeckText(id)) return true;
+            error = "CurrentDeck 键写失败（见上一条 `[SaveCenter]` 日志）";
+            return false;
+        }
+
+        /// <summary>`Load` 之后按 `CurrentDeck`（id）校正 `_current`；
+        /// **旧档没有这个 key ⇒ 保留 payload 里的 `current:int`**（向后兼容，⛔ 不归 0）。</summary>
+        void ApplyCurrentDeckKey()
+        {
+            if (ReadCurrentDeckText == null) return;
+            string raw = SafeReadKey(ReadCurrentDeckText, "CurrentDeck");
+            string id = DeckStore.ParseCurrentDeckId(raw);
+            if (string.IsNullOrEmpty(id)) return;               // 旧档 / 没有这个 key ⇒ 用旧 current
+            int byId = IndexOfDeckId(id);
+            if (byId >= 0) { _current = byId; return; }
+            UnityEngine.Debug.LogWarning("[DeckLibrary] `CurrentDeck` 里的 id = `" + id + "` 在库里 " + _decks.Count
+                           + " 套里查不到 ⇒ 保留旧档的 `current` = " + _current + "（⛔ 不静默归 0）");
+        }
+
+        /// <summary>原版读顺序：有 `PlayerDecks` 就用它 + **并 `PlayerDecksFast`**；
+        /// `PlayerDecks` 没有卡组 ⇒ 读 `Decks`（map）+ `PlayerDecksFast`（`DeckInventory.cs:209/216`）。
+        /// <para>兜底生效时把 <paramref name="note"/> 改成 `None`（读到东西了，⛔ 不是「第一次跑」）。</para></summary>
+        static List<PlayerDeck> MergeFallbackDecks(List<PlayerDeck> primary, ref DeckStore.LoadNote note, ref string detail)
+        {
+            var fast = ReadPlayerDecksFastText == null ? null
+                     : DeckStore.ParseAzureDeckArray(SafeReadKey(ReadPlayerDecksFastText, "PlayerDecksFast"));
+            if (primary != null && primary.Count > 0)
+            {
+                if (fast == null || fast.Count == 0) return primary;     // 原版 Concat：Fast 空 ⇒ 原样
+                var merged = new List<PlayerDeck>(primary);
+                merged.AddRange(fast);
+                UnityEngine.Debug.Log("[DeckLibrary] `PlayerDecks` " + primary.Count + " 套 + `PlayerDecksFast` " + fast.Count
+                        + " 套 ⇒ 合并 " + merged.Count + " 套（原版 `DeckInventory__OnFinishUnpack.c:45-58`）");
+                return merged;
+            }
+            var map = ReadDecksKeyText == null ? null
+                    : DeckStore.ParseAzureDeckMap(SafeReadKey(ReadDecksKeyText, "Decks"));
+            var list = new List<PlayerDeck>();
+            if (map != null) list.AddRange(map);
+            if (fast != null) list.AddRange(fast);
+            if (list.Count > 0)
+            {
+                note = DeckStore.LoadNote.None;
+                detail = null;
+                UnityEngine.Debug.Log("[DeckLibrary] `PlayerDecks` 没有卡组 ⇒ 按原版读兜底：`Decks`(" + (map == null ? 0 : map.Count)
+                        + ") + `PlayerDecksFast`(" + (fast == null ? 0 : fast.Count) + ") = " + list.Count + " 套"
+                        + "（`PlayerDataManager.cs:11459-11470` + `DeckInventory.cs:216`）");
+            }
+            return list;
+        }
+
+        /// <summary>跑注入点读，抛了 ⇒ 出声 + 当作 `null`（⛔ 不让一个坏 key 把整条读档打崩）。</summary>
+        static string SafeReadKey(Func<string> read, string what)
+        {
+            try { return read(); }
+            catch (Exception e)
+            {
+                UnityEngine.Debug.LogWarning("[DeckLibrary] 读 `" + what + "` 抛了（" + e.GetType().Name + ": " + e.Message + "）⇒ 当作没有");
+                return null;
+            }
         }
     }
 

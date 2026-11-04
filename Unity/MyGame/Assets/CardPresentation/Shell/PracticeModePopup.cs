@@ -1424,8 +1424,8 @@ namespace CardPresentation
                         + "（原版 `Awake` 末句的闸 = `GetActiveEvent<RankedV3Event>() != null`）"
                         + " ⇒ 本窗照旧按 `Skirmish(13)` 跑（原版开关藏起来时 `currentPlayMode` 就停在出厂值）");
 
-            Img(root, "40k_bt_underbutton", ContL, ContT, ContR, ContB, "Continue Button", QPrRow, true,
-                new Color(0.369f, 0.894f, 0.587f, 1f));
+            var contQuad = Img(root, "40k_bt_underbutton", ContL, ContT, ContR, ContB, "Continue Button", QPrRow, true,
+                ContinueFaceColor);   // ✅ 已复刻（2026-11-04 · B141 · A16）：tint = 原版 Image `m_Color`（判据 → `ContinueFaceColor`）
             // 🆕 **A1205 接上**（`R5` §2·H #54：原版 `DeckSelectionContinueButton ▸ Text`
             //    = `auto[18~45] · base 36 · 折行 1`）
             // 🔴 **2026-10-19（`A1501`）：文案改走 `Loc.T`** —— 那颗 TMP 的
@@ -1433,12 +1433,12 @@ namespace CardPresentation
             Txt(root, Loc.T("Demo/ToBattle"), BtTxL, BtTxR, BtTxT, BtTxB, 45f, Align.Right, "Battle Text", QPrText,
                 wrapPx: BtTxR - BtTxL, autoMinPx: 18f, autoMaxPx: 45f, autoBasePx: 36f,
                 face: TmpFont.Face.LatinCardBody);
-            Img(root, "40k_UI_bt_play", CircL, CircT, CircR, CircB, "CircleButton", QPrRow, true);
+            Img(root, "40k_UI_bt_play", CircL, CircT, CircR, CircB, "CircleButton", QPrRow, true);   // ✅ 已复刻（2026-11-04 · B141-W70 · W129 5-07，**等价**）：原版 `Practice Mode Menu ▸ DeckSelectionContinueButton ▸ CircleButton` 的 `m_SelectedSprite` = `{7c987b77…}` = **`40k_UI_bt_play`**，而它自己的 `Image.m_Sprite` **也是这张**（prefab 同一颗 GO 现读）⇒ Selected 态 = 常态图，本件画的就是它，**不需要另绑**。⚠️ 那颗的 `trans=2` 悬停/按下图 = `…_bt_play_hover` / `…_bt_play_pressed`（两图本地已有）属 **5-17**，本批不动。
             // 🆕 **2026-10-18（音效线缺口 `AUD` §三 B11）**：原版
             //   `Practice Mode Menu/DeckSelectionContinueButton/Continue Button` → **`MenuStartGame`**
-            //   （pid -1545367626748338049，clip `StartMatch`）—— 同 prefab 根 `DeckSelectionContinueButton` 也是它。
-            HitOn(root, root, "BattleHit", new PxRect(ContL, ContT, CircR, CircB), () => StartBattle(),
-                  QPrHit, null, WindowSounds.StartGameCue);
+            //   （pid -1545367626748338049，clip `StartMatch`）—— 同 prefab 根 `DeckSelectionContinueButton` 也是它。✅ 已复刻（2026-11-04 · B141-W23b · 4-15）：可点区 = **子树里两颗吃射线的图各自 pad 后取并集**（口径 = `MenuDraw.Union`）—— `Continue Button`（453.08 × 49.84）pad **(0, −40, 0, −40)**、`CircleButton`（90²）pad **(0,0,0,0)** ⇒ 并集 **453.08 × 129.84**（圆的上下沿 886.18/976.18 落在 `Continue` 外扩后的 866.26/996.10 里，不改变外接盒）。⚠️ 上一版用的是「`ContL..CircR` × `ContT..CircB`」手拼框（383.84 × 69.92 ⇒ 149.92）—— **判据是错的**（既不是哪一颗的矩形、也不是并集），本笔已按原版改掉
+            var battleHit = HitOn(root, root, "BattleHit", MenuDraw.Union(MenuDraw.PaddedRect(new PxRect(ContL, ContT, ContR, ContB), ContinueHitPad), new PxRect(CircL, CircT, CircR, CircB)), () => StartBattle(), QPrHit, null, WindowSounds.StartGameCue);
+            WireContinueButton(battleHit, contQuad);   // ✅ 已复刻（2026-11-04 · B141 · 5-06+A15/A16）：四态底座色 + ×2 一起落（判据 → `WireContinueButton`）
         }
 
         // ============================================================ 🆕 2026-10-17（U4-1）：`Game mode` 开关
@@ -2742,7 +2742,7 @@ namespace CardPresentation
         /// 选中一副**预组卡组**（原版这条是「登记」型：`DeckGeneralInfoDemo.DeckChanged` → 记下用哪副牌，不立刻开战）。
         ///
         /// 我们这边多做一件：把它写进 `PrebuiltDecks` 的**「本局用这副牌」**通道 —— 因为
-        /// `StartBotBattle` 原先只认 `DeckLibrary.Current`，而**预组不在玩家的卡组库里**。
+        /// `StartBotBattle` 原先只认 `DeckLibrary.Current`，而**预组不在玩家的卡组库里**。另外按 `Game mode` 解析成**同一对里当前模式那一副**（原版 `DemoDeckInfoSO.GetDeck(mode)`，`PracticeModePopup__BattleButtonOnClick.c:122`；✅ 已复刻 2026-11-04 · B141）—— 左列 `PickPair` 传进来的本来就是当前模式那一副 ⇒ 那里是 no-op；只有「选卡组窗的预组页」（两种模式混列）会带进另一档的副。
         /// </summary>
         /// <param name="loreKeyOverride">🆕 **2026-10-22**：练习对那一路传**对上的** `loreLocalizationKey`
         /// （原版一个 SO 一条 lore、两副共用）；传 null = 用这副牌自己的 `Deck.loreKey`
@@ -2750,7 +2750,7 @@ namespace CardPresentation
         /// <param name="pairIndex">🆕 该副牌属于哪一对（`PrebuiltDecks.Pairs` 下标）；−1 = 不是从左列选的。</param>
         public void PickPrebuilt(PrebuiltDecks.Deck d, string loreKeyOverride = null, int pairIndex = -1)
         {
-            if (d == null) return;
+            if (d == null) return;   d = PrebuiltDecks.ResolveForGameMode(d, SelectedGameMode);   // ✅ 已复刻（2026-11-04 · B141 · `decomp_full/PracticeModePopup__BattleButtonOnClick.c:122`）：原版用 `gameMode` 选 `DemoDeckInfoSO.GetDeck(mode)`；⛔ 别改成 `SetPendingPlayMode`（原版 `StartMatch` 第 2 实参恒 6，`:235`）
             // 🔴 **2026-10-21 就地重写（真机缺陷）**：这一支原来只做**增量刷新**（卡组名 / 督军 / 阵营图 /
             //   卡背 / lore），而面板另外四处读的是**另一份状态** `DeckIndex`（预组档 = −1）⇒ 真机症状：
             //   阵营标题回到「（未选阵营）」· 费用曲线 9 行全 0 · 卡表不建 · 点 `Battle!` 被
@@ -2976,21 +2976,21 @@ namespace CardPresentation
                 PrebuiltDecks.PendingSource != null ? PrebuiltDecks.PendingSource.deckId : deck.Name);
             // 🆕 2026-10-17（U4-1）：`Battle!` **按当前开关的赛制取卡组**（原版 `BattleButtonOnClick.c:96-160`
             //   按 `gameMode` 在 `plVar1[3]/[4]` 两套卡组/督军槽位里二选一）。我们每副牌自带 `GameMode`
-            //   ⇒ 列表与选卡组窗都已按模式筛，这里只做**一致性出声**：选中的那副若是另一档
-            //   （最可能的来源 = 选卡组窗的「预组」页 —— 原版那一页**不按模式筛**），原版会取同一个条目的
-            //   **另一套槽位**，我们没有那套数据 ⇒ **如实警告**，⛔ 不许静默换成别的牌。
+            //   ⇒ 列表与选卡组窗都已按模式筛；🆕 **2026-11-04（`B141` · UI-05 D1）**：预组现在在
+            //   `PickPrebuilt` 里按原版 `DemoDeckInfoSO.GetDeck(mode)` 解析（`ResolveForGameMode`）⇒ 正常不再命中；
+            //   下面这段保留作兜底：**不属于任何演示对**的副（`PairOf` 查不到 = 没有另一套槽位）仍可能不同档，如实出声。
             {
                 var preSel = PrebuiltDecks.PendingSource;
                 // 🔴 **2026-10-21**：兜底那一支从 `info.GameMode`（按库下标取的）换成 `deck.GameMode`
                 //   —— 同一副牌的两处取法逐位相同（`PlayerDeck.GameMode` 就是 `DeckAt` 那一列），
-                //   但预组档只有 `deck` 这条能取到（`DeckIndex` = −1）。
+                //   但预组档只有 `deck` 这条能取到（`DeckIndex` = −1）。   // 🔴 2026-11-04（`B141` · UI-05 D1）：预组已由 `PickPrebuilt` 按 `ResolveForGameMode`（= 原版 `DemoDeckInfoSO.GetDeck(mode)`）解析 —— 本支只为「不在任何演示对里的副」兜底，⛔ 别把它当成「原版会换、我们换不了」
                 int selMode = preSel != null ? preSel.gameMode : deck.GameMode;
                 if (ToggleModeOf(selMode) != SelectedGameMode)
                     Debug.LogWarning("[Practice] ⚠️ 选中的卡组是 "
                                      + (ToggleModeOf(selMode) == GameMode.Classic ? "Classic(0)" : "Skirmish(13)")
                                      + " 模式，而 `Game mode` 开关在 "
                                      + (SelectedGameMode == GameMode.Classic ? "Classic(0)" : "Skirmish(13)")
-                                     + " ⇒ 原版会取该条目的另一套槽位，我们没有那套数据（如实出声，不换牌）");
+                                     + " ⇒ 它**不属于任何演示对**（`PrebuiltDecks.PairOf` 查不到）⇒ 没有另一套槽位可换，按选中的这一副开局（如实出声，⛔ 不静默换牌）");
             }
             // 🆕 2026-09-26（N3）：**联机已连上 ⇒ 走 P2P，不跑那 12 秒 bot 链**
             //    （判据 → `资料/联机P2P_设计与交接.md` §六 N3）。没接管时照旧 —— 单机行为一字不改。
@@ -3804,5 +3804,87 @@ namespace CardPresentation
         /// ⇒ 不记下这一个 id，换图那一刻就放不掉上一张（静默把旧图永久留在缓存里）。</para>
         /// <para>写点只有两处：`RefreshCharacterImage()`（换图时改）与 `Close()`（放完置空）。</para></summary>
         string _charImgWarlordId;
+
+        // ✅ 已复刻（2026-11-04 · B141-W23 · 4-15）：`DeckSelectionContinueButton ▸ Continue Button` 的
+        //   `m_RaycastPadding = **(0, −40, 0, −40)**`（UGUI 序 L/B/R/T，**负 = 外扩** ⇒ 上下各扩 40、左右不动）。
+        //   判据（逐字段现读）：`d:/2/tools/assetripper_out/ExportedProject/Assets/Practice Mode Menu.prefab`
+        //   —— 全 prefab 只有两颗非零 pad，另一颗是同 prefab 的 `Toggle`（−39.36/−35.75/−47.09/−55.32，**未接线**，不属本条）。
+        //   ⚠️ 2026-11-04 `B141-W23b`：命中区已改成「Continue(带 pad) ∪ Circle(pad 0)」= 原版并集 **453.08 × 129.84**
+        //   （上一版手拼框 383.84×69.92 ⇒ 149.92 已作废）。用法见 `BuildContinue` 那两行注释。
+        public static readonly Vector4 ContinueHitPad = new Vector4(0f, -40f, 0f, -40f);
+
+        // ============================================================ ✅ 已复刻（2026-11-04 · B141）：5-06 + A15/A16 —— 绿底 Continue 钮
+        //
+        //  判据（三份 prefab 逐字段现读，`m_Colors` 值**逐位相同**）：
+        //   · `Assets/Practice Mode Menu.prefab` ▸ `Continue Button`（GO 1099118695303065；
+        //     `UnityEngine.UI.Button` MB_114168105826085154 —— script guid `d3e719b5…` = **`UnityEngine.UI.dll`**，
+        //     ⛔ **不是** `EverguildButton`；Image = MB_114649986673806370）；
+        //   · `Assets/DeckSelectionContinueButton.prefab` ▸ `Continue Button`（GO 1730242686860875 ·
+        //     MB_114587765826080250 · Image MB_114061268324235159）；
+        //   · `Assets/Generic Multi Card Display Combat.prefab` ▸ `Button`（GO 1581786255902400 ·
+        //     MB_114580109562975512 · Image MB_114559203567323380）。
+        //
+        //  | 格 | 原版值 |
+        //  |---|---|
+        //  | Image `m_Color` | (0.3686275, 0.89411765, 0.5874373, 1) —— **绿** |
+        //  | `m_NormalColor` | (0.3686275, 0.89411765, 0.5874373, 1) —— 与 Image **同值** |
+        //  | `m_HighlightedColor` | (0.4666667, 0.91372555, 0.40000004, 1) |
+        //  | `m_PressedColor` | (0.4784314, 0.49411768, 0.48235297, 1) |
+        //  | `m_SelectedColor` | (0.36862746, 0.8941177, 0.5882353, 1) |
+        //  | `m_DisabledColor` | (0.78431374 ×3, a **0.5019608**) |
+        //  | `m_ColorMultiplier` | **2** |
+        //  | `m_FadeDuration` | 0.1（= `WindowButton.FadeSeconds`） |
+        //  | `m_Transition` | 1（ColorTint） |
+        //
+        //  🔴 **两处都是绿 ⇒ 屏上 = 贴图 × Image.m_Color × 状态色 × ColorMultiplier**
+        //     （判据 = UGUI `CanvasRenderer.SetColor` 的 doc 原话「Will be multiplied with the UIVertex color」）。
+        //     ⛔ **别把其中一处当白**：只留一处会把画出来的绿压成一整片深色（`B141-W35` 的灭自证断的就是这个）。
+        //  🔴 **禁用档为什么是 α 0.5019608 而不是 1.0**：这颗是**纯 `UnityEngine.UI.Button`**，
+        //     没有 `EverguildButton.colorTintGreyOnDisable` 那一跳 α 改写（见 `WindowButton.DisabledKeyNow`）
+        //     ⇒ 序列化是多少就是多少；也不换 `Everguild/UI/Greyscale` 材质（原版那段是 `EverguildButton` 独有）。
+
+        /// <summary>原版那颗 Continue 钮的 **Image `m_Color`**（= 画出来的绿底；原版值，⛔ 别改成白）。</summary>
+        public static readonly Color ContinueFaceColor = new Color(0.3686275f, 0.89411765f, 0.5874373f, 1f);
+        /// <summary>原版 `m_Colors.m_NormalColor`（与 <see cref="ContinueFaceColor"/> **同值** —— 原版就是这样）。</summary>
+        public static readonly Color ContinueNormal = new Color(0.3686275f, 0.89411765f, 0.5874373f, 1f);
+        /// <summary>原版 `m_Colors.m_HighlightedColor`。</summary>
+        public static readonly Color ContinueHighlighted = new Color(0.4666667f, 0.91372555f, 0.40000004f, 1f);
+        /// <summary>原版 `m_Colors.m_PressedColor`。</summary>
+        public static readonly Color ContinuePressed = new Color(0.4784314f, 0.49411768f, 0.48235297f, 1f);
+        /// <summary>原版 `m_Colors.m_SelectedColor`（与 Normal **只差 B**：0.5882353 vs 0.5874373）。</summary>
+        public static readonly Color ContinueSelected = new Color(0.36862746f, 0.8941177f, 0.5882353f, 1f);
+        /// <summary>原版 `m_Colors.m_DisabledColor`（**α 0.5019608**；纯 `UnityEngine.UI.Button` ⇒ 无 α 改写）。</summary>
+        public static readonly Color ContinueDisabled = new Color(0.78431374f, 0.78431374f, 0.78431374f, 0.5019608f);
+        /// <summary>原版 `m_Colors.m_ColorMultiplier`（本族 = **2**；`B131` 色彩 A14：全库 1,276 颗里只有 15 颗是 2）。</summary>
+        public const float ContinueColorMultiplier = 2f;
+
+        /// <summary>把 `Continue Button` 那颗 `WindowButton` 接上**四态底座色 + ×2 乘数**（5-06）。
+        /// <para>🔴 为什么必须和底座色**一起**落：`WindowButton` 的色偏是「**基准色 × 状态键**」，
+        /// 基准色 = 那颗可见 quad 建出来时的 tint。原来它**只带一层绿、没有状态键** ⇒ 悬停/按下
+        /// **一个像素都不变**；单把 `ColorMultiplier` 设成 2、不接四态，乘的仍是白键 ⇒ 画面还是不动
+        /// （W34 在 `报告/B141_W129_ButtonFx.md` §5-06 末尾点出的正是这一条）。
+        /// ⇒ 本方法三件事一起做：① 四态 + 禁用色 ② `ColorMultiplier = 2` ③ `TintOn(可见件)` + 立刻落值。</para>
+        /// <para>⚠️ 必须排在 `HitOn` **之后**（那一刻 `WindowButton` 才存在），且在**第一次悬停之前**。</para>
+        /// <para>⛔ 取不到 `WindowButton` / 可见件时**出声**，不静默（红线）。</para></summary>
+        public static void WireContinueButton(Transform hit, ImageQuad face)
+        {
+            if (hit == null) { Debug.LogWarning("[Practice] `BattleHit` 没建出来 ⇒ Continue 钮的四态/底色接不上（出声，不静默）"); return; }
+            var wb = hit.GetComponent<WindowButton>();
+            if (wb == null) { Debug.LogWarning("[Practice] `BattleHit` 上没有 `WindowButton` ⇒ Continue 钮的四态/底色接不上（出声）"); return; }
+            wb.NormalKey = ContinueNormal;
+            wb.HighlightKey = ContinueHighlighted;
+            wb.PressedKey = ContinuePressed;
+            wb.SelectedKey = ContinueSelected;
+            wb.DisabledKey = ContinueDisabled;
+            wb.ColorMultiplier = ContinueColorMultiplier;
+            // 纯 `UnityEngine.UI.Button` ⇒ 没有 `colorTintGreyOnDisable`（不换灰化材质、α 保持 0.5019608）。
+            wb.ColorTintGreyOnDisable = false;
+            if (face == null)
+            {
+                Debug.LogWarning("[Practice] `Continue Button` 那颗可见图没建出来 ⇒ 四态只打在透明命中区上（画面上不会变）");
+            }
+            else wb.TintOn(face);           // = 原版 `m_TargetGraphic`（那颗可见 Image）
+            wb.ApplyTintInstant();          // = 原版 `OnEnable → DoStateTransition(Normal, instant: true)`
+        }
     }
 }

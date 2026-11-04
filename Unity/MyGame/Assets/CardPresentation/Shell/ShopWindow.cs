@@ -69,7 +69,7 @@ namespace CardPresentation
         // ============================================================ 页签
 
         /// <summary>左栏键表：三个页 + **一个母版**（`TabButtons.tabButtonPrefab`，`Initialize` 一进来就关掉）。
-        /// 🔴 **这张表是我们定的**（原版由服务端 store 列表驱动）—— 见文件头。</summary>
+        /// 🔴 **这张表是我们定的**（原版由服务端 store 列表驱动）—— 见文件头。 ✅ 已复刻（2026-11-04 · B141 · 判据 = `工具/menu_rect.py bundle_menus_assets_all "Shop Icon"` 现读：`Badge Highlight` 201.37,1014.60→236.37,1049.60（中心 y 1032.10）、`Shop Icon` 990→1170（键心 1080）⇒ 红点中心 = **键心 −47.9 px（偏上）**；基类按 `cy − BadgeDy` 摆 ⇒ `BadgeDy = +47.9`）：5 个真实页签全部补 `badgeDy: 47.9f`，与母版同值（原来不传 ⇒ 落缺省 −27.2 = 键心 +27.2 偏下，差 75.1 px）。⛔ 别改 `TabBtnSpec` 的缺省（奖励/收藏那几扇真页签的原版值就是 −27.2）。</summary>
         public static TabBtnSpec[] ButtonsNow()
         {
             // 🔴 **2026-10-18（N59）**：页签文案补 `Term`（`BuildBar` 非空即走 `Loc.T`）——
@@ -79,19 +79,19 @@ namespace CardPresentation
             return new[]
             {
                 new TabBtnSpec(ShopData.Pages[0].Icon, ShopData.Pages[0].Label, 36f, 5f, 36f,
-                               "ShopMenu_CardsButton", term: "MenuShop/ShopItemType/BoosterPacks"),
+                               "ShopMenu_CardsButton", badgeDy: 47.9f, term: "MenuShop/ShopItemType/BoosterPacks"),
                 new TabBtnSpec(ShopData.Pages[1].Icon, ShopData.Pages[1].Label, 36f, 5f, 36f,
-                               "ShopMenu_DailyButton", term: "MenuShop/ShopItemType/Gold"),
+                               "ShopMenu_DailyButton", badgeDy: 47.9f, term: "MenuShop/ShopItemType/Gold"),
                 new TabBtnSpec(ShopData.Pages[2].Icon, ShopData.Pages[2].Label, 36f, 5f, 36f,
-                               "ShopMenu_ItemsButton", term: "MenuShop/ShopItemType/Cosmetics"),
+                               "ShopMenu_ItemsButton", badgeDy: 47.9f, term: "MenuShop/ShopItemType/Cosmetics"),
                 // 🆕 **2026-10-27（B88_E12）第 4 颗键 = VIP 页**（原版 `VIPCardShopTab`）。
                 //   图标 `40K_shop_bt_cards_vip`（原版 `bundle_liveopsicons` 里那张，名字自带 vip ⇒ **不是我们挑的**）；
                 //   文案走官方词条 `MenuShop/VIPCardStore/Title`（en `VIP Card store` / zh `VIP 张牌商店`）。
                 new TabBtnSpec(ShopData.Pages[3].Icon, ShopData.Pages[3].Label, 36f, 5f, 36f,
-                               "ShopMenu_VipButton", term: "MenuShop/VIPCardStore/Title"),
+                               "ShopMenu_VipButton", badgeDy: 47.9f, term: "MenuShop/VIPCardStore/Title"),
                 // 🆕 **2026-10-28（`B91_W5`）第 5 颗键 = Boosters/Crates 页**（原版 `BoosterShopTab : ShopTab`）：图标/文案照 `Pages[4]`，文案走官方词条 `MenuShop/ShopItemType/Boosters`（en `Boosters` / zh `增强包`）；实例 ID 是我们的诊断名（`BadgeWiring` 里没有它的徽记定义）。
-                new TabBtnSpec(ShopData.Pages[4].Icon, ShopData.Pages[4].Label, 36f, 5f, 36f, "ShopMenu_BoostersButton", term: "MenuShop/ShopItemType/Boosters"),
-                // 第 5 个 = 母版（原版 `TabButtons.tabButtonPrefab`）：**照建但关着**。
+                new TabBtnSpec(ShopData.Pages[4].Icon, ShopData.Pages[4].Label, 36f, 5f, 36f, "ShopMenu_BoostersButton", badgeDy: 47.9f, term: "MenuShop/ShopItemType/Boosters"),
+                // 第 5 个 = 母版（原版 `TabButtons.tabButtonPrefab`）：**照建但关着**。// ✅ 已复刻（2026-11-04 · B141 · 判据 = 原版 `Shop Icon/Badge Highlight` 键心 −47.9 px ⇒ BadgeDy +47.9；5 个真实页签同值，见上一条 doc）
                 new TabBtnSpec(ShopData.MasterKeyIcon, "Booster Packs", 25.65f, 12f, 33f, "", 47.9f),
             };
         }

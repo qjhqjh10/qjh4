@@ -21,8 +21,8 @@
 //      （谓词本身 `CardDef.IsCumulativeMutation` 已于 `CardDefPartial_B94B16.cs:274` 落地、数据列 v41 已落。）
 //
 // 📊 可达性（现读，如实标）：
-//   · `chosenAbility 160`：池内 **0 张**（`cards_truth.json` 1,351 张里唯一那一行落在 BL37 的
-//     **重复 SO** `f3df0cfc…`，池内那张记录是 30）· `165` = **0 张**；
+//   · `chosenAbility 160`：池内 **0 张**（`cards_truth.json` 1,351 张里唯一那一行在**教程起手占位卡**
+//     `T1 BlackLegion-Abaddons Chosen_startinghand`（`uniqueId f3df0cfc…`；`trigger 30 / ctx 10`：先 `ta=20 self` 弃自己、再 `ca 100` 造真 BL37）—— **不是** BL37 的副本；池内那张记录是 30）· `165` = **0 张**（判据 → `报告/B141_W128_BL37Discard.md`）；
 //   · `trait 780 (mutation)` 池内 **0 张** · `mutationType == 20` **0 行** ⇒ ② 也休眠。
 //   ⇒ 本文件两条都**零行为变化**。
 using System.Collections.Generic;
@@ -75,7 +75,7 @@ namespace RuleEngine
         /// 载体 = 卡表 v24 那一列，`PlayersAffectedOf` 读）。`0 Both` 原版会**两侧各来一遍**，而我们这条
         /// handler 一次只动一侧 ⇒ `Both` 也**出声 + 不结算**（⛔ 别默认成「对面」：那正是改前
         /// `DiscardHandSeatFor` 的缺省行为，会静默弃错人）。</para>
-        /// <para>📊 池内 `chosenAbility == 160` = **0 张**（1,351 张里唯一那一行在 BL37 的重复 SO）⇒ 休眠件。</para>
+        /// <para>📊 池内 `chosenAbility == 160` = **0 张**（1,351 张里唯一那一行在**教程起手占位卡** `T1 BlackLegion-Abaddons Chosen_startinghand`，**不是** BL37 的副本；判据 → `报告/B141_W128_BL37Discard.md`）⇒ 休眠件。</para>
         /// </summary>
         public static int RunDiscardFromHandRow(BattleContext ctx, int p, UnitState u,
                                                   int row, int ta, UnitState chosen)

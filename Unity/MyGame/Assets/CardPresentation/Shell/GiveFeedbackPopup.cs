@@ -117,6 +117,20 @@ namespace CardPresentation
         public const string ArtCheck = "40K_settings_icon_checkmark";
         public const string ArtScore = "Feedback_Scoring_Button";
 
+        // ✅ 已复刻（2026-11-04 · B141-W34 · 5-03 · 判据 = `Assets/Give Feedback Popup menu.prefab` 的
+        //   `Checkbox`/`Checkbox (n)` 41 颗 `EverguildToggle` 逐颗实读：`m_Transition = 1`(ColorTint) ·
+        //   `m_TargetGraphic` = 子件 `Toggle` 的 Image（`40K_dropdown_bg`，`m_Color = 白`）· `toggle.graphic` = `CheckMark`。
+        //   ⚠️ **`CheckMark` 不在色偏名单里**（原版只染 `m_TargetGraphic` 那一颗）⇒ 我们只染 `Toggle` 底、不染勾。
+        //   ⚠️ 41 颗**逐值相同**（四态 + 禁用色逐字一致，一次扫全）。
+        //   🔴 禁用色那一格：prefab 存的是 `m_DisabledColor.a = 0.5019608`，但这 41 颗 **`colorTintGreyOnDisable = 1`
+        //   + `colorTintGreyOnDisableAlpha = 1.0`** ⇒ 原版 `EverguildButton.Awake` / `SetUpButtonColors` 会把
+        //   `m_DisabledColor.a` **重写成 1.0** 再 `set_colors`（判据 → `WindowButton.DisabledKeyNow`）⇒ 这里直接写**成品值 a=1**。
+        public static readonly Color CheckNormal = new Color(0.28627452f, 0.9647059f, 0.6862745f, 1f);
+        public static readonly Color CheckHover = new Color(0.29214135f, 0.9528302f, 0.6816804f, 1f);
+        public static readonly Color CheckPressed = new Color(0.30584726f, 0.8207547f, 0.61052626f, 1f);
+        public static readonly Color CheckSelected = new Color(0.2901961f, 0.9529412f, 0.68235296f, 1f);
+        public static readonly Color CheckDisabled = new Color(0.78431374f, 0.78431374f, 0.78431374f, 1f);
+
         // 文字档位（prefab 逐颗实读）
         public const float TitleFont = 50f, TitleFontMin = 4f, TitleFontMax = 50f, TitleFontBase = 36f;
         public const float SubtitleFont = 42.45f, SubtitleFontMin = 4f, SubtitleFontMax = 50f, SubtitleFontBase = 36f;
@@ -509,7 +523,11 @@ namespace CardPresentation
             var inputNode = MenuDraw.Node(_free, "Input field", InputR);
             MenuDraw.Nine(inputNode, Tex(ArtInputBg, "`Input field` 的输入框底"), InputR,
                           new Vector4(10f, 10f, 10f, 10f), 32f, 32f, QText, InputTint, true, "Image");
-            var inputArea = MenuDraw.Node(inputNode, "Text Area", InputTextR);
+            // ✅ 已复刻（2026-11-04 · B141_W68 · 判据 `判据/B141_W129_对账_UI动画.md` W11/4-23 ＋ `Give Feedback Popup menu.prefab`）：
+            //   原版 `Input field/Text Area` 上挂 `RectMask2D`（`m_Padding = (−8,−5,−8,−5)` 负=外扩 · `m_Softness = (0,0)`）。
+            //   改前是裸节点（两颗字都不裁）⇒ 改走 `ViewportClip.Hang`（= 那颗 `RectMask2D` 的等价物）。
+            var inputArea = ViewportClip.Hang(inputNode, "Text Area", InputTextR,
+                                              TextInputField.AreaPad, TextInputField.AreaSoftness).transform;
             Text(inputArea, InputTextR,
                  Term(PlaceholderTerm),
                  new Color(0.196f, 0.196f, 0.196f, 0.5f), "Placeholder", PlaceholderFont, QText, 0f, 0f, 0f, 1,
@@ -622,7 +640,7 @@ namespace CardPresentation
                 //   ⇒ 按比例内接画成 **88.2×75.64**，**不是**九宫拉满 119×75.64（宽 31px）。
                 //   判据 = dump 原文 `40K_dropdown_bg 119×102 九宫23,20,23,20 | Simple (1,1,1,1) preserveAspect`
                 //   → `资料/普查产出_1018/P2_弹窗排版_通用活动奖励.md` §9。
-                MenuDraw.Rect(tog, Tex(ArtDropdownBg, "复选框底"), togR, "Image", QRow, null, true);
+                var togQ = MenuDraw.Rect(tog, Tex(ArtDropdownBg, "复选框底"), togR, "Image", QRow, null, true);
                 var chkR = new PxRect(rowR.x1, rowR.y1, rowR.x1 + ToggleW, rowR.y2);
                 var chk = MenuDraw.Node(tog, "CheckMark", chkR);
                 MenuDraw.Rect(chk, Tex(ArtCheck, "复选框勾"), chkR, "Image", QRow + 1, null, true);
@@ -636,6 +654,19 @@ namespace CardPresentation
                 // `m_onClickSound = 8881786964274599484` = **`Select Toggle`** ⇒ 显式传。
                 var hit = MenuDraw.Hit(row, "Hit", rowR, QHit, () => ToggleChoice(it, idx, chk),
                                        clickCue: WindowSounds.SelectToggleCue);
+                // ✅ 已复刻（2026-11-04 · B141-W34 · 5-03）：四态绿 + 禁用色（判据见上面那组 `CheckNormal` 常量）。
+                //   色偏目标 = `Toggle` 底那一颗（原版 `m_TargetGraphic`），勾 `CheckMark` **不染**；
+                //   命中区是整行（原版 `Checkbox` 根就是那颗 `EverguildToggle`）⇒ 用 `TintOn` 把可见件接进来。
+                var cbWb = hit != null ? hit.GetComponent<WindowButton>() : null;
+                if (cbWb != null)
+                {
+                    cbWb.NormalKey = CheckNormal;
+                    cbWb.HighlightKey = CheckHover;
+                    cbWb.PressedKey = CheckPressed;
+                    cbWb.SelectedKey = CheckSelected;
+                    cbWb.DisabledKey = CheckDisabled;
+                    if (togQ != null) cbWb.TintOn(togQ);   // 取不到那颗底 ⇒ 不调（`TintOn(null)` 会塞一个空槽）
+                }
                 if (hit == null) { /* 视口外 ⇒ 不建（框已判过；这里只是兜底） */ }
             }
         }
@@ -677,6 +708,12 @@ namespace CardPresentation
                 {
                     scoreWb.allowClickWhenAlreadySelected = false;
                     scoreWb.isOn = () => _score.TryGetValue(it.Name, out int s) && s == idx + 1;
+                    // ✅ 已复刻（2026-11-04 · B141-W34 · 5-06）：原版 `Assets/Feedback Scoring Button.prefab`
+                    //   根 `Feedback Scoring Button` 的 `m_Colors.m_ColorMultiplier = 2.0`。
+                    //   ⚠️ 那颗 `m_Transition = 0`(None) ⇒ 原版**四态一个像素都不变**；我们这里乘 2 后
+                    //   四态键（1.0 / 0.9608 / 0.7843 / 0.9608）**逐通道都 ≥ 1 被 Clamp01 夹成 1**
+                    //   ⇒ 悬停/按下同样零变化 = 与 `trans=0` 等价（这条正是 5-06 在本站点上的落地方式）。
+                    scoreWb.ColorMultiplier = 2f;
                 }
                 // 选中态：原版靠 `Highlight` 子件（出厂关着）；我们按同一颗子件名建，答了才亮
                 var hl = MenuDraw.Node(btn, "Highlight", r);
@@ -703,7 +740,10 @@ namespace CardPresentation
                           119f, 102f, QRow, OpenAreaTint, true, "Image",
                           new Vector4(11.5f, 10f, 11.5f, 10f));
             var inner = new PxRect(areaR.x1 + 10f, areaR.y1 + 7f, areaR.x2 - 10f, areaR.y2 - 7f);
-            var area = MenuDraw.Node(box, "Text Area", inner);
+            // ✅ 已复刻（2026-11-04 · B141_W68 · 判据同上 ＋ 原版 `S2Q4/S4Q2_Extra/S4Q3_Extra > Text Area > Text Area`）：
+            //   掩码挂在**内层**那颗 `Text Area`（外层那颗带 `Image` 底图、原版**没**挂 `RectMask2D`）。
+            var area = ViewportClip.Hang(box, "Text Area", inner,
+                                         TextInputField.AreaPad, TextInputField.AreaSoftness).transform;
             var ph = Text(area, inner,
                           Term(PlaceholderTerm),
                           new Color(1f, 1f, 1f, 0.5f), "Placeholder", 29f, QText, 0f, 0f, 0f, 1,

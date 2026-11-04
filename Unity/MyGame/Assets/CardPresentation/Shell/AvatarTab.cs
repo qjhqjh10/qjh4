@@ -919,7 +919,7 @@ namespace CardPresentation
         //      但这一件**原版就不上屏**（`m_IsActive = F`、运行期无 `SetActive`，见 `BuildRows` 那段），
         //      ⇒ 与 `Image` 同号不会造成可见差；`Hit`（透明命中 quad，`PointerLayer` 只按**命中 quad 之间**的
         //      队列排序、格与格的命中框互不重叠）保持原来的 5 不动。
-        const int QCellOrderBase = 3180;     // 绝对渲染队列起点（本页 `Q` = `QPageBase + 1*10` = 3170）
+        const int QCellOrderBase = 3180;     // 绝对渲染队列起点（本页 `Q` = `QPageBase + 1*10` = 3170）｜✅ 已复刻（2026-11-04 · B141 · 判据 = 原版两扇**不同画布**：档案窗 `PopUps` 排序层 / `3 - PopUp Holder` 永远压在开包窗（`2 - Canvas Holder`，`Default`）之上 ⇒ 开包窗整带被降到 `PlayerProfileWindow.QShade − 28` = 3122–3149，**严格低于**本页 3170 与格子带 3180–3299；见 `BoosterPackOpenWindow.QBase` 那段）
         const int QCellOrderLayers = 3;      // 一格 3 层：0 `Highlight` < 1 `Border` < 2 `Image`
         const int QCellOrderSlots = 8;       // 8 行档 × 5 列 × 3 层 = 120 号（3180–3299）
     }

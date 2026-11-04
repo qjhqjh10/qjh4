@@ -88,7 +88,7 @@ namespace RuleEngine
         public const int BoardSize = BoardSpec.Size;
         public const int WarlordSlot = BoardSpec.WarlordSlot;
         /// <summary>🆕 2026-09-26：**这两个已经不是常量了** —— 它们按模式变
-        /// （经典 起手 3 / 上限 10；遭遇 起手 4 / 上限 8），真值住在
+        /// （经典 起手 3 / 上限 10；遭遇 起手 3 / 上限 8），真值住在
         /// <see cref="GameplayVariables"/>，引擎里一律读 `ctx.Vars.startingHand` / `ctx.Vars.handLimit`。
         /// 留这两个**属性**是给「不持有 `BattleContext` 的调用方」（自检断言那几处）用的，
         /// 语义 **= 经典模式的值** —— 别拿它当「本局的起手张数」。
@@ -4042,7 +4042,7 @@ namespace RuleEngine
             // 单位卡的判据在下面；战术卡先分流（判据共用 `CanPlayTactic`，不在这儿重写一份）
             if (p >= 0 && p < 2 && handIdx >= 0 && handIdx < ctx.Players[p].Hand.Count
                 && !ctx.Players[p].Hand[handIdx].Card.IsUnit)
-                return PlayTactic(ctx, p, handIdx, ChosenTargetSlot(ctx, chosen, slot), chosen);
+                { var _wc = ctx.Players[p].Hand[handIdx].Card; var _wr = PlayTactic(ctx, p, handIdx, ChosenTargetSlot(ctx, chosen, slot), chosen); if (_wr == RuleCodes.OK) ApplyWarlordTalentHandBuffOnPlay(ctx, p, _wc); return _wr; }   // ✅ 已复刻（2026-11-04 · B141 · SAU55）：战术卡结算成功后落它自己的 `handBuff` 里 `ta=235 warlordsTalent` 那一行（"your Warlords' Talent costs 1 less"），实现见类尾 `ApplyWarlordTalentHandBuffOnPlay`。原版 `AbilityLogic.PlayAbility` 的 `buffHand` 支 → `PlayerHand.AddHandEffect`（`FilterMethods__CheckIfMeetsCriteria.c:126-157`）。⚠️ 同一物理行替换 = 零净行数（`PlayCardCore` 下游有账落点）
 
             int code = CanPlayCard(ctx, p, handIdx, slot);
             if (code != RuleCodes.OK) return code;
@@ -15622,14 +15622,14 @@ namespace RuleEngine
                      targetCardId: chosen != null ? chosen.Name : null,
                      instanceId: u.InstanceId, priority: 1);   // 🆕 2026-10-27（`B88-E14`）这一支 = 主动能力执行（`ResolveActiveAbilityRows` / `effect: activeAbility`）⇒ 与 ① 同一支、**固定 1**（施工单 §二 ④，判据 `decomp_full/RawCardScript__ResolveActiveAbility.c:47`）
             // ⚠️ 必须紧跟上一句（中间⛔ 不许再发别的事件），见 `AttachAbilityTargets` 的 doc。
-            AttachAbilityTargets(ctx, p, u, null, chosen, ActiveAbilityTargetCriteriaForPlan(u, plan), publishTable: true);   // 🆕 2026-10-31（`B104_MT` · 施工单 MT-b）：把**这一条 ability 那一行**的 `targetCriteria`（`CardDef.ActiveAbilityTargetCriteriaAt(ab, lg)`，含 `ta` / `maxTargets` / `targetSelectMethod`）递进去 —— 改前只递 `null` ⇒ `AbilityTargetsFor` 恒 ≤1 个目标。多行怎么取一行 = `ActiveAbilityTargetCriteriaForPlan` 的 doc（调度台裁定 ①：按行独立、不合并）。🆕 `publishTable: true` = 产出的表同时挂到 `ctx.AbilityTargetTable`，供效果层直接消费（原版：效果吃 `GetTargets` 这张表，⛔ 不另抽一次）
+            AttachAbilityTargets(ctx, p, u, null, chosen, ActiveAbilityTargetCriteriaForPlan(u, plan), publishTable: true);   // 🆕 2026-10-31（`B104_MT` · 施工单 MT-b）：把**这一条 ability 那一行**的 `targetCriteria`（`CardDef.ActiveAbilityTargetCriteriaAt(ab, lg)`，含 `ta` / `maxTargets` / `targetSelectMethod`）递进去 —— 改前只递 `null` ⇒ `AbilityTargetsFor` 恒 ≤1 个目标。多行怎么取一行 = `ActiveAbilityTargetCriteriaForPlan` 的 doc（调度台裁定 ①：按行独立、不合并）。🆕 `publishTable: true` = 产出的表同时挂到 `ctx.AbilityTargetTable`，供效果层直接消费（原版：效果吃 `GetTargets` 这张表，⛔ 不另抽一次）｜✅ 已复刻（2026-11-04 · B141 · 战-多目标③）：**每一行**在下面行循环里再由 `AppendOneRowAbilityTargetsToEvent` 按**它自己的** `targetCriteria` 把自己的目标并进事件表（见 `:15632` 那行），本节只负责挑一行做初始表
             ctx.Log($"{ctx.Players[p].Name} 的 {u.Name} 发动主动能力");
 
             // ---- 逐行执行（`RawCardScript__ResolveActiveAbility.c:58-67`，顺序 = `activeAbilityLogic` 的次序）----
             int executed = 0;
             foreach (var step in plan)
             {
-                int ca = step[0], ta = step[1]; PublishRowAbilityTargetTable(ctx, p, u, chosen, step);   // ✅ 已复刻（2026-11-04 · `B140_WA` · 战-多目标②）：原版**每一行**各一次 `GetTargets + PlayAnim`（`AbilityLogic__PlayAbility.c:262/273`，第二处 `:1524-1531`）⇒ 效果层消费的「当前 ability 目标表」也必须**按行**重挂，而不是整条 ability 只挂一行。⚠️ 只挂**零随机消费**的那一档（`ta ∈ {0,10,110,140,150}` ∧ 不限张数），见该方法的 doc；事件那一份仍是一张表（结构约束，见 `ActiveAbilityTargetCriteriaForPlan` 的 doc）。⚠️ 写在同一物理行（铁律 18·b）：本文件有 500+ 处账按行号引用
+                int ca = step[0], ta = step[1]; PublishRowAbilityTargetTable(ctx, p, u, chosen, step); AppendOneRowAbilityTargetsToEvent(ctx, p, u, chosen, step);   // ✅ 已复刻（2026-11-04 · B141 · 战-多目标③）：**这一行**按**它自己的** `targetCriteria` 算出的目标并进事件 `AbilityTargetList`（零随机消费档 `ta∈{0,10,110,140,150}∧不限张数`）⇒ 多行 ability 各自目标都在表里，消费端 `BattleDriver.ExpandAbilityBeats` 逐目标排拍（原版 `AbilityLogic__PlayAbility.c:262/273` 每行各一次 `GetTargets+PlayAnim`）。⚠️ 改前事件表只承载「计划里挑中的那一行」；写在行首（本行同 `PublishRowAbilityTargetTable`）= ta=140/150 读到的是**前几行已结算后**的表。⚠️ 同一物理行追加 = 零净行数 ｜🆕 2026-11-04 · `B140_WA` · 战-多目标②：原版**每一行**各一次 `GetTargets + PlayAnim`（`AbilityLogic__PlayAbility.c:262/273`，第二处 `:1524-1531`）⇒ 效果层消费的「当前 ability 目标表」也必须**按行**重挂，而不是整条 ability 只挂一行。⚠️ 只挂**零随机消费**的那一档（`ta ∈ {0,10,110,140,150}` ∧ 不限张数），见该方法的 doc；事件那一份仍是一张表（结构约束，见 `ActiveAbilityTargetCriteriaForPlan` 的 doc）。⚠️ 写在同一物理行（铁律 18·b）：本文件有 500+ 处账按行号引用
                 if (ca == 30 || ca == 31)
                 {
                     var useTgt = ta == 20 ? null : chosen;   // ⚠️ `ta == 20 (self)` 的行不吃调用方给的目标（原版 `GetTargets` 对 `self` 直接放 thisCard）⇒ 传 `null` 让它落到施放者自己
@@ -15927,9 +15927,9 @@ namespace RuleEngine
         /// **每人一条 `Discard`**、没有全局进墓序号 ⇒ 本口按「座位 0 的墓地 ++ 座位 1 的墓地」出结果。
         /// 只影响「候选多于上限时先取谁」（`GetTargets` 的 `ta=60` 支），**张数与成员不受影响**。</para>
         ///
-        /// <para>⚠️ **消费方还没切过来**：原版唯一调用点 = `AbilityLogic__GetTargets.c:951`（`ta=60`）；
-        /// 我们那一支 = `EffectResolver.ReturnFromCemetery`（自己扫 `DeadUnits`）—— 换成本口是一行，
-        /// 属 `EffectResolver` 的写手。⛔ 别在别处再造第二份 incl* 过滤。</para>
+        /// <para>✅ **消费方已切**（2026-10-29 `B98_K4`）：`EffectResolver.ReturnFromCemetery` / `DoDeployOnce`
+        /// 经 `CemeteryDeadUnits` → `ResolveCemeteryTargets` 走本口（原版唯一调用点 = `AbilityLogic__GetTargets.c:951`，`ta=60`）。
+        /// ⛔ 别在别处再造第二份 incl* 过滤；`choose … died …` 那一路（`DeadCandidates`）尚未切，见其上方注。</para>
         /// </summary>
         public static List<CardInstance> GetCardsInCemetery(BattleContext ctx, bool inclMinions,
             bool inclSpells, bool inclWhispers, bool inclWeapons, bool inclPlayer, bool inclEnemy)
@@ -16097,13 +16097,13 @@ namespace RuleEngine
         // 🔴 2026-10-28（批次 91 · `W1`）：「手牌里有 `TurnStarted(160)` 能力、但我们没有执行口」的**出声口**说明（同一张卡只喊一次）。
         // 这两行原先是 `///`、直接压在 `RemoveHandEffectAt` 的 `<summary>` 上（中间没有方法声明）⇒ 两个 `<summary>` 叠在一起把 doc 抢走；改成 `//`（行数/代码不动）。
         /// <summary>
-        /// **原版 `PlayerHand.RemoveHandEffectAt(int index)`**（`decomp_full/PlayerHand__RemoveHandEffectAt.c:30-40`）
-        /// 的等价物 —— **按下标**摘掉手牌效果记录表里的任意一条。
+        /// ✅ 已复刻（2026-11-04 · `B141_W78` · 判据 `PlayerHand__RemoveHandEffectAt.c:30-40` ＋「不限次」档：身份改按 `RecordId`）**原版 `PlayerHand.RemoveHandEffectAt(int index)`**（`decomp_full/PlayerHand__RemoveHandEffectAt.c:30-40`）
+        /// 的等价物 —— **按下标**摘掉手牌效果记录表里的任意一条（**两个档都摘**：限次 / 不限次）。
         ///
         /// <para>**判据**：`:30-40` = 取 `handEffects(+0x48)` 的 `[index]` → `List.RemoveAt(index)` →
         /// 再把那一条从牌身上摘掉（原版一条 `HandEffect` 记录**发给 N 张牌**、共用同一个对象）。
-        /// ⇒ 我们 = 取 `PlayerState.HandEffectRecords[index]` 的 `Uses`（同一次挂载的身份）
-        /// 转发到 <see cref="RemoveHandEffectFromHand"/>（那一个同时摘「记录表」与「每张牌身上那几条」）。</para>
+        /// ⇒ 我们 = 取 `PlayerState.HandEffectRecords[index]`：**限次档**（`Uses != null`）转发给
+        /// <see cref="RemoveHandEffectFromHand"/>；**不限次档**（`Uses == null`）走 <see cref="RemoveHandEffectRecordAt"/>（身份 = `RecordId` / 引用）。</para>
         ///
         /// <para>⚠️ **与 <see cref="RemoveHandEffectFromHand"/> 的分工**：后者是「**次数用尽 / 到期 / 载体离场**」
         /// 那几条**语义**入口；本方法补的是原版那条**按下标**的通用出口（谁都能摘任意一条）。
@@ -16115,9 +16115,9 @@ namespace RuleEngine
             var recs = ctx.Players[owner].HandEffectRecords;
             if (recs == null || index < 0 || index >= recs.Count) return 0;
             var rec = recs[index];
-            if (rec == null || rec.Uses == null) return 0;
-            return RemoveHandEffectFromHand(ctx, owner, rec.Uses,
-                "原版 `PlayerHand.RemoveHandEffectAt(" + index + ")` 按下标摘");
+            if (rec == null) return 0;
+            if (rec.Uses == null) return RemoveHandEffectRecordAt(ctx, owner, index, "原版 `PlayerHand.RemoveHandEffectAt(" + index + ")` 按下标摘（不限次档）");
+            return RemoveHandEffectFromHand(ctx, owner, rec.Uses, "原版 `PlayerHand.RemoveHandEffectAt(" + index + ")` 按下标摘（限次档）");
         }
 
         // ==========================================================================================
@@ -17920,11 +17920,11 @@ namespace RuleEngine
         //  🔴 2026-11-03（`B121_D3` · 账 `b121-d3-ta0`）**就地订正**：这条原来写「其余 `ta`（含 `0 any` —— **池内 0 张**、原版休眠，裁定 ④ 不接线）」—— **前提不成立**：现读 `cards_engine.json` 有 **224 行 / 209 张** `abilityTargets[].ta == [0]`（`activeAbilityLogic` 另有 **17 行 / 14 张**）；原版 `d:/2/tools/decomp_full/AbilityLogic__GetTargets.c:884-891` 的 `if (targetsAffected == 0)` 是一支**实分支**（`GetUnitsInPlayList(clear 0, inclHero/Minions/HeroParts/Weapons/Remnants/Player/Enemy 全 1, includeDying 0)` = **双方全场**），**不是休眠** ⇒ 已接线。逐 case 复核与「谁真消费这张表」→ `资料/完全复刻/报告/B121_D3_ta0与playersAffected.md`。
         //  🔴 2026-11-02（`B116_W39` · 账 `B-342`）**补 `140` 的那一格**：建池**与 150 同一句**（原版 `GetTargets.c:849-866` = `AddRange(上一条 ability 的目标表)` 后 `goto LAB_180818485`），
         //     差别只在**逐候选筛**（140 = `Contains` 直接返回 / 150 = 在表里才继续走常规格）—— 那一半在 `TargetCriteriaEval.Matches`（`:133-143`），本文件**不重复判**。
-        //  🔴 **`ta=150` 落到手牌的那一半不产**（`BattleEventTarget` 只能表达棋盘格）：只产出仍在棋盘上的那些并**出声**一次
-        //     （裁定 ②：⚠️ 2026-11-01 更正——原来写「走 T21-a 的手牌锚通道；该通道完成前这一档记「部分做」」，把 T21-a 当成阻塞；而 T21-a 已于 `B104_T21` 落地（`Editor/BattleScene.cs:45266` 接线 + 15 条断言）。**真阻塞 = `BattleContext.PreviousAbilityTargets`（`BattleContext.cs:1134`）被写死成 `List<UnitState>`** ⇒ 手牌实例根本进不了候选池；消费端还有第二半：`BattleDriver.AbilityTargetView`（`:36186`）只查 `_myUnits`/`_foeUnits`，`Slot=-1` 时返 null；两半都改才能闭合；⛔ 不发明坐标）。
+        //  🔴 **`ta=150` 落到手牌的那一半【已产出】**（✅ 已复刻 2026-11-04 · B141）：手牌/离场候选进 `handRefs`、收尾以 `Slot = -1` + `InstanceId` 输出到**事件表**；效果层（`ctx.AbilityTargetTable`）只吃棋盘项。
+        //     （历史（⚠️ 2026-11-01 曾写「不产」）：当时的两个阻塞都已修 —— `BattleContext.PreviousAbilityTargets`（`BattleContext.cs:1134`）现为 `List<CardRef>`（能手牌实例）；消费端 `BattleDriver.AbilityTargetView`（`:36186`）已有 `Slot=-1` 手牌回落。⛔ 不发明坐标）。
         //  🔴 **不写 `ctx.Log`**（`ctx.Events` 进 `NetProtocol.Fingerprint`）—— 出声一律 `UnityEngine.Debug.LogWarning` + 去重表。
-        //  🔴 **`2/3 valueInPlay` / 未知 `targetSelectMethod` 且真要截断** ⇒ 返回 `null`（本版没有 `GetValueInPlay` 等价字段，
-        //     ⛔ 不拿随机或池序冒充）。现池 193 行 `activeAbilityTargets` 的 `targetSelectMethod` 只有 `0`(191) / `7`(2) ⇒ 今天零可观测。
+        //  🔴 **`2/3 valueInPlay`【已实现】**（✅ 已复刻 2026-11-04 · B141 / `B140_WA`）：`KeepByValueInPlay` 按 `SimpleAI.ValueInPlay` 排序（`2` 降序 / `3` 升序，
+        //     判据 = `out_il2csharp/Assembly-CSharp/AbilityLogic.cs` 的 `switch (targetSelectMethod - 1)`）。**未知** `targetSelectMethod` 且真要截断 ⇒ 仍返回 `null`（⛔ 不猜随机/池序）。现池 `targetSelectMethod` 只有 `0`(191) / `7`(2) ⇒ 该两档仅夹具可达。
         // ==========================================================================================
 
         static readonly HashSet<string> _abilityTargetTableNoted = new HashSet<string>();
@@ -18574,9 +18574,9 @@ namespace RuleEngine
         static void PublishRowAbilityTargetTable(BattleContext ctx, int owner, UnitState source, UnitState chosen, int[] step)
         {
             if (ctx == null || source == null || source.Card == null || step == null || step.Length < 4) return;
-            if (step[2] < 0 || step[3] < 0) return;                       // `ca == 462` 那类行没有 (ability, logic) 二元组
+            if (step[2] < 0) return;   // ✅ 已复刻（2026-11-04 · B141-W37 · 判据 `AbilityLogic__PlayAbility.c:262/273`）：**只判 logic 下标** —— `step[3] = row.Ability` 对主动能力**恒为 -1**（`CardDef.ActiveAbilityObject`；数据 `activeAbilityLogic[].ab` 现读全 -1/-2），而 `ActiveAbilityTargetCriteriaAt(-1, j)` 本来就接受它（`CardDef.cs:2624`）⇒ 改前那句 `|| step[3] < 0` 让**效果层这张表对真实主动能力恒早退、从未按行挂过**；`ca == 462` 那类行由 `step[2] = -1` 已经挡住（那是 logic 下标）
             var set = source.Card.ActiveAbilityTargetCriteriaAt(step[3], step[2]);
-            if (set == null) return;                                      // 这一行没落 36 格数据 ⇒ 保持上一张表（与改前同向）
+            if (set == null) return;   // 这一行没落 36 格数据 ⇒ 保持上一张表。⚠️ 2026-11-04（B141-W37）：改前上面那句闸让**主动能力恒早退**、这张表从来没被挂过 ⇒「上一张表」只在**同一条 ability 的前一行**发布过时才存在 —— 对随机型 op 那是**错的来源**（原版每行用自己那行 `GetTargets` 的表）。📊 今天零可观测：43 张可发布行的卡里没有一张的主动能力 op 是 `random ∧ 截断`（`SW21`/`SW5`/`SW29` 都 `maxTargets=1`，被下面白名单挡掉）⇒ `play check` 指纹不变；本行记为**已知近似**，待「事件按行承载」时一并收紧
             int ta = set.TargetsAffected;
             if (ta != 0 && ta != 10 && ta != 110 && ta != 140 && ta != 150) return;
             if (ta != 0 && set.MaxTargets >= 1) return;
@@ -18591,6 +18591,276 @@ namespace RuleEngine
         public static void PublishRowAbilityTargetTableForTest(BattleContext ctx, int owner, UnitState source, UnitState chosen, int[] step)
         {
             PublishRowAbilityTargetTable(ctx, owner, source, chosen, step);
+        }
+
+        // ================================================================================================
+        //  🆕 2026-11-04（B141-W22 · 战-多目标③ / 战-多目标·SAU55）
+        //  ⚠️ 追加在**类尾**（本文件有 500+ 处账按 `RuleEngine/Core/RuleCore.cs:行号` 引用；行数只在本节增长）。
+        // ================================================================================================
+
+        // ---- ① SAN-27 残余③：多行 ability「每一行按自己的 targetCriteria 算目标」并进事件表 ----
+
+        /// <summary>把**一行** activeAbility（`step = {ca, ta, logicRow, abilityObject}`）的目标并进
+        /// `into`（= 事件 `BattleEvent.AbilityTargetList`），按 `InstanceId` / `Player+Slot` 去重。
+        ///
+        /// <para>判据：原版 `AbilityLogic.PlayAbility` 是**每一行**各一次 `GetTargets + PlayAnim`
+        /// （`AbilityLogic__PlayAbility.c:262/273`，第二处 `:1524-1531`）⇒ 每一行落到哪几张牌，由**那一行自己**
+        /// 的 `activeAbilityTargetCriteria[lg]` 决定。改前事件表只承载「计划里挑中的那一行」
+        /// （`ActiveAbilityTargetCriteriaForPlan`）⇒ 多行 ability 的其它行目标缺失。</para>
+        ///
+        /// <para>🔴 **只收「零随机消费」档**（`ta ∈ {0,10,110,140,150}` ∧ `MaxTargets &lt; 1`）：
+        /// 这几支建完池直接 `return`、不落截断、不消费 `ctx.GetRandomInt`（判据 = `GetTargets.c:884-891` /
+        /// `:972-1060`；同 `PublishRowAbilityTargetTable` 的白名单）⇒ 并表**不改变随机序列**。
+        /// 🔵 2026-11-04（`B141-W43b`）：**落点 = `TryRowOwnAbilityTargets`（类尾，白名单/数据闸的唯一一份）** ——
+        /// 本方法现在只剩「取那一行的表 → 去重并进 `into`」两步，⛔ 别把白名单再抄回这里。</para>
+        /// </summary>
+        static void AppendOneRowAbilityTargets(BattleContext ctx, int owner, UnitState source, UnitState chosen,
+                                               int[] step, List<BattleEventTarget> into)
+        {
+            if (into == null) return;
+            List<BattleEventTarget> sub;
+            if (!TryRowOwnAbilityTargets(ctx, owner, source, chosen, step, out sub)) return;   // 白名单 / 数据闸全在那一处（唯一一份）
+            MergeRowTargetsUnique(sub, into);
+        }
+
+        /// <summary>把**一行**的目标并进**当前刚落的那条 `EvtKind.Ability` 事件**的表（`AppendOneRowAbilityTargets` 的事件版），
+        /// 并**按行**把这一行自己的表记进 `BattleEvent.AbilityRowTargets`（`B141-SAN27-ROWID`）。
+        /// ✅ 已复刻（2026-11-04 · B141 · `AbilityLogic__PlayAbility.c:262/273`）：原版**每一行**各一次
+        /// `GetTargets + PlayAnim` ⇒ 表现层每一拍只播**它那一行**的目标；`AbilityTargetList`（并集）**口径不变**
+        /// （= 改前的兜底，消费端取不到本行时退回它）。
+        /// ⚠️ **白名单外的那一行故意不记**（`rows[logic]` 保持 `null`，⛔ 别记空表）：空表在消费端 = 「这一行确实
+        /// 没选到目标」⇒ 那一拍按原版 `PlayAnim.c:172-176` 直接不排；而「没记」= 退回并集。两者**必须分开**。</summary>
+        static void AppendOneRowAbilityTargetsToEvent(BattleContext ctx, int owner, UnitState source, UnitState chosen, int[] step)
+        {
+            if (ctx == null) return;
+            var sig = ctx.Signals;
+            if (sig == null || sig.Count == 0) return;
+            var e = sig[sig.Count - 1];
+            if (e == null || e.Kind != EvtKind.Ability) return;
+            if (e.AbilityTargetList == null) e.AbilityTargetList = new List<BattleEventTarget>(4);
+            List<BattleEventTarget> own;
+            if (TryRowOwnAbilityTargets(ctx, owner, source, chosen, step, out own))
+            {
+                if (e.AbilityRowTargets == null)
+                {
+                    e.AbilityRowTargets = new List<List<BattleEventTarget>>();
+                    e.AbilityRowTargetsObject = step[3];            // -1 activeAbility / -2 alternativeAbility
+                }
+                if (e.AbilityRowTargetsObject == step[3])           // 两个能力对象的行号各自从 0 起 ⇒ ⛔ 不混
+                {
+                    while (e.AbilityRowTargets.Count <= step[2]) e.AbilityRowTargets.Add(null);
+                    e.AbilityRowTargets[step[2]] = own;             // ⚠️ 空表**也是**有效答案（这一行确实没选到目标）
+                }
+                MergeRowTargetsUnique(own, e.AbilityTargetList);    // 并集照旧（改前口径，零回归）
+            }
+        }
+
+        /// <summary><see cref="AppendOneRowAbilityTargets"/> 的**整张计划**版（自检 / 诊断用；⛔ 产品路径只用单行版 + 行循环，见 `UseActiveAbilityCore`）。</summary>
+        static void AppendPlanRowAbilityTargets(BattleContext ctx, int owner, UnitState source, UnitState chosen,
+                                                List<int[]> plan, List<BattleEventTarget> into)
+        {
+            if (plan == null || into == null) return;
+            for (int i = 0; i < plan.Count; i++) AppendOneRowAbilityTargets(ctx, owner, source, chosen, plan[i], into);
+        }
+
+        /// <summary>自检门：<see cref="AppendPlanRowAbilityTargets"/>（**只写你传进来的 `into`**，不碰 `ctx` 局面）。</summary>
+        public static void AppendPlanRowAbilityTargetsForTest(BattleContext ctx, int owner, UnitState source, UnitState chosen,
+                                                              List<int[]> plan, List<BattleEventTarget> into)
+        {
+            AppendPlanRowAbilityTargets(ctx, owner, source, chosen, plan, into);
+        }
+
+        // ---- ② B123-CA50SIX · SAU55：`ta=235 warlordsTalent` 的手牌降费落到「己方战将的天赋卡」 ----
+
+        /// <summary>本方督军的**天赋卡**（原版 `CardScript__GetTalentCard(GetHero(side))`）：
+        /// 取 `TalentCardData.Resolve(pool, 督军卡 id)` 的**第一个**（原版 `unitsToSummon[0]`，`CardScript__GetTalentCard.c`），
+        /// 解析不到再退 `TalentName` 的 id 真值表 / 按名查。`null` = 这张督军没有可解的天赋卡。</summary>
+        static CardDef ResolveWarlordTalentCard(BattleContext ctx, int owner)
+        {
+            if (ctx == null || owner < 0 || owner > 1) return null;
+            var wl = ctx.Players[owner] != null ? ctx.Players[owner].Warlord : null;
+            if (wl == null || wl.Card == null) return null;
+            var cands = TalentCardData.Resolve(ctx.CardPool, wl.Card.Id);
+            if (cands != null && cands.Count > 0) return cands[0];
+            if (!string.IsNullOrEmpty(wl.Card.TalentName))
+            {
+                var t = TalentCardData.ResolveByTalentName(ctx.CardPool, wl.Card.TalentName);
+                if (t == null) t = CreatePool.FindByName(ctx.CardPool, wl.Card.TalentName);
+                return t;
+            }
+            return null;
+        }
+
+        /// <summary>把 `rows` 里**所有 `ta=235 warlordsTalent` 的 `handBuff` 行**落到本方手牌（原版 `PlayerHand__AddHandEffect`）。
+        /// 匹配期间用 <see cref="TargetCriteriaEval.SetWarlordTalentContext"/> 把天赋卡交给 `TargetCriteriaEval`（它没有 ctx/owner 形参），
+        /// 用后**必清**。返回真落了状态的条数。</summary>
+        static int ApplyWarlordTalentHandBuffRows(BattleContext ctx, int owner, string source, CardDef talentCard,
+                                                  IReadOnlyList<CardDatabase.AbilityBuffSpec> rows, List<string> unresolved)
+        {
+            if (ctx == null || talentCard == null || rows == null || rows.Count == 0) return 0;
+            int done = 0;
+            TargetCriteriaEval.SetWarlordTalentContext(talentCard);
+            try
+            {
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    var b = rows[i];
+                    if (b == null || !b.IsHandBuff) continue;
+                    if (b.Criteria == null || b.Criteria.TargetsAffected != 235) continue;   // 只接 `warlordsTalent`
+                    // `AttachHandAbilityBuff` 自带「同 (Ab,Lg,BuffType,Source) 不叠」闸 ⇒ 与任何既有派发点叠跑也幂等。
+                    done += AttachHandAbilityBuff(ctx, owner, source, source, b, unresolved);
+                }
+            }
+            finally { TargetCriteriaEval.ClearWarlordTalentContext(); }
+            return done;
+        }
+
+        /// <summary>✅ 已复刻（2026-11-04 · B141 · SAU55 · `FilterMethods__CheckIfMeetsCriteria.c:126-157`）：
+        /// 一张牌打出后，把它 `abilityBuffs` 里 `handBuff ∧ ta=235`（"your Warlords' Talent costs N less"）的行
+        /// 落到**本方手牌**上（`buffType 2 changeCost` ⇒ 钉在命中的那份上，`PlayerHand__AddHandEffect.c:126-135`）。
+        /// 现池内**只有 `SAU55`** 有这样的行（`cards_engine.json` 现扫：`ta=235` 的 handBuff 仅 1 行）⇒ 范围窄、零回归。
+        /// <para>⚠️ 呼叫点 = <see cref="PlayCardCore"/> 的战术分支（`PlayTactic` 返回 OK 后）。`doNotStack` 闸使重复调用幂等。</para></summary>
+        static void ApplyWarlordTalentHandBuffOnPlay(BattleContext ctx, int owner, CardDef played)
+        {
+            if (ctx == null || played == null || ctx.IsOver) return;
+            var talent = ResolveWarlordTalentCard(ctx, owner);
+            if (talent == null) return;                                   // 这张督军没有天赋卡 ⇒ 无对象可降费（与改前同向）
+            var rows = CardDatabase.AbilityBuffsOf(played);
+            if (rows == null || rows.Count == 0) return;
+            var unresolved = new List<string>(1);
+            int n = ApplyWarlordTalentHandBuffRows(ctx, owner, played.Name ?? played.Id, talent, rows, unresolved);
+            if (n > 0) ctx.Log($"（「{played.Name}」：本方战将天赋「{talent.Name}」的手牌费用按原版 `Warlord's Talent` 那一行调整）");
+            if (unresolved.Count > 0) ReportUnresolved(ctx, "「" + (played.Name ?? played.Id) + "」的 Warlord's Talent 降费", unresolved);
+        }
+
+        /// <summary>自检门：<see cref="ResolveWarlordTalentCard"/>（只读）。</summary>
+        public static CardDef ResolveWarlordTalentCardForTest(BattleContext ctx, int owner) => ResolveWarlordTalentCard(ctx, owner);
+
+        /// <summary>自检门：<see cref="ApplyWarlordTalentHandBuffRows"/>（会写 `ctx.CostMods` / 手牌记录 —— 只在独立 ctx 上调）。</summary>
+        public static int ApplyWarlordTalentHandBuffRowsForTest(BattleContext ctx, int owner, string source, CardDef talentCard,
+                                                                 IReadOnlyList<CardDatabase.AbilityBuffSpec> rows)
+        {
+            var un = new List<string>(1);
+            int n = ApplyWarlordTalentHandBuffRows(ctx, owner, source, talentCard, rows, un);
+            return n;
+        }
+
+        // ================================================================================================
+        //  🆕 2026-11-04（`B141-W43b` · `B141-SAN27-ROWID`）：把「这一行自己的目标表」抽成可复用的两步
+        //  ⚠️ 追加在**类尾**（本文件有 **700** 处账按 `RuleEngine/Core/RuleCore.cs:行号` 引用，**最深处 `:18464`**；
+        //     本节插入点在那之后 ⇒ **结构上不可能漂**）。⛔ 别把这两步塞回 `AppendOneRowAbilityTargets` 里
+        //     —— 那会把白名单/去重写成两份（`CLAUDE.md` §三「两处写同一条规则 = 迟早不一致」）。
+        // ================================================================================================
+
+        /// <summary>✅ 已复刻（2026-11-04 · B141 · 判据 `AbilityLogic__PlayAbility.c:262/273`）：
+        /// **这一行自己的目标表**（**未**并进并集、**未**去重）。返回 `false` = 这一行**不归「按行承载」管**
+        /// （白名单外 / 没 36 格数据 / `logic < 0`）⇒ 调用方退回并集（= 改前口径）。
+        ///
+        /// <para>🔴 **白名单只此一处**（`ta ∈ {0,10,110,140,150}` ∧ `MaxTargets &lt; 1`）：这几支建完池直接
+        /// `return`、不落截断、不消费 `ctx.GetRandomInt`（判据 `GetTargets.c:884-891` / `:972-1060`；
+        /// 与 `PublishRowAbilityTargetTable` 同一条）⇒ 并表 / 记行**不改变随机序列**。</para>
+        ///
+        /// <para>⚠️ `abilityObject` **允许负数**：`CardDef.ActiveAbilityObject = -1` /
+        /// `AlternativeAbilityObject = -2`（`ActiveAbilityLogicSpec.Ability` 也是它）；
+        /// ⛔ 只有 `logic &lt; 0`（该行没有 abilityLogic 二元组，例如 `ca == 462`）才跳过 ——
+        /// 与 `B141-W37` 修的早退闸**同一口径**（原来写成 `step[2] &lt; 0 || step[3] &lt; 0` ⇒ 对真实主动能力恒早退）。</para>
+        /// </summary>
+        static bool TryRowOwnAbilityTargets(BattleContext ctx, int owner, UnitState source, UnitState chosen,
+                                            int[] step, out List<BattleEventTarget> own)
+        {
+            own = null;
+            if (ctx == null || source == null || source.Card == null || step == null || step.Length < 4) return false;
+            int logic = step[2], abilityObject = step[3];
+            if (logic < 0) return false;
+            var set = source.Card.ActiveAbilityTargetCriteriaAt(abilityObject, logic);
+            if (set == null) return false;                                    // 这一行没落 36 格数据 ⇒ 不并（与改前同向）
+            int ta = set.TargetsAffected;
+            if (ta != 0 && ta != 10 && ta != 110 && ta != 140 && ta != 150) return false;
+            if (ta != 0 && set.MaxTargets >= 1) return false;
+            own = AbilityTargetListFromCriteria(ctx, owner, set, source, chosen);
+            return own != null;
+        }
+
+        /// <summary>把 <paramref name="sub"/> 按 `InstanceId` / `Player+Slot` **去重**并进 <paramref name="into"/>。
+        /// ⚠️ **逐字搬**自 `AppendOneRowAbilityTargets` 原来的那个循环（`B141-W43b` 抽出来共用）——
+        /// ⛔ 别再写第二套去重规则。</summary>
+        static void MergeRowTargetsUnique(List<BattleEventTarget> sub, List<BattleEventTarget> into)
+        {
+            if (sub == null || into == null) return;
+            for (int i = 0; i < sub.Count; i++)
+            {
+                var t = sub[i];
+                bool has = false;
+                for (int j = 0; j < into.Count; j++)
+                {
+                    var x = into[j];
+                    if (t.InstanceId != 0 && x.InstanceId != 0) { if (x.InstanceId == t.InstanceId) { has = true; break; } }
+                    else if (x.Player == t.Player && x.Slot == t.Slot) { has = true; break; }
+                }
+                if (!has) into.Add(t);
+            }
+        }
+
+        /// <summary>自检门：<see cref="AppendOneRowAbilityTargetsToEvent"/>（**会写 `ctx.Signals` 的**最后一条**
+        /// 事件** —— 只在独立 `ctx` 上调；⛔ 产品路径别调，唯一产品调用点是 `UseActiveAbilityCore` 的行循环）。</summary>
+        public static void AppendOneRowAbilityTargetsToEventForTest(BattleContext ctx, int owner, UnitState source,
+                                                                    UnitState chosen, int[] step)
+        {
+            AppendOneRowAbilityTargetsToEvent(ctx, owner, source, chosen, step);
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-11-04（执行写手 `B141_W78` · 账 `战斗逻辑驱动:1187`）—— 手牌效果记录的「不限次」档
+        //  ⚠️ **追加在类尾**：`RuleCore.cs` 有 365 处账落点、按 `文件:行号` 引用 ⇒ 新成员一律进类尾
+        //     （铁律 18·b / N9：插进既有成员之间会让整片账漂）。
+        // ==========================================================================================
+
+        /// <summary>
+        /// ✅ 已复刻（2026-11-04 · `B141_W78` · 判据 `PlayerHand__RemoveHandEffectAt.c:30-40` ＋ `CardScript__RemoveEffect.c` 首句）
+        /// **按【下标】摘一条手牌效果记录 —— 「不限次」档（`Uses == null`）也能摘**。
+        ///
+        /// <para>**为什么必须单开一条**：原版 `RemoveHandEffectAt` **根本不看 `numberOfUses`** —— 它只有三句
+        /// （逐手牌 `activeEffects(+0x108).Contains(handEffects[index])` → `CardScript.RemoveEffect(那条)` →
+        /// 末尾 `handEffects(+0x48).RemoveAt(index)`，`:30-40` 现读全文）。而我们的记录身份是从
+        /// `HandEffect.Uses` 那个**共享计数盒**借来的 ⇒ `Uses == null`（= **不限次档**，`MakeHandBuffUses(<=0)`
+        /// 的产物、**今天卡池的全部情况**）进不了 <see cref="RemoveHandEffectFromHand"/>（它首句
+        /// `uses == null ⇒ return 0`）⇒ 本口对不限次记录**恒空转**（账 1187 的缺口就是这一条）。
+        /// 本方法把身份换成 **`RecordId` / 引用**，于是两个档都能按下标摘。</para>
+        ///
+        /// <para>**两跳照原版**：
+        /// ① `HandEffectRecords.RemoveAt(index)` —— **按下标、无条件**（`:36-39`；`permanentBuff` 那道闸只影响
+        ///    <b>牌身上</b>那一跳，<b>记录照样摘掉</b>）；
+        /// ② 逐张手牌摘掉那一条 —— 原版落点是 `CardScript.RemoveEffect`，其**首句**是
+        ///    `if (permanentBuff(+0x74) != 0) return;`（`decomp_full/CardScript__RemoveEffect.c`）⇒ 牌身上的
+        ///    `Permanent` 条目**留着**（记录已不在 ⇒ 后进手牌的牌不再补上它，与原版同）。</para>
+        ///
+        /// <para>⚠️ 认「同一条」= `ReferenceEquals(e, rec)`（原版 `List.Contains` 是**引用相等**）
+        /// **或** 同 `RecordId`（同一个号发给 N 张牌；后来进手牌那几张的副本照抄这个号 ——
+        /// `RegisterHandEffectRecord` 按号去重 ⇒ 号在一次挂载里唯一）。
+        /// ⛔ 别改成「按来源卡名匹配」（两个来源可能同名）。</para>
+        /// </summary>
+        static int RemoveHandEffectRecordAt(BattleContext ctx, int owner, int index, string why)
+        {
+            if (ctx == null || ctx.Players == null || owner < 0 || owner >= ctx.Players.Length) return 0;
+            var recs = ctx.Players[owner].HandEffectRecords;
+            if (recs == null || index < 0 || index >= recs.Count) return 0;
+            var rec = recs[index];
+            if (rec == null) return 0;
+
+            recs.RemoveAt(index);                       // ① 原版 `:36-39`：`List.RemoveAt(index)`（按下标、无条件）
+            int n = 0;                                  // ② 牌身上那几条（`Permanent` 不摘 = `CardScript__RemoveEffect.c` 首句）
+            var hand = ctx.Players[owner].Hand;
+            for (int i = 0; i < hand.Count; i++)
+            {
+                var inst = hand[i];
+                if (inst == null || inst.HandEffects.Count == 0) continue;
+                int cut = inst.HandEffects.RemoveAll(e => e != null && !e.Permanent
+                    && (ReferenceEquals(e, rec) || (rec.RecordId != 0 && e.RecordId == rec.RecordId)));
+                if (cut > 0) n++;
+            }
+            ctx.Log($"（手牌效果按下标摘：{why} ⇒ 记录表 −1 条；牌身上共摘掉 {n} 张的条目"
+                  + (rec.Uses == null ? "；不限次档" : $"；起始 {rec.Uses.Max} 次"));
+            return n;
         }
     }
 }

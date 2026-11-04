@@ -64,6 +64,7 @@ A2 §1·1 把 `Astra Militarum Scene Valkyrie Dawn Attack` 与 `SweepBackAndFort
 `Level Up Card` 的 `AnimationFinished` 事件时刻（3.4833 s）与长度逐位相同 —— 自检里点名核。
 
 ## schema（与 `arena_scene_clips.json` 对齐，多加三个「这笔账归谁」的字段）
+## ✅ 已复刻（2026-11-04 · B141-W51 · 键名普查：产物键 ↔ `Editor/B107_R3c_Assert.cs` 的 `B107MiscClips` 与 `Editor/B108_A13_R3_Assert.cs` 的最小 DTO 逐键核过，0 处不一致 —— 两处都是「只声明要用到的字段」，缺键即默认值，不是漏绑）
 ```
 { "schema":1, "note":"…", "source":"…", "bundles":"…",
   "clips":[

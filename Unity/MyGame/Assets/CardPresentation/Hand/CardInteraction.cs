@@ -39,8 +39,8 @@ namespace CardPresentation
         [Tooltip("拖起来时往前挪多少 z（越小越靠近相机）")]
         public float dragLiftZ = 0.6f;
 
-        [Tooltip("悬停/拖拽中的牌额外前移，避免被旁边的压住")]
-        public float frontZ = 0.5f;
+        [Tooltip("悬停/拖拽中的牌额外前移（**我们的世界单位**；原版 `ShowCardInHand` 的 0.01 世界单位 × 14.835/108 ≈ 0.0013736 = 0.148 px）"), System.NonSerialized]   // 🔴 2026-11-04（`B141-W24`）：与 `HandLayout.frontZ` **同一常量同步**（判据同一条 = `CardScript__ShowCardInHand.c:104`，字面量 `.rdata 0x1834B2DBC` = 0.01）；`NonSerialized` 原因同那边（`Scenes/Battle.unity:640` / `CardBase.unity:8150` 序列化着旧 0.5）。⚠️ 现读本字段**零读取方**（全仓 `.frontZ` 只命中 `HandLayout` 与两处编辑器断言）—— 悬停 z 实际由 `HandLayout.Refresh` 施加；保留本字段只为口径同步，⛔ 别在这里自己再抬一次 z
+        public float frontZ = 0.01f * HandLayout.OurUnitsPerWorldUnit;   // ✅ 已复刻（2026-11-04 · B141 · `CardScript__ShowCardInHand.c:104`）：原版 0.01 世界单位 ⇒ **0.0013736 我们的单位**（= 0.148 px）
 
         public event Action<CardView, int> OnDeployed;     // 落位成功
         /// <summary>回弹到手牌。🆕 **2026-10-25（`X19/P2`）加了第二个参数 `kind`** ——
@@ -1381,6 +1381,7 @@ namespace CardPresentation
         {
             var card = _dragging;
             _dragging = null;
+            LastDropWorld = world; HasLastDropWorld = true;   // 🆕 2026-11-04（`B141` · `B124-TACTDROP`）：留下**松手那一刻**的指针点（结算延后到 `DeploySequence` 之后，那时再读指针已经不是这一点）
             // 🔴🆕 **2026-10-30（`B99_B1` · AUD8·让位预览）：先判「这一手会不会真打出去」，再收指示器。**
             //   原先顺序相反 ⇒ `ClearDropIndicator()` → `OnDropPreview(null, -1)` → `EndPreviewReturn()`
             //   读到的是**上一手**残留的 `DropAccepted`（之前有一手真打出去过 ⇒ 残留 `true` ⇒ 早退支
@@ -2846,5 +2847,19 @@ namespace CardPresentation
         /// <summary>撤销那一刻的指针世界点（`TickDeployCancel` 写、`ReenterDragAfterCancel` 读、读完即清）。
         /// <para>⚠️ 只为「撤完立刻把卡摆回指针下」用 —— 生产与自检喂的是**同一个** `world` 形参，⛔ 别在这里另取设备。</para></summary>
         Vector3? _deployCancelPointerWorld;
+
+        /// <summary>✅ 已复刻（2026-11-04 · `B141` · 判据 `BattleManager__Update.c:136-139`（松手那一刻把
+        /// `GetTargetInPos` 命中的 `CardScript` 存 `+0x440`）· `:676-684`）：**最近一次 `Release` 的指针世界坐标**。
+        /// <para>原版松手当帧就判「指针下那张卡」是不是合法目标；我们的结算延后到 `DeploySequence` 走完（0.65 s），
+        /// 那时 `BattleDriver.WorldPointer()` 早已不是松手那一点 ⇒ 必须在这里把松手点留一份。</para>
+        /// <para>⛔ 别在 `BattleDriver` 里重新读指针（那是另一个时刻的量，会把「压在督军上」解成邻格）。</para></summary>
+        public Vector3 LastDropWorld { get; private set; }
+        /// <summary>有没有过 `Release`（`LastDropWorld` 是否有效）—— 自检 / `-wfdrive` 不走 `Release` ⇒ false。</summary>
+        public bool HasLastDropWorld { get; private set; }
+        /// <summary>自检用：直接钉死松手点（⛔ 生产不调）。</summary>
+        public void SetLastDropWorldForTest(Vector3 world) { LastDropWorld = world; HasLastDropWorld = true; }
+        /// <summary>作废「上一次松手点」—— 自检那条**不经 `Release`** 的落位口（`SimulateCardDroppedForTest`）必须先调它，
+        /// 否则会拿着**上一手真实拖拽**留下的点去解目标（静默打错目标）。</summary>
+        public void ClearLastDropWorld() { HasLastDropWorld = false; }
     }
 }

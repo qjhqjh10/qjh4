@@ -158,6 +158,86 @@ public static class B140_WS_MeshFlags
         "WarpforgeVFX/Meshes/sword-mesh.asset|-1|4|1|1",
     };
 
+    // 清单格式（16-08 · B141/W18 并入本写口）：`<相对 Assets 的路径>|<m_MeshMetrics[0]>|<m_MeshMetrics[1]>`
+    // 值 = **同名原版 asset 的现读文本**（`ExportedProject/Assets/Mesh/`，2026-11-04 现读），⛔ 别「按几何重算」——
+    // 原版那两个数就是 Unity 写出来的；我们那 92/101 份网格顶点与它**逐字节相同**，照抄数值即可。
+    // 现读对账：101 份里 **58 份不同**（我们恒 `1 / 1`），其余 43 份原版也是 `1 / 1` ⇒ 不列。
+    static readonly string[] MetricManifest =
+    {
+        "CardPresentation/Resources/Art/card3d/Card 3D WH40k.asset|1548.8772|270.62405",
+        "CardPresentation/Resources/Art/card3d/FxObject_cylinder_short.asset|4.223999|1",
+        "CardPresentation/Resources/Art/vfx/Cylinder.asset|6.281047|1",
+        "WarpforgeVFX/Meshes/400px-Choppa.asset|6.723606|1",
+        "WarpforgeVFX/Meshes/Axe_1.asset|100.26457|1",
+        "WarpforgeVFX/Meshes/Background space.asset|361.81903|1",
+        "WarpforgeVFX/Meshes/Blade_DA.asset|25.893188|1",
+        "WarpforgeVFX/Meshes/BoosterPack.asset|38.50899|1",
+        "WarpforgeVFX/Meshes/Card 3D Subdivided.asset|4083.1914|518.0755",
+        "WarpforgeVFX/Meshes/Card 3D WH40k.asset|1548.8772|270.62405",
+        "WarpforgeVFX/Meshes/Card_Remnant_HO Optimization 2.asset|1044.9277|470.63904",
+        "WarpforgeVFX/Meshes/Chitin barb.asset|45.226036|1",
+        "WarpforgeVFX/Meshes/Cylinder curved shallow.asset|5.5940866|1",
+        "WarpforgeVFX/Meshes/Cylinder_Ring.asset|5.813931|1",
+        "WarpforgeVFX/Meshes/Cylinder_curve.asset|5.4896884|1",
+        "WarpforgeVFX/Meshes/Disk.asset|3.9631653|1",
+        "WarpforgeVFX/Meshes/EC_Sword.asset|45.368668|1",
+        "WarpforgeVFX/Meshes/FxObject_cylinder_short.asset|4.223999|1",
+        "WarpforgeVFX/Meshes/GSC Dagger.asset|5.7316523|1",
+        "WarpforgeVFX/Meshes/Grenade.asset|1.1055231|1",
+        "WarpforgeVFX/Meshes/Hammer.asset|0.87100244|1",
+        "WarpforgeVFX/Meshes/Harpoon.asset|24.323555|1",
+        "WarpforgeVFX/Meshes/Helspear.asset|1767.5295|1",
+        "WarpforgeVFX/Meshes/Hemisphere.asset|70.65974|1",
+        "WarpforgeVFX/Meshes/Ice.asset|64034572|1",
+        "WarpforgeVFX/Meshes/IceShardTiny.asset|0.0548905|1",
+        "WarpforgeVFX/Meshes/Mountain Background First Light.asset|5.0580816|1",
+        "WarpforgeVFX/Meshes/Mushroom.asset|5.6488185|1",
+        "WarpforgeVFX/Meshes/Pray VFX Mesh3.asset|131.94873|22.346859",
+        "WarpforgeVFX/Meshes/Rock003.asset|55.80632|1",
+        "WarpforgeVFX/Meshes/Rock004.asset|70.84127|1",
+        "WarpforgeVFX/Meshes/Rock005.asset|50.880573|1",
+        "WarpforgeVFX/Meshes/RockDebris_Low.asset|0.68148977|1",
+        "WarpforgeVFX/Meshes/RockSpike_Low.asset|0.47539732|1",
+        "WarpforgeVFX/Meshes/Rock_A_02_LOD00.asset|11.665355|11.665355",
+        "WarpforgeVFX/Meshes/Rock_A_02_LOD03.asset|13.2844|13.2844",
+        "WarpforgeVFX/Meshes/Rock_A_02_LOD04.asset|13.430183|13.430183",
+        "WarpforgeVFX/Meshes/Shatter Piece 1.asset|8.67005|1",
+        "WarpforgeVFX/Meshes/Shatter Piece 3.asset|2.3997557|1",
+        "WarpforgeVFX/Meshes/Shell Bolter Imperial.asset|164.42442|1",
+        "WarpforgeVFX/Meshes/Shell Bolter Traitor.asset|164.42442|1",
+        "WarpforgeVFX/Meshes/Shell Ork.asset|164.42442|1",
+        "WarpforgeVFX/Meshes/Shield Ico.asset|24.250994|1",
+        "WarpforgeVFX/Meshes/Shield_1.asset|11.296927|1",
+        "WarpforgeVFX/Meshes/Ship 21.asset|37.5018|1",
+        "WarpforgeVFX/Meshes/Ship 31.asset|39.917538|1",
+        "WarpforgeVFX/Meshes/Ship 51.asset|46.072876|1",
+        "WarpforgeVFX/Meshes/Slash.asset|0.8146589|1",
+        "WarpforgeVFX/Meshes/Spear.asset|0.060558036|1",
+        "WarpforgeVFX/Meshes/Squig1.asset|0.33629882|1",
+        "WarpforgeVFX/Meshes/Squig2.asset|0.36686656|1",
+        "WarpforgeVFX/Meshes/Stikka.001.asset|21.42625|1",
+        "WarpforgeVFX/Meshes/Tube_pf_sh_11.asset|41.84043|1",
+        "WarpforgeVFX/Meshes/Tube_pf_sh_2.asset|45.635147|1",
+        "WarpforgeVFX/Meshes/Tube_pf_sh_21.asset|45.210075|1",
+        "WarpforgeVFX/Meshes/Tube_pf_sh_6.asset|40.870052|1",
+        "WarpforgeVFX/Meshes/debris_1_sm.asset|0.047330096|1",
+        "WarpforgeVFX/Meshes/stone001.asset|113.773766|1",
+    };
+
+    // 清单格式（16-11 · B141/W18 并入本写口）：`<相对 Assets 的路径>|<m_Channels 下标>|<dimension>`
+    // 原版**第二通道（法线）**的 `dimension` = **52**（低 4 位 = 4，高 4 位 = `0x30` 标志）；
+    // 我们生成出来是 4（`Subdivided`）或 3（`Tower 11`）。
+    // ⚠️ `SetVertexBufferParams`（`EffectExporter.cs:4891`）**写不出高 4 位** ⇒ 只能**存盘后改 YAML**再 `ImportAsset`。
+    // ⚠️ 只列**原版确实是 52** 的 4 份；另外 4 份（`Rock003/004/005`·`stone001`）原版是**压缩网格**（通道 dimension 全 0、
+    //    `m_VertexCount: 0`），属 16-16「4 个压缩网格」那个 ❓ 条目 —— ⛔ 不在本条范围（把通道置 0 会与压缩数据对不上）。
+    static readonly string[] DimManifest =
+    {
+        "WarpforgeVFX/ArenaOriginalPrefabs/battlearenaaeldari/Tower 11.asset|1|52",
+        "WarpforgeVFX/Meshes/BoosterPack.asset|1|52",
+        "WarpforgeVFX/Meshes/Card 3D Subdivided.asset|1|52",
+        "WarpforgeVFX/Meshes/Card_Remnant_HO Optimization 2.asset|1|52",
+    };
+
     // ── 清单读口 ───────────────────────────────────────────────────────────────
 
     /// <summary>清单里的相对路径（相对 `Assets/`，不含 `Assets/` 前缀）。</summary>
@@ -171,6 +251,16 @@ public static class B140_WS_MeshFlags
         return new[] { int.Parse(p[1]), int.Parse(p[2]), int.Parse(p[3]), int.Parse(p[4]) };
     }
     public static int Count { get { return Manifest.Length; } }
+
+    // ── metrics / 通道 dimension 的清单读口（16-08 · 16-11）────────────────────
+    public static int MetricCount { get { return MetricManifest.Length; } }
+    public static int DimCount { get { return DimManifest.Length; } }
+    public static string MetricAssetPath(int i) { return "Assets/" + MetricManifest[i].Split('|')[0]; }
+    public static string[] MetricExpected(int i)
+    { var p = MetricManifest[i].Split('|'); return new[] { p[1], p[2] }; }
+    public static string DimAssetPath(int i) { return "Assets/" + DimManifest[i].Split('|')[0]; }
+    public static int DimChannel(int i) { return int.Parse(DimManifest[i].Split('|')[1]); }
+    public static int DimExpected(int i) { return int.Parse(DimManifest[i].Split('|')[2]); }
 
     // ── 写入 ───────────────────────────────────────────────────────────────────
 
@@ -224,6 +314,11 @@ public static class B140_WS_MeshFlags
         string head = dry ? "试运行" : "写入";
         Debug.Log(T + $"{head}完成：已对 {ok} · 本次改动 {changed} · 失败 {fail} · 顶点指纹变化 {vertsChanged}（共 {Manifest.Length} 份）"
                   + (fail == 0 && vertsChanged == 0 ? "（全绿）" : "（有红，见上）"));
+
+        // 🆕 B141/W18（16-08 · 16-11）：**同一个写口**里把 `m_MeshMetrics` 两格与法线通道 `dimension` 一起写回。
+        //   ⛔ 别另开第二个写口 —— 判据 `判据/B141_W130_对账_资源.md` §二「W130-O6」明确要求合批。
+        int mOk, mChanged, mFail;
+        ApplyMetricsAndDims(dry, out mOk, out mChanged, out mFail);
     }
 
     /// <summary>先 `SerializedObject`，不成就**文本级改那 4 行**；每段都**重开文件回读**核对。</summary>
@@ -306,6 +401,7 @@ public static class B140_WS_MeshFlags
             }
         }
         Debug.Log(T + $"校验：✓ {good} · ✗ {bad}（共 {Manifest.Length} 份）" + (bad == 0 ? "（全绿）" : ""));
+        VerifyMetricsAndDims();   // 🆕 B141/W18：16-08 / 16-11 两族一并校验（同一写口，⛔ 别分家）
     }
 
     // ── 读 / 写工具（也供断言宿主复用）────────────────────────────────────────
@@ -386,5 +482,239 @@ public static class B140_WS_MeshFlags
     public static string Show(int[] v)
     {
         return v == null ? "<null>" : string.Join("/", Array.ConvertAll(v, x => x.ToString()));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  16-08 `m_MeshMetrics` · 16-11 法线通道 `dimension`（B141/W18 并入本写口）
+    //  ✅ 已复刻（2026-11-04 · B141/W18 · 判据/B141_W130_对账_资源.md §一 16-08 / 16-11）
+    //
+    //  为什么这两条只能走【文本级】：
+    //    ① 16-11 的 `dimension` 高 4 位 `SetVertexBufferParams` **根本写不出来**（判据 → 判据/B141_W130_对账_资源.md §一 16-11）；
+    //    ② `m_MeshMetrics` 是 Unity 的内部数组字段，`SerializedObject` 按名取不稳。
+    //  ⇒ 两个都用**定点改写 YAML → `ImportAsset(ForceUpdate)` → 重开文件按字节回读**（与上面四字段那条兜底路同一套纪律）。
+    //  🔴 **必须在网格生成之后跑**：`EffectExporter` 重导出会把它们冲回默认（metrics 1/1 · dimension 4 或 3）⇒
+    //     挂点 = `ArenaBuilder.BuildAll` / `ArenaBuilder.BuildFromCLI`（生成器路径），⛔ 别只手工跑一次。
+    //  📌 类尾：本文件按 `文件（方法名）` 被账引用，新成员追加在类尾避免下游行号漂移。
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>写 `m_MeshMetrics[0/1]`（16-08）与法线通道 `dimension`（16-11）。返回三档计数，⛔ 不吞失败。</summary>
+    public static void ApplyMetricsAndDims(bool dry, out int ok, out int changed, out int fail)
+    {
+        ok = changed = fail = 0;
+
+        for (int i = 0; i < MetricManifest.Length; i++)
+        {
+            string assetPath = MetricAssetPath(i);
+            string full = FullPath(assetPath);
+            string[] want = MetricExpected(i);
+            if (!File.Exists(full)) { fail++; Debug.LogError(T + $"🔴 缺文件（metrics）：{assetPath}"); continue; }
+
+            string[] before = ReadMetricsFromFile(full);
+            if (before == null) { fail++; Debug.LogError(T + $"🔴 读不到 `m_MeshMetrics[0/1]`：{assetPath}"); continue; }
+            if (before[0] == want[0] && before[1] == want[1]) { ok++; continue; }
+
+            if (dry)
+            {
+                changed++;
+                Debug.Log(T + $"· 需要改 metrics：{assetPath}  现 {before[0]}/{before[1]} → 原版 {want[0]}/{want[1]}");
+                continue;
+            }
+            if (WriteMetrics(assetPath, full, want)) { ok++; changed++; }
+            else fail++;
+        }
+
+        for (int i = 0; i < DimManifest.Length; i++)
+        {
+            string assetPath = DimAssetPath(i);
+            string full = FullPath(assetPath);
+            int ch = DimChannel(i), want = DimExpected(i);
+            if (!File.Exists(full)) { fail++; Debug.LogError(T + $"🔴 缺文件（dimension）：{assetPath}"); continue; }
+
+            string[] dims = ReadChannelDims(full);
+            if (dims == null || ch >= dims.Length)
+            { fail++; Debug.LogError(T + $"🔴 读不到第 {ch} 个通道的 `dimension`：{assetPath}"); continue; }
+            if (dims[ch] == want.ToString()) { ok++; continue; }
+
+            if (dry)
+            {
+                changed++;
+                Debug.Log(T + $"· 需要改 dimension：{assetPath} 通道 {ch} 现 {dims[ch]} → 原版 {want}");
+                continue;
+            }
+            if (WriteChannelDim(assetPath, full, ch, want)) { ok++; changed++; }
+            else fail++;
+        }
+
+        string head = dry ? "试运行" : "写入";
+        Debug.Log(T + $"{head} metrics/dimension：已对 {ok} · 改动 {changed} · 失败 {fail}"
+                  + $"（metrics {MetricManifest.Length} 份 · dimension {DimManifest.Length} 份）"
+                  + (fail == 0 ? "（全绿）" : "（有红，见上）"));
+    }
+
+    /// <summary>只读校验 metrics / dimension 两族（⛔ 不写盘）。返回失败条数。</summary>
+    public static int VerifyMetricsAndDims()
+    {
+        int good = 0, bad = 0;
+        for (int i = 0; i < MetricManifest.Length; i++)
+        {
+            string full = FullPath(MetricAssetPath(i));
+            string[] want = MetricExpected(i);
+            string[] got = File.Exists(full) ? ReadMetricsFromFile(full) : null;
+            if (got != null && got[0] == want[0] && got[1] == want[1]) good++;
+            else
+            {
+                bad++;
+                Debug.LogError(T + $"✗ metrics {MetricAssetPath(i)}  现 {(got == null ? "<读不到>" : got[0] + "/" + got[1])} / 原版 {want[0]}/{want[1]}"
+                               + "（⚠️ 网格被重导出过？跑一次 `ArenaBuilder.BuildFromCLI` 或 `B140_WS_MeshFlags.Run`）");
+            }
+        }
+        for (int i = 0; i < DimManifest.Length; i++)
+        {
+            string full = FullPath(DimAssetPath(i));
+            int ch = DimChannel(i), want = DimExpected(i);
+            string[] got = File.Exists(full) ? ReadChannelDims(full) : null;
+            if (got != null && ch < got.Length && got[ch] == want.ToString()) good++;
+            else
+            {
+                bad++;
+                Debug.LogError(T + $"✗ dimension {DimAssetPath(i)} 通道 {ch}  现 "
+                               + (got == null || ch >= got.Length ? "<读不到>" : got[ch]) + $" / 原版 {want}");
+            }
+        }
+        Debug.Log(T + $"校验（metrics/dimension）：✓ {good} · ✗ {bad}（metrics {MetricManifest.Length} + dimension {DimManifest.Length} 份）"
+                  + (bad == 0 ? "（全绿）" : ""));
+        return bad;
+    }
+
+    // ── 两族的写 / 读口 ────────────────────────────────────────────────────────
+
+    static bool WriteMetrics(string assetPath, string full, string[] want)
+    {
+        string err;
+        if (!PatchMetricLines(full, want, out err))
+        { Debug.LogError(T + $"🔴 文本级改 metrics 失败：{assetPath} —— {err}"); return false; }
+        AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+        string[] back = ReadMetricsFromFile(full);
+        if (back != null && back[0] == want[0] && back[1] == want[1])
+        { Debug.Log(T + $"✓ metrics 落盘：{assetPath} → {want[0]}/{want[1]}"); return true; }
+        Debug.LogError(T + $"🔴 metrics 回读不一致：{assetPath}  现 "
+                       + (back == null ? "<读不到>" : back[0] + "/" + back[1]) + $" / 原版 {want[0]}/{want[1]}");
+        return false;
+    }
+
+    static bool WriteChannelDim(string assetPath, string full, int ch, int want)
+    {
+        string err;
+        if (!PatchChannelDim(full, ch, want, out err))
+        { Debug.LogError(T + $"🔴 文本级改 dimension 失败：{assetPath} —— {err}"); return false; }
+        AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+        string[] back = ReadChannelDims(full);
+        if (back != null && ch < back.Length && back[ch] == want.ToString())
+        { Debug.Log(T + $"✓ dimension 落盘：{assetPath} 通道 {ch} → {want}"); return true; }
+        Debug.LogError(T + $"🔴 dimension 回读不一致：{assetPath} 通道 {ch}  现 "
+                       + (back == null || ch >= back.Length ? "<读不到>" : back[ch]) + $" / 原版 {want}");
+        return false;
+    }
+
+    /// <summary>读 `m_MeshMetrics[0]` / `[1]` 的**原始文本**（逐字复制原版，⛔ 不转 double 再格式化）。</summary>
+    public static string[] ReadMetricsFromFile(string full)
+    {
+        if (!File.Exists(full)) return null;
+        string text = Encoding.UTF8.GetString(File.ReadAllBytes(full));
+        var got = new string[2];
+        for (int k = 0; k < 2; k++)
+        {
+            var m = Regex.Match(text, @"(?m)^[ \t]*'?m_MeshMetrics\[" + k + @"\]'?:[ \t]*([0-9eE+\-.]+)[ \t]*\r?$");
+            if (!m.Success) return null;
+            got[k] = m.Groups[1].Value;
+        }
+        return got;
+    }
+
+    /// <summary>读 `m_Channels` 块里**按顺序**的 `dimension` 文本（下标 = 通道号）。块边界 = 下一个 `m_DataSize:`。</summary>
+    public static string[] ReadChannelDims(string full)
+    {
+        if (!File.Exists(full)) return null;
+        string text = Encoding.UTF8.GetString(File.ReadAllBytes(full));
+        int start, stop;
+        if (!ChannelBlock(text, out start, out stop)) return null;
+        var ms = Regex.Matches(text.Substring(start, stop - start),
+                               @"(?m)^[ \t]*dimension:[ \t]*(-?\d+)[ \t]*\r?$");
+        if (ms.Count == 0) return null;
+        var outp = new string[ms.Count];
+        for (int i = 0; i < ms.Count; i++) outp[i] = ms[i].Groups[1].Value;
+        return outp;
+    }
+
+    /// <summary>`m_Channels:` 那一行之后、到 `m_DataSize:` 之前的区间（半开）。找不到 ⇒ false。</summary>
+    static bool ChannelBlock(string text, out int start, out int stop)
+    {
+        start = stop = 0;
+        var head = Regex.Match(text, @"(?m)^[ \t]*m_Channels:[ \t]*\r?$");
+        if (!head.Success) return false;
+        start = head.Index + head.Length;
+        int rel = text.IndexOf("\n    m_DataSize", start, StringComparison.Ordinal);
+        if (rel < 0) return false;
+        stop = rel;
+        return stop > start;
+    }
+
+    /// <summary>只改 `m_MeshMetrics[0]` / `[1]` 两行的**数值**（键名引号形态、行尾、BOM 原样保留）。</summary>
+    public static bool PatchMetricLines(string full, string[] values, out string err)
+    {
+        err = null;
+        if (!File.Exists(full)) { err = "文件不存在"; return false; }
+        bool bom;
+        string text = ReadTextKeepBom(full, out bom);
+        for (int k = 0; k < 2; k++)
+        {
+            var re = new Regex(@"(?m)^([ \t]*'?m_MeshMetrics\[" + k + @"\]'?:[ \t]*)([0-9eE+\-.]+)([ \t]*\r?)$");
+            if (!re.IsMatch(text)) { err = $"找不到 `m_MeshMetrics[{k}]` 那一行"; return false; }
+            text = re.Replace(text, m => m.Groups[1].Value + values[k] + m.Groups[3].Value, 1);
+        }
+        WriteTextKeepBom(full, text, bom);
+        return true;
+    }
+
+    /// <summary>只改 `m_Channels` 块里第 `channelIndex` 个 `dimension` 的数值（16-11 的高 4 位只能这么写）。</summary>
+    public static bool PatchChannelDim(string full, int channelIndex, int value, out string err)
+    {
+        err = null;
+        if (!File.Exists(full)) { err = "文件不存在"; return false; }
+        bool bom;
+        string text = ReadTextKeepBom(full, out bom);
+        int start, stop;
+        if (!ChannelBlock(text, out start, out stop)) { err = "找不到 `m_Channels:` → `m_DataSize:` 区间（结构变了？）"; return false; }
+        string block = text.Substring(start, stop - start);
+        var re = new Regex(@"(?m)^([ \t]*dimension:[ \t]*)(-?\d+)([ \t]*\r?)$");
+        int seen = -1; bool hit = false;
+        string newBlock = re.Replace(block, m =>
+        {
+            seen++;
+            if (seen != channelIndex) return m.Value;
+            hit = true;
+            return m.Groups[1].Value + value + m.Groups[3].Value;
+        });
+        if (!hit) { err = $"`m_Channels` 里没有第 {channelIndex} 个 `dimension`（只有 {seen + 1} 个）"; return false; }
+        WriteTextKeepBom(full, text.Substring(0, start) + newBlock + text.Substring(stop), bom);
+        return true;
+    }
+
+    static string ReadTextKeepBom(string full, out bool bom)
+    {
+        byte[] raw = File.ReadAllBytes(full);
+        bom = raw.Length >= 3 && raw[0] == 0xEF && raw[1] == 0xBB && raw[2] == 0xBF;
+        int off = bom ? 3 : 0;
+        return Encoding.UTF8.GetString(raw, off, raw.Length - off);
+    }
+
+    static void WriteTextKeepBom(string full, string text, bool bom)
+    {
+        byte[] body = Encoding.UTF8.GetBytes(text);
+        if (!bom) { File.WriteAllBytes(full, body); return; }
+        var outp = new byte[body.Length + 3];
+        outp[0] = 0xEF; outp[1] = 0xBB; outp[2] = 0xBF;
+        Array.Copy(body, 0, outp, 3, body.Length);
+        File.WriteAllBytes(full, outp);
     }
 }

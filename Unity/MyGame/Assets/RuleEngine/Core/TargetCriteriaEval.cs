@@ -27,7 +27,7 @@
 //       **相符后继续走下面那批常规格**（`:193-201`；⚠️ 与 30 不是同一档 —— 2026-10-25 `E9` 订正）
 //    140 / 150        ⇒ 140 **只**回「候选在不在静态表」（`:495-510`）；150 在表里才继续走常规格（`:172-183`）
 //    200 / 201        ⇒ 候选 ∈ `thisCard.referencedCards`（**我们的 `ResolveTargets` 早已单独处理这两档并返回**）
-//    235 warlordsTalent ⇒ 拿督军天赋卡比卡名（**未建模** ⇒ `null`）
+//    235 warlordsTalent ⇒ 拿督军天赋卡比卡名（✅ 已复刻 2026-11-04 · B141：比较对象由调用方 `SetWarlordTalentContext` 供给；无上下文 ⇒ `null`）
 //  🔴 **原版这一档【根本不筛】的**（🆕 2026-10-24 · `W25` · `D1` 的 R1）—— 判据 = **建池**那个函数
 //    `d:/2/tools/decomp_full/AbilityLogic__GetTargets.c`（建完池直接 `goto LAB_180818485` = `return`，
 //    不经过 `FilterMethods__CheckIfMeetsCriteria`；真筛在 `:1086-1095`）：
@@ -145,9 +145,9 @@ namespace RuleEngine
                 case 201:
                     gap = $"`ta={ta}` referencedCards —— 这条路在 `ResolveTargets` 早已单独处理，不该走到这里";
                     return null;
-                case 235:                                 // warlordsTalent
-                    gap = "`ta=235 warlordsTalent` 本版未建模（要比督军天赋卡）";
-                    return null;
+                case 235:                                 // warlordsTalent → ✅ 已复刻（2026-11-04 · B141 · CheckIfMeetsCriteria.c:126-157）：`GetHero(施放者侧)`→`GetTalentCard`→按卡名比；比较对象由调用方 `SetWarlordTalentContext` 供给
+                    if (_warlordTalentCardForEval == null || candidate.Card == null) { gap = "`ta=235 warlordsTalent` 没有天赋卡上下文（判不了）"; return null; }
+                    return string.Equals(candidate.Card.Name, _warlordTalentCardForEval.Name, System.StringComparison.Ordinal);
                 case 100:                                 // adjacentToSelfIfMeetsCriteria
                     // 🔴🆕 **2026-10-25（执行代理 `X3`）：本档的【口径订正】。**
                     //   ① 之前这里直接 `gap=未实现` 早返 ⇒ **常规 36 格一格都没跑**。原版
@@ -1066,7 +1066,7 @@ namespace RuleEngine
             if (card == null) { gap = "候选卡为空（原版这里 NRE）⇒ 判不了"; return null; }
             int ta = set.TargetsAffected;
             if (ta == CardDef.CountSetSpec.Unknown) { gap = "`targetsAffected` 未知（没落）"; return null; }
-            if (ta == 0) return true;                           // ① any（`.c:23-26`）
+            if (ta == 0) return true; if (ta == 235) { if (_warlordTalentCardForEval == null) { gap = "`ta=235 warlordsTalent` 没有天赋卡上下文（判不了）"; return null; } return string.Equals(card.Name, _warlordTalentCardForEval.Name, StringComparison.Ordinal); }   // ① any（`.c:23-26`）｜✅ 已复刻（2026-11-04 · B141 · CheckIfMeetsCriteria.c:126-157）：`ta=235 warlordsTalent` = 比施放者督军天赋卡的卡名（对象由 `SetWarlordTalentContext` 供给）
             bool? typ = TypeGatePasses(card.Type, set);         // ② 卡种白名单（`.c:29-34`）
             if (typ == null) { gap = "卡种白名单：`type=" + (card.Type ?? "?") + "` 本版没建模（或那一格未知）⇒ 判不了"; return null; }
             if (!typ.Value) return false;
@@ -1207,5 +1207,17 @@ namespace RuleEngine
                 if (NeverFilteredTargetsAffected[i] == targetsAffected) return true;
             return false;
         }
+
+        // 🆕 2026-11-04（B141-W22 · SAU55）：`ta=235 warlordsTalent` 的比较对象 —— **施放者的督军天赋卡**
+        //   （原版 `FilterMethods__CheckIfMeetsCriteria.c:126-157`：`GetHero(施放者侧)` → `CardScript__GetTalentCard` → 按卡名比）。
+        //   本类**没有 ctx/owner 形参** ⇒ 由调用方在匹配前 `SetWarlordTalentContext`、用后 `ClearWarlordTalentContext`
+        //   （唯一生产写点 = `RuleCore.ApplyWarlordTalentHandBuffRows`；⛔ 别在别处设/漏清 —— 它会跨整段手牌遍历生效）。
+        static CardDef _warlordTalentCardForEval;
+        /// <summary>见 <see cref="_warlordTalentCardForEval"/>。`null` = 没上下文 ⇒ `ta=235` 返回「判不了」。</summary>
+        public static void SetWarlordTalentContext(CardDef talentCard) { _warlordTalentCardForEval = talentCard; }
+        /// <summary>清掉 <see cref="SetWarlordTalentContext"/> 设的上下文（必须与 Set 成对）。</summary>
+        public static void ClearWarlordTalentContext() { _warlordTalentCardForEval = null; }
+        /// <summary>当前有没有天赋卡上下文（自检/诊断用）。</summary>
+        public static bool HasWarlordTalentContext { get { return _warlordTalentCardForEval != null; } }
     }
 }

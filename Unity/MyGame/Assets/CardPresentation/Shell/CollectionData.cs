@@ -314,8 +314,10 @@ namespace CardPresentation
         /// ⚠️ 原版**不是**靠灰按钮（`DeckEditingWindow__UpdateDoneButton.c:22` 只切高亮/音效、**不设 `interactable`**）。
         /// 诊断全文 → `资料/普查产出_第二十三会话/R1_没选战将的卡组.md` §三。</para>
         ///
-        /// <para>⚠️ **本口的返回值**：仍然是新卡组名（调用点照旧读它）；名字**已经过 `UniqueName`**，
-        /// 所以「不入库的这一副」与库里同名卡组当场就区分开。返回空串今天**不可达**（见下面那条订正）。</para>
+        /// <para>🔴 **2026-11-04（`B141-W32` · 条目 3-13）就地改向（铁律 5）**：新卡组的名字 = **空串**（判据见方法体那一行）
+        /// ⇒ **本口现在返回空串**（= `d.Name`）。调用方判「造没造出来」请读 `PendingNewDeck != null`，⛔ 别再用 `string.IsNullOrEmpty(返回值)`
+        /// —— 原来那句「返回空串今天不可达」**已过期**：空名是**原版行为**（`CardDeck__GetEmptyDeck.c` 不给 `deckName`(`+0x10`) 赋值），
+        /// 名字由**第一次 Done** 的 `ValidateDeck` 补成督军卡名（`DeckUtility__ValidateDeck.c:70-76`）。</para>
         ///
         /// <para>🔴 **2026-10-12（`A1697`）就地订正（铁律 5）**：原来那条 A503 口径
         /// 「**写不进存档时返回空串**」（🆕 2026-10-13 记的）**在本口不再成立** —— 本口自 A1697 起
@@ -355,7 +357,7 @@ namespace CardPresentation
             //    ③ `d:/2/tools/il2cpp_out/stringliteral.json`：`NewDeckName` = **0 命中**
             //       （该文件里 `MenuDeck*` 只有 **33** 条，`DeckName` 一族只有一条前缀串 `MenuDeck/DeckName/`）。
             //    ⇒ 键名与两列**均自拟**（与 `Core/Loc.cs` ⑪ 那一节的记录一致）。
-            string name = Lib.UniqueName(Loc.T("MenuDeck/NewDeckName"));
+            string name = Lib.UniqueName(Loc.T("MenuDeck/NewDeckName"));   // 🔴 2026-11-04（B141-W32 · 3-13）：这一串**只当兜底显示名**（`d == null` 那一支 / 日志）—— 原版新卡组名是**空串**，见下面 `d.Name = ""` 那一行
             // 🔴 **2026-10-12（`A1697`）改向：只造、**不入库**、不落盘** —— 判据（原版，逐行读过）：
             //   `SelectDecksTab__CreateDeck.c:17,26,28` = `CardDeck__GetEmptyDeck()` → 打上模式
             //   → **直接 `WindowsManager__OpenWindow<DeckEditingWindow>(...)`**；全链**没有一个入库调用**。
@@ -364,7 +366,7 @@ namespace CardPresentation
             //   原版「新建 → 不选战将 → 退出」**什么都不剩**。
             //   ⚠️ 原版**不是**靠灰按钮（`DeckEditingWindow__UpdateDoneButton.c:22` 只切高亮/音效、
             //   **不设 `interactable`**）。诊断全文 → `资料/普查产出_第二十三会话/R1_没选战将的卡组.md` §三。
-            PlayerDeck d = Lib.NewUnsaved(name, gameMode);   // ⛔ 不入库（= 原版 `GetEmptyDeck`）—— 入库在编辑器 `Done` 那一拍
+            PlayerDeck d = Lib.NewUnsaved(name, gameMode); if (d != null) d.Name = "";   // ⛔ 不入库（= 原版 `GetEmptyDeck`；入库在编辑器 `Done` 那一拍）· 🔴 **2026-11-04（`B141-W32` · 条目 3-13）名字清回空串** —— 原版 `CardDeck__GetEmptyDeck.c:10-27` 只赋 `+0x20/+0x28/+0x30` 与 `DeckBasicSetup(卡组名)`，**`deckName`(`+0x10`) 是空串**；名字由第一次 `Done` 的 `DeckUtility__ValidateDeck.c:70-76` 补（`IsNullOrWhiteSpace` ⇒ `deckName = 督军本地化卡名`）。⚠️ `NewUnsaved` 会把空名替成「新卡组」（`DeckLibrary.NewUnsaved`，不在本笔白名单）⇒ 只能在这里清（不清 ⇒ `DeckEditorState.FillNameFromWarlord` 永远不可达 = 本条要修的那条缺陷） · ✅ 已复刻（2026-11-04 · B141/W32 · `CardDeck__GetEmptyDeck.c:10-27` + `DeckUtility__ValidateDeck.c:70-76`；回归断言 `Editor/B141_W32_Assert.cs` §A）
             PendingNewDeck = d;                       // 交接给编辑器（静态跨场景，同 `PendingEditDeck`）
             PendingEditDeck = -1;                     // ⛔ 必须清：留着旧下标会跳进**别的**卡组
             return d != null ? d.Name : name;

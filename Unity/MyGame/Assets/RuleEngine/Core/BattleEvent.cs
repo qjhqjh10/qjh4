@@ -872,6 +872,44 @@ namespace RuleEngine
         /// `BattleEvent` 不进 `.json`）。⚠️ 别的 `EvtKind` 不填这一位（保持 0）。</para>
         /// </summary>
         public int Priority;
+
+        /// <summary>
+        /// 🆕 **2026-11-04（执行写手 `B141-W43` · `B141-SAN27-ROWID`）：`EvtKind.Ability` 的
+        /// 「**按行承载**的目标表** —— 第 `i` 个元素 = 原版 `activeAbilityLogic[i]` 那一行的 `GetTargets` 结果。
+        ///
+        /// <para>**为什么需要它**：原版 `AbilityLogic.PlayAbility` 是**每一行**各一次
+        /// `GetTargets(criteria) + PlayAnim(...)`（判据 `AbilityLogic__PlayAbility.c:262/273`，第二处 `:1524-1531`）
+        /// ⇒ 每一拍只播**它那一行**的目标。而 <see cref="AbilityTargetList"/> 是**各行并集**（按
+        /// `InstanceId` / `Player+Slot` 去重）⇒ 消费端（`BattleDriver.ExpandAbilityBeats`）拿它给**每一拍**
+        /// 排条，两行都带 `abilityTarget` 拍时会**每拍播并集**（over-play）。
+        /// 本字段把「哪一行 → 哪几张牌」原样留在事件上，消费端再按
+        /// `CardAnimBeat.li`（= 这一拍的行号）取**那一行**的子表。</para>
+        ///
+        /// <para>🔴 **⛔ 不要在 `BattleEventTarget` 上加一个 `int Row` 代替它**（`B141-W37` §5·1 提过的另一个选项）：
+        /// 并集是**去重**的，同一张牌可以同时属于两行（例：`Manticore` 两行都 `ta=10`）⇒ 一个目标**一个**行号
+        /// **表达不了「它属于哪几行」**，只能丢一次播放。**按行存列表**才是无损形状。</para>
+        ///
+        /// <para>**形状契约**（消费端 `BattleDriver.BeatTargetsOf` 逐条依赖它）：
+        /// ① 下标 = 行号（`activeAbilityLogic` 的 j），**可以短于**行数；**越界 / `null` 元素 = 这一行没记**
+        ///    ⇒ 消费端退回并集 + 出声（⛔ 不静默）；② 元素是**空表** = 这一行**确实没选到目标**
+        ///    （原版 `GetTargets` 空 ⇒ `PlayAnim` `LogError` + return，判据 `PlayAnim.c:172-176`）
+        ///    ⇒ 消费端**不退回并集**、按「这一拍没有目标」处理；③ `null` 整个字段 = 生产端还没填（旧形状）
+        ///    ⇒ 消费端行为与改前**逐字节等价**（退回并集）。</para>
+        ///
+        /// <para>⚠️ **谁写**：`RuleCore.AppendOneRowAbilityTargetsToEvent`（唯一发点，与
+        /// <see cref="AbilityTargetList"/> 同一处；`B141-W43` 的白名单不含 `RuleCore.cs` ⇒ 本笔只建接口，
+        /// 生产端一行补丁见 `资料/完全复刻/报告/B141_W128_SAN27RowId.md`）。⚠️ 纯表现提示位，**不进录像 / 联机**
+        /// （同 <see cref="AbilityTargetList"/>：`BattleEvent` 不进 `.json`）。</para>
+        /// </summary>
+        public System.Collections.Generic.List<System.Collections.Generic.List<BattleEventTarget>> AbilityRowTargets;
+
+        /// <summary>🆕 2026-11-04（`B141-W43`）：<see cref="AbilityRowTargets"/> 的行号属于**哪个能力对象**
+        /// （`CardDef.ActiveAbilityObject = -1` / `AlternativeAbilityObject = -2`）。
+        /// <para>🔴 **为什么必须带它**：两个能力对象各有一份 `activeAbilityLogic` ⇒ 行号**各自从 0 起**；
+        /// 而 `CardAnimOrder` 的表只装 `activeAbility` 那一份 ⇒ 消费端必须核这一位是 `-1` 才敢按行取
+        /// （否则会把替代能力第 0 行错当成主动能力第 0 行）。</para>
+        /// <para>⚠️ 缺省 **`0` = 未设置**（`0` 不是合法的能力对象号 ⇒ 结构上 fail-closed，消费端退回并集）。</para></summary>
+        public int AbilityRowTargetsObject;
     }
 
     /// <summary>

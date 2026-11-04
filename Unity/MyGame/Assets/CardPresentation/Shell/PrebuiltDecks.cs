@@ -1030,5 +1030,52 @@ namespace CardPresentation
                     + "），该表本机 0 命中 ⇒ 这里是「同阵营 FTUE 池内按 seed 随机」，⛔ 不是原版选档逻辑（账 战斗逻辑驱动:48）");
             return picked;
         }
+
+        // ============================================================ 🆕 2026-11-04（执行代理 `B141_W10` · UI-05 D1）
+        //
+        //  原版判据（`d:/2/tools/decomp_full/` 现读）：
+        //   · `PracticeModePopup__BattleButtonOnClick.c:122`（同文件 `:165` / `:192`）—— 用窗口字段 `gameMode`
+        //     （字节 `+0x110`，写点 `PracticeModePopup__GameModeValueChange.c:9-12`，值 **0 / 13**）
+        //     二选一 `plVar1[3]` / `plVar1[4]`（= `DemoDeckInfoSO` 的 `+0x18` / `+0x20`）。
+        //   · `DemoDeckInfoSO__GetDeck.c:5-8` —— `mode == 0` → `+0x18`（`classicDeck`）、否则 → `+0x20`（`skirmishDeck`）；
+        //     资产样本 `d:/2/tools/assetripper_out/ExportedProject/Assets/MonoBehaviour/Demo DeckInfo Aeldari 1.asset:15-16`。
+        //   · `PracticeModePopup__BattleButtonOnClick.c:235` —— `MatchMakerManager.StartMatch(…, 6, …)`：
+        //     **第 2 实参恒 6**（`PlayModes.OfflinePractice`）⇒ 开关**不进** `playMode`，只决定「取哪一副」。
+        //  ⇒ 我们的等价物 = `Pairs`（一格一对 = 一个 `DemoDeckInfoSO`）+ `PairDeck(p, mode)`（= `GetDeck`）。
+
+        /// <summary>一副预组属于哪一「对」（= 原版那一个 `DemoDeckInfoSO`）—— 按 `classic.deckId` / `skirmish.deckId` 反查。
+        /// <para>不在 78 个练习对里（例：预组页里不属于任何演示对的副）⇒ `null`（⛔ 不按名字猜）。</para>
+        /// <para>✅ 已复刻（2026-11-04 · B141 · `decomp_full/PracticeModePopup__BattleButtonOnClick.c:122` +
+        /// `DemoDeckInfoSO__GetDeck.c:5-8`）—— 给「开战时按 `Game mode` 取同一对的另一套槽位」提供查找口。</para></summary>
+        public static Pair PairOf(string deckId)
+        {
+            if (string.IsNullOrEmpty(deckId)) return null;
+            var pairs = Pairs;
+            for (int i = 0; i < pairs.Count; i++)
+            {
+                var p = pairs[i];
+                if (p == null) continue;
+                if ((p.classic != null && p.classic.deckId == deckId)
+                    || (p.skirmish != null && p.skirmish.deckId == deckId)) return p;
+            }
+            return null;
+        }
+
+        /// <summary>按 `Game mode` 把一副预组解析成**同一对里当前模式那一副**（原版 `DemoDeckInfoSO.GetDeck(gameMode)`）。
+        /// <para>· 不在任何一对里 ⇒ **原样返回**（这类副没有「另一套槽位」可换，⛔ 不编一副顶替）。</para>
+        /// <para>· 是否真的换了：`ReferenceEquals(返回值, 入参)` 为假 ⇔ 换了（断言用它做判据）。</para>
+        /// <para>✅ 已复刻（2026-11-04 · B141 · `decomp_full/PracticeModePopup__BattleButtonOnClick.c:122` +
+        /// `DemoDeckInfoSO__GetDeck.c:5-8`）—— 生产入口 = `PracticeModePopup.PickPrebuilt`。</para></summary>
+        public static Deck ResolveForGameMode(Deck d, GameMode mode)
+        {
+            if (d == null) return null;
+            var pair = PairOf(d.deckId);
+            if (pair == null) return d;                 // 不属于任何演示对 ⇒ 没有「另一套槽位」
+            var resolved = PairDeck(pair, mode);
+            if (resolved == null || ReferenceEquals(resolved, d)) return d;
+            Debug.Log("[Prebuilt] `Game mode` = " + mode + " ⇒ 预组「" + d.DisplayName + "」按原版 `DemoDeckInfoSO.GetDeck(mode)`"
+                    + " 换到同一对（`" + pair.so + "`）的另一套槽位：`" + d.deckId + "` → `" + resolved.deckId + "`");
+            return resolved;
+        }
     }
 }

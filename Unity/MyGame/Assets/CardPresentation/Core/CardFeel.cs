@@ -3083,7 +3083,7 @@ namespace CardPresentation
                     _warnedDeathFxNull = true;
                     Debug.LogWarning("[CardFeel] 阵亡退回路取不到兜底爆散体"
                                    + "（`VfxMap.Resolve(\"death\")` = null —— 那件自造品已在 B3 删掉）"
-                                   + " ⇒ 这一档**不播任何根特效**，只走「淡出 + 上浮 + 缩」"
+                                   + " ⇒ 这一档**不播任何根特效**，只走「淡出（2D 卡面 `Alpha2D`）+ 缩到 `Vector3.one`」"
                                    + "（本条只出声一次；⛔ 不把 null 递给特效库）");
                 }
                 return;
@@ -3097,9 +3097,9 @@ namespace CardPresentation
         /// <summary>自检口：把「已出过声」那一位清零（让「恰好一条警告」可重复断言）。</summary>
         public static void ResetDeathFxNullWarnForTest() { _warnedDeathFxNull = false; }
 
-        /// <summary>阵亡消散（**旧表现 —— 只在取不到原版那件爆散体时用**）。原版是**材质 `_DissolveAmount`** 从 1 溶到 0
-        /// （见 `Card Hand To Board` clip 里 `Card 3D` 那条曲线）。
-        /// ⚠️ **我们没有溶解 shader**，退而用「透明度 + 轻微上浮/缩小」—— 表现形式是我们的。
+        /// <summary>阵亡消散（**旧表现 —— 只在取不到原版那件爆散体时用**）。正常档走**材质 `_DissolveAmount`** 0→1（见 `Card Hand To Board` clip 的 `Card 3D` 曲线）；
+        /// 取不到溶解材质那档的形状**照原版 `DissolveWholeCard`**：无位移 · 缩到 `Vector3.one` · 淡 `fadeGroup`（`Alpha2D`）· 默认 OutQuad。
+        /// ✅ 2026-11-04（`B141-W47`）就地订正：原「透明度 + 轻微上浮/缩小 —— 表现形式是我们的」是**自设计**，已删（判据 `DissolveWholeCard.c:18-32`）。
         /// 🔴 **时长照原版分档**（2026-09-18）：小兵 `deathTimeMinionDuration 0.2` ·
         ///    督军 `deathTimeWarlordDuration 0.5` —— 见 <see cref="DeathDissolve"/>。
         ///    （改之前两边都用 0.5333，那是从出战 clip 对称借来的，**不是原版值**。）</summary>
@@ -3109,7 +3109,7 @@ namespace CardPresentation
         //  ⇒ 两条靠「整卡淡出」的兜底会变成「卡体啪地留在场上」。这两条兜底是 F1 之后**最后的安全网**，
         //  所以它们必须改走**原版那条路**（材质 `_DissolveAmount`）：
         //    · 阵亡兜底 `Dissolve()`：`BeginDissolve()` 成功 ⇒ 驱动 `SetDissolveAmount(0→1)`；
-        //      取不到溶解材质 ⇒ **退回旧的整卡淡出并出声**（D3 原文：「`DissolveSupported==false` 时退回现状（并出声）」）。
+        //      取不到溶解材质 ⇒ **退回 2D 卡面淡出并出声**（D3 原文：「`DissolveSupported==false` 时退回现状（并出声）」；✅ 2026-11-04 `B141-W47` 起不再淡整卡）。
         //    · 回手兜底 `ReturnToHand()` 的 `!canDissolve` 分支：**0.2167 时直接关掉 3D 体**
         //      （`SetBody3DVisible(false)`）+ 2D 卡面照原版时间轴打开/淡入 —— ⛔ 不再淡卡体。
         //      判据：原版阵亡/小兵溶解本来就是「溶完直接关体」（`DeathExplosion` 正路 = `SetBody3DVisible(false)`）。
@@ -3122,7 +3122,7 @@ namespace CardPresentation
             None = 0,
             /// <summary>材质溶解（原版那条路：`BeginDissolve` + `_DissolveAmount` 0→1）。</summary>
             MaterialDissolve = 1,
-            /// <summary>旧的整卡淡出（**只剩「取不到溶解材质」这一档**；会出声）。</summary>
+            /// <summary>旧的整卡淡出（**只剩「取不到溶解材质」这一档**；会出声）。⚠️ 名字是历史名（`Editor/BattleScene.cs` 按它断言）；**实际动作 2026-11-04 起 = 淡 `Alpha2D`（原版 `fadeGroup`），⛔ 不再碰整卡 `Alpha`**。</summary>
             WholeCardAlpha = 2,
             /// <summary>回手兜底：直接关 3D 体 + 2D 卡面照原版时间轴淡入（⛔ 不碰 `_Color.a`）。</summary>
             HideBody = 3,
@@ -3140,8 +3140,8 @@ namespace CardPresentation
             if (_warnedDeathFallbackAlpha) return;
             _warnedDeathFallbackAlpha = true;
             Debug.LogWarning("[CardFeel] 阵亡兜底：**取不到溶解材质**（`CardView.BeginDissolve()` = false）"
-                           + " ⇒ 退回「整卡淡出」—— ⚠️ 卡体不透明之后 `_Color.a` 对 3D 体**不生效**"
-                           + "（F1；判据 → `D3_F1判据与方案.md` §③ C3）⇒ 这一段只剩 2D 层会淡。"
+                           + " ⇒ 退回「2D 卡面淡出（`Alpha2D` = 原版 `fadeGroup`）」—— 卡体不透明之后 `_Color.a` 对 3D 体**不生效**"
+                           + "（F1；判据 → `D3_F1判据与方案.md` §③ C3）⇒ 这一档**只有 2D 层会淡**。"
                            + "原版那条路是材质 `_DissolveAmount`，所以正常档不会走到这里。");
         }
         /// <summary>自检口：把「已出过声」那一位清零。</summary>
@@ -3153,11 +3153,11 @@ namespace CardPresentation
             if (card == null) return null;
             var tr = card.transform;
             float dur = DeathDissolve(isWarlord);
-            Vector3 up = new Vector3(0f, ToOurs(0.3f), 0f);     // 上浮量：我们挑的
+            // ✅ 已复刻（2026-11-04 · B141-W47 · 判据 `decomp_full/CardScript__DissolveWholeCard.c:18-32`：无位移 · DOScale(one×1.0) · 淡 fadeGroup）
             var seq = DOTween.Sequence();
-            seq.Append(tr.DOMove(tr.position + up, dur).SetEase(Ease.InSine));
-            seq.Join(tr.DOScale(tr.localScale * 0.85f, dur).SetEase(Ease.InQuad));
-            // 🔴 2026-10-23（`F1` 前置）：**先走原版那条路**（材质溶解）；拿不到溶解材质才退回整卡淡出。
+            // 原版这一跳的补间形状里**没有位移**；缩放 = `DOScale(transform, Vector3.one × spellPlayedScale(1.0), dur)`，且**无 SetEase** ⇒ DOTween 默认 OutQuad（`DOTweenSettings.asset:31`）
+            seq.Append(tr.DOScale(Vector3.one, dur));
+            // 🔴 2026-10-23（`F1` 前置）：**先走原版那条路**（材质溶解）；拿不到溶解材质才退回 2D 卡面淡出（`Alpha2D` = 原版 `fadeGroup`）。
             bool canDissolve = !ForceNoDissolveForTest && card.BeginDissolve();
             LastDeathFallback = canDissolve ? FallbackPath.MaterialDissolve : FallbackPath.WholeCardAlpha;
             if (canDissolve)
@@ -3168,7 +3168,7 @@ namespace CardPresentation
             else
             {
                 SpeakDeathFallbackAlpha();
-                seq.Join(DOTween.To(() => card.Alpha, a => card.SetAlpha(a), 0f, dur));
+                seq.Join(DOTween.To(() => card.Alpha2D, a => card.SetAlpha2D(a), 0f, dur));   // 原版 `FadeCardItems` 淡的是 `fadeGroup`（2D 卡面 = `Alpha2D`），⛔ 不是整卡 `SetAlpha`（判据 `BasicCardUI.FadeCard`）
             }
             var t = CardTween.Use(seq, Ease.Linear, tr).SetDelay(delay);
             // ⚠️ 回调**从这里接**，别让调用方去碰 DOTween —— 这是本文件的划法。

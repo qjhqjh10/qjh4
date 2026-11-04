@@ -571,14 +571,15 @@ public static class ArenaBuilder
     }
 
     [MenuItem("Tools/Warpforge/构建 battlearena1")]
-    public static void Build() { BuildInternal(DefaultArena); }
+    public static void Build() { BuildInternal(DefaultArena); MeshPostProcess(); }
 
-    public static void BuildFromCLI() { BuildInternal(ArenaFromEnv()); }
+    public static void BuildFromCLI() { BuildInternal(ArenaFromEnv()); MeshPostProcess(); }
 
     /// <summary>把 13 个战场**全建一遍**（每个存一个独立场景）—— 批量入口，串行跑。</summary>
     public static void BuildAll()
     {
         foreach (var s in AllArenas) BuildInternal(s); B139_H_Assert.VerifyAll();   // 🆕 B139_H：建完立刻自检（13 场全绿才算数）
+        MeshPostProcess();   // ✅ 已复刻（2026-11-04 · B141/W18 · 判据/B141_W130_对账_资源.md §二 W130-O6）
     }
 
     // ==================================================================
@@ -613,6 +614,7 @@ public static class ArenaBuilder
         VerifyPrefabColorSpace();
         // 🆕 2026-10-25（Tap 族）：逐场核 `TapHitMaterialDefinition` / `TapParticleController` 进没进 prefab。
         foreach (var s in AllArenas) if (File.Exists(ArenaPrefabPath(s))) VerifyPrefabTapHits(s);
+        MeshPostProcess();   // ✅ 已复刻（2026-11-04 · B141/W18 · 网格后处理：prefab 引用同一批网格资产）
     }
 
     /// <summary>🆕 2026-10-11（第二十会话）：**只建 `WF_ARENA` 那一场的 prefab**。
@@ -636,6 +638,7 @@ public static class ArenaBuilder
         AssetDatabase.Refresh();
         Debug.Log($"[Arena] §27 **单场** prefab：{s} {(ok ? "✅ 建好" : "❌ 失败")} → `{ArenaPrefabPath(s)}`");
         VerifyPrefabTapHits(s);
+        MeshPostProcess();   // ✅ 已复刻（2026-11-04 · B141/W18 · 网格后处理：prefab 引用同一批网格资产）
     }
 
     /// <summary>🆕 2026-10-11（A1557）：**产物自检** —— 自定义顶点流到底进没进 `.prefab`。
@@ -800,6 +803,10 @@ public static class ArenaBuilder
     ///   ③ **preview 不参与判定**（只在不存在时提示「首渲」）。
     ///   ⇒ `render_our_arenas.sh` 的「先 BuildAll/BuildArenaPrefabs 再出图」流水线下**不会红**
     ///     （场景/prefab 刚重建 = 比清单新）；而「改了清单不重建场景」**会红**。
+    ///   🆕 **④（2026-11-04 · `B124-PREVIEWMTIME` 裁定采纳）生成器源码**（本文件 `ArenaBuilder.cs` + 清单生成器
+    ///     `gen_unity_arena_manifest.py`）**比 scene 新 ⇒ 报红** —— 建场逻辑改了而没重建，场景里是旧代码的产物。
+    ///     ⚠️ **比较对象只能是 scene**：preview 在守卫之后才写，拿它比会**首渲即红**（这是本条的原始缺陷）。
+    ///     ⇒ `render_our_arenas.sh`（先 BuildAll 再渲）**仍然放行**；「改 `ArenaBuilder.cs` 不重建」**新增为红**。
     ///
     /// 边界（缺文件不误判）：scene 缺失 ⇒ 跳过（调用方本就先判过存在）；manifest 缺失 ⇒ 跳过清单这一路；
     ///   prefab 缺失（首跑）⇒ 跳过 prefab 这一路；preview 缺失 ⇒ 提示首渲、照渲。
@@ -855,6 +862,9 @@ public static class ArenaBuilder
                     stale.Add($"旁挂 `{f}`（{t:yyyy-MM-dd HH:mm:ss}Z）比【场景】`{scenePath}`（{sceneT:yyyy-MM-dd HH:mm:ss}Z）新 ⇒ **场景没重建**");
             }
         }
+
+        // ③ 生成器源码比 scene 新 ⇒ 场景没重建（`B124-PREVIEWMTIME` 第三路；⛔ 比 scene，不比 preview）
+        stale.AddRange(StalePreviewSources(sceneT));
 
         if (stale.Count == 0) return true;
         var detail = "源链比构建产物新：\n  " + string.Join("\n  ", stale);
@@ -6734,5 +6744,72 @@ public static class ArenaBuilder
     public const int GaussIndirectValue = 5;
     /// <summary>原版 `m_PVRFilteringGaussRadiusAO`（14-04）。</summary>
     public const int GaussAOValue = 2;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  🆕 2026-11-04 · B141/W18 —— 生成器后处理（W130-O6）+ 预览时效守卫第三路（B124-PREVIEWMTIME）
+    //  判据：`判据/B141_W130_对账_资源.md` §一 16-02/16-03/16-08/16-11 + §二 W130-O6
+    //        `判据/B124_*.md`（预览守卫第三路，2026-11-04 裁定采纳）
+    //  📌 放类尾：本文件被账按 `文件（方法名）` 引用，新成员追加在类尾避免下游行号漂移。
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /// <summary>✅ 已复刻（2026-11-04 · B141/W18 · 判据/B141_W130_对账_资源.md §二 W130-O6）——
+    /// **网格资产后处理**：四字段（16-02/16-03）+ `m_MeshMetrics`（16-08）+ 法线通道 `dimension`（16-11）一次写回。
+    /// <para>🔴 **写口只有一处** = `B140_WS_MeshFlags.ApplyAll`（本方法只转发，⛔ 别在这里再写一套 ——
+    /// R9 报告 §二 明确警告「两套写口」）。</para>
+    /// <para>🔴 为什么挂在**建场入口**：网格由 `EffectExporter` 重新导出时这些字段会被冲回 Unity 默认值
+    /// （四个标志 1/0/0/0 · metrics 1/1 · dimension 4 或 3），而 `render_our_arenas.sh` 的流水线是
+    /// `BuildAll` → `BuildArenaPrefabs` → 出图 ⇒ 只要挂在这里，「重跑导出 → 重建」就自动补回来
+    /// （⛔ 不用人记得再跑一次工具；判据 16-11 原文：「别只改盘，`B140-WS-RERUN` 会冲回」）。</para>
+    /// <para>⚠️ 本步与 arena 内容无关，13 场重复调用只是 101 份 YAML 的字符串比对（幂等、已对就跳过）。
+    /// ⚠️ **写回之后仍然要一次 Unity 重存/重导才算生效**（`ImportAsset` 已在写口里做过，回读不过会报红）。</para></summary>
+    public static void MeshPostProcess(bool dry = false)
+    {
+        try { B140_WS_MeshFlags.ApplyAll(dry); }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[Arena] 🔴 网格后处理抛了（{e.GetType().Name}: {e.Message}）"
+                         + " —— 网格标志/度量可能没写回，⛔ 别当成通过");
+        }
+    }
+
+    /// <summary>✅ 已复刻（2026-11-04 · B141/W18 · `B124-PREVIEWMTIME`）——
+    /// **时效守卫第三路**的源名单：本生成器 + 清单生成器（`d:/2` 上游那份 + `工具/scripts快照/` 工作副本）。
+    /// <para>为什么是这三份：① `ArenaBuilder.cs` 改了而没重建 ⇒ 场景里是旧建场代码的产物（**新的一条**）；
+    /// ② 清单生成器改了但没重跑 ⇒ `manifest` mtime 不变 ⇒ 现有①路抓不到那个中间态。
+    /// `脚本快照` 是真正的写手工作副本（`CLAUDE.md` §15），`d:/2` 那份是上游 —— **两份都给**，改任一份都该红。</para>
+    /// <para>⚠️ 缺文件 ⇒ 调用方**只出声、不判红**（⛔ 不误判；跨机器时 `d:/2` 可能不在）。</para></summary>
+    static string[] PreviewSourceFiles()
+    {
+        var list = new List<string> { System.IO.Path.Combine(Application.dataPath, "WarpforgeArena1/Editor/ArenaBuilder.cs") };
+        list.Add("d:/2/Warpforge_tools/scripts/gen_unity_arena_manifest.py");
+        list.Add("d:/4/Unity/工具/scripts快照/gen_unity_arena_manifest.py");
+        return list.ToArray();
+    }
+
+    /// <summary>✅ 已复刻（2026-11-04 · B141/W18 · `B124-PREVIEWMTIME`）——
+    /// 第三路判定（纯读盘、无副作用，可直接被断言宿主调）：源文件比 `sceneT` 新 ⇒ 返回原因行。
+    /// ⚠️ 比较对象**只能是 scene**（preview 在守卫之后才写）。</summary>
+    public static List<string> StalePreviewSources(System.DateTime sceneT)
+    {
+        return StaleSources(PreviewSourceFiles(), sceneT);
+    }
+
+    /// <summary>纯判定（供断言宿主构造两态用）：`paths` 里比 `sceneT` 新的 ⇒ 返回原因行；缺文件只出声。</summary>
+    public static List<string> StaleSources(System.Collections.Generic.IEnumerable<string> paths, System.DateTime sceneT)
+    {
+        var stale = new List<string>();
+        foreach (var path in paths)
+        {
+            if (!File.Exists(path))
+            {
+                Debug.LogWarning($"[Arena] 时效守卫：源文件 `{path}` 不存在 ⇒ 跳过这一路校验（⛔ 不当成红）。");
+                continue;
+            }
+            var t = File.GetLastWriteTimeUtc(path);
+            if (t > sceneT)
+                stale.Add($"源 `{path}`（{t:yyyy-MM-dd HH:mm:ss}Z）比【场景】新 ⇒ **改了生成器/清单生成器但场景没重建**");
+        }
+        return stale;
+    }
 
 }

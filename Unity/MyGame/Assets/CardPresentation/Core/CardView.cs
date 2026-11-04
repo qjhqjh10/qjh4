@@ -4470,6 +4470,9 @@ namespace CardPresentation
                     //    收进函数后「建出来」与「状态轴变了重烘」走的是**同一个判据**（⛔ 别再在这儿拼一遍）。
                     _artFront = AddLayer("artFront", frameTex, -0.008f, artTex, artFrontMesh);
                 _frame = AddLayer("frame", frameTex, 0f, null); ApplyFrameMaskFade(bigState ? 1f : 0f); if (board) Show(_frame, false);   // ← 出生即按状态记账（类尾 ApplyFrameMaskFade；2026-11-02 起不淡出）。🆕 **2026-11-02（`B118-W15` · 账 `D118-56`）：场上也建、**初始隐藏**** —— 原版 `CardPrefab` 里 `2DCard` 与 `Card 3D` 两套**都在**，靠 `BattleCardUI__ShowBoardObjects.c:13-25` 的 `Card2DController.Toggle` 切显隐（⛔ 不是「不建」）；不建的话「出生就在场上」的视图（AI 单位 / 督军）回手时没有卡框可开
+                // 🆕 **2026-11-04（`B141-W33b`）**：卡框材质 = 原版 `Card Frame and Cardback for combat`（`_AAScale = 1.25`）
+                //   ⇒ 只有这一层（和卡背）走超采样；⛔ 别把 `_AAScale` 写进共享基材（见 `CardAaScale` 的 doc）。
+                ApplyCardAaScale(_frame);
                 // 🆕 2026-10-24（`E5`）：**出生这一趟把状态记账**（原版 `CardImageController.currentState`）。
                 //   两条 overDraw 轴现在可以经 `Create(..., artOverdraw:, useOverDraw:)` 在建卡**之前**给定，
                 //   所以这里记下的就是 `Build` 真正烘进网格的那一档；之后 setter 拿它判「状态变没变」
@@ -5142,7 +5145,7 @@ namespace CardPresentation
             //    ⚠️ 「印不印」与「摆哪」是**两条独立判据**，别合并（见 `TacticRaceAt` 的 doc 末段）。
             _raceY01 = RaceUsesTacticAt(d) ? TacticRaceAt.y : UnitRaceAt.y;
             _race = Fill(_race, "race", SubtypeLine(d), new Vector2(UnitRaceAt.x, _raceY01),
-                         nameW, RaceFontSizeForUse(unit), InkArmy, false,
+                         nameW, RaceFontSizeForUse(unit), InkUnit, false,
                          face: TmpFont.Face.LatinCardBody, outline: TmpFont.TextOutline.Body,
                          // 原版 `RaceText` = **3**/18（下界是全表唯一不是 1 的那个；档位照抄；
                          // ⚠️ 同阵营行：这一层没有框高 ⇒ 目前不跑 `FitToBox`）
@@ -7601,6 +7604,7 @@ namespace CardPresentation
                 _backMr = _backLayer.AddComponent<MeshRenderer>();
                 _backMr.sharedMaterial = new Material(BaseMaterial());
                 _backMr.sharedMaterial.mainTexture = back;
+                ApplyCardAaScale(_backMr);   // 🆕 2026-11-04（`B141-W33b`）：原版 `Cardback` 与 `CardFrame` **同一颗材质** ⇒ 同样 `_AAScale = 1.25`
                 _backMr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 _backMr.receiveShadows = false;
                 StampQueue(_backMr);
@@ -7999,6 +8003,10 @@ namespace CardPresentation
                     sh = Shader.Find("Sprites/Default");
                 }
                 _quadMat = new Material(sh);
+                // 🆕 **2026-11-04（`B141-W33b`）**：**共享基材显式关超采样** —— 原版只有卡框 / 卡背那颗材质是
+                //   `_AAScale = 1.25`（`Custom/SuperSampled Texture`）；本基材服务立绘 / 底板 / 数值层 / `ImageQuad`，
+                //   跟着开就会把它们一起超采样（原版没有）。卡框 / 卡背由 `ApplyCardAaScale` 单独写 1.25。
+                if (_quadMat.HasProperty("_AAScale")) _quadMat.SetFloat("_AAScale", 0f);
             }
             return _quadMat;
         }
@@ -8175,7 +8183,7 @@ namespace CardPresentation
             if (_title != null) _title.color = Greyed((Color)InkName * WithAlpha2D(c));
             if (_keywords != null) _keywords.color = Greyed((Color)InkDesc * WithAlpha2D(c));
             if (_army != null) _army.color = Greyed((Color)InkArmy * WithAlpha2D(c));
-            if (_race != null) _race.color = Greyed((Color)InkArmy * WithAlpha2D(c));
+            if (_race != null) _race.color = Greyed((Color)InkUnit * WithAlpha2D(c));
             // 🆕 2026-10-18（`A985④`）：「由谁造出来的」也一样跟整卡状态色 × 淡出走
             // （它不在 `_layers` 里，上面那个 foreach 刷不到它 —— 同 `_title` 那一族）。
             if (_createdBy != null) _createdBy.color = Greyed((Color)CreatedByInk * WithAlpha2D(c));
@@ -12938,9 +12946,9 @@ namespace CardPresentation
         /// 判据全文 = `报告/B131_审计_色彩材质与渲染.md` 的 `B1` / §五·1；定案 = `方案_审计修复总方案_B138.md` §8 #1。</para>
         /// <para>⚠️ 数值取法与 <see cref="InkArmy"/> 同一档（3 位小数 × 255 取整）：0.992157→253 · 0.603922→154 · 0.345098→88。</para>
         static readonly Color32 InkName   = new Color32(253, 154, 88, 255);
-        /// <summary>阵营行 / 兵种行：原版材质 `Pragati-Regular Card Unit type` 的 `_FaceColor` = (1.0, 0.6055, 0.3443)
-        /// ⇒ (255, 154, 88)。🆕 **2026-10-17（`A1753` #19）**：红通道由 **253 → 255**（原来取的是 0.9922 那个
-        /// 「卡名橙」的近似值；这里改用材质原值 ⇒ 字面量能逐位对上 (255, 154, 88)）。</summary>
+        /// <summary>**阵营行**（`_army`，原版 `ArmyText*`，`m_fontColor = 白`）：材质 `Pragati-Regular Card Unit type` 的 `_FaceColor` = (1.0, 0.6055, 0.3443) ⇒ (255, 154, 88)。🆕 **2026-10-17（`A1753` #19）** 红通道由 253→255（改用材质原值）。
+        /// 🔴 **2026-11-04（`B141-W33` · 铁律 5）**：本常量**只管阵营行** —— 兵种行（原版 `RaceText`）走的是**另一条链**：`m_fontColor` = (0.992157,0.603922,0.345098) × **白** `_FaceColor` ⇒ **253**，落点 = `InkUnit`（类尾）。
+        /// ⛔ 别再把两行合成一个常量：B131色 `B3`（阵营行 ✅255）与 `B5`（兵种行 🟠253）是两条独立判据。</summary>
         static readonly Color32 InkArmy   = new Color32(255, 154, 88, 255);
         static readonly Color32 InkDesc   = new Color32(250, 233, 221, 255);
         static readonly Color32 InkMelee  = new Color32(255, 226, 150, 255);   // 近战：暖黄（红宝石上）
@@ -16311,5 +16319,48 @@ namespace CardPresentation
             _traitRevSeen = traitRev;
             return n;
         }
+
+        /// <summary>**兵种行**（`_race`，原版 `RaceText`）：`m_fontColor` = (0.992157, 0.603922, 0.345098)
+        /// × 材质 `Pragati-Regular Card Content` 的 `_FaceColor` = **纯白** ⇒ 屏上色 = `Color32(253, 154, 88)` = **#FD9A58**。
+        /// 判据 = `bundle_battleprefabs_vfxandmisc_assets_all/MonoBehaviour/MonoBehaviour_4216994895762529216.json`
+        /// （`m_text = "Troop"`）· 报告 `B131_审计_色彩材质与渲染.md` 的 `B5`。
+        /// ⚠️ 与阵营行 `InkArmy`（255 / 材质 `Card Unit type` 的 `_FaceColor`）**不是同一条链** —— ⛔ 别合并。
+        /// ⚠️ **追加在类尾**（账按 `文件:行号` 引，插中间就漂）。</summary>
+        static readonly Color32 InkUnit = new Color32(253, 154, 88, 255);
+        // ✅ 已复刻（2026-11-04 · B141 · B131色 B5：`m_fontColor`×白 `_FaceColor` = #FD9A58）
+
+        // ============================================================================================
+        //  🆕 2026-11-04（执行写手 `B141-W33b`）：**卡框 / 卡背的 4-tap 超采样**（原版 `_AAScale 1.25`）
+        // ============================================================================================
+        //  判据（一手，**原版编译字节码反汇编**）：`Custom/SuperSampled Texture`（`wf_shaders_extra.bundle`，
+        //    `compressedBlob` LZ4 解开 = 4 个 DXBC 程序块，`D3DDisassemble` 逐块现读）的
+        //    `SUPERSAMPLING_ON` 变体 = 4-tap RGSS（逐句偏移与权重见 `CardSprite.shader` 文件头）。
+        //  材质（原版）：`Card Frame and Cardback for combat` —— `_AAScale = 1.25`，挂在 `CardPrefab` 的
+        //    `CardFrame` 与 `Cardback` 两个 `Image` 上（`Assets/CardPrefab.prefab:16137 / :19985` 现读）。
+        //  ⚠️ **只给这两层**：本工程 `CardPresentation/CardSprite` 是卡面层共用基材（含 `ImageQuad`）
+        //    ⇒ 共享基材已经显式写 `_AAScale = 0`（见 `BaseMaterial`），这里只把卡框 / 卡背提到 1.25。
+        //  ⚠️ **追加在类尾**（账按 `文件:行号` 引，插中间就漂）。
+        // ============================================================================================
+
+        /// <summary>原版卡框 / 卡背材质的 `_AAScale` 字面量（`Card Frame and Cardback for combat` 现读 = 1.25）。</summary>
+        public const float CardAaScale = 1.25f;
+
+        /// <summary>把**卡框 / 卡背**那一层的材质提到原版超采样档（`_AAScale = 1.25`）。
+        /// <para>⛔ 别对其它层调用：原版只有 `CardFrame` / `Cardback` 两个 `Image` 挂那颗材质。</para>
+        /// <para>⚠️ 认不出 `_AAScale`（shader 版本不对 / 退回内置 `Sprites/Default`）时**出声** ——
+        /// 超采样不生效属于「看着没坏其实差一档」，不许静默（铁律：不许静默失败）。</para></summary>
+        static void ApplyCardAaScale(MeshRenderer mr)
+        {
+            if (mr == null || mr.sharedMaterial == null) return;
+            if (!mr.sharedMaterial.HasProperty("_AAScale"))
+            {
+                Debug.LogWarning("[CardView] 卡框/卡背基材没有 `_AAScale` ⇒ 原版超采样（1.25）不会生效"
+                               + "（`Resources/Shaders/CardSprite.shader` 是不是旧版？）");
+                return;
+            }
+            mr.sharedMaterial.SetFloat("_AAScale", CardAaScale);
+        }
+        // ✅ 已复刻（2026-11-04 · B141-W33b · 原版材质 `Card Frame and Cardback for combat` `_AAScale = 1.25`；
+        //     shader 算法 = `Custom/SuperSampled Texture` 的 DXBC 反汇编 4-tap RGSS）
     }
 }

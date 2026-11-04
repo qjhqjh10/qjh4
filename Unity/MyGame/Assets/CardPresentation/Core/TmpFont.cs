@@ -210,6 +210,114 @@ namespace CardPresentation
 
         static bool _cjkFallbackHooked;
 
+        // ============================================================================================
+        // 🆕 **2026-11-04（`B141 · W129` · 账 `4-01` · 判据包 `W23`）—— 「站点 → 面」选择表。**
+        //
+        // **为什么要有它**：`Face` 枚举 + `FaceAsset` 早在 2026-10-14（`A1024③`）就有，但**哪个站点该用哪一面**
+        //   只散在各窗的 `face:` 实参里 ⇒ 下一个人要么重查原版 prefab、要么照抄邻窗。抄错的先例：
+        //   卡组编辑左栏费用数字被 Noto 行盒 **1.2933 em** 压到 `3.05`（原版 Pragati **0.9474 em** ⇒ 停在 50，见上面 `A1927` 段）。
+        //   本表把「原版那颗 TMP 用哪份资产」固化成**一处可机检的映射**，⛔ **不新增任何渲染逻辑**。
+        //
+        // 🔴 **口径三条（⛔ 别推翻）**：
+        //   ① **缺省面仍是 `Face.Cjk`** —— 本表**不改任何缺省值**（`MenuDraw.Text` / `NewText` / `Label` 的默认逐位不变），
+        //      只给**显式接线**的站点提供「该传哪一面」的唯一出处。
+        //   ② **中文仍由 `Label.ActualFace` 按文本兜底回 CJK**（三份拉丁资产没有汉字字形）—— 本表不碰那条链。
+        //   ③ 表里每一行的「原版资产」都是**原版 prefab 的 `m_fontAsset` 实读**，⛔ 不是按名字猜的；
+        //      查不到的站点**不进表**（未知键由 `FaceForSite` 回 `Cjk`，调用方维持今天的行为）。
+        //
+        // 📌 **判据（2026-11-04 现读）**：
+        //   · guid → 资产名 = `d:/2/tools/assetripper_out/ExportedProject/Assets/*-Regular SDF.asset.meta`
+        //     （Pragati `2548b731a71f84745a1b13c211c923ca` · Asar `b80ad157b2e63114e94d0e228946d481` ·
+        //      RobotoCondensed `4996a91cc356d51408135f9bb89218fa` · NotoSerifCJK `33ea99a992ff8a84b81de55ac13ed02c`）
+        //   · `Deck Editing Menu.prefab` —— TMP **64/64 = Pragati**（含 `Header/label` · `Header/Filters/Label` ·
+        //     `Footer/Done/Button Text` · `Sidebar/Window Options/*/Label/Text` · 四颗 `WIldcard Counter/Counters/*/Counter` ·
+        //     全部筛选 `Title` / `Toggle/Label` · `Card Name` / `Count` / `Card Cost` / `Cards in deck` / `Counter`）
+        //   · `Collection Menu Variant.prefab` —— TMP **57/57 = Pragati**（含 4 颗 `Label/TabButtonLabel` · **页头 `label`** ·
+        //     `Clear Filter Button/Button Text` · `Create`/`Import`/`Unlock` 钮 · 四颗通配符 `Counter` ·
+        //     `Select Game Mode Deck Tab/Title Header` · `Shared/Close Button/Button Text`）
+        //   · `Main Menu Settings Window.prefab` 102/102 · `BasicToolTip.prefab` 1/1 · `GameObject/Toast.prefab` 1/1 = Pragati
+        //   · `Daily Streak Popup.prefab` / `EnergySinglePlayerOnlyEventWindow.prefab` 的
+        //     `Header With Back Button/Header Background/Window Title` = **Asar**
+        //   · `Catalog Item Shop Container.prefab` / `Draft Mode Timed Mode Window.prefab` 的
+        //     `2DCard/…/Card Info/Name and description/*/NameText*` = **Asar**（卡名）；同 prefab 其余（Shop 32/39）= Pragati
+        //   · 总体口径（2026-11-03 `B131_A6`）：1314 份 prefab 里 Pragati **4,431** 颗 · Asar **548** 颗 ·
+        //     **RobotoCondensed 0 · NotoSerifCJK 0**（Noto 只作运行期 fallback）
+        // ============================================================================================
+        // ✅ 已复刻（2026-11-04 · B141 · 判据=`判据/B141_W129_对账_UI动画.md` W23 包 + 原版 prefab `m_fontAsset` 实读）
+
+        /// <summary>一个「站点」和它在原版里用的字体资产（见上面那段）。</summary>
+        public struct SiteFace
+        {
+            /// <summary>站点键（`菜单.正文` 这种**用途**键，⛔ 别按窗名起 —— 同一族跨多窗）。</summary>
+            public string Site;
+            /// <summary>原版 prefab 里那颗 TMP 的 `m_fontAsset` 资产名（判据实读）。</summary>
+            public string Original;
+            /// <summary>我们的等价面 —— `FaceAsset(Face)` 必须落在 <see cref="Original"/> 那一份上（自检这样断）。</summary>
+            public Face Face;
+            /// <summary>判据出处 / 计数（可复查的坐标）。</summary>
+            public string Evidence;
+
+            public SiteFace(string site, string original, Face face, string evidence)
+            {
+                Site = site; Original = original; Face = face; Evidence = evidence;
+            }
+        }
+
+        /// <summary>菜单 / 弹窗的**正文、按钮文字、页签、筛选标题、计数与数值** —— 原版 Pragati。</summary>
+        public const string SiteMenuBody = "menu.body";
+        /// <summary>**窗口标题栏**那颗 `Window Title` —— 原版 Asar。</summary>
+        public const string SiteWindowTitle = "window.title";
+        /// <summary>弹窗里的**段标题**（`Factions Title` / `Current Streak` / `Alliance Name`）—— 原版 Asar。</summary>
+        public const string SiteSectionTitle = "section.title";
+        /// <summary>**卡面卡名**（`NameText*` / `NameTextTactic*`）—— 原版 Asar。</summary>
+        public const string SiteCardName = "card.name";
+        /// <summary>**卡面效果文字 / 兵种 / 数值**（`DescText*` / `UnitType*` / 费用与攻血甲）—— 原版 Pragati。</summary>
+        public const string SiteCardBody = "card.body";
+        /// <summary>**战斗 HUD 的数字**（能量 `10/10` 那一族）—— 原版 Pragati。</summary>
+        public const string SiteBattleHudNumber = "battle.hud.number";
+        /// <summary>**战斗 HUD 的标题族**（`OVERTIME!` / `END TURN` / 称号）—— 原版 Asar。</summary>
+        public const string SiteBattleHudTitle = "battle.hud.title";
+        /// <summary>**窄体**（RobotoCondensed）—— 原版 1314 份 prefab 里**一颗都没有**，保留键只为「查得到、别猜」。</summary>
+        public const string SiteNarrow = "narrow";
+
+        /// <summary>站点 → 面。⛔ 未知站点**不进表**（`FaceForSite` 回 `Cjk` = 今天的行为）。</summary>
+        public static readonly SiteFace[] SiteFaces =
+        {
+            new SiteFace(SiteMenuBody, "Pragati-Regular SDF", Face.LatinCardBody,
+                "Deck Editing Menu 64/64 · Collection Menu Variant 57/57 · Settings 102/102 · Tooltip 1/1 · Toast 1/1（2026-11-04 现读）；B131_A6 合计 4,431 颗"),
+            new SiteFace(SiteWindowTitle, "Asar-Regular SDF", Face.LatinUi,
+                "Daily Streak Popup · EnergySinglePlayerOnlyEventWindow 的 `Header With Back Button/Header Background/Window Title`（2026-11-04 现读）"),
+            new SiteFace(SiteSectionTitle, "Asar-Regular SDF", Face.LatinUi,
+                "`EnergySinglePlayerOnlyEventWindow/Factions Title` · `Daily Streak Popup/Current Streak(+Value)` · `Draft Mode Timed Mode Window/Alliance Name`（3 例现读，未穷举）"),
+            new SiteFace(SiteCardName, "Asar-Regular SDF", Face.LatinUi,
+                "`Catalog Item Shop Container` · `Draft Mode Timed Mode Window` 的 `2DCard/…/Card Info/Name and description/*/NameText*`（现读）；B131_A6 卡名族"),
+            new SiteFace(SiteCardBody, "Pragati-Regular SDF", Face.LatinCardBody,
+                "同两 prefab 的 `DescText*` / `UnitType*` 与其余颗（现读）；B131_A6 #34"),
+            new SiteFace(SiteBattleHudNumber, "Pragati-Regular SDF", Face.LatinCardBody,
+                "B131_A6 #32（`ManaText` fs40 Pragati）"),
+            new SiteFace(SiteBattleHudTitle, "Asar-Regular SDF", Face.LatinUi,
+                "B131_A6 #29/#30/#31（`OVERTIME!` / `END TURN` / `Title Text` = Asar）"),
+            new SiteFace(SiteNarrow, "RobotoCondensed-Regular SDF", Face.LatinNarrow,
+                "1314 份 prefab 里 **0 颗**（B131_A6）⇒ 今天没有站点用它"),
+        };
+
+        /// <summary>站点 → 面。**未知站点返回 `false`（⛔ 不猜）**，`face` 回 `Face.Cjk`。</summary>
+        public static bool TryFaceForSite(string site, out Face face)
+        {
+            face = Face.Cjk;
+            if (string.IsNullOrEmpty(site)) return false;
+            for (int i = 0; i < SiteFaces.Length; i++)
+                if (SiteFaces[i].Site == site) { face = SiteFaces[i].Face; return true; }
+            return false;
+        }
+
+        /// <summary>同上，但**未知站点回 `Face.Cjk`**（= 今天的缺省面，⛔ 本表不改缺省值）。</summary>
+        public static Face FaceForSite(string site)
+        {
+            Face f;
+            return TryFaceForSite(site, out f) ? f : Face.Cjk;
+        }
+
         /// <summary>🆕 **2026-10-17（账 `A1024` ③）**：把 CJK 那一份挂成三份拉丁资产的**运行期** fallback。
         ///
         /// <para>原版做法 = 拉丁面渲拉丁、汉字由 CJK 兜底（TMP 原生 `fallbackFontAssetTable` +

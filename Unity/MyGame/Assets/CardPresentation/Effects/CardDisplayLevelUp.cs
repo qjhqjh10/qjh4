@@ -454,8 +454,8 @@ namespace CardPresentation
         //  · `path: ''` 的根是谁 = 场景里的 **`CardUI`**（卡视图根，`m_LocalScale = 250`），
         //    ⛔ **不是** `Upgrade Panel`（那个只是控制器组件的宿主）。证据链 → `判据/升级动画scale曲线_节点映射.md` §二·1。
         //  · 250 是「1 卡单位 = 250 画布 px」的量纲 ⇒ 有意义的只有**相对值**：288.977/250 = **1.155907959** …
-        //  · ⛔ **不能写进 clip**：我们的 `Animation` 挂在**窗根**（`Shell/CardDetailPopup.cs:3298`）⇒ `path: ''`
-        //    会把**整扇窗**放大 250 倍；写成 `Card Display/CardUI` 又会在 **1.45 s（正好是峰值）**
+        //  · ⛔ **不能写进 clip**：我们的 `Animation` 挂在**主卡 CardView 根**（`Shell/CardDetailPopup.cs:2959`/`:3389`，⛔ 不是窗根；2026-11-04 订正）⇒ `path: ''`
+        //    会把**整张卡**放大 250 倍；写成 `Card Display/CardUI` 又会在 **1.45 s（正好是峰值）**
         //    被 `ChangeFrame → RebuildKeepingState()` 撞上。⇒ 走**代码补间**（判据 §五·A 那三条理由）。
         //  · 写入口 = `CardView.SetExtraScale`（⛔ **不直接写 `transform.localScale`** —— 会被下一次
         //    `SetPose`/`SetHighlightScale` 的 `ApplyScale()` 静默冲掉）。

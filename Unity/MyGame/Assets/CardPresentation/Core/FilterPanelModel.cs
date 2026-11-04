@@ -411,8 +411,8 @@ namespace CardPresentation
             new CostBucket("1-", 1), new CostBucket("2", 2), new CostBucket("3", 3), new CostBucket("4", 4),
             new CostBucket("5", 5), new CostBucket("6", 6), new CostBucket("7", 7), new CostBucket("8+", 8),
         };
-        /// <summary>Type 三档（`CardTypeOptions`：Hero=10 / Minion=0 / Tactic=20）。
-        /// 🔴 **原版没有「防御卡」那一档** —— 防御卡在这个筛选里**筛不到**（不是我们漏做）。</summary>
+        /// <summary>Type 三档（`CardTypeOptions`：Hero=10 / Minion=0 / Tactic=20）—— **原版就只有这三档**。
+        /// 🔴 **2026-11-04（`B141_W30` · W129 `3-04`）就地订正（铁律 5）**：这里原来写着「**原版没有「防御卡」那一档** —— 防御卡在这个筛选里**筛不到**」—— **那句是错判据**（反证 = `B138_审计汇总_问题清单.md` §0·4 #4：原版按 `cardType`（`dump.cs` 的 `RawCardScript` `+0x94`）分档，而 `cards_engine.json` 里 **39 张 `type="defence"` 全是 `cardType=20` = Tactic**）⇒ **点 Tactic 应当把防御卡一起筛进来**（原版 377 张 / 我们改前 338 = 少的正是那 39 张）。**要改的是【匹配】，不是档数**：`DeckEditorState` 的 `TypeOk` 走 <see cref="CardTypeBucket"/> 把 `defence` 归到 `tactic`；⛔ **别在这里加第四档**（原版 `options` 只有 10/0/20 三条）。</summary>
         public static readonly string[] TypeKeys = { "hero", "unit", "tactic" };
         /// <summary>类型三格的**英文串**（= 原版那三条词条的英文列，也是键没进表时**原来**印的那串）。
         /// 🔴 它**不是** `alternativeText` —— 原版那三档的 `alternativeText` **全是空串**
@@ -655,7 +655,7 @@ namespace CardPresentation
             // 🔴 费用那一行的显隐（判据只此一处 = `CostRowVisible`）—— 只**标记**，兑现（不画 + 不登记点击区）
             //   在宿主 `Deck/DeckRuntime.RefreshFilterCells` 那一拍（同 `ClipCellToBand` 的口径：
             //   **节点照建**，只是不画 ⇒ 自检按 key 仍找得到这一格、能断它的 `activeSelf`）。
-            bool costHidden = !CostRowVisible(state, costRowNeedsWarlord); bool typeHidden = costRowNeedsWarlord && !HasWarlord(state);   // 🔴 2026-11-03（B121-C1 · COLL-5②）：卡类那一行与费用同一套按窗开关（无督军 ⇒ 原版 `SetActive(false)`）；只**标记**、宿主兑现
+            bool costHidden = !CostRowVisible(state, costRowNeedsWarlord); bool typeHidden = costRowNeedsWarlord && !HasWarlord(state); bool armyHidden = !ArmyRowVisible(state, costRowNeedsWarlord);   // 🔴 2026-11-03（B121-C1 · COLL-5②）：卡类那一行与费用同一套按窗开关（无督军 ⇒ 原版 `SetActive(false)`）；只**标记**、宿主兑现 ｜✅ 已复刻（2026-11-04 · B141_W30 · W129 `3-01`）：`armyHidden` = 原版 `CardArmyFilter__SetFilterToDeck.c:20-25`（`deckHero != null` 或 `CardCount(hero:1) > 0` ⇒ `FilterToArmy(deckArmy)` 后 `SetActive(false)`，见 `FilterToArmy.c` 末句）；判据只此一处 = `ArmyRowVisible`
             // 🔴 **行顶随阵营数变**（Army 行高 = 它自己的内容高）—— 为什么这么算，见 `ArmyRowH` 那段。
             // 🔴🔴 **2026-11-03（`B121-COLL-21`）就地订正（铁律 5）**：这里原来那段 2026-10-25 的「chip 也是同一批
             //   cell、把 Army 行撑高」**已作废** —— 原版 `CollectionFilterController.NotifyFilterChange` 在
@@ -710,7 +710,7 @@ namespace CardPresentation
                 {
                     R = rr, Bg = rr, Icon = DeckRuntime.FactionIcon(facs[i]), Label = null,
                     Key = "$fac:" + facs[i], On = DeckFilter.FactionSelected(f, facs[i]),
-                    OffTint = OffTintFaction,
+                    OffTint = OffTintFaction, Hidden = armyHidden,   // ✅ 已复刻（2026-11-04 · B141_W30 · W129 `3-01`）：整行隐藏时格子不画、也不登记点击区（宿主 `RefreshFilterCells` 对 `Hidden` 的口径与费用那 8 格同一条）
                 });
             }
 
@@ -1000,12 +1000,12 @@ namespace CardPresentation
                                        float titlePx = TitleFontPx, bool costRowNeedsWarlord = false)
         {
             var L = ComputeLayout(state);
-            bool costHidden = !CostRowVisible(state, costRowNeedsWarlord); bool typeHidden = costRowNeedsWarlord && !HasWarlord(state);   // 🆕 N14（同 `Build` 那一处）+ 🔴 2026-11-03 B121-C1 COLL-5②
+            bool costHidden = !CostRowVisible(state, costRowNeedsWarlord); bool typeHidden = costRowNeedsWarlord && !HasWarlord(state); bool armyHidden = !ArmyRowVisible(state, costRowNeedsWarlord);   // 🆕 N14（同 `Build` 那一处）+ 🔴 2026-11-03 B121-C1 COLL-5② ｜✅ 已复刻（2026-11-04 · B141_W30 · W129 `3-01`）：`Army` 小标题与它那 13 格**同一拍**隐藏（原版那颗 `Army Filter` 节点一关，`Title`+`Content` 一起不画）
             // 🔴 **`Title.Text` 是【英文原名】，一行两用**：① 渲染方拿它当**显示文案的输入**
             //   （要过 `TitleText` 换成词条文案）；② **节点名**就直接由它拼出来
             //   （`DeckRuntime` 的 `"flt_title_" + Text.Replace(" ","_")`、`CollectionWindow` 的 `"Title " + Text`）
             //   ⇒ ⛔ **这一列一个字都别改成中文**（改了 = 两个宿主的按名查找全断）。
-            titles.Add(new Title { Text = "Army", R = new PxRect(TitleArmyX, L.ArmyTop, w, L.ArmyTop + TitleH), Px = titlePx, Left = true });
+            titles.Add(new Title { Text = "Army", R = new PxRect(TitleArmyX, L.ArmyTop, w, L.ArmyTop + TitleH), Px = titlePx, Left = true, Hidden = armyHidden });   // ✅ 已复刻（2026-11-04 · B141_W30 · W129 `3-01`）
             titles.Add(new Title { Text = "Rarity", R = new PxRect(TitleRarityX, L.RarityTop + TitleRarityYIn, w, L.RarityTop + TitleRarityYIn + TitleH), Px = titlePx, Left = true });
             titles.Add(new Title { Text = "Energy Cost", R = new PxRect(TitleCostX, L.CostTop + TitleCostYIn, w, L.CostTop + TitleCostYIn + TitleH), Px = titlePx, Left = true, Hidden = costHidden });
             titles.Add(new Title { Text = "Type", R = new PxRect(TitleTypeX, L.TypeTop + TitleTypeYIn, w, L.TypeTop + TitleTypeYIn + TitleH), Px = titlePx, Left = true, Hidden = typeHidden });   // 🔴 2026-11-03（B121-C1 · COLL-5②）
@@ -1261,6 +1261,82 @@ namespace CardPresentation
                 c.LabelAutoMax = CostFontAutoMax; c.LabelBase = CostFontBase; c.LabelWrap = 1;
             }
             return c;
+        }
+
+        // ============================================================ 🆕 2026-11-04（`B141_W30` · W129 `3-01`/`3-02`/`3-03`/`3-30`）
+        //   **阵营筛选被卡组锁住**那一族 —— 判据只此一处，`Build`/`BuildTitles`/`DeckEditorState.VisibleCards` 都走它。
+        //
+        //   原版（`d:/2/tools/decomp_full/`，三个方法体逐句现读）：
+        //     · `CardArmyFilter__SetFilterToDeck.c:16-19`：`deckHero(+0x40) != null` **或** `CardDeck.CardCount(deck, 0) > 0`
+        //       ⇒ 走「锁」那支；两者皆空 ⇒ `ClearArmyFilter` + `SetActive(true)`（行重新露出来）。
+        //     · 锁那支（`:20-25`）：`if (param_1[8] != '\0') return;`（`+0x40` = `setted`，锁过就不再重算）
+        //       → `FilterToArmy(deck+0x50)`（= 把阵营筛选**强制**成 `deckArmy`，逐颗 `SetIsOnWithoutNotify`）
+        //       → `param_1[8] = 1`；`FilterToArmy.c` 末句 `SetActive(gameObject, false)` ⇒ **整行隐藏**。
+        //     · `CardArmyFilter__ClearFilters.c:10-13`：`setted` 为真 ⇒ **连 `Clear filters` 都不清阵营**（直接 return）。
+        //   ⇒ 三件事一起：① 行隐藏（模型侧只置 `Hidden`，宿主兑现）
+        //                ② 阵营那一层改用 `deckArmy` 独占（`DeckEditorState.VisibleCards` 的 `armyLocked`）
+        //                ③ 玩家此前点过的阵营不再作数（3-02：原版**没有**「点了阵营就绕过督军闸」这条路 ——
+        //                   行都隐藏了、没有入口；`B121_WC · COLL-5①` 那一版判据已被上面 `.c:20-25` 的早退句推翻）
+        //
+        //   ⚠️ **收藏窗那两棵永远显示**：原版 `SetFiltersToDeck` 全库只有一个调用点
+        //      （`DeckEditingWindow__FilterToDeck.c:24`）⇒ 收藏窗从不给筛选栏下发卡组。
+        //      ⇒ 这一档与费用/卡类共用「这份卡组被下发给筛选栏了」那个按窗开关（`costRowNeedsWarlord`，卡组编辑 true）。
+        //   ⛔ 别改成「不建」那些格：`_fltCells` 的格数与 key 被自检咬着（只**标记**、宿主兑现）。
+
+        /// <summary>阵营筛选**现在该不该被卡组锁住**（原版 `CardArmyFilter.SetFilterToDeck` 的**触发条件**，
+        /// `.c:16-21` 的那两个）。
+        /// 条件 = <see cref="HasWarlord"/> **或** `DeckCardCount(hero:1) > 0`。
+        /// <para>⚠️ 本谓词**不回答问题「已经锁上了吗」**：原版的 `setted` 是**闩**（`.c:22-24` 锁过就不再重算），
+        /// 它的落地口是 <see cref="ArmyLockFaction"/> → `DeckEditorState.ResolveArmyLatch`。
+        /// 分工：**行显隐**（<see cref="ArmyRowVisible"/>）看本谓词（每一拍按当前卡组判）；
+        /// **有效阵营**看 `ArmyLockFaction`（锁住后停在旧阵营，直到重开窗 / 清空整副）。</para></summary>
+        public static bool ArmyLocked(DeckEditorState state)
+        {
+            return HasWarlord(state) || (state != null && state.DeckCardCount(true) > 0);
+        }
+
+        /// <summary>阵营那一行**现在该不该显示** —— 判据只此一处（<see cref="Build"/> 与 <see cref="BuildTitles"/> 都走它）。
+        /// <paramref name="deckEdit"/> = 「这份卡组被下发给筛选栏了」（卡组编辑窗 true；收藏窗两页 false）。
+        /// ⛔ 别把「行隐藏」当成「不建格」（见上面那段末句）。</summary>
+        public static bool ArmyRowVisible(DeckEditorState state, bool deckEdit)
+        {
+            return !deckEdit || !ArmyLocked(state);
+        }
+
+        /// <summary>🔴 **2026-11-04（`B141` · W129 `B141-ARMY-LATCH`）**：锁住时**实际生效的阵营** ——
+        /// 原版 `CardArmyFilter.setted` 那个**闩**的唯一落地口（逐句判据 → `DeckEditorState.ResolveArmyLatch`）。
+        /// <para>返回 `null` = 现在没锁（调用方走 `Filter.Factions` 那条普通路）。</para>
+        /// <para>语义（原版 `CardArmyFilter__SetFilterToDeck.c`）：① 空卡组 ⇒ 清闩、返回 null（`.c:29-39`）；
+        /// ② 有督军/有牌且**已锁** ⇒ 返回**旧**阵营（`.c:22-24` 早退 —— 原版锁住后换督军会停在旧阵营，照抄）；
+        /// ③ 有督军/有牌且**未锁** ⇒ 锁成当前 `deckArmy`（`.c:25-26`）。</para>
+        /// <para>⚠️ **有副作用**（首次锁上会写闩）—— 与宿主原版同拍：`DeckEditingWindow__RefreshCards.c:7`
+        /// 每拍调 `FilterToDeck`。调用方 = `DeckEditorState.VisibleCards`（卡池刷新）与断言。</para>
+        /// <para>🧨 别改成「每拍按当前 `deckArmy` 重算」—— 原版 `.c:22-24` 的早退句就是要**停在旧阵营**
+        /// （断言 `B141W74` 的 L4 会红）。</para></summary>
+        public static string ArmyLockFaction(DeckEditorState state)
+        {
+            if (state == null) return null;
+            return state.ResolveArmyLatch(state.DeckArmyFaction(), ArmyLocked(state));
+        }
+
+        /// <summary>🔴 **2026-11-04（`B141_W30` · W129 `3-04`）**：**卡型筛选的匹配键** —— 把我们的卡表类型名
+        /// 折算成**原版 `cardType`（`RawCardScript +0x94`）那一档**。
+        /// <para>判据：原版 `CardTypeFilter.options` 只有 `Hero 10 / Minion 0 / Tactic 20` 三档，而
+        /// `cards_engine.json` 里 **39 张 `type="defence"` 全是 `cardType=20`（Tactic）**（`dump.cs` 的
+        /// `RawCardScript` 字段表：`showInCollectionOptions +0x48` / `inventoryOptions +0x4C` / `cardType +0x94`；
+        /// 反证与出处 → `B138_审计汇总_问题清单.md` §0·4 #4）⇒ **点 Tactic 要把防御卡一起筛进来**
+        /// （原版 377 / 我们改前 338，少的就是那 39 张）。</para>
+        /// <para>`cardType` = 原版 `RawCardScript.cardType`（`CardDef.CardType`，`-1` = 未知）：**有真值就按真值分档**
+        /// （`10 → hero` / `0 → unit` / `20 → tactic`）—— 这才是原版 `CardTypeFilter` 的判据；
+        /// 真值缺失（`-1`）才回落到按 `type` 字符串折算（`defence` ⇒ `tactic`）。</para>
+        /// <para>`hero` / `unit` / `tactic` 原样返回；其余（`enchantment` 等）原样 —— ⛔ 不猜它们的 `cardType`。</para></summary>
+        public static string CardTypeBucket(string type, int cardType = -1)
+        {
+            if (cardType == 10) return "hero";      // `CardTypeOptions.Hero`
+            if (cardType == 0) return "unit";       // `CardTypeOptions.Minion`
+            if (cardType == 20) return "tactic";    // `CardTypeOptions.Tactic`
+            if (string.Equals(type ?? "", "defence", System.StringComparison.OrdinalIgnoreCase)) return "tactic";
+            return type;
         }
     }
 }

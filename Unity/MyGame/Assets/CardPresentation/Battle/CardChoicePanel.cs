@@ -496,9 +496,9 @@ namespace CardPresentation
             // 确认：底条 + 圆形播放钮（两边同图同尺寸）
             // ⚠️ 底条**给的是框**（577.5×63.84 = 原版 `BG` 的 `m_SizeDelta`，`PA=0` 拉满），
             //    ⛔ **不是**贴图比例 (485/83 ⇒ 只有 372.9 宽)；旧那套靠 `SetAspect(BarW/BarH)` 表达同一件事，
-            //    uGUI 档宽高各给一个数 ⇒ 那一句**不再需要**（实绘尺寸与改之前逐位相同）。
+            //    uGUI 档宽高各给一个数 ⇒ 那一句**不再需要**（实绘尺寸与改之前逐位相同）。🔴 **2026-11-04（`B141-W35`）基准色 = 原版 `BG` 的 `Image.m_Color`**（绿 `0.3686275,0.89411765,0.5874373`，`Battle Arena 1.unity` GO1153 / MB4210 现读）—— ⛔ 别传白：原版**两处都是绿**（Image + NormalColor），只留一处 ⇒ R 从 0.2717 抬到 0.7370（判据与复合式见 `BattleButtonFx.ContinueNormal` 那段）。
             _bar = MakeImg(_panel, CardArt.Ui("40k_bt_underbutton"), "ChoiceBar",
-                           lo.BarCx, lo.BarCy, BarW, BarH, Z);
+                           lo.BarCx, lo.BarCy, BarW, BarH, Z, BattleButtonFx.ContinueNormal);
             // 圆钮 / 眼睛 / 卡上那颗钮：**只给高、宽由贴图比例来**（= 旧 `ImageQuad.Create` 的口径）
             _play = ImgByHeight(_panel, CardArt.Ui("40k_UI_bt_play"), "ChoiceCircle",
                                 lo.PlayCx, lo.PlayCy, PlayH, Z);
@@ -527,13 +527,13 @@ namespace CardPresentation
         /// <summary>建一块**给定了框**的 uGUI 图（宽高各一个数 ⇒ 拉满框，= 原版 `PA=0`）。
         /// `cxPx/cyPx` = **面板内设计 px**（左上原点）、`z` = 旧那套的层深度（据它登记兄弟序）。
         /// ⚠️ 贴图取不到 ⇒ 返回 `null`（与旧那套 `ImageQuad.Create` 同一条：它也是贴图为空即 null），
-        /// ⛔ 不摆白块、也不静默。</summary>
+        /// ⛔ 不摆白块、也不静默。🆕 2026-11-04（`B141-W35`）：`color` 可传**原版 `Image.m_Color`**（缺省白 = 既有调用点零变化）—— 选卡底条必须传绿（原版 `BG` 的 `m_Color`），否则屏上少了「基准色」那一乘。</summary>
         static HudPiece MakeImg(Transform parent, Texture2D tex, string name,
-                                float cxPx, float cyPx, float wPx, float hPx, float z)
+                                float cxPx, float cyPx, float wPx, float hPx, float z, Color? color = null)
         {
             if (parent == null || tex == null) return null;
             return HudCanvas.MakeImageInParent(parent, tex, name, cxPx - 960f, cyPx - 540f, wPx, hPx, z,
-                                               Color.white);
+                                               color ?? Color.white);
         }
 
         /// <summary>建一块「**按高定、宽由贴图比例来**」的 uGUI 图 —— `ImageQuad.Create(parent, tex, pos,
@@ -775,17 +775,17 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-20（W57 · `T09`）**：只在**两处**调 —— `Open`（置 `false`）与
         /// `TogglePick` 首次选中（置 `true`）。⛔ 别在 `Close` / 眼睛开合 / 换选里再改：
         /// 原版 `ChooseCardMenu` 全类只有 `Setup` 与 `SelectCard` 两处写它。</para>
-        /// <para>⚠️ **视觉上的「灰掉」这一波没做**：原版 `Continue Button` 子树四颗件
-        /// （父 / `BG` / `ContinueText` / `ContinueButton`）各挂一颗 `EverguildButtonStateFollower`
-        /// （`m_Script -9096086197743689236`，无序列化字段），`interactable = false` 时它会
-        /// 换 `EverguildButtonHelper.get_DisabledMaterial` 造出来的**灰度材质**
-        /// （反编译 `EverguildButtonStateFollower__Disabled.c` → `DoMaterialRefresh`；
-        ///  `EverguildButtonHelper__get_DisabledMaterial.c` 自己 `Shader.Find` 再造 Material）。
-        /// 我们这边没有那支 shader/材质、也不在白名单 ⇒ 只关「行为」那一半，
-        /// 灰阶观感记在报告「没查清/遗留」里（⛔ 不拿一个近似的乘色冒充原版）。</para></summary>
+        /// <para>✅ **2026-11-04（`B141-W35b`）「灰掉」已接线**：原版 `Continue Button` 子树四颗件各挂一颗
+        /// `EverguildButtonStateFollower`（`m_Script -9096086197743689236`，无序列化字段），`interactable = false`
+        /// ⇒ 换 `EverguildButtonHelper.get_DisabledMaterial` 造出来的**灰度材质**（`…StateFollower__Disabled.c` → `DoMaterialRefresh`），
+        /// 同时按钮自己的 `m_Colors.m_DisabledColor`（`0.7843137`×3、α **0.5019608**，再 × `m_ColorMultiplier 2`）照常生效。
+        /// 我们这一侧 = `_fxBar.SetDisabled(!on)`：颜色走 `BattleButtonFx` 的 Disabled 档、灰化走 `ApplyGray`
+        /// （`Everguild/UI/Greyscale`；取不到 shader ⇒ **不变灰但出声**，可断 `GrayShaderMissingForTest`）。
+        /// ⚠️ 今天只接了 `BG` 那一颗（`_bar`）；父命中面（α=0、看不见）/ `ContinueButton` / `ContinueText` 三颗**还没挂**
+        /// （记在报告「遗留」——⛔ 别拿一件的灰冒充四颗都对）。</para></summary>
         void SetConfirmInteractable(bool on)
         {
-            _confirmInteractable = on;
+            _confirmInteractable = on; if (_fxBar != null) _fxBar.SetDisabled(!on);   // ✅ 已复刻（2026-11-04 · B141-W35b · 判据 = `EverguildButtonStateFollower__Disabled.c` → `DoMaterialRefresh` + MB4262 `m_DisabledColor`）
         }
 
         public void Close()
@@ -896,10 +896,10 @@ namespace CardPresentation
             BuildFeedback();
         }
 
-        /// <summary>🆕 2026-10-19（B4 · `N70` P0-2）：建/重建按钮反馈（与换牌面板同族判据）。</summary>
+        /// <summary>🆕 2026-10-19（B4 · `N70` P0-2）：建/重建按钮反馈（与换牌面板同族判据）。✅ 已复刻（2026-11-04 · B141-W35 · 判据 = `Battle Arena 1.unity` GO779 `Button` MB4262 `m_Colors` + 其 `m_TargetGraphic` = `BG` GO1153 Image MB4210 `m_Color`）：Continue Button 走**绿族四态 × `m_ColorMultiplier 2`**；⚠️ 重建前**先把底条还原成原版基准色**（绿），否则第二次建时 `_base` 会读到上一次的合成色、越乘越偏（同 `SettingsPanel` 绿开关那条先例）。</summary>
         void BuildFeedback()
         {
-            _fxBar = BattleButtonFx.Tint(_bar, "Continue Button");
+            if (_bar != null) _bar.SetTint(BattleButtonFx.ContinueNormal); _fxBar = BattleButtonFx.Tint(_bar, "Continue Button", BattleButtonFx.ContinueNormal, BattleButtonFx.ContinueHighlighted, BattleButtonFx.ContinuePressed, BattleButtonFx.Disabled, BattleButtonFx.ContinueColorMultiplier); if (_fxBar != null) { _fxBar.ApplyInstant(); _fxBar.SetDisabled(!_confirmInteractable); }
             var eh = CardArt.MenuUi("40k_UI_bt_eye_hover");
             var ep = CardArt.MenuUi("40k_UI_bt_eye_pressed");
             _fxEye = (eh != null && ep != null)

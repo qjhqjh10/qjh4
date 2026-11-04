@@ -381,9 +381,9 @@ namespace CardPresentation
         // ------------------------------------------------------------ `Image Mask`（原版 `RectMask2D`）
         void BuildImageMask(Transform root)
         {
-            // 原版这一颗是**真掩码**（`m_Padding = 0` · `m_Softness = 0`）⇒ 走 `ViewportClip` 节点
-            // （本壳取裁切状态**唯一入口**，A198②；软边 (0,0) = 原版这一颗没有软边）。
-            var vc = ViewportClip.Hang(root, "Image Mask", MaskR, Vector4.zero, Vector2Int.zero);
+            // 原版这一颗是**真掩码**：`m_Padding = (0,0,0,0)` · `m_Softness = (375,0)`（左右各 375px 渐隐；✅ 已复刻（2026-11-04 · B141-W27 · `EnergySinglePlayerOnlyEventWindow.prefab ▸ Image Mask` 现读））⇒ 走 `ViewportClip` 节点
+            // （本壳取裁切状态**唯一入口**，A198②。⚠️ 本 prefab **第二颗**掩码 `Army Selector Panel/Army Selector/Viewport` = `m_Softness=(25,0)`，由 `Shell/ShowEventArmiesPanel.cs` 建、**不在本批白名单** ⇒ 只记不修，见 `报告/B141_W129_GlowClip3.md`）。
+            var vc = ViewportClip.Hang(root, "Image Mask", MaskR, Vector4.zero, new Vector2Int(375, 0));
             _mask = vc != null ? vc.transform : null;
             // `Event Image`：原版 `m_Sprite` 出厂就是 **null**（运行时由 `eventImage` 字段灌）
             var host = _mask != null ? _mask : root;
@@ -937,7 +937,7 @@ namespace CardPresentation
             // ⚠️ `Factions Title` 的字体面：D1 那份写 `LatinCardBody`、本窗原来写 `LatinUi`，两版判据冲突，
             //   而两者都没落到「prefab 那一颗 TMP 的 `m_fontAsset` 到底是哪一份」⇒ 取**本窗现状**（`LatinUi`），
             //   ⛔ 不在这一笔里顺手改渲染（那会让 `Editor/ShellScene.cs` 的 A1190 那条 fitCase 换一把尺子）。
-            // ✅ `ShowEventArmiesPanel.Build` 里 `Viewport` 走的是 `ViewportClip.Hang`（原版 `RectMask2D`）——
+            // ✅ `ShowEventArmiesPanel.Build` 里 `Viewport` 走的是 `ViewportClip.Hang`（原版 `RectMask2D`）；软边 = **(25,0)**（`EnergySinglePlayerOnlyEventWindow.prefab:6898`；`m_Padding (0,0,0,0)`），**逐窗传实参**（⛔ 别落在组件缺省 `(0,0)` 上 —— 那会静默丢掉左右各 25px 渐隐带）。
             //   这一档是**本笔补的**（D1 那版用裸 `MenuDraw.Node`，13 个阵营时会溢出视口、不裁）。
             // ✅ 那颗 `Army Selector` 的**横向滚动**也在组件里接好了（`ShowEventArmiesPanel.EnsureScroll`）：
             //   本窗不再自己建 `MenuScroll`，也不改几何（⛔ 别为了「13 颗摆得下」缩格 —— 原版就是滚）。
@@ -945,7 +945,7 @@ namespace CardPresentation
             //   ⛔ 没有动 `Shell/MenuScroll.cs`（共用件，多扇窗在用）。
             // ⚠️ 原来那段「`Army Content` 下只有模板那一颗」的出声也一并搬进组件（`Initialize`/`RebuildItems`），
             //   本窗不再重复打一遍（两处都在打 = 日志里看出「两次初始化」的假象）。
-            _armiesPanel = ShowEventArmiesPanel.Build(root, QArt, QArt1, QText);
+            _armiesPanel = ShowEventArmiesPanel.Build(root, QArt, QArt1, QText, new Vector2Int(25, 0));
             _armySelector = _armiesPanel != null ? _armiesPanel.Selector : null;
             _armyContent  = _armiesPanel != null ? _armiesPanel.Anchor   : null;
             if (_armiesPanel == null)

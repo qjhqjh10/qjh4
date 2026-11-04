@@ -71,14 +71,14 @@ namespace CardPresentation
         //     （`CardArt.MenuUi` **不做空格→下划线**，传原名会静默取不到图）。
         //     ⚠️ 也**不是** `40k_main_bt_friends`（那是**左竖导航 SOCIAL 那颗钮**的图，另一张）。
         //   · 文案 `Alliances` / `Friends`，字号 **36**、`auto[5,36]`、色 (0.957,0.882,0.675,1)（基类那套）。
-        //   · 角标 `Badge Highlight`：`pos=(51.7, **+47.9**)`（uGUI y 向上）⇒ `BadgeDy = −47.9`
-        //     （基类按 `cy − BadgeDy` 摆，见 `TabBtnSpec.BadgeDy` 的注释）。两个键**同值**。
+        //   · 角标 `Badge Highlight`：`pos=(51.7, **+47.9**)`（uGUI y 向上 = 像素坐标 **−47.9**）⇒ `BadgeDy = +47.9`（基类按 `cy − BadgeDy` 在【像素·y 向下】帧里摆 ⇒ 红点中心 = 键心**上方** 47.9 px）
+        //     ✅ 已复刻（2026-11-04 · B141 · `menu_rect.py bundle_menus_assets_all "Alliances Tab Button"` 现读：键 990→1170 键心 1080 · `Badge Highlight` 1014.60→1049.60 中心 1032.10 ⇒ 键心 −47.9，两个键**同值**）—— 🔴 **2026-11-04 就地订正（铁律 5）**：原写 `−47.9f` + 「⇒ BadgeDy = −47.9」**换算方向反了**（uGUI 的 +47.9 = 像素帧的 −47.9，而式子是 `cy − BadgeDy`）⇒ 红点落键心**下方** 47.9、与原版差 **95.8 px**；同族对照 `CollectionWindow.cs:120-126` 四颗、`RewardsWindow` 母版都是 +47.9。
         public static readonly TabBtnSpec[] Buttons =
         {
             new TabBtnSpec("40k_main_bt_alliances",       "Alliances", 36f, 5f, 36f,
-                           "SocialMenu_AlliancesButton", -47.9f),
+                           "SocialMenu_AlliancesButton", 47.9f),
             new TabBtnSpec("40k_alliances_bt_friends_v2", "Friends",   36f, 5f, 36f,
-                           "SocialMenu_FriendsButton",   -47.9f),
+                           "SocialMenu_FriendsButton",   47.9f),
         };
 
         /// <summary>🆕 **2026-10-18（第七轮）**：一颗页签标签对应的词条键（= 原版那颗 `TabButtonLabel` 的

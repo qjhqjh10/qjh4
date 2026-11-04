@@ -201,10 +201,11 @@ public static class B102DECK_Assert
         // 旧文件路再落一次盘 —— 这一份就是 **A1 的「切前」payload**
         Tr(lib.Save(), "A0-k 旧文件路落盘成功（`DeckLibrary.Save` 且三钩子 null ⇒ `DeckStore.SaveAll`）"
                      + (lib.LastError == null ? "" : "：" + lib.LastError));
-        _payloadBefore = File.ReadAllText(DeckStore.Path);
+        lib.EnsureDeckId(lib.CurrentIndex);   // 🆕 2026-11-04（`B141_W15b` · D6）：新形状里 `CurrentDeck` 按 **id** 指当前那套 ⇒ 先给它发 id（本次会写进旧档那份 payload）
+        _payloadBefore = DeckStore.SerializeStore(new List<PlayerDeck>(lib.Decks));   // 🆕 基线 = **新形状** `{version,decks}`（无 `current`）—— 中央档从 `B141_W15` 起就是这个形状
         Tr(!string.IsNullOrEmpty(_payloadBefore) && _payloadBefore.TrimStart().Length > 0
            && _payloadBefore.TrimStart()[0] == '{',
-           "A0-l 「切前」payload 是 **JSON 对象**（`{` 开头 —— `SaveThroughLegacy` 只收这种，否则当场拒）");
+           "A0-l 「切前」基线是 **JSON 对象**（`{` 开头 —— `SaveThroughLegacy` 只收这种，否则当场拒）");
     }
 
     // ==========================================================================================
@@ -252,7 +253,7 @@ public static class B102DECK_Assert
         int cur;
         DeckStore.LoadNote note; string detail;
         var roundTrip = DeckStore.Parse(centralPayload, out note, out detail, out cur);
-        C(cur, CurrentIndex, "A1-b 中央档里的 `current` 原样带回来（= " + CurrentIndex + "；⛔ 别被归一成 0）");
+        C(cur, 0, "A1-b 中央 payload **不再带 `current`**（`B141_W15`/`W15b`：改由独立 key `CurrentDeck` 存卡组 id；本件只断 payload 形状，key 那一半由 `B141_W15_Assert` 钉）");
         C(roundTrip == null ? -1 : roundTrip.Count, DeckCount, "A1-c 中央档 payload 自己能解析回 3 套");
     }
 

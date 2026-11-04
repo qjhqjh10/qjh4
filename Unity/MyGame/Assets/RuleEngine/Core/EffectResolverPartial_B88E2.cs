@@ -473,8 +473,22 @@ namespace RuleEngine
             var spec = card.AbilityDamageAt(op.AbilityIndex, op.LogicIndex);
             if (spec == null) return op;
             int vo = spec.ValueOptions; if (vo == 80) return ApplyMinPlusMaxTimesMultiplier(ctx, op, card, spec, owner, actor);   // 🆕 B108_N08：80 档走数据位（`min + max × 目标数`），⛔ 不再按形状猜
+            // 🔴 2026-11-04（批次 `B141` · 执行写手 `W9`）：`opt 8` / `17` **不在原版 `ChooseValueOptions` 的 26 档里**
+            //   （`cpp2il/out_cpp2il_dev_ilspy/ChooseValueOptions.cs:1-29` 现读无 8/17）⇒ 本口**不接管**、沿用正文数值，
+            //   但必须**出声**（铁律「不许静默失败」）。❓语义来源未查清（R3 报告 §六·1）：
+            //   `opt 8` 的 37 行全是 `DamageType.Random(5)`（`Sawbonez`「Deal 1-2 damage」）⇒
+            //   ⛔ 不许按原版 `default => min` 把 1-2 压成恒 1。
+            if (vo == 8 || vo == 17)
+            {
+                ctx.Log($"「{op.Source}」的 `damageCriteria.valueOptions = {vo}` **不在原版 `ChooseValueOptions` 的 26 档里**"
+                      + "（`cpp2il/out_cpp2il_dev_ilspy/ChooseValueOptions.cs:1-29`）⇒ 本仓**不改它的数值**（沿用正文 / 卡表 `min/max`）"
+                      + "；❓语义来源未查清（B141 R3 报告 §六·1）");
+                return op;
+            }
             if (vo != 100 && vo != 110 && vo != 120) return op;
 
+            // ✅ 已复刻（2026-11-04 · B141 · `AbilityLogic__GetValueFromCriteria.c:133-207`）
+            //   取值统一走 `EffectResolverPartial_B141VO.cs` 的 `TryResolveValueOption`（唯一分派表）。
             var rc = RefCardOf(ctx);
             if (rc == null)
             {
@@ -483,10 +497,14 @@ namespace RuleEngine
                       + "（原版 `AbilityLogic__GetRefCard.c:23-25` 返回 null）");
                 return op;
             }
-            int n = vo == 100 ? rc.AttackBase            // `currentBaseMeleeAttack`（+0x7c）
-                  : vo == 110 ? rc.Health                // `currentHealth`（+0x68）
-                  : RefCardCostOf(ctx, rc);              // `get_CurrentCost`
-            if (n < 0)
+            if (!TryResolveValueOption(ctx, vo, spec.Min, spec.Max, 1, actor, null, rc, owner, out int n, out string vgap))
+            {
+                ctx.Log($"「{op.Source}」要取参照卡「{rc.Name}」的 "
+                      + (vo == 100 ? "近战" : vo == 110 ? "当前血" : "费用")
+                      + $" —— **取不到**（{vgap}；这一条没生效）");
+                return op;
+            }
+            if (n < 0)   // 与改前逐字同义：参照卡那一格是负数（例如已死的单位）⇒ 出声、这一条不生效
             {
                 ctx.Log($"「{op.Source}」要取参照卡「{rc.Name}」的 "
                       + (vo == 100 ? "近战" : vo == 110 ? "当前血" : "费用")

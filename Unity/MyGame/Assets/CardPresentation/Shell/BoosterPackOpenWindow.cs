@@ -125,32 +125,32 @@ namespace CardPresentation
     /// <summary>原版 `BoosterPackOpenWindow`（商店买完卡包弹的那扇**开包窗**）。</summary>
     public class BoosterPackOpenWindow : GameWindow
     {
-        // 队列档：**在全屏/弹窗那一整段（3100–3169）之上、`Tooltip`（4077–4079）之下**。
-        // 🔴 为什么落在这里：原版这一扇是 `windowsPlacement = 5 (Canvas)` = 挂在
-        //    `2 - Canvas Holder Above upper bar` 上（**在顶栏之上**）。
-        //    🔴 **2026-10-11（A307 现读订正，铁律 5）**：这里原写「我们的壳把顶栏定死在 `QBar* = 3600~3604`
-        //    （2026-09-28 那条口径：**全工程只有顶栏排在所有窗口之上**）⇒ 本窗**不越顶栏**，落在 3169–3197。
-        //    这是一处**口子上的偏离**：原版它压在顶栏上、我们压在顶栏下」—— 🔴 **那段已被同日的 A283 抹平**：
-        //    顶栏整条降到 **`2994–2998`**（用户 2026-10-11 裁定「照原版」，判据 → `MainMenuRuntime.QBarPanel` 那段）
-        //    —— ⚠️ **2026-10-18 订正**：这个号段**已过期**（2026-10-17 F5 把下沿从 `2994` 放宽到 `2986`
-        //    ⇒ **现带子 = `2986–2998`**，**唯一出处 = `Shell/TopBar.cs` 那张表**）；**下面那条结论不受影响**
-        //    （本窗 3170–3197 仍在顶栏之上 —— 放宽的是**下沿**，顶栏最高那一号 `QBarOverlay 2998` 没动）。
-        //    ⇒ 本窗 **3170–3197** 现在**在顶栏【之上】**，与原版（挂 `2 - Canvas Holder Above upper bar`）**一致**
-        //    ⇒ ✅ **已对齐、不再是偏离**（⛔ 别再把这条当待办挂着）。
-        //    ⚠️ 顺带订正同段两个旧号：`Tooltip` 早已不是 **3199**（2026-10-04 搬到 `3605–3607`；
-        //       2026-10-20 W58 再搬到 `4077–4079` —— 前一号段是历史留痕，⛔ 别当现状）、
-        //       这段带子的下界也从 **3169** 变 **3170**（`QCloseSurface = QBase − 1` 那号 2026-10-04 A47 就删了）。
-        public const int QBase = 3170;
-        // ⚠️ `public`（2026-10-04 A47 接线批）：自检宿主要拿这两个档核「压暗命中区档 = 压暗层那一档
-        //    且严格 < 本窗内容命中区最低档」这条不变量（`MenuDraw.ShadeRuleOk`）。
-        public const int QShade = QBase;          // 3170 整屏背景（纯色）—— **「点哪儿都关」那一层也用它**
-        // 🔴 **2026-10-04（A47 接线批）删掉了 `QCloseSurface = QBase − 1`（3169）**：「内容档 − 1」这个写法
-        //   按规矩是错的（压暗层的命中区必须落在**压暗层自己那一档**）⇒ 整屏那块改走 `MenuDraw.ShadeHit`、
-        //   直接用 `QShade`（仍**严格低于** `QCard` ⇒ 卡照样能点）。见 `Build()` 里那一段。
-        public const int QCard = QBase + 1;       // 3171 起，**每张卡 5 档**（见 CardStride）
+        // 队列档：**整带落在档案窗（`PlayerProfileWindow`，3150–3299）之下、顶栏（2986–2998）之上**。
+        // 🔴 **2026-11-04（`B141-W28` · `B138 §4` 的 4-17 / 队列表三 #15）：整带 3170–3197 → 3122–3149** ——
+        //    旧档 3170 落在**档案窗页带**里（`QPageBase = 3160`：Avatar 页 `Q` = 3170 · 格子带 3180–3299）⇒ 同号互压。
+        // 🔴 **原版判据（2026-11-04 现读 Export 工程；⛔ 不是审计写的「同画布兄弟序」）**：两扇**不同画布**：
+        //    · 本窗 = `5 (Canvas)` ⇒ `2 - Canvas Holder Above upper bar`（场景 `placement: 5` 锚点；合成它的根画布
+        //      `Canvas_1077`／`Game UI` = `ovr 0` + `Default` 层，该 holder **自己不带 Canvas**）；档案窗 = `15 (Popup)`
+        //      ⇒ `3 - PopUp Holder`（`placement: 15`），其 `Canvas_1075` = `m_OverrideSorting: 1` + `m_SortingLayerID
+        //      1054366423` = `PopUps`（`TagManager` 第 8 条 / 索引 7 > `Default` 索引 0）⇒ **排序层索引压过 order**
+        //      ⇒ 档案窗整棵**永远**画在本窗之上（同向：`m_Children` 里 1109 第 6、1121 第 7）。
+        //    ⇒ 梯子要表达同一个先后：**本窗整带 < 档案窗最低一层 `QShade`(3150)**；落点写成表达式
+        //      `PlayerProfileWindow.QShade − BandSize`（3122）—— 档案带一动本带自动跟，⛔ 别写死字面量。
+        //    ⚠️ ① 3122 仍 **> 顶栏 2986–2998**（原版「在顶栏之上」那条不受影响；`A283`／`A307` 的旧号已过期）。
+        //    ⚠️ ② 本带与 3120–3149 那一族**别的窗**（DeckInfo／Settings／Reward／Prompt…）共用号段 —— 它们与本窗
+        //      **不可能同屏**（本窗 `type = 0 Fullscreen` ⇒ `OpenWindow` 走「全藏其余窗」那一支），与既有
+        //      「互斥的窗共用号段」同一条前提（先例 = `AvatarTab.QCellOrderBase` 那段）。
+        //    ⚠️ `Tooltip`（4077–4079）仍在之上，结论不变（`3199`／`3605–3607` 是历史留痕，⛔ 别当现状）。
+        // 🔴 **本带 < `MainMenuRuntime.QNavHit`(3156)** ⇒ 不能再靠「压暗层档更高」吃左栏点击；改由类尾
+        //    `BlocksLeftNav` 覆写成 `true` 显式声明模态（行为与改档前逐字相同，判据见那一处注释）。
+        // ⚠️ `public`（A47 接线批）：自检宿主要拿这两个档核「压暗命中区档 = 压暗层那一档且严格 < 本窗内容命中区最低档」（`MenuDraw.ShadeRuleOk`）；`QCloseSurface = QBase − 1` 那号已删（压暗层命中区必须落在自己那一档）。
+        public const int QBase = PlayerProfileWindow.QShade - BandSize;   // 3122（= 3150 − 28）
+        const int BandSize = 1 + 5 * CardStride + 2;                     // QShade + 5 张卡 + QHint/QHintHit = 28
+        public const int QShade = QBase;          // 3122 整屏背景（纯色）—— **「点哪儿都关」那一层也用它**
+        public const int QCard = QBase + 1;       // 3123 起，**每张卡 5 档**（见 CardStride）
         const int CardStride = 5;                 //   +0 卡影SDF · +1 卡背 · +2 卡面 · +3 角标 · +4 命中区
-        const int QHint = QCard + 5 * CardStride; // 3196 两段提示字
-        const int QHintHit = QHint + 1;           // 3197 `Tap to close` 那个节点自己的命中区
+        public const int QHint = QCard + 5 * CardStride;   // 3148 两段提示字
+        public const int QHintHit = QHint + 1;             // 3149 `Tap to close` 那个节点自己的命中区
 
         // ============================================================ 真值（MB / RT / clip）
 
@@ -626,6 +626,13 @@ namespace CardPresentation
                     // 🔴 队列要**覆盖 CardView 内部那些写死的 3000**（它照原版材质来的）
                     //    —— 收口到 `CardFan.SetCardQueue`（和卡片详情窗同一份，别各写一遍）。
                     CardFan.SetCardQueue(v, q0 + 2);
+                    // ✅ 已复刻（2026-11-04 · B141-W34 · 5-18）：原版 `CardInBoosterPack.Initialize` 在**翻牌之前**
+                    //   就把这张卡的 `Card Highlight And Shadow` 的 `_Outline` 染成稀有度色
+                    //   （判据链见 `BoosterRarityColors` 那段头注）⇒ 翻开后那张卡自带一圈稀有度色的软光/影。
+                    //   ⚠️ 原版那一跳是 `instant = 1`（`ChangeHighlightColor(color, 0, 1, 0)`），我们走
+                    //   `CardView.SetOutline` 的 **0.2 s 补间**（= `CardHighlight.OutlineAnimTime`，本工程既有口径）
+                    //   ⇒ **如实标为差异**：翻了牌之后 0.2 s 内由透明渐变到该色，终值一致。
+                    v.SetOutline(BoosterRarityColor(RarityInt(Cards[i])));
                 }
                 else Debug.LogError("[BoosterPack] 第 " + (i + 1) + " 格的 `CardView` 建不出来");
             }
@@ -1207,6 +1214,41 @@ namespace CardPresentation
                 case "legendary": return 4;
                 default: return 0;                       // common / special（special 是**卡框档位**、不是稀有度）
             }
+        }
+
+        // ============================================================ ✅ 已复刻（2026-11-04 · B141-W34 · 5-18）
+        //  原版 `CardRarityColorsSO`（`bundle_menus_assets_all/MonoBehaviour/CardRarityColorsSO.json`，
+        //  pid `764426219195092032`，本包只被 5 份 `CardInBoosterPack.cardRarityColors` 引用）的 `colors[0..5]` 逐字现读。
+        //  ⚠️ **⛔ 别和 `Core/RarityColors.cs` 那张表混**：那份服务的是**卡牌行**（`CardUIDisplayColorsSO`，
+        //  pid -2272266055686004801），与本表**两个用途**（判据见 `RarityColors.cs` 文件头注）。
+        //  用法（`CardInBoosterPack__Initialize.c:63`）：`SupportMethods.GetCardRarityFromInt(card.rarity)`
+        //  → `CardRarityColorsSO.GetColor(so, rarity)` → **`Card2DController.ChangeHighlightColor(color, 0, instant:1, 0)`**
+        //  ⇒ `param_3 == 0` 那一支取 `+0x48` = 字段 `highlightAndShadowColorChanger` = 节点 **`Card Highlight And Shadow`**
+        //  的 `UIImageMaterialColorChanger`，`DoColorChange(..., propId = *(this+0x84), ...)`；而 `Card2DController..ctor`
+        //  里 `+0x84 = Shader.PropertyToID(<_Outline>)`（`__ChangeShadowColor` / `ToggleCardShadow` 用的是 `+0x80`）
+        //  ⇒ **落点 = 那张 SDF 层的 `_Outline`**，我们的等价物 = `CardView.SetOutline(color)`。
+        //  ⚠️ **原样保留两个异常值**（`B131` B11：Common/rarity1 的 **α = 0**、Legendary/rarity4 的 **r = 1.282 > 1**）——
+        //  不 clamp、不改写（铁律 18·0：需要拍板的一律照原版）。
+        //  ❓ **档位口径未见闭合**：`CardRarity` 枚举是 `None 0 · Common 1 · Rare 2 · Epic 3 · Legendary 4 · Special 5`，
+        //  而本窗数据侧只有 `card.rarity` 整数（`0/1` 都算 common 那一档）。我们 `CardDef.Rarity` 是字符串、
+        //  `RarityInt` 把 common 落成 **0** ⇒ **`colors[1]`（Common，α=0）这一档从我们的数据里走不到**。
+        //  如实记在这里，⛔ 不拿猜测补一个映射。
+        public static readonly Color[] BoosterRarityColors =
+        {
+            /* 0 None      */ new Color(1f, 1f, 1f, 1f),
+            /* 1 Common    */ new Color(0.03671235218644142f, 0.26070666313171387f, 0.31132078170776367f, 0f),
+            /* 2 Rare      */ new Color(0.07176104187965393f, 0.5660377740859985f, 0.05606977641582489f, 0.6666666865348816f),
+            /* 3 Epic      */ new Color(0.5647059082984924f, 0.054901957511901855f, 0.525894820690155f, 0.6666666865348816f),
+            /* 4 Legendary */ new Color(1.282163381576538f, 0.470490038394928f, 0f, 0.6666666865348816f),
+            /* 5 Special   */ new Color(0.8235294222831726f, 0.16078431904315948f, 0f, 0.6392157077789307f),
+        };
+
+        /// <summary>原版 `CardRarityColorsSO.GetColor(rarity)` 的等价物（越界/认不出 ⇒ 第 0 档，同
+        /// `Core/RarityColors` 那条 fallback 口径）。</summary>
+        public static Color BoosterRarityColor(int rarity)
+        {
+            if (rarity < 0 || rarity >= BoosterRarityColors.Length) rarity = 0;
+            return BoosterRarityColors[rarity];
         }
 
         /// <summary>摇这一包。规则来自**原版自己的出厂文案**（`Booster Pack Ultramarines` SO 的
@@ -1810,5 +1852,21 @@ namespace CardPresentation
             var a = item.GetComponent<UnityEngine.Animation>();
             return a != null && a.clip != null;
         }
+
+        // ✅ 已复刻（2026-11-04 · B141-W28 · 判据 = 场景 `MainMenu Warpforge.unity` 的 `m_Children` 兄弟序
+        //    （Navigation Panel 1103 第 1 · `2 - Canvas Holder Above upper bar` 1109 第 6）⇒ 本窗的整屏压暗层
+        //    画在左栏**之上**；`B138 §4` 4-17 同批把本窗整带降到 3122–3149）
+        /// <summary>🔴 **2026-11-04（`B141-W28`）**：本窗**吃左栏点击**（= 模态的那一半）。
+        /// <para>**为什么必须覆写（行为与改档前逐字相同）**：改档前本窗压暗层 `QShade = 3170` **高于**
+        /// `MainMenuRuntime.QNavHit`(3156) ⇒ 左栏那一片的点击本来就落在本窗的「点哪儿都关」整屏块上；
+        /// 4-17 把整带降到 **3122–3149**（必须 < 档案窗 `QShade` 3150，见 `QBase` 那段）之后，
+        /// `QNavHit`(3156) 会反过来盖住它 ⇒ **左栏会变成能点**（点到一个被整屏压暗层挡住、看不见的按钮）。
+        /// 基类那条判据（`type==Popup || placement==Popup`）在本窗上是 **`0/5` 两条都不成立**，
+        /// 所以只能显式覆写 —— **先例 = `SearchingOpponentWindow`**（同一形状：`QSr = 3120` &lt; `QNavHit`，
+        /// 同样是「整屏背板盖住左栏」⇒ 那里也覆写成 `true`）。
+        /// **判据**：原版本窗的压暗层与本窗同属 `Default` 排序层、而左栏 `Navigation Panel` 是
+        /// `Safe area Only Horizontal` 的**第 1 个**兄弟、`2 - Canvas Holder Above upper bar` 是**第 6 个**
+        /// ⇒ 压暗层画在左栏之上 ⇒ 左栏点击落到压暗层（「点哪儿都关」），**与原版一致**。</para></summary>
+        public override bool BlocksLeftNav { get { return true; } }
     }
 }

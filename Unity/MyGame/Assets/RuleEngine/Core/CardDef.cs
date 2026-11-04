@@ -8315,7 +8315,7 @@ namespace RuleEngine
         // 前缀匹配表 —— 顺序有意义：**多词变体必须排在单词前面**
         // （"can't attack" 要排在……其实前缀匹配下 "vanguard" 之类不会互相吃掉，
         //   但 "long range"/"longrange" 和将来的扩展要保持这个约定）
-        static readonly string[][] Prefixes =
+        public static readonly string[][] Prefixes =   // ✅ 已复刻（2026-11-04 · B141 · 只加 `public`、零行数变化：`RuleCore.KeywordFromTriggerName`（`ActionPump.cs` 类尾 §十二）把本表的 **target 列**当「引擎关键词总表」逐条喂 `TriggerNameOfKeyword` 反推出 trigger 名 → 关键词，⛔ 不另造一份名字映射；`Prefixes` 本来就是 `Normalize` 的唯一注册表（`CardDef.cs` 的 `Normalize` 读它），所以反查表与关键词表**同源**、不会各维护一份）
         {
             new[] { "can't attack", CantAttack }, new[] { "cant attack", CantAttack },
             new[] { "blood thirst", "bloodthirst" }, new[] { "long range", LongRange },

@@ -14,6 +14,12 @@
 //   · `Window/inputs`  `m_SizeDelta = (900, 0)` —— 宽吃满面板（VLG `childControlWidth`），高由子件定
 //   · `inputs/template` `m_SizeDelta = (0, 90)` ⇒ **行高 90**、宽拉伸到 900
 //   · `template/Text Area` `m_SizeDelta = (−20, −13)` ⇒ 四边各内缩 **10 / 6.5** ⇒ 文本区 **880 × 77**
+//   · 🔴 **`template/Text Area` 上还挂 `RectMask2D`**（`m_Script: -146154839, guid d3e719b5…`）：
+//     `m_Padding = {x: −8, y: −5, z: −8, w: −5}`（**负 = 往外扩**：左/右各 −8、下/上各 −5）· `m_Softness = {0,0}`
+//     —— **判据 = `GenericPromptWindow.prefab:1337`（YAML 现读）**；全库**19 个 prefab / 38 处**同名 `/Text Area`
+//     逐值同一（`ChatPanel` / `ChooseNameWindow` / `Main Menu Settings Window` / `Collection Menu Variant` …，
+//     扫描口径见 `资料/完全复刻/报告/B141_W129_TextInputPad.md` §1）。
+//     ⇒ 建节点时必须**同时建视口裁切**（本仓等价物 = `ViewportClip`），⛔ 只建节点 = 打进来的字会溢出输入框。
 //   · `Text Area/Placeholder` / `Text Area/Text` 都是 `(0,0)`（吃满 Text Area）
 //   · `m_ContentType: 0`（Standard）· `m_LineType: 0`（SingleLine）· `m_CharacterValidation: 0`（None）
 //     · **`m_CharacterLimit: 0` = 不限长**（两处 TMP 都是 0）⇒ 我们默认也不截断
@@ -153,8 +159,12 @@ namespace CardPresentation
             else Debug.LogWarning("[Input] 取不到 `" + ArtBg + "`（输入框底没画）—— 导入器：`工具/import_original_art.py`");
 
             // `Text Area` = 整行四边内缩 10 / 6.5 ⇒ 880 × 77
+            // ✅ 已复刻（2026-11-04 · B141_W25 · 判据 `判据/B141_W129_对账_UI动画.md` W11/4-23 ＋ `GenericPromptWindow.prefab:1337`）：
+            //   原版这颗 `Text Area` 上挂 `RectMask2D`（`m_Padding = (−8,−5,−8,−5)` 负=外扩 · `m_Softness = (0,0)`）。
+            //   ⇒ 节点改走 `ViewportClip.Hang`（= 原版那颗 `RectMask2D` 的等价物，框 = 本节点自己的 rect、pad 照抄）；
+            //   ⛔ **别退回 `MenuDraw.Node`** —— 那样只有节点、没有掩码，打进字去会溢出输入框（`B141_W25_Assert` B1/B2 钉着）。
             var area = new PxRect(r.x1 + AreaInsetX, r.y1 + AreaInsetY, r.x2 - AreaInsetX, r.y2 - AreaInsetY);
-            var areaNode = MenuDraw.Node(go, "Text Area", area);
+            var areaNode = ViewportClip.Hang(go, AreaNodeName, area, AreaPad, AreaSoftness).transform;
 
             // `Placeholder`：字号 40 / 基准 14 / auto[18~40] / 色 (0.972,0.972,0.972,0.5)
             f._ph = Label.Create(areaNode, "", Vector3.zero, 6, PhColor,
@@ -167,6 +177,9 @@ namespace CardPresentation
                 f._ph.SetAutoFitBox(LayoutSpace.Px(area.W), LayoutSpace.Px(area.H),
                                     PhAutoMinPx, PhFontPx, PhAutoBasePx);
             }
+            // ✅ 已复刻（2026-11-04 · B141_W25）：原版 `RectMask2D` 对文字一视同仁 ⇒ `Placeholder` 也吃同一颗掩码。
+            //   `clip: null` = 由父链上最近那颗 `ViewportClip`（= `Text Area`）解析；守卫每次重排重新解析（不冻快照）。
+            MenuDraw.ClipText(f._ph, null, Vector2.zero);
 
             // `Text`：字号 45 / 基准 14 / auto[18~45] / 折行开
             f._text = Label.Create(areaNode, "", Vector3.zero, 6, TxColor,
@@ -179,6 +192,8 @@ namespace CardPresentation
                 f._text.SetAutoFitBox(LayoutSpace.Px(area.W), LayoutSpace.Px(area.H),
                                       TxAutoMinPx, TxFontPx, TxAutoBasePx);
             }
+            // ✅ 已复刻（2026-11-04 · B141_W25）：正文那一颗同一颗掩码（原版 `Text Area/Text` 是它的子件）。
+            MenuDraw.ClipText(f._text, null, Vector2.zero);
 
             // 命中区：点一下开始编辑（原版是 `TMP_InputField` 自己吃 `IPointerClickHandler`）
             var hitTr = MenuDraw.Hit(go, "Hit", r, qBase + 2, () => f.BeginEdit());
@@ -384,5 +399,24 @@ namespace CardPresentation
         // ⚠️ 缺省值 = 提示窗那套实值（**逐字不动**）⇒ 既有调用点（`Shell/AllianceMemberTab.cs` 的描述框）
         //   行为完全一致。
         // ---------------------------------------------------------------------------------------------
+
+        // ============================================================================================
+        // ✅ 已复刻（2026-11-04 · B141_W25 · 判据 `判据/B141_W129_对账_UI动画.md` W11/4-23）——
+        //   原版 `Text Area` 上那颗 `RectMask2D` 的两个字段（**照抄，⛔ 不是我们自己挑的**）。
+        //   · 判据 = `d:/2/tools/assetripper_out/ExportedProject/Assets/GenericPromptWindow.prefab:1337`
+        //     （`m_Padding: {x: -8, y: -5, z: -8, w: -5}` · 同行下 `m_Softness: {x: 0, y: 0}`）；
+        //     全库 **19 个 prefab / 38 处**同名 `/Text Area` 逐值同一（扫描 → `报告/B141_W129_TextInputPad.md` §1）。
+        //   · 语义：UGUI `RectMask2D` 的 `m_Padding` = (x=Left, y=Bottom, z=Right, w=Top)，**正值缩小、负值扩大**
+        //     （判据 = `Culling/Clipping.cs:26-30`；本仓同一份算式 = `MenuDraw.PaddedRect`）。
+        //     ⇒ 下面这一份 = 文字比 `Text Area` 那个 880×77 的框**四外各扩一点**（左/右 8、下/上 5）。
+        //   · 为什么要写成常量而不是就地字面量：`B141_W25_Assert` 要拿它逐分量比**字面量期望值**
+        //     （⛔ 不拿它自己比自己 —— 那样把常量与断言一起改就能蒙过）。
+        // ============================================================================================
+        /// <summary>原版 `Text Area` 节点的名字（`MenuDraw.Node` / `ViewportClip.Hang` 都用它建）。</summary>
+        public const string AreaNodeName = "Text Area";
+        /// <summary>原版 `Text Area ▸ RectMask2D.m_Padding` = `(−8,−5,−8,−5)`（**负 = 往外扩**）。</summary>
+        public static readonly Vector4 AreaPad = new Vector4(-8f, -5f, -8f, -5f);
+        /// <summary>原版 `Text Area ▸ RectMask2D.m_Softness` = `(0,0)`（硬边）。</summary>
+        public static readonly Vector2Int AreaSoftness = Vector2Int.zero;
     }
 }

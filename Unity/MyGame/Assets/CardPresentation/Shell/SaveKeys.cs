@@ -56,8 +56,8 @@ namespace CardPresentation
         /// 【我们】`persistentDataPath/WarpforgeDecks.json`（`RuleEngine/Data/DeckStore.cs:22`）——**整份**导入。</summary>
         public const string PlayerDecks = "PlayerDecks";
 
-        /// <summary>7 · `PlayerDataKey.cs:10` —— 原版「当前选中第几套」。【我们】同一份 `WarpforgeDecks.json` 的 `current`
-        /// 字段（`DeckStore.cs` 的 `Dto.current`）—— 本轮**未拆**（整份在 `PlayerDecks`，见报告 §五）。</summary>
+        /// <summary>7 · `PlayerDataKey.cs:10` —— 原版存**当前选中那一套的卡组 id 字符串**（读点 `cpp2il/out_cpp2il_dev_ilspy/PlayerDataManager.cs:11472-11473`
+        /// `GetPlayerOnlineDataString(..., PlayerDataKey.CurrentDeck)` → `currentDeckId:string`）。【我们】2026-11-04（`B141` · UI-05 D6）起**已拆出独立 key**（载荷 `{"id":"…"}`，见 `DeckStore.SerializeCurrentDeck`）；旧档 `PlayerDecks` payload 里的 `current:int` 仍能读。</summary>
         public const string CurrentDeck = "CurrentDeck";
 
         /// <summary>8 · `PlayerDataKey.cs:11` —— 原版「当前活动」。【我们】`WarpforgeDraft/run.json`

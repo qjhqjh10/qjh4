@@ -34,9 +34,16 @@ gen_battlehud_clips.py — 战斗 HUD 换牌期那 **8 条 `BattleHud*` legacy c
 
 8 条 clip 的 **所有关键帧斜率都是 0**、`weightedMode=0`（非加权，权重不参与）——
 即两条键之间的插值是 Unity 的 smoothstep（ease-in/ease-out），**不是线性**。
-本文件仍逐键存 `is`/`os`（与 `gen_camera_intro_clips.py` 同 schema），
+本文件仍逐键存 `si`/`so`（与 `gen_camera_intro_clips.py` / `gen_arena_scene_clips.py` 同 schema），
 运行期必须写回 `new Keyframe(t, v, inTangent, outTangent)`；用 `new Keyframe(t,v)` 时斜率也是 0 ⇒ 等价，
 但**别改成线性**（那会让滑出/滑入的手感与原版不同）。
+
+🔴 **2026-11-04（第一百二十八会话 · `B141-W46` · 账 `B141/11-04`）键名订正：`is`/`os` → `si`/`so`**
+原来本生成器写 `is`/`os`，而运行期 `Battle/BattleHudAnim.cs:60` 的字段是 `si`/`so`
+⇒ `JsonUtility` **按字段名绑定**，`is`/`os` 根本不是它的字段名 ⇒ `si`/`so` **恒 null ⇒ 恒 0**（哑弹）。
+今天 8 条 clip 的斜率恰好全 0（本文件 `self_check` 断言），所以**数值差为 0**；
+但**一旦哪条键非零就会被静默丢掉**（滑出/滑入形状与原版不同，且不报错）。
+改后与 `camera_intro_clips.json` / `arena_scene_clips.json` **同一套键名**，消费端 `BattleHudAnim.cs:318-319` 零改动。
 
 ## schema
 ```
@@ -46,7 +53,7 @@ gen_battlehud_clips.py — 战斗 HUD 换牌期那 **8 条 `BattleHud*` legacy c
                         "curves":[ { "node":"LeftArea/PlayerInfo",
                                     "path":"Canvas/BackCanvas/Safe area BackCanvas/LeftArea/PlayerInfo",
                                     "type":"RectTransform", "property":"m_AnchoredPosition.x",
-                                    "keys":[{"t":0.0,"v":[0.0],"is":[0.0],"os":[0.0]}, …] } ] } },
+                                    "keys":[{"t":0.0,"v":[0.0],"si":[0.0],"so":[0.0]}, …] } ] } },
   "perArena":{ "battlearena1": { "animation":"Animation_1606.json", "animationPid":1606,
                                 "gameObjectPid":239, "playAutomatically":true,
                                 "defaultClip":"BattleHudHiddenNoHand",
@@ -73,10 +80,10 @@ gen_battlehud_clips.py — 战斗 HUD 换牌期那 **8 条 `BattleHud*` legacy c
               "sampleRate":60.0, "wrapMode":"Once", "length":0.0,
               "curves":[ { "node":"…", "path":"…", "type":"RectTransform",
                            "property":"m_AnchoredPosition.x",
-                           "keys":[{"t":0.0,"v":[0.0],"is":[0.0],"os":[0.0]}] } ] }, … ],
+                           "keys":[{"t":0.0,"v":[0.0],"si":[0.0],"so":[0.0]}] } ] }, … ],
   "refs":[ { "node":"…", "property":"…", "type":"…", "hidden":[…], "shown":[…] }, … ] }
 ```
-（`pid` / `keysTotal` 运行期用不上 ⇒ **不写进副本**；`v`/`is`/`os` 逐键保留 —— 斜率一改就不是 smoothstep 了。）
+（`pid` / `keysTotal` 运行期用不上 ⇒ **不写进副本**；`v`/`si`/`so` 逐键保留 —— 斜率一改就不是 smoothstep 了。）
 两条都与全量件**同一份源数据**（`clips` 顺序 = `CLIP_ORDER`；`refs` 按 `(node,property)` 排序）
 ⇒ 内容不可能分叉（`render_runtime` 逐条回比全量件）；⚠️ **全量件仍是人读/脚本核对的那一份**，字段与顺序一个都没动。
 
@@ -170,8 +177,10 @@ def _keys(curve, dim):
         out.append({
             "t": _f(k["time"]),
             "v": _vec(k["value"], dim),
-            "is": _vec(k["inSlope"], dim),
-            "os": _vec(k["outSlope"], dim),
+            # ✅ 已复刻（2026-11-04 · B141-W46 · 判据 = BattleHudAnim.cs:60/:318-319 字段名 si/so；
+            #    账 B141/11-04。⛔ 别改回 is/os：JsonUtility 按字段名绑定，那两个名字会让斜率恒 0）
+            "si": _vec(k["inSlope"], dim),
+            "so": _vec(k["outSlope"], dim),
         })
     return out
 
@@ -574,7 +583,7 @@ def self_check(doc):
     for n in CLIP_ORDER:
         for cv in clips[n]["curves"]:
             for k in cv["keys"]:
-                assert all(abs(x) < 1e-9 for x in k["is"] + k["os"]), (n, cv["node"], cv["property"])
+                assert all(abs(x) < 1e-9 for x in k["si"] + k["so"]), (n, cv["node"], cv["property"])
 
     # ⑥ 13 场：同一套 pid / 同一个 hash / 默认 clip 一致
     hashes = set(a["hash"] for a in doc["perArena"].values())

@@ -94,9 +94,9 @@ namespace CardPresentation
         /// <summary>建那棵静态四节点（`Army Selector Panel` ▸ 标题 / 滚动视口 / 内容 / 说明），并记住
         /// `anchor`（= `Army Content`）。⚠️ 原版这些节点在 prefab 里，本方法只是**把同一份几何摆出来**。
         /// <para>`qArt` / `qArt1` / `qText` 由调用方给（各窗的队列档不同）—— 缺省取 LiveOps 那一档。</para></summary>
-        public static ShowEventArmiesPanel Build(Transform parent, int qArt = 3111, int qArt1 = 3112, int qText = 3114)
+        public static ShowEventArmiesPanel Build(Transform parent, int qArt = 3111, int qArt1 = 3112, int qText = 3114, Vector2Int? softness = null)
         {
-            var p = new ShowEventArmiesPanel();
+            var p = new ShowEventArmiesPanel(); p.ApplySoftness(softness);
             p._qArt = qArt;
             var root = MenuDraw.Node(parent, "Army Selector Panel", new PxRect(PanelL, PanelT, PanelR, PanelB));
 
@@ -105,9 +105,9 @@ namespace CardPresentation
                           Color.white, "Factions Title", 44.65f, qText,
                           TitleR - TitleL, 18f, 45.87f, 36f, face: TmpFont.Face.LatinCardBody);
 
-            // `Army Selector`（ScrollRect 那一颗：本层只是**节点的宿主**，滚动件未接，见文件头）
+            // `Army Selector`（ScrollRect 那一颗：本层只是**节点的宿主**，滚动件未接，见文件头）；🔴 `Viewport` 的 `m_Softness` **逐窗不同（⛔ 不是常量）** —— Energy `(25,0)` / Skirmish·RankedV2 `(0,52)` / Campaign `(0,0)` / 排行弹窗 `(42,0)`（prefab 逐项现读 → 类尾 §软边），本件只服务 Energy ⇒ 由形参 `softness` 传。
             var sel = MenuDraw.Node(root, "Army Selector", new PxRect(ScrollL, ScrollT, ScrollR, ScrollB));
-            var vp = ViewportClip.Hang(sel, "Viewport", new PxRect(ScrollL, ScrollT, ScrollR, ScrollB), Vector4.zero, Vector2Int.zero); p._viewport = vp; p._selector = sel;
+            var vp = ViewportClip.Hang(sel, "Viewport", new PxRect(ScrollL, ScrollT, ScrollR, ScrollB), Vector4.zero, p._softness); p._viewport = vp; p._selector = sel;
             // `Army Content`（CSF h + HLG）：模板宽 = 一颗；真宽由子件撑开（下面 `Initialize` 只管加子件）
             var content = MenuDraw.Node(vp != null ? vp.transform : sel, "Army Content", new PxRect(ScrollL, ScrollT, ScrollL + ItemSide, ScrollB));
             // `ArmyItemReference` —— 模板本身**没有图**（`<无图>` 现读）；留着它，`Initialize` 用它的尺寸与层级
@@ -286,6 +286,44 @@ namespace CardPresentation
                     + "⚠️ 那一台的 `m_ScrollSensitivity` **没现读** ⇒ 本区用缺省 `DefaultNotchPx` = "
                     + MenuScroll.DefaultNotchPx + " px/格（⛔ 不是原版值，⛔ 别拿练习窗的 50 顶替）");
             return _scroll;
+        }
+
+        // ============================================================ 🆕 2026-11-04（B141 · W56）· 视口软边逐窗传
+        //
+        // ✅ 已复刻（2026-11-04 · B141 · `EnergySinglePlayerOnlyEventWindow.prefab:6892-6898` 的 `RectMask2D`：
+        //   `m_Padding (0,0,0,0)` · `m_Softness (25,0)`；父链 = `Army Selector/Viewport`，逐层实读）。
+        //
+        // 判据（`d:/2/tools/assetripper_out/ExportedProject/Assets/` 逐 prefab 现读，⛔ 别互推；五处 `m_Padding` 全 `(0,0,0,0)`）：
+        //   · `EnergySinglePlayerOnlyEventWindow` ▸ `Army Selector Panel/Army Selector/Viewport`      `m_Softness (25,0)` ← **本件唯一宿主**
+        //   · `SkirmishModeEventWindow` / `RankedEventWindowV2` ▸ `Ranked Army Selector/Army Selector/Viewport`  `(0,52)`
+        //   · `Campaign Army Selector` / `Campaign Tab` ▸ `…/Viewport`                                `(0,0)`（硬边）
+        //   · `RankedSkirmishLeaderboardPopup` / `RankedClassicLeaderboardPopup Variant` / `DraftLeaderboardPopup`
+        //     ▸ `Ranking Display/Content/Army Selector/Viewport`                                      `(42,0)`
+        //   · `Ranked Army Selector`（独立母版）· `Daily Reward Popup` · `Forge (Army Selector|Tab)` ▸ `…/Viewport`  `(42,0)`
+        //   · `Practice Mode Menu` ▸ `Deck Selector/Army Selector/Viewport`                           `(0,50)`
+        // ⇒ **一个值 ≠ 全部情况**（铁律 5·c）：软边必须由**调用方**给；⛔ 别在 `Build` 里写死任何一个。
+        //   另四族**不走本件**（原版 `ShowEventArmiesPanel` 只有一个调用点 = 能量窗的 `Open()`），它们各在自己的窗里
+        //   按上表接线（`LiveOpsEventWindow.BuildArmySelector` = `(0,52)` · `CampaignTab.Build` = `(0,0)` ·
+        //   `LeaderboardWindow.BuildArmySelector` = `(42,0)` · `ForgeTab` = `(42,0)` · `PracticeModePopup` = `(0,50)`）。
+        /// <summary>本件建出来的 `Viewport`（= 原版 `RectMask2D` 那颗；自检读 `softness` 用）。</summary>
+        public ViewportClip Viewport { get { return _viewport; } }
+        /// <summary>写进 `Viewport` 的那份 `m_Softness`（自检读口 —— ⛔ 期望值要用 prefab 字面量比，不是读回来当期望）。</summary>
+        public Vector2Int Softness { get { return _softness; } }
+        /// <summary>调用方**真的传了** softness（`false` ⇒ 走到 `(0,0)` 兜底 + 已经出声；自检用它防「缺省被静默用到」）。</summary>
+        public bool SoftnessGiven { get { return _softnessGiven; } }
+        /// <summary>本件视口的 `m_Softness`（`Vector2Int`，画布 px；x 管左右、y 管上下）。</summary>
+        Vector2Int _softness = Vector2Int.zero;
+        /// <summary>调用方传了没有（见 <see cref="SoftnessGiven"/>）。</summary>
+        bool _softnessGiven;
+        /// <summary>把调用方给的软边收下；**没给就出声**（⛔ 不许静默用 `(0,0)` —— 那正是这一笔要修的缺陷）。</summary>
+        void ApplySoftness(Vector2Int? s)
+        {
+            _softnessGiven = s.HasValue;
+            _softness = s.HasValue ? s.Value : Vector2Int.zero;
+            if (!s.HasValue)
+                Debug.LogWarning("[Event] `ShowEventArmiesPanel.Build` **没传 softness** ⇒ 视口按 `(0,0)` 硬边建"
+                               + "（原版逐窗不同：Energy `(25,0)` · Skirmish/RankedV2 `(0,52)` · Campaign `(0,0)` · 排行弹窗 `(42,0)`）"
+                               + " ⇒ 调用点必须显式传，⛔ 别让缺省值生效");
         }
     }
 

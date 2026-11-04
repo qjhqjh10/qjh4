@@ -264,8 +264,21 @@ namespace CardPresentation
         /// 压在视口边上的命中区**截到视口内**（`MenuDraw.Hit` 转调 `ClipRect` → `MenuDraw.Visible`，
         /// **唯一一份**求交；⚠️ 2026-10-07 更正（铁律 5 / A12①）：原文把「唯一一份」挂在了 `ClipRect` 上）。</summary>
         static Transform Hit(RowCtx c, Transform p, string n, PxRect r, int off, System.Action onClick,
-                             ImageQuad target = null, string art = null, string hoverArt = null)
-        { return MenuDraw.Hit(p, n, r, c.Q + off, onClick, target, art, hoverArt, clip: c.Clip); }
+                             ImageQuad target = null, string art = null, string hoverArt = null,
+                             string selectedArt = null)
+        {
+            var hit = MenuDraw.Hit(p, n, r, c.Q + off, onClick, target, art, hoverArt, clip: c.Clip);
+            // ✅ 已复刻（2026-11-04 · B141-W44 · 5-07）：`Match Log ▸ {ReplayButton,PinButton}` 的
+            //   `m_SpriteState.m_SelectedSprite` 逐颗实读 = **`40k_general_bt_yellow`**（= 它们的常态图；
+            //   判据 → `报告/B141_W129_ButtonFx.md` §5-07）。`MenuDraw.Hit` 不收 `selectedArt`
+            //   ⇒ 建完后按同一组常态/悬停图再 `Bind` 一次（前四格逐位不变，`Bind` 幂等）。
+            if (hit != null && target != null && !string.IsNullOrEmpty(selectedArt))
+            {
+                var wb = hit.GetComponent<WindowButton>();
+                if (wb != null) wb.Bind(target, art, hoverArt, null, selectedArt);
+            }
+            return hit;
+        }
 
         // ============================================================ 一行
 
@@ -308,7 +321,7 @@ namespace CardPresentation
             if (canReplay)
             {
                 // 🆕 A17：原版 `Battle Log Tab>…>Match Log>{ReplayButton,PinButton}` 是 SpriteSwap（普查 §块 5 第 10 行）
-                Hit(ctx, rep, "Hit", repR, L_Hit, () => OnReplay(m), repBg, ArtBtn);
+                Hit(ctx, rep, "Hit", repR, L_Hit, () => OnReplay(m), repBg, ArtBtn, selectedArt: ArtBtn);
             }
             else
             {
@@ -326,7 +339,7 @@ namespace CardPresentation
             var pinBg = Rect(ctx, pin, ArtBtn, pinR, "Image", L_Btn);
             var pinIc = Rect(ctx, pin, ArtPin, pinR, "pinicon", L_BtnIcon);
             if (pinIc != null) pinIc.SetTint(m.Pinned ? BattleLogData.PinOn : BattleLogData.PinOff);
-            Hit(ctx, pin, "Hit", pinR, L_Hit, () => OnPin(m, pinIc), pinBg, ArtBtn);
+            Hit(ctx, pin, "Hit", pinR, L_Hit, () => OnPin(m, pinIc), pinBg, ArtBtn, selectedArt: ArtBtn);
 
             BuildSide(ctx, row, r, m, 0);
             BuildSide(ctx, row, r, m, 1);

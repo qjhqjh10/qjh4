@@ -172,7 +172,7 @@
 // B. **`SetAsLastSibling` / `ForceRebuildLayoutImmediate` 那一跳**：原版靠 uGUI 的兄弟序与布局系统
 //    把「刚弹的那条压在最上面」＋「底条贴合文字」。我们**没有 uGUI** ⇒ 等价物 = **渲染队列**
 //    （`CLAUDE.md` §三：分层要用队列、别靠 z）：本件整条在 **战斗档 `Q = 4001`**（高于日志面板的 4000）、
-//    **菜单档 `MenuQueue = 4035`**（高于窗带最高 4030、低于教学 4040 / toast 4072）—— 两档的绝对值都是
+//    **菜单档 `MenuQueue = 4035`**（高于窗带最高 4030、低于教学指针 4041–4046 / 教学高亮 4047 / toast 4072）—— 两档的绝对值都是
 //    **[我们挑的]**，等价于原版那个独立 overlay Canvas（`UI Error Message Controller` = `PopUps` / order 1，
 //    **在所有窗之上**），底条 `Q` / 文字 `Q + 1`（= 原版「Background 先、Text 后」的兄弟序）。
 // C. **时间轴自推**：原版靠 DOTween 帧循环；**批处理下没有帧循环** ⇒ 本件把三段
@@ -368,8 +368,8 @@ namespace CardPresentation
         /// <para>🔴 **相对次序 = 原版判据**：原版主菜单里这颗 `UI Error Message Controller` = **`PopUps` / order 1**
         /// ⇒ 在 `3 - PopUp Holder`（窗，`PopUps`/0）**之上**、教学高亮（`PopUps`/601）与 toast（`PopUps`/900）**之下**
         /// （判据 → `资料/普查产出_1020/W58_界面线_Toast黑场次序判据.md` §2·3）。</para>
-        /// 🔶 自己设计（非原版）：菜单档错误横幅的绝对值队列 `MenuQueue = 4035` · 原版只给 `PopUps/1` 的相对次序；绝对值要落在我们窗带 4030 与教学高亮 4040 之间（原版判据拿不到） · TODO(谁定的)｜原注：<para>🔑 **4035 这个绝对值 = [我们挑的]**：窗带最高 `AlliancePanelWindow.QText = 4030` 之上、
-        /// 教学高亮 `MenuTutorialHighlight.QShade = 4040` 之下。⛔ 别把它套到战斗档（两档的层带不同）。</para></summary>
+        /// 🔶 自己设计（非原版）：菜单档错误横幅的绝对值队列 `MenuQueue = 4035` · 原版只给 `PopUps/1` 的相对次序；绝对值要落在我们窗带 4030 与教学指针 4041–4046 / 教学高亮 4047 之间（原版判据拿不到） · TODO(谁定的)｜原注：<para>🔑 **4035 这个绝对值 = [我们挑的]**：窗带最高 `AlliancePanelWindow.QText = 4030` 之上、
+        /// 教学指针 `TutorialPointerUi.QGlow = 4041`（2026-11-04 `B141_W4`）与教学高亮 `MenuTutorialHighlight.QShade = 4047` 之下。⛔ 别把它套到战斗档（两档的层带不同）。</para></summary>
         public const int MenuQueue = 4035;
         /// <summary>**战斗档**的底条队列（= `Q`）；文字比它大 1（= 原版兄弟序 Background → Text）。
         /// ⚠️ 菜单档**不用**这两个常量 —— 用 <see cref="LayoutPreset.Queue"/>（运行时按档取）。</summary>

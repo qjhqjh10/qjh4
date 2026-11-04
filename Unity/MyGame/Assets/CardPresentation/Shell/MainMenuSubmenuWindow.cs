@@ -245,8 +245,8 @@ namespace CardPresentation
             /// <para>⛔ 键名不许自拟：照原版 `Localize.mTerm` 原文（逐条出处 → `Core/Loc.cs` 的 F1 / F2 两节）。</para></summary>
             public readonly string Term;
             public readonly float FontPx, AutoMin, AutoMax;
-            /// <summary>红点相对键中心的 y 偏置（原版 `Badge Highlight` 的 `pos.y` 取负）。
-            /// 日常那四个键里**第 4 键是 `+47.9`、其余是 `−27.2`** —— 逐键不同 ⇒ 放进规格里，别在循环里写死 `idx == 3`。</summary>
+            /// <summary>红点 y 偏移 = **原版 uGUI `pos.y` 原值**（+ = 偏上；落到我们的像素帧 y 向下时取反 ⇒ 摆放式写 `cy − BadgeDy`，见 `:852`）。
+            /// 实测（`Rewards Base Submenu Variant.prefab` 四颗 `Badge Highlight` 的 `m_AnchoredPosition`）：**第 4 键 `+47.9`、其余三颗 `−27.2`** —— 逐键不同 ⇒ 放进规格里，别在循环里写死 `idx == 3`。</summary>
             public readonly float BadgeDy;
             /// <summary>🔴 **2026-10-12（A336①）：原版那一颗 `TabButtonLabel` 的 `m_fontSizeBase`**（画布 px）。
             /// 它只影响自适应的**二分起点**（`TextMeshPro.cs:2148-2149`），终点收敛到「装得下的最大号」
@@ -774,10 +774,11 @@ namespace CardPresentation
             //    再手工 `SetAutoFitBox`」—— 两份写法并存 = 迟早不一致）。
             //    ⚠️ 框 = 底下那块 `Label` 底 (`labW`×`labH`)，与本行那对 `cx ± labW*0.5f` / `lb-labH..lb`
             //    **同一个矩形**；`autoBasePx` = 原版 `m_fontSizeBase`（23），见 `TabBtnSpec.AutoBase`。
+            // ✅ 已复刻（2026-11-04 · B141-W64 · 四窗实读：`Content Area/Tab Buttons/*/Label/TabButtonLabel` 全是 `Pragati-Regular SDF`（pathID 3485036404935369831 · AssetRipper guid 2548b731…）⇒ 调用点补 `face: LatinCardBody`，一处修 4 窗）
             var txt = Text(b, tabLabel.ToUpperInvariant(), cx - labW * 0.5f, cx + labW * 0.5f,
                            lb - labH, lb, 6, new Color(0.9569f, 0.8824f, 0.6745f), "Text", spec.FontPx,
                            wrapPx: labW, autoMinPx: spec.AutoMin, autoMaxPx: spec.AutoMax,
-                           autoBasePx: spec.AutoBase);
+                           autoBasePx: spec.AutoBase, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-08（A212 · A62 主表 #31「四窗左栏页签」）**：上面 `Text(...)` 里那两步
             //    （`wrapPx > 0` ⇒ `SetWrapWidth` + `SetAutoFitBox`；**A1173 起收口进漏斗**）内部会
             //    `SetWrapWidth` ⇒ **无条件把模式开成 `Normal`**（`Core/TmpFont.cs` 的 `SetWrapWidth`），而原版**四个窗的

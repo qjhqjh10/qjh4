@@ -56,6 +56,9 @@
 //     六个页签键 0.92）—— 我们这套 `ImageQuad` 没有这个属性（同 `PlayerProfileWindow` 文件头那条）。
 //   · **`Mask` / `RectMask2D` 不做真裁切** —— 我们**没有掩码体系**（工程先例：`ImportDeckPopup`
 //     / `PromptPopup` / `SettingsWindow` 都只建节点不裁）。
+//     ✅ **2026-11-04 就地订正（铁律 5 · `B141_W68`）**：这一条**只对「本页 `Mask` 那一片」成立**；
+//     「我们没有掩码体系」那句**已过期** —— 本仓掩码 = `Shell/ViewportClip.cs`。本页 `Text Area`（改名窗那格）
+//     本轮已挂上 `(−8,−5,−8,−5)` + soft `(0,0)`（判据 `GenericPromptWindow.prefab:1337` / 38 处扫描）。
 using UnityEngine;
 
 namespace CardPresentation
@@ -1326,8 +1329,12 @@ namespace CardPresentation
             // 输入框（`Choose Name Input Field` > `Text Area` > `Placeholder` / `Text`）
             var fld = Node(_nameWin, "Choose Name Input Field", new PxRect(IfL, IfT, IfR, IfB));
             Nine(fld, ArtDropdown, new PxRect(IfL, IfT, IfR, IfB), DropBorder, "Image", L_Frame, GreenInk);
-            // `Text Area` 上挂 `RectMask2D`（裁输入的字）—— 我们没有掩码体系，只建节点（见文件头末尾）
-            var ta = Node(fld, "Text Area", new PxRect(TaL, TaT, TaR, TaB));
+            // ✅ 已复刻（2026-11-04 · B141_W68 · 判据 `判据/B141_W129_对账_UI动画.md` W11/4-23 ＋ `ChooseNameWindow` / `Player Profile Window` 的 `/Text Area`）：
+            //   原版 `Text Area` 上挂 `RectMask2D`（`m_Padding = (−8,−5,−8,−5)` 负=外扩 · `m_Softness = (0,0)`）。
+            //   ⚠️ **2026-11-04 就地订正（铁律 5）**：这行原来写「**我们没有掩码体系，只建节点**」——
+            //   **已过期**（`Shell/ViewportClip.cs` 就是那一套，2026-10-12 起在生产侧有 54 处站点）⇒ 改为挂掩码。
+            var ta = ViewportClip.Hang(fld, "Text Area", new PxRect(TaL, TaT, TaR, TaB),
+                                       TextInputField.AreaPad, TextInputField.AreaSoftness).transform;
             // 🔴 **A62 · A22**：`Placeholder` 原版 **`折行=0`**（判据 = `md "Player Profile Window" --depth 25 --md`：
             //   `Choose Name Input Field > Text Area > Placeholder` 那行 `'' 字号=18.0 auto[18.0~40.0] … 折行=0`）⇒ 关掉。
             //   ⚠️ 这一处 `fontPx == autoMinPx` ⇒ 我们**本来就没调** `SetAutoFitBox`（它只在 `fontPx > autoMinPx` 时才调）

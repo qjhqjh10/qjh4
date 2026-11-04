@@ -576,10 +576,10 @@ public static class DeckScene
         //   ① `A1527` 督军行**不印费用圆** —— `SetOn(_deckRowCost[i], on && !heroRow)`
         //      与 `SetOn(_deckRowCostText[i], on && !heroRow)`（**两颗一起**，本工程它们是两颗独立物体；
         //      ⚠️ `_deckRowCostText` 原名 `_deckRowCount` —— `A2007` 纯改名，它盛的是**费用**）；
-        //   ② `A1525` 卡组列表三件 —— 按 `Id` 去重 / **费用 → 本地化名（当前文化比较）**排序 / 行名左对齐到 **68**。
+        //   ② `A1525` 卡组列表三件 —— 按 `Id` 去重 / **费用 → 本地化名（当前文化比较）**排序 / 行名左对齐到 **63.58**（框左沿）。
         // 判据（⛔ 一律**不是我们自己的常量**）：
-        //   · **行名左沿 68** = 参考图（`桌面/warpforge参考图/卡组编辑界面参考.png`）量出来的 ——
-        //     参考图 px 56…61 × 1.21442（= 1920/1581）= 画布 **68.0…74.1**；
+        //   · **行名左沿 63.58** = 原版 prefab `Deck List drawer` 行节点 x **8.4** + 行内 `Text fill` 左内缩 **55.182**（= 63.582）；
+        //     ⚠️ 参考图量到的 **68.0…74.1**（px 56…61 × 1.21442）是**字墨**、没减 CJK 左留白（≈1~2px）⇒ 差 ~2.4px，在它 6px 读数带内；
         //     ⛔ 不许写 `DeckRuntime.RowNameX`（那是被测实现里的数，改坏它断言跟着变 = 自证）；
         //   · 督军行那两颗的判据 = `资料/说明书/04_界面UI/菜单全树.md:9321-9329`（Hero 族**没有** `Cost Image`）
         //     与 `:9337` / `:9348`（Defensive / Card Info 两族**都有**）
@@ -1475,7 +1475,7 @@ public static class DeckScene
                 for (int i = 0; i < ph.Count; i++)
                     if (ph[i].Type == "hero" && ph[i].Faction == probe) { hw = ph[i]; break; }
                 if (hw == null) { Check(true, false, $"卡池里找不到 {probe} 的督军"); continue; }
-                s.SetWarlord(hw.Id);
+                s.SetWarlord(hw.Id); s.ResetArmyLatch();   // ✅ 已复刻（2026-11-04 · B141 · W129 `B141-ARMY-LATCH`）：每换一个阵营 = 原版**一次新开窗/新 filter 实例**（`CardArmyFilter__SetFilterToDeck.c:22-24` 的 `setted` 闩要在新实例上从 0 起）—— 不补这句，闩会停在第一个阵营（`B141_W129_ArmyLatch.md` §五 #1）
                 int eff = 0; string firstEff = "";
                 foreach (var c in s.VisibleCards())
                     if (DeckRules.CannotAddToDeck(c)) { eff++; if (firstEff.Length == 0) firstEff = c.Name; }
@@ -1495,7 +1495,7 @@ public static class DeckScene
                 if (hw == null) Check(true, false, "卡池里找不到 DarkAngels 的督军（这一节没法验）");
                 else
                 {
-                    s.SetWarlord(hw.Id);
+                    s.SetWarlord(hw.Id); s.ResetArmyLatch();   // ✅ 已复刻（2026-11-04 · B141 · W129 `B141-ARMY-LATCH`）：同上一处（`TestWarlordGatedPool` 的 DarkAngels 探针）—— 换阵营 = 新 filter 实例，闩从 0 起
                     int shown = 0, addable = 0;
                     var names = new System.Text.StringBuilder();
                     foreach (var c in s.VisibleCards())
@@ -1673,7 +1673,7 @@ public static class DeckScene
                 foreach (var c in s.Pool)
                     if (c.Type == "hero" && c.Faction == fac) { hw = c; break; }
                 if (hw == null) continue;
-                s.SetWarlord(hw.Id);
+                s.SetWarlord(hw.Id); s.ResetArmyLatch();   // ✅ 已复刻（2026-11-04 · B141 · W129 `B141-ARMY-LATCH`）：13 阵营逐轮换将 = 每轮一次新开窗（原版 `CardArmyFilter__SetFilterToDeck.c:22-24` 的闩只活在一个 filter 实例里）—— 不补这句，第 2 轮起池子仍停在第一阵营
                 var vis = s.VisibleCards();
                 facN++;
 
@@ -1822,7 +1822,7 @@ public static class DeckScene
                     CardDef wl = null;
                     foreach (var c in st.Pool) if (c.Type == "hero" && c.Faction == fac) { wl = c; break; }
                     if (wl == null) continue;
-                    st.SetWarlord(wl.Id);
+                    st.SetWarlord(wl.Id); st.ResetArmyLatch();   // ✅ 已复刻（2026-11-04 · B141 · W129 `B141-ARMY-LATCH`）：`countDefence` 逐阵营换将 = 每阵营一次新开窗（`CardArmyFilter__SetFilterToDeck.c:22-24`）—— 不补这句，只数得到第一个阵营的防御卡
                     foreach (var c in st.VisibleCards()) if (c.Type == "defence") n++;
                 }
                 return n;
@@ -3624,14 +3624,14 @@ public static class DeckScene
                     int cap = DeckRules.CopyLimit(poolDef.Rarity, poolDef.Type);
                     string wl = _rt.State.Deck.WarlordId;
                     // ① **有督军** ⇒ `{已在卡组}/{min(拥有, 上限)}` —— 原版 `DeckEditorCollectionDisplay__DrawCell`
-                    //    的格式串**实测就是 `"{0}/{1}"`**（`stringliteral.json@0x426DE28`）。
+                    //    的格式串**实测就是 `"{0}/{1}"`**（`stringliteral.json@0x426DE28`）。✅ 3-16（B141·W29）：分子 = `GetLibraryInFull` 全库数（**含督军/防御卡**）⇒ 走 `UiDeckCountInFull`
                     if (!string.IsNullOrEmpty(wl))
-                        Check(_rt.UiLabelText("poolcnt_0"), _rt.State.Deck.CountOf(poolDef.Id) + "/" + cap,
+                        Check(_rt.UiLabelText("poolcnt_0"), _rt.UiDeckCountInFull(poolDef.Id) + "/" + cap,
                               "★ 有督军时那条写 **`{已在卡组}/{能放的张数}`**（原版 `\"{0}/{1}\"`）");
-                    // ② **还没有督军**（新建卡组 / 正在挑督军）⇒ `x{能放进卡组的张数}` ——
-                    //    原版 `CardCollectionDisplay__SetCell.c:72` 的格式串是 **`x{0}`**（⚠️ 它喂的是**拥有数**）；
-                    //    我们这版资源全解锁 ⇒ 照原式会显示 `x11` 那种没意义的数，按**用户 2026-09-28 的口径**
-                    //    喂「能放进卡组的张数」。两个分支都要验 —— 就地把督军摘掉再放回去。
+                    // ② ✅ 3-17（B141·W29）：**还没有督军**（新建卡组 / 正在挑督军）⇒ 原版**照样**印 `{已在卡组}/{能放的张数}` ——
+                    //    `DeckEditorCollectionDisplay__DrawCell.c` 现读：`Count(GetLibraryInFull())` + `{0}/{1}` **无条件**，
+                    //    **没有督军分支**（旧的 `x{0}` 是**收藏页** `CardCollectionDisplay__SetCell` 的格式，不是本窗这一格）。
+                    //    没督军 ⇒ 分子恒 0（战将还没进 `WarlordId`、卡表里也没有它）。两个分支都要验 —— 就地把督军摘掉再放回去。
                     if (!string.IsNullOrEmpty(wl))
                     {
                         _rt.State.ClearWarlord();
@@ -3648,10 +3648,10 @@ public static class DeckScene
                             //   没督军 ⇒ 整池**全是督军** ⇒ 每格的「张数」分母都必须是 **1**
                             //   （原版 `GetMaxCopiesInDeck` 那句 `if (cardType == 10) return 1;`，
                             //   **在稀有度判断之前**）。
-                            //   🔴 **期望值直接钉 `"x1"`** —— ⛔ 不写成 `"x" + DeckRules.CopyLimit(...)`
-                            //   （那是拿实现证明实现 = 自证；1 出自原版那句 `return 1`）。
+                            //   🔴 **期望值直接钉 `"0/1"`** —— ⛔ 不写成 `"0/" + DeckRules.CopyLimit(...)`
+                            //   （那是拿实现证明实现 = 自证；分母 1 出自原版那句 `return 1`，分子 0 出自「战将还没进卡组」）。
                             //   🔴 **判别式**：这一池里**一定有非传说督军**（池子实测 28 张）
-                            //   —— 「只看稀有度」那版会给它们印 `x2` ⇒ 下面 `bad` 那条必红。
+                            //   —— 「只看稀有度」那版会给它们印 `0/2` ⇒ 下面 `bad` 那条必红。
                             int heroCells = 0, nonLeg = 0, bad = 0;
                             for (int k = 0; k < 40; k++)
                             {
@@ -3661,18 +3661,18 @@ public static class DeckScene
                                 heroCells++;
                                 if (!DeckRules.IsLegendary(d.Rarity)) nonLeg++;
                                 string got = _rt.UiLabelText("poolcnt_" + k);
-                                if (got != "x1")
+                                if (got != "0/1")
                                 {
                                     bad++;
                                     if (bad <= 3)
-                                        Check(got, "x1", $"没督军时第 {k + 1} 格（督军 `{d.Name}` / {d.Rarity}）的张数");
+                                        Check(got, "0/1", $"没督军时第 {k + 1} 格（督军 `{d.Name}` / {d.Rarity}）的张数");
                                 }
                             }
                             CheckTrue(heroCells > 0, $"（前提）没督军时视口里有督军格（{heroCells} 格）");
-                            CheckTrue(nonLeg > 0, $"（前提）其中**非传说督军 {nonLeg} 格** —— 上面那条「全 `x1`」才有判别力"
+                            CheckTrue(nonLeg > 0, $"（前提）其中**非传说督军 {nonLeg} 格** —— 上面那条「全 `0/1`」才有判别力"
                                                 + "（全是传说的话新旧写法同值）");
-                            Check(bad, 0, $"{heroCells} 格督军的「张数」**每一条**都印 `x1`"
-                                        + $"（原版 `cardType == 10 ⇒ 1`；只看稀有度那版会给这 {nonLeg} 格非传说的印 `x2`）");
+                            Check(bad, 0, $"{heroCells} 格督军的「张数」**每一条**都印 `0/1`"
+                                        + $"（原版 `cardType == 10 ⇒ 1` + 分子 0；只看稀有度那版会给这 {nonLeg} 格非传说的印 `0/2`）");
                         }
                         _rt.State.SetWarlord(wl);
                         _rt.RefreshAll();
@@ -3913,9 +3913,9 @@ public static class DeckScene
                     //        —— **整格落进带口 [156, 1080.1]**（下沿还剩 5.08px）；
                     //      · `$fac:<第一阵营>`（Army 首格）滚到 0 时绝对 y =
                     //        `156 + RowArmy 179.02 + ArmyContentTop 50` = **385.02** ⇒ `[385.02, 485.02]`；
-                    //        减 220 ⇒ `[165.02, 265.02]`，**也在带口内**（② 那条反向控制要拿它当对照）。
-                    //    ⛔ **别改成「滚到底」（`1e6f` ⇒ `464.92`）**：那样 Army 首格变成 `[-79.9, 20.1]`
-                    //        = 整块被推出带口 ⇒ `SetActive(false)` ⇒ ② 那条「Army 那一族照旧活着」**假红**。
+                    //        减 220 ⇒ `[165.02, 265.02]`，**也在带口内**（这一格那个数仍按这条式子算）。
+                    //    🔴 **2026-11-04（B141·W29c）就地订正（铁律 5）**：② 的反向控制**不再拿 Army 格**当对照 —— §3-01 起
+                    //       「有督军 或 有牌」Army 整行就隐藏（`CardArmyFilter__SetFilterToDeck.c:20-25`）⇒ 改成断「Army 隐藏 / 稀有度行照旧活着」。
                     //    ⚠️ 这两个数都依赖 `Factions()` = **13**（Army 行 550 高；见 `ContentHFor` 那段）；
                     //       阵营数一变，这儿要跟着重算。
                     _rt.UiScrollFilters(-1e6f);
@@ -3942,10 +3942,10 @@ public static class DeckScene
                             + "⛔ 不许留「看不见却点得动」的空格）");
                     CheckTrue(tOff != null && !tOff.gameObject.activeSelf,
                               "★★ N14 ② ……`Energy Cost` 小标题也不显示（原版 `Cost Filter` 那两个子件一起不画）");
-                    var qArmy = _rt.UiFilterCellQuad("$fac:" + _rt.State.Factions()[0]);
-                    CheckTrue(qArmy != null && qArmy.gameObject.activeSelf,
-                              "★ N14 ② 反向控制：**同一拍**里 `Army` 那一族照旧活着"
-                            + "（「整栏一起关掉」那种改法会被这条抓住）");
+                    var qArmy = _rt.UiFilterCellQuad("$fac:" + _rt.State.Factions()[0]);   // ✅ 已复刻（2026-11-04 · B141 · 判据=`CardArmyFilter__SetFilterToDeck.c:20-25` + `FilterToArmy.c` 末句 `SetActive(false)`）
+                    CheckTrue(qArmy != null && !qArmy.gameObject.activeSelf, "★★ N14 ② 反向控制（§3-01，B141·W29c 改）：**同一拍**里 `Army` 那一族**也该隐藏** —— 原版 `CardArmyFilter__SetFilterToDeck.c:20-25` 的闸是「有督军 **或** `CardCount(hero) > 0`」，这一刻只是摘了督军、卡表仍有 30 张");
+                    var qRar = _rt.UiFilterCellQuad("$rar:common");
+                    CheckTrue(qRar != null && qRar.gameObject.activeSelf, "★ N14 ② 反向控制（真·对照）：**稀有度行照旧活着**（`$rar:common`）—— 「整栏一起关掉」那种改法会被这条抓住");
                     // ---- ③ 放回督军 ⇒ 显示回来（免得「关掉就再也回不来」也绿）----
                     _rt.State.SetWarlord(wlK);
                     _rt.RefreshAll();
@@ -4479,10 +4479,9 @@ public static class DeckScene
             // 🔴 2026-09-28（审核抓到）：前面那条「同一层不许压住」是在**抽屉还关着**时量的
             //    （`quads` 那会儿还没有这 31 格）⇒ 抽屉里的重叠一条都测不到。**开着再量一次。**
             {
-                var draw = new List<ImageQuad>();
-                foreach (var q in _root.GetComponentsInChildren<ImageQuad>(false))
-                    if (q.name != null && q.name.StartsWith("flt_")) draw.Add(q);
-                int bad = 0; var pair = new List<string>();
+                var draw = new List<ImageQuad>(); var allDraw = new List<ImageQuad>();   // ✅ 3-01（B141·W29c）：`draw` = **可见**（量重叠）· `allDraw` = **含 inactive**（健全检查）｜✅ 已复刻（2026-11-04 · B141 · 判据=`CardArmyFilter__SetFilterToDeck.c:20-25`：有督军/有牌 ⇒ Army 13 格 `SetActive(false)` ⇒ 不含 inactive 的计数口径必假红）
+                foreach (var q in _root.GetComponentsInChildren<ImageQuad>(false)) if (q.name != null && q.name.StartsWith("flt_")) draw.Add(q);
+                foreach (var q in _root.GetComponentsInChildren<ImageQuad>(true)) if (q.name != null && q.name.StartsWith("flt_")) allDraw.Add(q); int bad = 0; var pair = new List<string>();
                 for (int i = 0; i < draw.Count; i++)
                     for (int j = i + 1; j < draw.Count; j++)
                     {
@@ -4496,9 +4495,12 @@ public static class DeckScene
                         float by = Mathf.Abs(pa.y - pb.y) - (A.WorldH + B.WorldH) * 0.5f * PxPerUnit;
                         if (bx < -LayTol && by < -LayTol) { bad++; if (pair.Count < 5) pair.Add(A.name + " × " + B.name); }
                     }
-                CheckTrue(draw.Count >= 30, $"抽屉里量到 {draw.Count} 张可见图（31 格 + 底 + 输入框那几件）");
-                CheckTrue(bad == 0, $"抽屉**开着**时同层的图也没有互相压住（实测 {bad} 处"
-                          + (pair.Count == 0 ? "）" : "：" + string.Join(" · ", pair) + "）"));
+                CheckTrue(allDraw.Count >= 35 && allDraw.Count - draw.Count >= 13, $"含 inactive 的 `flt_` 图 **{allDraw.Count}** 张 / 可见 {draw.Count} 张 —— 全量建 ≥ 31 格 + 4 件底盘；差额 ≥ 13 = 隐藏的 `Army` 13 格（⛔ 用不含 inactive 的口径会把它们漏掉）"); int aN = 0, aOn = 0, rN = 0, rOn = 0;
+                foreach (var f in _rt.State.Factions()) { var qa = _rt.UiFilterCellQuad("$fac:" + f); if (qa != null) { aN++; if (qa.gameObject.activeSelf) aOn++; } }
+                foreach (var rk in FilterPanelModel.RarityKeys) { var qr = _rt.UiFilterCellQuad("$rar:" + rk); if (qr != null) { rN++; if (qr.gameObject.activeSelf) rOn++; } }
+                CheckTrue(aN == _rt.State.Factions().Count && aOn == 0, $"② 该关的**关着**：`Army` {aN} 格**全部隐藏**（实得显示 {aOn}；有督军 ⇒ 原版 `CardArmyFilter__SetFilterToDeck.c:20-25` + `FilterToArmy.c` 末句 `SetActive(false)`）");
+                CheckTrue(rN == FilterPanelModel.RarityKeys.Length && rOn == rN && rN > 0, $"② 该开的**开着**：稀有度 {rN} 格**全部显示**（实得 {rOn}）—— 「整栏一起关掉」那种改法在这一条上必红");
+                CheckTrue(bad == 0, $"抽屉**开着**时同层的图也没有互相压住（实测 {bad} 处" + (pair.Count == 0 ? "）" : "：" + string.Join(" · ", pair) + "）"));
             }
             Shoot("deck_filters.png");   // 改版面要看截图（断言测不出「字压住了 / 图标没出来」）
 
@@ -4551,15 +4553,15 @@ public static class DeckScene
                           $"量得到整栏那棵子树（{openW:F1}×{openH:F1}px）—— 它就是这次位移的**唯一对象**");
                 CheckNear(openCx, 168.05f, 6f, "原位时整栏中心 x ≈ **168.05**（权威表 [2.2,156] 331.7×924.1 的中心）");
 
-                // ① 时间：`animationTime` = 0.3 ⇒ 推进 0.15 秒正好走半个行程
+                // ① 时间：`animationTime` = 0.3 ⇒ 推进 0.15 秒走 **75%** 行程（§3-12：`DOAnchorPosX` 无 `SetEase` ⇒ DOTween 默认 **OutQuad**）
                 _rt.SetDrawerProgressForTest(false, 0f);
                 CheckTrue(_rt.UiQuadActive("flt_bg"),
                           "钉在**滑出去的起点**但目标是开 ⇒ 节点**还活着**（原版先 SetActive 再动 tween；"
                           + "不然滑出来那 0.3 秒根本看不见东西）");
-                CheckTrue(!_rt.FilterDrawerInteractive, "…起点当然不算到位 ⇒ 命中仍失效");
+                CheckTrue(_rt.FilterDrawerInteractive, "…目标是开 ⇒ 在画面上就算生效（§3-29：原版 `Toggle` 只 SetActive + DOAnchorPosX，**不屏蔽点击**）");
                 _rt.TickDrawersForTest(0.15f);
-                CheckNear(_rt.FilterDrawerSlide, 0.5f, 0.01f,
-                          "推进 **0.15 秒**（`animationTime` = 0.3）⇒ 进度 **0.5**（**只有真按 0.3 秒走**才成立）");
+                CheckNear(_rt.FilterDrawerSlide, 0.75f, 0.01f,
+                          "推进 **0.15 秒**（`animationTime` = 0.3）⇒ 进度 **0.75**（OutQuad `1−(1−0.5)²`；线性会给 0.5 ⇒ 必红）");
                 _rt.TickDrawersForTest(0.15f);
                 CheckNear(_rt.FilterDrawerSlide, 1f, 0.001f, "再推 0.15 秒 ⇒ 到位（一共 0.3 秒）");
                 CheckTrue(_rt.FilterDrawerInteractive, "…到位 ⇒ 命中生效");
@@ -4575,27 +4577,27 @@ public static class DeckScene
                 CheckTrue(shutCx + shutW * 0.5f < 0f,
                           $"滑出去之后**整栏右缘在屏外**（x = {shutCx + shutW * 0.5f:F1} < 0）");
 
-                // ③ **两态对比**：同一个点，在「位移途中」与「完全到位」两种状态下结果必须不同
-                //    （只断一半 = 弱断言：写成恒「不吃」/ 恒「吃」都会有一条绿）
+                // ③ **两态对比（§3-29 改口径）**：**开 = 吃 / 关 = 不吃** —— 三段都要在，缺一段就退化成恒真/恒假
+                //    旧口径断的是「位移途中不吃」，而原版 `CollectionFilterController.Toggle` 只 `SetActive + DOAnchorPosX`、
+                //    **全程不屏蔽点击** ⇒ 那一半是我们挑的，已按原版去掉（保留可观测的另一半：开到位=吃、关到底=不吃）。
                 if (_rt.UiFilterCell("$owned", out float ocx, out float ocy, out float ocw, out float och,
                                      out bool oon))
                 {
                     CheckTrue(oon, "（前提：`Owned` 出厂就是开的 —— 与上面那条一致）");
-                    // ⚠️ 点在这一格的**右缘内侧**（中心 + 半个宽 − 4）：位移期间这一栏不吃的话，
-                    //   点击会**往下落**到它盖住的东西上；本窗那三颗页签的右缘是 327.2 ⇒ 特意挑 ≈329.9，
-                    //   免得「开关没被翻」是**点到了别处**、而不是「这一栏不吃」。
+                    // ⚠️ 点在这一格的**右缘内侧**（中心 + 半个宽 − 4）：这一下离页签右缘（327.2）只差几像素，
+                    //   特意挑成「只有抽屉自己会吃」的位置 —— 免得「开关被翻」是点到了别处。
                     float clickX = ocx + ocw * 0.5f - 4f;
                     CheckTrue(clickX > 327.2f, $"（这一下落在 x = {clickX:F1} > 页签右缘 327.2 —— 落下去也点不到页签）");
-                    _rt.SetDrawerProgressForTest(false, 0.5f);
-                    bool own0 = state.Filter.Owned;
-                    CheckTrue(!_rt.UiClickPx(clickX, ocy), "位移途中（进度 0.5）点这一格 ⇒ **没人吃这一下**");
-                    Check(state.Filter.Owned, own0, "…`Owned` 开关**没被翻**（这一栏此刻不参与命中）");
-                    _rt.SetDrawerProgressForTest(false, 1f);
-                    CheckTrue(_rt.FilterDrawerInteractive, "推到 1 ⇒ 命中生效");
-                    CheckTrue(_rt.UiClickPx(clickX, ocy), "★ **同一点** ⇒ 这次**吃**了（两态对比的另一半）");
-                    Check(state.Filter.Owned, !own0, "…`Owned` **真被翻了**（写成恒不吃 / 恒吃，这里必红一条）");
-                    _rt.UiClickPx(clickX, ocy);                       // 翻回来，别影响后面几段
-                    Check(state.Filter.Owned, own0, "（还原成原来的样子）");
+                    _rt.SetDrawerProgressForTest(false, 1f); bool own0 = state.Filter.Owned;
+                    CheckTrue(_rt.FilterDrawerInteractive, "开到位 ⇒ 命中生效");
+                    CheckTrue(_rt.UiClickPx(clickX, ocy), "★ **开到位**点这一格 ⇒ **吃**了（两态之一）");
+                    Check(state.Filter.Owned, !own0, "…`Owned` **真被翻了**（写成恒不吃，这里必红）");
+                    _rt.UiClickPx(clickX, ocy); Check(state.Filter.Owned, own0, "（翻回来）"); _rt.SetDrawerProgressForTest(false, 0.5f);
+                    CheckTrue(_rt.FilterDrawerInteractive && _rt.UiClickPx(clickX, ocy), "位移途中（0.5、目标是开）⇒ 仍然**吃**：原版 `Toggle` 不屏蔽点击（旧实现这里不吃 = 我们挑的）");
+                    _rt.UiClickPx(clickX, ocy); Check(state.Filter.Owned, own0, "（再翻回来）");   // 途中那一下也翻回来了
+                    _rt.UiToggleFilters(); _rt.SetDrawerProgressForTest(false, 0f);
+                    CheckTrue(!_rt.UiClickPx(clickX, ocy) && !_rt.FilterDrawerInteractive && state.Filter.Owned == own0, "★ **关到底** ⇒ **不吃**（两态的另一半）：同一点没人吃 · 命中位失效 · `Owned` 没被翻");
+                    _rt.UiToggleFilters(); _rt.SetDrawerProgressForTest(false, 1f); CheckTrue(_rt.FilterDrawerInteractive && _rt.FiltersOpen, "（前提还原：开着且到位 —— 下面 ④ 接着用）");
                 }
                 else Check(true, false, "找不到 `$owned` 那一格");
 
@@ -4607,7 +4609,7 @@ public static class DeckScene
                           $"…但格子**还留着**（{_rt.UiFilterCellObjects} 件）—— 收起途中要看见它们一起滑走");
                 _rt.SetDrawerProgressForTest(false, 0.5f);
                 CheckTrue(_rt.UiQuadActive("flt_bg"), "收起途中（进度 0.5）底板**还活着**（要画）");
-                CheckTrue(!_rt.FilterDrawerInteractive, "…但**已经不吃**点击/滚轮");
+                CheckTrue(_rt.FilterDrawerInteractive, "…节点仍活着 ⇒ **原始命中位**为真（§3-29：原版 `Toggle` 只 SetActive + DOAnchorPosX，不屏蔽点击）；真正关掉点击的是逻辑态 `_filtersOpen`（上一段已断 = false）");
                 _rt.SetDrawerProgressForTest(false, 0f);
                 CheckTrue(_rt.UiHasQuad("flt_bg"),
                           "（前提）`flt_bg` **建出来了** —— 不然下面那条「滑到底关掉」是拿「件不存在」蒙的（账 `A1532`）");
@@ -5536,12 +5538,12 @@ public static class DeckScene
                         if (r - l > maxW) maxW = r - l;
                     }
                     CheckTrue(n >= 8, "（前提）一屏量到 ≥8 行行名的墨迹（实测 " + n + " 行）");
-                    CheckNear(maxL, 68f, 1f,
-                              "★ **每一行的墨迹左缘都落在 68**（实测最右的左缘 " + maxL.ToString("F1") + " px）"
-                            + " —— 期望值 = **参考图**量出来的（px 56…61 × 1.21442 = 画布 68.0…74.1），"
-                            + "⛔ **不是** `DeckRuntime.RowNameX`（那是被测实现里的数）"
-                            + "｜🧨 只调 `SetAlignLeft()`、不调 `AlignLeftOn` ⇒ 整块还停在框心（第 0 行 ≈ 163 − 宽/2）⇒ 红"
-                            + "｜🧨 `RowNameX` 改回 62 ⇒ 左缘恒 62 ⇒ 红");
+                    CheckNear(maxL, 63.58f, 1f,
+                              "★ **每一行的文字块左沿 = 63.58**（实测最右的左沿 " + maxL.ToString("F1") + " px）—— 期望值 = **原版 prefab**："
+                            + "行节点 8.4 + 行内 `Text fill` 左内缩 55.182 = **63.582**（框左沿），⛔ 不是 `DeckRuntime.RowNameX`（被测实现里的数）"
+                            + "；本条量的是 `textBounds` 左沿 = 框左沿。"
+                            + "参考图那条 68.0…74.1 是**字墨**（未减 CJK 左留白 ≈1~2px）⇒ 与 63.58 差 ~2.4px，在它 6px 读数带内。"
+                            + "｜🧨 改回 68 ⇒ 红｜🧨 只调 `SetAlignLeft()`、不调 `AlignLeftOn` ⇒ 整块停在框心（第 0 行 ≈ 163 − 宽/2）⇒ 红");
                     CheckTrue(maxL - minL < 1f,
                               "★ 各行墨迹**左缘相等**（最左 " + minL.ToString("F1") + " · 最右 " + maxL.ToString("F1")
                             + "，差 " + (maxL - minL).ToString("F2") + " px）—— 这就是「左对齐」的定义（与名字长短无关）"
@@ -5551,8 +5553,8 @@ public static class DeckScene
                             + " px）—— 长短名并存，上一条才不是「所有行一样宽」蒙出来的");
                     CheckTrue(minW < 170f,
                               "★ 至少有一行的墨迹**明显窄于框 190**（最窄 " + minW.ToString("F1") + " px）—— 居中的话这一行的左缘"
-                            + "会比 68 大 (190−宽度)/2 > 10 px ⇒ 上两条才有鉴别力（⛔ 本条若红 = 夹具变了，先看这一条）");
-                }
+                            + "会比 63.58 大 (190−宽度)/2 > 10 px ⇒ 上两条才有鉴别力（⛔ 本条若红 = 夹具变了，先看这一条）");
+                } B141_W26_Assert.Run(_rt); _sink.Pass += B141_W26_Assert.Pass; _sink.Fail += B141_W26_Assert.Fail; B141_W29_Assert.Run(_rt); _sink.Pass += B141_W29_Assert.Pass; _sink.Fail += B141_W29_Assert.Fail;   // 🆕 2026-11-04（B141_W26 / B141_W29 合并追加 ⇒ 行数零变化）：4-20 行名左沿 / 4-10 行卡名垂直档 / 4-12 margin 收口（同一物理行追加 ⇒ 行数零变化）；判据 → `Editor/B141_W26_Assert.cs` 文件头｜✅ 已复刻（2026-11-04 · B141 · 判据=原版 prefab 行节点 8.4 + `Text fill` 55.182 = 63.582；4-10 = AUD02 :122/:226/:194；4-12 = AUD02 :462 + prefab m_fontSize32/m_margin22.7）｜✅ 已复刻（2026-11-04 · B141 · 判据=`判据/B141_W129_对账_卡组色彩.md` §一 P1：本文件 6 处宿主断言按 3-12/3-17/3-26/3-29 改口径 + `B141_W29_Assert` 接线）
 
                 // ---- ⑧ 督军 / 防御卡**钉在最前**、与排序键无关 ----
                 //  判据（三条）：① 参考图第 0 行 = 督军行（无费用圆、无 `x2`、字更大）② prefab `Content` 子件序

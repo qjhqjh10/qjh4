@@ -139,8 +139,8 @@ namespace CardPresentation
         static readonly Vector2 SepA0 = new Vector2(0f, 0.5f), SepA1 = new Vector2(1f, 0.5f), SepP = UguiRect.P50c,
                                 SepPos = new Vector2(0f, -60.258f), SepSz = new Vector2(193.48f, 6f);
         /// <summary>`Army Content` 的 `HorizontalLayoutGroup`：**spacing −14 · align MiddleCenter**（pad bottom 5）。
-        /// 条目尺寸取 `Forge Army Item Button` 根的 **136.36 × 121.59**（正本 §六）。</summary>
-        const float SelSpacing = -14f, ArmyItemW = 136.36f, ArmyItemH = 121.59f;
+        /// 内容高 **126**（`m_SizeDelta=(0,126)`，见 `Build()` 那一句）· 条目 **136.36 × 121.59**（正本 §六）。</summary>
+        const float SelSpacing = -14f, ArmyItemW = 136.36f, ArmyItemH = 121.59f, ArmyContentH = 126f, ArmyPadBottom = 5f;   // ✅ 已复刻（2026-11-04 · B141 · 判据 = Forge Tab.prefab ▸ Army Content `sz=(0,126)` + `m_Padding.m_Bottom=5`）
 
         // `Selected Army Info`        N(1, 0,1, 0,1, .5,.5, 599.354,−186, 621.295,122.718)
         static readonly Vector2 InfoA0 = UguiRect.A01, InfoA1 = UguiRect.A01, InfoP = UguiRect.P50c,
@@ -477,12 +477,12 @@ namespace CardPresentation
             //   · `pad = (0,0,0,0)`（⛔ 与同页奖励轨道那条 `(10,0,0,0)` **不是一个值** —— 铁律 5·c）。
             var selVc = ViewportClip.Hang(sel, "Viewport", _selR, Vector4.zero, SelSoft);
             var selVp = selVc.transform;
-            // 🔴 **`Army Content` = 「选择条正中心的一个零宽点」**（原版五元组 `… 6.1e-05,0, 0,130`）
-            //    + `ContentSizeFitter` ⇒ 布局跑完**以中心对称展开** ⇒ 条目**居中**排。
-            //    2026-09-23 找茬实测：原来照左边缘排 ⇒ 13 个条目右端到 **2192.85**，
-            //    **最后两个阵营（EmperorsChildren / SpaceWolves）出屏、点不到**。
-            _armyContentR = UguiLayout.HorizontalContentCentered(_selR, ForgeData.Armies.Length,
-                                                                 ArmyItemW, 0f, 0f, SelSpacing);
+            // 🔴 **`Army Content` 的真实五元组**（`Forge Tab.prefab` 实读）：`a=(.5,1)` 重合 · `p=(.5,.5)` · `pos=(0,−63)` · `sz=(0,126)`；
+            //    x 方向 = 父中心的一个零宽点 + `ContentSizeFitter` ⇒ 对称展开 · y 方向 **顶边与选择条顶边重合、高 126**（⛔ 不是 125.1）。
+            //    `HorizontalLayoutGroup` = spacing −14 · `MiddleCenter` · **pad bottom 5** ⇒ 条目在「高−5」那一格里居中（比居中于整高上移 2.5px）。
+            //    2026-09-23 找茬实测：原来照左边缘排 ⇒ 13 个条目右端到 **2192.85**、最后两个阵营出屏点不到（居中那条仍成立）。
+            _armyContentR = UguiLayout.HorizontalContentCentered(new PxRect(_selR.x1, _selR.y1, _selR.x2, _selR.y1 + ArmyContentH),
+                                                                 ForgeData.Armies.Length, ArmyItemW, 0f, 0f, SelSpacing);
             _armyContent = RewardsWindow.Node(selVp, "Army Content", _armyContentR);
             // 🔴 **阵营条也能横向滚**（原版 `Forge Army Selector` 就是一个 `ScrollRect(横)` + `RectMask2D`）：
             //    13 个条目 1604.68 宽 > 视口 1074.36 ⇒ 两端各 2 个够不着；**居中内容的范围是【两侧都有】的**
@@ -748,8 +748,8 @@ namespace CardPresentation
             for (int i = 0; i < ForgeData.Armies.Length; i++)
             {
                 string army = ForgeData.Armies[i];
-                // 内容坐标：从 `Army Content` 的**居中**矩形起排（它以选择条中心对称展开），不是从 `_selR` 左边缘
-                var content = UguiLayout.HorizontalChild(_armyContentR, ArmyItemW, ArmyItemH, i, 0f, SelSpacing);
+                // 内容坐标 = 布局组**扣掉 pad bottom 5 之后**的那一格（`MiddleCenter` ⇒ 条目居其中），⛔ 不是 `_armyContentR` 整高（那样少 5px 底内边距）
+                var content = UguiLayout.HorizontalChild(new PxRect(_armyContentR.x1, _armyContentR.y1, _armyContentR.x2, _armyContentR.y2 - ArmyPadBottom), ArmyItemW, ArmyItemH, i, 0f, SelSpacing);
                 var r = _armyScroll != null ? _armyScroll.Shift(content) : content;
                 if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;   // 整条在视口外 ⇒ 不建（点击区也没了）
                 var item = RewardsWindow.Node(_armyContent, "ForgeArmyItem_" + i, r);

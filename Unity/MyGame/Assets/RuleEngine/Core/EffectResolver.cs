@@ -836,7 +836,7 @@ namespace RuleEngine
             //   **100 / 110 / 120 三档**（`ChooseValueOptions.RefCardAttack / RefCardHealth / RefCardCost`）
             //   取值来自「参照卡」= `AbilityLogic.GetRefCard()` = 上一条 ability 的目标表 `[0]`
             //   （判据与逐分支出处 → `RuleCore.ApplyRefCardValueOption` 的 doc）。
-            //   ⚠️ 这里递的是**副本**（`Clone()`）：`EffectOp` 是解析产物、会被复用，⛔ 别改原件。
+            //   ⚠️ 这里递的是**副本**（`Clone()`）：`EffectOp` 是解析产物、会被复用，⛔ 别改原件。✅ 已复刻（2026-11-04 · B141_W65 · `AbilityLogic__GetValueFromCriteria.c:113-116` 的 80 档要 `owner`；断言 = `B141_W65_Assert` B 组）—— 本行已传 `owner, chosen`（账 L77 的「未传」已过期）
             if (!payOnly && card != null) op = ApplyRefCardValueOption(ctx, op, card, owner, chosen); if (!payOnly && card != null) { op = ApplyHealCriteria(ctx, by, op, card); op = ApplyManaBuff(ctx, by, op, card); }   // 🆕 v48（`B121-D4`）：卡表两列（`abilityHeal` / `abilityMana`）的消费口 —— 同一位置、同一纪律（只改副本、取不到就退回正文）；⚠️ 同一物理行追加（铁律 18·b：本文件下游有账落点，加行会整体漂移）   // 🆕 B108_N08：80 档求值要 owner/actor（`min + max × 目标数`，判据 `AbilityLogic__GetValueFromCriteria.c:113-116` / `PlayAbility.c:232-236`）；缺了会走「没递 owner ⇒ 保留文本数值」出声支（`EffectResolverPartial_B88E2.cs:467` 的 `ApplyRefCardValueOption`）
             // ---- 付费激活：付不起就**整段不结算**（我们自己的 `rule_core.gd:2529`（旁证、非权威））----
             // ⚠️ **2026-09-13 第三十三轮修了一条真 bug**：这里原来**只扣能量、完全不看 `CostKind`**。
@@ -2827,12 +2827,12 @@ namespace RuleEngine
             //    而且 `PlayTactic` 之后马上还会跑巧技/典籍这些**不属于这次出牌**的段。
             var prevPlaySource = ctx.CardPlaySource;
             ctx.CardPlaySource = card;
-            try
+            var tacticScratch = new BattleEvent(); try   // 🔴 2026-11-04（B141 · W9b · SAN-04 残余②）：整条正文结算时接住第一个目标，供下面 600/605 两拍「先算后贴」；⚠️ 与 `try` 同一行 = 本文件零行数变化（账落点密）｜✅ 已复刻（2026-11-04 · B141 · TriggerAbilities.c:59/207/231）
             {
-                ResolveOps(ctx, p, null, ops, chosen, out unresolved, sourceCard: card, paidOut: paidFlags,
+                ResolveWithTriggerTargetSink(ctx, tacticScratch, () => ResolveOps(ctx, p, null, ops, chosen, out unresolved, sourceCard: card, paidOut: paidFlags,
                            // 🆕 v29（`X6` · 口径乙）：战术 / 防御卡的正文 = 原版 `TriggerAbilities(0, …)`
                            // 那一跳（`RawCardScript__OnCardPlayedWithTarget.c:40`）⇒ `trigger 0` = `ThisCardPlayed`。
-                           abilityFamilyCard: card, abilityFamilyTrigger: "ThisCardPlayed");
+                           abilityFamilyCard: card, abilityFamilyTrigger: "ThisCardPlayed"));
 
                 // 🆕 2026-10-24（引擎线 `J2` · 战斗线 `W64` `B-30`）：**效果 470（`showCardsWindow`）**。
                 //   原版那一条 `abilityLogic` 排在「正文（这批卡回到牌库 / 降费）」**之后**
@@ -2867,7 +2867,7 @@ namespace RuleEngine
             // 原版 `RawCardScript__OnCardPlayedWithTarget.c:59-84` 在**打出的那张牌自己**身上发；
             // 闸 = 那张卡真有对应动画行（`EmitCardTrigger` → `HasAnimTrigger`），
             // 「能力激活了没有」= 付费组收到钱（`paidOut`）或 `spendspirit` 真花了石头（ASH52）。
-            EmitTacticAbilityUseTriggers(ctx, p, card, ops, paidFlags, spiritBefore);
+            EmitTacticAbilityUseTriggers(ctx, p, card, ops, paidFlags, spiritBefore, tacticScratch);
 
             // 进弃牌堆（原版战术卡结算完就进弃牌堆）
             ps.Discard.Add(inst);      // 第 7 行第 2 步：进弃牌堆的是**那一份实例**（不是模板）
@@ -4832,7 +4832,7 @@ namespace RuleEngine
                 case "hand":      source = ps.Hand.ConvertAll(h => h.Card);  srcName = "自己手牌";   break;
                 case "enemyhand": source = foe.Hand.ConvertAll(h => h.Card); srcName = "对手手牌";   break;
                 case "dead":
-                    source = DeadCandidates(ctx, owner, op.ChooseDeadScope);
+                    source = DeadCandidates(ctx, owner, op.ChooseDeadScope, op);
                     srcName = op.ChooseDeadScope == "since_last_turn"
                             ? "自你上个回合起阵亡的部队" : "本局阵亡的部队";
                     break;
@@ -6430,23 +6430,33 @@ namespace RuleEngine
         //   逻辑并进了 `AttachHandEffect` 的 `dedupSamePayload`。⛔ 别再往对局表上重建一份。）
 
         /// <summary>
-        /// `Choose a friendly troop that died **this game / this battle / since your last turn**`
-        /// 的候选 —— 出处 <see cref="BattleContext.DeadUnits"/>。
-        ///
-        /// `this battle` 与 `this game` 是**同一个意思**（`rule_core.gd:1199-1204` 合并成 `all`）。
-        /// `since your last turn` 的窗口 = `DeathTurn >= 本方最近一次回合开始时的全局回合号`，
-        /// **自己回合里死的和对手回合里死的都算**，上一轮之前的不算。
+        /// `Choose a friendly troop that died **this game / this battle / since your last turn**` 的候选 —— **墓地那一口**。
+        /// <para>🔴 **判据（第一权威）**：`AbilityLogic__GetTargets.c:949-960` —— `targetsAffected == 0x3c(60)` 那一支**只**调
+        /// `BattleManager.GetCardsInCemetery(...)`；`BattleManager__GetCardsInCemetery.c` 无条件排除 `isRemnant(+0x65) != 0`（残骸）、
+        /// `shouldCheckIfIsInCemetery(+0x24b) == 0`（墓地放逐）与 `cardType == 10 (Hero)` ⇒ 池内这 5 张 `choose … died …`
+        /// （`EC39` / `GSC44` / `SAU39` / `SOR42` / `UM61`）与 `Return … died this game` **是同一个候选源**，⛔ 不是「本局死亡流水」。</para>
+        /// 🔴 **2026-11-04（`B141_W77` · 铁律 5 订正）**：改前这里手扫 `ctx.DeadUnits` ⇒ 上面那三道闸**一条都没判** ——
+        /// 「残骸被摧毁」进墓的那张（`RuleCore.cs:9955` 进 `Discard`、`DeadUnits` 里也有记录）会被当成「本局死过的部队」
+        /// 让玩家选（原版选不到）。现已换到 `CemeteryDeadUnits`（= `ResolveCemeteryTargets` → `RuleCore.GetCardsInCemetery`）。
+        /// 窗口档（`since_last_turn`）**原样保留**：原版 `GetCardsInCemetery` 全文**没有**死亡回合这一维（那一档来自卡面文字），
+        /// 收不收掉要另裁；`DeathTurn = -1`（手牌超上限弃掉的单位卡 —— 原版同样 `SendToCemetery` ⇒ 墓地里**有**它）在 `all` 档照收。
+        /// `this battle` 与 `this game` 仍是**同一个意思**（`rule_core.gd:1199-1204` 合并成 `all`）。
+        /// ✅ 已复刻（2026-11-04 · B141_W77 · `BattleManager__GetCardsInCemetery.c:60`）· 断言 → `RuleEngine/Editor/B141_W77_Assert.cs`
         /// </summary>
-        static List<CardDef> DeadCandidates(BattleContext ctx, int owner, string scope)
+        static List<CardDef> DeadCandidates(BattleContext ctx, int owner, string scope, EffectOp op)
         {
             var outp = new List<CardDef>();
+            if (ctx == null || owner < 0 || owner >= ctx.Players.Length) return outp;
             int mark = ctx.Players[owner].LastTurnStartMark;
-            foreach (var d in ctx.DeadUnits)
+            var dead = CemeteryDeadUnits(ctx, owner, null, op);
+            for (int i = 0; i < dead.Count; i++)
             {
-                if (d.Owner != owner || d.Card == null) continue;
-                if (scope == "since_last_turn" && d.DeathTurn < mark) continue;
+                var d = dead[i];
+                if (d == null || d.Card == null) continue;
+                if (d.Owner != owner || !d.Card.IsUnit) continue;
+                if (scope == "since_last_turn" && (d.DeathTurn < 0 || d.DeathTurn < mark)) continue;
                 // 🔴 2026-10-29（B94_F2 · 账 156 现读订正）：**不再按卡模板去重** —— 原版 `BattleManager__GetCardsInCemetery.c:63`
-                //   返回的是**每一张死牌实例**（`DeadUnits` 里同名死两张 = 两个候选格）；改前按 `CardDef` 引用去重 ⇒ 同名死牌的候选概率被改小。
+                //   返回的是**每一张死牌实例**（`DeadUnits` 里同名死两张 = 两个候选格）；按 `CardDef` 引用去重会改小同名死牌的候选概率。
                 outp.Add(d.Card);
             }
             return outp;
@@ -6907,20 +6917,20 @@ namespace RuleEngine
         ///   · 卡数据 `cards_engine.json` 的 `GSC55.abilityTargets[0].ta = [60, 150, 150]`、
         ///     `abilityMultipliers[0].fm = [5, 0, 0]`（= 最多 5 张）。</para>
         ///
-        /// <para>**候选用 `BattleContext.DeadUnits`**（本局阵亡流水，`Owner`/`DeathTurn`/`Instance`
-        /// 都在）：它**正是**「本局死过的部队」那一份表（`Discard` 混装战术卡、且没有死亡时间）。
-        /// 取走时走 `BattleContext.TakeFromGraveyard`（`Discard` 与 `DeadUnits` **一起**移除 ——
-        /// 那条规则只写在那一个地方）。</para>
+        /// <para>**候选用墓地那一口**（`CemeteryDeadUnits` → `ResolveCemeteryTargets` → `RuleCore.GetCardsInCemetery`，
+        /// 2026-10-29 `B98_K4` 换源）：残骸 / 放逐两道闸都在那一口里判掉；`DeathTurn` 由旁表
+        /// （`ctx.DeadUnits` 的 `Instance.Id → DeathTurn`）补，查不到记 `-1`（窗口档排除它）。
+        /// 取走时走 `BattleContext.TakeFromGraveyard`（`Discard` 与 `DeadUnits` **一起**移除）。</para>
         ///
         /// <para>⚠️ **与棋盘完全解耦**：本支**不碰棋盘**（不 `RemoveAt`、不 `Auras.Recompose`）
         /// —— 这也是本笔的判别式：**棋盘上有活人时它们一张都不该被收走**。</para>
         ///
-        /// <para>⚠️ **已知口径差（如实标）**：原版 `isRemnant(+0x65)` 那道闸我们没有对应物
-        /// （`DeadUnits` 只存卡模板、分不出「它死时是不是残骸」）。今天**全池只有 `GSC55` 一张**
-        /// 会走到这一支（`cards_engine.json` 1127 张现扫：`return` ＋ 目标短语含 `died` 的只有它），
-        /// 而残骸被摧毁那一档（`RuleCore.CleanupDeaths` 的 `u.IsRemnant` 支）**确实**会把卡登进
-        /// `DeadUnits` ⇒ 将来若有卡面写「return … **remnants** that died …」，要回来补这一维。
-        /// </para>
+        /// <para>✅ 已复刻（2026-11-04 · B141_W65 · `BattleManager__GetCardsInCemetery.c:60`）⚠️ **残骸闸（原版 `isRemnant(+0x65)`）已生效**：候选经 `RuleCore.GetCardsInCemetery` 的⑥那一道
+        /// （`RuleCore.cs:15964`，2026-10-29 `B98_K4`）过滤 ——「残骸被摧毁」进墓的那张**查不出来**（原版同）。
+        /// 🔴 **2026-11-04（`B141_W65` · 铁律 5 就地订正）**：原句「原版那道闸我们**没有对应物** /
+        /// 将来若有卡面写 … 要回来补这一维」**已过期** —— `B89_E2` 补了 `DeadUnit.IsRemnant` 的两处灌值、
+        /// `B98_K4` 又把消费端换到墓地那一口 ⇒ 闸已落地。
+        /// 断言 → `RuleEngine/Editor/B141_W65_Assert.cs` A 组（残骸位为真 ⇒ 三条查询口都读不到它）。</para>
         ///
         /// <returns>真的搬走的张数（0 = 墓地里没有符合的，调用方记一条 `miss`）。</returns>
         static int ReturnFromCemetery(BattleContext ctx, int owner, string by, EffectOp op,
@@ -8104,7 +8114,7 @@ namespace RuleEngine
             if (tn == null) { WarnUnmappedListenerKind(kind); return null; }   // 🔴 2026-10-26（批次 6 · `G14` ③）：不再静默 —— 未映射 ⇒ 效果照跑、动画不播，必须出声（见 `WarnUnmappedListenerKind`）
             var evt = EmitCardTrigger(ctx, card, owner, unit, tn, "listener:" + kind, instanceId: instanceId);   // 🔴🆕 2026-10-31（`B107_W10` · T21-8）：把它留在手上交给调用方存进队列作业（arm 用）
             if (evt == null) return null;
-            ctx.Log($"「{card.Name}」的监听器结算完毕 → 触发事件 `{tn}`（原版 AbilityTrigger）"); return evt;
+            ctx.Log($"事件 `{tn}` 已由监听者「{card.Name}」派发（原版 AbilityTrigger）"); return evt;   // 🔴 2026-11-04（B141 · V5b）：措辞里**不许**再带「卡名 + 监听器」那种子串 —— 那和 `:10452` 的派发日志撞成同一行 needle（`WhenFired` 会数两遍）
         }
 
         /// <summary>🆕 **2026-10-24（引擎线 `G1b` · `C2` §6）：关键词施加的统一发射口。**
@@ -8602,7 +8612,7 @@ namespace RuleEngine
         /// （`tactic` / `defence` 在原版都是 `cardType 20`）⇒ 不再额外判一次类型。</para>
         /// </summary>
         static void EmitTacticAbilityUseTriggers(BattleContext ctx, int owner, CardDef card,
-                                                 IReadOnlyList<EffectOp> ops, bool[] paid, int spiritBefore)
+                                                 IReadOnlyList<EffectOp> ops, bool[] paid, int spiritBefore, BattleEvent tacticScratch = null)   // 🔴 2026-11-04（B141 · W9b · SAN-04 残余②）：正文结算时接到的目标，发事件后抄回去
         {
             if (ctx == null || card == null || ops == null || paid == null) return;
             // 🆕 2026-10-20（`FACTION-DOUBLE605`）：信仰那一边改成**收组**（原版每条 605 能力各发一次）。
@@ -8623,8 +8633,8 @@ namespace RuleEngine
                     if (ops[i] != null && ops[i].Verb == "spendspirit") { spirit = true; break; }
 
             // 原版次序：600 在前、605 在后（`OnCardPlayedWithTarget.c:66` → `:73`）。
-            if (spirit) EmitAbilityUseTrigger(ctx, card, owner, null, TN_UseSpiritStone, 600);
-            if (faithGroups.Count > 0) EmitFaithAbilityUseTriggers(ctx, card, owner, null, faithGroups);
+            if (spirit) CopySinkTarget(tacticScratch, EmitAbilityUseTrigger(ctx, card, owner, null, TN_UseSpiritStone, 600));
+            if (faithGroups.Count > 0) EmitFaithAbilityUseTriggers(ctx, card, owner, null, faithGroups, tacticScratch != null ? new List<BattleEvent> { tacticScratch } : null);   // ⚠️ 战术卡的信仰 op 与正文一次性结算 ⇒ 各组共用整条正文解析出的第一个目标（逐组独立目标见报告 §边界）
         }
 
         /// <summary>🆕 **2026-10-20（第五十七会话 `FACTION-DOUBLE605`）：`UseFaith(605)` 这一拍的唯一发射口**
@@ -8644,14 +8654,14 @@ namespace RuleEngine
         /// <param name="activatedGroups">本次**过了门槛的**付费组首（`EffectOp`，门槛 = `op.Cost`），
         /// 按 ops 顺序（= 正文顺序 = 原版 `cardAbilities` 顺序）。</param>
         static void EmitFaithAbilityUseTriggers(BattleContext ctx, CardDef card, int owner, UnitState unit,
-                                                IReadOnlyList<EffectOp> activatedGroups)
+                                                IReadOnlyList<EffectOp> activatedGroups, IReadOnlyList<BattleEvent> scratches = null)   // 🔴 2026-11-04（B141 · W9b · SAN-04 残余②）：与 `activatedGroups` 一一对齐的 scratch；`null` = 旧调用点（行为不变）
         {
             if (ctx == null || card == null || activatedGroups == null || activatedGroups.Count == 0) return;
 
             // ① 单组 ⇒ 老行为（现读全池 23/26 张这一档，必须逐字节不变）
             if (card.FaithAbilityGroupCount < 2)
             {
-                EmitAbilityUseTrigger(ctx, card, owner, unit, TN_UseFaith, 605);
+                CopySinkTarget(ScratchAt(scratches, 0), EmitAbilityUseTrigger(ctx, card, owner, unit, TN_UseFaith, 605));
                 return;
             }
 
@@ -8665,12 +8675,12 @@ namespace RuleEngine
                     ctx.Log($"「{card.Name}」有多组信仰能力，但这几组的门槛与动画行**对不上**"
                           + "（`CardDef.TryGetFaithAbilityIndex`）⇒ 这一拍按**一条**发"
                           + "（原版是每条 605 各发一次；⛔ 不猜哪条动画属于哪条能力）");
-                    EmitAbilityUseTrigger(ctx, card, owner, unit, TN_UseFaith, 605);
+                    CopySinkTarget(ScratchAt(scratches, 0), EmitAbilityUseTrigger(ctx, card, owner, unit, TN_UseFaith, 605));
                     return;
                 }
             }
             for (int i = 0; i < activatedGroups.Count; i++)
-                EmitAbilityUseTrigger(ctx, card, owner, unit, TN_UseFaith, 605, idx[i]);
+                CopySinkTarget(ScratchAt(scratches, i), EmitAbilityUseTrigger(ctx, card, owner, unit, TN_UseFaith, 605, idx[i]));
         }
 
         /// <summary>🆕 **F 族：回合起止那一拍该发哪个 trigger 名**。
@@ -9310,12 +9320,12 @@ namespace RuleEngine
                                           IReadOnlyList<EffectOp> ops)
         {
             ctx.EffectChain++;
-            bool activated = ResolveOps(ctx, owner, unit, ops, "灵魂石能力");
+            bool activated; var scratch = ResolveGroupUnderScratchSink(ctx, owner, unit, ops, "灵魂石能力", out activated);   // 🔴 2026-11-04（B141 · W9b · SAN-04 残余②）：**先算后贴** —— 结算时把这一组解析出的第一个目标记进 scratch，发真事件后抄回去（判据 `RawCardScript__TriggerAbilities.c:59/207/231` + `AbilityLogic__PlayAbility.c:262/273`）｜✅ 已复刻（2026-11-04 · B141 · TriggerAbilities.c:59/207/231）
             ctx.EffectChain--;
             // 🆕 2026-10-19（第五十七会话 `W57` · T21 D）：**能力激活了** ⇒ 按这张卡自己的动画行
             //    发 `UseSpiritStone(600)`（闸 = `CardDef.HasAnimTrigger`，见 `EmitAbilityUseTrigger`）。
             //    ⚠️ 只在 `activated` 时发 —— 余额不够时原版整条不激活（`CanUseSpiritStone` 先判余额）。
-            if (activated) EmitAbilityUseTrigger(ctx, unit.Card, owner, unit, TN_UseSpiritStone, 600);
+            if (activated) CopySinkTarget(scratch, EmitAbilityUseTrigger(ctx, unit.Card, owner, unit, TN_UseSpiritStone, 600));
             if (ctx.IsOver) return;
             // 这一族里 `Deploy a Wraithguard` / `Create a copy …` 会**改棋盘** ⇒ 光环要重算
             // （和别处 9 个棋盘写入点同一条纪律，见 `Core/Aura.cs` 的 `Recompose` 注释）
@@ -9486,19 +9496,19 @@ namespace RuleEngine
                                          IReadOnlyList<EffectOp> ops)
         {
             ctx.EffectChain++;
-            // `seed = unit`：正文里的 `this troop` / `it` 指的就是这张牌自己（同誓约那一支）
-            // 🆕 2026-10-20（`FACTION-DOUBLE605`）：`activatedGroups` 接住「哪几个信仰付费组过了门槛」
-            //   —— 原版同一张卡的两条 605 能力是**各自判定、各演一次**（SOR56/SOR23/SOR67）。
-            var faithGroups = new List<EffectOp>();
-            bool activated = ResolveOps(ctx, owner, unit, ops, "信仰能力", unit, faithGroups);
+            // 🔴 2026-11-04（B141 · W9b · SAN-04 残余②）：**逐组先算后贴** —— 每组用自己的 ops 结算｜✅ 已复刻（2026-11-04 · B141 · TriggerAbilities.c:59/207/231）
+            //   （各自 `targetCriteria` 选目标），结算时把该组第一个目标记进 scratch，发真事件后抄回去
+            //   （判据 `RawCardScript__TriggerAbilities.c:59/207/231`：逐条 ability 各自 GetTargets → PlayAnim）。
+            //   ⛔ 别改 emit 时机：仍然是「结算完才发真事件」，本件只把目标从 scratch 抄过去。
+            //   ⚠️ 已知边界：拆组后每组的 `LastTargets` 各自从 `unit` 起手 ⇒ 组间 `them` 不再跨组继承。
+            //      现实池多组卡（SOR23/SOR67）两组都是 `Gain …`、无 `them` ⇒ 今天零可观测（报告 §边界）。
+            var activatedGroups = new List<EffectOp>();
+            var scratches = ResolveFaithGroupsUnderSink(ctx, owner, unit, ops, activatedGroups);
             ctx.EffectChain--;
-            // 🆕 2026-10-19（第五十七会话 `W57` · T21 C）：**能力激活了**（门槛 `faith >= N` 过了）⇒
-            //    按这张卡自己的动画行发 `UseFaith(605)`（闸 = `CardDef.HasAnimTrigger`）。
-            //    ⚠️ 门槛没过时 `ResolveOps` 的付费组整组拦下 ⇒ `activated == false` ⇒ 这一拍不发，
-            //    与原版「`CanTriggerAbility` 不成立 = ability 不激活」一致。
             // 🆕 2026-10-20（`FACTION-DOUBLE605`）：多组信仰能力的卡**每组发一条**（带 `AbilityIndex`），
             //    单组卡走的还是原来那一条（见 `EmitFaithAbilityUseTriggers` 的 doc）。
-            if (activated) EmitFaithAbilityUseTriggers(ctx, unit.Card, owner, unit, faithGroups);
+            if (activatedGroups.Count > 0)
+                EmitFaithAbilityUseTriggers(ctx, unit.Card, owner, unit, activatedGroups, scratches);
             if (ctx.IsOver) return;
             // 这一族里 `Deploy a …` / `Create a copy …` 会**改棋盘** ⇒ 光环要重算
             // （和别处 9 个棋盘写入点同一条纪律，见 `Core/Aura.cs` 的 `Recompose` 注释）
@@ -18777,7 +18787,7 @@ namespace RuleEngine
                                                             int row, int ca, int ta, UnitState chosen)
         {
             if (ca == 85) return RunTransformUnitRow(ctx, p, u, row, ta, chosen); if (ca == 350) return RunRemoveFromCemeteryRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-29（B96_CA · 账 172 / 548 与 534）：`85 = transformUnitWithBuff`（判据 `AbilityLogic__PlayAbility.c:904-941`）—— 原版在这一支组一条 `transformUnit(27)` 动作，我们没有 27 号动作道 ⇒ 生产端**直调** `RuleCore.TransformUnit`（下游 `TransformUnit_B94B12.cs` 已逐跳落齐）；`350 = removeFromCemetery`（判据 `AbilityLogic__PlayAbility.c:1986-1999` 逐目标 `AddRemoveFromCemetery`）
-            if (ca == 370 || ca == 400) return RunGrantedTriggerRow(ctx, p, u, row, ta, chosen, courtesy: ca == 400); if (ca == 160) return RunDiscardFromHandRow(ctx, p, u, row, ta, chosen); if (ca == 165) return RunDiscardWholeHandRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-29（B97_W5 · 账 850 / 独立账 BL37）：`160 = discardFromHand` / `165 = discardWholeHand`（判据 `AbilityLogic__PlayAbility.c:577-603` / `:293-345`）—— 结算体复用既有 `DoDiscardFromHand` / `DoDiscardWholeHand`（含 `RemoveCostEffects`），两条款行见 `B97W5_RowsAndDedupe.cs`；池内 `chosenAbility 160` = 0 张、`165` = 0 张 ⇒ 休眠档
+            if (ca == 370 || ca == 400) return RunGrantedTriggerRow(ctx, p, u, row, ta, chosen, courtesy: ca == 400); if (ca == 160) return RunDiscardFromHandRow(ctx, p, u, row, ta, chosen); if (ca == 165) return RunDiscardWholeHandRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-29（B97_W5 · 账 850 / 独立账 BL37）：`160 = discardFromHand` / `165 = discardWholeHand`（判据 `AbilityLogic__PlayAbility.c:577-603` / `:293-345`）—— 结算体复用既有 `DoDiscardFromHand` / `DoDiscardWholeHand`（含 `RemoveCostEffects`），两条款行见 `B97W5_RowsAndDedupe.cs`；池内 `chosenAbility 160` = 0 张、`165` = 0 张 ⇒ 休眠档；🔴 2026-11-04（`B141_W58` · CHK-05 `L130` 反证）：那唯一一行 160 **不在 BL37 本体上** —— 它是**教程起手占位卡** `T1 BlackLegion-Abaddons Chosen_startinghand`（`uniqueId f3df0cfc57695654cb31a72b65470522`，不在可玩池 `cards_engine` 1,142 张里），语义 = 回合开始（`trigger 30` / `abilityContext 10` 手牌）先按 `ta=20 self` 弃掉**它自己**、再 `ca 100 createCardInHand` 造出真 `BL37`（净效果 = 占位卡换成真卡）⇒ **BL37 没有「弃牌代价」**，⛔ 别按 `L130` 的描述回填一张会弃牌的卡（那是原版没有的行为）；逐项证据 → `资料/完全复刻/报告/B141_W128_BL37Discard.md`
             if (ca == 360) return RunPlayChosenCardAbility(ctx, p, u, chosen); if (ca == 320) return RunFollowAfterResolutionRow(ctx, p, u, chosen); if (ca == 390) return RunTriggerRequiemRow(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-30（`B99_E8` · 账 870 (b)）：`390 = AddTriggerRequiem` 的 ca 分派（判据 `AbilityLogic__PlayAbility.c:2073-2088` → `AddTriggerRequiem(targetCard, actingCard, …)` → `ResolveAction.c:5574` `case 0x40` → `ResolveTriggerRequiem`：跑 430/435 的是 `actingCard`=caster、`targetCard` 只当入口闸；见 `RunTriggerRequiemRow` 的 doc）。📊 池内 `chosenAbility 390` = 0/1,129 ⇒ 休眠件（铁律 11 照建），零可观测 🆕 2026-10-29（B94_F2 · 账 455）：`chosenAbility 360 = playChosenCardAbility`（`AbilityEffect.cs:64`）—— 原版 `AbilityLogic__PlayAbility.c:2014-2070` 那一支（判据见 `RunPlayChosenCardAbility` 的 doc）；🆕 2026-10-29（`B99_E3` · 账 1281/1379 的 (a) 格）：`320 = followAfterResolution` 的 ca 分派（判据 `AbilityLogic__PlayAbility.c:2244` / `:2471-2478` → `CardScript__FollowUpResolutionPlayed.c:5-9`，见 `RunFollowAfterResolutionRow` 的 doc）
             if (ca == 380) return RunSetReferenceCardRow(ctx, p, u, row, ta, chosen); if (ca == 480) return RunHighlightBloodThirstRow(ctx, p, u, row, ta, chosen); if (ca == 220) return RunResetActionsRow(ctx, p, u, row, ta, chosen); if (ca == 280) return RunRevealOrderRow(ctx, p, u, row, ta, chosen); if (ca == 290) return RunMissActionRow(ctx, p, u, row, ta, chosen); if (ca == 330) return RunDrawUntilEqualRow(ctx, p, u, row, ta, chosen); if (ca == 375) return RunTriggerSacrificeRow(ctx, p, u, row, ta, chosen); if (ca == 135) return RunStunMultiplierRow(ctx, p, u, row, ta, chosen); if (ca == 340) return RunRemoveThisEnchantmentRow(ctx, p, u, row, ta, chosen); if (ca == 200) return RunExchangeRandomFriendlyMinionRow(ctx, p, u, row, ta, chosen); if (ca == 345) return RunRemoveEnchantmentRow(ctx, p, u, row, ta, chosen); if (ca == 80) return RunTransformSelfRow(ctx, p, u, row, ta, chosen); if (ca == 162) return RunDisappearFromHandRow(ctx, p, u, row, ta, chosen); if (ca == 310) return RunDisplayFromHandRow(ctx, p, u, row, ta, chosen); return RunActiveRowOps(ctx, p, u, row, ta, chosen);   // 🆕 2026-10-30（`B102_EXEC` · 账 `战斗逻辑驱动:1282`/`:1380` 批 0 · 施工单 `判据/B102_R4_C类大工程两条.md` §①）：`380 setReferenceCard`（判据 `AbilityLogic__PlayAbility.c:2128-2160`）与 `480 highlightBloodThirst`（判据 `:1960-1972`）—— 两支的**执行体本来就已存在**（`SetReferenceCards` / `EmitBloodThirst`），缺的只是这一跳分派。⚠️ 池内 `activeAbilityLogic` 里这两码 **0 行**（`cards_engine.json` 1,129 张现扫：`ca` 直方图 0/10/20/30/40/60/70/75/100/130/140/238/300/320/325/420/462/467/468，无 380/480）⇒ 休眠接线、**零行为变化、指纹不变**。⛔ 本行**必须保持一行**（行数守恒）
         }
@@ -19042,12 +19052,12 @@ namespace RuleEngine
                 return false;
             }
 
-            // ③ 正文
-            var carrier = TriggerCarrier.From(inst, owner);
-            string kw = !string.IsNullOrEmpty(keyword) ? keyword : triggerName;
+            // ③ 正文（✅ 已复刻（2026-11-04 · B141_W67 · 判据 `AbilityLogic__PlayAbility.c:588-603` + `GetTargets.c:184-192`）：文本空 ⇒ 走**行级 `ca` 派发** `DispatchHandAbilityRows`）
+            var carrier = TriggerCarrier.From(inst, owner); string kw = !string.IsNullOrEmpty(keyword) ? keyword : triggerName;
             if (ops == null) ops = carrier.FxOps(kw);
             if (spec == null) spec = carrier.Effect(kw);
-            if ((ops == null || ops.Count == 0) && spec == null) return false;   // 没正文 = 原版空转
+            bool rowLane = (ops == null || ops.Count == 0) && spec == null;
+            if (rowLane && !HandAbilityTriggerHasRows(card, triggerName)) return false;   // 没正文、也没可派的行 = 原版空转
 
             // ④ 递归保护（与 `FireTriggerAt` **同一套**上限）
             if (ctx.EffectChain >= BattleContext.MaxEffectChain)
@@ -19061,7 +19071,7 @@ namespace RuleEngine
             var _acting = actingCard; var _inst = inst; var _by = by;
             bool queued = EnqueueAbility(ctx, ListenerLane(card, triggerName),
                 (card.Name ?? "?") + "·手牌:" + triggerName,
-                () => HandAbilityDeferred(ctx, owner, _inst, _ops, _spec, _subject, _target, _acting, _by),
+                () => HandAbilityDeferred(ctx, owner, _inst, _ops, _spec, _subject, _target, _acting, _by, triggerName),
                 actor: null, requireActorInPlay: false,
                 abilityTrigger: triggerName,
                 abilityTarget: target,
@@ -19075,11 +19085,11 @@ namespace RuleEngine
             return true;
         }
 
-        /// <summary><see cref="FireHandAbilityTrigger"/> 的**队列体**（泵点取到这一条时才跑）。
+        /// <summary><see cref="FireHandAbilityTrigger"/> 的**队列体**（泵点取到这一条时才跑）。🔴 B141_W67：`triggerName` 非空 = 文本 op 为空、改走**行级 `ca` 派发**（`DispatchHandAbilityRows`）。
         /// 🔴 必须**重种事件槽**：入队那一侧的 `using` 已经退出并还原了（同 `HandListenerDeferred` 的坑）。</summary>
         static void HandAbilityDeferred(BattleContext ctx, int owner, CardInstance inst,
                                         IReadOnlyList<EffectOp> ops, EffectSpec spec,
-                                        UnitState subject, UnitState target, UnitState actingCard, string by)
+                                        UnitState subject, UnitState target, UnitState actingCard, string by, string triggerName = null)
         {
             if (ctx == null || inst == null) return;
             using (EventSlotsScope.TargetAndCard(ctx, target, actingCard != null ? actingCard.Card : inst.Card))
@@ -19088,7 +19098,7 @@ namespace RuleEngine
                 try
                 {
                     if (ops != null) ResolveOps(ctx, owner, null, ops, by ?? "手牌能力", subject);
-                    else if (spec != null) ResolveEffect(ctx, owner, null, spec, null);
+                    else if (spec != null) ResolveEffect(ctx, owner, null, spec, null); else if (triggerName != null) DispatchHandAbilityRows(ctx, owner, inst, triggerName, by);
                 }
                 finally { ctx.EffectChain--; }
             }
@@ -20119,9 +20129,9 @@ namespace RuleEngine
         //    不在棋盘上），而 `ResolveTargets` 全仓 20 处调用点都按 `List<UnitState>` 用
         //    ⇒ 本方法**单开一个口**，`ResolveTargets` 那一侧只做「别扫棋盘」（见 `ResolveTargetsAs` 那一段）。
         //  📊 **可达性**：池内 `abilityTargets[].ta` 含 60 的 = **8 张**（`EC39` / `GSC44` / `SAU39` /
-        //    `SAU57`(×5) / `GOF94` / `SOR42` / `UM61` / `GSC55`）；它们的正文动词全是 `deploy` / `return`
-        //    ⇒ **今天都先被 `ReturnFromCemetery` / `DoDeployOnce` 各自的入口吃掉**（那两处仍自己扫
-        //    `DeadUnits`，本笔**不切**，理由见 `报告/B98_G2.md` §534②）。
+        //    `SAU57`(×5) / `GOF94` / `SOR42` / `UM61` / `GSC55`）；`return` / `deploy` 正文的三张走
+        //    `ReturnFromCemetery` / `DoDeployOnce`（2026-10-29 `B98_K4` 已换到墓地那一口）；`choose … died …` 五张走
+        //    `ChooseCardCandidates` 的 `ChooseSrc="dead"`（✅ 2026-11-04 `B141_W77` 也已换到墓地那一口 —— 残骸/放逐闸都覆盖到；见 `DeadCandidates` 的 doc）。
         // ------------------------------------------------------------------------------------------
 
         /// <summary>
@@ -21736,9 +21746,9 @@ namespace RuleEngine
             if (spec.Min < 0 || spec.Max < 0) return op;                   // 坏格 ⇒ 退回正文（⛔ 不猜）
             if (spec.ValueOptions != 0)
             {
+                if (TryResolveValueOption(ctx, spec.ValueOptions, spec.Min, spec.Max, 1, null, null, null, -1, out int hv, out string hgap)) { var hc = op.Clone(); hc.Amount = hv; hc.AmountMax = hv; ctx.Log($"{by}：「{op.Source}」的治疗量取自 `healCriteria.valueOptions = {spec.ValueOptions}` 档 = {hv}（原版 `AbilityLogic.GetValueFromCriteria`）"); return hc; }   // ✅ 已复刻（2026-11-04 · B141 · `AbilityLogic__GetValueFromCriteria.c` 全文）—— 非 0 档统一走唯一分派表（`EffectResolverPartial_B141VO.cs`）
                 ctx.Log($"{by}：「{op.Source}」的 `healCriteria.valueOptions = {spec.ValueOptions}`"
-                      + " **本仓没有那个求值档** ⇒ **沿用正文数值**（⛔ 不拿 `minValue` 假装算对了）");
-                return op;
+                      + $" 这一档本刻读不出来（{hgap}）⇒ **沿用正文数值**（⛔ 不拿 `minValue` 假装算对了）"); return op;
             }
             if (spec.Min == 0 && spec.Max == 0) return op;                 // 明确 0 ⇒ 没有可治的量
             var c = op.Clone();
@@ -21986,6 +21996,117 @@ namespace RuleEngine
         public static void NoteTriggerTargetSinkHandForTest(BattleContext ctx, System.Collections.Generic.List<CardRef> handRefs)
         {
             NoteTriggerTargetSinkHand(ctx, handRefs);
+        }
+
+        // ==================================================================
+        //  🔴🆕 2026-11-04（批次 `B141` · 执行写手 `W9b` · SAN-04 残余②）：
+        //  **605 / 600「先算后贴」的唯一件**
+        // ==================================================================
+        //  判据（第一权威 = `decomp_full/`）：
+        //    · `RawCardScript__TriggerAbilities.c:59` 逐条遍历 `cardAbilities`；
+        //      `:207` 对每一条过 `CanTriggerAbility`；`:231` 通过就 `TriggerAbility`（= `PlayAbility`）。
+        //    · `AbilityLogic__PlayAbility.c:262` 那一条 ability **自己的** `targetCriteria` → `GetTargets`；
+        //      `:273` `PlayAnim` 按这批目标逐张播（`:178-232`）⇒ **每条 ability 各算各的目标**，
+        //      ⛔ 不是「取某一条的」、也 ⛔ 不是「取整卡第一个目标」。
+        //  原版「选目标」与「播放」在同一次 `PlayAbility` 里；我们的 `EvtKind.Trigger` 要等
+        //  `ResolveTargets` 才选得出来 ⇒ 先用一条 **scratch `BattleEvent`** 接住（复用
+        //  `ResolveWithTriggerTargetSink` 的 save/restore），结算完发真事件，再把三位组抄回去。
+        //  ⛔ **别改成「结算后再补算目标」** —— 目标常常已经被这条效果打死 / 离场
+        //  （`NoteTriggerTargetSink` 判据③：必须在捕获那一刻落格号）。
+        //  ⛔ **别改 emit 时机** —— 仍然「结算完才发真事件」，本件只是把目标从 scratch 抄过去。
+        //  ✅ 已复刻（2026-11-04 · B141 · TriggerAbilities.c:59/207/231）
+        // ==================================================================
+
+        /// <summary>按**付费组**切片：`Cost &gt; 0 &amp;&amp; !CostShared` 起一组，后随 `Cost &gt; 0 &amp;&amp; CostShared`
+        /// 归入同组。判据与 `ChargePaidGroups`（`:741-747`）逐字同源 —— ⛔ 别另写一份组边界。
+        /// <para>`CardDef.FaithOps` 只收 `Cost &gt; 0` 的 op（`CollectFaithOps`）⇒ 每片 = 原版一条 605 能力。</para></summary>
+        static List<List<EffectOp>> SplitPaidGroups(IReadOnlyList<EffectOp> ops)
+        {
+            var groups = new List<List<EffectOp>>();
+            if (ops == null || ops.Count == 0) return groups;
+            List<EffectOp> cur = null;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                var op = ops[i];
+                if (cur == null || (op != null && op.Cost > 0 && !op.CostShared))
+                {
+                    cur = new List<EffectOp>();
+                    groups.Add(cur);
+                }
+                cur.Add(op);
+            }
+            return groups;
+        }
+
+        /// <summary>结算**一组** ops，并把它解析出的第一个目标写进一条 scratch 事件（不发射、不进 `Signals`）。
+        /// <paramref name="activated"/> = `ResolveOps` 的返回值（这一组激活了没有）。</summary>
+        static BattleEvent ResolveGroupUnderScratchSink(BattleContext ctx, int owner, UnitState unit,
+                                                        IReadOnlyList<EffectOp> groupOps, string by,
+                                                        out bool activated)
+        {
+            var scratch = new BattleEvent();
+            bool act = false;
+            ResolveWithTriggerTargetSink(ctx, scratch,
+                () => { act = ResolveOps(ctx, owner, unit, groupOps, by, unit, null); });
+            activated = act;
+            return scratch;
+        }
+
+        /// <summary>`FaithAbilityDeferred` 的「逐组结算 + 逐组接目标」：返回与 <paramref name="activatedGroups"/>
+        /// **一一对齐**的 scratch 事件（没激活的组两个都不收）。
+        /// ⛔ 别退回「整批一次 `ResolveOps`」—— 那样只接得到**第一组**的目标，第二组的事件又是空的。</summary>
+        static List<BattleEvent> ResolveFaithGroupsUnderSink(BattleContext ctx, int owner, UnitState unit,
+                                                             IReadOnlyList<EffectOp> ops,
+                                                             List<EffectOp> activatedGroups)
+        {
+            var scratches = new List<BattleEvent>();
+            var groups = SplitPaidGroups(ops);
+            for (int k = 0; k < groups.Count; k++)
+            {
+                bool act;
+                var scratch = ResolveGroupUnderScratchSink(ctx, owner, unit, groups[k], "信仰能力", out act);
+                if (!act) continue;
+                activatedGroups.Add(groups[k][0]);
+                scratches.Add(scratch);
+            }
+            return scratches;
+        }
+
+        /// <summary>把 scratch 接到的目标三位组抄进刚发出去的真事件（任一 `null` ⇒ 不动）。</summary>
+        static void CopySinkTarget(BattleEvent from, BattleEvent to)
+        {
+            if (from == null || to == null) return;
+            to.TargetPlayer = from.TargetPlayer;
+            to.TargetSlot = from.TargetSlot;
+            to.TargetCardId = from.TargetCardId;
+        }
+
+        /// <summary>按组序取 scratch（越界 / `null` 表 ⇒ `null`，⛔ 不抛）。</summary>
+        static BattleEvent ScratchAt(IReadOnlyList<BattleEvent> scratches, int i)
+        {
+            return scratches != null && i >= 0 && i < scratches.Count ? scratches[i] : null;
+        }
+
+        /// <summary>自检门：逐组结算 + 接目标（生产唯一调用点 = `FaithAbilityDeferred`）。⛔ 生产侧别调。</summary>
+        public static List<BattleEvent> ResolveFaithGroupsUnderSinkForTest(BattleContext ctx, int owner, UnitState unit,
+                                                                           IReadOnlyList<EffectOp> ops,
+                                                                           out List<EffectOp> activatedGroups)
+        {
+            activatedGroups = new List<EffectOp>();
+            return ResolveFaithGroupsUnderSink(ctx, owner, unit, ops, activatedGroups);
+        }
+
+        /// <summary>自检门：<see cref="SplitPaidGroups"/>（只读）。</summary>
+        public static List<List<EffectOp>> SplitPaidGroupsForTest(IReadOnlyList<EffectOp> ops)
+        {
+            return SplitPaidGroups(ops);
+        }
+
+        /// <summary>自检门：<see cref="DeadCandidates"/>（`choose … died …` 的候选口 —— `ChooseSrc == "dead"`，
+        /// 2026-11-04 `B141_W77` 已换到墓地那一口）。⛔ 生产侧别调；纪律同 `CemeteryDeadUnitsForTest`。</summary>
+        public static List<CardDef> DeadCandidatesForTest(BattleContext ctx, int owner, string scope, EffectOp op)
+        {
+            return DeadCandidates(ctx, owner, scope, op);
         }
     }
 }

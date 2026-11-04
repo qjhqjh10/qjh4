@@ -27,7 +27,15 @@ Unity 2023+/6 已删该字段（序列化里恒无 ⇒ 恒 0），2026-10-26 因
 
 用法
 ----
-    python -I -X utf8 d:/4/Unity/工具/gen_effect_extras.py [--dry] [--check]
+    python -I -X utf8 d:/4/Unity/工具/gen_effect_extras.py <--dry|--check|--write>
+
+      --dry    只扫描并打印统计，⛔ 不写盘
+      --check  把本次生成结果与盘上 `effect_extras.json` 比对（一致 rc=0 / 不一致 rc=1），⛔ 不写盘
+      --write  写盘 `Resources/WarpforgeVFX/effect_extras.json`
+
+    🔴 **不带任何动作参数 ⇒ 打印本用法并 rc=2，零写盘**（项目纪律：写盘脚本必须带显式动作，
+       见 CLAUDE.md「会写盘的脚本：不带显式动作参数时必须什么都不做」）。
+       ⚠️ 2026-11-04（`B141-W2`）之前 `main()` 只看 `--dry` / `--check`，两者都没有就**直接写盘** —— 已修。
 
 产物
 ----
@@ -58,6 +66,16 @@ WANT = {
 }
 
 G2A = {}   # guid -> .asset 文件名（presetSO / AudioCue）
+
+USAGE = """用法：
+  python -I -X utf8 d:/4/Unity/工具/gen_effect_extras.py <--dry|--check|--write>
+
+  --dry    只扫描并打印统计，⛔ 不写盘
+  --check  把本次生成结果与盘上 effect_extras.json 比对（一致 rc=0 / 不一致 rc=1），⛔ 不写盘
+  --write  写盘 Resources/WarpforgeVFX/effect_extras.json
+
+🔴 不带任何动作参数 ⇒ 打印本用法并 rc=2，**零写盘**（写盘脚本必须带显式动作）。
+"""
 
 # 🆕 2026-11-04（`B139_G` · 条目 13-03）：`particlesSystems` 里**解析不出**的引用（既不是空槽也不是本文件里的 PS）
 # —— 跑完打出来，⛔ 不静默。
@@ -164,6 +182,23 @@ def sub_emitter_indexes(body):
             j += 1
         return out
     return []
+
+
+def prefab_paths():
+    """prefab 基名 → 导出集里的**完整路径**（整棵导出树，不是只看根）。
+
+    🔴 2026-11-04（`B141-W2` · 判据 `判据/B141_W130_对账_资源.md` **16-09**）：
+    原来按 `os.path.join(EXPORT, nm + ".prefab")` **只在根目录**找 ⇒ 导出到 `GameObject/` 子目录的
+    prefab 一律被当成「导出集缺件」静默跳过。实测 978 个特效里 **13 个**落在 `GameObject/`，
+    其中就包括 **`Card 3D Death Explosion`**（它挂着 `DestroyByTime lifeTime: 2.2` —— 16-09 漏收的那条）。
+    改成按整棵树建索引；⚠️ 同名多份时取**第一份**（本轮实测这 978 个名字里**重名 0 组**）。
+    """
+    by = {}
+    for dp, _dirs, fs in os.walk(EXPORT):
+        for fn in fs:
+            if fn.endswith(".prefab"):
+                by.setdefault(fn[:-len(".prefab")], os.path.join(dp, fn))
+    return by
 
 
 def scan_prefab(path, g2c):
@@ -315,19 +350,26 @@ def scan_prefab(path, g2c):
 
 def main():
     global G2A
-    dry = "--dry" in sys.argv
-    check = "--check" in sys.argv
+    # 🔴 显式动作参数：`--dry` / `--check` / `--write` 三选一。
+    #    不带 / 带了未知参数 / 一次带多个 ⇒ 打印用法 + rc=2，**零写盘**（见 USAGE 与模块头）。
+    acts = [a for a in sys.argv[1:] if a.startswith("--")]
+    stray = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if stray or len(acts) != 1 or acts[0] not in ("--dry", "--check", "--write"):
+        print(USAGE)
+        return 2
+    action = acts[0]
 
     g2c = class_by_guid()
     G2A = asset_names()
+    pmap = prefab_paths()
     names = [os.path.splitext(os.path.basename(e["prefab"]))[0]
              for e in json.load(io.open(EFFECT_INDEX, encoding="utf-8"))["effects"]]
 
-    effects, missing, stats = [], 0, collections.Counter()
+    effects, missing, stats = [], [], collections.Counter()
     for nm in names:
-        p = os.path.join(EXPORT, nm + ".prefab")
-        if not os.path.exists(p):
-            missing += 1
+        p = pmap.get(nm)
+        if not p:
+            missing.append(nm)
             continue
         recs = scan_prefab(p, g2c)
         if recs:
@@ -344,20 +386,23 @@ def main():
     text = json.dumps(doc, ensure_ascii=False, indent=1)
 
     print("特效 %d 条 / 导出集缺 %d 件 / 带额外组件的 %d 件 / 挂载 %d 处"
-          % (len(names), missing, len(effects), sum(stats.values())))
+          % (len(names), len(missing), len(effects), sum(stats.values())))
     for k, v in stats.most_common():
         print("  %-34s %d" % (k, v))
+    if missing:
+        print("  导出集缺件（prefab 名）：" + " · ".join(missing))
 
-    if dry:
+    if action == "--dry":
         return 0
-    if check:
+    if action == "--check":
         old = io.open(OUT, encoding="utf-8").read() if os.path.exists(OUT) else ""
         same = old == text
-        print("--check：盘上文件与本次生成%s" % ("一致 ✅" if same else "**不一致** ❌（重跑一次即可）"))
+        print("--check：盘上文件与本次生成%s" % ("一致 ✅" if same else "**不一致** ❌（重跑 --write 即可）"))
         return 0 if same else 1
 
     io.open(OUT, "w", encoding="utf-8", newline=NL).write(text)
-    print("已写 " + OUT + "（%d 字节）" % len(text))
+    # ⚠️ 原来写的是 `len(text)`，那是**字符数**、却被印成「字节」（中文一个字 3 字节 ⇒ 少报 44）。
+    print("已写 " + OUT + "（%d 字节）" % len(text.encode("utf-8")))
     return 0
 
 

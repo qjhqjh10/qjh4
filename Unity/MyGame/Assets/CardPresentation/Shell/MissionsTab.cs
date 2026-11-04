@@ -1438,7 +1438,7 @@ namespace CardPresentation
             //   `Handle` = 4.14 × 50.60、**无 sprite、色 (0.941,0.725,0.314,1)** ⇒ UGUI 画**一块实心矩形**；
             //   `counter` 是 **`Handle` 的子节点**（模板位 62.53 × 35.01，**底边 = Handle 顶边**）。
             //   原版 `Slider` 的值由 `MissionProgressBarDisplay` 运行时设 ⇒ **把手跟着进度走、数字骑在把手上**。
-            //   ⚠️ 每日任务行那份的 `Handle Slide Area` 出厂 **`activeSelf=false`** ⇒ 那一处**不画**才对（我们没画，对）。
+            //   ⚠️ 每日任务行那份的 `Handle Slide Area` 出厂 **`activeSelf=false`** ⇒ 那一处**不画**才对（我们没画，对）。⛔ **2026-11-04（B141-W23b）反证：`Handle` 的 `m_RaycastPadding = (−25 全边)`（4 颗同值）【不是】命中区、⛔ 不补外扩** —— 判据：① 父 `Progress Bar` 的 uGUI `Slider`（prefab 里 `m_Script: -113659843`）**`m_Interactable = 0`**（4 份全 0）⇒ `IsInteractable()` 恒假，`OnPointerDown/Drag` 早退；② `Handle` 自己只有 `RectTransform + CanvasRenderer + Image`（**无 Button / EventTrigger / Slider**）⇒ 吃射线但**零消费者**（原版根本没有「可拖把手」这回事）。见报告 `B141_W129_Hitbox5.md` §七
             float t = DailyData.WeeklyProgress01();
             const float hw = 4.141f, hh = 50.60f, cw = 62.53f, ch = 35.01f;
             float hx = bar.x1 + t * bar.W;
@@ -1745,15 +1745,15 @@ namespace CardPresentation
         /// 先例 = `Shell/CampaignTab.cs` 的 `AddInfoTooltip`（`LayoutSpace.Px(-80f)`）。</para>
         /// <para>🔴 **2026-10-19（本笔顺手修）**：命中区与 tooltip 落点原来直接用**设计空间**矩形 `r` ——
         /// 而卡片那两颗在 `Daily Missions` 的 `localScale = 1.15` 子树里（见 <see cref="R"/> 的约定）
-        /// ⇒ 命中区比画出来的图标小 15%、并偏向子树 pivot。现在统一过 <see cref="R"/>（同 `AddContainerHit`）。</para></summary>
+        /// ⇒ 命中区比画出来的图标小 15%、并偏向子树 pivot。现在统一过 <see cref="R"/>（同 `AddContainerHit`）。✅ 已复刻（2026-11-04 · B141-W23 · 4-15）：命中区再按原版 `info` 的 `m_RaycastPadding = (−15, −15, −15, −15)` 外扩 —— 判据 = `Missions Tab.prefab` 逐颗现读（4 颗吃射线的 `info` Image 全是 **−15**；同 prefab 的 `Handle` ×4 = −25，与本条无关）；**先在设计空间外扩、再过 `R`**（pad 跟着 ×1.15，与原版同一局部空间），tooltip 锚点仍用未扩的 `f`（对称 pad ⇒ 中心不变）。⚠️ pad 写成**内联字面量**（不新增成员）：本文件 `MissionContainer` / `GridMissionCellCount` 里有按行号钉住的账（`MissionsTab.cs:2763` / `:2765`）⇒ 在 `MissionsTab` 类尾插成员会让它们整体下移。</para></summary>
         /// <param name="term">官方词条键；**传 `null` = 原版 `localize = 0` 的写死英文**（登录卡，见
         /// <see cref="LoginTipLiteral"/>）。</param>
         /// <param name="anchor">原版 `EverguildTooltipTrigger.tooltipAnchor`（表见 `Core/Tooltip.cs` 的 `Show`）。</param>
         /// <param name="offsetPx">原版 `offset.x`（**画布 px**；本方法内部过 `LayoutSpace.Px` 折世界单位）。</param>
         void AddInfoTooltip(Transform parent, PxRect r, string name, string term, int anchor, float offsetPx)
         {
-            var f = R(r);   // 设计空间 → 已缩放（`Daily Missions` 子树 ×1.15）
-            var hit = _win.AddHit(parent, name + " Hit", f, RewardsWindow.QOverlay, null);
+            var f = R(r);   // 设计空间 → 已缩放（`Daily Missions` 子树 ×1.15）；命中区另按 `info` 的 pad = (−15 全边) 外扩**再**过 `R` —— 见上一段
+            var hit = _win.AddHit(parent, name + " Hit", R(MenuDraw.PaddedRect(r, new Vector4(-15f, -15f, -15f, -15f))), RewardsWindow.QOverlay, null);
             if (hit == null) return;
             var wb = hit.GetComponent<WindowButton>();
             if (wb == null) return;

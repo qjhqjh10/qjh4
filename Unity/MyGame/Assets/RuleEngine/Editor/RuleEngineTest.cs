@@ -13,7 +13,7 @@
 //   不是引擎的判据依赖。判据 = 下列两条一起读：
 //   ① **只有期望值的来源才算判据** —— 本文件的期望值一律是硬编码常量（⛔ 不从我们自己的实现读回）；
 //      标签里那句「规则书 :N」只是**给人看的出处坐标**，删了它断言照样红/绿。
-//   ② 凡是**期望值只有粉丝规则书一条支撑**的（如遭遇模式起手 4 / 上限 8），标签已经显式写
+//   ② 凡是**期望值只有粉丝规则书一条支撑**的（如遭遇模式手牌上限 8），标签已经显式写
 //      「⚠️ 非官方来源」—— 那是**如实标的旁证**，不是「拿它当权威」。
 //   ⚠️ 同族另两处在**白名单外**：`CardPresentation/Editor/BattleScene.cs`（10 行）与
 //      `CardPresentation/Core/Badges.cs`（1 行）—— 引擎线写手不动，留给界面线。
@@ -248,7 +248,7 @@ public static partial class RuleEngineTest
         Section("加时 Overtime（2026-10-20 订正：判据 = **全局回合号** `ctx.Turn >= overtimeTurn` · 效果 = 每回合多抽 1 张）");
         Step(TestOvertime);
 
-        Section("遭遇模式 Skirmish（2026-09-26：12 张 / 起手 4 / 上限 8 / 能量 +2 / 督军 −10 / 不换牌）");
+        Section("遭遇模式 Skirmish（2026-09-26：12 张 / 起手 3 / 上限 8 / 能量 +2 / 督军增减 0 / 不换牌）");
         Step(TestSkirmish);
 
         Section("🔴 2026-10-20（W58-TURN-A）：`Gain N Energy` = 永久抬最大能量 · 手牌上限在抽牌瞬间判");
@@ -4875,7 +4875,7 @@ public static partial class RuleEngineTest
     ///   · 原版**游戏内文案**（官方，逐字）：`12-card decks / Up to 4 Legendaries (Warlord not included) /
     ///     Warlords start with 10 less Health / P1 3 Energy P2 4 Energy / Gain +2 Maximum Energy each turn /
     ///     Overtime begins earlier / No Offence card. Random Defence card. No mulligan`
-    ///   · **规则书**（⚠️ **粉丝实体版、非官方**）：起手 4 / 手牌上限 8 / 回合末存 1 点能量
+    ///   · **规则书**（⚠️ **粉丝实体版、非官方**）：手牌上限 8 / 回合末存 1 点能量（⚠️ 2026-11-04 `B141`：它那条「起手 4」**已作废**，起手改读 `DefaultScenario`=3）
     /// 逐字段来源 → `RuleEngine/Core/GameplayVariables.cs`（那是唯一出处）。
     ///
     /// 🔴 **这一节同时是「经典没被改坏」的验收** —— 每条都配一条经典支的对照
@@ -4896,7 +4896,7 @@ public static partial class RuleEngineTest
         Check(cv.warlordLifeChange, 10, "经典：督军生命 **+10**（真机实拍 vs SO 反推 —— 见字段注释判据链）");
         Check(sv.manaPerTurn, 2, "遭遇：每回合最大能量 **+2**（原版文案 `Gain +2 Maximum Energy each turn`）");
         CheckTrue(!sv.showMulligan, "遭遇：**不换牌**（原版文案 `No mulligan`）");
-        Check(sv.startingHand, 4, "遭遇：起手 **4** 张（⚠️ 规则书:58，**非官方来源**）");
+        Check(sv.startingHand, 3, "遭遇：起手 **3** 张（原版读同一份 `DefaultScenario.startingHand`=3；后手 +1 = 4）");
         Check(sv.handLimit, 8, "遭遇：手牌上限 **8**（⚠️ 规则书:58，同上）");
         CheckTrue(sv.IsSkirmish && !cv.IsSkirmish, "`IsSkirmish` 判据（= 卡组张数 < 30）");
         // 经典那一支**一个数都不许动**（`RuleEngineTest` 那 2995 条就是这条的验收，这里再钉两个关键数）

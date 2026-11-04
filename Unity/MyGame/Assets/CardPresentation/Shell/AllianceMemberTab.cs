@@ -135,6 +135,12 @@ namespace CardPresentation
         //   文件尾的 `AllianceTabBg` 里 —— 本文件与 `AllianceSearchTab` **共用那一份**，
         //   ⛔ 别在这里再复制一遍数值（铁律 6）。
         static readonly Color TabOnCol = new Color(1f, 0.631f, 0f, 1f), TabOffCol = new Color(1f, 0.544f, 0f, 1f);
+        // ✅ 已复刻（2026-11-04 · B141-W70 · W129 5-07，**等价而非新接线**）：原版
+        //   `Social Submenu Variant ▸ Alliances Tab/…/Tab buttons ▸ Generic Tab UI Button {Info,Trophies,Search,Create}`
+        //   **4 颗**的 `m_SpriteState.m_SelectedSprite` = `{guid 1d28baa3…}` = **`40K_tab_button_overwindow`**（= 本行 `ArtTabOff`，
+        //   `trans=0` 死值 —— 原版四态一像素都不变）。⇒ ⛔ **不接 `WindowButton.selectedArt`**：
+        //   我们这里底图是 `AllianceTabBg.Build` **每次重建**的九宫格（绑上去会 dangle），而且真接了会在
+        //   「`on` 态页签被键盘选中」时从 `40K_tab_button` 画成 `_overwindow` —— 与原版「四态不变」**相反**。
         const string ArtTabOn = "40K_tab_button", ArtTabOff = "40K_tab_button_overwindow";
 
         /// <summary>`GeneralDetails`（= 原版 `AllianceView`）**根节点**的矩形。
@@ -2303,6 +2309,17 @@ namespace CardPresentation
         const int QItemBg = 3333;
         const int QItemText = 3334;
 
+        /// <summary>下拉项（`Item`）的选中图 —— 原版 `m_SpriteState.m_SelectedSprite`。
+        /// ✅ 已复刻（2026-11-04 · B141-W70 · W129 5-07）：判据 = `Social Submenu Variant.prefab` 的
+        /// **6 个 `Item` 模板**逐颗现读 = `{fileID: 21300000, guid: 9c5732feaf7e3b141a4c76f00cacfc0b}`
+        /// → guid 反查切片名 = **`40K_dropdown_item_selected`**（`Resources/Art/ui_deck/` 里取得到）。
+        /// ⚠️ 它与 `ItemArtName` 的「选中行」底图**同一张**，但语义两回事（`Selectable.currentSelectionState`
+        /// vs 我们的 `_selRow`）⇒ `BindRow` 里**按 `selectedArt:` 显式传**，⛔ 别用 `ItemArtName` 顶替。
+        /// 🔴 **合上面那两颗九宫格下拉框（原版 `_field_opened`）的接线**：W70 当初按「`BindNine` 会压扁九宫格中段」
+        /// 暂缓，那个机制缺陷已在 `WindowButton.SetOn` 修掉（九宫格子块只换图、比例留在各自那一格）
+        /// ⇒ `B141-W81` 已接上（见 `Create` 末尾）。</summary>
+        public const string ItemSelArt = "40K_dropdown_item_selected";
+
         static readonly PxRect FullR = new PxRect(0f, 0f, 1920f, 1080f);
 
         readonly Transform _field;
@@ -2390,11 +2407,11 @@ namespace CardPresentation
             // 合上面的底：`40K_dropdown_field_closed`（727×102 · 九宫 (60,35,60,35) · 染色 (1,0.475,0.098,1)），
             //   展开态换成 `…_opened`（同尺寸）——「各建一份按开合切」的理由见字段那一段。
             GameObject bgClosed = null, bgOpen = null;
-            var bgTex = art("40K_dropdown_field_closed");
+            var bgTex = art(ArtFieldClosed);
             if (bgTex != null) bgClosed = MenuDraw.Nine(f, bgTex, fieldR, new Vector4(60f, 35f, 60f, 35f),
                                                         bgTex.width, bgTex.height, QListBg - 1,
                                                         new Color(1f, 0.475f, 0.098f, 1f), true, "Bg");
-            var bgTexOpen = art("40K_dropdown_field_opened");
+            var bgTexOpen = art(ArtFieldOpened);
             if (bgTexOpen != null) bgOpen = MenuDraw.Nine(f, bgTexOpen, fieldR, new Vector4(60f, 35f, 60f, 35f),
                                                           bgTexOpen.width, bgTexOpen.height, QListBg - 1,
                                                           new Color(1f, 0.475f, 0.098f, 1f), true, "Bg Opened");
@@ -2421,7 +2438,21 @@ namespace CardPresentation
                                               options, onChanged, art);
             // 合上面自己那颗命中区（原版 `TMP_Dropdown` 就是一个 `IPointerClickHandler`）：
             //   展开时它被**全屏挡板**压在下面 ⇒ 吃到的是挡板（= 收起），与原版「再点一下也收起」同一个结果。
-            MenuDraw.Hit(f, "Hit", fieldR, QItemBg, box.Toggle);
+            // ✅ 已复刻（2026-11-04 · B141 · `B141-W81` · 判据 = `Social Submenu Variant.prefab` 的 6 个
+            //   `LanguagesDropdown` / `Privacy Dropdown` 逐颗现读）：合上面那颗的 `m_SelectedSprite` =
+            //   **`40K_dropdown_field_opened`**（`m_Transition = 2`；`m_HighlightedSprite` / `m_PressedSprite` /
+            //   `m_SelectedSprite` **三档同值** = guid `6c66073c…`；常态 = `40K_dropdown_field_closed`）。
+            //   🔴 W70 当初**没接**，理由是 `BindNine` 会压扁九宫格中段 —— 那个机制缺陷已在 `WindowButton.SetOn`
+            //   修掉（九宫格子块只换图、比例留在各自那一格）⇒ 本批接上，走 `BindNine`（9 块都要换）。
+            //   ⚠️ 展开态仍由 `SetOpenVisual` 切成 `#Bg Opened`（同一张图）—— 两条路等价，⛔ 别去动那条。
+            var fieldHit = MenuDraw.Hit(f, "Hit", fieldR, QItemBg, box.Toggle);
+            if (fieldHit != null && bgClosed != null)
+            {
+                var fieldWb = fieldHit.GetComponent<WindowButton>();
+                if (fieldWb != null)
+                    fieldWb.BindNine(bgClosed, ArtFieldClosed, ArtFieldOpened, ArtFieldOpened, ArtFieldOpened);
+                else Debug.LogWarning("[Social] 下拉框 `" + name + "` 的命中区上没有 `WindowButton` ⇒ 悬停/按下**不换图**");
+            }
             return box;
         }
 
@@ -2492,7 +2523,7 @@ namespace CardPresentation
             var bgTex = _art("40K_dropdown_bg");
             if (bgTex != null)
                 MenuDraw.Nine(_list, bgTex, listR, new Vector4(23f, 20f, 23f, 20f), bgTex.width, bgTex.height,
-                              QListBg, new Color(1f, 0.475f, 0.098f, 1f), true, "Bg");
+                              QListBg, new Color(1f, 0.4745098f, 0.09803922f, 1f), true, "Bg");   // ✅ 已复刻（2026-11-04 · B141 · 判据 = `Social Submenu Variant.prefab:20174/21319/23796/24779/32090/33073` 六颗 `Template ▸ Image.m_Color` 逐位（0.4745098 = 121/255 · 0.09803922 = 25/255）；断言 = `B141_W70_Assert` C3/C4）
             var itemTex = _art("40K_dropdown_item");
             if (itemTex == null)
                 SocialPage.Say("[Social] `40K_dropdown_item` 取不到 ⇒ 列表只有字、没有条目底（判据图缺）。");
@@ -2597,7 +2628,7 @@ namespace CardPresentation
 
         /// <summary>第 <paramref name="i"/> 行**该有的常态图**（原版 `m_SpriteState`：选中 ⇒ `m_SelectedSprite`，
         /// 否则 ⇒ `Image.m_Sprite` 那张常态图）。唯一取图口 ⇒ ⛔ 别在别处再写一遍这两个图名。</summary>
-        string ItemArtName(int i) => i == _selRow ? "40K_dropdown_item_selected" : "40K_dropdown_item";
+        string ItemArtName(int i) => i == _selRow ? ItemSelArt : "40K_dropdown_item";
 
         /// <summary>把第 <paramref name="i"/> 行接回 `WindowButton`：**常态图** = 它这一刻该有的那张；
         /// **选中行的悬停图也绑「选中」那张** —— UGUI 的 `Selected` **排在 `Highlighted` 之上**
@@ -2612,7 +2643,8 @@ namespace CardPresentation
             if (wb == null) return;
             var normalTex = _art(ItemArtName(i));
             if (normalTex == null) return;        // 取不到就留在旧图上（`MissingArt` 已记）
-            wb.Bind(_itemQuads[i], "40K_dropdown_item", i == _selRow ? ItemArtName(i) : null);
+            wb.Bind(_itemQuads[i], "40K_dropdown_item", i == _selRow ? ItemArtName(i) : null,
+                    null, ItemSelArt);   // ✅ 已复刻（2026-11-04 · B141-W70 · W129 5-07）：第五格 = 原版 `Item ▸ m_SelectedSprite`（`ItemSelArt`；`Bind` 幂等，前四格与上次逐位相同）
             wb.SetNormalTex(normalTex);
         }
 
@@ -2649,6 +2681,11 @@ namespace CardPresentation
             }
             BindRow(idx);   // 新选中行：只改常态/悬停图的**引用** —— 按下那几帧的显示仍归 `WindowButton`（`_press`）
         }
+
+        // ✅ 已复刻（2026-11-04 · B141 · `B141-W81` · 判据 = `Social Submenu Variant.prefab` 的 6 个下拉框逐颗实读）：
+        //   合上面的常态图 = `_closed`；悬停 / 按下 / 选中三档**同值** = `_opened`（`m_Transition = 2`，三个 sprite 同一 guid）。
+        //   常量收在这里（类尾）⇒ 不挪既有成员的行号；`Create` 与 `_art` 调用点共用同一份名字（⛔ 别再写第二份字面量）。
+        const string ArtFieldClosed = "40K_dropdown_field_closed", ArtFieldOpened = "40K_dropdown_field_opened";
     }
 
     /// <summary>🆕 **2026-10-30（`B101_W3`）**：`Avatar Item Small` 三层的**视觉矩形** —— 原版

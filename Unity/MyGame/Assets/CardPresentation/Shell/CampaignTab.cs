@@ -74,7 +74,7 @@ namespace CardPresentation
         ///   · **多一条 `Slider`** 110×20（在 `HighlightBG` 正下方）
         /// ⇒ 条目可视高 = 110（高亮/图标）+ 20（进度条）= **130**。
         /// 出处：`menu_rect.py bundle_menus_assets_all "Campaign Army Item Button" --depth 4 --cs`。</summary>
-        const float ArmyItemW = 120f, ArmyItemH = 130f, ArmySpacing = -14f;
+        const float ArmyItemW = 120f, ArmyItemH = 130f, ArmySpacing = 10f, ArmyPadL = 48f, ArmyPadR = 25f;   // ✅ 已复刻（2026-11-04 · B141 · 4-02）：原版 `Army Content` 的 HorizontalLayoutGroup = m_Spacing **10** · m_Padding **L48 / R25**（`Campaign Tab.prefab` 的 `Army Content` 段；`bundle_menus_assets_all` 两份 MB `-3003792235550560883` / `4880439462271588095` 逐字同值）。改前是 −14 / 0 / 0（把锻造页的 `SelSpacing=-14` 抄了过来）
         /// <summary>`HighlightBG` / `Icon` 的高度与图标相对顶边的下移（照上面那棵树直读）</summary>
         const float ArmyHlH = 110f, ArmyIconH = 100f, ArmyIconDy = 5f;
         /// <summary>`Slider`：锚 `(0,1)-(1,1)` `sizeDelta (−10,20)` ⇒ 宽 = 条目宽 −10、贴着高亮框下沿。</summary>
@@ -303,7 +303,7 @@ namespace CardPresentation
             //    ⇒ 条目**居中**排。2026-09-23 找茬查出两页原来都从左边缘排 ⇒ 最后几个阵营出屏。
             //    判据与共用实现 = `UguiLayout.HorizontalContentCentered`（**别在这里再写一遍**）。
             _armyContentR = UguiLayout.HorizontalContentCentered(_selR, CampaignData.Armies.Length,
-                                                                 ArmyItemW, 0f, 0f, ArmySpacing);
+                                                                 ArmyItemW, ArmyPadL, ArmyPadR, ArmySpacing);
             _armyContent = RewardsWindow.Node(selVp, "Army Content", _armyContentR);
             // 🔴 阵营条**横向可滚**（原版 `Campaign Army Selector` 也是 `ScrollRect(横)` + `RectMask2D`）；
             //    居中内容的范围**两侧都有** ⇒ 两端各 2 个够不着的都能滚出来（`MenuScroll` 自己算极值）。
@@ -970,7 +970,7 @@ namespace CardPresentation
             {
                 string army = CampaignData.Armies[i];
                 // 内容坐标：从 `Army Content` 的**居中**矩形起排
-                var content = UguiLayout.HorizontalChild(_armyContentR, ArmyItemW, ArmyItemH, i, 0f, ArmySpacing);
+                var content = UguiLayout.HorizontalChild(_armyContentR, ArmyItemW, ArmyItemH, i, ArmyPadL, ArmySpacing);
                 var r = _armyScroll != null ? _armyScroll.Shift(content) : content;
                 if (_armyScroll != null && !_armyScroll.Intersects(r)) continue;   // 整条在视口外 ⇒ 不建
                 var item = RewardsWindow.Node(_armyContent, "CampaignArmyItem_" + i, r);
@@ -998,7 +998,7 @@ namespace CardPresentation
                 BuildArmySlider(item, army, new PxRect(r.x1 + ArmySliderInset, r.y1 + ArmyHlH,
                                                  r.x1 + ArmyItemW - ArmySliderInset, r.y1 + ArmyHlH + ArmySliderH));
                 // ⚠️ **不画 `Arrow`** —— 这一变体**没有这个节点**（母版与 Forge 版才有）。我们本来就没画，记着别加。
-                var armyHit = AddHit(item, "Hit", r, QArmyIcon, () => SelectArmy(army),
+                var armyHit = AddHit(item, "Hit", ArmyHitRect(r), QArmyIcon, () => SelectArmy(army),   // ✅ 已复刻（2026-11-04 · B141-W16 · 4-15）：原版可点区 = 子树各靶各按 `m_RaycastPadding` 后取并集 —— `Icon`（120×100 顶边下 5）pad **−11 全边**、另 4 靶全 0 ⇒ 并集 **142×132**（上沿高 6 / 下沿低 4，见类尾 `ArmyHitRect`）；外扩走 `MenuDraw.PaddedRect`（唯一那份「正缩负扩」）
                                      clickCue: WindowSounds.SelectAvatarCue);
                 // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版 `Campaign Army Item Button` 是
                 //   `EverguildToggle` + **`allowClickWhenAlreadySelected = 0`** ⇒ 再点当前阵营时静音且不派发。
@@ -1063,7 +1063,7 @@ namespace CardPresentation
             // `SnapTo/SnapToItem` 那一路的等价物，`ForgeRewardSelector` 用的是同一支）。
             // ✅ 可用前提已核：`_armyScroll` 在 `:309` 已 `PointerLayer.RegisterScroll` ⇒ 生产里每帧被 `MenuScroll.Tick(dt)` 推进
             //   （`MenuScroll.Tick` 的 doc：真跑由 `PointerLayer.Update` 调）；⛔ 没注册的 scroll 用它是**永不结束的补间**。
-            _armyScroll.FocusOnAnimated(_armyContentR.x1 + i * (ArmyItemW + ArmySpacing) + ArmyItemW * 0.5f);
+            _armyScroll.FocusOnAnimated(_armyContentR.x1 + ArmyPadL + i * (ArmyItemW + ArmySpacing) + ArmyItemW * 0.5f);
         }
 
         /// <summary>换阵营。**照原版 `CampaignWindowTab.ClickChangeArmy`**：不同才换 → `SetActiveCampaign` → `handler.SetSelectedArmy`。
@@ -1689,7 +1689,7 @@ namespace CardPresentation
         /// （`bundle_menus_assets_all/MonoBehaviour/MonoBehaviour_-4150665785838686835.json` 与
         /// `…_6137946225118746367.json`，两颗同值）= `tooltipAnchor = **5**（居中 · `None/MiddleCenter`）` ·
         /// `offset = **(0, −80, 0)**` ⇒ 现在照原版传（`Tooltip.Show` 的 `offset` 与 `worldPos` **同量纲 = 世界单位**
-        /// ⇒ 画布 px 走 `LayoutSpace.Px(…)`，同 `BattleDriver.TickTooltipAt` 那一族的 `/ TipPx` 口径）。</summary>
+        /// ⇒ 画布 px 走 `LayoutSpace.Px(…)`，同 `BattleDriver.TickTooltipAt` 那一族的 `/ TipPx` 口径）。🔴 **2026-11-04（`B141` · 4-15）：本颗 info 的命中区就吃整颗矩形、pad = 0，这是原版值、⛔ 别按「−15 全边」去扩** —— 判据 = `Campaign Tab.prefab` 的 `Info Button`（sz **41.1569×41.1573** · 锚 (0.5,0.5) · pos **(179.57,28.829)** = 调用处的 `infoR`；其 Image `m_RaycastTarget 1` / **`m_RaycastPadding (0,0,0,0)`**）。`报告/B131` 那条「info 20 处 = −15 全边」来自 **`Missions Tab.prefab` 的 `info`**（同图 `aae24d8f…`、同 41² 框，但 20 颗**全是任务页的**）—— 两页各是各的件，别互搬。</summary>
         void AddInfoTooltip(Transform parent, PxRect r, string name)
         {
             var hit = _win.AddHit(parent, name + " TipHit", r, RewardsWindow.QOverlay, null);
@@ -1957,6 +1957,43 @@ namespace CardPresentation
             if (_trackScroll == null) return;
             _trackScroll.ContentX1 = cx1;
             _trackScroll.ContentX2 = TrackCx2(cx1, cx2);
+        }
+
+        /// <summary>✅ 已复刻（2026-11-04 · B141 · 4-15）：阵营格命中区里 **`Icon` 那颗的 `m_RaycastPadding`**。
+        /// <para>判据（`Campaign Army Item Button.prefab` 逐字段现读）：子树里 5 颗 `m_RaycastTarget = 1` 的图 ——
+        /// `HighlightBG`(120×110 @顶边) / `Icon`(120×100 @顶边下 5) / `Badge Highlight`(35×35) /
+        /// `Slider/Background` 与 `Slider/Outline`(锚 `(0,0.2)-(1,0.8)` 的 110×12 芯) —— **只有 `Icon` 带 pad**，
+        /// 且是 **`(−11,−11,−11,−11)`**（其余四颗全 0）。
+        /// ⚠️ 本值**只用来修正 `Icon` 自己那块矩形**（见 <see cref="ArmyHitRect"/>），⛔ **不是整格的 pad**。</para>
+        /// <para>⛔ 外扩一律走 `MenuDraw.PaddedRect`（全工程唯一那份「正值缩小、负值扩大」）——
+        /// 同族先例 = `Shell/LeaderboardWindow.cs` 的 `ArmyIconPad`（那颗 `Army Item Button/Icon` 也是 −11）。</para></summary>
+        static readonly Vector4 ArmyHitPad = new Vector4(-11f, -11f, -11f, -11f);
+
+        /// <summary>✅ 已复刻（2026-11-04 · B141-W16 · 4-15）：阵营格的**原版命中区** = 子树里每颗可射线图
+        /// 各按自己的 `m_RaycastPadding` 修正后**取并集**（口径 = `MenuDraw.Union` 的 doc：`GraphicRaycaster`
+        /// 逐 Graphic 用「图形自己的 rect + raycastPadding」）。
+        /// <para>判据（`Campaign Army Item Button.prefab` 逐字段现读；坐标都相对本格顶边 `r.y1`、左沿 `r.x1`）：
+        /// · `Icon` 120×100 @顶边下 **5** + pad **−11 全边** ⇒ `(−11, −6) … (131, 116)`
+        /// · `HighlightBG` 120×110 @顶边 ⇒ `(0, 0) … (120, 110)`
+        /// · `Slider/Background` / `Slider/Outline` = 滑条带（110×20 @`110..130`）里锚 `(0,0.2)-(1,0.8)` 的
+        ///   12 高芯（= 本类 `ArmyBarH`）⇒ `(5, 114) … (115, 126)`
+        /// · `Badge Highlight` 35×35 右上角 `(−17.5,−17.5)` ⇒ `(85, 0) … (120, 35)`，**含在上面那块里**（并集不受影响）
+        /// · `Slider/Fill Area/Fill`：`m_SizeDelta = (0,0)` 的**退化矩形** ⇒ 不贡献
+        /// ⇒ 并集 = **`(−11, −6) … (131, 126)` = 142 × 132**（上沿比整格高 **6**、下沿比整格低 4）。
+        /// 🔴 **2026-11-04（W16 就地订正）**：本条上一版按 `报告/B131` 的「并集 142×130」落地（竖向沿用整格 `0..130`）——
+        /// 那是**审计的圆整值**；逐颗算出来是 **132**，本版按真值改（差 = 上沿少 6px / 下沿多 4px）。</para>
+        /// <para>⚠️ 视口会再裁一刀：本页 `Campaign Army Selector` 高 137、条目高 130 ⇒ 顶边只留 **3.5px** 余量，
+        /// 所以上沿那 6px 里有 2.5px 落在 `RectMask2D` 外 —— **原版也这样**（同一个视口、同一个 130 高条目），
+        /// 不是我们的偏差。量命中区时看到高 **129.5** 是「132 被视口裁掉 2.5」的结果，⛔ 别当成 132 没落地。</para></summary>
+        static PxRect ArmyHitRect(PxRect r)
+        {
+            float barCy = r.y1 + ArmyHlH + ArmySliderH * 0.5f;      // 滑条带中心（带高 20、12 高芯居中）
+            return MenuDraw.Union(
+                MenuDraw.PaddedRect(new PxRect(r.x1, r.y1 + ArmyIconDy,
+                                               r.x1 + ArmyItemW, r.y1 + ArmyIconDy + ArmyIconH), ArmyHitPad),
+                new PxRect(r.x1, r.y1, r.x1 + ArmyItemW, r.y1 + ArmyHlH),
+                new PxRect(r.x1 + ArmySliderInset, barCy - ArmyBarH * 0.5f,
+                           r.x1 + ArmyItemW - ArmySliderInset, barCy + ArmyBarH * 0.5f));
         }
     }
 }

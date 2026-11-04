@@ -131,7 +131,7 @@ namespace CardPresentation
             {
                 Entry e = Entries[i];
                 string legacyPath = Path.Combine(root, e.Rel);
-                if (e.ProfileSpecial) ImportProfile(sb, legacyPath, e.Label, e.Key);
+                if (e.ProfileSpecial) ImportProfile(sb, legacyPath, e.Label, e.Key);   else if (e.Key == SaveKeys.PlayerDecks) ImportDecksFile(sb, e.Label, legacyPath, e.Key, e.How);   // ✅ 2026-11-04 · B141 · UI-05 D6：卡组走专用导入（`PlayerDecks` 去掉 `current` + `CurrentDeck` 写**卡组 id**）
                 else ImportWholeFile(sb, e.Label, legacyPath, e.Key, e.How);
             }
             ImportInventoryDir(sb, Path.Combine(root, InventoryDirRel));
@@ -679,6 +679,81 @@ namespace CardPresentation
             }
             sb.Append('}');
             return sb.ToString();
+        }
+
+        // ================================================================================================
+        //  🆕 2026-11-04（执行代理 `B141_W15` · UI-05 D6）· 卡组旧档的**形状换算**
+        //
+        //  判据（现读）：`d:/2/tools/cpp2il/out_cpp2il_dev_ilspy/PlayerDataManager.cs:11472-11473` ——
+        //  原版 `CurrentDeck` = **字符串卡组 id**（`currentDeckId`）；`DeckInventory.cs:209` —— `PlayerDecks`
+        //  只有卡组表（`AzureDeckInfo[]`，**没有 current**）。我们旧档是 `{version,current,decks}`（一张表收两件事）
+        //  ⇒ 导入时拆成两个 key：`PlayerDecks`（新形状，无 current）+ `CurrentDeck`（旧档 `current` 下标 → 那一套的 id）。
+        //  ✅ 已复刻（2026-11-04 · B141 · `PlayerDataManager.cs:11472-11473` + `set_currentDeckId.c:5`）。
+        // ================================================================================================
+        static void ImportDecksFile(StringBuilder sb, string label, string legacyPath, string key, string how)
+        {
+            if (!File.Exists(legacyPath)) { Skip(sb, label, legacyPath, key, "没有这份旧档"); return; }
+            bool hadDecks = SaveCenter.Exists(key);
+            bool hadCurrent = SaveCenter.Exists(SaveKeys.CurrentDeck);
+            if (hadDecks && hadCurrent) { Skip(sb, label, legacyPath, key, "中央存档已有 `PlayerDecks` 与 `CurrentDeck`（不覆盖）"); return; }
+
+            string text;
+            try { text = File.ReadAllText(legacyPath, Encoding.UTF8); }
+            catch (Exception e) { Fail(sb, label, legacyPath, key, "读不了：" + e.Message); return; }
+
+            string problem;
+            if (!SaveCenter.IsWellFormedJsonObject(text, out problem))
+            {
+                Fail(sb, label, legacyPath, key, "旧档不是合法 JSON 对象（" + problem + "）⇒ 不导，旧文件原地不动");
+                return;
+            }
+
+            RuleEngine.DeckStore.LoadNote note; string detail; int current;
+            var decks = RuleEngine.DeckStore.Parse(text, out note, out detail, out current);
+            if (note == RuleEngine.DeckStore.LoadNote.ReadFailed)
+            {
+                Fail(sb, label, legacyPath, key, "旧档解析失败（" + detail + "）⇒ 不导");
+                return;
+            }
+
+            if (decks.Count > 0)
+            {
+                if (current < 0 || current >= decks.Count) current = 0;
+                var cur = decks[current];
+                if (cur != null && string.IsNullOrEmpty(cur.DeckId)) cur.DeckId = RuleEngine.DeckLibrary.NewDeckId();   // 旧档没有 id ⇒ 现发一个（本次写进新 payload）
+            }
+            else current = -1;
+
+            // ① `PlayerDecks` —— 新形状 `{version,decks}`（**不带 current**）
+            if (!hadDecks)
+            {
+                string payload = RuleEngine.DeckStore.SerializeStore(decks);
+                if (!SaveCenter.SetRaw(key, payload))
+                {
+                    Fail(sb, label, legacyPath, key, "写中央存档失败（原因见上一条 `[SaveCenter]` 日志）");
+                    return;
+                }
+                sb.Append("  ✅ ").Append(label).Append("：`").Append(Rel(legacyPath)).Append("` → `").Append(key)
+                  .Append("`（").Append(Utf8Bytes(payload)).Append(" B，**新形状 `{version,decks}`（无 `current`）**；")
+                  .Append(decks.Count).AppendLine(" 套）");
+            }
+            else
+            {
+                sb.Append("  ↷ ").Append(label).Append("：`").Append(key).AppendLine("` 已存在 ⇒ 不覆盖（旧档原地不动）");
+            }
+
+            // ② `CurrentDeck` —— 旧档 `current`（下标）→ 那一套的 **id**
+            string curId = (current >= 0 && current < decks.Count) ? decks[current].DeckId : null;
+            if (!hadCurrent && !string.IsNullOrEmpty(curId))
+            {
+                if (!SaveCenter.SetRaw(SaveKeys.CurrentDeck, RuleEngine.DeckStore.SerializeCurrentDeck(curId)))
+                    Fail(sb, label, legacyPath, SaveKeys.CurrentDeck, "写 `CurrentDeck` 失败（原因见上一条 `[SaveCenter]` 日志）");
+                else
+                    sb.Append("  ✅ ").Append(label).Append("：旧档 `current` = ").Append(current).Append("（下标）→ `")
+                      .Append(SaveKeys.CurrentDeck).Append("` = `").Append(curId).AppendLine("`（卡组 id）");
+            }
+
+            LastImportedCount++;
         }
     }
 

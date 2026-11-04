@@ -281,8 +281,8 @@ namespace CardPresentation
         /// 「让位占的宽算不算进 `totalWidth`」，四份实例都 =1 ⇒ 不算。</summary>
         public bool useExtraSpaceOnSelectedCard = true;
 
-        [Tooltip("悬停/拖拽的那张往前提多少 z")]
-        public float frontZ = 0.5f;
+        [Tooltip("悬停/拖拽的那张往前提多少 z（**我们的世界单位**）—— 原版 0.01 世界单位 × 14.835/108 ≈ 0.0013736 = 0.148 px"), System.NonSerialized]   // 🔴 2026-11-04（`B141-W24`）：`NonSerialized` **必须有** —— `Scenes/Battle.unity:1307/2544` 与 `CardBase.unity:22445` 三处序列化着**旧值 `frontZ: 0.5`**，不排除它就会盖掉下面的初始化器 ⇒ 改小了也**在真机不生效**（静默；做法同 `hoverLift`）
+        public float frontZ = 0.01f * OurUnitsPerWorldUnit;   // ✅ 已复刻（2026-11-04 · B141 · `CardScript__ShowCardInHand.c:104`）：原版 `set_position(pos.x, pos.y, pos.z − 0.01)`，那个字面量 = `.rdata 0x1834B2DBC`（`工具/read_literal.py` 实读 **0.01f**，4 字节；同址亦即 `CardScript__SetCardMovement.c` 的 `d2 < 0.01` 近阈，`B120-W1` 已按同一座桥换算过）· 它是**原版世界单位**（1 = 14.835 px）⇒ 过桥 `OurUnitsPerWorldUnit`（= 14.835/108 = 0.13736）= **0.0013736 我们的单位 = 0.148 px**。改前 **0.5**（= 54 px，**大 364 倍**；审计写的「大 6.9 倍」是直接拿 0.5 比 0.01、**混了两个坐标帧**，⛔ 别按那个数改）。⚠️ 层序**不**靠 z —— 由 `queueTop` 那段 render queue 决定（`:806-832`）⇒ 本值只影响几何纵深；当前相机是**正交**（`LayoutSpace.Apply`）⇒ z 今日不参与投影、零像素差，接上原版透视相机（`A2098` 技术债）后才产生可见差
 
         [Tooltip("原版 useZOrder=1：「Left card Z < right card Z」= **左边的压在上面**。"
                + "所以露出来的是每张牌的右半边 —— 卡面上的费用（右上）和生命（右下）正好在那儿，对得上")]

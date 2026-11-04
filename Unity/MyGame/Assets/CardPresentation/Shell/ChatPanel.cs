@@ -136,7 +136,7 @@ namespace CardPresentation
         /// —— 口径同 A323（缺省值**不是原版概念**，原版只有**逐个节点**的真值）。
         /// ⚠️ 与 `AllianceMemberTab.TextSoft`（A403①）**不同**：那一边 `alignLeft` 的缺省是**死的**
         /// （两个调用点都显式传），**这一边是【活的】** —— 现读 `Enter Text/InputField (TMP)` 上面那条
-        /// `Text(input, InputR, "Type message", …)`（⛔ 按**内容**找，别按行号 —— A403 立项时它在 `:219`，
+        /// `Text(inputArea, InputR, "Type message", …)`（⛔ 按**内容**找，别按行号 —— A403 立项时它在 `:219`，
         /// 改完之后必然漂）**没传** `alignLeft` ⇒ 它今天吃的是缺省的 `true`。**所以删缺省之前必须先给那一行显式写出来**，
         /// 否则等于**静默**把那一处改成「不对齐（= 居中）」。本批已显式补 `alignLeft: true` + `autoMin: 0f`。
         /// · `autoMax` / `autoBase` **保留缺省**（`&lt;= 0` ⇒ 旧行为）—— 本窗四处调用点原版**全是
@@ -234,6 +234,12 @@ namespace CardPresentation
             _enterText = Node(chat, "Enter Text", EnterR);
             Nine(_enterText, "Chat_text_background", EnterR, new Vector4(53f, 43f, 52f, 43f), "Background", QBg, borderOutPx: new Vector4(26.5f, 21.5f, 26f, 21.5f));
             var input = Node(_enterText, "InputField (TMP)", InputR);
+            // ✅ 已复刻（2026-11-04 · B141_W68 · 判据 `判据/B141_W129_对账_UI动画.md` W11/4-23 ＋ `ChatPanel.prefab` 的 `InputField (TMP)/Text Area ▸ RectMask2D`）：
+            //   原版两颗 TMP 的父件是 `Text Area`（挂 `RectMask2D`：pad `(−8,−5,−8,−5)` 负=外扩 · soft `(0,0)`）。
+            //   改前两颗字直接挂在 `InputField (TMP)` 上、只被外层 `Chat Tab/Viewport` 裁
+            //   ⇒ 不是原版那条掩码（差 5–8 px）。⇒ 补这颗节点，两颗字挂到它下面（`ClipText` 由父链解析）。
+            var inputArea = ViewportClip.Hang(input, "Text Area", InputR,
+                                              TextInputField.AreaPad, TextInputField.AreaSoftness).transform;
             // 🔴 **A406（2026-10-12）逐站实读**：`ChatPanel/Holder/Chat/Enter Text/InputField (TMP)/Text Area/Placeholder`
             //   原版 `字号=28.0 基准=28.0`（**没有 `auto[…]` 段** ⇒ `m_enableAutoSizing = 0`）
             //   ⇒ `autoMax`/`autoBase` **不适用**；我们也传 `autoMin = 0`（缺省）⇒ **两边一致**。
@@ -263,7 +269,7 @@ namespace CardPresentation
             // 🔴 **A1024③（2026-10-17）换面**：`ChatPanel` + `ChatMessageRow` 两棵根里 **0 颗 Asar**
             //    （判据 = `menu_dump … bundle_menus_assets_all "ChatPanel"` / `… bundle_mainmenualwaysloaded_assets_all
             //    "ChatMessageRow"` 逐颗现读）⇒ 本窗全部 `LatinCardBody`（Pragati）。
-            var ph = Text(input, InputR, Loc.T("MainMenu/Chat/TypeMessage"), new Color(1f, 1f, 1f, 0.439f), "Placeholder", 28f, QText,
+            var ph = Text(inputArea, InputR, Loc.T("MainMenu/Chat/TypeMessage"), new Color(1f, 1f, 1f, 0.439f), "Placeholder", 28f, QText,
                  autoMin: 0f, alignLeft: true, face: TmpFont.Face.LatinCardBody);
             // 🔴 **2026-10-14（A526）**：原版这一颗是 **`折行 = 3`（`PreserveWhitespaceNoWrap`）**，
             //   而 `MenuDraw.TextBox` 建出来的恒是 `Normal(1)` ⇒ **只有输入框这一族这一格不对**
@@ -275,7 +281,7 @@ namespace CardPresentation
             //   的 `SetWrappingMode(3)` → `AlignLeftOn`）。⛔ 别拿 `SetWrapping(false)` 顶替 —— 那是 `0` 档。
             if (ph != null) { ph.SetWrappingMode(3); MenuDraw.AlignLeft(ph, InputR); }   // 重排会把 TMP 子节点挪走 ⇒ 对齐要压在它后面
             // 🔴 **2026-10-30（`B102_CHAT`）**：原版 `Text Area/Text`（字号 28 · Left/Top · 折行 3 · 白 · 文案零宽空格）—— 我们**原来没有这一颗**（只有 `Placeholder`）⇒ 打进字去没地方显示、看着像「打不了字」（判据 = `资料/普查产出_0927/聊天窗与挑战弹窗.md:76`）
-            var textLb = Text(input, InputR, "\u200b", Color.white, "Text", 28f, QText, autoMin: 0f, alignLeft: true, face: TmpFont.Face.LatinCardBody);
+            var textLb = Text(inputArea, InputR, "\u200b", Color.white, "Text", 28f, QText, autoMin: 0f, alignLeft: true, face: TmpFont.Face.LatinCardBody);
             if (textLb != null) { textLb.SetWrappingMode(3); MenuDraw.AlignLeft(textLb, InputR); }   // 重排会把 TMP 子节点挪走 ⇒ 对齐压在它后面
             TextInputField.Bind(input, new PromptContext.InputData("ChatInput", "MainMenu/Chat/TypeMessage"), ph, textLb, ChatSend.CharLimit, v => ChatSend.SubmitByEnter(this), StripRichTextTags);   // B107_W27：末位 `sanitize` = 原版 `m_OnValueChanged → TextMessageValidationTools.RemoveRichTextTags` 那一跳（`ChatPanel.cs:154-161`）；`Update()` 那份轮询保留（幂等空转，W13 口径）
             MenuDraw.Hit(input, "InputHit", InputR, QHit, () => ChatSend.Begin(this));
@@ -429,7 +435,7 @@ namespace CardPresentation
         //     （先例：`PlayerProfileWindow.RefreshHighlights`，同一条纪律）。
         //   ⚠️ 原版 `EverguildToggle.graphic = null`（页签**没有** `On` 子件）—— 与阵营格那种
         //      「`graphic` 指 `On` 遮一层」的情形**不是一回事**，⛔ 别照搬。
-        const string TabArtOff = "40K_settings_button";              // offSprite = 未选中
+        const string TabArtOff = "40K_settings_button";              // offSprite = 未选中 · ✅ 已复刻（2026-11-04 · B141-W60 · W129 5-17）：`ChatPanel.prefab/Holder/Chat/Tab Buttons/Orange Tab Toggle` 现读四态 = off `40K_settings_button` · on/selected `40K_settings_button_hover` · hover `40K_settings_button_selected` · pressed `40K_settings_button_pressed`（与下面四行**逐值相同**，故本批零改动）
         const string TabArtOn = "40K_settings_button_hover";         // onSprite  = 选中
         const string TabArtHover = "40K_settings_button_selected";   // m_HighlightedSprite（悬停）
         const string TabArtPressed = "40K_settings_button_pressed";  // m_PressedSprite（按下）
@@ -488,6 +494,11 @@ namespace CardPresentation
                                    _tabBg[idx], TabArtOff, TabArtHover, TabArtPressed,
                                    clickCue: WindowSounds.SelectToggleCue);
             _tabBtn[idx] = hit != null ? hit.GetComponent<WindowButton>() : null;
+            // ✅ 已复刻（2026-11-04 · B141-W44 · 5-07）：`Orange Tab Toggle` 的
+            //   `m_SpriteState.m_SelectedSprite` = **`40K_settings_button_hover`**（= 它的 `onSprite`；
+            //   判据 → `报告/B141_W129_ButtonFx.md` §5-07 / 本函数上面那段逐字段实读）。
+            //   `MenuDraw.Hit` 不收 `selectedArt` ⇒ 建完后按同一组四态图再 `Bind` 一次（前四格逐位不变）。
+            if (_tabBtn[idx] != null) _tabBtn[idx].Bind(_tabBg[idx], TabArtOff, TabArtHover, TabArtPressed, TabArtOn);
             // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版这两颗频道键是 `EverguildToggle` +
             //   **`allowClickWhenAlreadySelected = 0`** ⇒ 再点当前频道时连按钮音一起跳过。
             if (_tabBtn[idx] != null)

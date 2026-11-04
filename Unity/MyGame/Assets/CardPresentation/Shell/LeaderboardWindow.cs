@@ -118,7 +118,7 @@ namespace CardPresentation
         /// <summary>`button_bg` 的色（正本 §A：`(1,0.427,0,1)`）。**选中/未选中是换图不换色**：
         /// `onSprite = 40K_settings_button_hover` · `offSprite = 40K_settings_button`。</summary>
         static readonly Color TabBgTint = new Color(1f, 0.427f, 0f, 1f);
-        const string ArtTabOn = "40K_settings_button_hover", ArtTabOff = "40K_settings_button";
+        const string ArtTabOn = "40K_settings_button_hover", ArtTabOff = "40K_settings_button", ArtTabHover = "40K_settings_button_selected";   // ✅ 已复刻（2026-11-04 · B141 · 5-17）：三份排行榜 prefab 页签 `m_HighlightedSprite` 逐颗现读 = `_selected`｜✅ B141-W60 反证（2026-11-04）：常态/选中 = `EverguildToggle` 的 `offSprite 40K_settings_button` / `onSprite 40K_settings_button_hover`（`changeSpriteOnValueChange=1`，`EverguildToggle__Awake.c` 末尾按 `isOn` 直接 `Image.set_sprite`）—— `m_TargetGraphic.m_Sprite` 那颗 `_hover` **只是 prefab 存盘时的 on 态快照**（三份 prefab 3/3 颗 `m_IsOn=1`；同一族的档案窗/成就页 11/11 颗 `m_IsOn=0` 就存的是 `40K_settings_button`）⇒ ⛔ **别把 `ArtTabOff` 改成 `_hover`**（判据 → `报告/B141_W129_HoverRest.md` §二）
 
         static readonly PxRect PanelR = new PxRect(202.40f, 16.32f, 1717.60f, 1006.93f);
         static readonly Vector4 PanelBorder = new Vector4(42f, 363f, 655f, 81f);
@@ -647,7 +647,7 @@ namespace CardPresentation
 
                 bool on = specs[i].Tab == CurrentTab;
                 // `button_bg`：**换图不换色**（`onSprite`/`offSprite`），色恒 `(1,0.427,0,1)`
-                var bgQ = Rect(node, on ? ArtTabOn : ArtTabOff, r, "button_bg", QBg, TabBgTint);
+                var bgQ = Rect(node, on ? ArtTabOn : ArtTabOff, r, "button_bg", QBg, TabBgTint);   // ✅ 已复刻（2026-11-04 · B141-W60 · 5-17）：未选中 = `offSprite 40K_settings_button` · 选中 = `onSprite _hover`（判据 = `EverguildToggle__Awake.c` / `__ToggleSprite.c` 里 `spriteToChange.set_sprite(isOn ? onSprite : offSprite)`，⛔ 不是 `m_TargetGraphic.m_Sprite`）
                 var iconR = new PxRect(TabIconL, t + TabIconDy, TabIconR, t + TabIconDy + TabIconH);
                 Rect(node, specs[i].Art, iconR, "Icon", QContent, null, true);
                 // `Label`（页签文字层）**出厂就 inactive、而且全子树没有一处引用它**（正本 §A·1）
@@ -655,8 +655,8 @@ namespace CardPresentation
 
                 var tab = specs[i].Tab;
                 bool wired = specs[i].Wired;
-                // 🆕 A17：原版 `Tab Buttons>{RankedSkirmish…}` 是 Toggle，`m_SpriteState` 的**悬停图 = `…_selected`**
-                //（`onSprite` 的 `_hover` 是**选中态**，见 §一；`WindowButton` 那张表里就是这个映射）
+                // 🆕 A17 · ✅ 已复刻（2026-11-04 · B141 · 5-17）：原版 `Tab Buttons>{RankedSkirmish…}` 是 Toggle，`m_SpriteState.m_HighlightedSprite` = `…_selected`（三份 prefab 7/7 颗逐颗现读）
+                //（`onSprite` 的 `_hover` 是**选中态** `m_SelectedSprite`；我们现在**显式**传 `hoverArt: ArtTabHover`，不靠全局表隐式兜底）
                 var tabHit = MenuDraw.Hit(node, "Hit", r, QHit,
                              () => { if (wired) SelectTab(tab); else OnDeadTab(tab); }, bgQ, ArtTabOff,
                              clickCue: WindowSounds.SelectToggleCue);
@@ -666,6 +666,11 @@ namespace CardPresentation
                 var tabWb = tabHit != null ? tabHit.GetComponent<WindowButton>() : null;
                 if (tabWb != null)
                 {
+                    // ✅ 已复刻（2026-11-04 · B141-W44 · 5-07）：三份排行榜 prefab 的页签
+                    //   `m_SpriteState.m_SelectedSprite` 逐颗实读 = **`40K_settings_button_hover`**
+                    //   （判据 → `报告/B141_W129_ButtonFx.md` §5-07）。`MenuDraw.Hit` 不收 `selectedArt`
+                    //   ⇒ 建完后按同一组常态/悬停/按下图再 `Bind` 一次（前四格逐位不变，`Bind` 幂等）。
+                    tabWb.Bind(bgQ, ArtTabOff, ArtTabHover, null, ArtTabOn);   // ✅ 已复刻（2026-11-04 · B141 · 5-17）：悬停图显式传 `ArtTabHover`（原版 7/7 颗逐颗现读）
                     tabWb.allowClickWhenAlreadySelected = false;
                     tabWb.isOn = () => CurrentTab == tab;
                 }

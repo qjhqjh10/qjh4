@@ -2879,5 +2879,59 @@ namespace CardPresentation
             if (!_tmp.isActiveAndEnabled) return;
             _tmp.ForceMeshUpdate();
         }
+
+        // ==================================================================
+        //  🔴 2026-11-04（执行写手 `B141-W14` · B138 §4 `4-11`）
+        // ✅ 已复刻（2026-11-04 · B141 · `判据/B141_W129_对账_UI动画.md` §4-11 ＋ prefab 现扫）
+        //  TMP `m_paragraphSpacing` 的**唯一写入口**（此前全仓 0 处、且连 API 都没有）。
+        //  ⚠️ 一律追加在**类尾**（本文件被账按 `文件:行号` 引用多处；插在中段会让下游落点整体漂移）。
+        // ==================================================================
+
+        /// <summary>我们最近一次**请求**的段距（**自检 / 诊断用**）。点阵后端恒 0（如实报「没写过」）。
+        /// ⚠️ 它只记「调用方要的那一档」，**不是**渲染真值 —— 真值读 <see cref="ParagraphSpacingNow"/>。</summary>
+        public float ParagraphSpacingRequested { get { return _paragraphSpacing; } }
+
+        /// <summary>自检读口：TMP **现在真正生效**的 `paragraphSpacing`（点阵后端恒 0）。
+        /// ⛔ 它只是**档位**，「段间空隙真的拉开了」要真机看图。</summary>
+        public float ParagraphSpacingNow { get { return _tmp != null ? _tmp.paragraphSpacing : 0f; } }
+
+        /// <summary>🧨 自检开关：<see cref="SetParagraphSpacing"/> **只记字段、不写 TMP**（= 没有这个口之前的行为）。
+        /// 断言用它做**灭自证**（开 ⇒ <see cref="ParagraphSpacingNow"/> 读回仍是 0 ⇒ 那条红）。默认 false、生产路径不碰。</summary>
+        public static bool DisableParagraphSpacingWriteForTest;
+
+        /// <summary>🔴 **2026-11-04（`B141-W14` · B138 §4 `4-11`）：TMP `m_paragraphSpacing`（段落间距）写入口。**
+        /// <para>**为什么有它**：原版 prefab 里非 0 段距约 **150 颗**，我们**全仓 0 处、且连 API 都没有**
+        /// （卡面之外无处表达；卡面走的是 `Core/CardView.cs` 直接写 `t.paragraphSpacing`）。2026-11-04 现扫
+        /// `d:/2/tools/assetripper_out/ExportedProject/Assets/**/*.prefab`（339 份带 TMP 的）按值分组 =
+        /// **`8×132`**（卡面战术卡 `DescTextTactic*` / `DescTacticSmall` 族）· **`60×10`**（事件/欢迎弹窗
+        /// `DescriptionText`）· `20×4`（toast 正文）· `50×2`（高级版购买窗）· `25×2`（设置 `Email Text`）·
+        /// `22`（活动帮助）· `10`（周奖励 tooltip）· **`0.08×8`**（卡组/收藏万能卡 `Counter`）。
+        /// ⚠️ 审计口径写「8×129 / 60×10」—— 差那 3 颗是同族**变体 prefab**里的副本，**值不变**。</para>
+        /// <para>⚠️ 单位 = **字体单位**（与 `fontSize` / `lineSpacing` 同一档）⇒ **原版值直接传**，
+        /// ⛔ 别乘 108 / 别除 em。口径与 `Shell/MenuDraw.cs` 的 `SetLineSpacing` 逐条对齐。</para>
+        /// <para>⚠️ 收尾走 <see cref="ForceRelayout"/>（段距改的是行盒之间的空隙 ⇒ 版面要重收敛一次；
+        /// 与 `MenuDraw.SetLineSpacing` 同一条收尾，⛔ 别退成裸 `ForceMeshUpdate` —— 未激活对象上它会早退）。</para>
+        /// <para>⚠️ 点阵后端（`_tmp == null`）没有「段落」这回事 ⇒ **出声**后返回（红线：不许静默失败）。
+        /// 口名 / key 头段 = **`段距`** —— ⛔ 别并进已有那些口（`_dotAlignNoted` 同 key 只响一次，撞了就是永久静默）。</para>
+        /// <para>⚠️ 默认值 = **0**（TMP `TMP_Text.m_paragraphSpacing` 的出厂值）⇒ **不调用就与改前逐位相同**，
+        /// 不会静默改掉任何既有窗。</para></summary>
+        public void SetParagraphSpacing(float paragraphSpacing)
+        {
+            if (_tmp == null)
+            {
+                NoteDotBackendLacks("段距", "没有「段落间距」这回事",
+                                    "`paragraphSpacing = " + paragraphSpacing + "`",
+                                    "没生效（多段文字之间的空隙没加上）");
+                return;
+            }
+            _paragraphSpacing = paragraphSpacing;
+            if (DisableParagraphSpacingWriteForTest) return;   // 🧨 灭自证档 = 只记账、不写 TMP
+            _tmp.paragraphSpacing = paragraphSpacing;
+            ForceRelayout();
+        }
+
+        /// <summary>「我们请求过什么段距」那一侧的记账（TMP 的真值走 <see cref="ParagraphSpacingNow"/>）。
+        /// ⚠️ 单独一个字段是为了让**灭自证**能只写一边 —— ⛔ 别拿它当渲染真值用。</summary>
+        float _paragraphSpacing;
     }
 }

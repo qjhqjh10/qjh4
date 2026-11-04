@@ -1485,7 +1485,7 @@ namespace CardPresentation
             float half = (HelpR - HelpL) * HelpScale * 0.5f;
             var r = new PxRect(cx - half, cy - half, cx + half, cy + half);
             var helpQ = MenuDraw.Rect(root, Tex(ArtHelp), r, "Help Button", QArt, null, true);
-            var helpHit = MenuDraw.Hit(root, "HelpHit", r, QHit, () => HelpButtonClick());
+            var helpHit = MenuDraw.Hit(root, "HelpHit", MenuDraw.PaddedRect(r, HelpHitPad), QHit, () => HelpButtonClick());   // ✅ 已复刻（2026-11-04 · B141-W23 · 4-15）：原版 `Help Button` 的 `m_RaycastPadding = (−30, −30, −30, −30)`（逐字段现读：`RankedEventWindowV2.prefab` 与 `SkirmishModeEventWindow.prefab` 两颗同名件同值）⇒ 命中区外扩 30（见类尾 `HelpHitPad`）
             // 🆕 **2026-10-19（`N70` P1-7）**：原版这颗 `Help Button` 是 **`m_Transition = 1`(ColorTint)** ——
             //   可见件与命中区是两个节点（命中区那颗 quad 透明）⇒ 必须 `TintOn` 到可见件上，否则零反馈。
             //   色 = 全库默认（HL 0.9607843 / PR 0.7843137 / fade 0.1）⇒ `WindowButton` 的缺省值就是它，不覆盖。
@@ -1753,7 +1753,7 @@ namespace CardPresentation
             //   （照原版 `SelectDecksTab__CreateDeck.c:17,26,28`）⇒ 新卡组在库里**没有下标**、`IndexOf(name)` 恒 −1，
             //   照旧写下去会让编辑器**跳进别的卡组**（= 静默开错牌）。现在交接的是**那份对象本身**
             //   （`CollectionData.PendingNewDeck`，由 `CreateDeck` 写好）—— 本口**一个字段都不用再写**。
-            bool created = !string.IsNullOrEmpty(name);
+            bool created = CollectionData.PendingNewDeck != null;   // 🔴 2026-11-04（`B141-W32b` · 条目 3-13）：`CreateDeck` 的新卡组名照原版是**空串**（`CardDeck__GetEmptyDeck.c`）⇒ ⛔ 别拿名字判成败（原来恒 false，会打一条**假**的「没造出来」警告；行为不变：下面照样开编辑器）· ✅ 已复刻（2026-11-04 · B141/W32b · 判据同 `CollectionData.CreateDeck` 那一行）
             CollectionData.PendingEditDeck = -1;   // ⛔ 显式清：留着上一次的旧下标会跳进**别的**卡组
             if (!created)
                 Debug.LogWarning("[Event] 新建卡组**没造出来**（⛔ 库里一套都没多、编辑器也拿不到它）"
@@ -2500,5 +2500,12 @@ namespace CardPresentation
                 Debug.LogWarning("[Event] 活动 `" + eventId + "` 的 `defaultDeckId` **没落盘**：" + LiveOpsSaveStore.LastError
                                + "（原版这一格随活动存档走服务器）");
         }
+
+        // ✅ 已复刻（2026-11-04 · B141-W23 · 4-15）：活动窗右上那颗 `Help Button` 的 `m_RaycastPadding`
+        //   = **(−30, −30, −30, −30)**（UGUI 序 L/B/R/T，**负 = 外扩**；图标框 65.13² ⇒ 外扩成 125.13²）。
+        //   判据（逐字段现读，两份变体同值）：`d:/2/tools/assetripper_out/ExportedProject/Assets/`
+        //   `RankedEventWindowV2.prefab` 与 `SkirmishModeEventWindow.prefab` 的 `Help Button` Image；
+        //   而全 prefab 只有这两颗非零 pad ⇒ 无第二族混淆。
+        public static readonly Vector4 HelpHitPad = new Vector4(-30f, -30f, -30f, -30f);
     }
 }

@@ -68,8 +68,10 @@ namespace CardPresentation
         static readonly Vector4 SearchBorder = new Vector4(10f, 10f, 10f, 10f);
         static readonly Color SearchTint = new Color(0.0627f, 0f, 0f, 1f);
         /// <summary>`Placeholder`：`Enter player name` · 40px · `auto[18,40]` · Left/Midline · 色 (1,1,1,**0.58**)。
-        /// ⚠️ 它和 `Text` 都铺在 `Text Area`（`RectMask2D`）里 —— 我们**没有掩码体系**（整套都没有），
-        /// 这里只画占位、不裁（如实记着，同档案窗 `ChooseNameWindow` 那条）。</summary>
+        /// ⚠️ 它和 `Text` 都铺在 `Text Area`（`RectMask2D`）里 ——
+        /// ✅ **2026-11-04 就地订正（铁律 5 · `B141_W68`）**：这里原来写「我们没有掩码体系（整套都没有），只画占位、不裁」——
+        /// **已过期**：本仓掩码体系 = `Shell/ViewportClip.cs`（2026-10-12 起生产侧 54 处站点），本轮已给这颗
+        /// `Text Area` 挂上（pad `(−8,−5,−8,−5)` · soft `(0,0)`）⇒ 两颗字都吃它。</summary>
         static readonly PxRect PlaceholderR = new PxRect(403.34f, 173.36f, 885.42f, 230.31f);
         /// <summary>🔴 **2026-10-18（第七轮）：占位符走词条**（原来是一个写死的英文字面量 `const`）。
         /// <para>键 = 原版那颗 `Placeholder` 的 `Localize.mTerm` 原文 `Demo/FriendsMenu/EnterPlayerName`
@@ -77,7 +79,7 @@ namespace CardPresentation
         /// `Placeholder &lt; Text Area &lt; Search Field &lt; Find players panel &lt; Header &lt; Friends Tab` ⇒ **与我们同一条**）。
         /// 英文列 = TMP 原文 `Enter player name`；中文列 = 「输入玩家名字」（2026-10-14 官方 zh-CN 表；原「输入玩家名」= `zh_CN.csv:101` 精确命中）。</para>
         /// <para>⛔ **别改回 `const`** —— 常量跟不了语言（这正是它原来「中文档印英文」的原因）；
-        /// 消费点只有 `:158` 那一处 `Text(sf, PlaceholderR, PlaceholderText, …)`。</para></summary>
+        /// 消费点只有一处 `Text(sfArea, PlaceholderR, PlaceholderText, …)`（`sfArea` = 本轮补的 `Text Area` 掩码节点）。</para></summary>
         static string PlaceholderText { get { return Loc.T(PlaceholderTerm); } }
         /// <summary>上面那条词条的**键**（原版 `Localize.mTerm` 原文）。</summary>
         const string PlaceholderTerm = "Demo/FriendsMenu/EnterPlayerName";
@@ -164,7 +166,12 @@ namespace CardPresentation
             // `Search Field`（九宫格底）+ 占位文字
             var sf = Node(panel, "Search Field", SearchFieldR);
             Nine(sf, "InputFieldBackground", SearchFieldR, SearchBorder, "Background", L_Panel, SearchTint);
-            var lbPh = Text(sf, PlaceholderR, PlaceholderText, PlaceholderCol, "Placeholder",
+            // ✅ 已复刻（2026-11-04 · B141-W68 · 判据 `判据/B141_W129_对账_UI动画.md` W11/4-23 ＋ `Friends Menu Demo.prefab` 的 `Search Field/Text Area ▸ RectMask2D`）：
+            //   原版 `Text Area` = (403.34,173.36)-(885.42,230.31) 上挂 `RectMask2D`（pad `(−8,−5,−8,−5)` 负=外扩 · soft `(0,0)`）。
+            //   改前两颗字直接挂 `Search Field` 上、只被外层 `Viewport` 裁（差 5–8 px）⇒ 补这颗节点、两颗字挂到它下面。
+            var sfArea = ViewportClip.Hang(sf, "Text Area", PlaceholderR,
+                                           TextInputField.AreaPad, TextInputField.AreaSoftness).transform;
+            var lbPh = Text(sfArea, PlaceholderR, PlaceholderText, PlaceholderCol, "Placeholder",
                  PlaceholderPx, L_Text, PlaceholderAutoMin, wrap: false, alignLeft: true,
                  autoMaxPx: 40f, autoBasePx: 26f);   // A323：原版 `Left/Midline`；A414（表 #1）`auto[18~40] 基准=26.0`
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版
@@ -191,7 +198,7 @@ namespace CardPresentation
             //    我们**不建假节点**（纪律③的同一精神），只留这条注释。
             // 🆕 **2026-10-30（`B102_FRIEND`）**：这一格从「只出声」改成**真能输入**（原版 `TMP_InputField` 的等价物
             //   `Shell/TextInputField.cs`；判据、消费方、为什么走 `Bind` 而不是 `Create`，全写在**类尾** `WireSearchField`）。
-            WireSearchField(sf, lbPh);
+            WireSearchField(sf, sfArea, lbPh);
 
             var add = Node(panel, "Add Friend Button", AddFriendR);
             var addNine = Nine(add, "UI_Button_Organe_Square_Normal", AddFriendR, SquareBtnBorder, "Image", L_Btn);
@@ -580,12 +587,12 @@ namespace CardPresentation
 
         /// <summary>把 `Setup` 画好的那一格接成**真输入**（判据见本节头部）。命中区的节点名 `SearchFieldHit`
         /// 与矩形/层号**一字未变**（`Editor/MainMenuScene.cs` 与 `B102*` 的断言按名找它）。</summary>
-        void WireSearchField(Transform sf, Label lbPh)
+        void WireSearchField(Transform sf, Transform sfArea, Label lbPh)
         {
             // 正文那颗（玩家打的字）：版面/字号/折行/对齐**与占位那颗同档** —— 原版输入文字那颗 TMP
             // **本轮没读到**（`Friends Tab/…/Search Field/Text Area/Text` 静态就是 U+200B 零宽字符、字号栏为空），
             // 如实按同一格取，⛔ 不编一个独立字档。
-            var lbTyped = Text(sf, PlaceholderR, "", Color.white, "Text", PlaceholderPx, L_Text + 1, PlaceholderAutoMin,
+            var lbTyped = Text(sfArea, PlaceholderR, "", Color.white, "Text", PlaceholderPx, L_Text + 1, PlaceholderAutoMin,
                                wrap: false, alignLeft: true, autoMaxPx: 40f, autoBasePx: 26f);
             MenuDraw.SetVAlign(lbTyped, Label.VAlign.Midline, PlaceholderR);
 

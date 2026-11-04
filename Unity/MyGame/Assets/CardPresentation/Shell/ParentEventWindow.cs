@@ -235,6 +235,16 @@ namespace CardPresentation
         public static readonly Color TabShadowTint = new Color(0f, 0f, 0f, 0.4745098f);  // MB 实读
         public static readonly Color TabHiTint = new Color(1f, 0f, 0f, 1f);              // MB 实读
         public static readonly Color TabBadgeTint = new Color(0.7358490f, 0.7358490f, 0.7358490f, 1f);
+        // ✅ 已复刻（2026-11-04 · B141-W34 · 5-14）：原版 `Assets/Parent Event Window.prefab` 的
+        //   `Menu Navigation Panel Button`（`EverguildToggle`）逐字段实读：
+        //   `m_Transition = 1`(ColorTint) · `m_TargetGraphic` = 子件 **`Icon`** 的 Image ·
+        //   `m_Colors` = N 白 · **HL (0.6084906, 0.94261944, 1, 1)** · PR 0.78431374 · SEL 0.9607843 ·
+        //   **Disabled (0.8018868, 0.8018868, 0.8018868, 1)** · `m_ColorMultiplier 1` · `m_FadeDuration 0.1`。
+        //   ⚠️ 色偏落在 `Icon` 上（不是 `Highlight` 红底、也不是名牌）⇒ 我们只 `TintOn(Icon 那颗 quad)`；
+        //   运行期页签的图标是 liveops sprite（本地没有 ⇒ 不建）⇒ **那颗没有可见件时悬停本来就不该有变化**
+        //   （= 原版 `m_TargetGraphic` 那张空图的同一结果）。
+        public static readonly Color TabHoverKey = new Color(0.6084906f, 0.94261944f, 1f, 1f);
+        public static readonly Color TabDisabledKey = new Color(0.8018868f, 0.8018868f, 0.8018868f, 1f);
         public const float TabHiCorner = 30f / 0.92f;               // 角块 = m_Border ÷ ppuMul = 32.6087
 
         // 页签按钮（= `Menu Navigation Panel Button` prefab 的几何 · VLG top padding 120 ⇒ 第 1 颗 y 190.9）
@@ -657,6 +667,7 @@ namespace CardPresentation
                     tabWb.allowClickWhenAlreadySelected = false;
                     tabWb.isOn = () => CurrentPageIndex == idx;
                 }
+                WireTabHover(t, tabHit);   // ✅ 2026-11-04 · B141-W34 · 5-14：悬停浅蓝 + 禁用色（原版 `Menu Navigation Panel Button`）
             }
 
             // 页签栏底板 / 压暗层之间的吸收：`Tab Buttons` 的 `Image.m_RaycastTarget = 1`、父链上没有点击处理器
@@ -775,6 +786,26 @@ namespace CardPresentation
             // ⚠️ 红点计数来自通知系统（远端）⇒ prefab 出厂是空字、底板照建（同 prefab 出厂态）。
 
             return btn;
+        }
+
+        /// <summary>✅ 已复刻（2026-11-04 · B141-W34 · 5-14）：把一颗页签的 `EverguildToggle.m_Colors` 接到
+        /// `WindowButton` 上（判据逐字段见 <see cref="TabHoverKey"/> 那一段）。
+        /// <para>色偏目标 = **子件 `Icon` 那颗 quad**（原版 `m_TargetGraphic` 指的就是它）；
+        /// 运行期页签没有图标（liveops sprite 本地没有、⛔ 不拿母版图冒充）⇒ 不调 `TintOn`
+        /// ⇒ 悬停只打在透明命中区上 = **画面上零变化**，与原版那张空 `Icon` 的结果一致。</para>
+        /// <para>⚠️ 必须在**第一次悬停之前**调（`WindowButton.TintOn` 会清掉 `Collect` 缓存、下一次重收）。</para></summary>
+        static void WireTabHover(Transform tab, Transform hit)
+        {
+            if (hit == null) return;
+            var wb = hit.GetComponent<WindowButton>();
+            if (wb == null) return;
+            wb.HighlightKey = TabHoverKey;
+            wb.DisabledKey = TabDisabledKey;
+            if (tab == null) return;
+            var icon = tab.Find("Icon");                 // `transform.Find` 只找直接子件 —— 它就是直接子件
+            if (icon == null) return;
+            var q = icon.GetComponentInChildren<ImageQuad>(true);
+            if (q != null) wb.TintOn(q);
         }
 
         // ============================================================ 🆕 2026-10-23：事件钮（`SetupTabs`）
@@ -916,6 +947,7 @@ namespace CardPresentation
                                    null, null, null, null, null, clickCue: WindowSounds.DefaultButtonCue);
             var wb = hit != null ? hit.GetComponent<WindowButton>() : null;
             if (wb != null) { wb.allowClickWhenAlreadySelected = false; wb.isOn = () => false; }
+            WireTabHover(t, hit);   // ✅ 2026-11-04 · B141-W34 · 5-14：事件钮与内容页签同一个 `Menu Navigation Panel Button` 模板
             CreateEventTab(tab, t); return t;   // 账 13：原版 `CreateEventTab` 的两步尾巴（红点类型登记 + `data.enabled` 闸）
         }
 
@@ -1215,9 +1247,16 @@ namespace CardPresentation
             // ✅ 2026-10-27（B88_J2）：本机等价物 = `ContainerButtonClick` → `TeamSelected` → `SelectTeam`
             //   （只记本进程的 `SelectedTeamId` 并回调 `OnTeamSelectionCompleted` → `CheckAndOpenTab`）。
             //   🔶 teamId 原版来自 `TwoSidesEventData.TeamInfo`（远端数据，本机没有）⇒ 用位置标识 `A`/`B`。
-            MenuDraw.Hit(bg, "Hit", Scr(card), QHit,
+            var teamHit = MenuDraw.Hit(bg, "Hit", Scr(card), QHit,
                          () => ContainerButtonClick(isA ? "A" : "B"),
                          null, null, null, null, null, clickCue: WindowSounds.DefaultButtonCue);
+            // ✅ 已复刻（2026-11-04 · B141-W34 · 5-06）：原版 `Two Sides Event Window.prefab` 的
+            //   `Two Side Event Select Team A/B` 逐颗实读 `m_Colors.m_ColorMultiplier = 2.0`
+            //   （`m_Transition = 1` ColorTint ⇒ 这一颗在原版里**真的生效**）。
+            //   乘 2 + Clamp01 后四态**全部饱和成 1**（N 白 / HL 0.9608 / PR 0.7843）⇒ 悬停按下**零明暗变化**；
+            //   改前我们用的是缺省 1.0（悬停会把这整张队伍卡压暗 4%），那是与原版不符的那一档。
+            var teamWb = teamHit != null ? teamHit.GetComponent<WindowButton>() : null;
+            if (teamWb != null) teamWb.ColorMultiplier = 2f;
         }
 
         // ============================================================ 第 2 页：On Going

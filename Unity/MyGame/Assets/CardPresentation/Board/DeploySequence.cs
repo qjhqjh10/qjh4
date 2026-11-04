@@ -201,7 +201,7 @@ namespace CardPresentation
             //   是**赋值**、没有补间）。⛔ 别加回 `DOScale`。
             tr.localScale = Vector3.one * Mathf.Max(1e-4f, endScale);
             var seq = DOTween.Sequence();
-            seq.Append(tr.DOMove(abovePos, MoveTime).SetEase(Ease.OutQuad));
+            seq.Append(LocalMoveToWorld(tr, abovePos, MoveTime));
             // 🆕 (d) + 🔴 2026-11-02（`B117-R15`）：这里等的是原版 `GetMinionConversionTime`（飞 0.3 + clip 事件 0.55）**再加** `timeToScaleIntoMoving` 0.1 ⇒ 交接落在 0.95 s
             seq.AppendInterval(TimeToScaleIntoMoving + CardFeel.HandToBoardDone);
             if (handoff.IsValid)
@@ -215,7 +215,7 @@ namespace CardPresentation
             {
                 // 没有交接 ⇒ 旧行为（HUD 平面直落；只给「没有驱动层」的探针用）
                 seq.AppendInterval(HoldTime);
-                seq.Append(tr.DOMove(landPos, LandTime).SetEase(Ease.OutQuad));
+                seq.Append(LocalMoveToWorld(tr, landPos, LandTime));
             }
             // 同 <see cref="Play"/>：旋转用 `Insert(0f, …)`（⛔ 不是 `Join`，那会从 0.3 s 才起算）
             seq.Insert(0f, tr.DOLocalRotate(Vector3.zero, MoveTime).SetEase(RotateEase));
@@ -228,7 +228,7 @@ namespace CardPresentation
         }
 
         /// <summary>落位：从手牌姿态**飞到槽位正上方**，再**垂直落下**。
-        /// <para>`abovePos` = 「那一格的卡**抬高 `minionConversionHeight`** 之后」在**本补间所在空间**里的点
+        /// <para>`abovePos` = 「那一格的卡**抬高 `minionConversionHeight`** 之后」在**世界坐标**里的点（`DropTargetWorld*` 的返回值；本类内部换算成父级局部系再走 `DOLocalMove`）
         /// （3D 战场下 = `BoardLayout.DropTargetWorldAtHeight(slot, which.MinionConversionHeight)`；
         ///  非 3D 时它就是 `landPos` ⇒ 退化成一记直飞）。</para>
         /// <para>`landPos` = 「那一格的卡」本来的补间终点（3D 下 = `BoardLayout.DropTargetWorld(slot)`）。</para>
@@ -279,7 +279,7 @@ namespace CardPresentation
 
             var seq = DOTween.Sequence();
             // ② 飞到「槽位 + up × minionConversionHeight」—— 时长 = 原版 `minionToConversionPointTime`
-            seq.Append(tr.DOMove(abovePos, MoveTime).SetEase(Ease.OutQuad));
+            seq.Append(LocalMoveToWorld(tr, abovePos, MoveTime));
             // 🆕 (d) + 🔴 2026-11-02（`B117-R15`）：`WaitForSeconds(GetMinionConversionTime)` 0.3+0.55 **再加** `timeToScaleIntoMoving` 0.1 ⇒ 交接 0.95 s
             seq.AppendInterval(TimeToScaleIntoMoving + CardFeel.HandToBoardDone);
             if (handoff.IsValid)
@@ -298,7 +298,7 @@ namespace CardPresentation
                 seq.AppendInterval(HoldTime);
                 // ③ 垂直落下 —— 时长 = 原版 `timeToLand`。⚠️ 这两点的 x 相同（同格、只差一个 up 偏移），
                 //    所以这一段在屏幕/HUD 平面上**逐位就是一条竖线**（战场相机俯仰是单位四元数 ⇒ up 就是屏幕竖直）
-                seq.Append(tr.DOMove(landPos, LandTime).SetEase(Ease.OutQuad));
+                seq.Append(LocalMoveToWorld(tr, landPos, LandTime));
             }
             // ⚠️ **旋转要用 `Insert(0f, …)`，不能用 `Join`**：`Join` 是接在**当前游标**上的
             //    （= 上一次 `Append` 的结束处），那样这条补间会从 0.3s 起算、到 0.6s 才结束。
@@ -332,5 +332,37 @@ namespace CardPresentation
         /// DOTween 的 `defaultEaseType` 出厂值 = **`OutQuad`**。我们原来写的是 `Ease.OutCubic`（自造）⇒ 2026-11-02 改回。</para>
         /// <para>⚠️ 两处调用点（`PlayQuad` / `Play`）共用这一个常量 —— ⛔ 别在一处单独写死字面量。</para></summary>
         public static readonly Ease RotateEase = Ease.OutQuad;
+
+        // ✅ 已复刻（2026-11-04 · B141 · 11-08：`Board/DeploySequence.cs:204/218/282/301`）——
+        //   原版两条都是 **`DOLocalMove`**：`MinionManager__MoveMinionToConversionPoint.c:66-96`（起飞 0.3）·
+        //   `CardScript__UpdateMinionInPlayPosition.c:89`（落下 0.2），目标都写在**父级局部系**里
+        //   （起飞目标 = `GetLeft/RightSlotPos` + `up × minionConversionHeight`，也是局部量）。
+        //   我们原来这 4 处写的是 `DOMove`（世界系），与判据的调用形状不符 ⇒ 统一走这个窄口。
+        //
+        // 🔴 坐标帧判定（本批现读，R8 留下的「世界 vs 竞技场局部」问号已结）：
+        //   **`abovePos / landPos` 是【世界坐标】**（HUD 平面 z=0）—— 唯一生产者是
+        //   `BoardLayout.DropTargetWorld[AtHeight]`，它的 doc 与实现都明写「返回**世界坐标**」
+        //   （`Board/BoardLayout.cs:515-554/621-634`，2026-11-03 `B124-W9` 已删掉那句 `InverseTransformPoint`），
+        //   而 `BattleDriver.cs:25847-25849` 的 `aboveWorld = aboveLocal`（注释：「返回值**已是世界点**」）。
+        //   要喂给 `DOLocalMove` 就必须**先换算成父级局部系**（这里做）——
+        //   ⛔ **别直接 `DOLocalMove(abovePos)`**：父级一旦不是恒等（真实战斗中虽然当前是 `sceneRoot` 恒等），
+        //   那样会落到 `parent.TransformPoint(abovePos)` 而不是 `abovePos`（本批断言专门盯这一条）。
+        //
+        // ⚠️ **诚实记一条**（铁律 5 · 供后来人别被「路径不同」误导）：对**静态仿射父级**
+        //   （任意平移/旋转/非均匀缩放），`DOMove(world)` 与「世界点换算成父级局部后 `DOLocalMove`」的
+        //   世界轨迹**在数学上逐点相同**（仿射映射与凸组合可交换）⇒ 本改动**不改变今天的画面**，
+        //   它是「与判据同一调用形状」的保真修复；本仓当前父级恒等，两写法等价。
+        //   唯一会拉开差别的情形 = **补间途中父级自己动了**（`DOLocalMove` 跟着父级走、`DOMove` 不跟）。
+        /// <summary>把**世界点**换算成 `tr` 父级局部系后做 `DOLocalMove`（起飞/落下两段共用，判据只此一处）。
+        /// <para>为什么是这个形状：原版 `minionToConversionPointTime` / `timeToLand` 两条补间都是
+        /// `DOLocalMove`（目标在父级局部系）；而我们的 `abovePos/landPos` 由
+        /// `BoardLayout.DropTargetWorld[AtHeight]` 给出、是**世界坐标** ⇒ 换算一次再走局部补间。</para>
+        /// <para>⛔ 端点世界位置与换算前一致（不是改终点，是改**插值所在的坐标系**）；缓动仍是
+        /// `OutQuad`（原版那两条没有 `SetEase` ⇒ DOTween 默认 6）。</para></summary>
+        static Tweener LocalMoveToWorld(Transform tr, Vector3 worldTarget, float dur)
+        {
+            Vector3 local = tr.parent != null ? tr.parent.InverseTransformPoint(worldTarget) : worldTarget;
+            return tr.DOLocalMove(local, dur).SetEase(Ease.OutQuad);
+        }
     }
 }

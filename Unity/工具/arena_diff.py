@@ -20,6 +20,20 @@
   python -I -X utf8 d:/4/Unity/工具/arena_diff.py all --top 6
   python -I -X utf8 d:/4/Unity/工具/arena_diff.py battlearena1 --out d:/4/_tmp_view/diff20 --ledger d:/4/Unity/资料/比对基线/arena_diff_ledger.tsv
 
+**换底图目录 / 用原版两帧做动区掩码**（2026-11-04 第一百二十八会话 `B141-W131` 加）：
+  python -I -X utf8 d:/4/Unity/工具/arena_diff.py battlearena1 --orig-dir d:/4/Unity/资料/原版实拍/arena_1102
+  （等价环境变量：`ORIG_FRAMES=d:/4/Unity/资料/原版实拍/arena_1102`；**默认仍是 `arena_0920`**）
+  · `arena_0920` 每场只有**一张** `shot_<名>.png` ⇒ **无两帧 ⇒ 没有动区掩码**（走原来的多相位中位）。
+  · `arena_1102` 每场有 `shot_<名>_t5.png` / `_t12.png` **两帧**（`Battle_Arena_1` 另有 `t4`/`t10`，
+    `t5`/`t12` 仍在）⇒ 主比对图用 **`t5`**，`t5`↔`t12` 的**动区**（跑动的粒子/烟雾）整块不计分。
+  · `--no-motion-mask` 可关掉掩码（**只为「改前/改后」对照**，平时不用）。
+
+🔴 **dy 偏移 = 对比工具吸收，⛔ 不在代码里硬扣**（2026-11-04 定，原任务 `B124-PREVIEWOFFSET`；**不是缺陷**）：
+  预览相机 `lensShiftY = -0.2105421`，原版序列化值 `-0.205` ⇒ 两张图整体竖直错开
+  **`dy = +2 @640×360 = +4 @720 = +6 @1080p`**（`align()` 每场会把它量出来并打印）。
+  ⇒ **由本工具在比对时吸收**（`np.roll` 对齐后再算差异）；⛔ **不要去改预览相机/渲染代码去硬扣这 2/4/6 px** ——
+  那会把一个「已知且恒定」的尺子误差换成一处「看不出来为什么存在」的魔法数。
+
 ⚠️ **它给的是「候选」，不是「缺陷」** —— 后处理（bloom/tonemap）、粒子随机相位、我们还没做的效果
    **都会进来**。判据永远是「拿这一条的放大图去比 + 回原版找那个对象」。
 """
@@ -60,6 +74,64 @@ ARENAS = list(NAME_MAP)
 WORK = (640, 360)        # 分析用小图（连通域在这个尺度上找，够用且快）
 SMOOTH = 6               # 平滑半径（px @ WORK 尺度）
 PAD = 0.06               # 放大图往外留白（占全图比例）
+
+# ── 动区掩码（2026-11-04 第一百二十八会话 `B141-W131`，采纳 `B115_M1` 的「只用原版自己两帧」口径）──
+# 原任务 `B125-ARENADIFFMODE`：原来的「多相位取中位」**只有 2026-10-12 那 3 场渲过相位图**
+# （`preview_<场>__p*.png`）⇒ 其余 10 场根本没有防护。现在主口径换成 **原版自己两帧**：
+# `t5` 与 `t12` 之间**会动的东西**（烟/火/粒子/飘旗）原版两帧就互相对不上 ⇒ 那块地方我们这一张
+# 更谈不上「对不对」 ⇒ **整块不计分**。相位中位**降级成 fallback**（没有第二帧的目录仍用它）。
+ORIG_TIMES = ('t5', 't12')   # 底图目录里每场的两帧后缀；**主比对图 = 第一个（t5）**
+MOTION_THR = 0.10            # 秩差阈值（秩归一到 0..1）。实测：静态区 p90 < 0.01、动区 p99 可到 0.44
+MOTION_DILATE = SMOOTH       # 动区外扩 px@WORK。**必须 ≥ SMOOTH** —— 掩码在**高斯之后**才置 0，
+                             #   不外扩的话 σ=6 的拖尾会把动区的分又渗回静态区（等于没掩）
+
+
+def rank01(x):
+    """灰度图 → **百分位秩**（0..1）：`out[i]` = 该像素在整图的排序位置 / (n-1)。
+
+    🔴 为什么拿秩比、不拿亮度比（2026-11-04 实测）：两帧是**同一次实拍的相邻几秒**，
+    曝光/白平衡一致，但 bloom 的光晕扩散 + 烟雾自遮挡会让动区**邻域**也轻微变亮 ⇒
+    直接比亮度时**静态区也有 1~2 的残差**（够刷出一片假热点）。秩只问「这像素比全图多少像素亮」，
+    对任何**单调**色调差免疫 —— 与上面的 `rank_match()` 同一把尺子（口径不自相矛盾）。
+    """
+    v = x.ravel()
+    order = np.argsort(v, kind='stable')
+    r = np.empty(v.size, dtype=float)
+    r[order] = np.arange(v.size)
+    return (r / max(1, v.size - 1)).reshape(x.shape)
+
+
+def motion_mask(g5, g12):
+    """原版 `t5` ↔ `t12` 的**动区掩码**（True = 这块在动 ⇒ ⛔ 不计分）。
+
+    `g5` / `g12` = 已 resize 到 WORK 的灰度 float 数组，**两帧必须用同一个灰度口径**
+    （本文件两处都用 `RGB.mean(axis=2)` 通道平均 —— ⚠️ 别一边 `mean(axis=2)`、一边 `convert('L')`：
+    后者是 luma 加权，实测能让同一场的掩码从 8.3% 跳到 11.9%，白掩一片）。
+    返回 `(mask, 秩差图)`；外扩 `MOTION_DILATE`（见常量注释：防高斯拖尾把动区渗回静态区）。
+    """
+    d = np.abs(rank01(g5) - rank01(g12))
+    mi = Image.fromarray(((d > MOTION_THR) * 255).astype(np.uint8))
+    mi = mi.filter(ImageFilter.MaxFilter(MOTION_DILATE * 2 + 1))
+    return np.asarray(mi) > 0, d
+
+
+def orig_frames(orig_dir, arena):
+    """底图取哪几张 → `(主比对图, 第二帧或 None, 实际存在的帧列表)`。
+
+    · `arena_1102`：`shot_<名>_t5.png` + `_t12.png` 两帧齐全 ⇒ **主图 = t5**，第二帧用来做动区掩码。
+    · `arena_0920`：只有 `shot_<名>.png` 一张 ⇒ 第二帧 None（动区掩码走不了）。
+    """
+    base = os.path.join(orig_dir, 'shot_%s' % NAME_MAP[arena])
+    pair = [base + '_%s.png' % t for t in ORIG_TIMES]
+    if all(os.path.exists(p) for p in pair):
+        return pair[0], pair[1], pair
+    single = base + '.png'
+    if os.path.exists(single):
+        return single, None, [single]
+    if os.path.exists(pair[0]):
+        return pair[0], None, [pair[0]]
+    return pair[0], None, []
+
 
 
 def align(a, b, rng=9):
@@ -172,11 +244,13 @@ def label_blobs(mask, min_px=12):
     return out
 
 
-def one(arena, outdir, top, ledger, thr_hi, thr_lo, mode='rank'):
-    orig_p = os.path.join(ORIG_DIR, 'shot_%s.png' % NAME_MAP[arena])
+def one(arena, outdir, top, ledger, thr_hi, thr_lo, mode='rank',
+        orig_dir=ORIG_DIR, use_motion_mask=True):
+    orig_p, orig_p2, orig_all = orig_frames(orig_dir, arena)
     ours_p = OURS_FMT.format(a=arena)
-    if not os.path.exists(orig_p) or not os.path.exists(ours_p):
-        print('⏭ %-28s 缺底图（原版 %s / 我们 %s）' % (arena, os.path.exists(orig_p), os.path.exists(ours_p)))
+    if not orig_all or not os.path.exists(ours_p):
+        print('⏭ %-28s 缺底图（原版 %s @ %s / 我们 %s）'
+              % (arena, bool(orig_all), orig_dir, os.path.exists(ours_p)))
         return None
     orig = Image.open(orig_p).convert('RGB')
     ours = Image.open(ours_p).convert('RGB')
@@ -214,6 +288,22 @@ def one(arena, outdir, top, ledger, thr_hi, thr_lo, mode='rank'):
     m = abs(adx) + 2
     if m:
         sm[:, :m] = 0.0; sm[:, -m:] = 0.0
+
+    # 🔴 **动区掩码**（2026-11-04 `B141-W131`）：原版自己的 `t5`↔`t12` 秩差大 ⇒ 那块**在动**。
+    #   与上面「边带清零」**同址**（都在 `sm` 上置 0，后面的连通域/打分/放大图全部自动跟着走）。
+    #   ⚠️ 这**不是**替我们开脱「那团烟画得对不对」—— 动区要看**形状/趋势/密度**，阈值化的逐像素候选
+    #      在那儿本来就是噪声（账 `A1615`）。动区的东西请**看并排图**判，别拿候选数当验收。
+    n_motion = 0.0
+    if orig_p2 is None:
+        frame_note = '单帧（无第二帧 ⇒ 无动区掩码，走多相位中位 fallback）'
+    elif not use_motion_mask:
+        frame_note = '两帧齐全，但 **--no-motion-mask**（改前/改后对照用）'
+    else:
+        g12 = np.asarray(Image.open(orig_p2).convert('RGB').resize(WORK, Image.LANCZOS)).astype(float).mean(axis=2)
+        mm, _ = motion_mask(a.mean(axis=2), g12)
+        n_motion = float(mm.mean())
+        sm[mm] = 0.0
+        frame_note = '两帧 %s↔%s · 动区掩码 **%.1f%%** 不计分' % (ORIG_TIMES[0], ORIG_TIMES[1], n_motion * 100.0)
 
     # 双阈值：`thr_hi` 先找「硬热点」；不够 top 就用 `thr_lo` 放宽
     blobs = []
@@ -265,10 +355,16 @@ def one(arena, outdir, top, ledger, thr_hi, thr_lo, mode='rank'):
         c.save(os.path.join(outdir, '%s_z%02d.png' % (arena, i + 1)))
 
     print('\n=== %s ===' % arena)
+    print('  底图目录 `%s` · %s · 主比对图 `%s`' % (orig_dir, frame_note, os.path.basename(orig_p)))
     if adx or ady:
         print('  🔴 **对位**：我们的图相对原版整体平移 `(dx=%+d, dy=%+d)`（%d×%d 尺度；1080p 下 ≈ %+d px）'
               % (adx, ady, WORK[0], WORK[1], int(round(ady * 1080.0 / WORK[1]))))
-        print('     ⚠️ 非零就说明**预览与实拍有系统性偏移** —— 它本身是个缺陷，别只当成对位参数。')
+        if adx == 0 and ady == 2:
+            print('     ✅ 这就是**已知的**预览相机 `lensShiftY` 差（−0.2105421 vs 原版 −0.205 ⇒ '
+                  '+2@640×360 / +6@1080p，原任务 `B124-PREVIEWOFFSET`）—— **由本工具吸收，不是缺陷**，'
+                  '⛔ 别去改渲染代码硬扣它。')
+        else:
+            print('     ⚠️ 这**不是**上面那个已知的 `dy=+2` ⇒ 说明**预览与实拍有系统性偏移**，它本身是个缺陷。')
     else:
         print('  ✅ 对位：无需平移（两图已对齐）')
     rows, verdict = tone_report(a, b)
@@ -277,10 +373,13 @@ def one(arena, outdir, top, ledger, thr_hi, thr_lo, mode='rank'):
         bar = ('+' if d > 0 else '-') * min(20, int(abs(d) / 2))
         print('     原版亮度 %3d-%3d  n=%6d  偏差 %+6.1f  %s' % (lo, lo + 25, n, d, bar))
     print('     ⇒ **%s**' % verdict)
-    print('  ── 结构（%s · **%d 个相位取中位**）──' % ('rank 分位匹配后' if mode == 'rank' else '线性 mean/std 后', n_phase))
-    if n_phase == 1:
-        print('     ⚠️ **只有 1 个相位** ⇒ 蒸汽/烟雾区的候选是**相位噪声**（账 `A1615`），'
-              '先跑 `bash d:/4/Unity/工具/arena_diff_phases.sh <场>` 再判。')
+    print('  ── 结构（%s · %d 个相位取中位%s）──'
+          % ('rank 分位匹配后' if mode == 'rank' else '线性 mean/std 后', n_phase,
+             ' · **动区已掩**' if n_motion > 0 else ''))
+    if n_phase == 1 and n_motion == 0.0:
+        print('     ⚠️ **没有动区掩码、也只有 1 个相位** ⇒ 蒸汽/烟雾区的候选是**相位噪声**（账 `A1615`）。'
+              '换 `--orig-dir d:/4/Unity/资料/原版实拍/arena_1102` 拿两帧掩码，'
+              '或先跑 `bash d:/4/Unity/工具/arena_diff_phases.sh <场>` 再判。')
     print('  全图平均差 %5.1f / 255 · 阈值 %.1f 下 %d 团' % (sm.mean(), thr_lo, len(blobs)))
     if not scored:
         print('  ✅ 没有超过阈值的连通域')
@@ -310,11 +409,18 @@ def main():
     ap.add_argument('--thr-lo', type=float, default=18.0)
     ap.add_argument('--mode', choices=('rank', 'linear'), default='rank',
                     help='rank（默认）= 分位匹配，抹掉任何单调色调差、只看结构；linear = 老的 mean/std')
+    ap.add_argument('--orig-dir', default=None,
+                    help='原版实拍底图目录（默认 %s；也可用环境变量 ORIG_FRAMES 指定）。'
+                         '指向 …/arena_1102 时自动用 t5/t12 两帧做动区掩码。' % ORIG_DIR)
+    ap.add_argument('--no-motion-mask', action='store_true',
+                    help='关掉「原版两帧动区掩码」—— **只为改前/改后对照**，平时别用')
     args = ap.parse_args()
+    orig_dir = args.orig_dir or os.environ.get('ORIG_FRAMES') or ORIG_DIR
     arenas = ARENAS if args.arena == 'all' else [args.arena]
     res = {}
     for a in arenas:
-        m = one(a, args.out, args.top, args.ledger, args.thr_hi, args.thr_lo, args.mode)
+        m = one(a, args.out, args.top, args.ledger, args.thr_hi, args.thr_lo, args.mode,
+                orig_dir=orig_dir, use_motion_mask=not args.no_motion_mask)
         if m is not None:
             res[a] = m
     if len(res) > 1:

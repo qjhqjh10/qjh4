@@ -887,7 +887,7 @@ namespace RuleEngine
             }
             int amount; string gap;
             if (!TryResolveCriteriaValue(ctx, dmg.ValueOptions, dmg.Min, dmg.Max, carrier, chosen, factor,
-                                         out amount, out gap))
+                                         out amount, out gap, owner))
             {
                 NoteEnchantRowDataGapEx(enchantmentCard, row, "`ca doDamage`：" + gap + " ⇒ **本行不结算**");
                 return 0;
@@ -947,7 +947,7 @@ namespace RuleEngine
             int factor = row.Fm > 0 ? row.Fm : 1;
             int amount; string gap;
             if (!TryResolveCriteriaValue(ctx, heal.ValueOptions, heal.Min, heal.Max, carrier, chosen, factor,
-                                         out amount, out gap))
+                                         out amount, out gap, owner))
             {
                 NoteEnchantRowDataGapEx(enchantmentCard, row, "`ca 20 doHeal`：" + gap + " ⇒ **本行不结算**");
                 return 0;
@@ -1037,47 +1037,24 @@ namespace RuleEngine
         }
 
         /// <summary>`GetValueFromCriteria`（`d:/2/tools/decomp_full/AbilityLogic__GetValueFromCriteria.c`）的
-        /// 可读子集：`0` 固定/区间 · `10/20/30` 取**目标**的近战/远程/生命 · `40/41/50` 取**载体**的近战/远程/生命 ·
-        /// `80` `min + max × 乘数` · `90` 取 `min`（逐目标掷由调用方做）。
-        /// <para>返回值 = `GetValueFromCriteria` 的同一句：`min == 0` ⇒ 直接给取到的值；否则 `min × 值`。</para>
-        /// <para>`false` = 这一档本版读不出来（`out gap` 说清缺什么），调用方**不结算**。</para></summary>
+        /// 转发口 —— **唯一实现 = `EffectResolverPartial_B141VO.cs` 的 `TryResolveValueOption`**
+        /// （26 档 `ChooseValueOptions` + `default => min`，判据 `.c` 逐支行号抄在那边）。
+        ///
+        /// <para>🔴 **2026-11-04（批次 `B141` · 执行写手 `W9`）：本方法【不再自己 switch】** ——
+        /// 改前它是四份「同一件事写四份」散点之一（R3 对账报告 §三 V4），只覆盖
+        /// `0/10/20/30/40/41/50/80/90/203`，其余一律「本版读不出来」。</para>
+        ///
+        /// <para>`false` = 这一档本刻读不出来（`out gap` 说清缺什么），调用方**不结算**。
+        /// ⚠️ `opt 8 / 17` 仍走 `false`（不在 26 档里、语义未查清，⛔ 不按 `default => min` 压成恒 1）。</para>
+        ///
+        /// <para><paramref name="owner"/> = 施放方座位（`202/204/140` 要用；缺省 `-1` = 由载体反查）。</para></summary>
         static bool TryResolveCriteriaValue(BattleContext ctx, int opt, int min, int max,
                                             UnitState thisCard, UnitState targetCard, int factor,
-                                            out int value, out string gap)
+                                            out int value, out string gap, int owner = -1)
         {
-            value = 0; gap = null;
-            switch (opt)
-            {
-                case 0:   // `:57-60`：`min == max` ⇒ min；否则 `GetRandomInt(min, max + 1)`
-                    value = (min == max) ? min : ctx.GetRandomInt(min, max + 1);
-                    return true;
-                case 10:  // `:63`：`targetCard.CurrentMeleeAttack`
-                case 20:  // `:72`：`targetCard.CurrentRangeAttack`
-                case 30:  // `:78`：`targetCard` 的当前生命
-                    if (targetCard == null) { gap = $"`valueOptions = {opt}` 要读**卡目标**的属性，这一次没有点选目标"; return false; }
-                    value = (opt == 10) ? targetCard.CurrentMeleeAttack
-                          : (opt == 20) ? targetCard.CurrentRangeAttack : targetCard.Health;
-                    if (min != 0) value *= min;
-                    return true;
-                case 40:  // `:87`：`thisCard.CurrentMeleeAttack`
-                case 41:  // `:97`：`thisCard.CurrentRangeAttack`
-                case 50:  // `:104`：`thisCard` 的当前生命
-                    if (thisCard == null) { gap = $"`valueOptions = {opt}` 要读**载体**的属性，本刻取不到载体"; return false; }
-                    value = (opt == 40) ? thisCard.CurrentMeleeAttack
-                          : (opt == 41) ? thisCard.CurrentRangeAttack : thisCard.Health;
-                    if (min != 0) value *= min;
-                    return true;
-                case 80:  // `:113-116`：`min + max × multiplierFactor`（乘数**已折进数值**，伤害只结算一次）
-                    value = min + max * factor;
-                    return true;
-                case 90: value = min; return true;   // `:120`：先给 `min`，逐目标掷在 `CardScript__GetAdjustedDamage.c:23-30`
-                    // 🆕 2026-11-03（实现 = `B123_E1` `TryResolveCriteriaValue203`；接线 = `B123_E2`）：`valueOptions 203` = **`min + 当前手里剑数 × max`**（加法 —— ⛔ 不是 40/41/50 那族的「min × 值」）。
-                case 203: return TryResolveCriteriaValue203(ctx, thisCard, min, max, out value, out gap);   // 判据 `AbilityLogic__GetValueFromCriteria.c:320-325`（`case 0xcb`）
-                default:
-                    gap = $"`valueOptions = {opt}` 不在本版读得出来的档里"
-                        + "（已实现 0 / 10 / 20 / 30 / 40 / 41 / 50 / 80 / 90；其余见 `AbilityLogic__GetValueFromCriteria.c`）";
-                    return false;
-            }
+            // ✅ 已复刻（2026-11-04 · B141 · `AbilityLogic__GetValueFromCriteria.c` 全文 / `ChooseValueOptions.cs:1-29`）
+            return TryResolveValueOption(ctx, opt, min, max, factor, thisCard, targetCard, RefCardOf(ctx), owner,
+                                         out value, out gap);
         }
 
         /// <summary>这一档 `ta` 在原版 `AbilityLogic__GetTargets.c` 里**会不会**再走末尾那段
@@ -1314,7 +1291,7 @@ namespace RuleEngine
                         Raw = "(附魔 ca 130 stun)", Side = "any", Kind = "unit", Count = 1,
                     },
                 };
-                ApplyStunTo(ctx, t, by, op);                // 🆕 2026-11-03（`B123_E1` 实现 / `B123_E2` 接线）：原版 `AddStun` 没有 jam 闸（`PlayAbility.c:642-657`）⇒ 走共用件，绕开 `DoStun` 的 `AddEffectCasterGates`
+                ApplyStunTo(ctx, t, by, op);                // 🆕 2026-11-03（`B123_E1` 实现 / `B123_E2` 接线）：原版 `AddStun` 没有 jam 闸（`PlayAbility.c:642-657`）⇒ 走共用件，绕开 `DoStun` 的 `AddEffectCasterGates` ｜ ✅ 已复刻（2026-11-04 · B141 `W76` · 判据 `CardScript__Stun.c:44-48/:98/:125` + `AbilityLogic__PlayAbility.c:642-657`；断言 = `RuleEngine/Editor/B141_W76_Assert.cs` A/B 组）
                 if (!before && t.IsStunned) stunned++;      // 真晕上的才计数（`DoStun` 的返回真只表示「这一 op 跑完了」）
             }
             if (unresolved.Count > 0) ReportUnresolved(ctx, by, unresolved);

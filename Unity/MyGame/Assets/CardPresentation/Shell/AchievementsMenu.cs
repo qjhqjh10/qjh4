@@ -82,8 +82,14 @@ namespace CardPresentation
         /// <summary>键的 `button_bg`：`40K_settings_button`（**`m_Type=0 Simple`** ⇒ 那颗 `ppuMul=0.92` **不起作用**，§A·3）
         /// · 色 (1, 0.5723677, 0, **0.7098039388656616**)。</summary>
         static readonly Color TogBgTint = new Color(1f, 0.5723676681518555f, 0f, 0.7098039388656616f);
-        /// <summary>键底两张图（**复用设置窗那两张**，与档案窗左栏六键同一对）。自检按它断「换图不换色」。</summary>
-        public const string ArtTab = "40K_settings_button", ArtTabOn = "40K_settings_button_hover";
+        /// <summary>键底两张图（**复用设置窗那两张**，与档案窗左栏六键同一对）。自检按它断「换图不换色」。✅ 已复刻（2026-11-04 · B141-W60 · W129 5-17）：原版 5 颗 `Trophies Tab/buttons/Achievement Type Toggle (0..4)` 逐颗现读 = `EverguildToggle` 的 `onSprite 40K_settings_button_hover` / `offSprite 40K_settings_button`（+`changeSpriteOnValueChange=1`）＋ `m_SpriteState.m_HighlightedSprite = 40K_settings_button_selected`（**悬停**，逐颗显式传）/ `m_SelectedSprite = 40K_settings_button_hover`（= `onSprite`）。</summary>
+        /// <summary>同上那张表的第三/第四张。✅ 已复刻（2026-11-04 · B141-W70 · W129 5-07）：`ArtTabSel` = 原版
+        /// `m_SpriteState.m_SelectedSprite`（5 颗 `Achievement Type Toggle` 逐颗 = `40K_settings_button_hover`，prefab 现读；
+        /// 那 5 颗 `m_Transition = 2` 是真值）。⚠️ 它与 `ArtTabOn`（选中分类的底图）**恰好同图**，但语义是两回事
+        /// （`onSprite` vs `m_SelectedSprite`）⇒ 接线处**按 `selectedArt:` 显式传**，⛔ 别把 `ArtTabOn` 顶替掉
+        /// （改名就没人查得到 5-07 的落点）。</summary>
+        public const string ArtTab = "40K_settings_button", ArtTabOn = "40K_settings_button_hover", ArtTabHover = "40K_settings_button_selected",
+                           ArtTabSel = "40K_settings_button_hover";
 
         /// <summary>`Scroll`（`ScrollRect` v=1 · **`mode=2` ⇒ Clamped**；底是 UGUI 内置 `Background`、**a=0 ⇒ 看不见**）：
         /// `635.14,213.16 → 1746.98,891.69`。
@@ -268,16 +274,17 @@ namespace CardPresentation
                 // 🆕 A17：原版该页是 `Trophies Tab>buttons>Achievement Type Toggle (n)`（**不是 Achievements Tab**），
                 // 是 Toggle、悬停换 `…_selected`（普查 §块 5 第 11 行）
                 _tabHit[i] = Hit(key, "Hit", r, L_Hit, () => Select(captured), _tabBg[i], ArtTab,
-                                 clickCue: WindowSounds.SelectToggleCue);
-                // 🆕 **2026-10-18（音效线缺口 `AUD` §三 C9）**：原版这一族是 `EverguildToggle` +
-                //   **`allowClickWhenAlreadySelected = 0`** —— `Select()` 里那句 `if (_filter == type) return;`
-                //   只是**我们 onClick 里**的守卫，改前**声音已经先响过了**（`WindowButton.Click` 先播音）。
-                //   现在把它搬到 `WindowButton` 的守卫上（连声音一起跳过，与原版 `OnPointerClick` 第一段同效）。
+                                 ArtTabHover, clickCue: WindowSounds.SelectToggleCue);   // ✅ 已复刻（2026-11-04 · B141-W60 · W129 5-17）：悬停图**逐颗显式传** `ArtTabHover`（原版 5/5 颗 `m_HighlightedSprite` = `_selected`；不靠 `WindowButton.HoverNames` 全局表隐式兜底）
+                // 🔴 **2026-11-04（B141-W66 · 铁律 5 订正）**：原写「原版这一族 `allowClickWhenAlreadySelected = 0`」—— **写反了**。
+                //   原版 `Player Profile Window.prefab` 逐颗现读（`EverguildToggle` 字段 `0x139`）：
+                //   `Trophies Tab/buttons/Achievement Type Toggle (0..4)` = **5/5 颗 `1`**；同窗 `Menu Area/Tab Buttons/*` 左栏 6 颗才是 **6/6 颗 `0`**。
+                //   判据 = `d:/4/_tmp_view/b141_w60/list_toggles.py` 现读 · 回调 `.c` = `…<Awake>b__0`（**无**「同值 return」那一段）。
                 var tabWb = _tabHit[i] != null ? _tabHit[i].GetComponent<WindowButton>() : null;
                 if (tabWb != null)
                 {
-                    tabWb.allowClickWhenAlreadySelected = false;
-                    tabWb.isOn = () => _filter == captured;
+                    tabWb.allowClickWhenAlreadySelected = true;   // ✅ 已复刻（2026-11-04 · B141-W66 · 原版 5/5 颗 = 1）
+                    tabWb.Bind(_tabBg[i], ArtTab, ArtTabHover, null, ArtTabSel);   // ✅ 已复刻（2026-11-04 · B141-W70 · W129 5-07）：逐颗补 `m_SelectedSprite`（= `ArtTabSel`；`Bind` 幂等 —— 与 `MenuDraw.Hit` 那次前四格逐位相同，只多第五格）
+                    // `isOn` 不再设：`allow == true` 时 `Click()` 那条守卫整条短路（见 `WindowButton.Click`）⇒ 设了也是死字段。
                 }
             }
             RefreshTabs();
@@ -286,7 +293,7 @@ namespace CardPresentation
         /// <summary>切分类：原版 `NotifyToggleOn(sendCallback:false)` → 写 `filter` → `Refresh()`。</summary>
         public void Select(int type)
         {
-            if (_filter == type) return;      // 原版 `allowClickWhenAlreadySelected = 0`（同一键再点不回调）
+            // 原版 `b__0` 回调**没有**「同值就 return」那一段（判据 `.c`）⇒ 再点当前分类照旧写 `filter` + `Refresh()`。
             _filter = type;
             RefreshTabs();
             RebuildCells();

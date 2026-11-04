@@ -37,12 +37,37 @@
 !/Unity/MyGame/Assets/WarpforgeVFX/Shaders.meta
 !/Unity/MyGame/Assets/WarpforgeVFX/Editor.meta
 
+# 🔴 2026-11-04（B141-W42 · W131 裁定 · 活状态表 B125-ARENAGITIGNORE）：**`ArenaOriginalPrefabs/` 故意不入库**
+#   上面第 26 行的 `/Unity/MyGame/Assets/WarpforgeVFX/*` 通配会**顺带**把它挡掉，但那样**看不出意图**
+#   （读者会以为是「negation 漏了这一条」）。所以这里**显式点名再挡一次**（零行为变化：它本来就被挡）。
+#   ⛔ **不要把这 2,202 个文件（332 MB）`git add` 进库。**
+#   为什么不入库：① 体积 332 MB；② 它是从 `d:/2` 的 AssetRipper 导出集**派生**出来的 YAML（原版衍生物，同仓库红线）。
+#   重建（**依赖本机 `d:/2`**，且逐场一场一场跑 —— ⛔ 没有 `--all`，见铁律 15）：
+#     python -I -X utf8 d:/4/Unity/工具/extract_arena_prefab_yaml.py --arena <场> --root Scenario \
+#         --out-root d:/4/Unity/MyGame/Assets/WarpforgeVFX/ArenaOriginalPrefabs
+#   ⚠️ **新克隆预期「红」**：目录不存在 ⇒ `工具/check_arena_dangling_refs.py` 返回 **rc=2（「目录不存在」）**。
+#      重建后它仍可能 rc=1 —— 本机 2026-11-04 现状 = **38 处悬空 / 19 个 guid**，用
+#      `--expect .../_shared/arena_closure_guid_map.tsv --allow-status runtime-bundle` 放行 18 个后**仍剩 1 个**。
+#      ⇒ 这属于「缺 d:/2 派生资产」的**预期状态，不是缺陷**；⛔ 别为让它变绿去改工程代码或把 prefab 塞进库。
+/Unity/MyGame/Assets/WarpforgeVFX/ArenaOriginalPrefabs/
+/Unity/MyGame/Assets/WarpforgeVFX/ArenaOriginalPrefabs.meta
+
 # ---------- 原版 shader 编译字节码（不是我们写的，不能分发）----------
 /Unity/MyGame/Assets/StreamingAssets/WarpforgeVFX/
 
 # ---------- 效果库资产（第五轮新增）----------
 # 958 条全是「导出的 prefab」的引用，而 prefab 本身不进仓库 —— 引用会是空的，没必要留。
 # 重建：工具/gen_effect_index.py → EffectLibraryBuilder.Run
+#
+# 🔴 2026-11-04（B141-W42 · W131 裁定 · 活状态表 B139-G2②）：**`effect_extras.json` 也走这条忽略，但它是【可重建】的**。
+#   · 它 = 特效 prefab 上**非 AnimFX 组件**的挂载表，数据源只读 `d:/2/tools/assetripper_out/ExportedProject`。
+#   · 重建：`python -I -X utf8 d:/4/Unity/工具/gen_effect_extras.py --write`
+#     （**必须**带 `--dry` / `--check` / `--write` 之一；裸跑 = 打印用法 + rc=2、零写盘）
+#   · **幂等验收 = `--check`**（与盘上逐字节比；一致 rc=0 / 不一致 rc=1，⛔ 不写盘）。2026-11-04 实测 rc=0。
+#   · ⚠️ **本机 + 有 d:/2 才能重建** —— 换机器 / 干净 clone 里这个文件不存在，
+#     `WarpforgeVFX/Runtime/WFEffectExtras.cs:109-117` 会「空表 + 出声一次」（⛔ 不静默，但特效会缺额外组件）⇒
+#     必须本机重跑上面的 `--write`。
+#   · ⛔ **别用旧生成器覆盖**（2026-11-04 前的版本裸跑就写盘，会把表写坏）。
 /Unity/MyGame/Assets/Resources/WarpforgeVFX/
 /Unity/MyGame/Assets/Resources/WarpforgeVFX.meta
 /Unity/MyGame/Assets/Resources.meta

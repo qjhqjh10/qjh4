@@ -330,5 +330,189 @@ namespace RuleEngine
         {
             return DispatchCardAbilityRows(ctx, card, inst, trigger, owner, slot, actingCard, targetCard, tacticPath, tacticSide);
         }
+
+        // ======================================================================================
+        //  五、手牌上下文（`abilityContext == 10 Hand`）的行级 `ca` 派发  —— ✅ 已复刻（2026-11-04 · B141_W67 ·
+        //      判据 `decomp_full/AbilityLogic__PlayAbility.c:588-603`（`ca 160` 那一支逐目标 `AddDiscardFromHand`）
+        //      ＋ `AbilityLogic__GetTargets.c:184-192`（`ta = 20 self` ⇒ 目标 = 能力所在那张卡自己））
+        //
+        //  为什么要有这一段：`cardAbilities` 行 + **Hand 上下文**那条路（`EffectResolver.FireHandAbilityTrigger`）
+        //  改前**只取文本 op**（`TriggerCarrier.FxOps`），**不按 `chosenAbility` 数字分派** ⇒ 数据里真出现
+        //  「手牌里靠 `ca 160` 弃自己」这种行（教程起手占位卡 `T1 BlackLegion-Abaddons Chosen_startinghand`，
+        //  见 `资料/完全复刻/报告/B141_W128_BL37Discard.md`）时，我们**什么都不做、也不出声**。
+        //
+        //  🔴 **与主路同一张判据，⛔ 不是第二份规则**：
+        //    · 「`ca → 哪一支`」的**唯一**分类口 = <see cref="HandAbilityRowKindOf"/>（本段）；
+        //    · `AbilityLayerOwnsRow`（B1..B6）**不适用于**这一路 —— 它是「`trigger 0` 出牌路：ability 层 vs 正文层」
+        //      的判法，B6 说「真效果种类 ⇒ 卡面正文负责」；而在**手牌**里没有那段正文可跑（正文 op 为空才进来）。
+        //    · 「正文已覆盖这一行吗」仍然复用**同一条** B7 判据 <see cref="CardAbilityRowCoveredByTextLayer"/>。
+        //    · 执行体复用现成的：`DiscardHandCardCore`（= `DoDiscardFromHand` 的结算核心，含 `RemoveCostEffects`），
+        //      ⛔ 本段**不另写**搬运/弃牌逻辑。
+        //
+        //  ⚠️ **只实现 `ta = 20 self`**（今天数据里唯一的一档：占位卡 `targetCriteria.targetsAffected = 20`）。
+        //     其余 `ta` 要在**手牌里**按 criteria 筛（`GetTargets`），我们这一层手牌不是 `UnitState`、
+        //     没有实例级 criteria 收口口 ⇒ **出声 + 不结算**（⛔ 不猜；猜了 = 弃错牌，静默）。
+        //     其它 `ca` 档（`100 createCardInHand` / `70 summonUnit` / `30 buffOthers` …）的主路执行器**都挂在
+        //     `UnitState` 上**，手牌上下文没有那个对象 ⇒ 同样出声 + 不结算（= 真缺口，⛔ 不静默）。
+        //
+        //  🧨 灭自证：删掉 `FireHandAbilityTrigger` 里那两行 `rowLane` / `DispatchHandAbilityRows` 的接线
+        //     ⇒ `B141_W67_Assert` 的 A2 段「占位卡的手牌 `ca 160` 行被派出去（手牌少 1 张、弃牌堆 +1）」变红；
+        //     把 `ta` 那一格忽略（一律当 self）⇒ A3（`ta = 30` 的负例）红；把 `ca < 0` 折成 `0`
+        //     ⇒ A4（未知行不出声、不派）红。
+        // ======================================================================================
+
+        /// <summary>手牌上下文里，一行 `(ab, lg)` 归谁派（**唯一判法**，⛔ 别在调用点复制）。</summary>
+        public enum HandRowKind
+        {
+            /// <summary>`ca &lt; 0`：未知（旧表 &lt; v47 / `lg == -1` / 手写夹具）⇒ **改前行为**（什么都不做、不出声）。</summary>
+            Unknown = 0,
+            /// <summary>本层有执行器、会**真结算**（今天 = `ca 160 discardFromHand` ∧ `ta = 20 self`）。</summary>
+            Owned = 1,
+            /// <summary>原版这一刻会执行，但**手牌上下文没有执行器** ⇒ 出声、不结算（真缺口，⛔ 不静默）。</summary>
+            Unsupported = 2,
+        }
+
+        /// <summary>`chosenAbility` + `targetsAffected` → 手牌上下文的三档。纯函数（自检直接调，⛔ 不需要战场）。
+        /// <para>🔴 **在共用的 <see cref="TriggerRowKindOf"/> 之上再判一格**（⛔ 不是另开一张表）：
+        /// `Unknown`（`ca &lt; 0`）原样透传；其余各档在手牌上下文里都缺执行器（`320`/`325`/`340`/`380`/`480`
+        /// 是 meta-op 或要 `UnitState`），**唯一例外** = `ca 160 ∧ ta = 20 self`。</para>
+        /// <para>判据 = `AbilityLogic__PlayAbility.c:588-603`（160 逐目标 `AddDiscardFromHand`）＋
+        /// `AbilityLogic__GetTargets.c:184-192`（`ta = 20 self` ⇒ 目标 = `thisCard` 自己）。</para></summary>
+        public static HandRowKind HandAbilityRowKindOf(CardDef card, CardDef.TriggerAbilityIndexSpec row, out string why)
+        {
+            why = null;
+            if (card == null || row == null) { why = "没有卡/行 ⇒ 判不了"; return HandRowKind.Unknown; }
+            var lane = TriggerRowKindOf(row.Ca);                      // 🔴 共用的「`ca → 哪一支」判据（唯一出处）
+            if (lane == TriggerRowKind.Unknown)
+            { why = "`chosenAbility` 未知（-1：旧表 < v47 / `lg == -1` / 手写夹具）⇒ 照旧"; return HandRowKind.Unknown; }
+            if (row.Ca == 160)
+            {
+                int ta = TargetsAffectedOfRow(card, row);
+                if (ta == 20) { why = "`160 discardFromHand` + `ta = 20 self` ⇒ 弃**能力所在的那张手牌自己**"; return HandRowKind.Owned; }
+                why = "`160 discardFromHand` 但 `targetsAffected = " + ta + "`（手牌上下文只实现 `ta = 20 self`）⇒ 不猜";
+                return HandRowKind.Unsupported;
+            }
+            why = "`ca " + row.Ca + "`（共用判据判成 " + lane + "）在手牌上下文**没有执行器**"
+                + "（主路的执行器都挂在 `UnitState` 上）";
+            return HandRowKind.Unsupported;
+        }
+
+        /// <summary>这张卡的这条 trigger 在手牌上下文**有没有本层要跑的行**（`FireHandAbilityTrigger` 用它决定「要不要入队」）。
+        /// <para>⛔ 与 <see cref="DispatchHandAbilityRows"/> 用**同一个** <see cref="HandAbilityRowKindOf"/> 与**同一条** B7 判据
+        /// —— 两处若各写一份，「入队了但一行都不跑」会静默出现。</para>
+        /// <para>⚠️ 有「原版会跑、我们没有执行器」的行时**顺手出声一次**（<see cref="NoteHandAbilityRowUnsupported"/>），
+        /// 因为这一格返回 `false` ⇒ 调用方会**静默**返回 ⇒ 不出声就等于「静默失败」（本项目红线）。
+        /// 返回值仍只表示「有没有 <see cref="HandRowKind.Owned"/> 行」。</para></summary>
+        internal static bool HandAbilityTriggerHasRows(CardDef card, string triggerName)
+        {
+            if (card == null || string.IsNullOrEmpty(triggerName)) return false;
+            int tn = CardDef.AbilityTriggerNumber(triggerName);
+            if (tn < 0) return false;
+            var rows = card.TriggerAbilityRowsOf(tn);                 // `null` = 列未知；`[]` = 明确没有
+            if (rows == null || rows.Length == 0) return false;
+            string why;
+            for (int i = 0; i < rows.Length; i++)
+            {
+                var row = rows[i];
+                if (row == null) continue;
+                var kind = HandAbilityRowKindOf(card, row, out why);
+                if (kind == HandRowKind.Unknown) continue;
+                if (CardAbilityRowCoveredByTextLayer(card, tn, row, out why)) continue;   // B7：正文已覆盖 ⇒ 不是缺口
+                if (kind == HandRowKind.Unsupported) { NoteHandAbilityRowUnsupported(card, triggerName, tn, row, why); continue; }
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>**手牌上下文的行级 `ca` 派发口**（唯一调用点 = `EffectResolver.HandAbilityDeferred` 的
+        /// 「文本 op 为空」那一支）。返回**真结算的行数**（0 = 什么都没做 = 改前行为 + 可能已出声）。</summary>
+        internal static int DispatchHandAbilityRows(BattleContext ctx, int owner, CardInstance inst,
+                                                    string triggerName, string by)
+        {
+            if (ctx == null || inst == null || inst.Card == null || string.IsNullOrEmpty(triggerName)) return 0;
+            var card = inst.Card;
+            int tn = CardDef.AbilityTriggerNumber(triggerName);
+            if (tn < 0) return 0;                                     // 认不出 trigger 名 ⇒ 判不了（⛔ 不猜 0）
+            var rows = card.TriggerAbilityRowsOf(tn);                  // `null` = 列未知；`[]` = 明确没有（三态原样）
+            if (rows == null || rows.Length == 0) return 0;
+            int fired = 0;
+            for (int i = 0; i < rows.Length; i++)
+            {
+                var row = rows[i];
+                if (row == null) continue;
+                string why;
+                var kind = HandAbilityRowKindOf(card, row, out why);
+                if (kind == HandRowKind.Unknown) continue;                                  // 改前行为
+                if (CardAbilityRowCoveredByTextLayer(card, tn, row, out why))               // B7 双保险（同一条判据）
+                { NoteCardAbilityRowSkippedByTextCoverage(card, tn, row, why); continue; }
+                if (kind == HandRowKind.Unsupported) { NoteHandAbilityRowUnsupported(card, triggerName, tn, row, why); continue; }
+                if (row.Ca == 160) { fired += RunDiscardFromHandRowOfHandCard(ctx, owner, inst, row, by); continue; }
+                NoteHandAbilityRowUnsupported(card, triggerName, tn, row, "`ca " + row.Ca + "` 在手牌上下文没有执行器");
+            }
+            return fired;
+        }
+
+        /// <summary>`ca 160 discardFromHand` 的**手牌上下文**执行体。
+        /// <para>判据 `AbilityLogic__PlayAbility.c:588-603`：`possibleTargets` 逐个 `AddDiscardFromHand`；
+        /// `ta = 20 self` 的 `possibleTargets` = `[thisCard]`（`AbilityLogic__GetTargets.c:184-192`）
+        /// ⇒ 结算体 = 把**这一张手牌**丢掉（`DiscardHandCardCore`，与 `DoDiscardFromHand` 同一个核心）。</para></summary>
+        static int RunDiscardFromHandRowOfHandCard(BattleContext ctx, int owner, CardInstance inst,
+                                                   CardDef.TriggerAbilityIndexSpec row, string by)
+        {
+            if (ctx == null || inst == null || inst.Card == null) return 0;
+            var card = inst.Card;
+            string who = by ?? "手牌能力";
+            int ta = TargetsAffectedOfRow(card, row);
+            if (ta != 20)
+            {
+                ctx.Log($"（手牌 `ca 160 discardFromHand`：「{card.Name}」本行 `ta={ta}` —— 手牌上下文只实现 "
+                      + "`ta = 20 self`（能力所在那张牌自己，`AbilityLogic__GetTargets.c:184-192`）"
+                      + "；其余档要在手牌里按 criteria 筛，本版**不猜** ⇒ 本行不结算）");
+                return 0;
+            }
+            var unresolved = new List<string>();
+            string source = card.Name ?? "?";
+            bool ok = DiscardHandCardCore(ctx, owner, inst, who, source, unresolved);
+            if (unresolved.Count > 0)
+                ctx.Log($"「{source}」的手牌 `chosenAbility 160`（discardFromHand）：{string.Join("；", unresolved)}");
+            ctx.Log($"{who}：「{source}」的手牌 `ca 160`（discardFromHand）⇒ "
+                  + (ok ? "**弃掉了它自己这张手牌**" : "**没有弃成**（见上一条日志）")
+                  + "（原版 `AbilityLogic__PlayAbility.c:588-603` 逐目标 `AddDiscardFromHand`；"
+                  + "结算体 = `DiscardHandCardCore`，含 `RemoveCostEffects`）");
+            return ok ? 1 : 0;
+        }
+
+        /// <summary>「同一 (卡, trigger, ca) 只喊一次」的闩（⛔ 不进 `ctx.Log` —— 那是诊断，
+        /// 会改 `ctx.Events.Count` ⇒ 动联机指纹，纪律同 `NoteCardAbilityRowPending`）。</summary>
+        static readonly HashSet<string> _handRowKindNoted = new HashSet<string>(System.StringComparer.Ordinal);
+
+        /// <summary>手牌上下文「原版这一刻会跑、我们没有执行器」的出声口。</summary>
+        static void NoteHandAbilityRowUnsupported(CardDef card, string triggerName, int triggerNumber,
+                                                  CardDef.TriggerAbilityIndexSpec row, string why)
+        {
+            string key = "hand|" + CardKeyOf(card) + "|" + triggerNumber + "|" + (row != null ? row.Ab : -1) + "|"
+                       + (row != null ? row.Lg : -1) + "|" + (row != null ? row.Ca : -1);
+            if (!_handRowKindNoted.Add(key)) return;
+            UnityEngine.Debug.LogWarning(
+                $"[RuleEngine] 手牌「{(card != null ? card.Name : "?")}」的 `{triggerName}`（trigger {triggerNumber}"
+              + $" · ab{(row != null ? row.Ab : -1)}/lg{(row != null ? row.Lg : -1)}）有一行 `chosenAbility "
+              + $"{(row != null ? row.Ca : -1)}`"
+              + (string.IsNullOrEmpty(why) ? "" : "（" + why + "）")
+              + " ⇒ 原版这一刻会执行，而**手牌上下文没有它的执行器** ⇒ **本行不结算**"
+              + "（⛔ 不猜，也⛔ 不与正文重复；判据 = `AbilityLogic__PlayAbility.c:286` 起那个按 `chosenAbility` 分派的巨型 switch）。");
+        }
+
+        /// <summary>自检门：<see cref="DispatchHandAbilityRows"/>（不改任何行为，只让 Editor 程序集调得到）。</summary>
+        public static int DispatchHandAbilityRowsForTest(BattleContext ctx, int owner, CardInstance inst,
+                                                         string triggerName, string by = null)
+        {
+            return DispatchHandAbilityRows(ctx, owner, inst, triggerName, by);
+        }
+
+        /// <summary>自检门：<see cref="HandAbilityTriggerHasRows"/>。</summary>
+        public static bool HandAbilityTriggerHasRowsForTest(CardDef card, string triggerName)
+        {
+            return HandAbilityTriggerHasRows(card, triggerName);
+        }
     }
 }

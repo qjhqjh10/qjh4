@@ -258,8 +258,8 @@ namespace CardPresentation
         /// ⇒ 框在组内 `y[0, 0.9×49.84]`）⇒ `= BtnApY + 0.9 × 组高 / 2`。
         /// ⚠️ 比条心**低 2.492 px**（原版的框心本来就不与条心同高）—— 这是原版值，别拉平。</summary>
         const float BtnTextCy = BtnApY + 0.9f * BtnBoxH * 0.5f;    // −30.572
-        /// <summary>Continue 的绿色（原版 Button `colors.normal`）</summary>
-        static readonly Color BarColor = new Color(0.369f, 0.894f, 0.587f);
+        /// <summary>Continue 的绿色（原版 `Button` 的 Image `m_Color`；✅ 已复刻 2026-11-04 · B141 · A16 —— 与它的 `m_NormalColor` 同值，两处都要，判据 → `报告/B141_W129_Button506.md`）。</summary>
+        public static readonly Color BarColor = new Color(0.3686275f, 0.89411765f, 0.5874373f, 1f);
         /// <summary>本扇**子画布**的名字（= 原版宿主 GO 名 + ` Canvas`，同批 5 扇同一个命名法）。</summary>
         const string SubCanvasName = "Generic Multi Card Display Combat Canvas";
         /// <summary>本扇**画布本体**那个节点的名字（**逐字 = 原版宿主 GO 名**）。</summary>
@@ -363,7 +363,14 @@ namespace CardPresentation
         /// <summary>uGUI 关闭被**请求**了几次 / 真**落账**了几次（自检用；落账幂等）。</summary>
         int _uguiCloseClicks, _uguiCloseApplied;
         // 🆕 2026-10-19（B4 · `N70` P0-2）：继续钮的反馈（原版那一族 `Continue Button` t=1 ColorTint +
-        //   `CircleButton` t=2 SpriteSwap `40k_UI_bt_play_hover/_pressed`；本地缺那两张 ⇒ 圆钮退回 tint 并出声）。
+        //   `CircleButton` t=2 SpriteSwap `40k_UI_bt_play_hover/_pressed`）。
+        // 🔴 **2026-11-04（B141-W70 · 铁律 5 就地订正）**：原写「**本地缺那两张** ⇒ 圆钮退回 tint 并出声」—— **已过期**：
+        //   两张图 2026-10-31 就已导入（`Resources/Art/ui/40k_UI_bt_play_hover.png` / `…_pressed.png`，
+        //   与 prefab 的 guid `64917033…` / `d3346f16…` 逐一对上），下面 `_fxCircle` 走的就是 `Swap` 那一支。
+        // ✅ 已复刻（2026-11-04 · B141-W70 · W129 5-07，**等价**）：原版 `Generic Multi Card Display Combat ▸
+        //   BattleContinueButton/CircleButton` 的 `m_SelectedSprite` = `7c987b77…` = **`40k_UI_bt_play`**，
+        //   与它自己的常态图**同一张** ⇒ Selected 态画常态图；`BattleButtonFx` 状态机没有 Selected 档（回落 normal）
+        //   ⇒ 已经等价，**不需要另绑 `selectedArt`**。
         BattleButtonFx _fxBar, _fxCircle;
         // 🔴 **2026-10-22（用户口径「战斗里原版没有的设计不要」）**：`Label _hint`（底部那行自拟提示）
         //   已删 —— 见 `Build` 里那一段的判据。
@@ -560,7 +567,7 @@ namespace CardPresentation
                                                barTex != null ? barTex : CardDisplayWindow.SolidTexFor(BarW / BarH),
                                                "mcd_bar", 0f, 0f, BarW, BarH, ZBtnBar, Color.white);
             if (_bar == null) Debug.LogError("[多卡展示窗] 「继续」那条横条没建起来（贴图与纯色兜底都取不到？）");
-            if (_bar != null && barTex == null) _bar.SetTint(BarColor);
+            if (_bar != null) _bar.SetTint(BarColor);   // ✅ 已复刻（2026-11-04 · B141 · A16）：底座绿**无条件**写（旧写法 `&& barTex == null` ⇒ 有贴图时画成白 tint）
 
             var circleTex = CardArt.Ui("40k_UI_bt_play");
             _circle = HudCanvas.MakeImageInParent(_panel,
@@ -647,8 +654,9 @@ namespace CardPresentation
             //    ⚠️ 关窗能力一点没少：继续条 + 圆钮 + 背景关闭区 + 再点牌堆这几条路都在。
 
             SetChrome(false);
-            // 🆕 2026-10-19（B4 · `N70` P0-2）
-            _fxBar = BattleButtonFx.Tint(_bar, "Continue Button");
+            // ✅ 已复刻（2026-11-04 · B141 · 5-06+A15/A16）：四态 + `m_ColorMultiplier = 2` 一起落（判据 → `报告/B141_W129_Button506.md`）；常量复用 `BattleButtonFx.Continue*`（⛔ 别在这里再抄一份字面量）。
+            _fxBar = BattleButtonFx.Tint(_bar, "Continue Button", BattleButtonFx.ContinueNormal, BattleButtonFx.ContinueHighlighted, BattleButtonFx.ContinuePressed, BattleButtonFx.Disabled, BattleButtonFx.ContinueColorMultiplier);
+            if (_fxBar != null) { _fxBar.ColorTintGreyOnDisable = false; _fxBar.ApplyInstant(); }   // 纯 `UnityEngine.UI.Button`（`d3e719b5…` = UnityEngine.UI.dll）⇒ 不换灰化材质、α 保持 0.5019608；建完立刻落 Normal（原版 `OnEnable`）
             var ph = CardArt.MenuUi("40k_UI_bt_play_hover");
             var pp = CardArt.MenuUi("40k_UI_bt_play_pressed");
             _fxCircle = (ph != null && pp != null)

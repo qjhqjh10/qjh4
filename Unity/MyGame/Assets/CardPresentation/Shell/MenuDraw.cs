@@ -3461,10 +3461,10 @@ namespace CardPresentation
                 //   ⚠️ 我们原来：**高写成 35.8**（`DcNameH`）、**不传 auto、不传字距**
                 //   —— 而 `MenuDraw.Text` 本来就有 auto 那三个口、`Label.SetCharSpacing` 也早就有 ⇒ **只是没接**。
                 var nl = Text(cell, nameR, info.Name, DeckBan.NameInk(info, deckIndex), "Deck Name", DcNamePx * sy, qText,
-                              autoMinPx: 8f * sy, autoMaxPx: DcNamePx * sy, autoBasePx: 30f * sy);   // B103_F6：字号按**竖向**比例 `sy`（横向由 auto-fit 收进框；桌面 sy = 0.9 ⇒ 逐位不变）
+                              autoMinPx: 8f * sy, autoMaxPx: DcNamePx * sy, autoBasePx: 30f * sy, face: TmpFont.Face.LatinUi);   // B103_F6：字号按**竖向**比例 `sy`（横向由 auto-fit 收进框；桌面 sy = 0.9 ⇒ 逐位不变）｜✅ 已复刻（2026-11-04 · B141-W64 · 原版 `Collection Deck/content/Deck/Deck Name` 的 `m_fontAsset` = **`Asar-Regular SDF`**（`bundle_menus_assets_all` pathID `-8244042478085975641`，`资源/R0_资源覆盖账.tsv:83490`；AssetRipper `Collection Deck.prefab` guid `b80ad157…`）⇒ `face: LatinUi`。⚠️ 同名的**卡组编辑侧栏输入框** `Deck Editing Menu/…/Deck Name/Text Area/Text` 才是 Pragati，两处不是同一个面）
                 if (nl != null)
                 {
-                    nl.SetCharSpacing(-2f);      // 原版 `m_characterSpacing = −2`
+                    nl.SetCharSpacing(-2f); nl.SetOverflow(TMPro.TextOverflowModes.Truncate);   // 原版 `m_characterSpacing = −2` · `m_overflowMode = 3 (Truncate)`（B141-W14 · 4-13；`Collection Deck` / `Deck Drawer` / `Collection Deck With Highlight` 等 6 份 prefab 逐份同值）
                     // 🆕 **2026-10-17（`A1503②` 的同一条判据里最后一格）**：原版这颗 TMP 的对齐是
                     //   `Center/**Capline**`（`menu_dump --rt -1941218197625697718 --depth 3` 的
                     //   `Deck Name … 对齐=Center/Capline`；两份 prefab 变体逐字段相同）。
@@ -3639,6 +3639,28 @@ namespace CardPresentation
         }
         static readonly System.Collections.Generic.List<Transform> _artWalk
             = new System.Collections.Generic.List<Transform>(256);
+
+        // ==================================================================
+        //  🔴 2026-11-04（执行写手 `B141-W14` · B138 §4 `4-11`）
+        // ✅ 已复刻（2026-11-04 · B141 · `判据/B141_W129_对账_UI动画.md` §4-11）
+        //  `Label.SetParagraphSpacing` 的 Shell 侧**转发口** —— 与 `SetLineSpacing`（本文件 `:2166`）
+        //  同一族、同一套单位（**字体单位**，原版值直接传）与同一条收尾（`Label.ForceRelayout`）。
+        //  ⚠️ 本模块**只转发**：单位/版面的唯一实现仍在 `Battle/Label.cs`（⛔ 别在这儿再写一份）。
+        //  ⚠️ **本批唯一的行号漂移源**：本类尾之后还有 `MenuUniqueIds` / `DeckBan` 两个类，
+        //     账里对它们的 4 个落点（`MenuDraw.cs:3662/3774/3803/3822`）会整体下移 ⇒ 需调度台在
+        //     无 `.cs` 写手时跑一次 `check_ledger_points --all-A --fix`。
+        // ==================================================================
+
+        /// <summary>🔴 **2026-11-04（`B141-W14` · B138 §4 `4-11`）：Shell 文本层的**段落间距**转发口。**
+        /// <para>为什么不叫调用方自己 `GetComponentInChildren&lt;TMP_Text&gt;`：那是 `SetLineSpacing`（2026-10-19）
+        /// 当年的临时办法（`Label` 那时没有口）；现在 `Label.SetParagraphSpacing` 就是那个口，
+        /// 本函数只把它**按 Shell 的调用形状**暴露一次（形参 = 调用方已经拿到的 `Label`）。</para>
+        /// <para>⚠️ `lb == null`（那件没建出来，例如整块落在视口外）⇒ **什么都不做**——与
+        /// <see cref="SetLineSpacing"/> / <see cref="SetVAlign"/> / <see cref="AlignLeft"/> 逐字同一条边界。</para></summary>
+        public static void SetParagraphSpacing(Label lb, float paragraphSpacing)
+        {
+            if (lb != null) lb.SetParagraphSpacing(paragraphSpacing);
+        }
     }
 
     // ============================================================ 唯一 id 注册表（B94_S3 · 2026-10-29）
@@ -3860,7 +3882,7 @@ namespace CardPresentation
                                     autoMinPx: TxtMinPx * sy, autoMaxPx: TxtMaxPx * sy, autoBasePx: TxtBasePx * sy);
             if (txt != null)
             {
-                MenuDraw.SetVAlign(txt, Label.VAlign.Midline, relR);   // 原版 `Center/Midline`（`Deck Name` 是 Capline，⛔ 别抄错）
+                MenuDraw.SetVAlign(txt, Label.VAlign.Midline, relR); txt.SetFontStyle(TMPro.FontStyles.Bold | TMPro.FontStyles.UpperCase);   // 原版 `Center/Midline` ＋ `m_FontStyle = 17 (Bold|UpperCase)`（47 份 prefab 全同值 · B141-W14 §4-13；`Deck Name` 是 Capline，⛔ 别抄错）
                 if (clipR.HasValue) MenuDraw.ClipText(txt, clipR, Vector2.zero);
             }
             return cell;

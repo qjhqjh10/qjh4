@@ -378,7 +378,7 @@ namespace CardPresentation
             var lb = Text(q.transform, CardsCounterText(def), tr.x1, tr.x2, tr.y1, tr.y2, 5, PageInk,
                           "Text (TMP)", CardsCounterFontPx,
                           wrapPx: tr.W, autoMinPx: CardsCounterFontMin, autoMaxPx: CardsCounterFontMax,
-                          autoBasePx: CardsCounterFontMax);
+                          autoBasePx: CardsCounterFontMax, face: TmpFont.Face.LatinCardBody);
             if (lb == null) return;
             lb.SetRenderQueue(QPageText);
             // 纵向档 = 原版 `m_VerticalAlignment = 4096 (Midline)`；
@@ -1081,7 +1081,7 @@ namespace CardPresentation
                              //   🔴 **2026-10-17（`A1229`）**：字号 / 框 / 四格 **全部收口到
                              //   `DeckRuntime.WcCount*` + `FitWildcardCount`** —— 收口前这一组在三个宿主各写一份。
                              wrapPx: DeckRuntime.WcCountWrapPx, autoMinPx: DeckRuntime.WcCountAutoMinPx,
-                             autoMaxPx: DeckRuntime.WcCountAutoMaxPx, autoBasePx: DeckRuntime.WcCountAutoBasePx);
+                             autoMaxPx: DeckRuntime.WcCountAutoMaxPx, autoBasePx: DeckRuntime.WcCountAutoBasePx, face: TmpFont.Face.LatinCardBody);
                 if (t != null) { t.SetRenderQueue(QPageText); _wcCount[i] = t; }
             }
             // 🆕 2026-10-17（B10）：`WIldcard Display` 三个孩子里那颗 `Army Icon`（1470,70.94 → 1550,155.94 · 80×85 ·
@@ -1193,7 +1193,7 @@ namespace CardPresentation
                 //   Empty Collection Warning/Warning`）。英文列 = 那颗 TMP 的 `m_text` 原文逐字符；
                 //   中文列 = 「在您选择的过滤器中，您的收藏里没有任何张牌」（2026-10-14 官方 zh-CN 表；原「没有符合当前筛选的卡牌」）。⛔ 节点名 `"Warning"` 不动。
                 var wt = Text(ew, Loc.T("MenuCollection/NoCardsFound"),
-                              135.22f, 1970.01f, 70.94f, 1080f, 5, PageInk, "Warning", 36f);
+                              135.22f, 1970.01f, 70.94f, 1080f, 5, PageInk, "Warning", 36f, face: TmpFont.Face.LatinCardBody);
                 if (wt != null) wt.SetRenderQueue(QPageText);
                 _cardsEmpty = ew;
             }
@@ -1835,7 +1835,7 @@ namespace CardPresentation
             //   中文列 = 「你的化妆品收藏」（2026-10-14 官方 zh-CN 表；原「你的装饰收藏」= `zh_CN.csv:25` 精确命中）。⛔ 节点名 `"Header Label"` 不动（自检按名找）。
             var title = Text(cosmoHdr != null ? cosmoHdr : page, Loc.T("MenuCollection/Label/Cosmetics"),
                              1200f, 1821.01f, 80.94f, 140.94f, 5, PageInk,
-                             "Header Label", 38f);
+                             "Header Label", 38f, face: TmpFont.Face.LatinCardBody);
             if (title != null)
             {
                 title.SetRenderQueue(QPageText);
@@ -1878,7 +1878,7 @@ namespace CardPresentation
                 //   —— 本窗这一颗就是它（`… > Cardback Tab > Cardback Display > Scroll View > Empty Collection Warning/Warning`）。
                 //   英文列 = TMP 原文逐字符；中文列**是我们自拟的**（`zh_CN.csv` 里没有这条，见 `Core/Loc.cs`）。
                 var wt = Text(ew, Loc.T("MenuCollection/NoCardbackFound"),
-                              170.44f, 1970.00f, 70.94f, 1080f, 5, PageInk, "Warning", 36f);
+                              170.44f, 1970.00f, 70.94f, 1080f, 5, PageInk, "Warning", 36f, face: TmpFont.Face.LatinCardBody);
                 if (wt != null) wt.SetRenderQueue(QPageText);
                 _cosmoEmpty = ew;
                 if (_cosmoEmpty != null) _cosmoEmpty.gameObject.SetActive(FilteredCosmoNames().Length <= 0);
@@ -2384,7 +2384,7 @@ namespace CardPresentation
                 //   （`MenuCollection/NoCardsFound`，原版 4 颗里有它）。英文列 = TMP 原文；中文列 = `zh_CN.csv:177`。
                 var wt = Text(ew, Loc.T("MenuCollection/NoCardsFound"),
                               StyleView.x1, StyleView.x2, StyleView.y1, StyleView.y2, 5, PageInk,
-                              "Warning", 36f);
+                              "Warning", 36f, face: TmpFont.Face.LatinCardBody);
                 if (wt != null) wt.SetRenderQueue(QPageText);
                 _styleEmpty = ew;
             }
@@ -2537,7 +2537,7 @@ namespace CardPresentation
                 _styleLogo = Text(page, StyleLabel(CurrentStyleName()), StyleLogoL, StyleLogoR, StyleBarT, StyleBarB,
                                   6, PageInk, "Art Style Logo", 56f,
                                   // 框 = 那一格自己（`StyleLogoR−L` × `StyleBarB−T`），与收口前手传的两维逐值相同
-                                  wrapPx: StyleLogoR - StyleLogoL, autoMinPx: 18f, autoMaxPx: 56f);
+                                  wrapPx: StyleLogoR - StyleLogoL, autoMinPx: 18f, autoMaxPx: 56f, face: TmpFont.Face.LatinCardBody);
                 if (_styleLogo != null)
                     _styleLogo.SetRenderQueue(QPageText);
             }
@@ -3151,7 +3151,7 @@ namespace CardPresentation
             //   ⚠️ 上限 `autoMaxPx <= 0 ⇒ fontPx`（A333）、base `basePx` 都由漏斗按同一口径兜底。
             var lb = Text(parent, text, r.x1, r.x2, r.y1, r.y2, 5, col, name, fontPx,
                           wrapPx: autoMinPx > 0f ? r.W : 0f,
-                          autoMinPx: autoMinPx, autoMaxPx: autoMaxPx, autoBasePx: basePx);
+                          autoMinPx: autoMinPx, autoMaxPx: autoMaxPx, autoBasePx: basePx, face: TmpFont.Face.LatinCardBody);
             if (lb == null) return;
             lb.SetRenderQueue(QFltText);
             // 🔴 **2026-10-08（A212）**：折行按**原版逐处实读的那一档**显式设 ——
@@ -3330,7 +3330,7 @@ namespace CardPresentation
             //   ⛔ **节点名那半句 `"Title " + text` 一个字没动**：`Editor/CollectionScene.cs` 的 `TitleLeftPx`
             //   （`CardPresentation/Editor/CollectionScene.cs`）与两条 `FindChild(fltPanel, "Title " + ttl)` 都**按名找**（名里还是英文原名）。
             //   ⚠️ `Energy Cost` 那一行**原版没有 `Localize`** ⇒ `TitleText` 原样返回英文。
-            var lb = FilterPanelModel.ApplyTitleFontStyle(Text(parent, FilterPanelModel.TitleText(text), r.x1, r.x2, r.y1, r.y2, 5, PageInk, "Title " + text, fontPx));   // 🆕 B102/AUD02：原版 m_FontStyle=16(UpperCase)
+            var lb = FilterPanelModel.ApplyTitleFontStyle(Text(parent, FilterPanelModel.TitleText(text), r.x1, r.x2, r.y1, r.y2, 5, PageInk, "Title " + text, fontPx, face: TmpFont.Face.LatinCardBody));   // 🆕 B102/AUD02：原版 m_FontStyle=16(UpperCase)
             if (lb == null) return;
             lb.SetRenderQueue(QFltText);
             if (!left) return;
@@ -3548,7 +3548,7 @@ namespace CardPresentation
                               //   撑三页**，而 `filterPx` 逐页不同（42/35/42），⚠️ 闸要求 `fontPx > autoMinPx 10`：
                               //   最小的那一页是 **35**，四页全过。
                               //   ⚠️ 折行 = `0` ⇒ 漏斗内部把模式开成 `Normal(1)` 之后要**显式还原**（见下面那句）。
-                              wrapPx: 150f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 32f);
+                              wrapPx: 150f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 32f, face: TmpFont.Face.LatinCardBody);
             if (fltLab != null)
             {
                 fltLab.SetRenderQueue(QPageText);
@@ -3627,7 +3627,7 @@ namespace CardPresentation
                               //   ⚠️ 但 **1.516 这个比值不变**（分子分母同乘 `m_Scale`）⇒ 本处那个「高 +2.31 未跟」
                               //   的结论**照旧成立**，别因为对齐了字段就把 1.516 改成 1.293。
                               //   判据/修法 → `资料/普查产出_1021/W61b_界面_A1262_mScale.md`。
-                              wrapPx: 221.44f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
+                              wrapPx: 221.44f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f, face: TmpFont.Face.LatinCardBody);
             if (clrLab != null)
             {
                 clrLab.SetRenderQueue(QPageText);
@@ -3935,7 +3935,7 @@ namespace CardPresentation
                               //    判据（原版实读）：`/Collection Menu Variant/…/Shared/Close Button/Button Text`
                               //    = `m_fontSize 40` · `auto[10~40]` · **`base 12.0`**（逐站表 §二·3 #22）
                               //    —— 同族（按钮文案那一族）`Back` / `WebShop Button` / `Continue` 也都是 **12**。
-                              wrapPx: bt.W, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 12f);
+                              wrapPx: bt.W, autoMinPx: 10f, autoMaxPx: 40f, autoBasePx: 12f, face: TmpFont.Face.LatinCardBody);
                 if (cl != null)
                 {
                     cl.SetRenderQueue(QText);
@@ -3958,7 +3958,7 @@ namespace CardPresentation
                 //   原版这颗 Back 钮**不是无条件关窗**：`CollectionScreen.BackButtonClick` 先按「当前页签对象」
                 //   分派（Deck 页签 ⇒ 交给 `SelectDecksTab.BackButtonClicked`，其余三页走通用返回 = 关窗/上一层）。
                 //   ⇒ 改走 `OnBackClicked()`（分派逻辑与判据只在那一处）。
-                AddHit(transform, "CloseHit", cr, QPanel, OnBackClicked, cq, "UI_Button_Mulligan",
+                AddHit(transform, "CloseHit", MenuDraw.PaddedHitRect(cr, ClosePad), QPanel, OnBackClicked, cq, "UI_Button_Mulligan",   // 🔴 2026-11-04（B141-W32 · 4-15）：命中区按原版 `Close Button` 的 `m_RaycastPadding = (-10,-10,-10,-10)` **外扩** 10（负 = 外扩，判据 → `ExportedProject/Assets/Collection Menu Variant.prefab` 那颗 `Close Button` 的 Image；口径同 `Shell/ChatPanel.cs` 的 `ClosePad`）⇒ 150×60 → **170×80** · ✅ 已复刻（2026-11-04 · B141/W32 · 断言 `B141_W32_Assert` §C）
                        clickCue: WindowSounds.PositiveCue);
             }
 
@@ -4103,7 +4103,7 @@ namespace CardPresentation
                               // 🔴 **2026-10-17（`A1226` 表 B #9）：框 = 原版有效框 220.81（原来整颗钮 245）。**
                               //   判据 = 原版 `…/Control Buttons ▸ Create ▸ Button Text`（伸锚 · `m_SizeDelta.x = −6`）
                               //   ⇒ 220.81 × 57.52（宽 +24.19 / 高 +2.48）。
-                              wrapPx: 220.81f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
+                              wrapPx: 220.81f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f, face: TmpFont.Face.LatinCardBody);
             if (newLab != null)
             {
                 newLab.SetRenderQueue(QPageText);
@@ -4117,7 +4117,7 @@ namespace CardPresentation
                               //   折行 = `0` ⇒ 还原（下面那句）。
                               // 🔴 **2026-10-17（`A1226` 表 B #10）：框 = 原版有效框 220.81（原来整颗钮 245）。**
                               //   判据 = 原版 `…/Control Buttons ▸ Import ▸ Button Text`（同族伸锚）⇒ 220.81 × 57.52。
-                              wrapPx: 220.81f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f);
+                              wrapPx: 220.81f, autoMinPx: 10f, autoMaxPx: 42f, autoBasePx: 12f, face: TmpFont.Face.LatinCardBody);
             if (impLab != null)
             {
                 impLab.SetRenderQueue(QPageText);
@@ -4235,7 +4235,7 @@ namespace CardPresentation
                 //   `Core/Loc.cs:776` 就是这一串（⚠️ prefab 静态默认 `m_text` 少 ` or game mode`，那不是运行时值）；
                 //   ⚠️ 同句还硬编码在 `Shell/ShopTabPage.cs:140` 与 `Editor/DeckScene.cs:9300`（待同步，见 `报告/B106_W12.md` §④3）。
                 var wt = Text(ew, Loc.T("MenuCollection/NoDecksFound"), 165.88f, 1970.01f, 70.94f, 1080f, 5, PageInk,
-                              "Warning", 36f);
+                              "Warning", 36f, face: TmpFont.Face.LatinCardBody);
                 if (wt != null) wt.SetRenderQueue(QPageText);
                 _deckEmpty = ew;
             }
@@ -4377,7 +4377,7 @@ namespace CardPresentation
             //   本地化键 `MenuDeck/SelectDeckGameMode`（官方表 = `SELECT GAME MODE` / 「选择游戏模式」）；
             //   ⚠️ prefab 的 `m_text` 是 `SELECT GAME MODE DECK`（占位串）—— ⛔ 别把它写进代码（§2·2 末段）。
             //   ⚠️ 字体：原版 `Pragati-Regular SDF` + 一层**全局 CJK 回退**（那份回退表本地没查到，落点 §4·3）
-            //      ⇒ 我们传拉丁面，`Label.ActualFace` 在文本含汉字时自动回 CJK（它自己的口径，见 `Core/TmpFont`）。
+            //      ⇒ 我们传拉丁面，`Label.ActualFace` 在文本含汉字时自动回 CJK（它自己的口径，见 `Core/TmpFont`）。｜✅ 已复刻（2026-11-04 · B141/W53 · 判据=`Collection Menu Variant.prefab` 57/57 TMP = `Pragati-Regular SDF` ⇒ 本窗 21/21 个 `Text(` 站点全传 `LatinCardBody`；断言 → `Editor/B141_W53_Assert.cs` F 段）
             var title = Text(root, Loc.T("MenuDeck/SelectDeckGameMode"),
                              DeckModeTitleRect.x1, DeckModeTitleRect.x2, DeckModeTitleRect.y1, DeckModeTitleRect.y2,
                              5, DeckModeTitleInk, "Title Header", 72f,
@@ -4749,7 +4749,7 @@ namespace CardPresentation
                               QFltRow, new Color(0.0627f, 0f, 0f, 1f), true, "Input BG");
             }
             _deckFltNameTx = Text(nameRow, DeckNameFilterText(), DInputL + 10f, DInputL + DInputW - 45f,
-                                  DInputT + 6.5f, DInputT + DInputH - 6.5f, 5, PageInk, "Input Text", 30f,
+                                  DInputT + 6.5f, DInputT + DInputH - 6.5f, 5, PageInk, "Input Text", 35f,   // 🔴 2026-11-04（B141-W32 · 4-07）30f → **35f**：原版这颗 `Text Area/Text` 的 `m_fontSize = 35`（判据 → 判据/B141_W129_对账_UI动画.md `W6` 那一行 + B131 §UI 二 #27）· ✅ 已复刻（2026-11-04 · B141/W32 · 断言 `B141_W32_Assert` §B）
                                   // 🔴 **2026-10-10（A1212 · 块 3 #12）**：接上 `m_enableAutoSizing`（四格 = **10 / 35 / 26 / 3**）。
                                   //   判据 = `R5` §2 #12（`… ▸ Select Deck Tab ▸ Deck Filters ▸ Filters ▸
                                   //   Deck Name Filter ▸ Input Field ▸ Text Area ▸ Text`）。
@@ -4758,8 +4758,8 @@ namespace CardPresentation
                                   //   `TMP_InputField.SetTextComponentWrapMode()` = `multiLine ? Normal : PreserveWhitespaceNoWrap`）
                                   //   ⇒ 走本文件已有的那条常量 `SearchBoxWrap`（**同一条判据的第二处消费者**，
                                   //   另一处 = `CardNameFilter` 那颗，A249），⛔ **别用 `SetWrapping(false)` 顶替**（那是 `0`）。
-                                  //   ⚠️ 闸：`wrapPx 226.28 > 0 ∧ 10 > 0 ∧ fontPx 30 > 10` 全真。
-                                  wrapPx: DInputW - 55f, autoMinPx: 10f, autoMaxPx: 35f, autoBasePx: 26f);
+                                  //   ⚠️ 闸：`wrapPx 226.28 > 0 ∧ 10 > 0 ∧ fontPx 35 > 10` 全真（2026-11-04 `B141-W32`：fontPx 由 30 改成原版的 35）。
+                                  wrapPx: DInputW - 55f, autoMinPx: 10f, autoMaxPx: 35f, autoBasePx: 26f, face: TmpFont.Face.LatinCardBody);
             if (_deckFltNameTx != null)
             {
                 _deckFltNameTx.SetRenderQueue(QFltText);
@@ -4797,7 +4797,7 @@ namespace CardPresentation
                            //   折行 = `1` ⇒ 与漏斗那一档同档，不必还原。
                            // 🔴 **2026-10-17（`A1226` 表 B #13）：框 = 原版有效框 335.31 × 50（原来 310.50，窄 −24.81）。**
                            //   判据 = 原版 `…/Army Filter ▸ Title` 的 `RectTransform`（伸锚 · `m_SizeDelta.x = −25`）。
-                           wrapPx: 335.31f, autoMinPx: 10f, autoMaxPx: 36f, autoBasePx: 32f);
+                           wrapPx: 335.31f, autoMinPx: 10f, autoMaxPx: 36f, autoBasePx: 32f, face: TmpFont.Face.LatinCardBody);
             if (ttl != null)
             {
                 ttl.SetRenderQueue(QFltText);
@@ -5629,13 +5629,13 @@ namespace CardPresentation
             //   `_deckModeFilter < 0`（还没选模式 —— 正常流程走不到：`Create` 在模式页是藏着的）⇒ 退回经典 0。
             int mode = _deckModeFilter >= 0 ? _deckModeFilter : (int)GameMode.Classic;
             string name = CollectionData.CreateDeck(mode);
-            if (string.IsNullOrEmpty(name))
+            if (CollectionData.PendingNewDeck == null)   // 🔴 2026-11-04（B141-W32 · 3-13）：成败改读**对象** —— 新卡组名照原版是**空串**（`CardDeck__GetEmptyDeck.c`）⇒ ⛔ 不能再拿 `string.IsNullOrEmpty(name)` 判成败（那会把「造出来了」当成「没造出来」直接 return、点 Create 毫无反应）
             {
                 Debug.LogWarning("[Collection] 新建卡组**没造出来**（⛔ 库里一套都没多、也没进编辑器）"
                                  + " —— 原因见上一条 `[CollectionData]` 警告，⛔ 别在这里另写一套原因");
                 return;
             }
-            Debug.Log("[Collection] 新建卡组「" + name + "」—— 照原版 `SelectDecksTab__CreateDeck.c:28`："
+            Debug.Log("[Collection] 新建卡组「" + (string.IsNullOrEmpty(name) ? "（未命名 —— Done 时按督军卡名补）" : name) + "」—— 照原版 `SelectDecksTab__CreateDeck.c:28`："
                       + "**不入库**、直接开卡组编辑（`Done` 过了校验才入库）");
             GoNewDeck();
         }
@@ -6023,7 +6023,11 @@ namespace CardPresentation
         //        （没有 LayoutGroup ⇒ 原位不会被挤掉，不需要 ghost）⇒ **不 reparent**，只把它抬到
         //        `QPageRow + DeckDragQueueBoost`（高过本页页头与筛选栏 3044、仍低于弹窗那一段 3100+），
         //        免得同一队列下被邻格盖住（本工程透明件的层**靠 `SetRenderQueue`、不靠 z**）。
-        //        ⚠️ 因此**拖到视口外不会被裁**（原版会）—— 如实记，没有装作复刻了。
+        //        ✅ **2026-11-04（`B141-W32` · 条目 3-28）判据订正（铁律 5）**：本行原来写「拖到视口外不会被裁（**原版会**）」——
+        //        **后半句不成立**：原版 `DragAndDropItem__OnBeginDrag.c:33-36` 把本体 `set_parentInternal(本体, transform.**root**)`
+        //        （= 跳出**整条**父链、含 ScrollRect 的 `RectMask2D`），随后 `__OnDrag.c:37` 每帧直接 `set_position(鼠标)`、
+        //        **没有任何 clamp** ⇒ **原版拖起来那一格【同样不被视口裁】**（ghost 才是留在 content 里被裁的那一件，
+        //        而幽灵在我们这套绝对摆位网格里不需要）。⇒ 我们「不裁」与**原版等价**，不要为此加裁切（会画蛇添足）。
 
         /// <summary>拖起来那一格抬多少队列。值 = **3044（`QFltHit`，本页最高的筛选栏）之上、3100（弹窗那一段）之下**
         /// —— ⛔ 别抬到 3100+：那会盖到随后弹出来的 `Deck info Popup` 上。</summary>
@@ -6133,7 +6137,7 @@ namespace CardPresentation
             if (wb == null) return;                             // 整格被视口裁没了（`MenuDraw.DeckCell` 不建 `Hit`）
             PointerLayer.RegisterDrag(wb,
                 pos => DeckDragMove(cell, displayPos, pos),
-                pos => DeckDragDrop(cell, displayPos, pos));
+                pos => DeckDragDrop(cell, displayPos, pos), true);   // 🆕 2026-11-04（B141-W32 · 3-10）最后那个 `true` = **走原版方向门**（等价 `DragAndDropItem.Initialize(父 ScrollRect)`）：竖向拖（30°~150°）交给列表滚动、⛔ 不拖格。⚠️ 别的可拖件缺省 false ⇒ 行为不变
         }
 
         /// <summary>原版 `DragAndDropItem.OnDrag`（跟指针）+ `CollectionItem` 的 `OnBeginDrag/OnDrag` 转发。
@@ -6649,7 +6653,7 @@ namespace CardPresentation
             float basePx = side * (36f / 262.5f);         // = 27（原版 fontSizeBase 36 是在 262.5 px 方叉里定的）
             var lb = Text(icon.transform, Loc.T("MenuDeck/Banned"), trR.x1, trR.x2, trR.y1, trR.y2, 5, Color.white,
                           "Banned Text", basePx,
-                          wrapPx: tw, autoMinPx: 8f, autoMaxPx: 72f * (pxPerUnit / 150f), autoBasePx: basePx);
+                          wrapPx: tw, autoMinPx: 8f, autoMaxPx: 72f * (pxPerUnit / 150f), autoBasePx: basePx, face: TmpFont.Face.LatinCardBody);
             if (lb != null)
             {
                 lb.SetRenderQueue(QPageText);             // = 3033，> 卡(3000)
@@ -7064,7 +7068,7 @@ namespace CardPresentation
             float top = FilterPanelModel.CosmoSpacing1 + FilterPanelModel.ToggleRowH + 5f;   // = 70（判据见 doc）
             var r = Abs(new PxRect(25.1f, top, FltW, top + FilterPanelModel.ToggleRowH));     // 宽 = 面板右缘（原版 Title 伸锚 25.1..w）
             var lb = FilterPanelModel.ApplyTitleFontStyle(
-                Text(parent, FilterPanelModel.TitleText("Army"), r.x1, r.x2, r.y1, r.y2, 5, PageInk, "Title Army", FilterPanelModel.TitleFontPx));
+                Text(parent, FilterPanelModel.TitleText("Army"), r.x1, r.x2, r.y1, r.y2, 5, PageInk, "Title Army", FilterPanelModel.TitleFontPx, face: TmpFont.Face.LatinCardBody));
             if (lb == null) return;
             lb.SetRenderQueue(QFltText);
             MenuDraw.AlignLeft(lb, r);
@@ -7195,6 +7199,14 @@ namespace CardPresentation
 #endif
             Object.Destroy(t.gameObject);
         }
+
+        // 🆕 2026-11-04（`B141-W32` · 条目 4-15）追加在**类尾**（⛔ 别插进成员之间 —— 本文件被账按 `文件:行号` 引用 ~200 行）。
+        /// <summary>原版 `Collection Menu Variant/…/Close Button` 那颗 Image 的 `m_RaycastPadding` = **(-10,-10,-10,-10)**
+        /// （逐字段实读 `d:/2/tools/assetripper_out/ExportedProject/Assets/Collection Menu Variant.prefab`；
+        /// 负 = **外扩**，符号约定见 `MenuDraw.PaddedRect`）⇒ 命中区 = `cr` 四边各 +10 = **170×80**。
+        /// ⚠️ 它与 `CloseHit` 那颗节点自己**不同**：`cr`（150×60）是渲染矩形，本 pad 只改**可点范围**
+        /// （同 `Shell/ChatPanel.cs` 的 `ClosePad` 那一行）。 · ✅ 已复刻（2026-11-04 · B141/W32 · `Collection Menu Variant.prefab` 的 `Close Button`）</summary>
+        static readonly Vector4 ClosePad = new Vector4(-10f, -10f, -10f, -10f);
     }
 
 }

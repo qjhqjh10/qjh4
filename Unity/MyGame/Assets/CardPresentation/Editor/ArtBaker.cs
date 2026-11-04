@@ -527,6 +527,10 @@ public static class ArtBaker
                 sdfPs.textureCompression = TextureImporterCompression.Uncompressed;
                 ti.SetPlatformTextureSettings(sdfPs);
             }
+            // ✅ 已复刻（2026-11-04 · B141 · 15-10 · 判据 = `判据/B141_W130_对账_资源.md` §一 15-10 + 原版 `m_TextureFormat`）
+            //   表内（`CompTruths`，8 个名字）照原版压缩档；表外保持上面的 `CompressedHQ`（原口径不动）。
+            //   本方法现读只影响 1 张：`Resources/Art/ui_menu/Noise_Combined.png`（原版 `Noise Combined` = RGBA32 未压缩）。
+            if (!isSdf) ApplyCompressionTruth(ti, path);
             ti.SaveAndReimport();
         }
         Debug.Log(P + "导入设置已重设");
@@ -626,7 +630,11 @@ public static class ArtBaker
             // 大面积渐变压出块状色带。
             // 🔴 **2026-10-31 订正（B108_A17）**：原注释写的是「BC7（fmt=29）」—— **29 = DXT5Crunched，BC7 = 25**
             // （`判据/B108_AUD09_纹理格式.md` §1·3 实读枚举）。`CompressedHQ` 这个结论不变，只订正判据。
-            ti.textureCompression = TextureImporterCompression.CompressedHQ;
+            // ✅ 已复刻（2026-11-04 · B141 · 15-10：`判据/B141_W130_对账_资源.md` §一 15-10 + 报告 `B141_W130_ArtBaker.md` §3）
+            //   原来这里**无条件**写 `CompressedHQ` ⇒ 原版 uncompressed / DXT1 的 8 个名字（22+16 个文件实例）被压到 BC7，
+            //   比原版**低档**。现在表内（`CompTruths`）照原版，表外仍是 `CompressedHQ`（原口径不动）。
+            var ctruth = OriginalCompression(path);
+            ti.textureCompression = ctruth.Compression;
             // 🔴 **2026-09-22 补：平台覆盖也要一起设** ——
             //    meta 里除了顶层 `maxTextureSize`，还有一条 **`buildTarget: Standalone`** 的覆盖块，
             //    它带着自己的 `maxTextureSize`（我们这份一直是 **2048**）。
@@ -636,7 +644,9 @@ public static class ArtBaker
             {
                 var ps = ti.GetPlatformTextureSettings("Standalone");
                 ps.maxTextureSize = cap;
-                ps.textureCompression = TextureImporterCompression.CompressedHQ;
+                ps.textureCompression = ctruth.Compression;   // ✅ B141 · 15-10：平台块也照原版（否则顶层被它盖掉）
+                ps.crunchedCompression = ctruth.Crunched;   // ✅ B141 · 15-09：同名原版图是 *Crunched 时平台块也带 Crunch（现表内 8 条都是 false ⇒ 无行为变化）
+                if (ctruth.ExplicitFormat >= 0) ps.format = (TextureImporterFormat)ctruth.ExplicitFormat;   // 原版 DXT1 那三张要显式格式
                 ps.overridden = true;
                 ti.SetPlatformTextureSettings(ps);
             }
@@ -734,7 +744,12 @@ public static class ArtBaker
     // **判据（旁挂表，⛔ 不写死在代码里）**：
     //   · `数据/游戏数据/vfx_texture_mips.tsv`（2,984 个原版 `Texture2D` 名，`工具/gen_vfx_texture_mips.py` 生成）
     //   · `数据/游戏数据/arena_texture_import.tsv`（127 个战场名，`工具/gen_arena_texture_import.py` 生成）
-    //   两张表列序在「本方法要用的五格」上一致：`mipCount=3 · wrapU=6 · wrapV=7 · filterMode=8 · aniso=9`。
+    //   🔴 **2026-11-04 订正（B141 · 顺手发现 #1）**：这里原来写「两张表列序在要用的五格上一致：
+    //      `mipCount=3 · wrapU=6 · wrapV=7 · filterMode=8 · aniso=9`」—— **错**，只有 `mipCount=3` 一致：
+    //      `vfx_texture_mips.tsv` = `name,width,height,mipCount,bundle,wrapU,wrapV,filterMode,aniso,npotScale`
+    //      （`wrapU` = **第 5 列**）；`arena_texture_import.tsv` 多一列 `colorSpace`
+    //      = `…mipCount,colorSpace,bundle,wrapU,wrapV,filterMode,aniso`（`wrapU` = **第 6 列**）。
+    //      ⇒ 现在**按表头认列**（`HeaderIndex`），⛔ 不再写死偏移。判据 → `判据/B141_W130_对账_资源.md` §四·1。
     //
     // **三条口径**（与 `ArenaBuilder.ApplyOriginalImport` 同一套）：
     //   ① 表里有 ⇒ **照原版写**（`mipCount > 1` 才开 mip；wrap U/V **分开写**，能表达 `(0,1)` 混合档）；
@@ -765,10 +780,24 @@ public static class ArtBaker
     static string[] OriginalNameCandidates(string path)
     {
         string k = Path.GetFileNameWithoutExtension(path);
-        var l = new System.Collections.Generic.List<string>(4) { k };
+        var l = new System.Collections.Generic.List<string>(8) { k };
         foreach (var s in new[] { "_sprite", "_0", "_1" })
             if (k.EndsWith(s, System.StringComparison.OrdinalIgnoreCase))
                 l.Add(k.Substring(0, k.Length - s.Length));
+        // ✅ 已复刻（2026-11-04 · B141 · `判据/B141_W130_对账_资源.md` §四·2）：
+        //   原版贴图名用**空格**，我们很多文件名用**下划线**（`Card_Booster_Pack_Normal` ↔ 原版 `Card Booster Pack Normal`）
+        //   ⇒ 只比下划线名永远匹配不上（`IsOriginalNormalMap` 恒 false ⇒ `OriginalTextureType` 返 Default，
+        //   下次烘焙把法线 `textureType: 1` 静默打回 0）。这里再补一档「下划线 → 空格」的形态；
+        //   ⛔ 精确名仍排在最前（顺序 = 原样 → 剥后缀 → 空格形态），不会改变已有的精确命中。
+        //   ⚠️ 副作用（已记账）：另有 47 个 `Resources/Art` 文件会因此**首次**对回原版真值（mip/wrap/filter），
+        //   逐个都是同名同物的下划线写法（`Booster_Pack_Explosion` ↔ `Booster Pack Explosion` 等），
+        //   清单见 `报告/B141_W130_ArtBaker.md` §2。
+        int n = l.Count;
+        for (int i = 0; i < n; i++)
+        {
+            var spaced = l[i].Replace('_', ' ');
+            if (!string.Equals(spaced, l[i], System.StringComparison.Ordinal)) l.Add(spaced);
+        }
         return l.ToArray();
     }
 
@@ -789,15 +818,30 @@ public static class ArtBaker
                 Debug.LogWarning(P + $"读不到原版贴图真值表（{tsv}）⇒ mip/wrap/filter/aniso **一律保留现值**（不会打回已改好的 `.meta`）");
                 continue;
             }
-            int first = 1, bad = 0;
+            // ✅ 已复刻（2026-11-04 · B141 · `判据/B141_W130_对账_资源.md` §四·1：按表头认列，两张表列序不同）
+            int bad = 0, iMip = -1, iWu = -1, iWv = -1, iFm = -1, iAn = -1;
+            bool headerRead = false;
             foreach (var line in File.ReadLines(tsv))
             {
-                if (first-- > 0) continue;
                 var c = line.Split('\t');
+                if (!headerRead)
+                {
+                    // 第一行 = 表头：**按列名取下标**（vfx 表 `wrapU` 在 5、arena 表在 6）——
+                    // 原实现两张表共用 `6/7/8/9` ⇒ vfx 行被读成 `U←wrapV · V←filterMode · filter←aniso · aniso←npotScale`。
+                    headerRead = true;
+                    iMip = HeaderIndex(c, "mipCount"); iWu = HeaderIndex(c, "wrapU"); iWv = HeaderIndex(c, "wrapV");
+                    iFm = HeaderIndex(c, "filterMode"); iAn = HeaderIndex(c, "aniso");
+                    if (iMip < 0 || iWu < 0 || iWv < 0 || iFm < 0 || iAn < 0)
+                    {
+                        Debug.LogWarning(P + $"🔴 贴图真值表 {Path.GetFileName(tsv)} 表头认不出列（mipCount/wrapU/wrapV/filterMode/aniso）⇒ 本表整份跳过（⛔ 不退回固定偏移去猜）");
+                        break;
+                    }
+                    continue;
+                }
                 if (c.Length < 5 || string.IsNullOrEmpty(c[0])) continue;
                 int mip;
-                if (!int.TryParse(c[3], out mip)) { bad++; continue; }
-                int wu = ParseCol(c, 6), wv = ParseCol(c, 7), fm = ParseCol(c, 8), an = ParseCol(c, 9);
+                if (iMip >= c.Length || !int.TryParse(c[iMip], out mip)) { bad++; continue; }
+                int wu = ParseCol(c, iWu), wv = ParseCol(c, iWv), fm = ParseCol(c, iFm), an = ParseCol(c, iAn);
                 d[c[0]] = new ArtTexTruth
                 {
                     MipCount = mip,
@@ -823,10 +867,32 @@ public static class ArtBaker
     static bool TryFindTruth(string path, out ArtTexTruth row)
     {
         var t = LoadArtTruth();
+        var canon = ArtTruthCanonical();
+        // ✅ 已复刻（2026-11-04 · B141 · W61 · 判据 = `报告/B141_W130_ArtBakerTruth.md` §5·1 + `vfx_texture_mips.tsv` 原版名）
+        //   🔴 第三档 `CanonName`：原版名**混用下划线/空格**（`UI_Deck_Warlord_Acolyte Iconward`），而我们的落盘名把空格全换成 `_`
+        //   ⇒ 只比「原样 / 剥后缀 / 全空格」三档必有漏。实测 W40 那 137 张里 **44 张**查得到真值却漏掉（停在现值）。
+        //   ⛔ 精确名仍排在最前（顺序 = 原样 → 剥后缀 → 空格形态 → 规范名），不会改变已有命中。
         foreach (var n in OriginalNameCandidates(path))
+        {
             if (t != null && t.TryGetValue(n, out row)) return true;
+            if (canon.TryGetValue(CanonName(n), out row)) return true;
+        }
         row = default(ArtTexTruth);
         return false;
+    }
+
+    /// <summary>`_artTruth` 的规范名索引（键 = `CanonName`，忽略大小写）。**首次查表时才建**，
+    /// 与 `CompTruthsCanonical()`（同一个文件、同一套做法）一致 —— ⛔ 别写成 `static readonly`：静态字段按**文本顺序**初始化，
+    /// 放在 `_artTruth` 前面会是 null。⚠️ 建索引本身是幂等只读，`LoadArtTruth()` 失败时给空表（⇒ 走「表外保留现值」）。</summary>
+    static System.Collections.Generic.Dictionary<string, ArtTexTruth> _artTruthCanon;
+    static System.Collections.Generic.Dictionary<string, ArtTexTruth> ArtTruthCanonical()
+    {
+        if (_artTruthCanon != null) return _artTruthCanon;
+        var d = new System.Collections.Generic.Dictionary<string, ArtTexTruth>(System.StringComparer.OrdinalIgnoreCase);
+        var t = LoadArtTruth();
+        if (t != null) foreach (var kv in t) d[CanonName(kv.Key)] = kv.Value;
+        _artTruthCanon = d;
+        return d;
     }
 
     public static bool IsOriginalNormalMap(string path)
@@ -872,5 +938,278 @@ public static class ArtBaker
         if (r.HasFilter) { fm = (FilterMode)r.Filter; any = true; }
         if (r.Aniso > 0) { aniso = r.Aniso; any = true; }
         return any;
+    }
+
+    // ───────── 🆕 2026-11-04（B141 · 15-10）：**战场贴图的压缩档真值** ─────────
+    //
+    // **为什么要有这一节**：`ApplyArenaImportSettings` 原来**无条件**写 `CompressedHQ`（BC7）⇒
+    //   原版是 RGBA32（未压缩）或 DXT1 的贴图被压成 BC7，**比原版低档**（RGBA32 的 alpha 与
+    //   噪声细节被块压缩吃掉；DXT1 的 4bpp 变成 8bpp，不是外观问题但与原版不符）。
+    // **判据（数值来源）**：
+    //   · 原版 `Texture2D.m_TextureFormat`（UnityPy 直读 84 个 `StandaloneWindows64/*.bundle`；
+    //     缓存件 `_tmp_view/b139_i/orig_textures.json`，3,009 对象 / 2,984 唯一名，与 `B136_审计_纹理与图集.md` #11 同口径）
+    //   · `报告/B136_审计_纹理与图集.md` #11（`Noise Combined` RGBA32 · `ExplosionEmission` BC7 · `MatCap Polish` DXT1）
+    //   · 条目判定：`判据/B141_W130_对账_资源.md` §一 15-10
+    // **fmt → 导入档映射**：`4`(RGBA32) → `Uncompressed` · `10`(DXT1) → `Compressed` + 显式平台 `DXT1` ·
+    //   `25`(BC7) → `CompressedHQ`（= 现状，无需入表）· `12`(DXT5) / `29`(DXT5Crunched) → 我们给的是 BC7，
+    //   **比原版高**（`B136` 判为「更高档、不是缺陷」）⇒ 不入表。
+    // 🔴 **只列「原版比我们低」的 8 个名字 —— 精确名单是现算的、不是猜的**：
+    //   把 `WarpforgeArena1/arenas/**/Textures/*.png` 的 116 个唯一名逐张对回 `orig_textures.json`，
+    //   `fmt ∈ {4,10}` 的恰好这 8 个（`fmt 4` × 5 + `fmt 10` × 3，覆盖 22+16 个文件实例；零未命中）。
+    //   ⚠️ `ExplosionEmission`（原版 BC7）**不入表** —— 现状 `CompressedHQ` 已与原版同档。
+    //   ⚠️ `Noise Combined` 的 PNG 实测 alpha 0..196 ⇒ **必须** Uncompressed（DXT1/DXT5 会吃掉渐变 alpha）；
+    //      三个 DXT1 名的 PNG alpha 实测恒 255 ⇒ 显式 DXT1 安全。
+    struct ArtCompressionTruth
+    {
+        public TextureImporterCompression Compression;
+        public int ExplicitFormat;   // -1 = 不指定显式平台格式（走压缩档）；否则 = (int)TextureImporterFormat
+        /// <summary>原版 `m_TextureFormat` 是 *Crunched（28 DXT1C / 29 DXT5C）时 = true ⇒ 写 `crunchedCompression: 1`（B141 · 15-09）。</summary>
+        public bool Crunched;
+    }
+
+    static readonly System.Collections.Generic.Dictionary<string, ArtCompressionTruth> CompTruths =
+        new System.Collections.Generic.Dictionary<string, ArtCompressionTruth>(System.StringComparer.OrdinalIgnoreCase)
+    {
+        // 原版 `m_TextureFormat = 4`(RGBA32) ⇒ 未压缩
+        { "Noise Combined",               new ArtCompressionTruth { Compression = TextureImporterCompression.Uncompressed, ExplicitFormat = -1 } },
+        { "NoiseNRM",                     new ArtCompressionTruth { Compression = TextureImporterCompression.Uncompressed, ExplicitFormat = -1 } },
+        { "Default-Particle",             new ArtCompressionTruth { Compression = TextureImporterCompression.Uncompressed, ExplicitFormat = -1 } },
+        { "MuzzleFlash_Side",             new ArtCompressionTruth { Compression = TextureImporterCompression.Uncompressed, ExplicitFormat = -1 } },
+        { "Matcap Gold Emperos Children", new ArtCompressionTruth { Compression = TextureImporterCompression.Uncompressed, ExplicitFormat = -1 } },
+        // 原版 `m_TextureFormat = 10`(DXT1) ⇒ `Compressed` + 显式平台 DXT1（只写 Compressed 时 Unity 会按 alpha 选 DXT5）
+        { "CandleFlame",                  new ArtCompressionTruth { Compression = TextureImporterCompression.Compressed, ExplicitFormat = (int)TextureImporterFormat.DXT1 } },
+        { "Flame01",                      new ArtCompressionTruth { Compression = TextureImporterCompression.Compressed, ExplicitFormat = (int)TextureImporterFormat.DXT1 } },
+        { "MatCap Polish",                new ArtCompressionTruth { Compression = TextureImporterCompression.Compressed, ExplicitFormat = (int)TextureImporterFormat.DXT1 } },
+        // ✅ 已复刻（2026-11-04 · B141-W50 · 15-09 · 判据 = `报告/B141_W130_UICompression.md` §6 + 原版 `m_TextureFormat` 逐张）
+        // ── 15-09 · UI 切片（`Resources/Art/{ui,ui_menu,ui_deck}`，137 个文件 / 136 个原版名）的压缩档真值 ──
+        //   · 为什么必须并入：这 137 张的 `.meta` 已由 `B141-W40` 按原版改好，但不在本表内 ⇒ 下次 `BakeAll` / `BakeFromCLI`
+        //     会由 `ApplyImportSettings` 无条件写回 `CompressedHQ`(BC7)，**静默打回**。
+        //   · fmt→档（原版 `m_TextureFormat`）：`3`(RGB24)/`4`(RGBA32) ⇒ 未压缩 · `10`(DXT1) ⇒ Compressed+显式 DXT1 ·
+        //     `28`(DXT1Crunched) ⇒ 同上 + Crunch · `12`(DXT5) ⇒ Compressed+显式 DXT5 · `29`(DXT5Crunched) ⇒ 同上 + Crunch。
+        //   · 🔴 原版名**混用两种分隔符**（`UI_Deck_Warlord_Acolyte Iconward`、`40K_shop_offer_booster_Space Wolves`）：
+        //     `OriginalNameCandidates` 只产出「全下划线 / 全空格」两档 ⇒ 136 个名字里 **44 个对不上**（137 个文件只命中 93）。
+        //     故 `OriginalCompression` 加第三档 `CanonName`（去掉 `_` 与空格、忽略大小写）—— 三档合计 136/136 全命中、0 歧义。
+        //   · ⚠️ 按**原版名**键 ⇒ 同名原版图在别的目录也会一起命中（B141 实测 4 个：`vfx/Shine trail`、
+        //     `boosterpack/40K_shop_offer_booster_Space_Wolves`、两处 arena 拷贝）。清单与逐张核对 → `报告/B141_W130_ArtBakerTruth.md` §4。
+        // ── 原版 `fmt 3`(RGB24) / `fmt 4`(RGBA32) ⇒ 未压缩（Default `(-1,0,0)` · Standalone `(-1,0,0)`）──
+        { "40k_Rewards_icon_base card SDF", UiUncompressed() },
+        { "2_40k_cardframe_rarity_rare", UiUncompressed() },
+        { "40K_ArmyTrack_bar_position", UiUncompressed() },
+        { "40k_battle_Win Skull SDF", UiUncompressed() },
+        { "40k_DeckSelection_icon_FactionBlackLegion", UiUncompressed() },
+        { "40k_DeckSelection_icon_FactionDarkAngels", UiUncompressed() },
+        { "40k_DeckSelection_icon_FactionUM", UiUncompressed() },
+        { "40k_Generic Smooth line", UiUncompressed() },
+        { "40k_popup_texture", UiUncompressed() },
+        { "40k_shop_popup_info_bg", UiUncompressed() },
+        { "40k_topmarquee_currency_blackstone", UiUncompressed() },
+        { "40k_topmarquee_currency_crystal", UiUncompressed() },
+        { "40k_topmarquee_currency_energy", UiUncompressed() },
+        { "40k_topmarquee_currency_gold", UiUncompressed() },
+        { "40k_topmarquee_currency_ticket", UiUncompressed() },
+        { "40k_voicelines_radio_wave equalizer", UiUncompressed() },
+        { "Background", UiUncompressed() },
+        { "Card Text smooth background", UiUncompressed() },
+        { "Crate Border Highlight", UiUncompressed() },
+        { "Glow UI W40K", UiUncompressed() },
+        { "InputFieldBackground", UiUncompressed() },
+        { "OctagonUI Border SDF 2", UiUncompressed() },
+        { "Smooth background square", UiUncompressed() },
+        { "Tutorial Highlight", UiUncompressed() },
+        { "WF_icon_clock for shader", UiUncompressed() },
+        // ── 原版 `fmt 10`(DXT1) ⇒ `Compressed` + 显式 DXT1（Standalone 需 `overridden: 1`，否则该块是死值）──
+        { "White Square", UiDxt1(false) },
+        // ── 原版 `fmt 28`(DXT1Crunched) ⇒ `Compressed` + 显式 DXT1 + `crunchedCompression: 1` ──
+        { "40k_main_GameMode_Skirmish", UiDxt1(true) },
+        { "Container Image Draft", UiDxt1(true) },
+        { "Container Image Ranked", UiDxt1(true) },
+        { "Container Image Tutorial", UiDxt1(true) },
+        { "Space Wolves Container 1x2", UiDxt1(true) },
+        { "UM Guilliman Container 1x2", UiDxt1(true) },
+        // ── 原版 `fmt 12`(DXT5) ⇒ `Compressed` + 显式 DXT5 ──
+        { "01-Rook", UiDxt5(false) },
+        { "02-Veteran", UiDxt5(false) },
+        { "03-Commander", UiDxt5(false) },
+        { "04-Admiral", UiDxt5(false) },
+        { "05-Conqueror", UiDxt5(false) },
+        { "06-Galactic Threat", UiDxt5(false) },
+        { "07-Legend", UiDxt5(false) },
+        { "Alliance_Trophies_AM", UiDxt5(false) },
+        { "Alliance_Trophies_Black Legion event 1", UiDxt5(false) },
+        { "Alliance_Trophies_BlackLegion", UiDxt5(false) },
+        { "Alliance_Trophies_Dark Angels", UiDxt5(false) },
+        { "Alliance_Trophies_Default_v2", UiDxt5(false) },
+        { "Alliance_Trophies_Emperors Children", UiDxt5(false) },
+        { "Alliance_Trophies_Goff", UiDxt5(false) },
+        { "Alliance_Trophies_GSC", UiDxt5(false) },
+        { "Alliance_Trophies_Leviathan", UiDxt5(false) },
+        { "Alliance_Trophies_Ork", UiDxt5(false) },
+        { "Alliance_Trophies_SaimHann", UiDxt5(false) },
+        { "Alliance_Trophies_Sautekh", UiDxt5(false) },
+        { "Alliance_Trophies_Sororitas", UiDxt5(false) },
+        { "Alliance_Trophies_Space Marine 2 event", UiDxt5(false) },
+        { "Alliance_Trophies_Space Wolves", UiDxt5(false) },
+        { "Alliance_Trophies_Tau", UiDxt5(false) },
+        { "Alliance_Trophies_TIER1", UiDxt5(false) },
+        { "Alliance_Trophies_TIER2", UiDxt5(false) },
+        { "Alliance_Trophies_TIER3", UiDxt5(false) },
+        { "Alliance_Trophies_TIER4", UiDxt5(false) },
+        { "Alliance_Trophies_Ultramarines", UiDxt5(false) },
+        { "Alliance_Trophies_Ultramarines event", UiDxt5(false) },
+        { "Copy@3x", UiDxt5(false) },
+        { "CrosshairTrail", UiDxt5(false) },
+        { "LightningTrail", UiDxt5(false) },
+        { "Roman I", UiDxt5(false) },
+        { "Roman II", UiDxt5(false) },
+        { "Roman III", UiDxt5(false) },
+        { "Roman IV", UiDxt5(false) },
+        { "Roman V", UiDxt5(false) },
+        { "Roman VI", UiDxt5(false) },
+        { "Shine trail", UiDxt5(false) },
+        { "UI Dirt And Noise skratches", UiDxt5(false) },
+        // ── 原版 `fmt 29`(DXT5Crunched) ⇒ `Compressed` + 显式 DXT5 + `crunchedCompression: 1` ──
+        { "40K_shop_offer_booster_Space Wolves", UiDxt5(true) },
+        { "Container Image Practice 1x1", UiDxt5(true) },
+        { "UI_Deck_Master Zacharial", UiDxt5(true) },
+        { "UI_Deck_Warlord_Abaddon", UiDxt5(true) },
+        { "UI_Deck_Warlord_Abaddon_AA_HB", UiDxt5(true) },
+        { "UI_Deck_Warlord_Acolyte Iconward", UiDxt5(true) },
+        { "UI_Deck_Warlord_Anvirr Keltoc", UiDxt5(true) },
+        { "UI_Deck_Warlord_Asmodai", UiDxt5(true) },
+        { "UI_Deck_Warlord_AunVa", UiDxt5(true) },
+        { "UI_Deck_Warlord_Azrael", UiDxt5(true) },
+        { "UI_Deck_Warlord_AzraelAA", UiDxt5(true) },
+        { "UI_Deck_Warlord_Beastboss Morgrim", UiDxt5(true) },
+        { "UI_Deck_Warlord_Belial", UiDxt5(true) },
+        { "UI_Deck_Warlord_Boss Zagstruk", UiDxt5(true) },
+        { "UI_Deck_Warlord_Celestian Sacresant Aveline", UiDxt5(true) },
+        { "UI_Deck_Warlord_Chaplain Letharius", UiDxt5(true) },
+        { "UI_Deck_Warlord_Commander OMaisos", UiDxt5(true) },
+        { "UI_Deck_Warlord_Commissar Deckler", UiDxt5(true) },
+        { "UI_Deck_Warlord_Daemon Prince", UiDxt5(true) },
+        { "UI_Deck_Warlord_Eliac Zephyrblade", UiDxt5(true) },
+        { "UI_Deck_Warlord_Erika Luminas", UiDxt5(true) },
+        { "UI_Deck_Warlord_Ghazghkull Thraka", UiDxt5(true) },
+        { "UI_Deck_Warlord_Ghazghkull_AA_HB", UiDxt5(true) },
+        { "UI_Deck_Warlord_Gordrang", UiDxt5(true) },
+        { "UI_Deck_Warlord_Grukk Face-Rippa", UiDxt5(true) },
+        { "UI_Deck_Warlord_Guilliman", UiDxt5(true) },
+        { "UI_Deck_Warlord_Haarken Worldclaimer", UiDxt5(true) },
+        { "UI_Deck_Warlord_Hektor Thenmann", UiDxt5(true) },
+        { "UI_Deck_Warlord_Imotekh the Stormlord", UiDxt5(true) },
+        { "UI_Deck_Warlord_Imotekh_AA_HB", UiDxt5(true) },
+        { "UI_Deck_Warlord_Jain Zar", UiDxt5(true) },
+        { "UI_Deck_Warlord_Junith Eruita", UiDxt5(true) },
+        { "UI_Deck_Warlord_Leontus", UiDxt5(true) },
+        { "UI_Deck_Warlord_Lhaska Szenari", UiDxt5(true) },
+        { "UI_Deck_Warlord_Lhykhis", UiDxt5(true) },
+        { "UI_Deck_Warlord_Logan Grimnar", UiDxt5(true) },
+        { "UI_Deck_Warlord_Logan_AA_HB", UiDxt5(true) },
+        { "UI_Deck_Warlord_Lord Exultant", UiDxt5(true) },
+        { "UI_Deck_Warlord_Lucius", UiDxt5(true) },
+        { "UI_Deck_Warlord_Magus", UiDxt5(true) },
+        { "UI_Deck_Warlord_Marneus Calgar", UiDxt5(true) },
+        { "UI_Deck_Warlord_Medreyal Ghaelyn", UiDxt5(true) },
+        { "UI_Deck_Warlord_Morvenn Vahl", UiDxt5(true) },
+        { "UI_Deck_Warlord_Mozrog Skragbad", UiDxt5(true) },
+        { "UI_Deck_Warlord_Nemesor Zahndrekh", UiDxt5(true) },
+        { "UI_Deck_Warlord_Neurothrope", UiDxt5(true) },
+        { "UI_Deck_Warlord_Njal Stormcaller", UiDxt5(true) },
+        { "UI_Deck_Warlord_Orikan the Diviner", UiDxt5(true) },
+        { "UI_Deck_Warlord_Ragnar Blackmane", UiDxt5(true) },
+        { "UI_Deck_Warlord_Ramatekh", UiDxt5(true) },
+        { "UI_Deck_Warlord_Saffa Rhiannor", UiDxt5(true) },
+        { "UI_Deck_Warlord_Shadowsun", UiDxt5(true) },
+        { "UI_Deck_Warlord_Swarmlord", UiDxt5(true) },
+        { "UI_Deck_Warlord_Sylar Hexcorn", UiDxt5(true) },
+        { "UI_Deck_Warlord_Tempestor Prime", UiDxt5(true) },
+        { "UI_Deck_Warlord_Tervigon", UiDxt5(true) },
+        { "UI_Deck_Warlord_Titus", UiDxt5(true) },
+        { "UI_Deck_Warlord_Titus_AA_HB", UiDxt5(true) },
+        { "UI_Deck_Warlord_Uriel Ventris", UiDxt5(true) },
+        { "UI_Deck_Warlord_Ursula Creed", UiDxt5(true) },
+        { "UI_Deck_Warlord_Ursula_AA_HB", UiDxt5(true) },
+        { "UI_Deck_Warlord_Valius Paxor", UiDxt5(true) },
+        { "UI_Deck_Warlord_Varro Tigurius", UiDxt5(true) },
+        { "UI_Deck_Warlord_Winged Tyranid Prime", UiDxt5(true) },
+    };
+
+    /// <summary>15-09 · UI 切片的三档构造器（与上面 `CompTruths` 的五个分组一一对应）。</summary>
+    static ArtCompressionTruth UiUncompressed() => new ArtCompressionTruth { Compression = TextureImporterCompression.Uncompressed, ExplicitFormat = -1, Crunched = false };
+    static ArtCompressionTruth UiDxt1(bool crunched) => new ArtCompressionTruth { Compression = TextureImporterCompression.Compressed, ExplicitFormat = (int)TextureImporterFormat.DXT1, Crunched = crunched };
+    static ArtCompressionTruth UiDxt5(bool crunched) => new ArtCompressionTruth { Compression = TextureImporterCompression.Compressed, ExplicitFormat = (int)TextureImporterFormat.DXT5, Crunched = crunched };
+
+    /// <summary>`CompTruths` 的规范名索引（键 = `CanonName`，忽略大小写）。**首次查表时才建** ——
+    /// ⛔ 不能写成 `static readonly` 字段：C# 静态字段初始化按**文本顺序**跑，放在 `CompTruths` 前面会是 null。</summary>
+    static System.Collections.Generic.Dictionary<string, ArtCompressionTruth> _compTruthsCanon;
+    static System.Collections.Generic.Dictionary<string, ArtCompressionTruth> CompTruthsCanonical()
+    {
+        if (_compTruthsCanon != null) return _compTruthsCanon;
+        var d = new System.Collections.Generic.Dictionary<string, ArtCompressionTruth>(System.StringComparer.OrdinalIgnoreCase);
+        foreach (var kv in CompTruths) d[CanonName(kv.Key)] = kv.Value;
+        _compTruthsCanon = d;
+        return d;
+    }
+
+    /// <summary>原版名的规范形：去掉 `_` 与空格（`UI_Deck_Warlord_Acolyte Iconward` ⇒ `UIDeckWarlordAcolyteIconward`）。
+    /// 为什么要它：原版资产名**混用**下划线/空格，而我们的落盘名把空格全换成了 `_` ⇒ 只比这两档必有漏（B141 实测 44/136 漏）。</summary>
+    static string CanonName(string s) => s.Replace("_", "").Replace(" ", "");
+
+    /// <summary>15-10 / 15-09：按**原版名**查压缩档真值；表外 = `CompressedHQ`（原口径，不动）。
+    /// 查表三档：① 精确名 ② `OriginalNameCandidates` 的「全下划线 / 全空格」形态 ③ `CanonName`（去 `_` 与空格）。</summary>
+    static ArtCompressionTruth OriginalCompression(string path)
+    {
+        var canon = CompTruthsCanonical();
+        foreach (var n in OriginalNameCandidates(path))
+        {
+            ArtCompressionTruth t;
+            if (CompTruths.TryGetValue(n, out t)) return t;
+            if (canon.TryGetValue(CanonName(n), out t)) return t;   // ③ 混合分隔符（B141：44/136 只靠这一档）
+        }
+        return new ArtCompressionTruth { Compression = TextureImporterCompression.CompressedHQ, ExplicitFormat = -1 };
+    }
+
+    /// <summary>把真值表的四键（format / compression / crunched / overridden）落到 importer 的 Default 块 + Standalone 块；表外**什么都不做**。
+    /// 🔴 **两个块都写**：`.meta` 里 `DefaultTexturePlatform` 那条虽 `overridden: 0`，它**就是**这个平台的真实设置 ⇒
+    ///    只写 Standalone 会让 Default 块停在 `textureFormat -1 / textureCompression 2`(BC7)，与原版不符。
+    /// 🔴 **Default 块走 `Get/SetDefaultPlatformTextureSettings`，⛔ 别用 `ti.textureFormat`** —— 后者已 **obsolete(CS0618)**，
+    ///    原话「textureFormat is no longer accessible at the TextureImporter level … Using this setter will setup various
+    ///    parameters to match the new automatic system as well as possible」⇒ 它会**顺带改别的键**，不是直写 `textureFormat` 那一格。
+    /// ⚠️ `maxTextureSize` 从 `ti.maxTextureSize` 回填：调用方（`ApplyImportSettings`）刚设过它（`ui_menu` 要 2048），
+    ///    不能让 Default 块的这一格被旧快照盖回去。
+    /// ⚠️ Standalone 只在**有显式格式**时 `overridden: 1`（未压缩那 26 张保持 0，与盘上 `.meta` 逐张一致）。</summary>
+    static void ApplyCompressionTruth(TextureImporter ti, string path)
+    {
+        var t = OriginalCompression(path);
+        if (t.Compression == TextureImporterCompression.CompressedHQ && t.ExplicitFormat < 0 && !t.Crunched) return;   // 表外：原口径，什么都不做
+
+        // ── Default 块（⚠️ 顺序：先顶层 compression / crunched，再把 Default 平台块整份写一遍 —— 让它**最后落笔**，
+        //    这样 `format` 不会被别的 setter 顺带重置回 Automatic）──
+        ti.textureCompression = t.Compression;
+        ti.crunchedCompression = t.Crunched;
+        var def = ti.GetDefaultPlatformTextureSettings();
+        if (string.IsNullOrEmpty(def.name)) def.name = "DefaultTexturePlatform";   // 兜底：Set 靠这个字符串认平台（空名会抛，整轮烘焙就断在这儿）
+        def.textureCompression = t.Compression;
+        def.crunchedCompression = t.Crunched;
+        def.format = t.ExplicitFormat >= 0 ? (TextureImporterFormat)t.ExplicitFormat : TextureImporterFormat.Automatic;
+        def.maxTextureSize = ti.maxTextureSize;   // 不让上面的 2048 被旧快照盖回 1024
+        ti.SetPlatformTextureSettings(def);
+
+        // ── Standalone 块 ──
+        var ps = ti.GetPlatformTextureSettings("Standalone");
+        ps.textureCompression = t.Compression;
+        ps.crunchedCompression = t.Crunched;
+        ps.format = t.ExplicitFormat >= 0 ? (TextureImporterFormat)t.ExplicitFormat : TextureImporterFormat.Automatic;
+        if (t.ExplicitFormat >= 0) ps.overridden = true;
+        ti.SetPlatformTextureSettings(ps);
+    }
+
+    /// <summary>表头里的列名 → 下标（大小写不敏感、去首尾空白；找不到 = -1）。
+    /// ⛔ **别退回硬编码偏移** —— `vfx_texture_mips.tsv` 与 `arena_texture_import.tsv` 列序不同（差一列 `colorSpace`）。</summary>
+    static int HeaderIndex(string[] header, string name)
+    {
+        for (int i = 0; i < header.Length; i++)
+            if (string.Equals(header[i].Trim(), name, System.StringComparison.OrdinalIgnoreCase)) return i;
+        return -1;
     }
 }

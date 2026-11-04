@@ -1909,7 +1909,7 @@ namespace RuleEngine
             if (keyword == KeywordTable.Relentless) return "Relentless"; if (keyword == KeywordTable.TriggerOnceIfBoardCriteria) return "TriggerOnceIfBoardCriteria"; if (keyword == KeywordTable.Requiem) return "Requiem";   // 230 / 200（200 这一格 = B90·B1 补：`RawCardScript__UpdateTriggerOnce.c:13` 那一趟的名字）/ 430（`B95_WPUMP` 2026-10-29 补，判据见类尾 §十一）
             if (keyword == KeywordTable.Backlash) return "ThisUnitDeath";   // 80（B109_C1：原版 `ThisUnitDeath(80)`；池内 6 张 6/6 有 trigger 80）
             if (keyword == KeywordTable.Penitence) return "Rage";           // 130（B109_C1：原版 `Rage(130)`；池内 5 张 5/5 有 trigger 130）
-            return null;
+            if (keyword == "othercardplayed") return "OtherCardPlayed"; if (keyword == "othercardspiritstone") return "OtherCardSpiritStone"; return null;   // ✅ 已复刻（2026-11-04 · B141 · 目标名现读 `CardDef.cs:1917 {"OtherCardPlayed",10}` / `:1933 {"OtherCardSpiritStone",455}`；⛔ 零行数变化 = 合进 `return null;` 同一物理行（账在 `:2015+` 有落点，插行必漂）｜⚠️ 这一跳只服务**关键词路**（`FireTriggerDeferred`）；`ASH81`/`GSC14` 的 `ca 320` **实际走监听者路** `EffectResolver.FireBoardListenerDeferred:10657-10666`（按 `TriggerNameOfWhenKind` 比名、今天已有 455/10 两条）⇒ 本映射对它们**零行为变化**，真缺口是那条路没派 `410`，判据/反证 → `报告/B141_W128_ExtraTriggerName.md`）
         }
 
         // ==========================================================================================
@@ -2652,6 +2652,113 @@ namespace RuleEngine
                   + " → `HandCardReleased`（手牌重排）。"
                   + "墓地日志 `displayedCard(30)` 与「中央亮牌」两条都走下面那条 `EvtKind.Draw` + `Effect=\"display\"`（见本方法 doc）");
             ctx.Emit(EvtKind.Draw, 1 - seat, -1, card.Card.Name, effect: "display", targetPlayer: seat, targetCardId: card.Card.Name); return 1;   // 🆕 2026-10-31（B105_W2 · 0-3）：原版 `:191 CemeteryManager.AddDisplayedCardActionToCemetery`（= 墓地动作日志的 `displayedCard(30)`；真容器 = `ctx.ActionLog`，表现侧 = `BattleDriver.RefreshBattleLog` 的 `EvtKind.Draw`+`display` 支）+ `:193/:195` 中央亮牌（表现侧 = `BattleDriver.MaybeDisplayHandCardInCenter`）。`Player` = **看牌那一方**（牌主的对面）；`TargetPlayer` = **牌主**（中央展示的起飞侧）。⛔ 牌本身**留在手牌里**。
+        }
+
+        // ==========================================================================================
+        //  §十二 ✅ **2026-11-04（批次 `B141` · 执行写手 `B141-W86`）：
+        //  `KeywordFromTriggerName` —— **trigger 名 → 引擎关键词**的反查（<see cref="TriggerNameOfKeyword"/> 的逆）
+        // ==========================================================================================
+        //  🔴 **为什么需要它**（判据 = `报告/B141_W128_CaRowDispatch.md` §六·❓2 现读 + 本笔复核）：
+        //    手牌触发路 `EffectResolver.FireHandAbilityTrigger`（`EffectResolver.cs:19047`）的兜底是
+        //    `string kw = keyword ?? triggerName;`，再喂 `TriggerCarrier.FxOps(kw)` →
+        //    `CardDef.TriggerOps(kw)` / `CardDef.Effect(kw)`。而那两张表的键是**引擎关键词**
+        //    （小写 `mob` / `strike` / `rally` / `getsmarkerlight` …），**不是** `AbilityTrigger` 的
+        //    枚举名（`TurnStart` / `UnitPoisoned` / `UnitDamaged` …）。
+        //    ⇒ 12 个生产调用点全部传 `keyword: null` ⇒ `TriggerOps("TurnStart")` **恒 null**
+        //    ⇒ 手牌能力从来跑不了正文（只有 `B94_Z2` 的自检显式传了 `KeywordTable.Strike` 才跑得起来）。
+        //  ✅ **补法**：调用点那一句换成
+        //    `string kw = !string.IsNullOrEmpty(keyword) ? keyword : (KeywordFromTriggerName(triggerName) ?? triggerName);`
+        //    —— **零行数变化**（同一物理行）。⚠️ 端到端接线落在 `EffectResolver.cs`（本轮被 `W77` 占用，
+        //    ⛔ 本笔**不改**），补丁与落点写在报告里，交调度台在 `W77` 收工后派。
+        //
+        //  🔴 **⛔ 别把正向 switch（`:1099-1121` + `ExtraTriggerName` `:1894-1912`）抄一份反向的** —— 那正是
+        //     「两份表迟早打架」（CLAUDE.md §三）。本方法在**运行时**从 `TriggerNameOfKeyword` **反推**：
+        //     候选词 = `KeywordTable.Prefixes` 的 **target 列**（= `Normalize` 的唯一关键词注册表）
+        //     ＋ 2 个不在 `Prefixes` 里的**合成词**（`othercardplayed` / `othercardspiritstone`：
+        //     它们不是卡面词，只在 `ExtraTriggerName` 里出现）。候选里**没有任何名字** —— 名字一律由
+        //     正向函数推导 ⇒ 正向增删一行，反查**自动**跟着变。
+        //  ⚠️ 认不出 ⇒ `null`（⛔ 别退回 `triggerName.ToLowerInvariant()`：`TurnStart` 不是关键词，
+        //     把它当关键词喂 `TriggerOps` 只会拿到 null 却让人以为「这条路已经修好了」）。
+        //  📌 同形先例 = `WhenEvents.ExtraTriggerNameForKind`（`Core/WhenEvent.cs:2087`）那一族。
+
+        /// <summary>`KeywordTable.Prefixes` 覆盖不到、但 <see cref="ExtraTriggerName"/> 认的两个**合成关键词**
+        /// （它们不是卡面词 ⇒ 没进 `Prefixes`）。⚠️ 本数组只有**候选词**、不含名字，名字照旧由
+        /// <see cref="TriggerNameOfKeyword"/> 推导（⛔ 别在这里写任何 trigger 名）。</summary>
+        static readonly string[] KeywordCandidatesOutsidePrefixes = { "othercardplayed", "othercardspiritstone" };
+
+        static System.Collections.Generic.Dictionary<string, string> _keywordByTriggerName;
+
+        /// <summary><see cref="TriggerNameOfKeyword"/> 的**逆**：trigger 名 → 引擎关键词（`TriggerOps` / `Effect` 的键）。
+        /// 认不出 / 该 trigger 没有对应关键词 ⇒ `null`（例：`TurnStart` / `UnitDamaged` / `Talent`）。
+        /// ⚠️ 键的匹配**忽略大小写**（调用点传的是 `AbilityTrigger` 枚举名那一族的驼峰写法）。
+        /// ⚠️ 表是**懒建 + 只读**的：内容 = 对每个候选关键词跑一遍正向函数。
+        /// // ✅ 已复刻（2026-11-04 · B141 · 正向表 `ActionPump.cs:1099-1121` + `:1894-1912` 现读 31 对；反向由正向推导 ⇒ 覆盖 31/31 · 重名 0 · 冷启动不跑正文的缺口见 `报告/B141_W128_TriggerKey.md` §五 接线补丁）</summary>
+        public static string KeywordFromTriggerName(string triggerName)
+        {
+            if (string.IsNullOrEmpty(triggerName)) return null;
+            string kw;
+            return KeywordByTriggerName().TryGetValue(triggerName, out kw) ? kw : null;
+        }
+
+        /// <summary>反查表本体（懒建；只读视图只给自检/排查，⛔ 结算路径一律走 <see cref="KeywordFromTriggerName"/>）。
+        /// 🔑 **它是由正向函数推导出来的**，不是第二份手写映射 —— 见 §十二 头注。</summary>
+        public static System.Collections.Generic.IReadOnlyDictionary<string, string> KeywordByTriggerNameTable
+        {
+            get { return KeywordByTriggerName(); }
+        }
+
+        /// <summary>反查表里「trigger 名」与「关键词」**字面不同**的条数（自检用它证「这不是 `ToLower()` 假货」）。</summary>
+        public static int KeywordTriggerPairNonIdentityCount
+        {
+            get
+            {
+                int n = 0;
+                foreach (var kv in KeywordByTriggerName())
+                    if (!string.Equals(kv.Key, kv.Value, System.StringComparison.OrdinalIgnoreCase)) n++;
+                return n;
+            }
+        }
+
+        static System.Collections.Generic.Dictionary<string, string> KeywordByTriggerName()
+        {
+            var m = _keywordByTriggerName;
+            if (m != null) return m;
+            var d = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+            var prefixes = KeywordTable.Prefixes;
+            if (prefixes != null)
+            {
+                for (int i = 0; i < prefixes.Length; i++)
+                {
+                    var row = prefixes[i];
+                    if (row == null || row.Length < 2) continue;
+                    RegisterKeywordTriggerPair(d, row[1]);
+                }
+            }
+            for (int i = 0; i < KeywordCandidatesOutsidePrefixes.Length; i++)
+                RegisterKeywordTriggerPair(d, KeywordCandidatesOutsidePrefixes[i]);
+            // ⚠️ 只在这里发布：`d` 建完才赋值 ⇒ 别的线程要么看到 null、要么看到完整的表（⛔ 别边建边发布）。
+            _keywordByTriggerName = d;
+            return d;
+        }
+
+        /// <summary>把一个候选关键词喂给正向函数，有名字才登记。
+        /// ⚠️ **重名**（两个关键词 → 同一个 trigger 名）= 正向表本身有歧义 ⇒ **先到先得 + 出声**
+        /// （⛔ 别静默挑一个：那会让反查依赖 `Prefixes` 的行序）。</summary>
+        static void RegisterKeywordTriggerPair(System.Collections.Generic.Dictionary<string, string> map, string keyword)
+        {
+            if (string.IsNullOrEmpty(keyword)) return;
+            var name = TriggerNameOfKeyword(keyword);
+            if (string.IsNullOrEmpty(name)) return;
+            string existing;
+            if (map.TryGetValue(name, out existing))
+            {
+                if (!string.Equals(existing, keyword, System.StringComparison.Ordinal))
+                    UnityEngine.Debug.LogWarning($"[RuleEngine] trigger 名 `{name}` 有**两个**关键词候选"
+                                               + $"（`{existing}` 与 `{keyword}`）⇒ 反查表保留先出现的那个。"
+                                               + "判据 = `报告/B141_W128_TriggerKey.md` §二（正反向必须一一对应）。");
+                return;
+            }
+            map[name] = keyword;
         }
     }
 }

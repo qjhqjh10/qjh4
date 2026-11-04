@@ -33,7 +33,7 @@ public static partial class RuleEngineTest
         Check(RuleEngine.DeckRules.CardCount(true), 12, "遭遇模式 12 张（规则书:57）");
         Check(RuleEngine.DeckRules.ClassicHandStart, 3, "经典起手 3 张（规则书:48）");
         Check(RuleEngine.DeckRules.ClassicHandLimit, 10, "经典手牌上限 10（规则书:48）");
-        Check(RuleEngine.DeckRules.SkirmishHandStart, 4, "遭遇起手 4 张（规则书:58）");
+        Check(RuleEngine.DeckRules.SkirmishHandStart, 3, "遭遇起手 3 张（`DefaultScenario.startingHand`=3；后手 +1 = 4）");
         Check(RuleEngine.DeckRules.SkirmishHandLimit, 8, "遭遇手牌上限 8（规则书:58）");
         // 🔴 **2026-09-26 改了判据对象**：原来断言的是 `DeckRules.OvertimeEnergy`，而那个常量
         //    已经**退出运行路径**（运行读 `ctx.Vars.overtimeTurn`）⇒ 那是**自证**。
@@ -150,7 +150,7 @@ public static partial class RuleEngineTest
         Check(RuleEngine.DeckRules.Validate(bad, lookup), RuleEngine.DeckError.DefensiveNotDefence, "防御卡位放错了");
 
         bad = legal.Clone(); bad.CardIds.Add(bad.CardIds[0]);
-        Check(RuleEngine.DeckRules.Validate(bad, lookup), RuleEngine.DeckError.TooManyCards, "31 张 → 超了");
+        Check(RuleEngine.DeckRules.Validate(bad, lookup), RuleEngine.DeckError.CopyLimitExceeded, "31 张（其中一张被加到第 3 份）⇒ **先报同名上限** ｜🧨 把 ④ 张数闸搬回 ⑤ 之前 ⇒ 本句红");   // ✅ 已复刻（2026-11-04 · B141 · W31/3-20 闸序 = `DeckUtility__ValidateDeck.c:50,69`：`ValidateDeckCards` 的同名上限（`.c:111-121`）在张数闸之前，故这张卡的第 3 份先命中；期望原为 `TooManyCards`，那是修闸序前的旧口径）
 
         bad = legal.Clone(); bad.CardIds.RemoveAt(0);
         Check(RuleEngine.DeckRules.Validate(bad, lookup), RuleEngine.DeckError.TooFewCards, "29 张 → 不够");
@@ -416,10 +416,10 @@ public static partial class RuleEngineTest
             Check(RuleEngine.DeckLibrary.LastDroppedIds.Count, 1,
                   "★ 但丢掉的 id **记在 `LastDroppedIds` 里**（不静默）");
 
-            // ⑥ 不是这个格式的 ⇒ null
+            // ⑥ 不是这个格式的 ⇒ null（⚠️ **缺 `;` 的仍是这个格式** —— 原版 `Split(';').Length > 1` 才解析尾巴，见下一条）
             CheckTrue(RuleEngine.DeckLibrary.ImportString("", look) == null, "空串 → null");
             CheckTrue(RuleEngine.DeckLibrary.ImportString("只有一段", look) == null, "不是 Base64 → null");
-            CheckTrue(RuleEngine.DeckLibrary.ImportString(b64("没有分号"), look) == null, "少了 `;gameMode` 尾巴 → null");
+            var noSemi = RuleEngine.DeckLibrary.ImportString(b64("没有分号"), look); CheckTrue(noSemi != null, "★ 少了 `;gameMode` 尾巴 ⇒ **照收**（原版 `CardDeck__DeserializeDeckString.c:54-59`：只有 `Split(';').Length > 1` 才解析尾巴，否则 `gameMode` 保持 0 并继续解析 `[0]`）｜🧨 恢复 `return null` ⇒ 本句红"); if (noSemi != null) { Check(noSemi.GameMode, 0, "……模式 = 经典（0）"); Check(noSemi.Name, "没有分号", "……名字 = `Split(':')[0]`"); Check(noSemi.CardIds.Count, 0, "……卡表为空（串里本来就没有卡）"); }   // ✅ 已复刻（2026-11-04 · B141 · W31/3-24 = `CardDeck__DeserializeDeckString.c:54-59`；原期望 `== null` 钉的正是被修掉的早退）
             CheckTrue(RuleEngine.DeckLibrary.ImportString("名字|督军||卡", look) == null,
                       "旧的**自定格式不再认**（`|` 分隔那套已废弃）");
 

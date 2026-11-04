@@ -112,6 +112,7 @@ namespace CardPresentation
             public WindowButton Button;
             public System.Action<Vector2> OnDrag;    // 每次移动发（设计 px）
             public System.Action<Vector2> OnDrop;    // 抬起发（设计 px；**只有真的拖起来过才发**）
+            public bool ScrollGate;                  // 🆕 B141-W32 · 3-10：这颗件要不要走原版的方向门（= 原版 `DragAndDropItem.Initialize(父 ScrollRect)` 那一档）
         }
         readonly List<DragSource> _drags = new List<DragSource>();
         DragSource _dragItem;
@@ -310,7 +311,7 @@ namespace CardPresentation
         /// `onDrop(pagePx)` 在抬起时发 —— **只有真的拖起来过才发**（没越过阈值 = 普通点击，照旧派发 `onClick`）。</para>
         /// <para>⚠️ 坐标是**指针那一帧的设计 px**（与 `MoveTo` / `ClickAt` 同一帧），不是屏幕像素。
         /// 同一颗按钮重复登记 ⇒ **覆盖**（不叠加）。</para></summary>
-        public static void RegisterDrag(WindowButton b, System.Action<Vector2> onDrag, System.Action<Vector2> onDrop)
+        public static void RegisterDrag(WindowButton b, System.Action<Vector2> onDrag, System.Action<Vector2> onDrop, bool scrollGate = false)
         {
             if (b == null)
             {
@@ -326,7 +327,7 @@ namespace CardPresentation
             Instance.PruneDrags();
             for (int i = Instance._drags.Count - 1; i >= 0; i--)
                 if (Instance._drags[i].Button == b) Instance._drags.RemoveAt(i);
-            Instance._drags.Add(new DragSource { Button = b, OnDrag = onDrag, OnDrop = onDrop });
+            Instance._drags.Add(new DragSource { Button = b, OnDrag = onDrag, OnDrop = onDrop, ScrollGate = scrollGate });
         }
 
         /// <summary>撤掉一颗可拖件（没登记过 ⇒ 什么都不做）。</summary>
@@ -456,7 +457,7 @@ namespace CardPresentation
                 _dragItem = default(DragSource);
                 _itemDragging = false;
                 DragSource ds0;
-                if (TryGetDrag(_down, out ds0)) { _dragItem = ds0; _dragScroll = null; }
+                if (TryGetDrag(_down, out ds0)) { _dragItem = ds0; _dragScroll = null; }   // ⚠️ 可拖件优先：按下这一刻**不接管**滚动；带 `ScrollGate` 的件在**越过阈值**那一拍才按方向把这一下转交出去（`B141-W32` · 3-10）
                 else _dragScroll = HitScroll(px.x, px.y);
                 // 🆕 A49：原版鼠标**按下**也会改「选中」（`StandaloneInputModule.ProcessMousePress` →
                 //    `DeselectIfSelectionChanged`）—— 点在空白处 ⇒ 选中变 null（原版就是清掉）。
@@ -466,6 +467,15 @@ namespace CardPresentation
             }
             else if (_pressed && mouse.leftButton.isPressed)
             {
+                // 🔴 **2026-11-04（`B141-W32` · 条目 3-10）**：原版可拖件的**方向门**（判据 = `DragAndDropItem__OnBeginDrag.c:33-37`）：
+                //   越过阈值那一帧先算 `|atan2(Δy,Δx)|·Rad2Deg`，**30°~150°（竖向）⇒ 这一下不给格、转交 ScrollRect**
+                //   （`:38` 那一支 `scrollRect.OnBeginDrag`）⇒ 清掉 `_dragItem` 后走下面那条**既有**的滚动区分支。
+                if (_dragItem.Button != null && _dragItem.ScrollGate && !_itemDragging
+                    && (px - _pressPx).magnitude > DragThreshold && IsScrollDragAngle(px - _pressPx))
+                {
+                    var sc0 = HitScroll(_pressPx.x, _pressPx.y);   // = 原版那颗件的 `scrollRect`（`Initialize(父 ScrollRect)` 注入的那一个）
+                    if (sc0 != null) { _dragItem = default(DragSource); _dragScroll = sc0; _dragging = true; sc0.BeginDrag(AxisOf(sc0, _pressPx)); }
+                }
                 if (_dragItem.Button != null)
                 {
                     // 🆕 2026-10-25：可拖件那条路（越过阈值那一下也发一次 onDrag）
@@ -1434,7 +1444,7 @@ namespace CardPresentation
             _dragItem = default(DragSource);
             _itemDragging = false;
             DragSource dsAt;
-            if (TryGetDrag(_down, out dsAt)) { _dragItem = dsAt; _dragScroll = null; }   // 可拖件优先
+            if (TryGetDrag(_down, out dsAt)) { _dragItem = dsAt; _dragScroll = null; }   // 可拖件优先（⚠️ 同 `Update`：`ScrollGate` 的件在越阈值那一拍才按方向转交）
             else _dragScroll = HitScroll(px, py);
             Select(_down);          // 🆕 A49：与 `Update` 里那一路同一件事（原版鼠标按下即改选中），别少这一句
             if (_down != null) _down.Press();
@@ -1447,6 +1457,14 @@ namespace CardPresentation
         {
             if (!_pressed) return false;
             var p = new Vector2(px, py);
+            // 🔴 **2026-11-04（`B141-W32` · 3-10）**：与 `Update` 那条路**逐字同一条**方向门（`IsScrollDragAngle`）——
+            //   自检直调口必须与生产路同语义，否则「批处理绿 / 真机不对」。
+            if (_dragItem.Button != null && _dragItem.ScrollGate && !_itemDragging
+                && (p - _pressPx).magnitude > DragThreshold && IsScrollDragAngle(p - _pressPx))
+            {
+                var sc1 = HitScroll(_pressPx.x, _pressPx.y);   // 同 `Update` 那条路（= 原版那颗件的 `scrollRect`）
+                if (sc1 != null) { _dragItem = default(DragSource); _dragScroll = sc1; _dragging = true; sc1.BeginDrag(AxisOf(sc1, _pressPx)); }
+            }
             if (_dragItem.Button != null)
             {
                 if (!_itemDragging && (p - _pressPx).magnitude > DragThreshold)
@@ -1995,6 +2013,27 @@ namespace CardPresentation
                 _buf += c;
             }
             if (_onChangedText != null) _onChangedText(_buf);
+        }
+
+        // 🆕 2026-11-04（`B141-W32` · 条目 3-10）追加在**类尾**（⛔ 别插进成员之间 —— 本文件被账按 `文件:行号` 引用）。
+        /// <summary>原版可拖件的**方向门**：这一次拖拽该不该**让给滚动区**（竖向拖 = 滚列表，⛔ 不拖格）。
+        ///
+        /// <para>判据 = `d:/2/tools/decomp_full/DragAndDropItem__OnBeginDrag.c:32-38` 逐行实读：
+        /// `f = |atan2(eventData.delta.y, eventData.delta.x)|`（`FUN_180486da0` = `Mathf.Atan2`）→ `× 57.29578`（Rad2Deg，
+        /// `DAT_1834b2e98` 现读）→ `& 0x7FFFFFFF`（= 取绝对值，`DAT_1834b2e60`）→
+        /// **`if (f &lt; 30 || 150 &lt; f)` 才拖格**（`DAT_1834b3168 = 30` · `DAT_1834b2d90 = 150`，两个常量都用
+        /// `工具/read_literal.py` 现读）；**否则那一支把 `BeginDrag` 转交 `ScrollRect`**（同文件 `:38`，
+        /// 虚槽 `0x3f8` = `ScrollRect.OnBeginDrag`），并在 `OnDrag` 里同样转发（`__OnDrag.c:14-20`）。
+        /// ⚠️ 与 `SupportMethods__IsScrollDragThreshold`（60°~120°，另一条**行拖**用的窄带）**不是同一个门**，
+        /// ⛔ 别把两条合并（那会把 30°~60°、120°~150° 这四段的方向判错）。</para>
+        /// <para>⚠️ 我们传的是**按下至今的累计位移**（原版是 `eventData.delta` = 越阈值那一帧的帧位移）；
+        /// 方向语义相同、噪声更小（帧位移只有 ~5px 时角度抖）。如实记。</para>
+        /// ✅ 已复刻（2026-11-04 · B141/W32 · `DragAndDropItem__OnBeginDrag.c:32-38`；回归断言 `B141_W32_Assert` §D）</summary>
+        public static bool IsScrollDragAngle(Vector2 delta)
+        {
+            if (delta.sqrMagnitude <= 0f) return false;
+            float ang = Mathf.Abs(Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg);
+            return ang >= 30f && ang <= 150f;
         }
     }
 }

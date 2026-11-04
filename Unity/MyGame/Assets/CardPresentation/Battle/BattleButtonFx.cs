@@ -74,6 +74,31 @@ namespace CardPresentation
         public static readonly Color TogglePressed = new Color(0.3058f, 0.8208f, 0.6105f, 1f);
         public static readonly Color ToggleDisabled = new Color(0.3058f, 0.8208f, 0.6105f, 0.502f);
 
+        // ================= 「选卡面板 Continue Button」绿族（`B141-W35` · 2026-11-04） =================
+        //  判据（逐字段现读，`d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1`）：
+        //   · `MonoBehaviour_4262.json` = **`UnityEngine.UI.Button`**（`bundle_Waprforge_monoscripts/MonoScript_-4448497653027179337.json`
+        //     的 `m_ClassName` 现读 = `Button`，⛔ **不是** `EverguildButton` ⇒ 没有 `colorTintGreyOnDisable` 那一跳 α 改写，
+        //     禁用 α 保持序列化的 **0.5019608**）；`m_GameObject` → GO **779**，
+        //     `m_Transition = 1` ColorTint、`m_Interactable = 1`，`m_Colors` 五格 + `m_ColorMultiplier = 2`
+        //     + `m_FadeDuration = 0.1`（与本类 `FadeSeconds` 同值）；
+        //   · 它的 `m_TargetGraphic` → `MonoBehaviour_4210.json` = **`BG`**（`m_GameObject` → GO **1153**）
+        //     那颗 `Image`，`m_Color` = **与 Normal 同一个绿**。
+        //  🔴 **两处都是绿** ⇒ 屏上 = 贴图 × `Image.m_Color` × `m_NormalColor` × `ColorMultiplier`
+        //     （UGUI 那一跳的判据 = `CanvasRenderer.SetColor` 的 doc 原话「Will be multiplied with the
+        //     UIVertex color and the Canvas color」，本机 `UnityEngine.UIModule.xml:442`）
+        //     —— ⛔ **别把其中一处当白**：只留一处会把 R 从 0.2717 抬到 0.7370（`B141-W35` 的灭自证断言钉的就是这条）。
+        //  ⚠️ 本类状态机**没有** Selected 态（同 `Selected` 常量那条：原版只有 EventSystem 选中才进，
+        //     本面板点完就关）⇒ `ContinueSelected` 只承载原值，不参与 `Retarget`。
+        //  ✅ 已复刻（2026-11-04 · B141-W35 · 判据 = `Battle Arena 1.unity` GO779 MB4262 + Image MB4210 现读）
+        public static readonly Color ContinueNormal = new Color(0.36862749f, 0.89411765f, 0.58743727f, 1f);
+        public static readonly Color ContinueHighlighted = new Color(0.46666670f, 0.91372555f, 0.40000004f, 1f);
+        public static readonly Color ContinuePressed = new Color(0.47843140f, 0.49411768f, 0.48235297f, 1f);
+        /// <summary>原版 `m_SelectedColor`（与 Normal **只差 B**：0.5882353 vs 0.5874373）。只承载原值（见上）。</summary>
+        public static readonly Color ContinueSelected = new Color(0.36862746f, 0.89411771f, 0.58823532f, 1f);
+        /// <summary>原版 `m_Colors.m_ColorMultiplier`（本族 = **2**；`B131` 色彩 A14 普查：全库只有 15 颗是 2、其余 1,252 颗 = 1）。
+        /// ⚠️ UGUI 是 `tintColor * colorMultiplier` 之后再 `CrossFadeColor` ⇒ **四态与 α 一起乘**。</summary>
+        public const float ContinueColorMultiplier = 2f;
+
         enum Mode { Tint, Swap }
 
         readonly Mode _mode;
@@ -107,15 +132,21 @@ namespace CardPresentation
         /// <para>🔴 **2026-11-02（`B117-G10-03`）改：禁用档的缺省从 `Disabled`（α 0.502）换成
         /// <see cref="DisabledOpaque"/>（α 1.0）**。判据 = 本类 `DisabledOpaque` 那条 doc（19/19 颗
         /// `grey=1` 的 ColorTint 钮运行时 α 都是 1；`Awake` 里那次 `Awake` 改写还用 `+0x17C` 覆盖一次）。
-        /// ⚠️ **只动缺省值，常量一个没删**：需要 `grey = 0` 那一档的调用点显式传 `BattleButtonFx.Disabled`。</para></summary>
+        /// ⚠️ **只动缺省值，常量一个没删**：需要 `grey = 0` 那一档的调用点显式传 `BattleButtonFx.Disabled`。</para>
+        /// <para>🔴 **2026-11-04（`B141-W35`）加 `colorMultiplier`**：原版 `Selectable.DoStateTransition` 是
+        /// `StartColorTween(tintColor * m_Colors.colorMultiplier, instant)`（本机 `com.unity.ugui/…/Selectable.cs:702`）
+        /// ⇒ **乘发生在四态色上**（α 一起乘，⛔ 不是只乘 RGB）。缺省 1 = 所有既有调用点零变化。
+        /// 选卡面板那颗 Continue Button 传 `ContinueColorMultiplier`（2）。</para></summary>
         public static BattleButtonFx Tint(HudPiece target, string name = null,
                                           Color? normal = null, Color? highlighted = null,
-                                          Color? pressed = null, Color? disabled = null)
+                                          Color? pressed = null, Color? disabled = null, float colorMultiplier = 1f)
         {
             if (target == null) return null;
+            // 原版 `tintColor * m_Colors.colorMultiplier`：**四通道一起乘**（含 α）—— ⛔ 别只乘 RGB。
+            float m = colorMultiplier;
             return new BattleButtonFx(target, name ?? (target.name ?? "fx"), Mode.Tint,
-                                      normal ?? Normal, highlighted ?? Highlighted,
-                                      pressed ?? Pressed, disabled ?? DisabledOpaque,
+                                      (normal ?? Normal) * m, (highlighted ?? Highlighted) * m,
+                                      (pressed ?? Pressed) * m, (disabled ?? DisabledOpaque) * m,
                                       null, null, null);
         }
 
@@ -207,9 +238,12 @@ namespace CardPresentation
                 if (tex != null) _target.SetTexture(tex);
                 return;
             }
-            // 原版 `CrossFadeColor` 是**乘**在图形自己的颜色上
-            _target.SetTint(new Color(_base.r * _key.r, _base.g * _key.g,
-                                      _base.b * _key.b, _base.a * _key.a));
+            // ✅ 已复刻（2026-11-04 · B141 · `B141-W57` · 判据 = UGUI `Selectable.cs:702` + `Graphic.CrossFadeColor`
+            //   + `CanvasRenderer.SetColor` 的 multiply 语义）：原版 `tintColor * colorMultiplier` **先不夹**，
+            //   夹在最后一次**字节顶点色**写入 ⇒ 算式 = `Clamp01(底座 × 色键 × m)`。
+            //   ⚠️ 乘数已在 ctor 乘进四态（`KeyForTest` 要读到它）⇒ 这里 multiplier 传 1；
+            //   实现与外壳侧 `WindowButton.ApplyTint` **共用同一个静态口**（⛔ 别在这里另写一份乘法）。
+            _target.SetTint(WindowButton.ComposeVertexColor(_base, _key, 1f));
         }
 
         // ============================================================================================

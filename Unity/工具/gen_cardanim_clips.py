@@ -103,6 +103,9 @@ CardAnim 名 → prefab 名（GUID → 资产名）这一跳**不在本脚本里
     $PY d:/4/Unity/工具/gen_cardanim_clips.py --check    # 只比对，不写（CI 用：退出码 1 = 与盘上不一致）
     $PY d:/4/Unity/工具/gen_cardanim_clips.py --dry      # 只打印统计，不写、不比对
 """
+# ✅ 已复刻（2026-11-04 · B141-W51 · 键名普查：产物全部 101 个键 ↔ `Battle/CardAnimClips.cs` 的
+#   `RtRow`/`RtUnitShake`/`RtMinionClip` 逐键核过，0 处不一致。⚠️ `ss*`/`mm*` 两族**没有** DTO 字段，
+#   那是「原样全量记录」（运行期读的是同一批数据的投影列 `mv*`/`mo*`/`shk*`）—— 属既有设计，⛔ 不是漏绑）
 
 import argparse
 import glob

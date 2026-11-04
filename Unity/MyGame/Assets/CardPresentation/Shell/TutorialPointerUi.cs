@@ -79,8 +79,8 @@ namespace CardPresentation
         public const float BubbleTexW = 359f, BubbleTexH = 336f;
         public const float TextFont = 36f, TextAutoMin = 18f, TextAutoMax = 40f, TextAutoBase = 36f;
 
-        // 队列：指针在聚光灯之上（本链自成一档 4110–4119）。
-        public const int QGlow = 4110, QPointer = 4112, QLight = 4113, QBubble = 4114, QBubbleFill = 4115, QBubbleText = 4116;
+        // ✅ 已复刻（2026-11-04 · B141 · W4 · 4-03）：本链 = 原版 `PopUps`/order 2 那一档（窗 0 · 错误横幅 1 之上；聚光 601 · toast 900 · Blocking 之下）；完整判据与已知偏离 → 文件尾「层序」一节。
+        public const int QGlow = 4041, QPointer = 4042, QLight = 4043, QBubble = 4044, QBubbleFill = 4045, QBubbleText = 4046;
 
         public const string ArtPointer = "Cursor_Space_Marine_01";
         public const string ArtPointerGlow = "Cursor_Space_Marine_01Glow";
@@ -635,3 +635,33 @@ namespace CardPresentation
         }
     }
 }
+
+// ============================================================ ✅ 2026-11-04（`B141_W4` · B138 §4 `4-03`）：层序 —— 教学指针 = 原版 `PopUps`/order 2 那一档
+//
+// 判据（原版 prefab + TagManager，全部本地现读）：
+//   · `d:/2/tools/assetripper_out/ExportedProject/Assets/TutorialPointerMenu.prefab` 的 `Canvas`：
+//       `m_SortingLayerID = 1054366423`（= `ProjectSettings/TagManager.asset:69` 的 **`PopUps`**，层序第 7）·
+//       `m_SortingOrder = 2` · `m_OverrideSorting = 1` · `m_RenderMode = 2`。
+//     Unity 同一排序层里 **order 小的先画（在下）** ⇒ 原版次序：
+//       `PopUps/0` 窗  <  `PopUps/1` 错误横幅  <  **`PopUps/2` 教学指针**  <  `PopUps/601` 教学聚光  <  `PopUps/900` toast  <  `Blocking`(tooltip)
+//     （601 = `bundle_scenes_scenes_mainmenuwarpforge/Canvas/Canvas_1073.json`；900 = 同目录 `Canvas_1074.json`，
+//      两份都是 `m_SortingLayerID 1054366423`；Blocking = TagManager 第 8 层。判据全文 → `资料/普查产出_1020/W58_界面线_Toast黑场次序判据.md` §2·3）
+//   · 原版**没有**「教学指针压过 toast」这回事 —— 它整条链都在 toast / 聚光**之下**；
+//     旧值 `4110–4116` 与 toast(4072)/tooltip(4077)/黑场(4090) 的次序是反的（B138 §4 `4-03`）。
+//
+// 我们的梯子（本仓外壳用**显式渲染队列**，各档绝对值都是我们自己挑的）：
+//   窗带最高 4030（`AlliancePanelWindow.QText`）· 错误横幅 4035（`ErrorMessageBanner.MenuQueue`，占 4035/4036）·
+//   **本链 4041–4046** · 教学聚光 **4047**（`MenuTutorialHighlight.QShade`）· toast 4072–4076（`ToastNotifications`）·
+//   tooltip 4077–4079（`Tooltip`）· 加载黑场 4090（`LoadingMenu.QPanel`）。
+//
+// ✅ 2026-11-04（`B141_W4` 续做）：**已按原版相对次序落位** —— 本链整条在**聚光之下**（原版 `PopUps/2` < `PopUps/601`）。
+//   做法 = 把 `MenuTutorialHighlight.QShade` 从 4040 抬到 **4047**（给本链让出 4041–4046 这 6 格），
+//   并同步 `Editor/ShellScene.cs` 的 W58 层序梯子（它现在把「横幅 < 指针 < 聚光 < toast」串成一条）+ 其回归闸。
+//   ⚠️ 为什么不把本链压到 4036–4039：那是 4 格，而本链要 **6 个互不相同的队列**
+//   （`Glow (1)` < `Pointer` < `light` < 气泡底 < 气泡填充 < 气泡文字，判据 = 原版 prefab 同一 Canvas 的子件序：
+//    `TutorialPointerWildcards.prefab` 根的子件依次 `Glow (1)` / `Pointer` / `Generic Popup Background`，`light` 在 `Pointer` 下）。
+//   完整记录 → `资料/完全复刻/报告/B141_W129_TutorialPointer.md`。
+//
+// ⛔ 别把本链抬回 4110–4116（那会重新压住 toast / tooltip / 黑场），也别把 `QShade` 降回 4040（那会重新压住本链）；
+//   自检 `CardPresentation/Editor/B141_W4_Assert.cs` 有「外部件常量两端钉住」的灭自证梯子 + 绝对值回归闸，
+//   `Editor/ShellScene.cs:8187` 那条 W58 梯子也把本链一起串进去了。

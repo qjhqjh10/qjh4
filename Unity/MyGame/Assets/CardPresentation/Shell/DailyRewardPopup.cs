@@ -145,8 +145,8 @@ namespace CardPresentation
         public static readonly PxRect D_Claimed = new PxRect(8.22f, 39.25f, 248.50f, 105.88f);
         public static readonly PxRect D_ClaimedTex = new PxRect(14.95f, 52.39f, 231.16f, 92.15f);
         public static readonly PxRect D_Progression = new PxRect(0f, 356.05f, 315.03f, 456.05f);
-        public static readonly PxRect D_ProgMark = new PxRect(123.51f, 358.76f, 191.51f, 446.76f);
-        public static readonly PxRect D_ProgCount = new PxRect(115.01f, 358.76f, 200.01f, 446.76f);
+        public static readonly PxRect D_ProgMark = new PxRect(123.51f, 358.76f, 191.51f, 446.76f);   // ✅ 已复刻（2026-11-04 · B141 · `Personal Progression/Image` 实读 123.5,358.8→191.5,446.8；B138 §4-08 的「362.05..450.05」错在把 PP 中心当成了 Image 中心、漏掉 `anchoredPosition.y = +3.2939` ⇒ 判据本身错，本项目未改）
+        public static readonly PxRect D_ProgCount = new PxRect(115.01f, 358.76f, 200.01f, 446.76f);  // ✅ 已复刻（同上 · `Counter` 实读 115.0,358.8→200.0,446.8，与 `Image` 同心 —— 两个 y 都对）
         /// <summary>🆕 **2026-10-26（B9 · P9 #86）**：`Personal Progression ▸ Progress Bar`（`Slider` +
         /// `MissionProgressBarDisplay`）—— **相对 Entry 左上角**的矩形。
         /// <para>判据 = `python 工具/menu_dump.py bundle_menus_assets_all "Daily Reward Popup Entry"
@@ -767,10 +767,9 @@ namespace CardPresentation
             var sel = MenuDraw.Node(root, "Army Selector", ArmySelectorRect);
             // `Viewport` = 原版挂 `RectMask2D` 的那一层（比父件高 34.99 —— 原版值，⛔ 别「修正」）
             var vpNode = MenuDraw.Node(sel, "Viewport", ArmyViewportRect);
-            var vc = vpNode.gameObject.AddComponent<ViewportClip>();
-            vc.padding = Vector4.zero;
-            vc.softness = Vector2Int.zero;
-            vc.CaptureNow();                       // 同奖格轨：必须在写矩形之后、建子件之前
+            // ✅ 已复刻（2026-11-04 · B141 · `Daily Reward Popup.prefab ▸ Army Selector/Viewport` 的 `RectMask2D`：
+            //   `m_Padding = (0,0,0,0)` · `m_Softness = (42,0)`）—— 原版值只写在 `ApplyArmyViewportClip` 一处
+            var vc = ApplyArmyViewportClip(vpNode.gameObject);   // 内含 `CaptureNow()`：同奖格轨，必须在写矩形之后、建子件之前
             var content = MenuDraw.Node(vpNode, "Army Content",
                                         new PxRect(ArmyViewportRect.x1, 0f, ArmyViewportRect.x1, ArmyContentH));
             var ids = DailyData.ValidArmies();
@@ -1387,6 +1386,33 @@ namespace CardPresentation
             _saidShowAmountUnknown = true;
             Debug.LogWarning("[DailyReward] 奖励图标 `" + art + "` 不在「图标 → 原版 item 类型」映射里 ⇒ 物品窗的 `ShowAmount`"
                            + " 按 **false** 办（铁律 2：判据没读到就不猜）。映射见 `DailyRewardPopup.RewardItemTypeOf`。");
+        }
+
+        // ============================ 🆕 2026-11-04（B141 · W6）：阵营条视口的裁切参数（原版 `RectMask2D` 那两个字段）
+        //
+        // 判据 = `d:/2/tools/assetripper_out/ExportedProject/Assets/Daily Reward Popup.prefab` 实读：
+        //   `Army Selector ▸ Viewport` 上那颗 `RectMask2D`（`m_Script fileID -146154839`）
+        //   `m_Padding = {x:0, y:0, z:0, w:0}` · `m_Softness = {x:42, y:0}`。
+        // ⚠️ **同一个 prefab 里还有第二颗 `Viewport`**（`Tracks ▸ Rewards Scroll View ▸ Viewport`，softness `(0,0)`）
+        //    —— 两件事别混：奖格轨那颗是硬边，**只有阵营条这颗是 (42,0)**。
+        // 出处报告 = `资料/完全复刻/报告/B141_W129_DailyReward.md` · 审计条目 = B138 §4 的 `4-16`。
+
+        /// <summary>原版 `Daily Reward Popup ▸ Army Selector ▸ Viewport` 的 `RectMask2D.m_Softness` = **`(42,0)`**
+        /// （x 管左右渐隐 42 px、y 管上下；0 = 硬边）。</summary>
+        public const int ArmyViewportSoftX = 42, ArmyViewportSoftY = 0;
+        /// <summary>见 <see cref="ArmyViewportSoftX"/>：**同一个** `RectMask2D` 的 `m_Padding`，原版实读 = **全 0**。</summary>
+        public static readonly Vector4 ArmyViewportPad = Vector4.zero;
+
+        /// <summary>把原版 `Army Selector/Viewport` 的两个裁切字段写到这个节点上（**唯一写口**；自检走同一条路）。
+        /// <para>⚠️ 内含的 `CaptureNow()` **必须在节点矩形已经写进去之后**调 —— 调用点紧跟 `MenuDraw.Node` ⇒ 成立。</para></summary>
+        public static ViewportClip ApplyArmyViewportClip(GameObject node)
+        {
+            var vc = node.GetComponent<ViewportClip>();
+            if (vc == null) vc = node.AddComponent<ViewportClip>();
+            vc.padding = ArmyViewportPad;
+            vc.softness = new Vector2Int(ArmyViewportSoftX, ArmyViewportSoftY);
+            vc.CaptureNow();
+            return vc;
         }
     }
 }

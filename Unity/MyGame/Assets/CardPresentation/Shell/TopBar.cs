@@ -144,9 +144,9 @@ namespace CardPresentation
         static readonly Vector4 ChallengePad = new Vector4(-4.14f, -10.10f, -5.22f, -10.40f);
         static readonly PxRect FeedbackBox = new PxRect(565.44f, 10.5f, 615.44f, 60.5f);
         static readonly Vector4 FeedbackPad = new Vector4(-4.35f, -17.90f, -5.18f, -18.30f);
-        /// <summary>头像那一格（`Player_Profile_Border`）—— **本次不动它**：原版那颗 `Border` 的 `Image`
-        /// `m_RaycastTarget = **0**`、pad 也全 0（2026-10-14 现读）⇒ **原版那一刻吃指针的其实不是它**
-        /// （「可射线件的并集」还没查 — 铁律 3）⇒ 我们**不给它换一个数**（⛔ 不许拿一个数顶另一个；见报告「没查清」）。这一格只把矩形提成常量，好与上面四颗一个写法。</summary>
+        /// <summary>头像那一格（`Player_Profile_Border`）—— 🔴 **2026-11-04（`B141-W23`）就地订正（铁律 5）**：原写「那颗 `Border` 的 `m_RaycastTarget = 0`、pad 全 0 ⇒ 不给它换一个数」——
+        /// **不完整**：`Border` 自己确实 `m_RaycastTarget = 0`，但原版真正吃指针的是它的拉伸子件 **`Profile content`**（`m_RaycastTarget = 1` · `m_RaycastPadding = (42, 25, 46.5, 27.5)`，`Assets/Data/Scenes/MainMenu Warpforge.unity:68443-68444`）。
+        /// ⇒ **本框只用于【画】**（盾框 quad 的摆放框）；命中区改用 `ProfileContentBox`（那颗的真矩形）+ `ProfilePad`（2026-11-04 `B141-W23b` 补齐，见两处注释）。⛔ 别再把 pad 换回全 0，也⛔ 别拿本框当命中区底框（那样只有 87 × 77.6）。</summary>
         static readonly PxRect AvatarBorderBox = new PxRect(-10.0f, 9.0f, 165.5f, 139.1f);
 
         /// <summary>等级徽章的**圆底图**（`A1637`）：`Player Level` 那颗 `Image` 的 `m_Sprite`
@@ -315,10 +315,10 @@ namespace CardPresentation
             parts.SettingsHit = Wire(gear, GearBox, true, GearPad, OpenSettings);
             // ⚠️ 这两个入口**有返回值**（那扇窗）⇒ 包一层 lambda（方法组转不了 `Action`）
             parts.InboxHit = Wire(inboxImg, InboxBox, true, InboxPad, () => MainMenuRuntime.OpenInbox());
-            // 头像那一格：原版那颗 `Border` 的 pad 全 0（且 `m_RaycastTarget = 0`）⇒ **零 pad = 不登记**
-            // （`Wire` 里那一句早退），命中区逐位照旧 —— 见 `AvatarBorderBox` 的注释与报告「没查清」。
-            parts.ProfileHit = Wire(BorderQuad(bar), AvatarBorderBox, true, Vector4.zero,
-                                    () => MainMenuRuntime.OpenProfile());
+            // ✅ 已复刻（2026-11-04 · B141-W23b · 4-15）：原版吃指针的是 `Profile content`（`Profile border` 的拉伸子件），
+            //   pad = `(42, 25, 46.5, 27.5)`（**正 = 内缩**）**不是**从画出来那块量 ⇒ 命中区按 `ProfileContentBox` + 该 pad 收成 109.48 × 142.63。
+            parts.ProfileHit = Wire(BorderQuad(bar), AvatarBorderBox, true, ProfilePad,
+                                    () => MainMenuRuntime.OpenProfile(), ProfileContentBox);
             parts.ChallengeHit = Wire(challenge, ChallengeBox, true, ChallengePad, ChallengeClicked);   // A1840：`m_PreserveAspect = 1`
             return parts;
         }
@@ -378,26 +378,26 @@ namespace CardPresentation
         /// <para>🆕 **2026-10-14（`A1814`）：命中区要按原版 `m_RaycastPadding` 登记**（判据 → 文件头那段）。
         /// 🔴 **两个矩形在这里分开**：<paramref name="box"/> = **原版那件自己的矩形**（= 建它时用的那个框）、
         /// 「画出来那块」= `keepAspect ? FitAspect(贴图, box) : box`（`m_PreserveAspect` 只改画面）。
-        /// 命中区 = `MenuDraw.PaddedHitRect(box, pad)`（**共用件，⛔ 别自写算式**）。</para>
+        /// 命中区 = `MenuDraw.PaddedHitRect(hitBox ?? box, pad)`（**共用件，⛔ 别自写算式**）；`hitBox` 只在「原版吃射线那颗图 ≠ 我们画的那颗」时传（头像格：画 `AvatarBorderBox`、收 `ProfileContentBox`）。</para>
         /// <param name="box">**原版那一件自己的矩形**（设计 px）—— ⛔ 不是画出来那块。</param>
         /// <param name="keepAspect">它是不是保宽高比画的（原版 `m_PreserveAspect`）—— 用来算「画出来那块」。</param>
-        /// <param name="pad">原版那颗 `Image` 的 `m_RaycastPadding`（UGUI 序 **L,B,R,T**，**负 = 外扩**）。
-        /// 全 0 = 不登记（命中区照旧逐位不变 —— 头像那一格走的就是这一支）。</param></summary>
-        static WindowButton Wire(ImageQuad quad, PxRect box, bool keepAspect, Vector4 pad, System.Action onClick)
+        /// <param name="pad">原版那颗 `Image` 的 `m_RaycastPadding`（UGUI 序 **L,B,R,T**，**负 = 外扩**、**正 = 内缩**）。
+        /// 全 0 = 不登记（命中区照旧逐位不变 —— 今天本件 4 颗钮**都不走这一支**）；`hitBox` = **原版那颗吃射线的图自己的矩形**（不传 ⇒ 就是 `box`；头像那一格两者不同，见 `ProfileContentBox`）。</param></summary>
+        static WindowButton Wire(ImageQuad quad, PxRect box, bool keepAspect, Vector4 pad, System.Action onClick, PxRect? hitBox = null)
         {
             if (quad == null) return null;
             var hit = quad.gameObject.AddComponent<WindowButton>();
             hit.onClick = onClick;
             if (pad != Vector4.zero)
             {
-                var drawn = keepAspect ? FitAspect(quad.Texture, box.x1, box.x2, box.y1, box.y2) : box;
-                PointerLayer.RegisterHitRect(hit, drawn, MenuDraw.PaddedHitRect(box, pad));
+                var drawn = keepAspect ? FitAspect(quad.Texture, box.x1, box.x2, box.y1, box.y2) : box;   // 「画出来那块」恒按 `box`（= 我们建它时那个框），⛔ 不受 `hitBox` 影响
+                PointerLayer.RegisterHitRect(hit, drawn, MenuDraw.PaddedHitRect(hitBox ?? box, pad));
             }
             return hit;
         }
 
-        /// <summary>头像那一格的命中区 = `Player_Profile_Border` 那张图的 quad
-        /// （原版那块头像上的 `OpenWindowButton` 就挂在这件上；命中区 = 它自己的矩形 `-10,9 → 165.5,139.1`）。
+        /// <summary>头像那一格**的挂载点** = `Player_Profile_Border` 那张图的 quad（`WindowButton` 必须留在画出来那颗上）
+        /// （原版 `OpenWindowButton` 挂在 `Profile content` 上；命中区 = 那颗的矩形套 `ProfilePad` ⇒ 见 `ProfileContentBox`，⛔ 不是这个 quad 的框）。
         /// ⚠️ 走**名字深查找**而不是让 `BuildPlayerProfile` 传出来：那一份建树的返回值是 `void`，
         /// 改签名会牵动一排调用点；这一格的名字是**我们自己在上面写死的字面量**，查不到 ⇒ 接线那一条会红（不静默）。</summary>
         static ImageQuad BorderQuad(Transform bar)
@@ -1146,5 +1146,28 @@ namespace CardPresentation
         /// ⇒ = **`Vector3.one`**。同址解读先例 → `资料/普查产出_1011/审查_W1.md` R4。</para>
         /// <para>⚠️ 它是**常量预设**（每次 animated 前都写一遍），不是动画：补间只改数字文本（`OnUpdate` 写 `ceil`）。</para></summary>
         public static readonly Vector3 CounterAnimStartScale = Vector3.one;
+
+        // ✅ 已复刻（2026-11-04 · B141-W23 · 4-15）：头像那一格的命中区 pad —— 原版吃指针的那颗是
+        //   `Profile content`（`Profile border` 的拉伸子件）的 Image：`m_RaycastTarget = 1` ·
+        //   `m_RaycastPadding = **(42, 25, 46.5, 27.5)**`（UGUI 序 L/B/R/T，**正 = 内缩**）。
+        //   判据（逐字段现读）：`d:/2/tools/assetripper_out/ExportedProject/Assets/Data/Scenes/MainMenu Warpforge.unity:68443-68444`。
+        //   ⚠️ 全仓 prefab 里**搜不到**这组值（它在场景 YAML，不在 prefab）—— 别因为 `grep *.prefab` 0 命中就判「判据为空」。
+        //   ⚠️ 收到 `AvatarBorderBox`（175.5×130.1）上 = **87 × 77.6**；原版那颗自身（109.451+88.532 宽）收完是 109.48 × 142.63
+        //   ⇒ 差在**底框**（我们沿用的是旧的手抄框），不是 pad。见报告 `B141_W129_Hitbox5.md`。
+        public static readonly Vector4 ProfilePad = new Vector4(42f, 25f, 46.5f, 27.5f);
+
+        // ✅ 已复刻（2026-11-04 · B141-W23b · 4-15）：头像格的**命中区底框** = 原版那颗吃射线的图
+        //   `Profile content` 的**真矩形**（**设计空间绝对坐标**，y 向下，与 `*Box` 同一套口径 —— `MenuDraw.Local` 就是把
+        //   `PxRect` 当设计空间用的）。
+        //   逐级算（判据 = `MainMenu Warpforge.unity` 的 4 个 RectTransform，逐字段现读）：
+        //     · `Player Profile`  = 528.65 × 211.07 · 锚 (0,1)/枢 (0,1)/pos (0,0) ⇒ 设计矩形 **0..528.65 × 0..211.07**
+        //     · `Profile border`  = 109.451 × 122.279 · 锚/枢 (0.5,0.5)/pos (−186.6, **31.12**) ⇒ 中心 (77.725, 74.415)
+        //                           ⇒ 矩形 **22.9995..132.4505 × 13.2755..135.5545**（y 向下：+31.12 向上 = y 减）
+        //     · `Profile content` = 拉伸锚 (0,0)-(1,1) · pos (**2.4, 11.5**) · sizeDelta (**88.532, 72.849**) · 枢 (0.5,0.5)
+        //                           offsetMin = (2.4 − 44.266, 11.5 − 36.4245) · offsetMax = (2.4 + 44.266, 11.5 + 36.4245)
+        //                           ⇒ 矩形 **−18.8665..179.1165 × −34.649..160.479** = **197.983 × 195.128**
+        //   ⇒ 套 `ProfilePad` (42,25,46.5,27.5) 收完 = **(23.1335, −7.149) … (132.6165, 135.479)** = **109.483 × 142.628**
+        //     （= 审计记的「109.48 × 142.63」；⛔ 不是 `AvatarBorderBox` 收出来的 87 × 77.6 —— 那个框是**画**用的）。
+        public static readonly PxRect ProfileContentBox = new PxRect(-18.8665f, -34.649f, 179.1165f, 160.479f);
     }
 }

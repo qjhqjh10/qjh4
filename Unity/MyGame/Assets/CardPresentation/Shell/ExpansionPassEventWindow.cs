@@ -987,8 +987,8 @@ namespace CardPresentation
             // 原版 `ClickEventHelpButton`：`HasComponent(事件, 0x1e)` 才开那个**远端帮助窗** ⇒ 本地只出声。
             MenuDraw.Rect(titleNode, Tex(ArtHelpInfo, "活动帮助图标"), HelpIconPlayerR, "Help Icon Player",
                           QHeaderIcon, Color.white);
-            // `EverguildButton` 那一颗的 `m_RaycastPadding` 未逐字段读 ⇒ 命中区按图标矩形本身（不外扩）。
-            MenuDraw.Hit(titleNode, "Help Icon Player Hit", HelpIconPlayerR, QHit, () =>
+            // ✅ 已复刻（2026-11-04 · B141-W23 · 4-15）：原版 `Help Icon Player` 那颗 Image 的 `m_RaycastPadding = (−20, −20, −20, −20)`（**负 = 外扩**；逐字段现读 `Expansion Pass Tab.prefab` / `Raid Progress Tab.prefab`，两份同值；52.2² 框 ⇒ 92.2²）—— 上一版「未逐字段读 ⇒ 不外扩」**已过期**（铁律 5 就地订正）。⚠️ pad 写成内联字面量（不新增成员）：本类类尾在 `:2830` 一带，之后还有他批的 `…Logic` 类与按行号钉住的账（`ExpansionPassMissionsTabLogic.Initialize` = `:2910`）⇒ 加成员会把锚点整体下移。
+            MenuDraw.Hit(titleNode, "Help Icon Player Hit", MenuDraw.PaddedRect(HelpIconPlayerR, new Vector4(-20f, -20f, -20f, -20f)), QHit, () =>
                 Debug.LogWarning("[ExpansionPass] `Help Icon Player` = `RaidHeaderController.eventHelpButton`："
                                + "原版 `ClickEventHelpButton` 要 `LiveOpsAssetUtility.HasComponent(事件, 0x1e)` "
                                + "才打开那个远端帮助窗；本地没有该事件组件 ⇒ **不开窗**。"),

@@ -17,7 +17,9 @@
 //   A3-b 截断不走 `ctx.GetRandomInt`（比如 `ctx.Rng.Next` / 直接取前 N）⇒ **随机表游标不前进** ⇒ 红。
 //   A4 `targetSelectMethod = 7 firstAdded` 被写成随机 ⇒ 抓到的不是槽号 1/2（池序前两个）⇒ 红。
 //   A6 `null`（判不了/没接）与**空表**混成一种 ⇒ `ta=30 无目标` / `ta=65` / `ta=0` 三条会互相打架 ⇒ 红。
-//   A8 `ta=2/3 valueInPlay`（本版没有 `GetValueInPlay` 等价字段）被拿随机冒充 ⇒ 会返回 1 个而不是 `null` ⇒ 红。
+//   A10 `targetSelectMethod = 2/3 valueInPlay` 的截断**去掉「按 `GetValueInPlay` 排序」**（改回池序取前 N）
+//      ⇒ 取到 2 号格而不是 3 号格 ⇒ 红（🔴 2026-11-04 `B141-W12` 就地订正：本节原来写「本版没有
+//      `GetValueInPlay` 等价字段 ⇒ 会返回 1 个而不是 `null`」—— `B140_WA` 当天已实现这一档，前提不成立）。
 //   B1 **接线那一跳**（`UseActiveAbilityCore` → `AttachAbilityTargets(…, criteria)`）被退回 5 实参
 //      ⇒ 事件里的表走 `AbilityTargetsFor`（`chosen == null` ⇒ **空表**）⇒ 数出 0 而不是 4 ⇒ 红。
 //
@@ -53,6 +55,16 @@ public static class B104_MT_Assert
 
     static CardDef PlainUnit(string id) =>
         new CardDef(id, id, "unit", "", "common", "Test", 1, 1, 3, 0, (string[])null);
+
+    // ---- 🆕 2026-11-04（`B141-W12`）：A10（`targetSelectMethod 2/3`）专用 —— **费用可控**的卡 ----
+    //   `SimpleAI.ValueInPlay = 2 × 卡面费 + 1`（`Data/SimpleAI.cs:786-800`；满血 · 无附魔 · 未眩晕时只走那一句）。
+    //   A10 要「按价值排」与「取池序前 N」分得开 ⇒ 价值必须**两两不同**且**最值都不在池首**，所以不能再复用
+    //   费用恒为 1 的 `PlainUnit`。⚠️ 改 `ValueInPlay` 的算式时 A10 的期望值要跟着核一遍。
+    static CardDef CostedUnit(string id, int cost) =>
+        new CardDef(id, id, "unit", "", "common", "Test", cost, 1, 3, 0, (string[])null);
+
+    static CardDef CostedHero(string id, int cost) =>
+        new CardDef(id, id, "hero", "", null, "Test", cost, 2, 30, 0, null, subtype: "Warlord");
 
     static BattleContext NewCtx(IEnumerable<CardDef> cardPool)
     {
@@ -105,6 +117,24 @@ public static class B104_MT_Assert
         if (l == null) return "(null)";
         var b = new System.Text.StringBuilder();
         for (int i = 0; i < l.Count; i++) { if (i > 0) b.Append(','); b.Append(l[i].Player).Append(':').Append(l[i].Slot); }
+        return b.ToString();
+    }
+
+    /// <summary>诊断用：把目标表连**每一项的 `SimpleAI.ValueInPlay`** 一起打出来
+    /// （那个值就是 `targetSelectMethod 2/3` 的排序键 —— 断言红了直接看它，别再猜是排错还是取错）。</summary>
+    static string WithValues(BattleContext ctx, List<BattleEventTarget> l)
+    {
+        if (l == null) return "(null)";
+        var b = new System.Text.StringBuilder();
+        for (int i = 0; i < l.Count; i++)
+        {
+            if (i > 0) b.Append(" · ");
+            b.Append(l[i].Player).Append(':').Append(l[i].Slot);
+            UnitState u = null;
+            int p = l[i].Player, s = l[i].Slot;
+            if (p >= 0 && p < ctx.Players.Length && s >= 0 && s < BoardSpec.Size) u = ctx.Players[p].Board[s];
+            b.Append("(价值 ").Append(SimpleAI.ValueInPlay(u).ToString("0.##")).Append(')');
+        }
         return b.ToString();
     }
 
@@ -278,21 +308,95 @@ public static class B104_MT_Assert
               "A9-c **`ta=10` 但 `friendlyUnits` 没落 ⇒ `null`（判不了，⛔ 不猜己方/敌方）**");
         }
 
-        // ---- A10（灭自证）：`targetSelectMethod = 2/3 valueInPlay` 要截断 ⇒ `null`（本版没有那个等价字段）----
+        // ---- A10：`targetSelectMethod = 2/3 valueInPlay` ⇒ **先按 `GetValueInPlay` 排序、再截断**
+        //      🔴 2026-11-04 就地订正（`B141-W12` · 铁律 5）：本节原来断言「2/3 档 ⇒ `null`（本版没有等价字段）」，
+        //      前提**已不成立** —— `B140_WA` 当天把它落了（`RuleCore.cs:18102-18108` 走 `KeepByValueInPlay`，
+        //      `:18517` 的键 = `SimpleAI.ValueInPlay`；键链判据 = `out_il2csharp/Assembly-CSharp/AbilityLogic.cs`
+        //      的 `switch (targetSelectMethod - 1)`：`case 2` `OrderByDescending` / `case 3` `OrderBy`，末尾统一 `Take`）。
+        //      ✅ 已复刻（2026-11-04 · B141 · `out_il2csharp/Assembly-CSharp/AbilityLogic.cs` 的 `switch (targetSelectMethod - 1)` + `RuleCore.cs:18102-18108` / `:18517`）
         {
-            var ctx = MakeCtx();
-            var src = Put(ctx, 0, 3, PlainUnit("B104MT_src"));
-            Tr(RuleCore.AbilityTargetListFromCriteriaForTest(ctx, 0, Set(10, 1, 0, 1, 1, 1, maxTargets: 1, method: 2), src, null) == null,
-              "A10-a **`targetSelectMethod = 2 highestValueInPlay` 要截断 ⇒ `null`**"
-            + "｜判据 `:1215-1246` 要 `CardScript.GetValueInPlay()`，本版**没有**等价字段（`CountEval.ApplyMaxTargets` 同一结论）"
-            + "｜🧨 拿随机 / 池序冒充 ⇒ 会返回 1 张 ⇒ 红");
-            Tr(RuleCore.AbilityTargetListFromCriteriaForTest(ctx, 0, Set(10, 1, 0, 1, 1, 1, maxTargets: 1, method: 3), src, null) == null,
-              "A10-b 同理 `3 lowestValueInPlay` ⇒ `null`（`:1247-1261`）");
-            // 不截断时（`maxTargets <= 0`）与这两档**无关** ⇒ 照常出表（证明 `null` 只在「真要选人」时发生）
-            var noTrunc = RuleCore.AbilityTargetListFromCriteriaForTest(ctx, 0, Set(10, 1, 0, 1, 1, 1, maxTargets: 0, method: 2), src, null);
-            C(noTrunc == null ? -1 : noTrunc.Count, 4,
-              "A10-c **不截断时 `targetSelectMethod` 不参与 ⇒ 照常出 4 张**（`maxTargets <= 0` 直接跳过 `:1164`）"
-            + "｜🧨 把 `null` 判成「这一档永远不行」⇒ 变 0 ⇒ 红");
+            // 🔬 专用夹具：4 个己方候选的价值**两两不同、且最值都不在池首** —— 否则「按价值排」与「取池序前 N」分不开。
+            //    池序（`AddSide` 按槽号升序）= 2 → 3(施放者) → 4(督军) → 5；
+            //    卡面费 4 / 6 / 1 / 3 ⇒ `SimpleAI.ValueInPlay = 2 × 卡面费 + 1` = **9 / 13 / 3 / 7**
+            //    （`Data/SimpleAI.cs:786-800`；本夹具满血 · 无附魔 · 未眩晕 ⇒ 只走那一句）。
+            BattleContext MakeValueCtx()
+            {
+                var ctx = NewCtx(new CardDef[0]);
+                ctx.Active = 0;
+                Put(ctx, 0, 2, CostedUnit("B104MT_v2", 4));                      // 价值 9
+                Put(ctx, 0, 4, CostedHero("B104MT_vh0", 1), warlord: true);      // 价值 3
+                Put(ctx, 0, 5, CostedUnit("B104MT_v5", 3));                      // 价值 7
+                return ctx;
+            }
+
+            // A10-a：`method = 2 highestValueInPlay` + `maxTargets = 1` ⇒ 取**价值最高**的 3 号格（13）
+            {
+                var ctx = MakeValueCtx();
+                var src = Put(ctx, 0, 3, CostedUnit("B104MT_vsrc", 6));          // 价值 13
+                var list = RuleCore.AbilityTargetListFromCriteriaForTest(
+                    ctx, 0, Set(10, 1, 0, 1, 1, 1, maxTargets: 1, method: 2), src, null);
+                Tr(list != null && list.Count == 1 && list[0].Player == 0 && list[0].Slot == 3,
+                  "A10-a **`targetSelectMethod = 2 highestValueInPlay` + `maxTargets = 1` ⇒ 取**价值最高**的 3 号格（价值 13）**"
+                + "（实得 " + WithValues(ctx, list) + "）"
+                + "｜判据 `AbilityLogic__GetTargets.c:1215-1246`（`OrderByDescending(GetValueInPlay)` → `Take(maxTargets)`）"
+                + "｜🧨 把 `KeepByValueInPlay` 的排序去掉（改回池序取前 N）⇒ 取到 2 号格（价值 9）⇒ 红；"
+                + "把降序写成升序 ⇒ 取到 4 号督军（价值 3）⇒ 红");
+            }
+
+            // A10-b：`method = 3 lowestValueInPlay` + `maxTargets = 1` ⇒ 取**价值最低**的 4 号督军（3）
+            {
+                var ctx = MakeValueCtx();
+                var src = Put(ctx, 0, 3, CostedUnit("B104MT_vsrc", 6));          // 价值 13
+                var list = RuleCore.AbilityTargetListFromCriteriaForTest(
+                    ctx, 0, Set(10, 1, 0, 1, 1, 1, maxTargets: 1, method: 3), src, null);
+                Tr(list != null && list.Count == 1 && list[0].Player == 0 && list[0].Slot == 4,
+                  "A10-b **`targetSelectMethod = 3 lowestValueInPlay` + `maxTargets = 1` ⇒ 取**价值最低**的 4 号督军（价值 3）**"
+                + "（实得 " + WithValues(ctx, list) + "）"
+                + "｜判据 `AbilityLogic__GetTargets.c:1247-1261`（`OrderBy(GetValueInPlay)` → `Take(maxTargets)`）"
+                + "｜🧨 排序被去掉（池序取前 N）⇒ 取到 2 号格（价值 9）⇒ 红；"
+                + "升序写成降序（= 与 `method 2` 共用一支）⇒ 取到 3 号格（价值 13）⇒ 红");
+            }
+
+            // A10-c：**截断**要「排完再取前 N」—— `method = 2` + `maxTargets = 3` ⇒ 13 · 9 · 7（4 号格的 3 被丢）
+            {
+                var ctx = MakeValueCtx();
+                var src = Put(ctx, 0, 3, CostedUnit("B104MT_vsrc", 6));          // 价值 13
+                var list = RuleCore.AbilityTargetListFromCriteriaForTest(
+                    ctx, 0, Set(10, 1, 0, 1, 1, 1, maxTargets: 3, method: 2), src, null);
+                Tr(Slots(list) == "0:3,0:2,0:5",
+                  "A10-c **`method = 2` + `maxTargets = 3` ⇒ 截断**取前 3、且按价值**降序**：3 号格(13) → 2 号格(9) → 5 号格(7)，4 号督军(3) 被丢**"
+                + "（实得 " + WithValues(ctx, list) + "）"
+                + "｜判据 `:1164-1371`（`if (pool.Count > maxTargets)` 才进截断；非 `default` 档末尾统一 `Take(maxTargets)`）"
+                + "｜🧨 只排不截 ⇒ 4 张 ⇒ 红；只截不排（取池序前 3 = 2·3·4 号格）⇒ 红；"
+                + "排完再按升序取前 3 ⇒ 3·7·9（4·5·2）⇒ 红");
+            }
+
+            // A10-d：同一条闸的另一半 —— `method = 3` + `maxTargets = 3` ⇒ 升序前三（3 · 7 · 9；13 被丢）
+            {
+                var ctx = MakeValueCtx();
+                var src = Put(ctx, 0, 3, CostedUnit("B104MT_vsrc", 6));          // 价值 13
+                var list = RuleCore.AbilityTargetListFromCriteriaForTest(
+                    ctx, 0, Set(10, 1, 0, 1, 1, 1, maxTargets: 3, method: 3), src, null);
+                Tr(Slots(list) == "0:4,0:5,0:2",
+                  "A10-d **`method = 3` + `maxTargets = 3` ⇒ 升序**取前 3：4 号督军(3) → 5 号格(7) → 2 号格(9)，3 号格(13) 被丢**"
+                + "（实得 " + WithValues(ctx, list) + "）"
+                + "｜判据 `:1247-1261` + `Take`"
+                + "｜🧨 与 A10-c 共用降序支 ⇒ 变 3·2·5 ⇒ 红；只截不排（池序前 3 = 2·3·4）⇒ 红");
+            }
+
+            // A10-e：`maxTargets <= 0` ⇒ 这一档**不参与**（截断那整段跳过）⇒ 照常出 4 张、序也不动
+            {
+                var ctx = MakeValueCtx();
+                var src = Put(ctx, 0, 3, CostedUnit("B104MT_vsrc", 6));
+                var noTrunc = RuleCore.AbilityTargetListFromCriteriaForTest(
+                    ctx, 0, Set(10, 1, 0, 1, 1, 1, maxTargets: 0, method: 2), src, null);
+                Tr(noTrunc != null && noTrunc.Count == 4 && Slots(noTrunc) == "0:2,0:3,0:4,0:5",
+                  "A10-e **`maxTargets <= 0` ⇒ `targetSelectMethod` 不参与、也不排序 ⇒ 照常出 4 张且保持池序**"
+                + "（实得 " + Slots(noTrunc) + "）"
+                + "｜判据 `:1164`（`pool.Count > maxTargets` 才进截断）"
+                + "｜🧨 把「排序」挪到截断闸**之前**（无条件排）⇒ 变 3·2·5·4 ⇒ 红；"
+                + "退回旧的「2/3 档一律 `null`」⇒ 变 `(null)` ⇒ 红");
+            }
         }
     }
 

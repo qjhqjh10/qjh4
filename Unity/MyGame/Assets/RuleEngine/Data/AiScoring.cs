@@ -1039,26 +1039,26 @@ namespace RuleEngine
         ///   `manaLeft = GetManaLeft`（`.c:23`）→ `PlayerState.Energy`；</item>
         /// <item>`limit = criteria.buffEffect.costChange + manaLeft`（`.c:25`）；
         ///   **`limit &gt; totalMana` ⇒ 返回 0**（`.c:26-28`）；</item>
-        /// <item>遍历 **`GetCardsInHandRef` 手牌**：`CurrentCost &gt; manaLeft` 且 `&lt;= limit` ⇒ **+1**
-        ///   （`.c:35-47`）；</item>
-        /// <item>**督军**：`hasActiveAbility` 且 `activeAbility.manaCost ∈ (manaLeft, limit]` ⇒ **+1**
-        ///   （`.c:48-59`）；</item>
-        /// <item>**同侧 `GetPlayerMinionsAndRemnantInPlay` / `GetEnemyMinionsAndRemnantInPlay`**
-        ///   （按 `isPlayer` 选）逐个同判 ⇒ 每条 **+1**（`.c:61-91`）；</item>
+        /// <item>遍历 **`GetCardsInHandRef(manager, thisCard.isPlayer)` 的手牌**（= 那张正被打出的卡**自己所属方**的 `currentHand`，无卡种闸）：`CurrentCost &gt; manaLeft` 且 `&lt;= limit` ⇒ **+1**（`.c:30,35-47`）；</item>
+        /// <item>**同侧督军** `GetHero(manager, thisCard.isPlayer)`：`hasActiveAbility` 且
+        ///   `activeAbility.manaCost ∈ (manaLeft, limit]` ⇒ **+1**（`.c:48-59`）；</item>
+        /// <item>**同侧场上**：`isPlayer` 真 ⇒ `GetPlayerMinionsAndRemnantInPlay()`，假 ⇒
+        ///   `GetEnemyMinionsAndRemnantInPlay(manager)` —— 两张表**形状相同**（`unitsInPlay` 里「同侧 ∧
+        ///   `cardType ∉ {10 Hero, 20 Tactic, 40 Whispers}` ∧ `IsInPlay()`」，**残骸计入**）⇒ 每条 **+1**（`.c:61-91`）；</item>
         /// <item>返回累计分（`.c:97`）。</item>
         /// </list>
         ///
-        /// <para>🔴 **⑥⑦ 今天恒 0 —— 缺的是【数据列】，不是算式**：原版读
-        /// `ActiveAbility.manaCost(+0x14)`，而我们的卡表里**没有这个字段**
-        /// （`Resources/cards_engine.json` 现读：`"activeAbility"` 键 **0 次**）。
-        /// 真值在 `cards_truth.json` 的 `activeAbility.manaCost`（现池 **143 张**有 `activeAbility`），
-        /// 但要落进 `cards_engine.json` 还得改 `工具/gen_cards_engine.py` + `Core/CardDef.cs`
-        /// —— **两个文件都不在本代理白名单**（施工单行 29 的 ①② 两项）。
-        /// ⇒ 本方法留了接线口 <see cref="ActiveAbilityManaCost"/>（默认 `null` = 未知 ⇒ 两段各恒 0）；
-        /// 那两项做完之后**只要给这个钩子赋值**（或改读 `CardDef`），⑥⑦ 就活了。</para>
+        /// <para>✅ 已复刻（2026-11-04 · `B141` · `decomp_full/AI__ScoreFromManaBuff.c:48-91`）：⑥⑦ 读的
+        /// `ActiveAbility.manaCost(+0x14)` **已进卡表** —— `cards_engine.json` 的 `activeAbilityManaCost`
+        /// 列（v37+，生成器 `active_ability_cost_of`）→ `CardDef.ActiveAbilityManaCost` → 产品钩子默认接线。
+        /// 逐张核对：池内 1,129 张有真值的卡 **0 处差异**（含 `activeAbilityLogic` 非空的 132 张；
+        /// 真值全量 143 张里另 11 张不在池）⇒ 「列缺」那条**已过期**（它写于 v37 落列之前）。</para>
+        /// <para>⚠️ 行为上 ⑥⑦ 现实仍多为 0，那是**原版数据本身**：`hasActiveAbility=1` 的 87 张
+        /// `manaCost` 全是 0（`0 &gt; manaLeft` 恒假）；`manaCost=2` 的 34 张 `hasActiveAbility=0`。
+        /// 🔴 修前把这 34 张的 `-1`（缺键=未知）当成「有主动技」⇒ **多 +1**（`== 0` 那道闸的洞）；现改 `hasActiveAbility != 1 ⇒ false`（= 原版字节真值判断，未知档不猜）。</para>
         ///
-        /// <para>⚠️ **调用方 = `ManaBuffValue`（option 13 的窄口）**，所以本方法**不是**未接线函数；
-        /// 只是它的 ⑥⑦ 两段今天恒 0。改前那个内联版的 ⑤ 算式**一字未改** ⇒ 指纹不变。</para>
+        /// <para>⚠️ **调用方 = `ManaBuffValue`（option 13 的窄口）**，本方法**不是**未接线函数；⑤ 那段一字未改，
+        /// ⑥⑦ 的取数/闸收在 <see cref="AbilityManaCostInRange"/>（唯一判据 —— ⛔ 别在别处再判一次）。</para>
         /// </summary>
         public static float ScoreFromManaBuff(BattleContext ctx, int p, AiScoringEntryDto e)
         {
@@ -1093,15 +1093,15 @@ namespace RuleEngine
             var board = ctx.Players[p].Board;
             for (int s = 0; s < BoardSpec.Size; s++)
             {
-                if (s == BoardSpec.WarlordSlot) continue;               // 督军不在原版那两条 minions 表里
-                if (AbilityManaCostInRange(board[s], manaLeft, limit)) { sum += 1f; minionHits++; }
+                if (s == BoardSpec.WarlordSlot) continue;               // 原版两张表都排 `cardType == 10 (Hero)`（`GetPlayerMinionsAndRemnantInPlay.c:49-51`）；我们的督军恒在督军格 ⇒ 跳过该格等价（棋盘只放 `unit`/`hero` ⇒ 20 Tactic / 40 Whispers 恒不在棋盘）
+                if (board[s] != null && board[s].IsInPlayState(ctx) && AbilityManaCostInRange(board[s], manaLeft, limit)) { sum += 1f; minionHits++; }   // ✅ 已复刻（2026-11-04 · B141 · `AI__ScoreFromManaBuff.c:61-91` + `BattleManager__GetPlayerMinionsAndRemnantInPlay.c:48-64`：同侧 ∧ `IsInPlay()` ∧ 非 Hero/Tactic/Whispers；**残骸照样计入** —— 棋盘上的残骸是 `new UnitState{IsRemnant=true}`、`CardStateOf` 仍 = `inPlay(2)` ⇒ `IsInPlay()` 真）
             }
 
             // 🔬 读数项（⛔ 只走 `TraceCriteria`，产品路径恒 null ⇒ 零影响）：
-            //    ⑥⑦ 要等 `activeAbility.manaCost` 列落进来才会出非 0（见 doc）。
+            //    ⑥⑦ 的算式是**活的**；现实多为 0 是**原版数据本身**（87 张 gate=1 但 manaCost=0、34 张 manaCost=2 但 gate=0）。
             if (TraceCriteria != null)
                 Trace("    manaBuff: hand=" + handHits + " hero=" + heroHit + " minion=" + minionHits
-                      + (ActiveAbilityManaCost == null ? "（🔴 主动技 manaCost 列未落 ⇒ ⑥⑦ 恒 0）" : ""));
+                      + (ActiveAbilityManaCost == null ? "（🔴 钩子被置 null ⇒ ⑥⑦ 恒 0）" : ""));
             return sum;
         }
 
@@ -1113,8 +1113,8 @@ namespace RuleEngine
         /// `activeAbilityManaCost` 那一列（`CardDef.ActiveAbilityManaCost`，见下面那格字段初值器）。
         /// 卡表缺这一列 / 夹具直接 `new CardDef(...)` ⇒ 该格 `-1`（未知）⇒ 钩子返回 `-1` ⇒ `AbilityManaCostInRange` 判 false（⛔ 不猜成 0）。</para>
         ///
-        /// <para>⚠️ 只有 `ScoreFromManaBuff` 的 ⑥⑦ 两段读它；真实池内 `hasActiveAbility==1` 的 87 张
-        /// **`activeAbilityManaCost` 现读全是 0** ⇒ `cost > manaLeft` 恒假 ⇒ **行为零变化**（指纹不动）。</para>
+        /// <para>⚠️ 只有 `ScoreFromManaBuff` 的 ⑥⑦ 两段读它；真实池内 `hasActiveAbility=1` 的 87 张
+        /// `activeAbilityManaCost` 现读全是 0 ⇒ `cost &gt; manaLeft` 恒假；`=2` 的 34 张闸为 `0` ⇒ 两段仍恒 0（**原版数据如此**）。</para>
         /// <para>⚠️ 自检（<see cref="AiScoringSelfTest"/>）会把这一格临时改成假钩子 ⇒ **末尾必须复位回产品接线**（`= c =&gt; c != null ? c.ActiveAbilityManaCost : -1`），⛔ 别复位成 `null`（那会把产品路径永久留空）。</para>
         /// </summary>
         public static Func<CardDef, int> ActiveAbilityManaCost = c => c != null ? c.ActiveAbilityManaCost : -1;   // 🔴 2026-10-29（`B98_K6` · 账 233 ①）：**产品路径默认接线** = 卡表 v37+ 的 `CardDef.ActiveAbilityManaCost`（原版 `ActiveAbility.manaCost(+0x14)`）；未知（旧表 / 夹具）恒 `-1` ⇒ `AbilityManaCostInRange` 判 false（⛔ 不猜成 0）
@@ -1129,7 +1129,7 @@ namespace RuleEngine
             if (u == null || u.Card == null) return false;
             var look = ActiveAbilityManaCost;
             if (look == null) return false;                       // 列未落 ⇒ 未知（不猜）
-            if (u.Card.HasActiveAbility == 0) return false;       // 原版 `hasActiveAbility == false` ⇒ 整段跳过
+            if (u.Card.HasActiveAbility != 1) return false;       // 原版 `hasActiveAbility(+0x220) != 0` ⇒ 整段跳过；`0`/`-1`(缺键=未知) 同样跳过（⛔ 不猜）· ✅ 已复刻（2026-11-04 · B141 · `AI__ScoreFromManaBuff.c:48-59/61-91`）
             int cost = look(u.Card);
             if (cost < 0) return false;                           // 约定：<0 = 未知
             return cost > manaLeft && cost <= limit;
@@ -1153,7 +1153,7 @@ namespace RuleEngine
     public static class AiScoringSelfTest
     {
         static CardDef Hero() { return new CardDef("E4P08HERO", "E4P08HERO", "hero", "",
-                                                  "common", "Test", 0, 2, 30, 0, null); }
+                                                  "common", "Test", 0, 2, 30, 0, null, hasActiveAbility: 1); }   // 🆕 2026-11-04（B141）：⑥⑦ 的闸是 `HasActiveAbility == 1`（原版 `+0x220 != 0`）⇒ 夹具必须显式给 1，否则行29 ④ 会被闸挡成 0
         static CardDef Troop(string id, int cost, int hp)
         {
             return new CardDef(id, id, "unit", "", "common", "Test", cost, 1, hp, 0, null);
@@ -1268,10 +1268,128 @@ namespace RuleEngine
                       AiScoring.ScoreFromManaBuff(ctx, side, e) == 1f, "只有 ⑤ 那 1 分");
                 AiScoring.ActiveAbilityManaCost = c => (c != null && c.Id == hero.Id) ? 5 : 4;
                 // 督军 cost 5 落在 (3,5] ⇒ +1；场上那个 cost 4 ⇒ +1
-                AddUnit(ctx, side, BoardSpec.WarlordSlot + 1, Troop("E4P08M", 1, 2));
+                AddUnit(ctx, side, BoardSpec.WarlordSlot + 1, new CardDef("E4P08M", "E4P08M", "unit", "", "common", "Test", 1, 1, 2, 0, null, hasActiveAbility: 1));   // 🆕 2026-11-04（B141）：同 Hero —— ⑥⑦ 闸要 `HasActiveAbility == 1`（原版 `+0x220 != 0`）
                 check("行29 ④ 钩子给值 ⇒ 督军 +1 / 场上 +1（⑥⑦ 算式是活的）",
                       AiScoring.ScoreFromManaBuff(ctx, side, e) == 3f, "1(手牌) + 1(督军) + 1(场上)");
                 AiScoring.ActiveAbilityManaCost = c => c != null ? c.ActiveAbilityManaCost : -1;             // 🔴 2026-10-29（`B98_K6` · 账 233 ①）：复位回**产品接线**（⛔ 别改回 `null` —— 那是「列未落」时代的占位，会把自检跑完后的产品钩子永久留空）
+
+                // 🆕 2026-11-04（`B141-W59` · 账 L29）：**⑥⑦ 走【产品列】+ 三态闸**。
+                //   ⛔ 上面 ④ 那个假钩子绕过了 `HasActiveAbility` 闸 —— 那正是修前 bug 藏身的地方
+                //   （`-1` = 卡表缺键被当成「有主动技」⇒ 34 张督军各多 +1）。下面四条用真 `CardDef` 断。
+                {
+                    var cx = Ctx();
+                    int px = 1;
+                    cx.Players[px].Energy = 3;
+                    cx.Players[px].MaxEnergy = 5;
+                    var ex = new AiScoringEntryDto();
+                    ex.buff = new AiBuffDto { costChange = 2 };      // limit = 3 + 2 = 5 = MaxEnergy ⇒ 不早退
+                    var on = new CardDef("B141W59A", "B141W59A", "unit", "", "common", "Test", 1, 1, 9, 0, null, hasActiveAbility: 1);
+                    on.AttachActiveAbilityCost(5, 0, 0, 0);          // 夹具代 `CardDatabase.Parse` 挂列（原版 `ActiveAbility.manaCost(+0x14)`）
+                    PutWarlord(cx, px, on);
+                    check("行29 ⑤ 产品列：hasActiveAbility=1 ∧ manaCost=5 ∈ (3,5] ⇒ 督军 +1（吃到 `CardDef.ActiveAbilityManaCost`）",
+                          AiScoring.ScoreFromManaBuff(cx, px, ex) == 1f, "不靠假钩子");
+                    on.AttachActiveAbilityCost(6, 0, 0, 0);
+                    check("行29 ⑥ 同一张卡 manaCost=6 ⇒ 0（闸是 (manaLeft, limit]，区分开「恒 +1」）",
+                          AiScoring.ScoreFromManaBuff(cx, px, ex) == 0f, "6 > 5");
+                    var unknown = new CardDef("B141W59B", "B141W59B", "unit", "", "common", "Test", 1, 1, 9, 0, null);
+                    unknown.AttachActiveAbilityCost(5, 0, 0, 0);     // manaCost 落在区间内，但 `hasActiveAbility` = -1（缺键 = 未知）
+                    PutWarlord(cx, px, unknown);
+                    check("行29 ⑦ 灭自证：`HasActiveAbility == -1`（缺键）⇒ 0 —— 修前这里 +1（`== 0` 那道闸的洞）",
+                          AiScoring.ScoreFromManaBuff(cx, px, ex) == 0f, "原版 `hasActiveAbility(+0x220) != 0` ⇒ 整段跳过");
+                    var off = new CardDef("B141W59C", "B141W59C", "unit", "", "common", "Test", 1, 1, 9, 0, null, hasActiveAbility: 0);
+                    off.AttachActiveAbilityCost(5, 0, 0, 0);
+                    PutWarlord(cx, px, off);
+                    check("行29 ⑧ `HasActiveAbility == 0` ⇒ 0（与 -1 分成两条断，⛔ 别只断一档）",
+                          AiScoring.ScoreFromManaBuff(cx, px, ex) == 0f, "0 = 明确没有主动技");
+                }
+
+                // 🆕 2026-11-04（`B141-W59`）：**卡表数据不变量**（`cards_engine.json` 的 `activeAbilityManaCost`）——
+                //   逐张取值已按 SO 核对（池内 1,129 张有真值者 0 处差异，见报告 `B141_W128_AImanaCost.md`）；
+                //   这里钉「活数据真到了 `CardDef`」+「原版数据让 ⑥⑦ 结构性恒 0」两件事。
+                {
+                    var pool = CardDatabase.Load();
+                    int mc2 = 0, gate1 = 0, gate1WithCost = 0;
+                    for (int i = 0; i < pool.Count; i++)
+                    {
+                        var c = pool[i];
+                        if (c == null) continue;
+                        if (c.ActiveAbilityManaCost == 2) mc2++;
+                        if (c.HasActiveAbility == 1) { gate1++; if (c.ActiveAbilityManaCost > 0) gate1WithCost++; }
+                    }
+                    check("行29 ⑨ 卡表活数据：`ActiveAbilityManaCost == 2` 的池内卡 = 34（原版 SO `manaCost=2` 44 张 − 池外 10）",
+                          mc2 == 34, "现读 " + mc2);
+                    check("行29 ⑩ `hasActiveAbility=1` 的 87 张 ∧ 其 manaCost 全 0 ⇒ ⑥⑦ 在原版数据下结构性恒 0",
+                          gate1 == 87 && gate1WithCost == 0, "现读 " + gate1 + " / 带费 " + gate1WithCost);
+                    var ash1 = CardDatabase.FindById(pool, "ASH1");
+                    var am2 = CardDatabase.FindById(pool, "AM2");
+                    check("行29 ⑪ 抽查真卡：`ASH1 Anvirr Keltoc` manaCost=2 ∧ gate=-1（原版 hasActiveAbility=0 ⇒ 缺键）· `AM2 Ursula Creed` gate=1 ∧ manaCost=0",
+                          ash1 != null && am2 != null && ash1.ActiveAbilityManaCost == 2 && ash1.HasActiveAbility == CardDef.GateUnknown
+                          && am2.HasActiveAbility == 1 && am2.ActiveAbilityManaCost == 0,
+                          "两张取自原版 SO 的现读值");
+                }
+
+                // 🆕 2026-11-04（`B141-W69` · 账 L29）：**⑤⑥⑦ 的【侧别 / 残骸 / 手牌】口径**回源核。
+                //   判据（第一权威 `decomp_full/`，第二 `out_cpp2il_dev_ilspy/AI.cs:2055-2110`，两份逐句一致）：
+                //   · `.c:30` ⑤ = `BattleManager.GetCardsInHandRef(manager, thisCard.isPlayer(+0x40))` → `currentHand`；
+                //   · `.c:48` ⑥ = `BattleManager.GetHero(manager, thisCard.isPlayer)`；
+                //   · `.c:61-66` ⑦ = `isPlayer ? GetPlayerMinionsAndRemnantInPlay()
+                //                              : GetEnemyMinionsAndRemnantInPlay(manager)`；
+                //   ⑦ 那两张表**形状相同**（`…InPlay.c:48-64`）= `unitsInPlay` 里「同侧 ∧
+                //   `cardType ∉ {10 Hero, 20 Tactic, 40 Whispers}` ∧ `IsInPlay()`」，**残骸在场 ⇒ 计入**。
+                //   ⇒ 原版三处全按【那张正被打出的卡自己的所属方】取数；我们按形参 `p`。
+                //   下面八条把「`p` 就是取哪一侧的开关」+「残骸计入」+「`IsInPlay()` 闸」钉住。
+                {
+                    var cx = Ctx();
+                    int px = 1, foe = 0;                                // px = 效应方，foe = 对手（两边能量都摆成同一档，好做对称断言）
+                    cx.Players[px].Energy = 3; cx.Players[px].MaxEnergy = 5;
+                    cx.Players[foe].Energy = 3; cx.Players[foe].MaxEnergy = 5;
+                    var ex2 = new AiScoringEntryDto();
+                    ex2.buff = new AiBuffDto { costChange = 2 };         // limit = 3 + 2 = 5 = MaxEnergy ⇒ 不早退
+
+                    // ---- ⑤：只看 p 自己的 `currentHand`（对手手牌够格也不许算）----
+                    cx.Players[foe].Hand.Add(CardInstance.Detached(Troop("B141W69F", 4, 2)));       // 对手手牌 cost 4 ∈ (3,5]
+                    check("行29 ⑫ ⑤ 手牌口径：对手手牌里有够格的牌 ⇒ 0（原版 `.c:30` 读 `thisCard.isPlayer` 那一侧）",
+                          AiScoring.ScoreFromManaBuff(cx, px, ex2) == 0f, "对手手牌不参与");
+                    // ⑤ **无卡种闸**（与 ⑦ 相反）：原版 `.c:35-47` 只看 `CurrentCost`，战术/低语照样数
+                    cx.Players[px].Hand.Add(CardInstance.Detached(
+                        new CardDef("B141W69T", "B141W69T", "tactic", "", "common", "Test", 4, 0, 0, 0, null)));
+                    check("行29 ⑬ ⑤ 无卡种闸：p 手牌里的**战术卡** cost 4 也 +1（`.c:35-47` 只看 `CurrentCost`）",
+                          AiScoring.ScoreFromManaBuff(cx, px, ex2) == 1f, "tactic cost 4 ∈ (3,5]");
+
+                    // ---- ⑥⑦：只看 p 自己的督军/棋盘（对手那一套够格也不许算）----
+                    var foeHero = new CardDef("B141W69FH", "B141W69FH", "hero", "", "common", "Test", 0, 2, 30, 0, null, hasActiveAbility: 1);
+                    foeHero.AttachActiveAbilityCost(5, 0, 0, 0);         // manaCost 5 ∈ (3,5]
+                    PutWarlord(cx, foe, foeHero);
+                    var foeUnit = new CardDef("B141W69FU", "B141W69FU", "unit", "", "common", "Test", 1, 1, 9, 0, null, hasActiveAbility: 1);
+                    foeUnit.AttachActiveAbilityCost(5, 0, 0, 0);
+                    AddUnit(cx, foe, BoardSpec.WarlordSlot + 1, foeUnit);
+                    check("行29 ⑭ ⑥⑦ 侧别：对手的督军 + 场上单位都够格 ⇒ 仍只有 ⑤ 那 1 分（原版 `.c:48/61-66` 读 `thisCard.isPlayer` 那一侧）",
+                          AiScoring.ScoreFromManaBuff(cx, px, ex2) == 1f, "对手那一侧不参与");
+                    check("行29 ⑮ 同一局面换 `p = 对手` ⇒ 3（1 手牌 + 1 督军 + 1 场上）—— 灭自证：若实现恒读某一侧/`ctx.Active`，本条与 ⑭ 必有一条红",
+                          AiScoring.ScoreFromManaBuff(cx, foe, ex2) == 3f, "`p` 就是「取哪一侧」的开关");
+
+                    var myHero = new CardDef("B141W69MH", "B141W69MH", "hero", "", "common", "Test", 0, 2, 30, 0, null, hasActiveAbility: 1);
+                    myHero.AttachActiveAbilityCost(5, 0, 0, 0);
+                    PutWarlord(cx, px, myHero);
+                    check("行29 ⑯ ⑥ 同侧督军：p 自己的督军 manaCost=5 ∈ (3,5] ⇒ +1",
+                          AiScoring.ScoreFromManaBuff(cx, px, ex2) == 2f, "1(手牌) + 1(督军)");
+
+                    // ---- ⑦ 残骸：棋盘上的残骸照样计入（原版函数名就叫 `…MinionsAndRemnantInPlay`）----
+                    var remCard = new CardDef("B141W69R", "B141W69R", "unit", "", "common", "Test", 1, 1, 1, 0, null, hasActiveAbility: 1);
+                    remCard.AttachActiveAbilityCost(5, 0, 0, 0);
+                    var rem = new UnitState(remCard, false) { IsRemnant = true };
+                    cx.Players[px].Board[BoardSpec.WarlordSlot + 2] = rem;
+                    check("行29 ⑰ ⑦ 残骸计入：`IsRemnant = true` 的单位 manaCost=5 ⇒ +1（原版 `GetPlayerMinionsAndRemnantInPlay`）",
+                          AiScoring.ScoreFromManaBuff(cx, px, ex2) == 3f, "1(手牌) + 1(督军) + 1(残骸)");
+
+                    // ---- ⑦ 的 `IsInPlay()` 闸（灭自证：删掉那一半闸 ⇒ 本条变 3 而非 2）----
+                    cx.DyingThisAction.Add(rem);                         // ⇒ `CardStateOf` = `waitingToDie(5)` ⇒ `IsInPlay()` 假
+                    check("行29 ⑱ ⑦ `IsInPlay()` 闸：待死(5) 的残骸不计入（`CardScript__IsInPlay.c` = {2,3,15,17}）",
+                          AiScoring.ScoreFromManaBuff(cx, px, ex2) == 2f, "待死不计");
+                    cx.DyingThisAction.Remove(rem);
+                    check("行29 ⑲ 同上退回：移出待死集合后又是 3（闸不是恒假）",
+                          AiScoring.ScoreFromManaBuff(cx, px, ex2) == 3f, "回到 3");
+                }
             }
         }
     }

@@ -24,6 +24,9 @@
 产出：
   d:/4/Unity/数据/游戏数据/simple_animation_clips.json
 """
+# ✅ 已复刻（2026-11-04 · B141-W51 · 键名普查：owner/states/state/clip/playAutomatically ↔ 唯一消费者
+#   `工具/extract_missing_shaders.py:802-804` 逐键核过，0 处不一致；**无 C# DTO** —— 运行期靠打包期登记的
+#   `<效果名>|<状态名>` 容器别名（`WFModuleAnimation.cs:123` 的拼法与 `extract_missing_shaders.py:2794` 一致））
 import glob
 import io
 import json

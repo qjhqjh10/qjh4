@@ -33,6 +33,11 @@ namespace CardPresentation
         /// <summary>两个键的**选中态换图**：`onSprite = 40K_tab_button` · `offSprite = 40K_tab_button_overwindow`
         /// （由 Atlas `SpriteAtlas_4765312961718699286` 的 `m_PackedSprites ↔ names` 解出）。
         /// 染色 `onColor = (1,0.631,0,1)` · `offColor = (1,0.544,0,1)`。</summary>
+        // ✅ 已复刻（2026-11-04 · B141-W70 · W129 5-07，**等价而非新接线**）：原版 `Social Submenu Variant ▸
+        //   Alliance Header Buttons/Tab buttons ▸ Generic Tab UI Button {Search,Create}` 的
+        //   `m_SpriteState.m_SelectedSprite` = `{guid 1d28baa3…}` = **`40K_tab_button_overwindow`**（= 本行 `ArtTabOff`，
+        //   `trans=0` 死值）。⇒ ⛔ 不接 `selectedArt`：底图由 `AllianceTabBg.Build` 每次重建（绑上去要 dangle），
+        //   且真接了会在「`on` 态页签被键盘选中」时画出 `_overwindow`，与原版四态不变相反。判据同 `AllianceMemberTab` 那一行。
         const string ArtTabOn = "40K_tab_button", ArtTabOff = "40K_tab_button_overwindow";
         static readonly Color TabOnCol = new Color(1f, 0.631f, 0f, 1f), TabOffCol = new Color(1f, 0.544f, 0f, 1f);
         const float TabBtnPx = 60f, TabBtnAutoMin = 12f;
@@ -412,6 +417,13 @@ namespace CardPresentation
             var sf = Node(_listView, "Search Field", SearchFieldR);
             Nine(sf, "InputFieldBackground", SearchFieldR, new Vector4(10f, 10f, 10f, 10f), "Background",
                  L_Panel, new Color(0.0627f, 0f, 0f, 1f));
+            // ✅ 已复刻（2026-11-04 · B141-W68 · 判据 `判据/B141_W129_对账_UI动画.md` W11/4-23 ＋ `Social Submenu Variant.prefab` 的 `Search Field/Text Area ▸ RectMask2D`）：
+            //   原版 `Text Area` = (1406.57,172.90)-(1758.57,229.86) 上挂 `RectMask2D`（pad `(−8,−5,−8,−5)` 负=外扩 · soft `(0,0)`）。
+            //   改前两颗字直接挂 `Search Field` 上、只被外层 `Open Alliances/Viewport` 裁（差 5–8 px，不是原版那条掩码）
+            //   ⇒ 补这颗节点、两颗字挂到它下面（裁切由 `MenuDraw.TextBox` 沿父链解析）。
+            //   ⚠️ 断言按**递归** `MenuCheck.FindChild` 找 `Placeholder`（不是直接子件）⇒ 多这一层不会让它们白红。
+            var sfArea = ViewportClip.Hang(sf, "Text Area", SearchPhR,
+                                           TextInputField.AreaPad, TextInputField.AreaSoftness).transform;
             // 🔴 **2026-10-08（A213）`wrap: false`**：原版 `List View/Search Field/Text Area/Placeholder`
             //    （文本 `Search`）实读 **`折行=0`**（`字号=50 auto[18~50] 对齐=Left/Midline`，同一条 dump）。
             // 🆕 **2026-10-12（A323）`alignLeft: true` 显式声明**：原版 `Left/Midline`（同一条 dump）——
@@ -426,7 +438,7 @@ namespace CardPresentation
             //   这正是「**只给节点名会撞**」那条坑：键是**资产上的 mTerm**，不是按族分的。
             //   英文列 = 那颗 TMP 的 `m_text` 原文 `Search`；中文列 = 「搜索」(`zh_CN.csv:10`)。
             //   ⛔ 节点名 `"Placeholder"` 不动（`Editor/MainMenuScene.cs` 按名找它读折行/字号档）。
-            var lbSearch = Text(sf, SearchPhR, Loc.T("MenuDeck/HUD/SearchFilter"),
+            var lbSearch = Text(sfArea, SearchPhR, Loc.T("MenuDeck/HUD/SearchFilter"),
                  new Color(1f, 1f, 1f, 0.58f), "Placeholder", 50f, L_Text, 18f,
                  wrap: false, alignLeft: true, autoMaxPx: 50f, autoBasePx: 26f);   // A414（表 #2）`auto[18~50] 基准=26.0`
             // 🆕 **2026-10-16（A712 阶段 2）**：纵向档 = 原版那一颗的 `m_VerticalAlignment = 4096 (Midline)`
@@ -434,10 +446,12 @@ namespace CardPresentation
             MenuDraw.SetVAlign(lbSearch, Label.VAlign.Midline, SearchPhR);
             // 🔴 **2026-10-30（`B102_ALLY`）**：占位字**原样保留**（上面那两句一字未动 —— 树形、字号、折行、对齐、
             //   词条键都还是原版那一档），**另加一颗正文**（玩家打的字）。两颗都交给 `TextInputField.Bind`
-            //   —— 它**只借键盘与值**、不建任何视觉件（所以 `Search Field/Placeholder` 仍然是**直接子件**，
-            //   `Editor/MainMenuScene.cs` 那三条按名 + 折行/字号档的断言**不受影响**）。
+            //   —— 它**只借键盘与值**、不建任何视觉件。
+            //   ✅ **2026-11-04 就地订正（铁律 5 · `B141_W68`）**：上面那句「`Search Field/Placeholder` 仍然是**直接子件**」**已过期** ——
+            //   本批补了 `Text Area`（掩码节点）⇒ 它是**孙节点**了。`Editor/MainMenuScene.cs` 那三条断言**照样绿**：
+            //   它们走 `MenuCheck.FindChild` = **递归**整棵子树（`Editor/MenuCheck.cs:141-147`），⛔ 不是直接子件。
             //   ⚠️ 正文那颗的字档 = 占位那颗同档（原版输入文字那颗 TMP **本轮没读到**，如实记，⛔ 不编）。
-            var lbTyped = Text(sf, SearchPhR, "", Color.white, "Text", 50f, L_Text + 1, 18f,
+            var lbTyped = Text(sfArea, SearchPhR, "", Color.white, "Text", 50f, L_Text + 1, 18f,
                  wrap: false, alignLeft: true, autoMaxPx: 50f, autoBasePx: 26f);
             MenuDraw.SetVAlign(lbTyped, Label.VAlign.Midline, SearchPhR);
             _searchInput = TextInputField.Bind(sf,

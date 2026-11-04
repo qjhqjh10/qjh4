@@ -674,7 +674,8 @@ namespace CardPresentation
         //     TMP（`MB 3842`）：`fs 30`（`m_fontSizeBase 14` · auto **18~40**）· `Left/Middle` ·
         //     `m_fontColor` **(0.783,0.783,0.783)**（`m_fontColor32` = `0xFFC8C8C8`，两者一致）。
         //   · `ScrollRect`（`MB 4335`）：`m_MovementType 2`(Clamped) · `m_VerticalScrollbarVisibility **2**`(AutoHide)
-        //     · spacing **−3.0** · `m_ScrollSensitivity 1.0`。⚠️ **13 行（= `Loc.Languages.Length`）× 40.8707 = 531.32 < 视口 573.96 ⇒ 装得下、
+        //     · spacing **−3.0** · `m_ScrollSensitivity 1.0`。⚠️ **13 行（= `Loc.Languages.Length`）× 40.8707 = 531.32 < 视口
+        //     （= 面板高 532.171，✅ 2026-11-04 `B141` 起按内容收缩；改前那个视口是满高 573.96）⇒ 照样装得下、
         //     滚不动** ⇒ 原版那条 AutoHide 会把整根 `Scrollbar` `SetActive(false)`；本件**照办**（建出来但恒关着）。
         // 🔴 **与主菜单那扇【同构、不同宽】**：那一扇挂在 400.666 宽的框上 ⇒ 设计 **395.666**；本扇挂在 **250**
         //    宽的框上 ⇒ **245**。其余每个字段两边**逐值相同**（573.96 / 40.8707 / ap(-2.5,-22) / sd(-4.9998) /
@@ -687,6 +688,13 @@ namespace CardPresentation
         const float LstTopBelowFieldCyPx = 22f;      // `ap.y = -22`（顶 = **框心**往下 22）
         const float LstVpInsetR = 17f;               // `Viewport.sd.x = -17`
         const float LstItemH = 40.8707f;             // 行高（`Item.sd.y`）
+        /// <summary>`Content` 模板高 41.7226 − 行高 40.8707 = **0.8519**（= 原版 `Show():929` 那条算式里的常量项）。
+        /// ✅ 已复刻（2026-11-04 · B141 · 判据 `TMP_Dropdown.Show():926-932` + `B141_W129_对账_UI动画.md` §4 `4-05`）。</summary>
+        const float LstItemGap = 0.8519f;
+        /// <summary>语言下拉**运行时**的内容高 = `n × 40.8707 + 0.8519`（= 原版 `itemSize.y * m_Items.Count + offsetMin.y − offsetMax.y`）。
+        /// <para>12 项 = **491.30** · 13 项 = **532.171**（现读 `Loc.Languages.Length = 13`）。
+        /// ⛔ 面板高与内容高只此一份算式 —— `BuildLangListSubtree` 与自检都读它，别在两处各写一遍。</para></summary>
+        static float DropdownContentH(int n) { return n * LstItemH + LstItemGap; }
         const float LstSbW = 20f;                    // `Scrollbar.sd.x`（右沿一颗 20 宽的竖条，恒关着）
         const float LstChkS = 20f, LstChkCx = 10f;   // 勾：20×20、**中轴在行左起 10**
         /// <summary>`Item Label` 的行内边距（由 `ap(5,-0.5) sd(-30,-3)` 在拉伸锚上解出来：左 20 右 10 上 2 下 1）。</summary>
@@ -1713,7 +1721,7 @@ namespace CardPresentation
         void BuildLangTemplate(Transform fld, float z)
         {
             _langRowsZ = z;                              // 克隆体那一族与原型同一层（排序靠队列，见 `QLangList`）
-            _langTemplate = BuildLangListSubtree(fld, "Template", z, 1);
+            _langTemplate = BuildLangListSubtree(fld, "Template", z, 1, false);   // `withRows = false` ⇒ 原型保持序列化满高 573.96（原版 prefab 就是那么高）
             _langTemplate.gameObject.SetActive(false);
             Debug.Log("[Settings] 语言下拉的 `Template` 子树建好了（**关着** —— 原版出厂 `m_IsActive = 0`；"
                     + "运行时显示的那份叫 `Dropdown List`，见 `TMP_Dropdown.Show():820`）");
@@ -1721,13 +1729,14 @@ namespace CardPresentation
 
         /// <summary>建列表的**一件** —— `Template` 原型与真正显示那份（`Dropdown List`）**共用这一份**
         /// （两处写同一条规则 = 迟早不一致）。`rows` = 铺几行（原型那件 = **1 行** = 原版 `Content` 的模板位，
-        /// 文字 `'Option A'`；克隆体 = `Loc.Languages.Length`）。
+        /// 文字 `'Option A'`；克隆体 = `Loc.Languages.Length`）。`withRows` = **按内容收缩**（见方法内那段 ✅ 注释）。
         /// <para>几何（**相对那颗语言框的中心**，px、y 向上；`h` = 框高的一半 = 29.7）：
-        /// 列表顶 = `h − 22`（原版 `ap.y = −22`）、高 **573.96**、宽 = 框宽 − 4.9998（左右各让 2.4999）；
+        /// 列表顶 = `h − 22`（原版 `ap.y = −22`）、高 = **序列化满高 573.96**（原型）／**内容高 `n × 40.8707 + 0.8519`**（克隆体）、
+        /// 宽 = 框宽 − 4.9998（左右各让 2.4999）；
         /// `Viewport` 右沿再让 **17**；`Content` 顶 = 列表顶、高 = `rows × 40.8707`；
-        /// 第 `i` 行 = `Content` 顶往下 `i × 40.8707`。⚠️ 本件**不建裁切层** —— 13 行（= `Loc.Languages.Length`）531.32 &lt; 视口 573.96
+        /// 第 `i` 行 = `Content` 顶往下 `i × 40.8707`。⚠️ 本件**不建裁切层** —— 13 行（= `Loc.Languages.Length`）531.32 &lt; 视口 532.171
         /// ⇒ 一行都不会被切到（原版那条 `ScrollbarVisibility = 2`(AutoHide) 也正是因为这个才把它关掉）。</para></summary>
-        Transform BuildLangListSubtree(Transform parent, string name, float z, int rows)
+        Transform BuildLangListSubtree(Transform parent, string name, float z, int rows, bool withRows)
         {
             // ⚠️ **坐标全是相对父件的**（`Node`/`Rect`/`Label` 的 `cx/cy` 都按「相对它自己的父件」给）——
             //    下面每一层都把「框中心系」里的值减去父件的中心再传下去。改层级时**必须**重算这几行。
@@ -1736,7 +1745,13 @@ namespace CardPresentation
             float halfH = (LangRowTopPx - LangRowBotPx) * 0.5f;                         // 29.7
             float w = halfW * 2f - LstInsetX * 2f;                                      // 245.0002
             float top = halfH - LstTopBelowFieldCyPx;                                   // 7.7
-            float bot = top - LstHPx;
+            // ✅ 已复刻（2026-11-04 · B141 · 判据 `TMP_Dropdown.Show():926-932` —— `sizeDelta.y = itemSize.y * m_Items.Count + offsetMin.y − offsetMax.y`，
+            //   即 **面板高 = 内容高**；`B141_W129_对账_UI动画.md` §4 `4-05`）。
+            //   `withRows = false` ⇒ 那是 `Template` **原型**：原版 prefab 里它就是满高 **573.96**（序列化值），⛔ 别一起缩。
+            //   克隆体 13 项 ⇒ 内容高 532.171 ⇒ 面板比满高矮 41.79；12 项 ⇒ 491.30。
+            float botFull = top - LstHPx;
+            float bot = withRows ? Mathf.Max(botFull, top - DropdownContentH(rows)) : botFull;
+            float panelH = top - bot;                                                   // 面板高（= 内容高；原型 = 573.96）
             float l = -w * 0.5f, r = w * 0.5f;
             float vpR = r - LstVpInsetR;
             float vpCx = (l + vpR) * 0.5f, vpCy = (top + bot) * 0.5f;                    // Viewport / Content 的框心（x、y）
@@ -1751,7 +1766,7 @@ namespace CardPresentation
             //    差别 ≤2 贴图 px、且只在底板那条边上 —— 如实记着（要逐位对齐得让 `MakeSlicedPiece` 收 ppuMul，
             //    那是 `HudCanvas` 的事、不在本件白名单）。
             _langListBg = HudCanvas.MakeSlicedPiece(list, CardArt.MenuUi(LstPanelArt), "list_bg",
-                                                    w, LstHPx, LstPanelBorderOut, LstPanelTint);
+                                                    w, panelH, LstPanelBorderOut, LstPanelTint);
             if (_langListBg != null)
             {
                 _langListBg.Rect.localPosition = new Vector3(0f, U(vpCy), 0f);
@@ -1765,14 +1780,14 @@ namespace CardPresentation
             float ctCy = top - rows * LstItemH * 0.5f;                                   // `Content` 框心（框中心系）
             var content = Node(vp, "Content", 0f, ctCy - vpCy, z);
             // `Scrollbar`：**建出来但恒关着**（原版 `m_VerticalScrollbarVisibility = 2`(AutoHide) + 内容 531.32（13 行 = `Loc.Languages.Length`）
-            // < 视口 573.96 ⇒ `SetVerticalScrollbarVisibility` 会 `SetActive(false)`）。见上面那段。
+            // < 视口 532.171（✅ 2026-11-04 `B141` 起面板按内容收缩）⇒ `SetVerticalScrollbarVisibility` 会 `SetActive(false)`）。见上面那段。
             {
                 float sbL = r - LstSbW;
                 var sb = Node(list, "Scrollbar", (sbL + r) * 0.5f, vpCy, z);
-                Img(sb, "scroll_bg", CardArt.MenuUi("Background"), 0f, 0f, LstSbW, LstHPx, z, QLangText, null);
+                Img(sb, "scroll_bg", CardArt.MenuUi("Background"), 0f, 0f, LstSbW, panelH, z, QLangText, null);
                 var slide = Node(sb, "Sliding Area", 0f, 0f, z);
                 // `Handle`：`aMin(0,0) aMax(1,0.9273) sd(20,20)` ⇒ 高 = 滑区高 × 0.9273 + 20，贴滑区**底**
-                float slideH = LstHPx - 20f, handleH = slideH * 0.9273074865341187f + 20f;
+                float slideH = panelH - 20f, handleH = slideH * 0.9273074865341187f + 20f;
                 Img(slide, "Handle", CardArt.MenuUi("40k_menu_scroll_bar_fill"), 0f,
                      (bot + 10f + handleH * 0.5f) - vpCy, LstSbW, handleH, z, QLangText, null);
                 sb.gameObject.SetActive(false);
@@ -1853,7 +1868,7 @@ namespace CardPresentation
                 // 原版：`m_Dropdown = CreateDropdownList(m_Template.gameObject)` → `name = "Dropdown List"`
                 //   → `dropdownRectTransform.SetParent(m_Template.transform.parent, false)`
                 _langList = BuildLangListSubtree(_langField.transform, "Dropdown List",
-                                                 _langRowsZ, Loc.Languages.Length);
+                                                 _langRowsZ, Loc.Languages.Length, true);   // `withRows = true` ⇒ 按内容收缩（原版 `Show():929-931`）
             }
             _langList.gameObject.SetActive(true);
             // 🔴 **2026-10-20（`T09` A3-b）**：列表开着 ⇒ 三根滑块/五颗钮一律不吃指针（原版那颗
@@ -2055,6 +2070,32 @@ namespace CardPresentation
         public Transform LangFieldNode { get { return _langField != null ? _langField.transform : null; } }
         /// <summary>列表底板的九宫格根（自检量它的实画矩形）。</summary>
         public GameObject LangListBgNode { get { return _langListBg != null ? _langListBg.gameObject : null; } }
+        /// <summary>✅ 已复刻（2026-11-04 · B141 · `TMP_Dropdown.Show():926-932`）：列表底板的**实画**尺寸（设计 px）。
+        /// 按内容收缩后应 = 内容高（13 项 = **532.171**），⛔ 不再是序列化的满高 573.96。</summary>
+        public Vector2 LangListBgDrawnSize { get { return _langListBg != null ? HudCanvas.SizePx(_langListBg.Rect) : Vector2.zero; } }
+        /// <summary>列表底板矩形（**相对那颗语言框的中心**，px、y 向上 —— 量法与 `LangRowRectPx` 同一条）。</summary>
+        public bool LangListBgRectPx(out float cx, out float cy, out float w, out float h)
+        {
+            cx = cy = w = h = 0f;
+            if (_langListBg == null || _langField == null) return false;
+            var local = _langField.transform.InverseTransformPoint(_langListBg.transform.position);
+            cx = local.x; cy = local.y;
+            var s = HudCanvas.SizePx(_langListBg.Rect);
+            w = s.x; h = s.y;
+            return true;
+        }
+        /// <summary>`Template` **原型**底板的实画高度 —— 应仍是序列化的满高 **573.96**（原版 prefab 就是那么高，⛔ 不该跟着缩）。</summary>
+        public float LangTemplateBgDrawnHeight
+        {
+            get
+            {
+                if (_langTemplate == null) return 0f;
+                var t = _langTemplate.Find("list_bg");
+                return t != null ? HudCanvas.SizePx((RectTransform)t).y : 0f;
+            }
+        }
+        /// <summary>自检口：`n` 项的**内容高**（= 原版 `Show()` 那条算式：`n × 40.8707 + 0.8519`）。</summary>
+        public static float DropdownContentHForTest(int n) { return DropdownContentH(n); }
         public int LangRowCount { get { return _langRows.Count; } }
         /// <summary>🔴 **2026-10-16（`T09` 批 2）**：返回类型 `ImageQuad` → **`HudPiece`**
         /// （这一族现在是 uGUI 件）。自检那侧用的是 `var` + `.transform.position` / `.WorldW` ⇒ **零改动**

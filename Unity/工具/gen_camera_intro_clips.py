@@ -38,6 +38,7 @@ gen_camera_intro_clips.py — 战斗线 `T12 演出镜头时序` 的**曲线表�
 `new Keyframe(t, v, inTangent, outTangent)`。权重仍是 1/3 且 `weightedMode=0`（非加权）⇒ 不需要存权重。
 
 ## schema（`CameraIntro.cs` 里的 `[Serializable]` 类逐字对应）
+## ✅ 已复刻（2026-11-04 · B141-W51 · 键名普查：产物 23 个键 ↔ `Battle/CameraIntro.cs` 的 `CameraIntroKey`/`Src`/`Clip`/`File` 逐键核过，0 处不一致；`--check` rc=0）
 ```
 { "schema":1, "note":"…", "source":"…",
   "clips":[

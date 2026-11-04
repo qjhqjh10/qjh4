@@ -1689,6 +1689,9 @@ namespace CardPresentation
             _lossMarksHolder = MenuDraw.Node(scaled, "Losses container", OnLossesR);
             RebuildDefeatMarks();
 
+            // `Glows`（原版 `…/Scaled Content/Glows` 两条 `Border Glow Up/Down`，掩码 soft (0,174)）
+            BuildOngoingGlows(scaled);
+
             // `Quote End`（只有 Finished 时显示；按胜场档取一句，S3 §2.7）
             _quoteEnd = MenuDraw.Text(main, new PxRect(489.30f, 245f, 1501.60f, 305.50f), "", Color.white,
                                       "Quote End", 32f, QText, 1012.3f, 10f, 32f, 26f,
@@ -1704,7 +1707,7 @@ namespace CardPresentation
             MenuDraw.Hit(_resetNode, "Hit", OnResetR, QHit, Resign, resetBg, "UI_Button_Mulligan",
                          "UI_Button_Mulligan_hover", "UI_Button_Mulligan_Pressed");
 
-            // `To Battle Button`（Ongoing 显示 · Finished 隐藏）
+            // `To Battle Button`（Ongoing 显示 · Finished 隐藏）—— ✅ 已复刻（2026-11-04 · B141-W75 · 判据 = `Draft Mode Timed Mode Window.prefab:30629-30746`：这颗就是**活树上**那一颗（`playButton` 指着它），`Battle Button Button` 那套只在没人引用的孤儿 prefab 里 ⇒ ⛔ 别照它改建，见 `报告/B141_W129_DraftBattleBtn.md`）
             _toBattleNode = MenuDraw.Node(page, "To Battle Button", OnBattleR);
             var battleBg = MenuDraw.Rect(_toBattleNode, Tex("UI_Button_Mulligan"), OnBattleR, "Bg", QArt, null, true);
             var battleTx = MenuDraw.Text(_toBattleNode, OnBattleTxR, Loc.T("Demo/ToBattle"), Color.white,
@@ -1872,8 +1875,18 @@ namespace CardPresentation
                 else Debug.LogWarning("[Draft] 右栏 toggle 图标「" + DeckToggleIconArt[i] + "」取不到"
                                     + "（期望 `Resources/Art/ui_menu/" + DeckToggleIconArt[i] + ".png`）"
                                     + " ⇒ 这一格只有底、没有图标（⛔ 不拿别的图顶）");
-                MenuDraw.Hit(tog, "Hit", r, QHit, () => SetDeckTab(idx), bgQ, ToggleArtOnOff[1],
+                var deckTabHit = MenuDraw.Hit(tog, "Hit", r, QHit, () => SetDeckTab(idx), bgQ, ToggleArtOnOff[1],
                              ToggleArtOnOff[0], ToggleArtOnOff[0], clickCue: WindowSounds.SelectToggleCue);
+                // ✅ 已复刻（2026-11-04 · B141-W44 · 5-07）：`Draft Mode Deck Info Panel ▸ Buttons` 那三颗
+                //   （`Alliance Info Toggle` / `Card List Toggle` / `Deck Info Toggle`）的
+                //   `m_SpriteState.m_SelectedSprite` 逐颗实读 = **`40K_settings_button_hover`**
+                //   （判据 → `报告/B141_W129_ButtonFx.md` §5-07）。`MenuDraw.Hit` 不收 `selectedArt`
+                //   ⇒ 建完后按同一组常态/悬停/按下图再 `Bind` 一次（前四格逐位不变，`Bind` 幂等）。
+                if (deckTabHit != null)
+                {
+                    var deckTabWb = deckTabHit.GetComponent<WindowButton>();
+                    if (deckTabWb != null) deckTabWb.Bind(bgQ, ToggleArtOnOff[1], ToggleArtOnOff[0], ToggleArtOnOff[0], ToggleArtOnOff[0]);
+                }
             }
             // `Generic Window Red Background Small`：原版**初始 act=off**（`UIEffectTweener` 只在
             // 「选包成功」那一下 Play 闪一次，S3 §2.9 末行）⇒ 节点照建、**默认关着**。
@@ -1951,9 +1964,9 @@ namespace CardPresentation
                 _deckListSep = MenuDraw.Rect(holder, CardArt.Solid(), DeckListSepR, "Separator", QPanelArt,
                                              new Color(0.757f, 0.502f, 0.122f, 1f)).transform;
 
-            // ---- `Scroll View`（原版是 `ScrollRect` + `Viewport`(RectMask2D) + `Content`(VLG v=1, spacing 2.5)）----
+            // ---- `Scroll View`（原版 `ScrollRect` + `Viewport`(RectMask2D · `m_Softness=(0,54)` 上下各 54px 渐隐 · `m_Padding=(0,0,0,-10)` Top=−10 顶上外扩 10px；✅ 已复刻（2026-11-04 · B141-W27 · `Draft Mode Menu Demo ▸ …▸ Cards in deck panel ▸ Scroll View ▸ Viewport` 现读），⚠️ 独立 prefab 那份是 (0,0)/0，**以 Menu Demo 实例覆盖为准**) + `Content`(VLG v=1, spacing 2.5)）----
             _deckListScrollView = MenuDraw.Node(holder, "Scroll View", DeckScrollR);
-            var vc = ViewportClip.Hang(_deckListScrollView, "Viewport", DeckScrollR, Vector4.zero, Vector2Int.zero);
+            var vc = ViewportClip.Hang(_deckListScrollView, "Viewport", DeckScrollR, new Vector4(0f, 0f, 0f, -10f), new Vector2Int(0, 54));
             _deckListViewport = vc.transform;
             _deckListContent = MenuDraw.Node(_deckListViewport, "Content",
                                              new PxRect(DeckScrollR.x1, DeckScrollR.y1, DeckScrollR.x2, DeckScrollR.y1));
@@ -4844,6 +4857,52 @@ namespace CardPresentation
                     + draw.Count + " 格（RankingIcon(6) → `Frame` · HeaderImage(3) → `Badge`），画上 " + LastPayImageDrawn
                     + " 格，资产表 " + assets.Count + " 条"
                     + (evt == null ? " —— 事件资产表在服务端、本地没有 draft 事件 ⇒ 两格按原版关掉（⛔ 不拿别的图顶）" : "（自检注入）"));
+        }
+
+        // ------------------------------------------------------------ `Glows`（原版 Ongoing 页两条 `Border Glow`）
+        // ✅ 已复刻（2026-11-04 · B141-W27 · 判据 = `Draft Mode Menu Demo.prefab` 的
+        //   `Draft Mode Ongoing State/MainContent/Scaled Content/Glows/{Border Glow Up,Border Glow Down}`
+        //   及其子件 `Glow`；四份 prefab 逐字段同值）
+        /// <summary>原版 `Glows` 容器 + 两条 `Border Glow Up/Down`（胜场面板上/下沿的琥珀色渐隐发光带）。
+        /// <para>判据（`d:/2/tools/assetripper_out/ExportedProject/Assets/Draft Mode Menu Demo.prefab` 现读；
+        /// 另一份 `Draft Mode Timed Mode Window` 的同一棵树逐字段同值）：
+        /// `Glows` = 拉满锚点 + `sizeDelta (1820,980)` + `anchoredPosition (−20.999878, 9.547968)` + `localScale.x 1.1`；
+        /// `Border Glow Up` = `apos (28,109.5)` · `size (700,67.08)` · `Border Glow Down` = `apos (28,−118.3)` · 同 size；
+        /// 两颗 `RectMask2D` 都是 `m_Padding (0,0,0,0)` · `m_Softness (0,174)`；
+        /// 各自子件 `Glow` = `apos (0,26.89)` / `(0,−27.5)`，`size (700,53.78)`，图 `40k_Separator Fade Sides Horizontal`
+        /// （`m_Type=Sliced` · border 63,0,63,0 · `m_PixelsPerUnitMultiplier 0.34` · `m_Color (0.7019608,0.46274513,0.17254902,1)`）。</para>
+        /// <para>🔴 **下面四个矩形是「画出来的那一份」**：已折算 `MainContent.localScale 1.06` 与 `Glows.localScale.x 1.1`
+        /// （本仓按绝对屏幕 px 摆件，`MenuDraw.Node` 只减父件中心、不乘父级缩放 ⇒ 不折进去会小 1.06 / 窄 1/1.1）。</para></summary>
+        void BuildOngoingGlows(Transform parent)
+        {
+            // `Glows` 中心 = `Scaled Content` 中心 (1083.70,551.40) + (−20.999878, 9.547968)×1.06（PxRect 是 y 向下）
+            var glows = MenuDraw.Node(parent, "Glows", new PxRect(43.84f, -31.12f, 2079.04f, 1113.68f));
+            BuildBorderGlow(glows, "Border Glow Up",
+                            new PxRect(685.99f, 389.66f, 1502.19f, 460.76f),
+                            new PxRect(685.99f, 368.21f, 1502.19f, 425.21f));
+            BuildBorderGlow(glows, "Border Glow Down",
+                            new PxRect(685.99f, 631.13f, 1502.19f, 702.23f),
+                            new PxRect(685.99f, 667.33f, 1502.19f, 724.33f));
+        }
+
+        /// <summary>一条 `Border Glow`：掩码节点（软边 (0,174)）+ 里面那颗九宫 `Glow`。
+        /// 🔴 队列取 `QText`（4165）：原版 sibling 序里 `Glows` 排在 `Win Marks` 之后 ⇒ 压在胜场格（`QArt` 4160 / `QArt1` 4161）**之上**；
+        /// 它与任何文字都不重叠，借 `QText` 这一档只为「高于格子、低于命中区（`QHit` 4170）」。</summary>
+        void BuildBorderGlow(Transform parent, string name, PxRect maskR, PxRect imgR)
+        {
+            var vc = ViewportClip.Hang(parent, name, maskR, Vector4.zero, new Vector2Int(0, 174));
+            if (vc == null) return;
+            var tex = Tex("40k_Separator_Fade_Sides_Horizontal");
+            if (tex == null)
+            {
+                Debug.LogWarning("[Draft] `Border Glow` 的图 `40k_Separator_Fade_Sides_Horizontal` 取不到 ⇒ 「" + name
+                               + "」只有掩码节点、没有发光带（出声，⛔ 不静默）");
+                return;
+            }
+            // 九宫：`border` = 贴图 px (63,0,63,0)；`borderOutPx` = 画出来的角块 = 63 ÷ ppuMul 0.34 = 185.29 px
+            MenuDraw.Nine(vc.transform, tex, imgR, new Vector4(63f, 0f, 63f, 0f), 128f, 4f, QText,
+                          new Color(0.7019608f, 0.46274513f, 0.17254902f, 1f), true, "Glow",
+                          new Vector4(63f / 0.34f, 0f, 63f / 0.34f, 0f));
         }
     }
 }

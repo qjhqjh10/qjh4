@@ -110,7 +110,7 @@ namespace RuleEngine
                          ClassicMaxLegendaries = 0, ClassicCopiesOther = 2, ClassicCopiesLegendary = 1;
         // 遭遇（Skirmish）—— 来源分【官方文案】/【规则书】/【推断】/【自定】，见下面 `Skirmish` 那个实例
         // ⚠️ **`SkirmishWarlordLifeChange` 现读 = 0**（2026-11-02 由 −10 改；`10 less Health` 是**相对经典**说的，不是绝对值）
-        public const int SkirmishDeckSize = 12, SkirmishStartingHand = 4, SkirmishHandLimit = 8,
+        public const int SkirmishDeckSize = 12, SkirmishStartingHand = 3, SkirmishHandLimit = 8,   // ✅ 已复刻（2026-11-04 · B141 · DefaultScenario.asset startingHand=3 + BattleManager.scenarioVariables 不按模式分档）
                          SkirmishManaPerTurn = 2, SkirmishStartingManaSecond = 2, SkirmishManaAccumulation = 1,
                          SkirmishOvertimeTurn = 8,             // 🔶 自己设计（非原版）：官方文案只说 `earlier`、本地无数字（理由见字段注释）
                          SkirmishWarlordLifeChange = 0, SkirmishMaxLegendaries = 4;
@@ -380,10 +380,10 @@ namespace RuleEngine
         public bool alternativeTraitLogic = false;
 
         // ---- 另加：原版不在 `GameplayVariablesData` 里，但同样按模式变 ----------------
-        /// <summary>起手张数：经典 3 · 遭遇 **4**。
-        /// 🔴 **原版这个数不在这个类里** —— 它在 `ScenarioVariables.startingHand`（`DefaultScenario` = 3，
-        /// 见 `资料/加时与冲突模式_原版规格.md` §2.6 那张表）；遭遇的 4 只有【规则书:58，非官方】一条支撑。
-        /// 放这儿是因为**它同样按模式变**，一起读才不会又散出去一处。</summary>
+        /// <summary>起手张数：经典 3 · 遭遇也是 **3**（后手再 +1 ⇒ 3/4）。
+        /// 🔴 **原版这个数不在这个类里** —— 它在 `ScenarioVariables.startingHand`（`DefaultScenario` = 3）。
+        /// ⚠️ **2026-11-04 更正（`B141`）**：原写「遭遇 4，只有【规则书:58，非官方】一条支撑」——**判据已升到强档**：
+        /// 本地全库仅 3 份 Scenario 资产（全 3）· `BattleManager.scenarioVariables` 只按「教程 / 编辑期」分档、**不按模式** ⇒ 遭遇读的仍是 3。</summary>
         public int startingHand = ClassicStartingHand;
 
         /// <summary>**后手额外多抽几张**（先手/后手四件差异之一，默认 **1**）。
@@ -426,7 +426,7 @@ namespace RuleEngine
                 v.shouldReshuffle = false;                            // 【推断】同族推断（不换牌 ⇒ 也不洗回）；`No mulligan` 讲的是换牌，不是本格
                 v.assignDefensiveCardsInEditMode = true;              // 【自定】占位（我们不读它；`Random Defence card` 那句**不是**本字段的证据）
                 v.handLimit = SkirmishHandLimit;                      // 【规则书:58，非官方】
-                v.startingHand = SkirmishStartingHand;                // 【规则书:58，非官方】
+                v.startingHand = SkirmishStartingHand;                // 【DefaultScenario.startingHand=3；⚠️ 原写「规则书:58」已于 2026-11-04 `B141` 作废】
                 v.manaAccumulation = SkirmishManaAccumulation;        // 【官方文案】`Skirmish/Help`「accumulate 1 unused point」
                 // 🔴 **2026-10-25（用户口径 + 全量反编译）：冲突档 = 本开关 `true`。**
                 //    判据：`PlayerManager__AddQuestPoints.c:28,33,41` —— 任务点阈值 `false` ⇒ 3（`+0x2C`）/
@@ -517,7 +517,7 @@ namespace RuleEngine
         /// <item>`showMulligan = false` · `shouldReshuffle = false` —— 原版【文案】`No mulligan`。</item>
         /// <item>`assignDefensiveCardsInEditMode = true` —— 原版【文案】`Random Defence card`
         ///   （⚠️ 该文案**不是**这个字段的证据，见字段自己的注释；且我们只读不实现）。</item>
-        /// <item>`handLimit = 8` · `startingHand = 4` · `manaAccumulation = 1` —— 【规则书，**非官方**】。</item>
+        /// <item>`handLimit = 8` · `manaAccumulation = 1` —— 【规则书，**非官方**】；`startingHand = 3` —— 【DefaultScenario，见 `startingHand` 字段注释】。</item>
         /// <item>`overtimeTurn = 8` —— 克隆 `Skirmish` 所得（经典 18 / 遭遇 8，判据见字段注释）。</item>
         /// <item>`addedManaSecond = 0` · `manaBonusSeat0/1 = 0` · `slotsPerSide = 9` ·
         ///   `numberOfCopies*` / `drawCardsPerTurn` / `secondExtraCards = 1` —— 本地缺省（与经典同值）。</item>

@@ -50,6 +50,7 @@ euler 曲线的 `m_RotationOrder` **全是 4（OrderZXY，与 `Quaternion.Euler`
 `prePostInfinity: "clamp"` / 每条 euler 曲线的 `rotationOrder: 4`。
 
 ## schema（逐键 `t/v/si/so` + `path/type/property`，与 `camera_intro_clips.json` 对齐）
+## ✅ 已复刻（2026-11-04 · B141-W51 · 键名普查：本件键名已逐键核过，0 处不一致；产物 `arena_scene_clips.json` **现无 C# DTO 消费者**（数据件，`ArenaSceneAnims` 读的是另一份 `arena_scene_anims.json`））
 ```
 { "schema":1, "note":"…", "source":"…", "bundles":"…",
   "clips":[
@@ -345,7 +346,8 @@ def build_all():
                  "只收 legacy（m_Legacy && m_MuscleClipSize==0）；5 条 muscle clip 走重打包"
                  "（工具/extract_missing_shaders.py --arena-anims）。🔴 切线（si/so）必须逐键保留 —— "
                  "本批大量关键帧带非零切线，new Keyframe(t,v) 会把它变成 ease-in/out（端点照样对得上）。"
-                 "⚠️ 键名用 si/so（与 camera_intro_clips.json 一致；battlehud_clips.json 用的是 is/os，同义）。"),
+                 "⚠️ 键名用 si/so；2026-11-04（B141-W51 普查）起 camera_intro / division / misc / arena_scene / "
+                 "battlehud 五份**全仓统一为 si/so**（battlehud 原用 is/os，已于 B141-W46 改掉 —— 它当时是唯一例外）。"),
         "source": ASSETS,
         "bundles": BUNDLE_DIR,
         "clips": clips,

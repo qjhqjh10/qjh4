@@ -80,9 +80,10 @@ namespace CardPresentation
         //     「`HighlightK` / `PressedK` 不能当全库判据」的账 —— 与 A15 同一笔）。
         //   · `m_SelectedSprite` **非空只有 77/1276**（其中 `m_Transition = 2` 的 71 颗）⇒ **1199 颗是 null**，
         //     而 UGUI 对 null 的处理 = 常态图 ⇒ 那 1199 颗的「选中」在**换图那一档上是零变化**。
-        //     ⚠️ 我们**没有「我们这一颗 → 原版哪一颗」的映射**（A15 那笔账）⇒ 那 77 颗里的 selectedSprite
-        //     **本地认不出是哪一张** ⇒ 换图那一档**不编**：`Bind` 过的钮在 Selected 态回到常态图
-        //     （**与原版那 1199 颗一致**），⛔ 不拿「我们挑的一张图」顶上（铁律 3）。
+        //     ⚠️ 我们**没有全量的「我们这一颗 → 原版哪一颗」映射**（A15 那笔账）⇒ 那 77 颗里的 selectedSprite
+        //     只有**逐颗查得出来**的（本次 2026-11-04 现读出的全表见 `报告/B141_W129_ButtonFx.md` §5-07）
+        //     才走 `Bind(..., selectedArt: …)`；没绑的照旧回到常态图（**与原版那 1199 颗一致**），
+        //     ⛔ 不拿「我们挑的一张图」顶上（铁律 3）。
         //   · 一处实证（**键盘导航真会走到的那一族**）：主菜单那 5 个导航钮的 `Selectable`
         //     （场景包 `bundle_scenes_scenes_mainmenuwarpforge`，`Main Menu Navigation Button - Home` 的
         //     MB `2098`）实读 `m_SelectedColor = 0.9607843`，而它自己的 `m_HighlightedColor` 是
@@ -118,7 +119,9 @@ namespace CardPresentation
         /// 而 UGUI `Selectable.interactable` 的 setter 会走 `DoStateTransition(Disabled)` ⇒ 状态落到
         /// `Disabled`（`m_DisabledSprite` 全 null ⇒ `OverrideSprite = null` = **常态图**；
         /// `m_DisabledColor` 对本工程实测那批 `m_Transition = 2(SpriteSwap)` 的钮是死值，见 `BtnState` 的 doc）。
-        /// ⇒ 投影回来就是这里这一句：**禁用态 = Normal 的图 + 我们的灰材质**（灰由 `RefreshGray` 负责）。</para></summary>
+        /// ⇒ 投影回来就是这里这一句：**禁用态 = Normal 的图 + 我们的灰材质**（灰由 `RefreshGray` 负责）。
+        /// ⚠️ **色偏那一半不在这里**：原版 `Disabled` 档的 `m_DisabledColor` 走 `KeyOf`（✅ 2026-11-04 · B141-W34 · 5-08），
+        /// 只有 `ColorTint` 那一族（`tintOnHover == true`）才真的乘上去。</para></summary>
         public BtnState State
         {
             get
@@ -165,6 +168,13 @@ namespace CardPresentation
         /// `HighlightKey` / `PressedK` / `SelectedK` 都是 r=g=b 时**与旧实现逐位等价**。</summary>
         Color KeyOf(BtnState st)
         {
+            // ✅ 已复刻（2026-11-04 · B141-W34 · 5-08）：原版 `Disabled` 那一档的 `m_DisabledColor`。
+            //   判据 = UGUI `Selectable.DoStateTransition`（`case Disabled ⇒ tintColor = colors.disabledColor`
+            //   再 `StartColorTween(tintColor * colorMultiplier)`，**只在 `trans == ColorTint` 那一支生效**；
+            //   `SpriteSwap` / `None` 两颗**根本不走色偏** ⇒ 我们的 `tintOnHover == false` 由 `SetTarget` 早退挡住）。
+            //   ⚠️ `EverguildButton.Awake` / `SetUpButtonColors` 只在 `colorTintGreyOnDisable && trans == 1` 时
+            //   把 `m_DisabledColor.a` 重写成 `colorTintGreyOnDisableAlpha`（`+0x17C`）再 `set_colors` ⇒ 见 `DisabledKeyNow`。
+            if (!_interactable) return DisabledKeyNow;
             switch (st)
             {
                 case BtnState.Pressed: return PressedKey;
@@ -174,15 +184,61 @@ namespace CardPresentation
             }
         }
 
+        /// <summary>禁用档**实际要乘的那一格颜色**（原版 `m_Colors.m_DisabledColor`，α 见下）。
+        /// <para>✅ 已复刻（2026-11-04 · B141-W34 · 5-08）：原版 1276 颗逐颗实读的分布
+        /// （`bundle_menus_assets_all/MonoBehaviour/*.json` 的 `m_Colors.m_DisabledColor`）：
+        /// `(0.7843,0.7843,0.7843)` **1208** 颗（a=1.0 696 · a=0.502 504 · a=0.0 8）·
+        /// `(0.8019,…)` **19** 颗（青族，a=1.0）· 纯白 **49** 颗（a=1.0）⇒ 缺省取**最大那一族**。</para>
+        /// <para>🔴 α 的两条判据（`EverguildButton__Awake.c:45` / `__SetUpButtonColors.c:40`）：
+        /// `colorTintGreyOnDisable(+0x17A) && m_Transition(+0x50) == 1` ⇒ **α 被重写成
+        /// `colorTintGreyOnDisableAlpha(+0x17C)`**（出厂 `0x3f800000` = 1.0）；否则沿用 prefab 里的原值。
+        /// 逐实例现读（实测反例/正例各一）：**α 被改写成 1.0 那一档真的存在** —— 15 颗 `m_ColorMultiplier=2`
+        /// 那族全是 `grey=1 + alpha 1.0`；而 **α 保留 0.502 那一档也有 66 颗**（`grey=0 + trans=1 + a=0.5019608`，
+        /// 例：`Main Menu Settings Window ▸ Small Screen Size Toggle` 的 `EverguildToggle`，
+        /// MB `-1083006033978469938`）⇒ **两档都真的出现过，⛔ 别一刀切成 0.5、也别一刀切成 1.0**。</para></summary>
+        public Color DisabledKey = new Color(0.7843137f, 0.7843137f, 0.7843137f, 0.5019608f);
+
+        /// <summary>原版 `EverguildButton.colorTintGreyOnDisableAlpha`（**字段 `+0x17C`**；`EverguildToggle` 是 `+0x14C`）。
+        /// 出厂 = **1.0**（`EverguildButton__.ctor.c:14` `*(float*)(this+0x17c) = 0x3f800000`）⇒
+        /// `ColorTintGreyOnDisable` 为真时禁用档的 α 恒取它（见 <see cref="DisabledKeyNow"/>）。</summary>
+        public float GrayOnDisableAlpha = 1f;
+
+        /// <summary><see cref="DisabledKey"/> 叠上上面那条 α 判据之后的成品色（`KeyOf` 用）。</summary>
+        Color DisabledKeyNow
+        {
+            get
+            {
+                var c = DisabledKey;
+                if (ColorTintGreyOnDisable) c.a = GrayOnDisableAlpha;
+                return c;
+            }
+        }
+
+        /// <summary>✅ 已复刻（2026-11-04 · B141-W34 · 5-06）：原版 `m_Colors.m_ColorMultiplier`。
+        /// <para>**1276 颗逐颗实读**：`2.0` **15 颗**、其余 **1252 颗 1.0**（`bundle_menus_assets_all/MonoBehaviour/*.json`
+        /// 的 `m_Colors.m_ColorMultiplier`）。那 15 颗的原版节点（15/15 现读，`m_Transition` 逐颗注明）：
+        /// `DeckSelectionContinueButton ▸ Continue Button`(1) · `Practice Mode Menu ▸ …/Continue Button`(1) ·
+        /// `RankedEventWindow ▸ …/Continue Button` ×2(1) · `RankedEventWindowV2 ▸ …/Continue Button`(1) ·
+        /// `SkirmishModeEventWindow ▸ …/Continue Button`(1) · `Generic Multi Card Display Combat ▸ Button`(1) ·
+        /// `Draft Mode Ongoing State ▸ Button`(1) / `▸ Debug Battle Button Button`(1) ·
+        /// `Draft Mode Timed Mode Window ▸ Debug Battle Button Button`(1) ·
+        /// `Draft Mode Menu Demo ▸ Debug Battle Button Button`(1) ·
+        /// `Feedback Scoring Button`(0 —— **trans=0 ⇒ 这一颗在原版里乘数根本不生效**) ·
+        /// `Two Sides Event Window ▸ Two Side Event Select Team A/B`(1) · `Two Side Event Select Team`(1)。
+        /// ⚠️ **只给逐颗对得上的站点显式赋值**（同 `HighlightKey` 那条纪律）；缺省 1.0 = 既有站点零行为变化。</para></summary>
+        public float ColorMultiplier = 1f;
+
         /// <summary>`SpriteSwap` 那一档要换的图（原版 `m_SpriteState` 里对应的那一张）。
-        /// 🔴 `Selected` 那一格 = **常态图** —— 它就是原版 `m_SelectedSprite` 为 null 时的行为
-        /// （`OverrideSprite = null` ⇒ 画常态图），而原版 **1199/1276 颗就是 null**（见上面那段实读）。</summary>
+        /// 🔴 `Selected` 那一格：**没绑 `selectedArt` 时 = 常态图** —— 它就是原版 `m_SelectedSprite` 为 null
+        /// 时的行为（`OverrideSprite = null` ⇒ 画常态图），而原版 **1199/1276 颗就是 null**（见上面那段实读）。
+        /// ✅ 已复刻（2026-11-04 · B141-W34 · 5-07）：绑了 `selectedArt` 的那 71 颗 ⇒ 换 `m_SelectedSprite`
+        /// （原版 77/1276 非空：71 颗 `trans=2` + 6 颗 `trans=0` 死值；逐颗表 → `报告/B141_W129_ButtonFx.md` §5-07）。</summary>
         Texture TexOf(BtnState st)
         {
             switch (st)
             {
                 case BtnState.Pressed: return _pressedTex ?? _hoverTex;
-                case BtnState.Selected: return _normalTex;
+                case BtnState.Selected: return _selectedTex ?? _normalTex;
                 case BtnState.Highlighted: return _hoverTex;
                 default: return _normalTex;
             }
@@ -281,16 +337,29 @@ namespace CardPresentation
         /// `WebShop Button` 指子件 `Button Image` ⇒ 由调用方传**真正画着常态图的那个 `ImageQuad`**。</summary>
         public ImageQuad target;
         Texture _normalTex, _hoverTex, _pressedTex;
+        /// <summary>✅ 已复刻（2026-11-04 · B141-W34 · 5-07）：原版 `m_SpriteState.m_SelectedSprite`
+        /// （**77/1276 非空**：71 颗 `trans=2` + 6 颗 `trans=0` 死值）。`null` = 原版那 1199 颗 null
+        /// （`OverrideSprite = null` ⇒ 画常态图）。逐颗表 → `报告/B141_W129_ButtonFx.md` §5-07。</summary>
+        Texture _selectedTex;
         /// <summary>绑定时那张 quad 的宽高比 —— **换图后要拉回来**（见 `SwapTo` 的注释）。</summary>
         float _targetAspect;
         /// <summary>🆕 2026-10-05：本颗的「按下无图可换」告警**只说一次**（同 `TipHovers` 那种一次性出声）。</summary>
         bool _pressedSilent;
 
-        /// <summary>常态图 → 高亮图。表里没有的走 `&lt;常态图>_hover` 后备（普查 §一：绝大多数是这个规律）。</summary>
+        /// <summary>常态图 → 高亮图。表里没有的走 `&lt;常态图>_hover` 后备（普查 §一：绝大多数是这个规律）。
+        /// <para>✅ 已复刻（2026-11-04 · B141-W34 · 5-17）：把 `bundle_menus_assets_all` 里**全部 649 颗
+        /// `m_Transition = 2`** 的 `(常态图, 高亮图, 按下图)` 三元组**一次扫全**（`ExportedProject` 的 prefab YAML
+        /// 逐颗解 `m_TargetGraphic.m_Sprite` + `m_SpriteState`）⇒ **只有 22 种不同三元组**，逐条与这张表+后备规则对账：
+        /// 13 种由「表 + `_hover` 后备」直接命中；**2 种必须由调用点逐颗显式给**（同一条常态图在原版有**两个不同的高亮图**，
+        /// 表里写死会打错另一族）：`40k_UI_bt_back`（`_hover` 12 颗 / `_hover_back` 5 颗）·
+        /// `40K_settings_button`（`_selected` 23 颗 / `_hover` 1 颗）—— 那两族今天都在调用点显式传 `hoverArt`。
+        /// 其余 7 种是「按下图 = 高亮图」或按下图缺失（按下会退回高亮，画面等价）。
+        /// 全表 → `报告/B141_W129_ButtonFx.md` §5-17。</para></summary>
         static readonly System.Collections.Generic.Dictionary<string, string> HoverNames =
             new System.Collections.Generic.Dictionary<string, string>
         {
             { "40K_settings_button",            "40K_settings_button_selected" },   // ⚠️ 不是 `_hover`
+            { "40K_settings_button_hover",      "40K_settings_button_selected" },   // ✅ 5-17：13 颗（原版把 hover 图当常态图用）
             { "40K_dropdown_field_closed",      "40K_dropdown_field_opened" },      // ⚠️ 不是 `_hover`
             { "UI_Button_Menu_Back",            "UI_Button_Menu_Back_Hover" },      // ⚠️ 大写 H
             { "UI_Button_Organe_Square_Normal", "UI_Button_Organe_Square_Hover" },  // ⚠️ 大写 H
@@ -306,6 +375,9 @@ namespace CardPresentation
             { "40k_menu_bt",           "40k_menu_bt_pressed" },   { "40K_dropdown_item",     "40K_dropdown_item_press" },   // ⚠️ 末条：本族是 `_press`，**不是**默认规则拼出来的 `_pressed`（原版无此名）
             { "UI_Button_Mulligan",    "UI_Button_Mulligan_Pressed" },    // ⚠️ 大写 P
             { "UI_Button_Menu_Back",   "UI_Button_Menu_Back_Pressed" },   // ⚠️ 大写 P
+            // ✅ 2026-11-04 · B141-W34 · 5-17：全 649 颗 `trans=2` 三元组对账后补的两条（判据同 `HoverNames` 的注释）
+            { "UI_Button_Organe_Square_Normal", "UI_Button_Organe_Square_Pressed" },  // 2 颗；大写 P
+            { "40K_dropdown_field_closed",      "40K_dropdown_field_opened" },        // 11 颗：原版按下图 = 打开图
         };
 
         /// <summary>**取不到的悬停图**（红线：不许静默失败）—— 每扇窗的自检断它为空。</summary>
@@ -336,7 +408,8 @@ namespace CardPresentation
         /// `hoverArt` / `pressedArt` = **逐颗显式覆盖** —— 同一张常态图在不同按钮上配不同高亮图时必须用，
         /// 例：卡组四圆钮常态图都是 `UI_Button_Round_background`，高亮分别是 `back` / `deck_change` / `eye` / `back`。
         /// 🔴 **取不到高亮图就记进 `MissingSwapArt`**（自检会红），**不静默画成没反应**。</summary>
-        public void Bind(ImageQuad t, string art, string hoverArt = null, string pressedArt = null)
+        public void Bind(ImageQuad t, string art, string hoverArt = null, string pressedArt = null,
+                         string selectedArt = null)
         {
             target = t;
             if (t == null) return;                 // 没画出来的件没有图可换（调用点负责如实说明）
@@ -346,6 +419,13 @@ namespace CardPresentation
             string pn = pressedArt ?? PressedNameFor(art);
             _hoverTex = CardArt.MenuUi(hn);
             _pressedTex = CardArt.MenuUi(pn);
+            // ✅ 已复刻（2026-11-04 · B141-W34 · 5-07）：`m_SelectedSprite`（逐颗显式给；不给 = 原版 null 那 1199 颗）。
+            //   ⚠️ **不按名字推**：那 77 颗的值是 `40K_settings_button_hover` / `40K_dropdown_field_opened` /
+            //   `40K_dropdown_item_selected` / `40k_general_bt_yellow` / `CircleButton` 那一张 —— 与常态图**没有**命名规律。
+            _selectedTex = string.IsNullOrEmpty(selectedArt) ? null : CardArt.MenuUi(selectedArt);
+            if (!string.IsNullOrEmpty(selectedArt) && _selectedTex == null
+                && !MissingSelectedArt.Contains(SelectedMissingPrefix + selectedArt))
+                MissingSelectedArt.Add(SelectedMissingPrefix + selectedArt);
             if (_hoverTex == null && RecordMissingArt(hn) && !MissingSwapArt.Contains(art + " → " + hn))
                 MissingSwapArt.Add(art + " → " + hn);
             // 🆕 2026-10-05（A50②）：**按下图的镜像记录** —— 原来只有 hover 那一条，按下图缺了**永远静默**
@@ -355,6 +435,14 @@ namespace CardPresentation
             // 原版一颗只有一种 transition ⇒ 换图那一档不再叠色偏
             tintOnHover = false;
         }
+
+        /// <summary>✅ 已复刻（2026-11-04 · B141-W34 · 5-07）：**取不到的选中图**（红线：不许静默失败）。
+        /// 只在调用方**显式传了** `selectedArt` 却取不到时记 —— 原版那 1199 颗本来就是 null，不是缺口。
+        /// 每扇窗的自检可以断它为空（只断「传了却没取到」这一档）。</summary>
+        public static readonly System.Collections.Generic.List<string> MissingSelectedArt =
+            new System.Collections.Generic.List<string>();
+        /// <summary>上面那张表的条目前缀（区分「选中图」与 hover/pressed 两种缺图）。</summary>
+        const string SelectedMissingPrefix = "[selected] ";
 
         void SwapTo(Texture tex)
         {
@@ -366,12 +454,12 @@ namespace CardPresentation
         void SetOn(ImageQuad q, Texture tex)
         {
             if (q == null) return;
+            if (InNine(q)) { q.SetTexture(tex, keepAspect: true); return; }   // 🔴 九宫格子块：只换图、比例**一块都不动**（判据见类尾 `InNine`）
             q.SetTexture(tex);
-            // 🔴 **换完图必须把宽高比拉回来** —— `ImageQuad.SetTexture` 会把 `_aspect` 冲成**贴图自己的**比值，
+            // 🔴 单 quad：**换完图必须把宽高比拉回来** —— `ImageQuad.SetTexture` 会把 `_aspect` 冲成**贴图自己的**比值，
             //    而我们这套 quad 的矩形是**按原版矩形定的**（`MenuDraw.Rect` 里那次 `SetAspect`）。
             //    2026-10-03 实测：不拉回来 ⇒ 那颗 300px 的钮 `WorldW` 变成 **329**（`SettingsScene.CheckRectS` 抓到的；
-            //    **屏幕形状没变、只有逻辑宽度被改掉**，肉眼看不出来）。
-            //    同族先例（同一句纪律，两处早就写了）：`BattleLogPanel:532` · `AlliancesTab:189`。
+            //    **屏幕形状没变、只有逻辑宽度被改掉**，肉眼看不出来）。同族先例：`BattleLogPanel:532` · `AlliancesTab:189`。
             if (_targetAspect > 0f) q.SetAspect(_targetAspect);
         }
 
@@ -467,22 +555,25 @@ namespace CardPresentation
         /// 否则悬停退出时会把这一层恢复成**绑定时那一刻**的旧图。</summary>
         public void SetNormalTex(Texture t) { _normalTex = t; }
 
-        /// <summary>九宫格按钮（`Image.Type = Sliced`）的换图 —— 原版换的是**同一个 `Image` 的 sprite**，
-        /// 我们这边它被切成了 9 张小 quad ⇒ **每一张都要换**（只换中心那格 = 边框不跟着亮）。
+        /// <summary>✅ 已复刻（2026-11-04 · B141 · `B141-W81` · 判据 = UGUI `Image.GenerateSlicedSprite`：`Sliced` 换 sprite 时角块按 `sprite.m_Border` **不缩放**、只有中段/边段被拉伸）：
+        /// 九宫格按钮换图 —— 原版换的是**同一个 `Image` 的 sprite**，我们这边切成 9 张小 quad ⇒ **每一张都要换**（只换中心那格 = 边框不跟着亮）；
+        /// 但**比例用每块自己那一格**（`ImageQuad.CreateNineSlice` / `MenuDraw.PlaceCell` 切出来的），⛔ 不许套 `qs[0]` 的比（类尾 `InNine` 的 doc 有实算）。
         /// `40K_button` 与 `40K_button_hover` 实测**同尺寸 489×107**（2026-10-03 核对），uv 切分不变、只换纹理。</summary>
-        public void BindNine(GameObject nine, string art, string hoverArt = null, string pressedArt = null)
+        public void BindNine(GameObject nine, string art, string hoverArt = null, string pressedArt = null,
+                             string selectedArt = null)
         {
             if (nine == null) return;
             var qs = nine.GetComponentsInChildren<ImageQuad>();
             if (qs == null || qs.Length == 0) return;
             _nine = qs;
-            Bind(qs[0], art, hoverArt, pressedArt);   // 常态图取第一张（九张同源）
+            Bind(qs[0], art, hoverArt, pressedArt, selectedArt);   // 常态图取第一张（九张同源）
         }
 
         /// <summary>便捷：**按钮自己就是那张图**时（`quad.gameObject.AddComponent&lt;WindowButton&gt;()` 那种写法）
         /// 直接绑自己身上那张，不必再传引用。</summary>
-        public void BindSelf(string art, string hoverArt = null, string pressedArt = null)
-            => Bind(GetComponent<ImageQuad>(), art, hoverArt, pressedArt);
+        public void BindSelf(string art, string hoverArt = null, string pressedArt = null,
+                             string selectedArt = null)
+            => Bind(GetComponent<ImageQuad>(), art, hoverArt, pressedArt, selectedArt);
 
         /// <summary>指针正压在这一颗上吗。</summary>
         public bool Hovered { get; private set; }
@@ -731,12 +822,21 @@ namespace CardPresentation
         void ApplyTint()
         {
             Collect();
+            // ✅ 已复刻（2026-11-04 · B141-W57 · 判据 = UGUI `Selectable.cs:702` + `Graphic.CrossFadeColor`
+            //   + `CanvasRenderer.SetColor` 的「Renderer multiply color」语义）：`tintColor * colorMultiplier`
+            //   **先不夹**，夹在**最后一次字节顶点色写入**（`UIVertex.color` 是 `Color32`）
+            //   ⇒ 唯一的算式 = `Clamp01(底座 × 色键 × ColorMultiplier)`（实现收在一处：`ComposeVertexColor`）。
+            //   ⛔ 旧实现是「先 `Clamp01(色键 × m)` 再乘底座」—— 在那 15 颗 `m_ColorMultiplier = 2` 上
+            //   把 G/B 压成 0.8941 / 0.5874，与战斗侧 `BattleButtonFx` 的 1.0 / 0.6901 差一档（`B141-W52` §六 ❓1）。
+            //   ⇒ 两套机制从本笔起**调用同一个静态口**（`ComposeVertexColor`），⛔ 别在任一侧再写一份乘法。
             for (int i = 0; i < _tq.Length; i++)
             {
                 if (_tq[i] == null) continue;
                 var b = _tqBase[i];
-                // 原版 `CrossFadeColor` 是**乘**在图形自己的颜色上（`CanvasRenderer.SetColor`）
-                _tq[i].SetTint(new Color(b.r * _k.r, b.g * _k.g, b.b * _k.b, b.a));
+                // 原版 `CrossFadeColor` 是**乘**在图形自己的颜色上（`CanvasRenderer.SetColor` 的 multiple）
+                var c = ComposeVertexColor(b, _k, ColorMultiplier);
+                // ✅ 已复刻（2026-11-04 · B141 · `B141-W71` · 判据 = `Selectable.cs:702` `tintColor * colorMultiplier` 四通道同乘 + `Selectable.cs:1091` `CrossFadeColor(..., useAlpha: true)`）⇒ ⛔ 别再把 α 换回底座那一路
+                _tq[i].SetTint(c);
             }
         }
 
@@ -756,6 +856,8 @@ namespace CardPresentation
         public Texture NormalTexForTest { get { return _normalTex; } }
         public Texture HoverTexForTest { get { return _hoverTex; } }
         public Texture PressedTexForTest { get { return _pressedTex; } }
+        /// <summary>✅ 已复刻（2026-11-04 · B141-W34 · 5-07）：绑定的选中图（没绑 = null = 原版那 1199 颗）。</summary>
+        public Texture SelectedTexForTest { get { return _selectedTex; } }
 
         // 🔴 **没有「登记表」**（2026-09-23 撤掉）：原来想用 `OnEnable/OnDisable` 维护一张静态表让指针层扫，
         //    但**自检跑在编辑模式**，而编辑模式下这两个回调**只对 `[ExecuteAlways]` 的脚本**才跑
@@ -855,7 +957,11 @@ namespace CardPresentation
                 //    若在 `Bind` 之前就调（本仓的红线是「`Interactable` 必须排在 `Bind` 之后」，见 A466），
                 //    `Collect` 会缓存一个**空表** ⇒ 这颗钮以后永远不变色（静默）。
                 //    ⇒ 未绑定时跳过：那一刻本来也没有任何视觉要改（`Bind` 之后第一次 Enter/Click 就会重算）。
-                if (target != null || _nine != null || _tq != null) ApplyState();
+                // ✅ 已复刻（2026-11-04 · B141-W34 · 5-08）：**`|| tintOnHover`** —— 原版 `Selectable.interactable`
+                //   setter 会走 `DoStateTransition(Disabled)`，**ColorTint 那一档（`tintOnHover == true`）不靠
+                //   `Bind`** 就有视觉（禁用色 `m_DisabledColor` 直接乘在图形上）。原来这一句只对「绑过图」的钮生效
+                //   ⇒ 纯色偏那一族置灰时**颜色完全不动**（静默偏差）。
+                if (target != null || _nine != null || _tq != null || tintOnHover) ApplyState();
             }
         }
 
@@ -1139,8 +1245,8 @@ namespace CardPresentation
         //   = **`allowClickWhenAlreadySelected == 0 && isOn`** ⇒ **整下点击被吃掉**
         //     （`Toggle.OnPointerClick` 不派发、`onValueChanged` 不发、按钮音也不响）。
         // 全量 = **64 颗**（30 个 prefab 根，判据 → `资料/普查产出_1018/AUD_音效线_完整性复核.md` §三 C9）。
-        // 🔴 我们的 `Click()` 原来**先播音、再执行 onClick**（见下面那一句次序）⇒ 即使 onClick 里自己
-        //   写了「同一键再点就 return」（例如 `AchievementsMenu.Select`），**声音已经响过了**。
+        // 🔴 我们的 `Click()` 原来**先播音、再执行 onClick**（见下面那一句次序）⇒ 那一下本该被「已选中」吃掉时
+        //   （真实用法 = `allowClickWhenAlreadySelected = false` 的左栏页签，如 `PlayerProfileWindow:420`），**声音已经响过了**。
         // ⇒ 本段把原版那条守卫搬进 `Click()`，位置在 `interactable` 判定之后、`PlayClickSound` **之前**。
 
         /// <summary>原版 `EverguildToggle.allowClickWhenAlreadySelected`（字段偏移 `0x139`；**出厂 = 0**，
@@ -1173,5 +1279,60 @@ namespace CardPresentation
         /// （`MissingSwapArt` 在多个宿主被断成「为空」⇒ 它还会变成一条假红）。⛔ 别把本函数改成恒 true。
         /// <para>⚠️ 只判**图名**：`hn/pn` 是 `显式实参 ?? 由 art 推` 的结果，图名为空 ⟺ 两者都空。</para></summary>
         static bool RecordMissingArt(string name) { return !string.IsNullOrEmpty(name); }
+
+        // ============================================================ ✅ 顶点色的唯一实现（`B141-W57`）
+        //
+        //  判据链（全部现读本机源码 / 文档，⚠️ 逐跳注明**夹在哪一步**）：
+        //   ① `Selectable.DoStateTransition`：`StartColorTween(tintColor * m_Colors.colorMultiplier, instant)`
+        //      —— `com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/Selectable.cs:702`，**这一句不夹**；
+        //   ② `Graphic.CrossFadeColor(Color targetColor, …)`：把 `targetColor` 原样当补间终点，
+        //      逐帧 `canvasRenderer.SetColor`（同文件 `Graphic.cs:1009-1030`，`AddOnChangedCallback(canvasRenderer.SetColor)`）
+        //      —— **补间途中与终点都不夹**；
+        //   ③ `CanvasRenderer.SetColor` 是「Renderer **multiply** color」：doc 原话
+        //      「Will be multiplied with the UIVertex color and the Canvas color」
+        //      （本机 `D:/Unity/Hub/Editor/6000.3.23f1/Editor/Data/Managed/UnityEngine/UnityEngine.UIModule.xml:442`）
+        //      ⇒ 它**乘在**图形自己的颜色上，**不是**先把自己夹好再乘；
+        //   ④ 顶点色的容器是 `UIVertex.color` = **`Color32`（8 位/通道）**：
+        //      `Image.OnPopulateMesh` → `VertexHelper.AddVert(…, Color32, …)`（`…/UI/Core/Utility/VertexHelper.cs:273`），
+        //      而 `Color → Color32` 的隐式转换走 `Mathf.Clamp01`，**>1 的通道到这一步才饱和**。
+        //  ⇒ **唯一正确的算式 = `Clamp01(底座 × 色键 × ColorMultiplier)`**；
+        //    ⛔ 「先 `Clamp01(色键 × m)` 再乘底座」是错的口径（它把 >1 的色键提前压掉，
+        //      再乘一个 <1 的底座 ⇒ G 停在 0.8941 而不是饱和的 1.0）。
+        //  ⇒ 本方法 = **两套按钮机制共用的那一个口**（`Shell/WindowButton.ApplyTint` 与
+        //    `Battle/BattleButtonFx.Apply`），⛔ 别再各写一份乘法（写两份迟早不一致，CLAUDE.md §三）。
+        /// <summary>✅ 已复刻（2026-11-04 · B141 · `B141-W57` · 判据 = UGUI `Selectable.cs:702` +
+        /// `Graphic.CrossFadeColor` + `CanvasRenderer.SetColor` 的 multiply 语义 + `UIVertex.color` 是 `Color32`）：
+        /// **顶点色的唯一算式** `Clamp01(底座 × 色键 × colorMultiplier)`（四通道，α 一起）。
+        /// <para>⛔ **四通道一并生效，调用方不许再覆盖任何一路**（2026-11-04 `B141-W71` 起 `ApplyTint` 也叠 α：
+        /// 原版 `CrossFadeColor(..., useAlpha: true)`，见 `Selectable.cs:1091`）。</para></summary>
+        public static Color ComposeVertexColor(Color baseColor, Color key, float multiplier)
+        {
+            return new Color(
+                Mathf.Clamp01(baseColor.r * key.r * multiplier),
+                Mathf.Clamp01(baseColor.g * key.g * multiplier),
+                Mathf.Clamp01(baseColor.b * key.b * multiplier),
+                Mathf.Clamp01(baseColor.a * key.a * multiplier));
+        }
+
+        // ============================================================ ✅ 九宫格子块的「比例归谁」（`B141-W81`，2026-11-04）
+        //
+        //  🔴 **就地修掉的真 bug**：`BindNine` 记的 `_targetAspect` 是 `qs[0]`（**左下角块**）的比，
+        //    而 `SwapTo → SetOn` 原来对**9 块全** `SetAspect(_targetAspect)` ⇒ 中段/边块被改成角块的比。
+        //    实算（社交下拉框 250×59.4 · border `(60,35,60,35)` · `PixelsPerUnit` = 108）：中段宽本该
+        //    `250−60−60 = 130 px = 1.204` 世界单位，被压成 **0.556**（= 底块高 0.275 × 角块比 2.02）⇒ 边框中间断开。
+        //  ✅ **原版怎么摆**（第一权威 = UGUI 源码，不是截图）：`Image.Type = Sliced` 换 sprite 时用**新 sprite 的
+        //    `m_Border`** 重算网格 —— 角块按 border 像素**不缩放**，只有中段/边段被拉伸（`Image.GenerateSlicedSprite`）。
+        //    我们那 9 块各自带着 `CreateNineSlice` / `MenuDraw.PlaceCell` 切出来的 `_aspect`（= 那一格的 宽/高）
+        //    ⇒ **换图时比例一个字都不用动**，`ImageQuad.SetTexture(t, keepAspect: true)` 就是这条语义
+        //    （它也顺带躲开了「`SetTexture` 把 `_aspect` 冲成贴图自己的比」那个静默坑，见那边的 doc）。
+        //  ⚠️ `_targetAspect` 仍然服务**单 quad** 站点（全工程几百处 `Bind`）：那里确实要「换图后拉回绑定时的比」。
+        /// <summary>这一块是不是 `BindNine` 记下的九宫格子件（是 ⇒ 换图时**不许碰**它自己的宽高比）。
+        /// 线性扫 9 项、只在换图那一刻调，成本可忽略。</summary>
+        bool InNine(ImageQuad q)
+        {
+            if (_nine == null || q == null) return false;
+            for (int i = 0; i < _nine.Length; i++) if (_nine[i] == q) return true;
+            return false;
+        }
     }
 }
