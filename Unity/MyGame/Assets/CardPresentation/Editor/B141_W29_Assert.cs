@@ -110,19 +110,20 @@ public static class B141_W29_Assert
         Check(DeckRuntime.UiPassedDragStart(3.6f, 3.6f),
               "A3 ★ 双轴一起算（3.6,3.6 的模长 5.09 > 5 ⇒ 过门）—— 旧写法 `abs(x)>16.2 || abs(y)>16.2` 在这里是**不过**");
 
-        if (rt == null) rt = Object.FindObjectOfType<DeckRuntime>();
-        if (rt == null)
-        {
-            // 方向门是实例方法（原版 `SupportMethods` 的等价物），没有实例就只能报出来
-            SkipLine("A4/A6 方向门（60°–120°）需要 `DeckRuntime` 实例 —— 本入口没拿到");
-            return;
-        }
-        Check(rt.UiIsScrollDragThreshold(0f, 100f),
+        // A4–A6 走**反射直调私有静态** `DeckRuntime.IsScrollDragThreshold(Vector2)`（原版 `SupportMethods.IsScrollDragThreshold` 的等价物）
+        // —— 它**不读任何实例状态**（纯函数）⇒ 不需要 `DeckRuntime` 实例（写法同 `B142_E53_Assert` §A）。
+        var gate = ScrollGate;
+        Check(gate != null,
+              "A4a（前提）反射找得到私有静态 `DeckRuntime.IsScrollDragThreshold(Vector2)`"
+            + "｜🧨 改名 / 改成实例方法 ⇒ 本行红（2026-11-04 `B142-E72`：⛔ 不再「拿不到实例就整段 SKIP」）");
+        if (gate == null) return;
+        Check(ScrollIsScrollDragThreshold(0f, 100f) == true,
               "A4 ★ 纯竖向位移 ⇒ 判成**滚动**（Angle = 90°，落在 (60°,120°)）");
-        Check(!rt.UiIsScrollDragThreshold(100f, 0f),
+        Check(ScrollIsScrollDragThreshold(100f, 0f) == false,
               "A5 ★ 纯横向位移 ⇒ **不是**滚动（Angle = 0°）—— 与 A4 结构上不可能同时为真（把方向门删成恒真/恒假必红一边）");
-        Check(!rt.UiIsScrollDragThreshold(100f, 173.2f) && rt.UiIsScrollDragThreshold(100f, 180f),
-              "A6 ★ 边界是**开区间**：59.99°(100,173.2) 不算滚动 · 60.9°(100,180) 算滚动（原版 `deg > 60 && deg < 120`）");
+        Check(ScrollIsScrollDragThreshold(100f, 173.2f) == false && ScrollIsScrollDragThreshold(100f, 180f) == true,
+              "A6 ★ 边界是**开区间**：59.99°(100,173.2) 不算滚动 · 60.9°(100,180) 算滚动（原版 `deg > 60 && deg < 120`）"
+            + "｜⚠️ 30/150 那条带子属于**另一个函数** `DragAndDropItem.OnBeginDrag`（我们的等价物 = `PointerLayer.IsScrollDragAngle`，`B141_W32_Assert` §D），⛔ 别把它合并进来（2026-11-04 `B142-E53` 现核；`B142_E53_Assert` §C/§D 钉住两条带子不相等）");
     }
 
     // ==================================================================
@@ -235,5 +236,43 @@ public static class B141_W29_Assert
         SkipLine("D9–D11（行拖「起拖即摘牌 / 丢回放回」整条链）：本段**故意不跑** —— 它会改卡组内容与脏标记，"
                + "而宿主这一刻后面还有一批「起手必须干净」的断言；那条链由宿主既有的那一对覆盖："
                + "`UiDragDeckRow(2,150)` 张数不变（丢回面板）/ `UiDragDeckRow(2,1200)` 少一张（丢在面板外），两条都走同一段新代码");
+    }
+
+    // ==================================================================
+    //  A4–A6 的反射口 —— `DeckRuntime.IsScrollDragThreshold(Vector2)` 是**私有静态**纯函数
+    //  （原版 `SupportMethods.IsScrollDragThreshold` 的等价物：`Vector2.Angle(v, Vector2.right) ∈ (60°,120°)`），
+    //  不读任何实例状态 ⇒ 直调它**不需要** `DeckRuntime` 实例。
+    //  🔴 **2026-11-04（`B142-E72`）**：本文件 A4/A6 原来「拿不到 `DeckRuntime` 实例 ⇒ 整段 SKIP」，
+    //  而它本来就是纯函数（旧注释把它写成了「实例方法」，那是 `UiIsScrollDragThreshold` 那层**包装**，不是判据本体）
+    //  ⇒ 改成与 `B142_E53_Assert` §A 同一种反射写法，⛔ 不再 SKIP（前提不成立改由 A4a 硬断，⛔ 不静默跳过）。
+    //  （放在类尾：本文件不被账按 `文件:行号` 引用，但仍按「新成员追加到类尾」的纪律走。）
+    // ==================================================================
+
+    static System.Reflection.MethodInfo _scrollGate;
+    static bool _scrollGateLooked;
+
+    /// <summary>私有静态门的反射句柄（找不到 ⇒ `null` ⇒ A4a 红）。</summary>
+    static System.Reflection.MethodInfo ScrollGate
+    {
+        get
+        {
+            if (!_scrollGateLooked)
+            {
+                _scrollGateLooked = true;
+                _scrollGate = typeof(DeckRuntime).GetMethod("IsScrollDragThreshold",
+                    System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic
+                    | System.Reflection.BindingFlags.Public);
+            }
+            return _scrollGate;
+        }
+    }
+
+    /// <summary>调那个门。`null` = 调不动（前提不成立）—— 调用方必须先断 <see cref="ScrollGate"/> 再断行为。</summary>
+    static bool? ScrollIsScrollDragThreshold(float dx, float dy)
+    {
+        var m = ScrollGate;
+        if (m == null) return null;
+        try { return (bool)m.Invoke(null, new object[] { new Vector2(dx, dy) }); }
+        catch (System.Exception) { return null; }
     }
 }

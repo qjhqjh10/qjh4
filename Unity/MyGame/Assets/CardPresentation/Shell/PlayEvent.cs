@@ -20,9 +20,9 @@
 //
 // ⚠️ **与原版的如实差异（⛔ 不是「已经一样」，逐条写在这里）**：
 //   ① **泛型方法体在本机只有「壳」**：`PlayEvent<T,T>` 的方法体在 `decomp_generic_trial/out/` **没有导出**
-//      （那里只导了 `FastModeBaseEvent<,>`），ILSpy 那份被 Cpp2IL 抹成 `(nint)0` 的非法实参。
-//      ⇒ 本类里**标注了「读法待核」的那些跳**（`StartMatch` 的防御卡分支）是按 ILSpy 的**控制流形状**复刻的，
-//      实参可能反了；其余跳的语义有 `判据/泛型与启动链.md` §四 的逐方法表 + DisplayClass lambda 的 `.c` 佐证。
+//      （那里只导了 `FastModeBaseEvent<,>`），ILSpy 那份被 Cpp2IL 抹成 `(nint)0` 的非法实参。🔴 **2026-11-04 就地订正（`B142_E62` · 铁律 5）**：
+//      `StartMatch` 的**机器码已补导**（`_tmp_view/decomp_b91/PlayEvent_object__object_.StartMatch__1127df0.c`）⇒ 防御卡分支**已坐实**（见该方法的 doc）；其余跳
+//      的语义有 `判据/泛型与启动链.md` §四 的逐方法表 + DisplayClass lambda 的 `.c` 佐证。
 //   ② **没有服务器**：原版 `SetGamemodeDefaultDeck` / `RecordMatchFinished` / `OnCancelMatch` 三处云脚本
 //      一律换成**本地落地 + 出声**（`SaveEventProgress` 写 `LiveOpsSaveStore`；`RecordMatchFinished`
 //      直接写进度并立刻回调，**没有重试**）。⛔ 这不是「等价」，是**如实降级**。
@@ -533,12 +533,12 @@ namespace CardPresentation
         /// if (DeckUtility.HasDefensiveCards(deck) == HaveItInInventory) { ShowPopUp("MenuDeck/Error/HasNotAssignedDefensiveCard"); return; }
         /// StartMatchNoCheck(deck);
         /// </code>
-        /// <para>🔴 **两条错误文案就是这一条 C 的缺口**（账 row 268 的差异列），文案键逐字照抄 ILSpy。
-        /// ⚠️ 读法待核（文件头差异①）：「有防御卡在库里 ⇒ 反过来提示『没分配防御卡』」这个分支按 ILSpy
-        /// 的 `if (== HaveItInInventory) { ShowPopUp(HasNotAssignedDefensiveCard); }` 形状复刻；
-        /// `PlayEvent&lt;,&gt;` 的机器码本机没导出（`decomp_generic_trial/out` 只有 `FastModeBaseEvent`）⇒
-        /// ⛔ 别把它当成「已坐实」，改之前先补导出。
-        /// ⚠️ 弹出交给 <see cref="OnErrorPopup"/>（我们的窗没有 `WindowsManager.ShowPopUp` 那条链）。</summary>
+        /// <para>🔴 **两条错误文案就是这一条 C 的缺口**（账 row 268 的差异列），文案键逐字照抄。
+        /// ✅ **2026-11-04（执行写手 `B142_E62` · 账 `泛型与启动链_补读:243`）读法已坐实**：判据 = 补导的
+        /// `_tmp_view/decomp_b91/PlayEvent_object__object_.StartMatch__1127df0.c:43-114` —— `:51` `HasDefensiveCards(deck, 0)`，
+        /// `:52` **只判 `== 1`**（`HaveItInInventory`），`:112` 无论 0 还是 2 都直接 `StartMatchNoCheck`。那个第二实参 `0`
+        /// **不是形参**（原版签名只有 1 个：`dump.cs:21883`）—— 是 Ghidra 给每个调用多印的 `MethodInfo*` 尾巴
+        /// （同形：同文件 `ShowPopUp(…, 0, 0)` 7 形参印 9 实参）。⚠️ 弹出交给 <see cref="OnErrorPopup"/>。</summary>
         public virtual void StartMatch()
         {
             string deckId = GetEventDeck();
@@ -547,7 +547,7 @@ namespace CardPresentation
                 PopupError("MenuDeck/Error/InvalidDeck");
                 return;
             }
-            if (HasDefensiveCardInInventory(deckId))
+            if (HasDefensiveCards(deckId) == DefensiveCardInventoryCheck.HaveItInInventory)
             {
                 PopupError("MenuDeck/Error/HasNotAssignedDefensiveCard");
                 return;
@@ -680,12 +680,12 @@ namespace CardPresentation
             return src.IsPlayableAt(i);
         }
 
-        /// <summary>原版 `DeckUtility.HasDefensiveCards(deck) == HaveItInInventory` 那一跳的等价物。
-        /// ⚠️ 本机防御卡是**我们补的**（`预组卡组线` 记忆：原版是 null）⇒ 本地**永远当作「没缺」**（返回 false），
-        /// 让 `StartMatch` 不因为一个我们自造的概念把玩家挡在外面。
-        /// 🔶 自己设计（非原版）：原版这一跳判的是「防御卡在不在背包 / 有没有分配」，我们没有那条链。
-        /// 调度台 C1 2026-10-27 定。</summary>
-        protected virtual bool HasDefensiveCardInInventory(string deckId) { return false; }
+        /// <summary>原版 `DeckUtility.HasDefensiveCards(deck)`（**三态枚举**）的本仓等价实现 —— 唯一入口
+        /// <see cref="PlayEventDefensiveCards.Check"/>（实现与逐条判据都在文件末尾那个静态类里；本方法只为可覆写）。
+        /// 🔴 **2026-11-04（`B142_E62`）就地订正（铁律 5）**：原文写「本机防御卡是我们补的 ⇒ 永远当作没缺（`false`）」
+        /// 并标 `🔶 自己设计` —— **已作废**。判据现在可读（泛型体已补导），且这条**与服务器无关**（库存 / 卡组都在本地）
+        /// ⇒ 按铁律 18·0 复刻原版：`deck.defensiveCard != null ⇒ HaveItAssigned`，否则库存里有本阵营防御卡 ⇒ `HaveItInInventory`。</summary>
+        protected virtual DefensiveCardInventoryCheck HasDefensiveCards(string deckId) { return PlayEventDefensiveCards.Check(deckId); }
 
         /// <summary>原版 `OnMatchWon()`：`SaveGame.numberOfMatchesWon += 1`，然后
         /// **`if (lastOpponentInfo != null) lastOpponentInfo.Result = 1`**
@@ -1012,6 +1012,85 @@ namespace CardPresentation
             if (evt == null) return;
             evt.bannedCardIds = cardIds == null ? null : new System.Collections.Generic.List<string>(cardIds);
             evt.OnAfterRead();
+        }
+    }
+
+    // ==========================================================================================
+    //  🆕 2026-11-04（执行写手 `B142_E62` · 账 `泛型与启动链_补读:243`）—— 防御卡分支
+    //
+    //  原版 `PlayEvent<,>.StartMatch`（`.c:51`）那一跳的**判据三件** =
+    //    `DeckUtility.HasDefensiveCards(this CardDeck deck)`（`DeckUtility.cs:239-251` ·
+    //    `decomp_full/DeckUtility__HasDefensiveCards.c` 全文）：
+    //      · `deck.defensiveCard != null`            ⇒ `HaveItAssigned(2)`
+    //      · 否则库存里 `Any(c ⇒ c.cardArmy == deck.deckHero.cardArmy ∧ c.cardType == Tactic(20) ∧ c.spellType == 210)`
+    //                                                ⇒ `HaveItInInventory(1)`
+    //      · 否则                                     ⇒ `DontHave(0)`
+    //    调用点只把 `== HaveItInInventory` 当「有库存、没分配」弹
+    //    `MenuDeck/Error/HasNotAssignedDefensiveCard`；0 与 2 都直接开打（`.c:112`）。
+    //
+    //  ⛔ **追加在文件末尾**（铁律 18·b）：本文件在账里有 `文件:行号` 落点，插在中间会把下游整体推走。
+    // ==========================================================================================
+
+    /// <summary>原版 `DeckUtility.DefensiveCardInventoryCheck`（`d:/2/tools/il2cpp_out/dump.cs:21826-21832`，**值逐个抄**）：
+    /// `DontHave = 0` · `HaveItInInventory = 1` · `HaveItAssigned = 2`。
+    /// ⚠️ 三档**不是布尔**：调用点只认 `== HaveItInInventory`（原版 `.c:52`）；把 `HaveItAssigned` 当成「有」
+    /// 会让**已经分配好防御卡**的卡组开不了战（那是原版没有的行为）。</summary>
+    public enum DefensiveCardInventoryCheck
+    {
+        DontHave = 0,
+        HaveItInInventory = 1,
+        HaveItAssigned = 2,
+    }
+
+    /// <summary>`DeckUtility.HasDefensiveCards` 的本仓等价实现（判据全文见本段上面那段注释）。</summary>
+    public static class PlayEventDefensiveCards
+    {
+        /// <summary>原版 `SpellType.DefensiveCard = 210`（卡面「防守」那一族；`Core/CardView.cs:5447` 同值）。</summary>
+        public const int DefensiveSpellType = 210;
+
+        /// <summary>原版 `HasDefensiveCards` 里那个 lambda（`DeckUtility._003CHasDefensiveCards_003Eb__0`，
+        /// `out_il2csharp/Assembly-CSharp/DeckUtility.cs:759-770`）：**同阵营 ∧ `cardType == Tactic(20)` ∧ `spellType == 210`**。
+        /// ⚠️ 三个条件缺一不可 —— `defence` 只是**subtype 展示串**（只有 36 张卡面写着它），拿它当判据会漏/多。</summary>
+        public static bool IsDefensiveCardOf(RuleEngine.CardDef c, string army)
+        {
+            if (c == null || string.IsNullOrEmpty(army)) return false;
+            if (!string.Equals(c.Faction, army, StringComparison.OrdinalIgnoreCase)) return false;
+            return c.CardType == RuleEngine.CardDef.CardTypeTactic && c.SpellType == DefensiveSpellType;
+        }
+
+        /// <summary>原版 `InventoryManager.Instance.GetInventory&lt;RawCardScript&gt;().GetItemInstances(false).Any(...)`。
+        /// <para>本仓等价物 = `CardDatabase.Load()`：按项目口径**卡池全解锁**（用户 2026-09-17 三条边界之一）
+        /// ⇒「库存里有」等价于「卡池里有」。</para></summary>
+        public static bool OwnsAnyDefensiveCard(string army)
+        {
+            var pool = RuleEngine.CardDatabase.Load();
+            if (pool == null) return false;
+            for (int k = 0; k < pool.Count; k++) if (IsDefensiveCardOf(pool[k], army)) return true;
+            return false;
+        }
+
+        /// <summary>原版 `HasDefensiveCards(deck)` 的落点。`deckId` = 我们的卡组 id（= `PlayerDeck.Name`）。</summary>
+        public static DefensiveCardInventoryCheck Check(string deckId)
+        {
+            int i = CollectionData.IndexOf(deckId);                 // 原版拿的是 CardDeck 对象；我们这一层只认 id
+            var deck = i >= 0 ? CollectionData.Raw(i) : null;
+            if (deck == null)
+            {
+                Debug.LogWarning("[PlayEvent] HasDefensiveCards：卡组 '" + (deckId ?? "<null>")
+                               + "' 查不到（原版这里拿的是 CardDeck 对象，不存在这一档）⇒ 按 DontHave 放行");
+                return DefensiveCardInventoryCheck.DontHave;
+            }
+            if (!string.IsNullOrEmpty(deck.DefensiveId)) return DefensiveCardInventoryCheck.HaveItAssigned;   // = 原版 `deck.defensiveCard != null`
+            var hero = CollectionData.Warlord(i);                   // = 原版 `deck.deckHero`
+            if (hero == null)
+            {
+                Debug.LogWarning("[PlayEvent] HasDefensiveCards：卡组 '" + (deckId ?? "<null>")
+                               + "' 没有督军（原版这一跳 NRE）⇒ 按 DontHave 放行");
+                return DefensiveCardInventoryCheck.DontHave;
+            }
+            return OwnsAnyDefensiveCard(hero.Faction)
+                 ? DefensiveCardInventoryCheck.HaveItInInventory
+                 : DefensiveCardInventoryCheck.DontHave;
         }
     }
 }

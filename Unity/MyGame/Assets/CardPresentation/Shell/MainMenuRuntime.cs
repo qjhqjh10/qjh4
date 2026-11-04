@@ -3845,11 +3845,11 @@ namespace CardPresentation
         //     prefab 样例串 **`5d 20h 15m`**
         //   · `Over Image`（= overIcon 的落点）901.1,92.9 → 1018.9,210.8（117.86²）—— **本机无该 sprite 资产**
         //
-        // 🔶 自己设计（非原版）：① 剩余时间的**格式串**（`Xd Yh Zm`）· 原版走 `TimeHelper.FormatTimeSpan`，
-        //   而 ILSpy 那一跳是 `NoteDecompilerIssue("Method not found @181F58920")`（体没解出）·
-        //   判据只有 prefab 的样例串 `'5d 20h 15m'` ⇒ 按它定形 · 调度台 2026-10-27 授权（B88_J2 第 3 批）
-        //   ② 倒计时**只在建树那一刻算一次**（本壳没有按秒刷新的泵；原版 `TimerDisplay.Update` 每
-        //   `targetFrameRate` 帧刷一次）⇒ 会话跨过整分钟时屏上会停旧值 —— 已在下面出声。
+        // ✅ 已复刻（2026-11-04 · B142-E34 · 判据 `decomp_full/TimeHelper__FormatTimeSpan.c` + `SupportMethods__GetTimeString.c`）：
+        //   ① 剩余时间的**格式串**已改成原版那一跳 —— `TimeHelper.FormatTimeSpan(ts)` = `GetTimeString(ts, showDays, 0, hide0Values, 0)`
+        //   ⇒ 单源转发 `TimerDisplay.FormatTimeString`（原来「ILSpy 体未解」那句**已过期**：体在 `decomp_full` 里，15 行纯转发）
+        //   ② 倒计时**按秒刷新**（✅ 2026-11-04 · `B142-E71`：`RegisterEventNavTimer` + `StepEventNavTimers` 就是那个泵，
+        //   由 `Update()` 每帧带起来、内部自节流到 1 Hz；原版 `TimerDisplay.Update` 按 `targetFrameRate` 刷 —— 「只在建树那一刻算一次」那句已过期）。
         // ⚠️ 追加在**类尾**（上面那些行号被账引用）。
 
         /// <summary>读「当前在期 Parent 活动」的 **title** 与 **结束时刻**（原版 `SetButtonInfo` 的输入）。
@@ -3893,18 +3893,18 @@ namespace CardPresentation
                  26.35f, wrapPx: Tx2 - Tx1, autoMinPx: 18f, autoMaxPx: 28f, autoBasePx: 30f,
                  face: TmpFont.Face.LatinCardBody);
             Debug.Log("[Menu] 活动钮倒计时已建：到期 = " + endUtc.ToString("u") + " ⇒ 屏上 `"
-                    + NavTimerText(endUtc) + "`（🔶 建树时算一次，本壳没有按秒刷新的泵）");
+                    + NavTimerText(endUtc) + "`（已登记进按秒泵 `StepEventNavTimers`，跨分钟自动刷新）");
         }
 
-        /// <summary>剩余时间串（格式来自 prefab 样例 `5d 20h 15m`；🔶 见本节头「自己设计 ①」）。</summary>
+        /// <summary>剩余时间串（✅ 2026-11-04 · B142-E34：原版 `TimeHelper.FormatTimeSpan` 的等价实现；见本节头 ①）。</summary>
         internal static string NavTimerText(System.DateTime endUtc)
         {
             var left = endUtc - System.DateTime.UtcNow;
-            if (left.TotalSeconds <= 0) return "0m";
-            int d = (int)left.TotalDays, h = left.Hours, m = left.Minutes;
-            if (d > 0) return d + "d " + h + "h " + m + "m";
-            if (h > 0) return h + "h " + m + "m";
-            return m + "m";
+            if (left.TotalSeconds <= 0) return "";   // ✅ 2026-11-04（B142-E46）：原版到点 = **清字** + `SetActive(false)`（`TimerDisplay__UpdateTimer.c` 的 `text=""` 那一支）⇒ 这里原来那个 `"0m"` 是**我们自己编的**占位，已删；节点由按秒泵 `StepEventNavTimers` 关掉。
+            // 原版 `TimeHelper.FormatTimeSpan(ts)` = 15 行纯转发 `GetTimeString(ts, showDays, 0, hide0Values, 0)`；默认实参
+            // `showDays = true` / `hide0Values = false`，与本节的 `Timer`（`TimerDisplay`）同档（`TimerDisplay__UpdateTimer`
+            // 的调用点是 `GetTimeString(remaining, 1, 0, 0, 0)`）⇒ 单源转发它。判据：`decomp_full/TimeHelper__FormatTimeSpan.c`
+            return TimerDisplay.FormatTimeString(left, eventTimer: true);
         }
 
         // ============================================================ 类尾：`AdaptFlexibleGridLayoutByAspectRatio`
@@ -4493,8 +4493,8 @@ namespace CardPresentation
         //   原版 `TimerDisplay.Update` 按帧刷（`targetFrameRate` 那一档）；我们原来建一次就定死 ⇒ 跨过整分钟
         //   屏上会停旧值。现在改成**按秒泵**（`StepEventNavTimers`，由 `Update()` 那条同一帧泵带起来 ——
         //   零新增行：那句改成了一行内联调用）。
-        //   ⚠️ 仍是 🔶：① **剩余时间格式串**（`Xd Yh Zm`，原版 `TimeHelper.FormatTimeSpan` 体未解，判据只有 prefab
-        //   样例串 `5d 20h 15m`）；③ **overIcon**（`LoadAsset(ev,9)`）本机无图 ⇒ 照旧出声、不建。
+        //   ✅ **① 已于 2026-11-04（B142-E34）收口**：格式串改成 `TimeHelper.FormatTimeSpan` 的等价实现（= `GetTimeString(ts, true, 0, false)`，
+        //   体**已解**，原来「体未解」那句**已过期**）；③ **overIcon**（`LoadAsset(ev,9)`）本机无图 ⇒ 照旧出声、不建。
 
         struct EventNavTimer { public Transform Button; public System.DateTime EndUtc; }
         static readonly List<EventNavTimer> _eventNavTimers = new List<EventNavTimer>();
@@ -4529,7 +4529,7 @@ namespace CardPresentation
                 var lb = node != null ? node.GetComponent<Label>() : null;
                 if (lb == null) { _eventNavTimers.RemoveAt(i); continue; }
                 string want = NavTimerText(it.EndUtc);
-                if (lb.Text != want) { lb.SetText(want); updated++; }   // 只在真的变了才写（TMP 每帧刷是纯浪费）
+                if (lb.Text != want) { lb.SetText(want); updated++; } if (node.gameObject.activeSelf != (want.Length > 0)) node.gameObject.SetActive(want.Length > 0);   // ✅ 2026-11-04（B142-E46）：字变了才写（TMP 每帧刷是纯浪费）；空串 = 原版到点那一支的 `SetActive(false)`
             }
             return updated;
         }

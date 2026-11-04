@@ -528,8 +528,8 @@ public static class ArtBaker
                 ti.SetPlatformTextureSettings(sdfPs);
             }
             // ✅ 已复刻（2026-11-04 · B141 · 15-10 · 判据 = `判据/B141_W130_对账_资源.md` §一 15-10 + 原版 `m_TextureFormat`）
-            //   表内（`CompTruths`，8 个名字）照原版压缩档；表外保持上面的 `CompressedHQ`（原口径不动）。
-            //   本方法现读只影响 1 张：`Resources/Art/ui_menu/Noise_Combined.png`（原版 `Noise Combined` = RGBA32 未压缩）。
+            //   表内（`CompTruths`，现读 144 条）照原版压缩档；表外保持上面的 `CompressedHQ`（原口径不动）。
+            //   本方法接表后 `Resources/Art` 的 UI 切片也走真值表（15-09 并入 137 个文件 / 136 个原版名）；旧注释「只影响 1 张」已过期。
             if (!isSdf) ApplyCompressionTruth(ti, path);
             ti.SaveAndReimport();
         }
@@ -631,8 +631,8 @@ public static class ArtBaker
             // 🔴 **2026-10-31 订正（B108_A17）**：原注释写的是「BC7（fmt=29）」—— **29 = DXT5Crunched，BC7 = 25**
             // （`判据/B108_AUD09_纹理格式.md` §1·3 实读枚举）。`CompressedHQ` 这个结论不变，只订正判据。
             // ✅ 已复刻（2026-11-04 · B141 · 15-10：`判据/B141_W130_对账_资源.md` §一 15-10 + 报告 `B141_W130_ArtBaker.md` §3）
-            //   原来这里**无条件**写 `CompressedHQ` ⇒ 原版 uncompressed / DXT1 的 8 个名字（22+16 个文件实例）被压到 BC7，
-            //   比原版**低档**。现在表内（`CompTruths`）照原版，表外仍是 `CompressedHQ`（原口径不动）。
+            //   原来这里**无条件**写 `CompressedHQ` ⇒ 15-10 那 8 个名字（原版 RGBA32 / DXT1；共 39 个文件实例）被压到 BC7，
+            //   比原版**低档**。现在表内（`CompTruths`，现读 144 条 · 70 条 crunched=true）照原版，表外仍是 `CompressedHQ`（原口径不动）。
             var ctruth = OriginalCompression(path);
             ti.textureCompression = ctruth.Compression;
             // 🔴 **2026-09-22 补：平台覆盖也要一起设** ——
@@ -645,7 +645,7 @@ public static class ArtBaker
                 var ps = ti.GetPlatformTextureSettings("Standalone");
                 ps.maxTextureSize = cap;
                 ps.textureCompression = ctruth.Compression;   // ✅ B141 · 15-10：平台块也照原版（否则顶层被它盖掉）
-                ps.crunchedCompression = ctruth.Crunched;   // ✅ B141 · 15-09：同名原版图是 *Crunched 时平台块也带 Crunch（现表内 8 条都是 false ⇒ 无行为变化）
+                ps.crunchedCompression = ctruth.Crunched;   // ✅ B141 · 15-09/15-10：原版是 *Crunched 时平台块也带 Crunch（现表内 144 条里 70 条 true ⇒ **不是「无行为变化」**）
                 if (ctruth.ExplicitFormat >= 0) ps.format = (TextureImporterFormat)ctruth.ExplicitFormat;   // 原版 DXT1 那三张要显式格式
                 ps.overridden = true;
                 ti.SetPlatformTextureSettings(ps);

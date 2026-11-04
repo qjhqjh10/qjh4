@@ -723,8 +723,8 @@ namespace CardPresentation
                     //   `UiColliderOnClick`（state 2 才生效）→ `CardInBoosterPack.CardClicked`（翻完才挂上）。
                     //   ⇒ 这里走同一个派发口，按当前状态分流。
                     wb.onClick = () => OnSlotClick(captured);
-                    wb.onEnter = () => { if (!Opened[captured]) Hover(captured, true); };
-                    wb.onExit = () => { if (!Opened[captured]) Hover(captured, false); };
+                    wb.onEnter = () => { if (CardStates[captured] == (int)CardState.Ready) Hover(captured, true); };    // ✅ 已复刻（2026-11-04 · B142-E67 · 原版 `CardInBoosterPack__TryHighlightCardback.c:21` = `state(+0x70) == 2` 才放大；⛔ 别退回 `!Opened[i]` —— 那是「已开」不是「已就绪」，开窗头 0.6 s 会误放大）
+                    wb.onExit = () => { if (CardStates[captured] == (int)CardState.Ready) Hover(captured, false); };    // ⚠️ 同一条闸（原版 `TryHighlightCardback(0)` 也判 state==2）；高亮那半边归 `锻造.tsv:40`，本轮不动
                 }
             }
         }
@@ -1737,7 +1737,7 @@ namespace CardPresentation
         /// <para>🔶 自己设计（非原版）：原版这两颗 TMP 的脚本在**外部 CAB**、离线包体里没有（运行时 missing script），
         /// 所以只能按上面实读出来的原版序列化值**自己建**。谁定的 + 日期：调度台 2026-10-30 裁定。</para>
         /// <para>名字取法沿用旧实现：先按名字（`Army Text` 前缀），名字对不上退回子树里全部 `TextMeshPro`。</para></summary>
-        static TMPro.TextMeshPro[] EnsureArmyTexts(Transform root)
+        public static TMPro.TextMeshPro[] EnsureArmyTexts(Transform root)
         {
             if (root == null) return new TMPro.TextMeshPro[0];
 
@@ -1756,7 +1756,7 @@ namespace CardPresentation
                 if (nodes[i].GetComponent<TMPro.TextMeshPro>() == null)
                     BuildArmyText(nodes[i]);
 
-            return FindArmyTexts(root);
+            return EnsureArmyWarps(FindArmyTexts(root));
         }
 
         /// <summary>🔶 自己设计（非原版 · 见 <see cref="EnsureArmyTexts"/> 上方那整段）：按原版 prefab 的
@@ -1868,5 +1868,73 @@ namespace CardPresentation
         /// `Safe area Only Horizontal` 的**第 1 个**兄弟、`2 - Canvas Holder Above upper bar` 是**第 6 个**
         /// ⇒ 压暗层画在左栏之上 ⇒ 左栏点击落到压暗层（「点哪儿都关」），**与原版一致**。</para></summary>
         public override bool BlocksLeftNav { get { return true; } }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════════════
+        //  ✅ 已复刻（2026-11-04 · B142-E55 · 账 `菜单_外壳` L660 / L661 / L664）：
+        //    `Core/TMProWarpText` 原来**零消费者** ⇒ 卡包 prefab 那两颗 `Army Text` / `Army Text 2` 上没有弯字。
+        //  判据（全部现读，⛔ 不是 `Reset()` 默认值）：`d:/2/tools/assetripper_out/ExportedProject/Assets/
+        //    Booster Pack Standard*.prefab` —— **17 棵全扫，逐棵逐颗完全一致**（`Booster Pack All Armies Variant`
+        //    同值），共 **34 颗** `Army Text*` 上的 `TMProWarpText`
+        //    （`m_Script guid 4f2ffa17c2971d847634f2152c118a82`）：
+        //      · `m_Enabled = 1` · `axis = 1 (Z)` · `yCurveScaling = -0.09` ·
+        //        `m_PreInfinity = m_PostInfinity = 2 (WrapMode.Loop)` · `m_RotationOrder = 4`（非四元数曲线，不参与）
+        //      · 曲线两种、各 17 颗：`Army Text` = 3 键 / `Army Text 2` = 5 键（逐键见 `ArmyWarpCurve`）。
+        //  🔴 与 `TMProWarpText.Reset()` 的默认值（`axis = Y` · `yCurveScaling = 100` · 单峰 0.25 · `WrapMode.Once`）
+        //    **差 1000 倍** —— ⛔ 别用默认值建实例（那会把字弯成一个与原版无关的形状）。
+        //  ⚠️ 原版这两颗节点出厂 **`m_IsActive: 0`**（17 棵全关），它自带那条 clip 只驱动 `m_fontColor.a`、
+        //    **不碰** `m_IsActive`（`Resources/misc_clips.json` 的 13 条 curve 现读）⇒ 原版这条弯字在自己的
+        //    运行时**也不上屏**。我们照抄（只挂组件 + 写值，⛔ 不替它打开；`Editor/B102PACK_Assert.cs:106-107`
+        //    仍在守这一格），所以**行为与原版一致**、没有多出一段原版没有的显示。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版 34 颗 `Army Text*` 的 `yCurveScaling`（prefab 实读 17/17；`Reset()` 默认是 `100f`）。</summary>
+        public const float ArmyWarpYCurveScaling = -0.09f;
+
+        /// <summary>原版 prefab 上那两条曲线的**出货值**（逐键实读；`second = true` ⇒ `Army Text 2` 的 5 键那条）。
+        /// <para>每键四元组 = `(time, value, inSlope, outSlope)`；prefab 里 `inSlope == outSlope` 且
+        /// `weightedMode = 0 (None)` ⇒ 权重不参与（`Keyframe` 四参构造默认即 1/3 · None）。</para></summary>
+        public static AnimationCurve ArmyWarpCurve(bool second)
+        {
+            AnimationCurve c;
+            if (second)
+                c = new AnimationCurve(                                       // `Army Text 2`（17 颗）
+                    new Keyframe(0f, -0.38427663f, 9.052766f, 9.052766f),
+                    new Keyframe(0.06346582f, 0.14532295f, 6.603082f, 6.603082f),
+                    new Keyframe(0.12377016f, 0.52559114f, 3.949648f, 3.949648f),
+                    new Keyframe(0.5f, 1f, -0.00016099952f, -0.00016099952f),
+                    new Keyframe(1f, 0f, -5.9425073f, -5.9425073f));
+            else
+                c = new AnimationCurve(                                       // `Army Text`（17 颗）
+                    new Keyframe(0f, 0.028443113f, 5.8882236f, 5.8882236f),
+                    new Keyframe(0.5f, 1f, -0.00016099952f, -0.00016099952f),
+                    new Keyframe(1f, 0f, -9.286593f, -9.286593f));
+            c.preWrapMode = WrapMode.Loop;      // prefab `m_PreInfinity: 2`
+            c.postWrapMode = WrapMode.Loop;     // prefab `m_PostInfinity: 2`
+            return c;
+        }
+
+        /// <summary>给 <see cref="EnsureArmyTexts"/> 找到的那两颗 TMP 挂上 `TMProWarpText`（原版同节点同组件：
+        /// prefab 里 `TMProWarpText.m_GameObject` == 该 TMP 的 `m_GameObject`）。
+        /// <para>⚠️ `Configure()` 只是**显式接线**（编辑模式下 `AddComponent` 不触发 `Awake/OnEnable`，工程已知坑）。
+        /// 两颗节点出厂是关着的 ⇒ `WarpText()` 此刻会因 `characterCount == 0` 提前返回；**等激活时由 `OnEnable`
+        /// 再弯一次** —— 与原版时序一致（原版 `OnEnable` 也是「先弯一次」）。</para></summary>
+        static TMPro.TextMeshPro[] EnsureArmyWarps(TMPro.TextMeshPro[] texts)
+        {
+            if (texts == null) return texts;
+            for (int i = 0; i < texts.Length; i++)
+            {
+                var t = texts[i];
+                if (t == null) continue;
+                var w = t.GetComponent<TMProWarpText>();
+                if (w == null) w = t.gameObject.AddComponent<TMProWarpText>();
+                bool second = t.gameObject.name != "Army Text";     // 17 棵里只有 `Army Text` / `Army Text 2`
+                w.Configure(t, TMProWarpText.Axis.Z, ArmyWarpCurve(second), ArmyWarpYCurveScaling);
+            }
+            return texts;
+        }
+
+        /// <summary>自检读口（`Editor/B142_E55_Assert.cs` 用）：把 <see cref="EnsureArmyTexts"/> 的产出交出去。
+        /// ⛔ 生产路径不走它（生产 = `BuildVisualItemLayer` 里那一句 `EnsureArmyTexts(go.transform)`）。</summary>
+        public static TMPro.TextMeshPro[] EnsureArmyTextsForTest(Transform root) { return EnsureArmyTexts(root); }
     }
 }

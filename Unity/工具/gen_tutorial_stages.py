@@ -48,9 +48,14 @@
     `sound`/`scriptedActionData` 全没有（出处：`资料/普查产出_1017/W_B6_教程牌数据.md` §②）。
     本产物是**全量**的（430 条），且**逐条与那份交叉校验过**（见产物 `crossCheck*`）。
 
-🔴 **两张卡走了裁定映射**（`OCR_NAME_FIX` · 2026-10-17 调度台裁定）：`Gauss Warrior (tutorial)`→`SAU10`、
-    `Tesla Immortal`→`SAU12`。**判据 = `card_stats.json` 的 `ocrName` 列与 SO 名逐字吻合 + 池内唯一，
-    ⛔ 不是原版明确指认**（原版卡 SO 包本地没有 ⇒ 钉不死）；产物里 **SO 原名一字未改**，`matchTier` 写成 `ocrName` 以便区分。
+🔴 **两张卡走了裁定映射**（`OCR_NAME_FIX` · 2026-10-17 调度台裁定）：`Gauss Warrior (tutorial)`→`SAU4`、
+    `Tesla Immortal`→`SAU6`（`2026-10-14` 已随卡池换成真值 id）。**判据 = `card_stats.json` 的 `ocrName`
+    列与 SO 名逐字吻合 + 池内唯一**；产物里 **SO 原名一字未改**，`matchTier` 写成 `ocrName` 以便区分。
+    🔴 **2026-11-04 就地订正（铁律 5 · `B142-TUT-HAND3`）**：本行原文还写着「⛔ 不是原版明确指认
+    （原版卡 SO 包本地没有 ⇒ 钉不死）」——**那句已不成立**：2026-10-18 起 2026 build 的 allcards 导出就在本地
+    （`资料/普查产出_1018/allcards_1350/cards_raw.json`），其中 `pathID=7386907376838221809` 的 `cardName`
+    就是 `Gauss Warrior`（→ `SAU4`），与 `OCR_NAME_FIX` **同卡同证**。⚠️ 那是 2026 build 的名字，
+    ⛔ 别据此把 `(tutorial)` 那张的数值当成同一个版本。
 """
 import glob
 import hashlib
@@ -285,8 +290,10 @@ def build_card_resolver(pool):
 #    而且在我们池里**位置唯一**：
 #      · `Gauss Warrior (tutorial)` → **`SAU10`**（我们表里叫 `Gauss Reaper Warrior`，其 `ocrName` = `Gauss Warrior`）
 #      · `Tesla Immortal`           → **`SAU12`**（我们表里叫 `Tesla Carbine Immortal`，其 `ocrName` = `Tesla Immortal`）
-#    ⚠️ **这是按 `card_stats.ocrName` 对上的（判据 = 名字逐字吻合 + 池内唯一），不是原版明确指认** ——
-#       原版那份卡 SO（`allcards_assets_all.bundle`）本地没有（见文件头与报告 ⑤），**钉不死**它俩与那两张是同一张卡。
+#    ⚠️ **这是按 `card_stats.ocrName` 对上的（判据 = 名字逐字吻合 + 池内唯一）**，2026-10-17 时写过
+#       「原版那份卡 SO（`allcards_assets_all.bundle`）本地没有 ⇒ 钉不死它俩与那两张是同一张卡」——
+#       🔴 **2026-11-04 就地订正（铁律 5 · `B142-TUT-HAND3`）**：**后半句已不成立**，2026-10-18 起那份
+#       allcards 在本地已有工程内导出（见下方 `ALLCARDS_RAW`），可作**旁证**（不是「原版明确指认」）。
 #    产物里**原 SO 名保留**（`name` 字段一个字不改），只在 `ourId` 写我们的 id、`matchTier` = `ocrName`（与 exact/norm 区分开）。
 #    ✅ 每次重跑都**当场重验这条判据**（`verify_ocr_fix`）：卡在池里 + `ocrName` 与 SO 名按 `norm` 相等，不成立就抛。
 #    ⛔ `Bladeguard Lieutenant` **故意不在这张表里**：`card_stats.json` 里有、我们池里**没有** ⇒ 那是**池缺卡**，
@@ -297,6 +304,55 @@ OCR_NAME_FIX = {
     "Gauss Warrior (tutorial)": "SAU4",
     "Tesla Immortal": "SAU6",
 }
+
+# ============================================================ ②·A pid → 卡名：SO 字符串给不出的那 5 个 pid
+# 🔴 **2026-11-04（`B142-E42` · 账 `B142-PID-GLOBAL-5`）**：`build_pid_name_map()` 只能收
+#    「SO 的 `actionType` 字符串里出现的**发起者**卡名」；下面这 5 个 pid 只当**目标**、
+#    或落在 `unitType = 0 / 10`（不参与比名）的档上 ⇒ 天然没名字 ⇒ 产物里 **14 处 `matchTier = no-name`**。
+#    而原版 `GetChosenCard` 的 `list[0]` 只在 `chosenMinion == null` 时才走，这 5 个 pid 的 PPtr **都非空**
+#    ⇒ 「no-name → 第 0 只」是**我们缺数据造成的偏离**，不是原版行为（铁律 18·0「照原版」）。
+#
+# 判据（2026-11-04 现读 2026 build allcards = `ALLCARDS_RAW`（大 json 不在时回退同目录小表））：
+#   表值 = `(该 pid 的 cardName, 我方卡 id)`；**卡名逐字照 allcards 的 `cardName` 写**（⛔ 别改写、别去括号）。
+#   | pid | cardName | allcards `uniqueId` | 我方池 | tier |
+#   |---|---|---|---|---|
+#   | -124800208381561086 | Makari the Grot      | GOF2 | GOF2（同名） | exact |
+#   | 4406439244507976715  | Veteran Guardian     | ASH7 | ASH7（同名） | exact |
+#   | 7386907376838221809  | Gauss Warrior        | SAU4 | SAU4（同名；与 `OCR_NAME_FIX` 同卡同证） | exact |
+#   | 8095124868697240450  | Unhallowed Gifts     | 141c5ed6…（= 池 id） | 同 id | exact |
+#   | 8223774895360888806  | Aggressor Sergeant (tutorial) | 8d04a976…（hash，**不是** UM19） | **UM19**（叫 `Aggressor Sergeant`） | **norm + 显式 ourId** |
+#
+# ⚠️ `Aggressor` 那条**必须显式写 `ourId`**：原版 `cardName` 带 `(tutorial)`，而运行时
+#    `ScriptedCardMatches`（`RuleEngine/Core/TutorialScript.cs`）**先逐字比 `c.Name == r.name`** ——
+#    池里那张叫 `Aggressor Sergeant` ⇒ 第一跳**永远对不上**，只能靠第二跳 `c.Id == r.ourId`；
+#    只填 name 不填 ourId = 「有键但永不命中」= 仍退回 `list[0]`（还多一次出声），等于白填。
+#    第二元非空 ⇒ `make_data_entry` 走**显式 ourId** 档，并当场复核 `resolve(name)` 是否也落到同一张卡。
+# ⚠️ tutorial 变体的数值（`mana 8 / melee 4 / range 7 / health 6`）与池版本不必相同 —— 那是**池版本问题**，
+#    与「按哪个键匹配」无关，另立账（`B142_R14_四查.md` §4·4）。
+# ⚠️ 判据落盘位置：`资料/完全复刻/判据/B142_R14_四查.md` §四。
+PID_NAME_EXTRA = {
+    -124800208381561086: ("Makari the Grot", ""),                    # → GOF2
+    4406439244507976715: ("Veteran Guardian", ""),                   # → ASH7
+    7386907376838221809: ("Gauss Warrior", ""),                      # → SAU4
+    8095124868697240450: ("Unhallowed Gifts", ""),                   # → 141c5ed6…（只当督军档 DrawCard）
+    8223774895360888806: ("Aggressor Sergeant (tutorial)", "UM19"),  # → UM19（靠显式 ourId 兜底）
+}
+
+
+def merge_pid_name_extra(pidname):
+    """把 `PID_NAME_EXTRA` 并进 SO 解出来的 `pidname`（**只补没名字的 pid**；两处打架就炸）。"""
+    for pid, (nm, _our) in PID_NAME_EXTRA.items():
+        old = pidname.get(pid)
+        assert old is None or old == nm, (
+            "PID_NAME_EXTRA[%d] = %r，但 SO 的 `actionType` 字符串已经解出 %r ⇒ 两处打架，先查"
+            % (pid, nm, old))
+        pidname[pid] = nm
+    return pidname
+
+
+def pid_ourid_extra():
+    """`PID_NAME_EXTRA` 里**显式钉死 ourId** 的那几条（pid → ourId）。"""
+    return {pid: our for pid, (_nm, our) in PID_NAME_EXTRA.items() if our}
 
 
 def build_candidate_lookup(stats_path):
@@ -333,13 +389,69 @@ def build_candidate_lookup(stats_path):
         return ""
 
     def verify_ocr_fix(name, cid, pool_name):
-        """复核 `OCR_NAME_FIX` 那条裁定的**判据本身**（每次重跑都验，判据塌了就地抛）。"""
+        """复核 `OCR_NAME_FIX` 那条裁定的**判据本身**（每次重跑都验，判据塌了就地抛）。
+
+        🔴 **2026-11-04 就地订正（铁律 5 · `B142-TUT-HAND3`）**：原判据的第一跳是「池内卡名
+        `== card_stats.json` 的 `name`」。**这个前提已不成立** —— 2026-10-14/15 起池内卡名换成了
+        官方表名（`Gauss Reaper Warrior`→`Gauss Warrior` · `Tesla Carbine Immortal`→`Tesla Immortal`），
+        于是 `ocr_of[pool_name]` 恒空、本函数**每次重跑都抛**（整条生成器跑不动，实测 2026-11-04）。
+        修法 = **保序补第二跳**：池内卡名**本身就是**某行的 `ocrName` 时，直接拿它当 `ocr`。
+        判据强度不变：仍要求「该字面名与 SO 名按 `norm` 相等」，而 `cid` 由调用方从池里按 id 取。
+        """
         ocr = ocr_of.get(pool_name, "")
-        assert ocr, "OCR_NAME_FIX[%s]=%s（%s）在 card_stats.json 里没有 `ocrName` ⇒ 判据不成立" % (name, cid, pool_name)
+        if not ocr and pool_name in by_ocr:
+            ocr = pool_name
+        assert ocr, ("OCR_NAME_FIX[%s]=%s（池内叫「%s」）在 card_stats.json 里既不是任何一行的 `name`、"
+                     "也不是任何一行的 `ocrName` ⇒ 判据不成立" % (name, cid, pool_name))
         assert norm(ocr) == norm(name), \
             "OCR_NAME_FIX[%s]=%s：判据不成立（`ocrName`=%r 与 SO 名对不上）" % (name, cid, ocr)
         return ocr
     return candidate, verify_ocr_fix
+
+
+# ============================================================ ②·B pid → 卡：2026 allcards 回退档（B142-TUT-HAND3）
+# 判据：当前 build（2026）allcards 包里，PathID 就是教程 SO 里 RawCardScript 的 pid，
+#       且 uniqueId 与我们卡池 cards_engine.id **逐字相等**（池 1,142 张里除 13 张自建 TRANSFORM_* 外全命中）。
+# 来源 = 归档 bundle 的工程内只读导出（`cards_raw.json` 自带 bundle 路径字段指向那份 __data）。
+# ⚠️ 该 json 在 `.gitignore:274` ⇒ 新 clone 上没有 ⇒ 本档**可缺省**（⛔ 别 assert）。
+# 🆕 2026-11-04（`B142-E32` · 账 `B142-CARDSRAW-SMALL`）：同目录另有一张 ~64 KB 的**小表**
+#    （`allcards_pid_index.tsv`，由 `工具/gen_pid_index.py` 从同一个 json 派生、逐行核对 `IDENTICAL`）
+#    ⇒ 大 json 不在时**回退读小表**，换机器也能复现 pid 映射。
+ALLCARDS_RAW = "d:/4/Unity/资料/普查产出_1018/allcards_1350/cards_raw.json"
+ALLCARDS_PID_TSV = "d:/4/Unity/资料/普查产出_1018/allcards_1350/allcards_pid_index.tsv"
+
+
+def _load_pid_index_tsv(path):
+    """小表（`path_id \\t uniqueId \\t cardName`；`#` 注释 + 表头）→ 同形 dict。文件不在 ⇒ {}。"""
+    if not os.path.exists(path):
+        return {}
+    out = {}
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.rstrip("\r\n")
+            if not line or line.startswith("#") or line.startswith("path_id\t"):
+                continue
+            cols = line.split("\t")
+            if len(cols) != 3:
+                raise SystemExit("!! allcards pid 小表列数不对（%s）：%r" % (path, line))
+            out[int(cols[0])] = (cols[2], cols[1])
+    return out
+
+
+def load_allcards_pid_index(path=ALLCARDS_RAW):
+    """pid(PathID) → (卡片 SO 的 cardName, uniqueId)。大 json 不在 ⇒ 回退小表；都没有 ⇒ {} + 出声（不静默）。"""
+    if not os.path.exists(path):
+        out = _load_pid_index_tsv(ALLCARDS_PID_TSV)
+        if out:
+            print("! 2026 allcards 大导出不在，改用同目录小表：%d 条（%s）" % (len(out), ALLCARDS_PID_TSV))
+            return out
+        print("! 2026 allcards 导出不在（%s）⇒ pid→卡 回退档不可用；"
+              "只当目标的 pid 与那 3 张起手卡会继续留在 `unresolvedNoName`" % path)
+        return {}
+    raw = load(path)["cards"]
+    out = {int(c["path_id"]): (c.get("cardName") or "", c.get("uniqueId") or "") for c in raw}
+    print("2026 allcards pid 索引：%d 条（%s）" % (len(out), path))
+    return out
 
 
 # ============================================================ ③ 读原版 bundle（UnityPy）
@@ -507,8 +619,15 @@ def make_card_ref(ptr, name, resolve):
     return dict(pid=pid2str(pid), name=nm, ourId=our, matchTier=tier, note=note)
 
 
-def make_data_entry(d, pidname, resolve):
-    """一条 `ScriptedActionData` → 产物对象（谁打谁）。"""
+def make_data_entry(d, pidname, resolve, extra_ourid=None):
+    """一条 `ScriptedActionData` → 产物对象（谁打谁）。
+
+    `extra_ourid`（= `pid_ourid_extra()`）：`PID_NAME_EXTRA` 里**显式钉死 ourId** 的那几条
+    （今天只有 `Aggressor Sergeant (tutorial) → UM19`）—— 原版 `cardName` 带 `(tutorial)`、
+    运行时第一跳比 name 必然对不上，只能靠 `ourId` 兜底（见 `PID_NAME_EXTRA` 头注）。
+    """
+    extra_ourid = extra_ourid or {}
+
     def unit(typ, ptr):
         pid = ptr["m_PathID"] if ptr else 0
         if not pid:
@@ -516,6 +635,20 @@ def make_data_entry(d, pidname, resolve):
             return dict(unitType=typ, unitTypeName=ACTION_UNIT.get(typ, "?"),
                         pid="", name="", ourId="", matchTier="null-ref", note="")
         nm = pidname.get(pid, "")
+        ov = extra_ourid.get(pid, "")
+        if ov:
+            # 🔴 显式 ourId：原版 cardName 与池内卡名**不是同一个字符串** ⇒ 运行时只能走 id 那一跳。
+            our, tier, _note = resolve(nm) if nm else ("", "no-name", "")
+            # 判据自检：名字按 `norm` 也应落到同一张卡（否则「显式钉死」就失去依据，先查池）
+            assert our == ov, (
+                "PID_NAME_EXTRA[%d] 钉死 ourId=%r，但 `name=%r` 在池里解出 %r（tier=%s）⇒ 判据塌了，先查"
+                % (pid, ov, nm, our, tier))
+            return dict(unitType=typ, unitTypeName=ACTION_UNIT.get(typ, "?"),
+                        pid=pid2str(pid), name=nm, ourId=ov, matchTier=tier,
+                        note=("🔴 `ourId` 由 `PID_NAME_EXTRA`（2026 build allcards 的 `pathID ↔ uniqueId`）"
+                              "**显式钉死** = %s：原版 `cardName` 是 %r、池里那张叫别的名字 ⇒ 运行时 "
+                              "`ScriptedCardMatches` **第一跳比 name 对不上**、靠第二跳 `c.Id == ourId` 命中。"
+                              "⛔ 别只填 name 不填 ourId（那样「有键但永不命中」= 仍退回 list[0]）" % (ov, nm)))
         our, tier, note = resolve(nm) if nm else ("", "no-name", "")
         return dict(unitType=typ, unitTypeName=ACTION_UNIT.get(typ, "?"),
                     pid=pid2str(pid), name=nm, ourId=our, matchTier=tier, note=note)
@@ -525,7 +658,7 @@ def make_data_entry(d, pidname, resolve):
                 target=unit(d["targetUnitType"], d["targetUnit"]))
 
 
-def make_action(i, a, pidname, sounds, resolve):
+def make_action(i, a, pidname, sounds, resolve, extra_ourid=None):
     """一条 `ScriptedAction` → 产物对象。字段名 → SO 字段是**一对一**的（除了派生的那三个）。"""
     name, arg = parse_action_arg(a["actionType"])
     data = a["scriptedActionData"]
@@ -550,23 +683,48 @@ def make_action(i, a, pidname, sounds, resolve):
             waitForTip=bool(a["smallTipParams"]["waitForTip"]),
             tipWithContinue=bool(a["smallTipParams"]["tipWithContinue"]),
             preventSkipTip=bool(a["smallTipParams"]["preventSkipTip"])),
-        data=[make_data_entry(x, pidname, resolve) for x in data],
+        data=[make_data_entry(x, pidname, resolve, extra_ourid) for x in data],
     )
 
 
-def make_group(g, pidname, sounds, resolve):
+def make_group(g, pidname, sounds, resolve, extra_ourid=None):
     """一个 `TurnScriptedData` → 产物对象（组内动作**保持原序** = 教学脚本赖以成立的东西）。"""
-    acts = [make_action(i, a, pidname, sounds, resolve)
+    acts = [make_action(i, a, pidname, sounds, resolve, extra_ourid)
             for i, a in enumerate(g["scriptedActions"])]
     return dict(turnName=g["turnName"], scriptedTurn=bool(g["scriptedTurn"]),
                 dontDrawCard=bool(g["dontDrawCard"]), dontDrawTalent=bool(g["dontDrawTalent"]),
                 actionCount=len(acts), actions=acts)
 
 
-def make_starting_list(items, pidname, resolve):
-    """`playerStartingTroops` 这类 `List<RawCardScript>` → 产物对象数组。"""
-    return [make_card_ref(p, pidname.get(p["m_PathID"], ""), resolve) if p["m_PathID"]
-            else dict(pid="", name="", ourId="", matchTier="null-ref", note="") for p in items]
+def make_starting_list(items, pidname, resolve, acpid=None, pool_ids=None):
+    """`*StartingTroops{InHand}` 这类 `List<RawCardScript>` → 产物对象数组。
+
+    🔴 B142-TUT-HAND3：SO 的 `actionType` 字符串**只写「发起单位」** ⇒ 起手列表里那些
+       「只当目标/只被摆进起手」的 pid 天然没名字。加第二档：SO 字符串空了再查
+       **2026 allcards**（pid = 同一 CAB 的 PathID；uniqueId = 我们卡池 id）。
+       ⛔ **只在 `ourId` 原本为空时才填** ⇒ 已解析的卡一个都不动。
+    """
+    acpid = acpid or {}
+    pool_ids = pool_ids or set()
+    out = []
+    for p in items:
+        pid = p["m_PathID"]
+        if not pid:
+            out.append(dict(pid="", name="", ourId="", matchTier="null-ref", note=""))
+            continue
+        r = make_card_ref(p, pidname.get(pid, ""), resolve)
+        if not r["ourId"] and pid in acpid:
+            nm, uid = acpid[pid]
+            if not r["name"]:
+                r["name"] = nm
+            r["ourId"] = uid if uid in pool_ids else ""
+            r["matchTier"] = "allcardsId" if r["ourId"] else "allcards-no-pool"
+            r["note"] = ("🔴 `name`/`ourId` 取自 **2026 build 的 allcards SO**"
+                         "（`pathID=%s` ↔ `uniqueId=%s`），**不是**本 TutorialStage SO 的 "
+                         "`actionType` 字符串；uniqueId 与 `cards_engine.json` 的 id 同源"
+                         "（同一 CAB `CAB-fb8f01449289635703d83d52c3f18245`）" % (pid, uid))
+        out.append(r)
+    return out
 
 
 # ============================================================ ⑤ 交叉校验（对照派生快照）
@@ -636,6 +794,9 @@ def main():
 
     pool = load(POOL)["cards"]
     pool_by_id = {c["id"]: c for c in pool}
+    # 🔴 B142-TUT-HAND3：起手表那 3 个 pid 的第二档名字源（2026 allcards；文件不在 ⇒ 空表 + 出声）。
+    acpid = load_allcards_pid_index()
+    allcards_pool_ids = set(pool_by_id)
     _resolve0 = build_card_resolver(pool)
     _candidate, _verify_ocr = build_candidate_lookup(STATS)
 
@@ -662,6 +823,13 @@ def main():
     # ---- pid → 卡名（SO 自己的字符串给的）----------------------------------
     pidname = build_pid_name_map(stages_raw)
     print("pid->卡名：%d 个（判据 = SO 自己的 actionType 字符串）" % len(pidname))
+    # 🔴 `B142-E42`：SO 字符串给不出名字的 5 个 pid（只当目标 / 落在 unitType 0·10 的档上）
+    #    ⇒ 用 2026 build allcards 的 `cardName` 补上；`Aggressor (tutorial)` 那条另带显式 `ourId`。
+    n_pidname_before = len(pidname)
+    pidname = merge_pid_name_extra(pidname)
+    extra_ourid = pid_ourid_extra()
+    print("PID_NAME_EXTRA：新增 %d 个 pid 的卡名（其中 %d 条显式钉死 ourId）"
+          % (len(pidname) - n_pidname_before, len(extra_ourid)))
 
     # ---- 牌组 / 音效：开原版 bundle 解 -------------------------------------
     deck_pids = set()
@@ -713,7 +881,7 @@ def main():
             want = tut_decks["stages"][i - 1][role]["so"]
             assert got == want, ("Stage%d %s 的牌组：SO pid 解出 %r，但 tutorial_decks.json 写的是 %r"
                                  % (i, role, got, want))
-        turns = [make_group(g, pidname, sounds, resolve) for g in s["turnScriptedData"]]
+        turns = [make_group(g, pidname, sounds, resolve, extra_ourid) for g in s["turnScriptedData"]]
         stage = dict(
             stage=i, so=s["m_Name"], soSha1=so_sha[i - 1],
             uniqueIdCampaign=s["uniqueIdCampaign"], bg=s["bg"],
@@ -731,16 +899,16 @@ def main():
             aiDeck=deck_names[s["aiDeck"]["m_PathID"]],
             aiDeckPid=pid2str(s["aiDeck"]["m_PathID"]),
             playerDeckForScenarios=make_card_ref(s["playerDeckForScenarios"], "", resolve),
-            playerStartingTroops=make_starting_list(s["playerStartingTroops"], pidname, resolve),
-            enemyStartingTroops=make_starting_list(s["enemyStartingTroops"], pidname, resolve),
-            playerStartingTroopsInHand=make_starting_list(s["playerStartingTroopsInHand"], pidname, resolve),
-            enemyStartingTroopsInHand=make_starting_list(s["enemyStartingTroopsInHand"], pidname, resolve),
+            playerStartingTroops=make_starting_list(s["playerStartingTroops"], pidname, resolve, acpid, allcards_pool_ids),
+            enemyStartingTroops=make_starting_list(s["enemyStartingTroops"], pidname, resolve, acpid, allcards_pool_ids),
+            playerStartingTroopsInHand=make_starting_list(s["playerStartingTroopsInHand"], pidname, resolve, acpid, allcards_pool_ids),
+            enemyStartingTroopsInHand=make_starting_list(s["enemyStartingTroopsInHand"], pidname, resolve, acpid, allcards_pool_ids),
             playerTurnEndEnchantment=make_card_ref(s["playerTurnEndEnchantment"], "", resolve),
             enemyTurnEndEnchantment=make_card_ref(s["enemyTurnEndEnchantment"], "", resolve),
-            preMulligan=make_group(s["preMulliganScriptedActions"], pidname, sounds, resolve),
-            onVictory=make_group(s["onVictoryScriptedActions"], pidname, sounds, resolve),
-            onDefeat=make_group(s["onDefeatScriptedActions"], pidname, sounds, resolve),
-            actionOnPlayerResign=make_action(-1, s["actionOnPlayerResign"], pidname, sounds, resolve),
+            preMulligan=make_group(s["preMulliganScriptedActions"], pidname, sounds, resolve, extra_ourid),
+            onVictory=make_group(s["onVictoryScriptedActions"], pidname, sounds, resolve, extra_ourid),
+            onDefeat=make_group(s["onDefeatScriptedActions"], pidname, sounds, resolve, extra_ourid),
+            actionOnPlayerResign=make_action(-1, s["actionOnPlayerResign"], pidname, sounds, resolve, extra_ourid),
             turnCount=len(turns), turns=turns,
         )
         stages_out.append(stage)
@@ -789,9 +957,13 @@ def main():
                    "；" + e["note"] if e["note"] else ""))
 
     no_name = sorted([k for k in seen_ref if k[1] == "no-name"])
-    not_pool = sorted([k for k in seen_ref if k[1] in ("no-hit", "ambiguous")])
+    # 🔴 B142-E32（2026-11-04 · 账 `B142-ALLPOOL-SILENT`）：`allcards-no-pool`（2026 allcards 回了名字、但卡**不在我们池里**）原来**两个清单都不收** = 静默档；它与 `no-hit`/`ambiguous` 同义（都是「有名字但池里没有」）⇒ 并进 `unresolvedNotPool`，并在下面出声。
+    not_pool = sorted([k for k in seen_ref if k[1] in ("no-hit", "ambiguous", "allcards-no-pool")])
     unresolved_no_name = [fmt(k, seen_ref[k]) for k in no_name]
     unresolved_not_pool = [fmt(k, seen_ref[k]) for k in not_pool]
+    allpool = [k for k in not_pool if k[1] == "allcards-no-pool"]
+    if allpool:
+        print("! allcards-no-pool %d 个 pid：有名字但不在我们池里 ⇒ 已计入 unresolvedNotPool（⛔ 不猜 id）" % len(allpool))
 
     # 解出情况的一张直方图（自己看得见才有底）：`tier` → 出现了多少次
     hist = Counter()
@@ -818,16 +990,27 @@ def main():
     known = [
         "`actionOnPlayerResign` 6 关**全是空动作**（`actionType` 空串）⇒ 与 `preventPlayerResign` 全 0 自洽"
         "（原版原文如此，⛔ 别当缺失去补）",
-        "🔴 有 %d 个 pid **连名字都拿不到**（`unresolvedNoName`）：它们是 `scriptedActionData` 里引用的卡 SO，"
-        "住在 **`allcards_assets_all.bundle`**（= SO externals 的第 3 项 `CAB-fb8f01449289635703d83d52c3f18245`）——"
-        "那个包**在 catalog 里有、本地 84 个 bundle 里没有**（同缺的还有 `alternateartstyles`/`localization`）"
-        "⇒ 解不出名字。⚠️ 名字的**唯一**来源是 SO 自己的 `actionType` 字符串（只写发起单位），"
-        "所以「只当目标」的那些 pid 天然没名字（督军那几种由 `unitType` 就够用了，不需要卡名）" % len(no_name),
+        "🔴 有 %d 个 pid 拿不到卡名（`unresolvedNoName`）：它们只出现在 `scriptedActionData` 里、"
+        "**只当目标或只被摆进起手**，而 SO 的 `actionType` 字符串**只写「发起单位」** ⇒ 天然没名字。"
+        "🔴 **2026-11-04 就地订正（铁律 5 · `B142-TUT-HAND3`）**：本行原文写着「它们是住在 "
+        "`allcards_assets_all.bundle` 里的卡 SO，那个包在 catalog 里有、本地 84 个 bundle 里没有 ⇒ 解不出名字」"
+        "—— **这半句已不成立**：2026 build 的 allcards 导出就在本地"
+        "（`资料/普查产出_1018/allcards_1350/cards_raw.json`），那 3 张起手卡正是靠它解出来的"
+        "（`matchTier=allcardsId`）。"
+        "🔴 **2026-11-04 补（`B142-E42` · 账 `B142-PID-GLOBAL-5`）**：原来那 **5 个** pid（Makari the Grot / "
+        "Veteran Guardian / Gauss Warrior / Unhallowed Gifts / Aggressor Sergeant (tutorial)）已由 `PID_NAME_EXTRA`"
+        "（判据 = 2026 build allcards 的 `pathID ↔ cardName/uniqueId`）补上名字 ⇒ 本数归 0（`matchTier` 的 "
+        "`no-name` 也从 14 归 0）。其中 Aggressor 那条原版 `cardName` 带 `(tutorial)`、与池内 `Aggressor Sergeant` "
+        "**字符串不等** ⇒ 它**显式钉死 `ourId=UM19`**（运行时 `ScriptedCardMatches` 第一跳比 name 必然对不上、"
+        "靠第二跳比 id 命中）。⚠️ `allcardsId` 那一档仍只用在 `*StartingTroops*`" % len(no_name),
         "🔴 有 %d 张卡**有名字但我们的池里没有**（`unresolvedNotPool`）—— **没有猜**：`ourId` 留空、"
         "线索写进该 ref 的 `note`（= `card_stats.json` 的 `ocrName` 列）。要落地得像别的账一样先裁定" % len(not_pool),
-        "🔴 %d 张卡走了**裁定映射**（`ocrNameFixes`）：**判据 = `card_stats.json` 的 `ocrName` 列与 SO 名逐字吻合 + 池内唯一，"
-        "不是原版明确指认**（原版卡 SO 包本地没有 ⇒ 钉不死）。产物里 **SO 原名一字未改**（`name`），只在 `ourId` 写我们的 id、"
-        "`matchTier` = `ocrName`（与 exact/norm 分开，别当「名字对上了」）" % len(ocr_fix_lines),
+        "🔴 `ocrNameFixes` 那 %d 条是 2026-10-17 的**裁定映射记录**：**判据 = `card_stats.json` 的 `ocrName` 列与 SO 名逐字吻合 + 池内唯一**。"
+        "🔴 **2026-11-04 就地订正（铁律 5 · `B142-TUT-HAND3`）**：本行原文还写着「不是原版明确指认（原版卡 SO 包本地没有 ⇒ 钉不死）」"
+        "与「`matchTier` = `ocrName`」——**两句都已不成立**：① 2026 build 的 allcards 导出已在本地"
+        "（`ALLCARDS_RAW`），`pathID=7386907376838221809` 的 `cardName` 就是 `Gauss Warrior`，与该裁定同卡同证；"
+        "② 2026-10-14/15 池名换成官方表名后，这两张已能被 `exact`/`norm` **直接命中** ⇒ 产物里 `matchTier` **不再出现 `ocrName`**"
+        "（本表只作历史判据保留）。产物里 **SO 原名一字未改**（`name`）" % len(ocr_fix_lines),
         "`sound.volume` 原样保留（SO 序列化那一层）：多数是 0.0（82/95），少数 1.0。"
         "🔴 **2026-10-18 就地订正（铁律 5）**：本行原文写着「`BattleManager.PlayNextSoundInQueue.c` 是 "
         "`PlayOneShot(clip, AudioListener.volume * sound.volume)` ⇒ **0 就是静音**」——**后半句是错的**："
@@ -848,8 +1031,9 @@ def main():
              "（`bundle_tutorialso_assets_all`）。🔴 这是**全量**（462 条动作 = 回合内 430 + preMulligan 19 + onVictory 13）；"
              "`数据/游戏数据/tutorial_stages.json` 是 Godot 原型的**派生快照**（只有 152 条、且 tip 的时序没了）"
              "—— **两份文件名字恰好相同**，⛔ 别混（那份不能当运行时数据源，出处见 report）。"
-             "⚠️ 有 %d 张卡是按 `card_stats.json` 的 `ocrName` **裁定映射**到我们卡池的（**不是原版明确指认**）"
-             "—— 判据与保留原名的约定见 `ocrNameFixes`/`ocrNameFixNote`。" % len(ocr_fix_lines),
+             "⚠️ `ocrNameFixes`/`ocrNameFixNote` 记着那 %d 条**裁定映射**的判据（2026-10-14/15 池名换官方表名后已能 `exact`/`norm` 直接命中；"
+             "2026-11-04 `B142-TUT-HAND3` 起，`*StartingTroops*` 另有 `allcardsId` 一档 = 2026 allcards SO 的 `pid ↔ uniqueId`）。"
+             % len(ocr_fix_lines),
         source="d:/2/新解包资源/assets_full/bundle_tutorialso_assets_all/MonoBehaviour/Warpforge_TutorialStage{1..6}.json",
         generatedFrom="原版 6 个 SO（sha1 见每关 `soSha1`）+ 原版 bundle 查牌组名/音效名 + cards_engine.json 查卡 id",
         fieldSource=[
@@ -859,7 +1043,8 @@ def main():
             "hideCemetery/hideCardsLeftInDeck/hideLargeCardDisplay/hideChat = 同名四个 bool",
             "playerAlwaysWins/preventPlayerResign/skipNormalBattleEndOnVictory/skipNormalBattleEndOnDefeat = 同名四个 bool",
             "{player,enemy}StartingTroops{InHand} = 同名四个 `List<RawCardScript>`（pid → 名字见 `name`；"
-            "名字来自 SO 自己的 actionType 字符串，见 gen_tutorial_stages.py 的 parse_action_arg）",
+            "名字来自 SO 自己的 actionType 字符串，见 gen_tutorial_stages.py 的 parse_action_arg；"
+            "**该字符串只写「发起单位」** ⇒ 只被摆进起手的 pid 取不到名字，2026-11-04 起由 `load_allcards_pid_index`（2026 allcards）补 `allcardsId` 一档）",
             "preMulligan/onVictory/onDefeat/turns = `preMulliganScriptedActions`/`onVictoryScriptedActions`/"
             "`onDefeatScriptedActions`/`turnScriptedData`；动作组内**原序**",
             "每个动作：type=scriptedActionData[0].actionType 的枚举名（**运行时读的就是它**）· text=SO 的 `actionType` 原串 · "
@@ -883,16 +1068,25 @@ def main():
         unresolvedNoName=unresolved_no_name,
         unresolvedNotPool=unresolved_not_pool,
         ocrNameFixes=ocr_fix_lines,
-        ocrNameFixNote="🔴 **这 %d 条是【裁定映射】，不是原版明确指认**：判据 = 教程 SO 用的那个名字（= 原版卡 SO 的 `cardName`）"
+        ocrNameFixNote="🔴 **这 %d 条是【裁定映射】**：判据 = 教程 SO 用的那个名字（= 原版卡 SO 的 `cardName`）"
                        "与 `数据/游戏数据/card_stats.json` 的 **`ocrName`** 列（当年从 **PnP 成品卡图**上 OCR 出来的名字）"
-                       "**逐字吻合**、且在我们卡池里**位置唯一**。⚠️ 原版那份卡 SO（`allcards_assets_all.bundle`）本地没有 ⇒ "
-                       "**钉不死**它俩与映射到的那两张是同一张卡（数值可能被教程改过）。产物里 **SO 原名原样保留**（`name` 字段），"
+                       "**逐字吻合**、且在我们卡池里**位置唯一**。产物里 **SO 原名原样保留**（`name` 字段），"
                        "只在 `ourId` 写我们的 id、`matchTier` 写 `ocrName`（⛔ 别当 exact/norm 用）。裁定：调度台 2026-10-17。"
+                       "🔴 **2026-11-04 就地订正（铁律 5 · `B142-TUT-HAND3`）**：本段原文写着「原版那份卡 SO"
+                       "（`allcards_assets_all.bundle`）本地没有 ⇒ 钉不死它俩与映射到的那两张是同一张卡」"
+                       "—— **那句已不成立**：2026 build 的 allcards 工程内导出"
+                       "（`资料/普查产出_1018/allcards_1350/cards_raw.json`）里 `pathID=7386907376838221809` 的 "
+                       "`cardName` 就是 `Gauss Warrior`（→ `SAU4`），与该裁定**同卡同证**"
+                       "（那是 2026 build 的名称，⛔ 别据此把 `(tutorial)` 那张的数值当成同一个版本）。"
                        % len(ocr_fix_lines),
         refNote="`pid` 是原版 SO 里 `RawCardScript` 的 PPtr（64 位有符号，当**坐标**用）；"
                 "`name` 来自原版 SO 自己的 `actionType` 字符串（**一个字都不改**，见 gen_tutorial_stages.py 的 parse_action_arg）；"
-                "`ourId` 是 `cards_engine.json` 里的卡 id，`matchTier` = exact / norm / ocrName（**不做模糊匹配**，宁可认不出；"
-                "`ocrName` = 走了裁定映射，见 `ocrNameFixes`）；`note` 只在解不出时给候选线索（⛔ 候选不当结果用）",
+                "⚠️ `PID_NAME_EXTRA` 那 5 个 pid 例外（SO 字符串给不出名字）⇒ `name` 取自 2026 build allcards 的 "
+                "`cardName`，同样**一字不改**（含 `Aggressor Sergeant (tutorial)` 的 `(tutorial)` 尾巴）；"
+                "`ourId` 是 `cards_engine.json` 里的卡 id，`matchTier` = exact / norm / ocrName / **allcardsId**（**不做模糊匹配**，宁可认不出；"
+                "`ocrName` = 走了裁定映射，见 `ocrNameFixes`；`allcardsId` = `*StartingTroops*` 那 4 张表专用的 2026 allcards 回退档，"
+                "`pid ↔ uniqueId` 逐字取，见 gen_tutorial_stages.py 的 `load_allcards_pid_index`）；"
+                "`note` 只在解不出时给候选线索（⛔ 候选不当结果用）",
         matchTierHistogram=histLine,
         knownIssues=known,
         stageCount=len(stages_out), turnCount=n_turn,

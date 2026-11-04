@@ -2493,16 +2493,16 @@ def active_ability_pick_criteria_of(cid, name, trow, truth_by_path, report):
 #       **全是 0** ⇒ 今天这两条条件都恒假（**数据事实，不是「判不了」**）；
 #       `normalAbilityBoardCriteria` 只有 **2 张**不是默认值（`SW9` / `SW21`）。
 #
-# 🔴 **落值口径**：只落**非默认**的键（`0` 是合法取值「假/不加」）——
-#    · `hasActiveAbility` / `hasAlternativeAbility`：`1` 才落；`-1`（真值里没这张卡）也落。
-#    · `activeNeedsLoading` / `alternativeNeedsLoading` / `quest` / `questTimes`：非 0 才落（`-1` 也落）。
+# 🔴 **落值口径**（🔴 2026-11-04 `B142-E32` 就地订正 · 账 `B141-HASACTIVE-KEY`）：`hasActiveAbility` / `hasAlternativeAbility` **每张卡都落**（`0`/`1`/`-1` 三态）——
+#      原文「`1` 才落」把 1,263 条**显式 0** 吞成了「缺键」（原版 1,351 张里 88 张 `=1` / 1,263 张 `=0` / **缺键 0**），见 `ability_gate_of()` 里那段更正。
+#    · `activeNeedsLoading` / `alternativeNeedsLoading` / `quest` / `questTimes`：非 0 才落（`-1` 也落）—— 这四条的 0 = 「没有这条」，与「缺键」不冲突（全池真值全 0），维持稀疏。
 #    · `normalAbilityBoardCriteria`：只有**不是默认**时才落。默认 = `playerTurn / countOptions /
 #      referenceValue` 全 0 **且** `countCriteria` 每个字段都是 0 —— 那一档 `MeetsCriteria` **恒真**
 #      （`targetsAffected = any`），落不落行为一样。
 #      ⛔ **缺席 ≠ 判不了**：缺席 = 原版给了恒真的默认 criteria；判不了只可能出现在坏值上（见 `bad`）。
-#    ⇒ 今天真正落地的只有 88 张 `hasActiveAbility: 1` ＋ `SW21` 的三个键 ＋ `SW9` 的一条 criteria。
+#    ⇒ 今天真正落地的只有 87 张 `hasActiveAbility: 1` ＋ 1,055 张显式 `0` ＋ `SW21` 的三个键 ＋ `SW9` 的一条 criteria。
 ABILITY_GATE_REPORT = {
-    "cards": 0, "no_truth": 0, "has_active": 0, "alt": 0, "needs_loading": 0,
+    "cards": 0, "no_truth": 0, "has_active": 0, "has_active_zero": 0, "alt": 0, "alt_zero": 0, "needs_loading": 0,
     "quest": 0, "criteria": 0, "bad": [],
     # `count_set_of` 要的三个键（与 `unit_conditions_report` 同形，⛔ 别改名）
     "set_bad": [], "set_unresolved": [], "set_rows": 0,
@@ -2572,8 +2572,8 @@ def board_gate_of(cid, name, nab, truth_by_path, report):
 
 
 def ability_gate_of(cid, name, trow, truth_by_path, report):
-    """一张卡 → 只含**非默认**键的 dict（`hasActiveAbility` / `*NeedsLoading` / `quest` /
-    `questTimes` / `normalAbilityBoardCriteria`）。真值里没有这张卡 ⇒ `{}`（且 `no_truth` 计数）。"""
+    """一张卡 → 本组六列的 dict。两支闸列（`hasActiveAbility`/`hasAlternativeAbility`）**每张卡都落**（`0`/`1`/`-1`）；
+    `*NeedsLoading` / `quest` / `questTimes` / `normalAbilityBoardCriteria` 仍只落非默认。真值里没这张卡 ⇒ `{}`（`no_truth` 计数）。"""
     if trow is None:
         report["no_truth"] += 1
         return {}
@@ -2584,10 +2584,10 @@ def ability_gate_of(cid, name, trow, truth_by_path, report):
         if v is None:
             report["bad"].append((cid, name, key, trow.get(key)))
             v = -1
-        if v != 0:
-            out[col] = v
-            if bump:
-                report[bump] += 1
+        out[col] = v        # B142-E32：显式 0 也落（0 = 明确没有；-1 = 坏值/真值缺卡，⛔ 别吞）
+        if v:
+            if bump: report[bump] += 1
+        elif v == 0: report[bump + "_zero"] += 1
     for col, src in (("activeNeedsLoading", "activeAbility"),
                      ("alternativeNeedsLoading", "alternativeAbility")):
         ab = trow.get(src)
@@ -6100,7 +6100,7 @@ def transform_card_entry(faction):
         "abilityBuffs": [], "abilityMutations": [], "abilityEffectTexts": [],
         "triggerAbilityIndices": [],
         "abilityLevelCriteria": [], "abilityActingCriteria": [], "activeAbilityPickCriteria": [],
-        "hasNormalAbilityBoardCriteria": 0,
+        "hasNormalAbilityBoardCriteria": 0, "hasActiveAbility": 0, "hasAlternativeAbility": 0,
         "startingCardInHand": "",
     }
 
@@ -9638,13 +9638,13 @@ def main():
           + ("（⇒ 陷阱机制今天**恒不可达**，`CardInstance.ArmedTrap` 全池为 0）" if _trap_n == 0 else ""))
 
     # 🆕 2026-10-24（v21 · 引擎线 `A20` · 第三批 ①/②）：主动能力分支闸 / 装填位 / 任务位的读数。
-    #   🔴 六列全是「只在非默认时才落」⇒ 这条摘要就是「今天有没有卡走到」的唯一凭据：
-    #      这几个数**恒为 0 不是 bug**（`needsLoading` / `_quest` / `questTimes` 真值全 0）。
+    #   🔴 两支闸列**每张卡都落**（显式 `0` 也落）；其余四列仍「只落非默认」，恒 0 不是 bug。
     _agr = ABILITY_GATE_REPORT
-    print(f"能力闸       `hasActiveAbility=1` **{_agr['has_active']}** 张 · "
-          f"`hasAlternativeAbility=1` **{_agr['alt']}** 张 · "
-          f"`needsLoading` 非 0 {_agr['needs_loading']} 处 · "
-          f"`quest`/`questTimes` 非 0 {_agr['quest']} 处")
+    _ga = [sum(1 for _c in doc["cards"] if _c.get("hasActiveAbility") == v) for v in (1, 0)]
+    _gb = [sum(1 for _c in doc["cards"] if _c.get("hasAlternativeAbility") == v) for v in (1, 0)]
+    print(f"能力闸       `hasActiveAbility` **每张卡都落**：`=1` **{_ga[0]}** · `=0`（显式）**{_ga[1]}** · 缺键 **{len(doc['cards']) - _ga[0] - _ga[1]}** 张 · "
+          f"`hasAlternativeAbility` `=1` **{_gb[0]}** · `=0` **{_gb[1]}** 张 · "
+          f"`needsLoading` 非 0 {_agr['needs_loading']} 处 · `quest`/`questTimes` 非 0 {_agr['quest']} 处")
     print(f"             非默认 `normalAbilityBoardCriteria` **{_agr['criteria']}** 张"
           "（原版 `BoardAnalysis.MeetsCriteria`；缺席 = `targetsAffected = any` 的恒真默认值）")
     if _agr["no_truth"]:

@@ -788,14 +788,14 @@ namespace RuleEngine
         //   · `AbilityLogic__NewBuffStat.c:60-62` = `uVar10 = (param_4 != 0) ? param_4 * param_6 : param_6`
         //     （`param_4` = 原始 Change、`param_6` = multiplier）；`:156-157` = `if (param_3 == 0x50) return uVar10;`
         //     ⇒ **80 档（`MinPlusMaxTimesMultiplier`）= `原始 Change × multiplier`（Change 为 0 时 = multiplier）**；
-        //     其余档走 `:LAB_18081bf52 return param_4`（原样）⇒ 本方法**只折 80**。
+        //     其余档走 `:LAB_18081bf52 return param_4`（原样）⇒ 本方法折 **80 与 0**（✅ 2026-11-04 · `B142_E24`：`param_3 == 0` 那一支是 `param_4 = param_4 * param_6` 再 `goto LAB_18081bf52`，即 **Normal 也乘 multiplier**、且是**纯乘**（raw==0 ⇒ 0，与 80 档的 `raw==0 ⇒ mult` 不同））。
         //   · `multiplier` 的来源 `AbilityLogic__PlayAbility.c:180-236`：`multiplier.targetsAffected == 0 (Any)` ⇒ 1；
         //     否则 = `GetTargets(multiplier)` 的表长；再 `if (0 < furtherMultiplier) ×= furtherMultiplier`（`:235-236`）。
         //     仓里的等价物 = `CardDef.Conditions` 的 `role="mult"` 行 → `CountMultiplierTargets`
         //     （与 `ApplyMinPlusMaxTimesMultiplier` **同一个计数口**，⛔ 别另写一份）+ `AbilityTargets[ab].FurtherMultiplier[lg]`。
         //  ⚠️ **折不出来 ⇒ 保留原始 Change + 出声**（⛔ 不猜、⛔ 不按形状猜，同 CLAUDE.md 18·0）：
-        //     ① 调用点没给宿主卡 / `(ab,lg)`；② 这一行没有 `mult` 行（原版那一格为空 ⇒ 其实是 1，
-        //     但我们分不清「明确没有」与「列没落」）；③ `multiplier` 未知 / 数不出来。
+        //     ① 调用点没给宿主卡 / `(ab,lg)`；② 这一行没有 `mult` 行**且表是旧的**（旧表分不清「明确没有」与「列没落」⇒ 不猜；
+        //     ✅ 2026-11-04 `B142_E24`：v15+ 表（`ConditionsVersioned`）下「明确没有」= 原版 `mult` 为空 ⇒ **mult = 1**，不再当折不出来）；③ `multiplier` 未知 / 数不出来。
         //  📊 现读影响面（`cards_engine.json` v49 `count 1142`）：`abilityBuffs` 里 `*ValueOptions == 80` 共 **6 行**
         //     （cost×3 `BL52`/`GSC37`/`SW58` · melee×2 `DA45`/`38871853…` · range×1 `DA73`），全部 `at=buffEffect`、
         //     `ca ∈ {30 buffOthers, 40 buffSelf}`，且**都带 `role="mult"` 行** ⇒ 折叠真的会生效。
@@ -830,19 +830,19 @@ namespace RuleEngine
             return f;
         }
 
-        /// <summary>单格折叠（<see cref="FoldBuffStatValueOptions"/> 的实现体）。`opt != 80` ⇒ **原样返回**。</summary>
+        /// <summary>单格折叠（<see cref="FoldBuffStatValueOptions"/> 的实现体）。`opt ∉ {0, 80}` ⇒ **原样返回**。</summary>
         static int FoldOneBuffStat(BattleContext ctx, int owner, UnitState actor, CardDef def, int ab, int lg,
                                    int raw, int opt, string who, string field)
         {
-            if (opt != 80) return raw;                       // 原版 `:LAB_18081bf52 return param_4`（其余档原样）
+            if (opt != 80 && opt != 0) return raw;           // 原版 `:LAB_18081bf52 return param_4`（其余档原样）｜✅ 已复刻（2026-11-04 · B142_E24 · 判据 `AbilityLogic__NewBuffStat.c`）：`opt 0 (Normal)` **也乘 multiplier**（`if (param_3 == 0) { param_4 = param_4 * param_6; }`）
             string why = null;
             if (def == null || ab < 0 || lg < 0) why = "调用点没给宿主卡 / `(ab,lg)` 坐标";
             CardDef.ConditionSpec ms = null;
-            if (why == null && (!def.TryGetCondition(ab, lg, "mult", out ms) || ms == null || ms.MultiplierSet == null))
-                why = "这一行没有 `role=mult` 行（原版 `AbilityLogic.multiplier`）";
-            if (why == null && ms.Exclude) why = "`mult` 行的 `excludeCondition = 1`（逐候选取反）本版未实现";
+            if (why == null && (!def.TryGetCondition(ab, lg, "mult", out ms) || ms == null)) { if (!def.ConditionsVersioned) why = "这一行没有 `role=mult` 行（原版 `AbilityLogic.multiplier`）"; }   // ✅ 已复刻（2026-11-04 · B142_E24 · 判据 `AbilityLogic__PlayAbility.c:180-236`）：v15+ 卡表（`ConditionsVersioned`）下「**明确没有**这一行」⇒ 原版 `multiplier` 为空 / `targetsAffected == 0(Any)` ⇒ **mult = 1**（⛔ 不是「折不出来」）；只有旧表分不清「没有」与「没落」才不猜
+                else if (why == null && ms.MultiplierSet == null) why = "`mult` 行缺 `multiplier` 目标集（原版 `AbilityLogic.multiplier`）";
+            if (why == null && ms != null && ms.Exclude) why = "`mult` 行的 `excludeCondition = 1`（逐候选取反）本版未实现";
             int cnt = 1;
-            if (why == null)
+            if (why == null && ms != null)
             {
                 int ta = ms.MultiplierSet.TargetsAffected;
                 if (ta == CardDef.CountSetSpec.Unknown) why = "`multiplier.targetsAffected` 未知（没落）";
@@ -860,13 +860,13 @@ namespace RuleEngine
                 fm = ats[ab].FurtherMultiplier[lg];
             if (why != null)
             {
-                ctx?.Log($"⚠️{who}：`{field}` 是 `valueOptions = 80`（`MinPlusMaxTimesMultiplier`），但**折不出来**（{why}）"
+                ctx?.Log($"⚠️{who}：`{field}` 是 `valueOptions = {opt}`，但**折不出来**（{why}）"
                        + $" ⇒ 保留原始值 {raw}（⛔ 不猜）");
                 return raw;
             }
             int mult = cnt * fm;
-            int v = raw != 0 ? raw * mult : mult;            // 原版 `NewBuffStat.c:60-62` 的 `uVar10`
-            ctx?.Log($"（{who}：`{field}` 的 `valueOptions = 80` ⇒ 原版 `NewBuffStat` 折叠 = {(raw != 0 ? raw + " × " : "")}"
+            int v = opt == 80 ? (raw != 0 ? raw * mult : mult) : raw * mult;   // 原版 `NewBuffStat.c:60-62` 的 `uVar10`：80 档 `raw==0 ⇒ mult`；**0 档是纯乘**（`param_4 = param_4 * param_6`，raw==0 ⇒ 0）
+            ctx?.Log($"（{who}：`{field}` 的 `valueOptions = {opt}` ⇒ 原版 `NewBuffStat` 折叠 = {(raw != 0 ? raw + " × " : "")}"
                    + $"mult（{cnt}{(fm > 1 ? " × fm " + fm : "")}）= **{v}**；`AbilityLogic__NewBuffStat.c:156-157`）");
             return v;
         }

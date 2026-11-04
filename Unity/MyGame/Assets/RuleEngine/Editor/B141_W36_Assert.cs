@@ -10,14 +10,14 @@
 // ============================ 判据（全部现读，本轮核过）============================
 //   · `FollowUpSchedulerOf`（`EffectResolver.cs:7950-7974`，硬编码表）：9 张单位卡的 320 由**关键词路**负责。
 //   · `TriggerNameOfKeyword`（`ActionPump.cs:1081-1122` + `ExtraTriggerName :1894-1912`）：
-//     `regiment / strike / mob / codex / artifice` 有映射；**`othercardplayed` / `othercardspiritstone` 没有**。
+//     `regiment / strike / mob / codex / artifice` 有映射；`othercardplayed` / `othercardspiritstone` **2026-11-04 起也已补上**（`ActionPump.cs:1912`）。
 //   · `FollowUpSchedulerOf(card) == AbilityTriggerNameOfKeyword(keyword)` 是 `RuleCore.cs:13034` 的闸。
 //   · `20 = self`（`RuleCore.cs:15635` / `Enchantment.cs:1796`）⇒ SW34 的 480 行目标 = 载体自己。
 //
 // ============================ 🧨 灭自证（改哪一句会红）============================
 //   · 删掉 `FollowUpSchedulerOf` 的任意一条单位卡映射 ⇒ **B 组**那一条红；
-//   · 给 `ExtraTriggerName` 补上 `othercardplayed` / `othercardspiritstone`（**那正是正确修法**）
-//     ⇒ **C6/C7 红** —— 红得有道理：它逼改的人回来读报告 §2·B，确认**被动 ca 路不要再派一次**；
+//   · 删掉 `ExtraTriggerName` 的 `othercardplayed` / `othercardspiritstone` 那一句 ⇒ **C6/C7 红**（2026-11-04 起是正向断言）；
+//     —— 补映射那一步已由 `B141_W128_ExtraTriggerName` 做完，同时确认过**被动 ca 路不要再派一次**；
 //   · 把 `TriggerRowKindOf(320)` 改成 OwnLane / BodyOp ⇒ **D6/E2 红**（320 必须走 FollowUp）。
 //
 // ============================ 怎么接（宿主 · 调度台做）============================
@@ -150,14 +150,14 @@ public static class B141_W36_Assert
         Check(RuleCore.TriggerNameOfKeyword("mob"), "Mob", "C3 `mob` ⇒ `Mob`（`GOF59`）");
         Check(RuleCore.TriggerNameOfKeyword("codex"), "Codex", "C4 `codex` ⇒ `Codex`（`UM64`）");
         Check(RuleCore.TriggerNameOfKeyword("artifice"), "Artifice", "C5 `artifice` ⇒ `Artifice`（`SAU11`）");
-        // 🔴 钉子：这两条**今天必须是 null** —— 它们非 null 的那一天，说明有人补了
-        //   `ActionPump.ExtraTriggerName`（那正是 `ASH81`/`GSC14` 的正确修法）
-        //   ⇒ 回来读 `报告/B141_W128_ENG11.md` §2·B：**被动 ca 路不要再派一次 320**。
-        Check(RuleCore.TriggerNameOfKeyword("othercardplayed"), null,
-              "C6 已知缺口钉子：`othercardplayed` ⇒ **null**（`GSC14` 的 320 因此没有关键词路）"
-            + "｜🧨 补上映射之后本行会红 —— 那是**正确的**，届时删掉本行并确认没有重复派 320");
-        Check(RuleCore.TriggerNameOfKeyword("othercardspiritstone"), null,
-              "C7 已知缺口钉子：`othercardspiritstone` ⇒ **null**（`ASH81` 的 320 同理）");
+        // ✅ 2026-11-04（`B142-E8`）：钉子**已反转** —— `ActionPump.ExtraTriggerName`（`:1912`）现已补上映射，
+        //   这两条改成「必须非 null」（原口径「今天必须是 null」的那个修法已落地，见 `报告/B141_W128_ExtraTriggerName.md`）。
+        //   ⚠️ 仍然成立：**被动 ca 路不要再派一次 320**（`报告/B141_W128_ENG11.md` §2·B）。
+        Check(RuleCore.TriggerNameOfKeyword("othercardplayed"), "OtherCardPlayed",
+              "C6 `othercardplayed` ⇒ `OtherCardPlayed`（映射已补 · `ActionPump.cs:1912`；`GSC14` 的 320 仍走监听者路）"
+            + "｜🧨 删掉 `ExtraTriggerName` 里那一句 ⇒ 本行红");
+        Check(RuleCore.TriggerNameOfKeyword("othercardspiritstone"), "OtherCardSpiritStone",
+              "C7 `othercardspiritstone` ⇒ `OtherCardSpiritStone`（映射已补 · `ActionPump.cs:1912`；`ASH81` 的 320 同理）");
         // 数值 ↔ 名字（`CardDef.cs:1917` / `:1933`）
         Check(CardDef.AbilityTriggerNumber("OtherCardPlayed"), 10, "C8 `OtherCardPlayed` = 10（`CardDef.cs:1917`）");
         Check(CardDef.AbilityTriggerNumber("OtherCardSpiritStone"), 455, "C9 `OtherCardSpiritStone` = 455（`CardDef.cs:1933`）");

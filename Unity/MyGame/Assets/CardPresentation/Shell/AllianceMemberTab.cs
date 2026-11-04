@@ -34,7 +34,7 @@
 //   · 两处 `Secondary Icon`（评级旁边的小图标，act F）；
 //   · 成员行里的 `Avatar Name`（act F）与 `Raycast Target`（act F，那是命中层，我们另建 `Hit`）；
 //   · `GeneralDetails>DEBUG_TEXTS`（原档调试残留，§C·2 明说别照抄）；
-//   · 两个下拉的 `Template`（Unity 内置模板）。
+//   · ⚠️ **2026-11-04 就地订正（铁律 5 · `B142-E18`）**：这一行原来写「两个下拉的 `Template`（Unity 内置模板）」—— **已过期**：它是原版【真有】的子树（`B90-N5` 起建，`B142-E18` 补齐 `Viewport ▸ Content` 两层），⛔ 别再按旧话把它当「不建」。
 using UnityEngine;
 
 namespace CardPresentation
@@ -1620,7 +1620,7 @@ namespace CardPresentation
 
         /// <summary>一个**可展开**的下拉（`Config fields` 里那两个 / 建盟页那两个）：九宫底 + 箭头 + 展开列表。
         /// ⚠️ 底图/箭头与染色**逐值照普查**（`:281-283`）：`40K_dropdown_field_closed` 727×102 九宫 (60,35,60,35)
-        /// · 染色 `(1,0.475,0.098,1)`；`40K_dropdown_arrow_closed` 46×19 · 染色 `(0.361,0.188,0.0588,1)`。
+        /// · 染色 `(1,0.4745098,0.09803922,1)`；`40K_dropdown_arrow_closed` 46×19 · 染色 `(0.36078432,0.1882353,0.05882353,1)`。
         /// 🔴 **2026-10-28（`B90-N5`）就地订正**：旧注释写「展开要 `Template`（Unity 内置模板，§B·13 明说别当业务节点）⇒ 不建」
         /// —— **不成立**（`Template` 是原版 prefab **真有的子树**，rect/贴图/九宫/字号见 `普查产出_0927/社交_联盟与好友页.md:284-300`）
         /// ⇒ 现在真能展开；几何/素材/开合全在 `AllianceDropdownBox`（⛔ 别在这儿抄第二份），`options` = 展开后那几行。</summary>
@@ -1685,7 +1685,7 @@ namespace CardPresentation
                    "Text", 42f, 3, 18f, alignLeft: true, wrap: true);   // A319 #9（原版 `Left`(1)）· A413（42f）· A258：原版 `折行=1`
             // 🆕 **2026-10-16（A712 阶段 2）**：原版 `{Alliance,Draft} Rating Display/Individual rating value`
             //   = `对齐=Left/**Midline**`（同一份 dump，两颗同档）⇒ `m_VerticalAlignment = 4096`。
-            MenuDraw.SetVAlign(lbRate, Label.VAlign.Midline, valR);
+            MenuDraw.SetVAlign(lbRate, Label.VAlign.Midline, valR); if (lbRate != null) lbRate.SetSmallScreenFontSizes(45f, 0f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：`Social Submenu Variant ▸ {Alliance Member Entry ▸ Ratings,Draft Rating Display,Alliance Rating Display}` = 45/0）
         }
 
         static Transform Node(Transform parent, string name, PxRect r) { return MenuDraw.Node(parent, name, r); }
@@ -1896,8 +1896,8 @@ namespace CardPresentation
             //      （`bundle_menus_assets_all/MonoBehaviour_-4586463415933622350.json:44-49`；另两份实例同值）；
             //   ② 作用对象 = 那两颗 PPtr 反查出来的 `background` 与 `Image`（本函数建的同名两颗）。
             //   ⇒ `IsPlayer` 时这两颗的 tint 换成它，否则维持原色。⛔ 别把颜色乘一层（原版是 `=` 覆盖）。
-            var bgTint = m.IsPlayer ? IsPlayerEntryColor : new Color(1f, 0.36f, 0f, 1f);
-            var stripTint = m.IsPlayer ? IsPlayerEntryColor : new Color(0.481f, 0.182f, 0f, 1f);
+            var bgTint = m.IsPlayer ? IsPlayerEntryColor : new Color(1f, 0.3596305f, 0f, 1f);   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Social Submenu Variant.prefab` 2 颗 `background < Alliance Member Entry` 的 `m_Color` 逐位 = (1, 0.3596305, 0, 1)，sprite = `40K_dropdown_bg_0`）
+            var stripTint = m.IsPlayer ? IsPlayerEntryColor : new Color(0.4811321f, 0.1822391f, 0f, 1f);   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Social Submenu Variant.prefab` 2 颗 `Image < background < Alliance Member Entry` 的 `m_Color` 逐位）
             v.Nine(row, "40K_dropdown_bg", r, new Vector4(23f, 20f, 23f, 20f), "background", 0, bgTint);
             // `background/Image`（左侧那条深色竖带）+ 名次数字
             v.Rect(row, null, new PxRect(r.x1 + 2.24f, r.y1 + 2.52f, r.x1 + 47.54f, r.y1 + 97.59f),
@@ -2053,7 +2053,7 @@ namespace CardPresentation
             //   ⚠️ 与**上面页内**那两颗同名的 `{Alliance,Draft} Rating Display/Individual rating value`
             //   （`Left/Midline`）是**同名不同档**，见本文件头那张表：横向取 `Right`、纵向**两颗都是 `Midline`**）。
             //   ⚠️ `lb` 可能是 null（`v.Text` 在裁切整块在框外时会不建）⇒ 这里必须带判空。
-            if (lb != null) MenuDraw.SetVAlign(lb, Label.VAlign.Midline, tr);
+            if (lb != null) MenuDraw.SetVAlign(lb, Label.VAlign.Midline, tr); if (lb != null) lb.SetSmallScreenFontSizes(45f, 0f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：`Alliance Member Entry ▸ Ratings ▸ {Ranked,Draft} Rating` = 45/0）
 
             // 🔴 **2026-10-25（E4 · 账 60①）：`disableIfZero`**。原版 `AllianceRatingDisplay.Initialize`
             //   （`AllianceRatingDisplay.cs:15-60` 的方法体头两句）：
@@ -2298,6 +2298,11 @@ namespace CardPresentation
         public const float ListWidthLoss = 5f;      // list 宽 = field 宽 − 5
         public const float ScrollbarW = 17f;        // item 宽 = list 宽 − 17
         public const int MaxVisibleRows = 14;       // floor(573.96 / 40.8707)
+        /// <summary>✅ 已复刻（2026-11-04 · B142-E31）：`Content` 模板高 **41.7226** − `Item` 高 **40.8707** = **0.8519**
+        /// （`Social Submenu Variant.prefab` 的 `Content` `m_SizeDelta.y = 41.7226`）—— 原版 `Show():926-932` 的内容高 =
+        /// `n × 40.8707 + 0.8519`，首行/末行各让 `ItemGap/2 = 0.426`（`TMP_Dropdown.cs:842-843` 的 `offsetMin.y` / `offsetMax.y`）。
+        /// ⚠️ 与 `Battle/SettingsPanel.LstItemGap` / `Shell/SettingsWindow.LstItemGap` **同一个数**（三处下拉同源）。</summary>
+        public const float ItemGap = 0.8519f;
 
         // ---- 渲染队列（🔴 **绝对档**，理由见下）----
         //   ⚠️ 这里**不走** `SocialView.*` 的 `QOff + qOff`：那个偏移是**私有**的（`SocialView.QOff` 是
@@ -2334,7 +2339,7 @@ namespace CardPresentation
         readonly GameObject _bgClosed, _bgOpen;
         readonly ImageQuad _arrowClosed, _arrowOpen;
 
-        Transform _list, _blocker;
+        Transform _list, _blocker, _viewport, _content;   // ✅ 已复刻（2026-11-04 · B142-E18 · 判据 = `Social Submenu Variant.prefab` 的 `Template ▸ Viewport ▸ Content ▸ Item n`：`_viewport` = `Viewport` 节点（挂 `ViewportClip`，等价原版那颗 `Mask`）、`_content` = 条目真正挂的那一层）
         readonly System.Collections.Generic.List<ImageQuad> _itemQuads = new System.Collections.Generic.List<ImageQuad>();
         /// <summary>每行的 `Item Checkmark`（原版 `Item` 的第三颗子件）；`null` = 那张图取不到 ⇒ 这一行没有勾。
         /// 🔴 **`B-229`（2026-11-01）**：原来这个位置是一个只 `Add`、从不读的 `_itemBgs`（死字段）—— 已删；
@@ -2384,7 +2389,7 @@ namespace CardPresentation
         }
 
         /// <summary>自检读口：列表根（原版 `Template`）；还没建过 ⇒ `null`。</summary>
-        public Transform ListRoot { get { return _list; } }
+        public Transform ListRoot { get { return _list; } } public Transform ViewportRoot { get { return _viewport; } } public Transform ContentRoot { get { return _content; } }   // ✅ 已复刻（2026-11-04 · B142-E18 · 判据 = `Social Submenu Variant.prefab` 的 `Template ▸ Viewport`（`!u!224 &224737469884136080`）`▸ Content`（`!u!224 &224868640879826322`）`▸ Item n` —— `ViewportRoot` / `ContentRoot` 是给自检读层级用的两个口；`ListRoot` 仍是 `Template`）
 
         AllianceDropdownBox(Transform field, PxRect fieldR, Label caption, GameObject bgClosed, GameObject bgOpen,
                             ImageQuad arrowClosed, ImageQuad arrowOpen,
@@ -2404,17 +2409,17 @@ namespace CardPresentation
         {
             var f = MenuDraw.Node(parent, name, fieldR);
             var art = (System.Func<string, Texture2D>)(n => v.Page != null ? v.Page.ArtOf(n) : null);
-            // 合上面的底：`40K_dropdown_field_closed`（727×102 · 九宫 (60,35,60,35) · 染色 (1,0.475,0.098,1)），
+            // 合上面的底：`40K_dropdown_field_closed`（727×102 · 九宫 (60,35,60,35) · 染色 (1,0.4745098,0.09803922,1)），
             //   展开态换成 `…_opened`（同尺寸）——「各建一份按开合切」的理由见字段那一段。
             GameObject bgClosed = null, bgOpen = null;
             var bgTex = art(ArtFieldClosed);
             if (bgTex != null) bgClosed = MenuDraw.Nine(f, bgTex, fieldR, new Vector4(60f, 35f, 60f, 35f),
                                                         bgTex.width, bgTex.height, QListBg - 1,
-                                                        new Color(1f, 0.475f, 0.098f, 1f), true, "Bg");
+                                                        new Color(1f, 0.4745098f, 0.09803922f, 1f), true, "Bg");   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Social Submenu Variant.prefab` 16 颗 `Image.m_Color` 逐位；同 `:2526`）
             var bgTexOpen = art(ArtFieldOpened);
             if (bgTexOpen != null) bgOpen = MenuDraw.Nine(f, bgTexOpen, fieldR, new Vector4(60f, 35f, 60f, 35f),
                                                           bgTexOpen.width, bgTexOpen.height, QListBg - 1,
-                                                          new Color(1f, 0.475f, 0.098f, 1f), true, "Bg Opened");
+                                                          new Color(1f, 0.4745098f, 0.09803922f, 1f), true, "Bg Opened");   // ✅ 已复刻（2026-11-04 · B142-E5 · 同上一颗）
             if (bgOpen != null) bgOpen.SetActive(false);
             // 合上面的字（原版 `Label`：内缩 左10/上7/右10/下6 · 字号 14 · auto[10~45] · 色 0.67 · Left/Midline · 折行=0）
             var capR = new PxRect(fieldR.x1 + 10f, fieldR.y1 + 7f, fieldR.x2 - 10f, fieldR.y2 - 6f);
@@ -2428,11 +2433,11 @@ namespace CardPresentation
             ImageQuad arrowClosed = null, arrowOpen = null;
             if (arrowTex != null)
                 arrowClosed = MenuDraw.Rect(f, arrowTex, arrowR, "Arrow", QItemText,
-                                            new Color(0.361f, 0.188f, 0.0588f, 1f), true);
+                                            new Color(0.36078432f, 0.1882353f, 0.05882353f, 1f), true);   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Social Submenu Variant.prefab` 4 颗 `Arrow.m_Color` 逐位）
             var arrowTexOpen = art("40K_dropdown_arrow_opened");
             if (arrowTexOpen != null)
                 arrowOpen = MenuDraw.Rect(f, arrowTexOpen, arrowR, "Arrow Opened", QItemText,
-                                          new Color(0.361f, 0.188f, 0.0588f, 1f), true);
+                                          new Color(0.36078432f, 0.1882353f, 0.05882353f, 1f), true);   // ✅ 已复刻（2026-11-04 · B142-E5 · 同 `Arrow` 那 4 颗）
             if (arrowOpen != null) arrowOpen.gameObject.SetActive(false);
             var box = new AllianceDropdownBox(f, fieldR, cap, bgClosed, bgOpen, arrowClosed, arrowOpen,
                                               options, onChanged, art);
@@ -2517,7 +2522,7 @@ namespace CardPresentation
             int rows = n < MaxVisibleRows ? n : MaxVisibleRows;
             float w = _fieldR.W - ListWidthLoss;
             float top = _fieldR.CY + ListTopGap;
-            var listR = new PxRect(_fieldR.x1, top, _fieldR.x1 + w, top + rows * ItemH);
+            var listR = new PxRect(_fieldR.x1, top, _fieldR.x1 + w, top + rows * ItemH + ItemGap);   // ✅ 已复刻（2026-11-04 · B142-E31 · 判据 = uGUI `TMP_Dropdown.Show():926-932`：`sizeDelta.y = itemSize.y × n + offsetMin.y − offsetMax.y`，本 prefab 的 `offsetMin.y = 0.426` / `offsetMax.y = −0.426`（= `itemTemplateRect − contentRect + localPosition`，`TMP_Dropdown.cs:842-843`）⇒ **面板 = 内容高 = n × 40.8707 + 0.8519**；`extraSpace = 573.96 − 内容高 > 0` ⇒ 面板缩到内容高。⚠️ 原版 14 项时 = 573.04（< 序列化满高 573.96））
             _list = MenuDraw.Node(_field, "Template", listR);
             if (_list == null) { SocialPage.Say("[Social] 下拉列表节点建不出来 ⇒ 打不开。"); return; }
             var bgTex = _art("40K_dropdown_bg");
@@ -2534,16 +2539,16 @@ namespace CardPresentation
             if (chkTex == null)
                 SocialPage.Say("[Social] `40K_settings_icon_checkmark` 取不到 ⇒ 下拉里**没有「当前值」那颗勾**"
                              + "（原版那颗 `Item Checkmark` 的替代图缺）。");
-            float itemW = w - ScrollbarW;
+            float itemW = w - ScrollbarW;   var vpR = new PxRect(listR.x1, listR.y1, listR.x1 + itemW, listR.y1 + rows * ItemH + ItemGap); var vc = ViewportClip.Hang(_list, "Viewport", vpR, Vector4.zero, Vector2Int.zero); _viewport = vc.transform; var contentR = new PxRect(vpR.x1, vpR.y1, vpR.x2, vpR.y1 + rows * ItemH + ItemGap); _content = MenuDraw.Node(vc.transform, "Content", contentR);   // ✅ 已复刻（2026-11-04 · B142-E18 / E31 · 判据 = `Social Submenu Variant.prefab` 的 `Template ▸ Viewport`（`!u!224 &224737469884136080`：`m_SizeDelta.x = −17` ⇒ 宽 = Template − 17；`m_SizeDelta.y = 0` + 四边拉伸锚 ⇒ **高 = Template 高**；`!u!114 &114189131814739177` = `Mask`、`m_ShowMaskGraphic: 0`）`▸ Content`（`!u!224 &224868640879826322`）`▸ Item n`。⚠️ 原版是 `Mask`(stencil)、掩码形状 = 内置 `Background` 图的圆角矩形；我们只有矩形裁切 ⇒ 用 `ViewportClip.Hang(…, zero, zero)` 等效（不是 `RectMask2D`）。🔴 **高 = `rows × ItemH + ItemGap`（B142-E31 起）**：`Show():926-932` 让 `Content` 高 = 内容高、`extraSpace > 0` 时面板也缩到内容高 ⇒ `Viewport`（`sd.y = 0`）跟着变成内容高；条目从 `Content` 顶下让 `ItemGap/2 = 0.426`、底边同样留 0.426（`TMP_Dropdown.cs:964` 的 `offsetMin.y + itemSize·(n−1−i) + itemSize·pivot.y`）⇒ **条目恒在框内、不必再用「与 Item 同算式」去博那 1 ULP**）
             _selRow = _value;      // 建列表那一刻：`_selected` 落在当前值那行（= 原版 `Dropdown.Show()` 的 `if (isOn) Select()`）
             for (int i = 0; i < rows; i++)
             {
-                float y1 = top + i * ItemH;
-                var row = MenuDraw.Node(_list, "Item " + i, new PxRect(listR.x1, y1, listR.x1 + itemW, y1 + ItemH));
+                float y1 = top + ItemGap * 0.5f + i * ItemH;   // ✅ 已复刻（2026-11-04 · B142-E31 · 原版首行顶 = `Content` 顶 + 0.426（`TMP_Dropdown.cs:964` 的 `offsetMin.y`；末行底同样留 0.426）—— 🔴 这一刀**必须**与上面 `Content` 高 `+ ItemGap` 同批：只改高 ⇒ 整块下移 0.43px，只改这行 ⇒ 末行被视口切掉 0.43px）
+                var row = MenuDraw.Node(_content, "Item " + i, new PxRect(listR.x1, y1, listR.x1 + itemW, y1 + ItemH));   // ✅ 已复刻（2026-11-04 · B142-E18 · 原版 `Item` 的父件是 `Content`、不是 `Template`；绝对矩形一字未改 ⇒ `MenuDraw.Node` 走 `Local(parent, r)`，落点只由传进来的矩形决定）
                 ImageQuad q = null;
                 if (itemTex != null && row != null)
                     q = MenuDraw.Rect(row, itemTex, new PxRect(listR.x1, y1, listR.x1 + itemW, y1 + ItemH),
-                                      "Item Background", QItemBg, null, false);
+                                      "Item Background", QItemBg, new Color(1f, 0.4739555f, 0.0990566f, 1f), false);   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Social Submenu Variant.prefab` 6 颗 `Item Background ▸ Image.m_Color` 逐位 = (1, 0.4739555, 0.0990566, 1)；⚠️ 与 `B141-TINTS-ROUND` 的 0.4745098 **不是同一个值**）
                 var lbR = new PxRect(listR.x1 + 20f, y1 + 1f, listR.x1 + itemW - 10f, y1 + ItemH - 2f);
                 var lb = MenuDraw.TextBox(row, lbR, _options[i], new Color(0.783f, 0.783f, 0.783f, 1f),
                                           "Item Label", 30f, 18f, QItemText, 40f, 0f);

@@ -381,11 +381,11 @@ namespace CardPresentation
             //    🆕 **2026-10-12（A333 + A336③）**：第 4/5 个实参 = 原版 `m_fontSizeMax` / `m_fontSizeBase`
             //    = **40 / 36**（上限 = 标称 ⇒ A333 上本来就对；base 是本窗口第一份逐颗实读）。
             _title = MenuDraw.TextBox(right, TitleR, "", Color.white, "Title", 40f, 3f, QText, 40f, 36f, face: TmpFont.Face.LatinUi);
-            if (_title != null) MenuDraw.AlignLeft(_title, TitleR);
+            if (_title != null) MenuDraw.AlignLeft(_title, TitleR); if (_title != null) _title.SetSmallScreenFontSizes(40f, 3f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：Alliance Trophy Info Popup `window/RightSide/Title` = 40/3）
             // 🆕 **2026-10-12（A336③）**：`Alliance Trophy Info Popup/window/RightSide/Descripton` 实读
             //    = `fs 35 · auto[15~35] · base **36.0**`（上限 = 标称 ⇒ A333 本来就对）。
             _desc = MenuDraw.TextBox(right, DescR, "", Color.white, "Descripton", 35f, 15f, QText, 35f, 36f, face: TmpFont.Face.LatinCardBody);
-            if (_desc != null) MenuDraw.AlignLeft(_desc, DescR);
+            if (_desc != null) MenuDraw.AlignLeft(_desc, DescR); if (_desc != null) _desc.SetSmallScreenFontSizes(35f, 15f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：Alliance Trophy Info Popup `window/RightSide/Descripton` = 35/15）
             // 🔴 **`Next Tier` 原来就建在这一行**（父 = `right` = `RightSide`）—— **层级错**：
             //    原版它是 **`Progress` 的第 2 个子**（`Progress` = [`ProgressBar`, `Next Tier`]）。
             //    2026-10-05 已挪进 `Progress` 下，见下面 `5a·2` 那一段（那里写了为什么世界矩形不变、

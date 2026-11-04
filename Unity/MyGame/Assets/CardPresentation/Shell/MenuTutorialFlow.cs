@@ -443,7 +443,7 @@ namespace CardPresentation
         // ============================================================ 每帧
         void Update()
         {
-            HandleSkipShortcut();
+            HandleSkipShortcut(); RecordClickPosition();
             Tick(Time.deltaTime);
         }
 
@@ -710,7 +710,7 @@ namespace CardPresentation
                 if (_explainShown && def.DeepTarget != MenuTutorialTargetKind.None)
                 {
                     target = Resolve(def.DeepTarget, top);
-                    if (target != null) { off = def.DeepOffset; usedKind = def.DeepTarget; }
+                    if (target != null) { off = DeepPointerOffsetFor(def); usedKind = def.DeepTarget; }
                 }
                 // 第三步**另一支**（同一步在不同上下文指不同件，例：GetCampaignNode 的战役页签 ↔ 战役窗）
                 if (target == null && _explainShown && def.DeepTarget2 != MenuTutorialTargetKind.None)
@@ -770,7 +770,7 @@ namespace CardPresentation
             //   **y 向上**；我们的设计像素 **y 向下** ⇒ y 取反。⛔ 不从截图量，值照阶段表（序列化实读）。
             //   `off` = 当前用的是哪一颗目标就取哪一份（第二步 = `PointerOffset`、第三步 = `DeepOffset`）。
             if (off != Vector2.zero)
-                p += new Vector2(off.x, -off.y);
+                p = PxPlusOffset(p, off);
             if ((p - _lastPoint).sqrMagnitude < 0.25f) return;      // 没动就别重建（重建会打断点击动画）
             _lastPoint = p;
             // 🔴 原版菜单链**不挂气泡**（`AddPointerAction` 里没有 `SetTutorialText`），文案走整屏简报。
@@ -1232,6 +1232,73 @@ namespace CardPresentation
 
         /// <summary>自检专用口：清掉静态 `_instance`（`Attach` 写进去的那一份）。收尾调 <see cref="AttachForTest"/> 之后用它。</summary>
         public static void ResetInstanceForTest() { _instance = null; }
+
+        /// <summary>自检专用口：注入一次「点击位置」（= 原版 `MousePositionDebug.GetMouseClickPosition()` 的返回值）。</summary>
+        public static void SetClickPositionForTest(Vector2 px) { _lastClickPx = px; _hasClickPx = true; _warnedNoClickPx = false; }
+        /// <summary>自检专用口：清掉「点击位置」（模拟「一次都没点过 / 无鼠标设备」）。</summary>
+        public static void ClearClickPositionForTest() { _lastClickPx = Vector2.zero; _hasClickPx = false; _warnedNoClickPx = false; }
 #endif
+
+        // ============================================================ 点击位置（= 原版 `MousePositionDebug.GetMouseClickPosition()`）
+        //
+        // 【判据】`d:/2/tools/decomp_full/TutorialStageClaimForgeFirstLevel__DoMenuActions.c:148-150`：
+        //   `uVar8 = UnityEngine_Rendering_MousePositionDebug__GetMouseClickPosition(); … AddPointer(item, uVar8, filterRaycast: 1)`
+        //   ⇒ 锻造首级领取那一步的指针 `position` 传的是**运行时鼠标点击位置**，不是阶段表里的常量 offset
+        //   （我们原来取 (0,0) 当等价实现）。`TutorialManager__AddPointerAction.c` 里那个参数的去向 =
+        //   `Transform.set_parentInternal(target)` + `set_localPosition(position)`（**不保持世界位置**）
+        //   ⇒ 它是**目标本地的像素偏移**，原版把屏幕坐标直接当它用 —— 这里**逐字照抄**，⛔ 不替原版「修好」。
+        // ⚠️ 同一 API 的另两侧也在用（`AiScripted__ExecuteAction.c` / `CardCollider2D__SetColliderInHand.c`），
+        //   语义都是「最近一次左键按下的屏幕位置」（y 向上）；y 轴在我们这一侧由 `PxPlusOffset` 取反。
+        // ⚠️ 为什么记在 `Update`：原版读的是「**最后一次点击**」的位置 —— 玩家点页签 → 窗变化 → 指针重算，
+        //   两者至少隔一帧 ⇒ 每帧记按下沿就等价。`Mouse.current == null`（批处理 / 无鼠标设备）⇒ 保持「没有」。
+        // ⚠️ 新成员一律追加在**类尾**（本文件账落点最深到 :1220，插在中间会让整片行号漂）。
+
+        static Vector2 _lastClickPx;
+        static bool _hasClickPx;
+        static bool _warnedNoClickPx;
+
+        /// <summary>最近一次左键按下的屏幕位置（= 原版 `GetMouseClickPosition()`；没有 ⇒ `(0,0)`，用 <see cref="HasLastClickPosition"/> 区分）。</summary>
+        public static Vector2 LastClickPositionPx { get { return _lastClickPx; } }
+        /// <summary>这一趟**记到过**点击位置没有（批处理 / 无鼠标设备恒 false）。</summary>
+        public static bool HasLastClickPosition { get { return _hasClickPx; } }
+        /// <summary>「没有点击位置 ⇒ 退回 (0,0)」那条警告打过没有（自检读口；只打一次）。</summary>
+        public static bool MissingClickPositionWarned { get { return _warnedNoClickPx; } }
+
+        void RecordClickPosition()
+        {
+            var m = Mouse.current;
+            if (m == null) return;                                   // 批处理 / 无鼠标设备
+            if (!m.leftButton.wasPressedThisFrame) return;
+            _lastClickPx = m.position.ReadValue(); _hasClickPx = true; _warnedNoClickPx = false;
+        }
+
+        /// <summary>深目标（第三步那一路）用的 offset：锻造首级领取 = **点击位置**，其余 = 阶段表里的 `DeepOffset`。
+        /// <para>判据 = `TutorialStageClaimForgeFirstLevel__DoMenuActions.c:148-150`（`AddPointer(item, GetMouseClickPosition(), 1)`）。
+        /// ⛔ 只有 `ClaimForgeFirstLevel` 的那一颗是点击位置 —— 别把这条推广到别的阶段（那会把常量 offset 全废掉）。</para></summary>
+        public static Vector2 DeepPointerOffsetFor(MenuTutorialStageDef def)
+        {
+            if (def == null) return Vector2.zero;
+            if (def.DeepTarget == MenuTutorialTargetKind.ForgeClaimButton
+                && def.Id == MenuTutorialStageId.ClaimForgeFirstLevel)
+                return ForgeClaimPointerOffset();
+            return def.DeepOffset;
+        }
+
+        /// <summary>锻造首级领取的指针 offset = 点击位置；没有记录 ⇒ `(0,0)` + **出声一次**（⛔ 不静默）。</summary>
+        static Vector2 ForgeClaimPointerOffset()
+        {
+            if (_hasClickPx) return _lastClickPx;
+            if (!_warnedNoClickPx)
+            {
+                _warnedNoClickPx = true;
+                Debug.LogWarning("[MenuTutorial] 锻造首级领取阶段：**没有**记录到鼠标点击位置 ⇒ 指针 offset 退回 (0,0)"
+                               + "（原版 `MousePositionDebug.GetMouseClickPosition()` 在无鼠标/批处理下同样返零；本警告只打一次）");
+            }
+            return Vector2.zero;
+        }
+
+        /// <summary>指针指尖 = 目标中心 + offset。**y 取反**：原版 `TutorialPointerData.offset` 是目标本地 y 向上，
+        /// 我们的设计像素 y 向下（`RefreshPointer` 里原来那句 `new Vector2(off.x, -off.y)`）。</summary>
+        public static Vector2 PxPlusOffset(Vector2 p, Vector2 off) { return new Vector2(p.x + off.x, p.y - off.y); }
     }
 }

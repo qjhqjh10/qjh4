@@ -316,6 +316,7 @@ namespace CardPresentation
                 _target.SetMaterial(_savedMat);              // 原样还回去（与 `WindowButton.RefreshGray` 同一语义）
                 _grayOn = false;
             }
+            ApplyGrayExtras(on);                             // 🆕 2026-11-04（`B142-E7`）：同一按钮上**另外几颗**图形件（见类尾那一节）
         }
 
         static bool EnsureGrayMaterial()
@@ -337,6 +338,80 @@ namespace CardPresentation
             _grayMat = new Material(sh);
             _grayMat.name = "UI Greyscale (BattleButtonFx)";
             return true;
+        }
+
+        // ============================================================================================
+        //  🆕 2026-11-04（`B142-E7`）：**一颗按钮上可以有多颗灰化件**
+        //
+        //  判据（逐件现读 `d:/2/新解包资源/assets_full/bundle_scenes_scenes_battlearena1`，选卡面板
+        //  `Continue Button` = `Battle Arena 1.unity` GO **779**）：
+        //   ① `MonoBehaviour_4262.json` = `UnityEngine.UI.Button`（该 GO 自己），`m_TargetGraphic` → `BG`（GO 1153）的 `Image`；
+        //   ② 子树里 **4 颗** `EverguildButtonMaterialModifier`（`m_Script` pathID `-9096086197743689236`，
+        //      `bundle_Waprforge_monoscripts/MonoScript/MonoScript_-9096086197743689236.json` 的 `m_Name` 现读
+        //      = `EverguildButtonMaterialModifier`）：根透明图 MB **5159**（GO 779）· `BG` MB **5186**（GO 1153）·
+        //      `ContinueText` MB **4762**（GO 444）· `ContinueButton` MB **4996**（GO 926）；
+        //   ③ 🔴 **第四颗（`ContinueText`）实际不灰**：`EverguildButtonMaterialModifier__GetModifiedMaterial.c`
+        //      开头两跳 `is TextMeshProUGUI` / `is TMP_SubMeshUI` ⇒ **原样返回 `baseMaterial`**
+        //      （ILSpy 同形：`out_cpp2il_dev_ilspy/EverguildButtonMaterialModifier.cs` 里两个 `typeof(…)` 早退）
+        //      ⇒ **有效灰化 = 3 颗**（根透明图 / `BG` / `ContinueButton`）。
+        //      ⛔ 别给 TMP 挂这一件：灰化材质没有字体图集，换上会把那行字画坏 —— 原版正是因此跳过 TMP 一族。
+        //   ⇒ 本类的 `_target` 只承载**色键**（原版 `ColorTint` 只打 `m_TargetGraphic` 那一颗）；
+        //     追加进来的件**只跟着灰、不参与色键** —— 与原版 `DoMaterialRefresh(list, …)` 逐颗写 `ToogleGreyScale` 同形。
+        // ============================================================================================
+
+        readonly System.Collections.Generic.List<HudPiece> _grayExtras = new System.Collections.Generic.List<HudPiece>();
+        readonly System.Collections.Generic.List<Material> _grayExtraSaved = new System.Collections.Generic.List<Material>();
+
+        /// <summary>把**另一颗图形件**也纳入「禁用 ⇒ 换灰化材质」这一组（原版 `EverguildButtonHelper.DoMaterialRefresh(list, …)`
+        /// 就是按 list 逐颗写 `ToogleGreyScale` 的，判据见本类尾那一节）。
+        /// <para>⚠️ **只影响灰化那一半**：色键（`m_Colors` / `m_TargetGraphic`）仍只打 <see cref="_target"/>（原版 `ColorTint` 只取那一颗）。</para>
+        /// <para>幂等：同一件重复传入只记一次；**已经灰着**时当场给这一颗补上灰化材质（原版改的是同一个 bool）。</para>
+        /// <para>⚠️ 只接受 **uGUI 件**（原版 `MaskableGraphic`）；世界空间 `ImageQuad` 那一支归 `Shell/WindowButton`，这里出声、不动它。</para></summary>
+        public void AddGrayTarget(HudPiece piece)
+        {
+            if (piece == null || piece == _target) return;
+            if (_grayExtras.Contains(piece)) return;
+            _grayExtras.Add(piece);
+            _grayExtraSaved.Add(null);
+            if (!_grayOn) return;
+            if (!piece.IsUgui)
+            {
+                Debug.LogWarning("[BattleButtonFx] `" + _name + "` 追加的灰化件 `" + piece.name + "` 是世界空间件（`ImageQuad`）"
+                               + " ⇒ **本类不换它的材质**（那一支归 `WindowButton`）");
+                return;
+            }
+            _grayExtraSaved[_grayExtras.Count - 1] = piece.Material;
+            piece.SetMaterial(_grayMat);
+        }
+
+        /// <summary>本类当前带的灰化件个数（含 `_target`）—— 自检断「三颗都挂上了」用。</summary>
+        public int GrayTargetCountForTest { get { return _grayExtras.Count + (_target != null ? 1 : 0); } }
+
+        /// <summary>自检：**这一件**现在是不是真的换着灰化材质。
+        /// （原来只有 <see cref="GrayedForTest"/> 一份，断不出「三颗都换了吗」⇒ `B142-E7` 补这个口。）</summary>
+        public bool IsGrayedForTest(HudPiece piece)
+        {
+            if (piece == null) return false;
+            if (piece == _target) return _grayOn;
+            if (!_grayOn || !piece.IsUgui) return false;
+            return _grayExtras.Contains(piece) && piece.Material == _grayMat;
+        }
+
+        void ApplyGrayExtras(bool on)
+        {
+            for (int i = 0; i < _grayExtras.Count; i++)
+            {
+                var p = _grayExtras[i];
+                if (p == null) continue;
+                if (!p.IsUgui)
+                {
+                    if (on) Debug.LogWarning("[BattleButtonFx] `" + _name + "` 的附带灰化件 `" + p.name + "` 是世界空间件"
+                                           + "（`ImageQuad`）⇒ 不换它的材质（那一支归 `WindowButton`）");
+                    continue;
+                }
+                if (on) { _grayExtraSaved[i] = p.Material; p.SetMaterial(_grayMat); }
+                else p.SetMaterial(_grayExtraSaved[i]);
+            }
         }
     }
 }

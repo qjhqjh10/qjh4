@@ -152,7 +152,7 @@ namespace CardPresentation
             //   ⛔ 节点名 `"Join Alliance text"` 与那串字号/基准实参没动。
             var jt = MenuDraw.TextBox(_noAlliance, jtR, Loc.T("SocialMenu/Alliances/JointToEarnRewards"),
                                       Color.white, "Join Alliance text", 41.4f, 18f, QText, 41.4f, 36f, face: TmpFont.Face.LatinCardBody);
-            if (jt != null) { /* hAlign = Center/Middle ⇒ 不调 Align* */ }
+            if (jt != null) { /* hAlign = Center/Middle ⇒ 不调 Align* */ jt.SetSmallScreenFontSizes(40f, 15f); }   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：`Draft Mode Timed Mode Window ▸ Draft Mode Pay State ▸ Alliance Scoring Panel ▸ No Alliance ▸ Join Alliance text` = 40/15）
             var jbR = Off(JoinBtnR, x1, y1);
             _joinBtn = MenuDraw.Node(_noAlliance, "Join Alliances Button", jbR);
             var jbg = MenuDraw.Rect(_joinBtn, Art(ArtMulligan), jbR, "Bg", QArt);

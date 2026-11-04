@@ -2960,29 +2960,29 @@ namespace CardPresentation
         /// ⇒ 表按 **4×** 走（`dt + dt×3`），到点仍进 15 s 倒计时、由 `EndCountdown.c:47-49` 自然结束回合。</summary>
         const float NoActionsClockSpeedUp = 3f;
 
-        /// <summary>🆕 **2026-10-22（`W64` · 兜底审计 `B-27` 就地订正 · 铁律 5）**：
-        /// 结束回合钮**不可点**时底图的颜色 = **原样不动（纯白）** —— 原版就是这么显示的。
+        /// <summary>🆕 **2026-10-22（`W64` · 兜底审计 `B-27` 就地订正 · 铁律 5）** ＋ **2026-11-04（`B142-E43`）再订正「材质那一半」**：
+        /// 结束回合钮**不可点**时底图的**色键** = **原样不动（纯白）**；**材质那一半照换灰**（见下面第二段）。
         ///
         /// <para>**判据（逐字现读 `bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4895.json`）**：
         /// `m_Transition = **2**` —— Unity `Selectable.Transition` 枚举 **2 = `SpriteSwap`**
         /// （0 None / 1 ColorTint / **2 SpriteSwap** / 3 Animation）。
         /// `SpriteSwap` 只切 `m_SpriteState` 那四张精灵，**`m_Colors` 整组不参与**
         /// ⇒ `m_Colors.m_DisabledColor`（α = 0）在这颗钮上是**死值**；
-        /// `EverguildButton` 的两个自定义字段 `customColorTintTransitions = 0` /
-        /// `colorTintGreyOnDisable = 1` + `colorTintGreyOnDisableAlpha = 0.0` 同样只在
-        /// `m_Transition == 1` 时由 `SetUpButtonColors` 采（`…SetUpButtonColors.c:24`）⇒ 也不生效。</para>
+        /// `EverguildButton` 的 `customColorTintTransitions = 0` ⇒ `DoStateTransition` 里那段自定义色键整段跳过
+        /// （`…DoStateTransition.c` 开头 `if (m_Transition == 1 || customColorTintTransitions == 0) goto`）；
+        /// 🔴 但 `colorTintGreyOnDisable = 1` 走的是**另一个半段**（`SetToStateActiveOrDisabled`），**与 `m_Transition` 无关**。</para>
         ///
         /// <para>而 `m_SpriteState`：`m_HighlightedSprite` / `m_PressedSprite` 有值，
-        /// **`m_DisabledSprite = { m_FileID: 0, m_PathID: 0 }` = null**
-        /// ⇒ 原版「不可点」时**保持普通精灵**（`Selectable.DoStateTransition` 遇到 null 不替换）。</para>
+        /// **`m_DisabledSprite = { m_FileID: 0, m_PathID: 0 }` = null** ⇒ 「不可点」时**精灵**仍是普通那一张
+        /// （`Selectable.DoStateTransition` 遇到 null 不替换）；**但材质换成 `Everguild/UI/Greyscale`**（下一段）。</para>
         ///
         /// <para>🔴 **上一版错在哪**：把 `m_Transition = 2` 读成 `ColorTint`，于是照 `m_DisabledColor` 的
-        /// α = 0 把底图**整块弄透明**（敌回合只剩一行字）。⇒ 现在**⛔ 不许**自造透明 / 压暗 / 换色：
-        /// 这一格就是 `Color.white`（= 不改变任何东西），保留常量只为「有出处地写死这件事」。</para>
+        /// α = 0 把底图**整块弄透明**（敌回合只剩一行字）。⇒ **⛔ 不许**自造透明 / 压暗：色键这一格就是
+        /// `Color.white`；**变灰走材质那一支**（`BattleButtonFx.SetDisabled`，见 `TickHudButtonFeedback`）。</para>
         ///
-        /// <para>⚠️ 「不可点」的**行为**那一半照旧：我们这颗不是 uGUI `Selectable`（`BattleHudButton` 是裸
-        /// `IPointerClickHandler`）⇒ 闸落在 `ClickEndTurnHud` 的 `Ctx.Active != _me`（原版
-        /// `SetEnemyTurnUI.c:5-8` / `StopClock.c:33-35` 的 `interactable = false` 的等价物）。</para></summary>
+        /// <para>⚠️ 「不可点」的**行为**不在这颗常量里：我们这颗不是 uGUI `Selectable`（`BattleHudButton` 是裸
+        /// `IPointerClickHandler`）⇒ 闸落在 `ClickEndTurnHud` 的 `Ctx.Active != _me`；**视觉**那一半由
+        /// `TickHudButtonFeedback` 每帧 `SetDisabled(!EndTurnInteractable)` 落到灰化材质上。</para></summary>
         static readonly Color EndTurnBgTint = Color.white;
 
         /// <summary>把自己的手牌索引找出来（落点校验要用）</summary>
@@ -5950,7 +5950,7 @@ namespace CardPresentation
 
         /// <summary>聊天（语音条）钮那一下（原版 `PlayerInfo/ChatButton` 的 `Button.m_OnClick →
         /// `BattleManager.ClickChat`，见 `BuildHudExtras` 里建它那一段的判据）。
-        /// 冷却那一跳照旧：原版冷却中 `interactable = false`（按不动），⛔ 不静默吞掉。</summary>
+        /// 冷却那一跳照旧：原版冷却中 `interactable = false`（按不动），⛔ 不静默吞掉；**视觉灰化**由 `TickHudButtonFeedback` 每帧 `SetDisabled(!ChatButtonInteractable)` 落到材质上。</summary>
         void ClickChatHud()
         {
             if (HudClickBlocked) return;
@@ -6032,10 +6032,10 @@ namespace CardPresentation
             //   `Selectable.set_interactable(false)` 的等价物 —— `ClockManager__SetEnemyTurnUI.c:5-8` 与
             //   `StopClock.c:33-35`/`StopClockUi.c:25-27` 在那两态都把那颗钮**点不动**。
             //   ⚠️ 我们这颗不是 uGUI `Selectable`（是 `BattleHudButton` = 裸 `IPointerClickHandler`）
-            //   ⇒ 「不可点」只能落在这一道闸上。**视觉不动**：原版那颗钮是 `m_Transition = 2`
-            //   （`SpriteSwap`）且 `m_SpriteState.m_DisabledSprite = null` ⇒ 不可点时**保持普通精灵**
-            //   （`m_Colors.m_DisabledColor` 的 α = 0 是**死值**，⛔ 别照它把底图弄透明）——
-            //   判据全文 → `EndTurnBgTint` 的 doc。
+            //   ⇒ 「不可点」**行为**只能落在这一道闸上；**视觉**由 `TickHudButtonFeedback` 的 `SetDisabled` 落灰。
+            //   ⚠️ 视觉**不是**「不动」：精灵确实保持普通（`m_DisabledSprite = null`、`m_DisabledColor` 是死值），
+            //   但 `colorTintGreyOnDisable = 1` ⇒ 不可点时**换灰化材质**（`SwitchMaterial`，与 `m_Transition` 无关；
+            //   2026-11-04 `B142-E43` 就地订正「视觉不动」这半句，判据全文 → `EndTurnBgTint` 的 doc）。
             if (Ctx.Active != _me) return;
             EndPlayerTurn(fromUi: true);
             UpdateHud();
@@ -12483,9 +12483,9 @@ namespace CardPresentation
                 // 🔴 2026-10-27（B88 · E5 · 账 HUD:696）：补上原版**第一道闸** `duringBattleFlag(+0x25c)`
                 //   —— `BattleManager__CanShowCemetery.c:16` 先读它，局终之后整条返回 0（`:37-70` 的
                 //   `hideCemetery` 那一支在它之后）。等价物 = 「有 `Ctx` 且未终局」（与 `CanLocalChat` 的
-                //   `IsDuringBattle` 同一句，⛔ 别另造一套）。⚠️ 不把 `InMulligan`/`Turn<=0` 并进来 ——
-                //   原版那一位置真在 `_StartBattlePhase`、置假在 `DeadHero`，换牌期它已经是真。
-                if (Ctx == null || Ctx.IsOver) return false;   // `duringBattleFlag` 的等价物
+                //   `IsDuringBattle` 同一句，⛔ 别另造一套）。🔴 2026-11-04（B142-E3 · `B141-CEMROW-DOC` 订正）：**换牌期为假** ——
+                //   `_StartBattlePhase_d__334__MoveNext.c:161-165` 把 `duringBattleFlag(+0x25c)` 与 `UIstate=1(+0x290)` **同一句**置真 ⇒ 换牌期 `_StartBattlePhase` 还没跑、原版读它就是假。
+                if (Ctx == null || !CemeteryDuringBattle(Ctx.IsOver, Ctx.MulliganOpen)) return false;   // `duringBattleFlag` 的等价物（✅ 已复刻 2026-11-04 · B142-E3 · 判据 = `_StartBattlePhase_d__334__MoveNext.c:161-165`；换牌期为假，原判据见 `BattleManager__CanShowCemetery.c:16`）—— 判据只此一处，见 `CemeteryDuringBattle`
                 var st = Ctx.Tutorial != null ? Ctx.Tutorial.Stage : null;
                 if (st == null) return true;          // 非教程局：原版 `CanShowCemetery` 直接 return 1
                 return !st.hideCemetery;
@@ -13510,9 +13510,9 @@ namespace CardPresentation
             EnsureHudButtonFx();
             bool blocked = HudButtonsBlocked;
             bool held = PointerHeldRaw();
-            FeedHud(_fxEndTurn, !blocked && HitEndTurn(world), held);
+            FeedHud(_fxEndTurn, !blocked && HitEndTurn(world), held); if (_fxEndTurn != null) _fxEndTurn.SetDisabled(!EndTurnInteractable);
             FeedHud(_fxSettings, !blocked && SettingsBtnHit(world), held);
-            FeedHud(_fxChat, !blocked && ChatBtnHit(world), held);
+            FeedHud(_fxChat, !blocked && ChatBtnHit(world), held); if (_fxChat != null) _fxChat.SetDisabled(!ChatButtonInteractable);
             FeedHud(_fxCemetery, !blocked && CemeteryBtnHit(world), held);
             FeedHud(_fxOffensive, !blocked && _offensiveBtn != null && _offensiveBtn.gameObject.activeSelf
                                   && _offensiveBtn.Contains(world), held);
@@ -17760,16 +17760,16 @@ namespace CardPresentation
             Ctx.Log($"[Tutorial] 提示消掉 ⇒ 脚本可以往下走（原版清 `WaitingForTutorialTipFlag`）");
             return true;
         }
-        /// <summary>自检用：喂一下「消提示」这一手（产品里由 `Update` 的抬起沿喂）。</summary>
+        /// <summary>自检用：喂一下「消提示」这一手（产品里由 `Update` 的按下沿喂）。</summary>
         public bool DismissTutorialTipForTest(bool force) { return DismissTutorialTip(force); }
 
-        /// <summary>产品输入：日志/聊天/跳过那些之后，**点一下就把提示消掉**（原版 `TutorialTipScript` 那一支）。
+        /// <summary>产品输入：日志/聊天/跳过那些之后，**点一下就把提示消掉**（原版 `TutorialTipScript` 那一支）。✅ 已复刻（2026-11-04 · B142-E67 · 判据 `TutorialTipScript__Update.c:9-27` = `Input.GetMouseButtonDown(0)` ⇒ **按下沿**；它排在 `Update` 里 `if (_downEdge) RequestTutorialSkip(...)` 之前且**消费**这一沿 ⇒ 同一按不会既消提示又跳过）。
         /// 返回 true = 这一下被提示吃掉了。</summary>
         bool HandleTutorialTipDismiss()
         {
             if (!_tutTipUp) return false;
             if (Ctx == null || Ctx.Tutorial == null) return false;
-            if (!ReleasedThisFrame()) return false;
+            if (!ClickedThisFrame()) return false;   // ⚠️ 按下沿（原版 `GetMouseButtonDown`）；改回 `ReleasedThisFrame()` ⇒ 与原版差一帧（B142-E67）
             DismissTutorialTip();      // 按早了（1 秒闸）⇒ 这一下仍被吃掉（别让它穿到棋盘上）
             return true;
         }
@@ -24184,13 +24184,13 @@ namespace CardPresentation
                 if (place.HasValue && place.Value.MoveBody)
                     beatDur = Mathf.Max(0f, place.Value.MoveBodyDelay) + Mathf.Max(0f, place.Value.MoveBodyTime);
                 if (at <= VfxTimeEpsilon)
-                    PlayPlacedOne(e, it.Name, place, self, target, fallbackPos, handAnchored, slotGateSeat);
+                    PlayPlacedOneMulti(e, it.Name, place, self, target, fallbackPos, handAnchored, slotGateSeat);   // 🔴 2026-11-04（`B142-E3` · `B141-CHK05-L1393`）：多目标拍按 `BattleEvent.AbilityTargetList` 逐目标各播一份（单目标/无表 ⇒ 与本行改前逐字相同）
                 else
                 {
                     // 与 `FireEventAll` 同一个错开口径（`ResolvedVfx.T` = 组内顺序时长之和 + 自身 `vfxDelayTime`）。
                     string nm = it.Name; var pl = place;
                     ScheduleAction(at,
-                        () => PlayPlacedOne(e, nm, pl, self, target, fallbackPos, handAnchored, slotGateSeat), beatDur);
+                        () => PlayPlacedOneMulti(e, nm, pl, self, target, fallbackPos, handAnchored, slotGateSeat), beatDur);
                 }
                 fired++;
             }
@@ -24201,7 +24201,7 @@ namespace CardPresentation
         /// <param name="handAnchored">🔴🆕 2026-10-31（`B104_T21` · 施工单 T21-a）：这一件锚在**这张卡的手牌档**
         /// （判据 `CardScript__GetEffectAnchor.c:9-19` ⇒ `CardView.EffectAnchor(false)`）。见 `PlayPlacedPieces` 的同名形参。</param>
         void PlayPlacedOne(BattleEvent e, string vfx, CardAnimPlacement? place,
-                           CardView self, CardView target, Vector3 fallbackPos, bool handAnchored = false, int slotGateSeat = -1)
+                           CardView self, CardView target, Vector3 fallbackPos, bool handAnchored = false, int slotGateSeat = -1, int beatTgtPlayer = -1, int beatTgtSlot = -1, int beatTgtInstance = 0)   // 🔴🆕 2026-11-04（`B142-E3` · `B141-CHK05-L1393`）：`play` / `trigger` 两桶的多目标拍按 `BattleEvent.AbilityTargetList` 逐目标各播一份（判据 `AbilityLogic__PlayAnim.c:171-176`）；这三个 `-1` = 不覆盖（退回事件自己的 `TargetPlayer/TargetSlot`）
         {
             if (string.IsNullOrEmpty(vfx)) return; if (slotGateSeat >= 0 && place.HasValue && !BeatSlotGate(place.Value.StartPos, place.Value.EndPos, slotGateSeat)) return;   // 🔴 `B118_W22`（账 `D118-76`）：空位门 —— 判据 `AbilityLogic__PlayAnim.c:104-169`（不够就**跳过这一拍**，⛔ 不是换锚点）；`-1` = 不过门（现在只有 `trigger` 桶不传：它混着 trait 效果那一源，原版没这道门）
             if (!place.HasValue)
@@ -24240,7 +24240,7 @@ namespace CardPresentation
             ScheduleUnitShakes(p.UnitShakes, self, target, e.Player, 0f); ScheduleUnitTween(p.TweenAnim, self, target, 0f, "beat:" + vfx);   // 判据 `_d__466:110-125` / `_d__465:130-145`，缺数据零调用；🆕 2026-10-29（B97_W18 · 账 `特效动画:492`）第三条同形出口（`_d__465:151-200` 也有 `+0x80` 补间段），`at` 传 0 —— 调用方 `PlayPlacedPieces` 已把 `startDelay` 折进 `at`（⛔ 别再加一次）
             PlayAbilityBeat(e, vfx, sp, p.EndPos, pt,
                             p.Move, p.OrientToVelocity, p.Ts, p.Tm, p.Ease,
-                            null, place, self, target, handAnchored: handAnchored);
+                            null, place, self, target, handAnchored: handAnchored, beatTgtPlayer: beatTgtPlayer, beatTgtSlot: beatTgtSlot, beatTgtInstance: beatTgtInstance);   // 多目标逐目标播放：目标由调用方按 `AbilityTargetList` 逐个给（`B142-E3`）
         }
 
         /// <summary>🔴🆕 **2026-10-24（执行代理 `W1` · AN1 `R6` · **S0**）：单位死亡时**它自己的死亡触发能力动画**
@@ -25764,7 +25764,7 @@ namespace CardPresentation
                 // ⚠️ **屏幕位置和原来那套正交坐标几乎重合**（两行 65.4%/42.7% vs 原版实测
                 //    65.6%/43.1%）⇒ **命中判定仍然按屏幕空间走，不用改**。
                 bool foe = !mine;
-                float sc = (u != null && u.IsWarlord) ? ArenaSlots.HeroScale(foe) : ArenaSlots.CardScale(foe);
+                float sc = PoseScale3D(u, foe);   // ✅ 已复刻（2026-11-04 · B142-E26 · `B142-POSEFOR-THIRD`）：补上 `MinionManager.GetUnitSizeInPlay` **第三支**（`cardType ∉ {0,10}` ⇒ `MinionInPlayScale 0.75 × (enemy ? 0.86 : 1)` = 0.75 / 0.645）；改前只有 `IsWarlord ? HeroScale : CardScale`，defence/enchantment 会画成 0.36/0.69
                 pos = ArenaSlots.RootPosition(slot, foe, sc);
                 scale = sc;
             }
@@ -28214,7 +28214,7 @@ namespace CardPresentation
             var badges = Badges.For(u.Keywords, fb.body,
                                     u.Card != null ? u.Card.NumericKeywords : null,
                                     key => KeywordActive(u, key),
-                                    isPlayer);
+                                    isPlayer, derivedCard: u.Card, traitSource: u.Card);   // ✅ 已复刻（2026-11-04 · B142-E3 · `B141-L986-DERIVED-TRAIT`）：`u.Card` ⇒ `Badges.MergeDerivedTraits` 把 ability trigger 派生的 trait 也并进这 7 格（判据 `CardTraitCollection__GetTraitInPlayListForIcons.c:112-192` 第二支）；调用链 `ToBoardCardData:21352 → ToCardData:28205 → Badges.For` ⇒ 场上两条渲染路共用这一处 ｜ ✅ 已复刻（2026-11-04 · B142-E26 · `B142-CARDTRACTS-BADGE`）：`traitSource: u.Card` ⇒ 基础那一半改用 SO 的 `CardTraits`（原版源，判据 `CardScript__SetBaseCardTraits.c:36-70` + `BattleCardUI__UpdateTraitIcons.c:59`），⛔ 不再拿 `keywords` 列顶替（`AM72` 多画 `strike`/少画 `slay` 就是它）
             // 🔴🆕 **2026-10-25（资源侧对账 · 调度台派单）：`CardData.faction` 要用【卡自己的】阵营。**
             //  原版读的是卡自己的 `rawCardData.cardArmy`（`ObtainableItem.cardArmy`，偏移 `+0x2C`）：
             //    · `TraitFrames.ArmyId` → `TraitEffect.GetEffect(army)` 的**按阵营覆盖**（`overrideByArmies`，
@@ -30081,8 +30081,8 @@ namespace CardPresentation
             //   （玩家 = `ProfileData.TitleName` · 对手 = `BotTitleName`）⇒ **会有可见差**；
             //   档位不受影响（`Midline` 不吃框高，见上）。
             //   而且 `Label` 恒 `NoWrap`（`BuildTmp` 硬写）⇒ 不踩「多行 + 档位」那个坑（见 W16 报告 §五·1）。
-            if (_titleMe != null) _titleMe.SetVAlign(Label.VAlign.Midline);
-            if (_titleFoe != null) _titleFoe.SetVAlign(Label.VAlign.Midline);
+            if (_titleMe != null) _titleMe.SetVAlign(Label.VAlign.Midline, 0f, TitleFace);   // ✅ 已复刻（2026-11-04 · B142-E3 · `B141-TITLEFACE`）：两颗称号的 TMP 面 = Asar（`:30067` 建标签时传的就是 `TmpFont.Face.LatinUi`）⇒ `SetVAlign` 的 `face` 实参必须同面；⚠️ Midline 档 `OrigInkCenterPx` 恒 0 ⇒ 今天数值层零差，这是口径一致性修复（面常量只此一处 = `TitleFace`）
+            if (_titleFoe != null) _titleFoe.SetVAlign(Label.VAlign.Midline, 0f, TitleFace);   // 同上（敌方那颗 `TitleText_Foe`，`:30070` 建标签时同样是 `TmpFont.Face.LatinUi`）
             // 🔴 **2026-10-17（`T20` / `A2118`）**：不再恒传空 —— 原版 `PlayerProfileUIController` 是
             //    **头像 / 称号 / 名字一起设**的，玩家在左上角档案窗（`Player Profile Window`）选的那一套
             //    进战斗后要原样出现在名牌上（用户 2026-10-17 点名）：
@@ -32258,10 +32258,10 @@ namespace CardPresentation
             //   ⛔ 这里别再单独 `SetText(CardText.Phrase("END TURN"))`（那样敌方回合会印错、倒计时会被盖掉）。
             UpdateClockLabel();
             if (_endTurnBg != null)
-                // 🔴 **2026-10-22（`W64` · 兜底审计 `B-27`）**：底图**恒为原样**（`EndTurnBgTint` = 纯白）。
-                //   原版那颗钮 `m_Transition = 2`（SpriteSwap）+ `m_SpriteState.m_DisabledSprite = null`
-                //   ⇒ 不可点（敌回合 / 对局结束）时**保持普通精灵**，`m_Colors.m_DisabledColor` 整组不生效
-                //   （上一版照它的 α = 0 把底图弄透明是**读错了 `m_Transition`**，判据 → `EndTurnBgTint` 的 doc）。
+                // 🔴 **2026-10-22（`W64` · `B-27`）＋ 2026-11-04（`B142-E43`）就地订正（铁律 5）**：底图**色键**恒为原样
+                //   （`EndTurnBgTint` = 纯白；`m_Transition = 2` 的 `m_Colors` 整组不参与）——
+                //   ⛔ 上一版只写到这儿就收尾了，**漏了材质那一半**：`colorTintGreyOnDisable = 1` ⇒ 不可点时
+                //   **换灰化材质**（`SetToStateActiveOrDisabled → SwitchMaterial`，与 `m_Transition` 无关；落点在 `TickHudButtonFeedback`）。
                 _endTurnBg.SetTint(EndTurnBgTint);
 
             // 牌堆的回合灯：轮到自己亮绿、否则红（原版两张图 `40k_DeckHolder_light_green/_red`）
@@ -35398,10 +35398,10 @@ namespace CardPresentation
         public bool ChatPopUpDisabledForTest { get { return _chatPopUpBlocked; } }
 
         /// <summary>原版 `VoiceLinesController.CanChat(isPlayer = 1)` —— **本机自己那一侧**的那一半：
-        /// `IsDuringBattle()`（我们 = 有 `Ctx` 且未终局）**且** `+0x78 != 0`（`__CanChat.c:27-30`）。
+        /// `IsDuringBattle()`（🆕 2026-11-04 `B142_E2`：直接调 `MatchTypes.IsDuringBattle(Ctx, false)` —— 含「换牌期为假」与「`ctx == null`（`UIstate 0`）为假」两档）**且** `+0x78 != 0`（`__CanChat.c:27-30`）。
         /// <para>🔴 **⛔ 不含敌方静音**：`+0x40`（`chatMuted`）只在 `isPlayer == 0` 那一支查（`__CanChat.c:21-26`）
         /// ⇒ 玩家自己那几句**不受「屏蔽敌方聊天」影响**（那是 <see cref="CanAiChat"/> 的事）。</para></summary>
-        bool CanLocalChat() { return Ctx != null && !Ctx.IsOver && !ChatPopUpBlocksLocal; }
+        bool CanLocalChat() { return Ctx != null && MatchTypes.IsDuringBattle(Ctx, false) && !ChatPopUpBlocksLocal; }   // 🆕 2026-11-04（B142_E2）：改吃 `MatchTypes.IsDuringBattle(ctx, includeMulligan: false)` —— 原版 `CanChat` 的第一道闸；⇒ **换牌期（`UIstate 11/12`）不能聊天**（改前只判「有 Ctx 且未终局」＝换牌期也放行）
 
         /// <summary>原版 `VoiceLinesController.SetPopUpDisabled()`（= `+0x78 = 0`）。
         /// <para>调用点（原版）两处：`BattleManager__OnInitializationComplete.c:20`（开局）·
@@ -42307,9 +42307,9 @@ namespace CardPresentation
                 if (rows == null)
                     BeatSoundOff($"norows:{e.CardId}",
                         $"`{e.CardId}` 的技能事件**没有按行承载的目标表**（`BattleEvent.AbilityRowTargets == null`）"
-                      + "⇒ 每一拍退回**各行并集**（多行 ability 会每拍播并集 = over-play，`B141-SAN27-ROWID` 未接线）。"
-                      + "生产端 = `RuleCore.AppendOneRowAbilityTargetsToEvent`（补丁见 "
-                      + "`资料/完全复刻/报告/B141_W128_SAN27RowId.md`）。");
+                      + "⇒ 每一拍退回**各行并集**（多行 ability 会每拍播并集 = over-play）。"
+                      + "生产端 = `RuleCore.AppendOneRowAbilityTargetsToEvent`（✅ 已接线：`RuleCore.cs:15632`，"
+                      + "判据 `RuleCore.cs:18633/18651-18652`；历史补丁见 `报告/B141_W128_SAN27RowId.md`）。");
                 else
                     BeatSoundOff($"norow:{e.CardId}:{li}",
                         $"`{e.CardId}` 的拍（`ca={b.ca}` · `li={li}`）在事件的目标表里**找不到它自己那一行**"
@@ -42317,6 +42317,136 @@ namespace CardPresentation
                       + " ⇒ 这一拍退回**并集**（原版每行各播自己那行）。");
             }
             return union;
+        }
+
+        /// <summary>🔴🆕 **2026-11-04（执行写手 `B142-E3` · 账 `战斗逻辑驱动:1393` · `B141-CHK05-L1393`）：
+        /// `play` / `trigger` 两桶的**多目标逐目标播放**。
+        ///
+        /// <para>**病灶（改前）**：生产端早就把「这一条 ability 实际会落到哪些牌」挂到事件上了 ——
+        /// `RuleCore.AttachTriggerAbilityTargets`（触发路 `RuleCore.cs:12777` 的 `emitSignal` ⇒ `EvtKind.Trigger`
+        /// · 战术正文路 `EffectResolver.cs:2720` ⇒ `EvtKind.Play`），落点 = `BattleEvent.AbilityTargetList`。
+        /// 而**消费端只有 `ExpandAbilityBeats` 会读它**，那个口只收 `EvtKind.Ability`（`BattleDriver.cs:19660`）
+        /// ⇒ 战术/触发路的目标表**没有任何观察者**（= 原版 `AbilityLogic.PlayAnim` 逐目标各播一份，我们只播一份）。</para>
+        ///
+        /// <para>**判据** = `d:/2/tools/decomp_full/AbilityLogic__PlayAnim.c:171-176`：三个位置选项
+        /// （`startPosOption` / `endPosOption` / `pointTowardsOption`）**任一 == `abilityTarget(2)`** 时，
+        /// 原版按 `abilityTargets` **逐目标各播一份**；否则就播一份。⇒ 本方法照这个形状：
+        /// 用 <see cref="MultiTargetPlayCount"/> 判「这一件要不要逐目标」，要就按 `AbilityTargetList` 逐个播。</para>
+        ///
+        /// <para>⚠️ **⛔ 没有把 `EvtKind.Ability` 那道闸一起放宽**：`CardAnimOrder` 那张表**只装 `activeAbility`**
+        /// （`Battle/CardAnimOrder.cs` 文件头那段：拿它在 `Trigger`/`Play` 上展开会把**主动能力**的动画播到
+        /// 触发/出牌时机上，「错误演示且完全静默，比少播更坏」）⇒ 这里只扩**目标表这一半**
+        /// （逐目标播同一件），beat 表那一半仍只服务 `EvtKind.Ability`。⛔ 也别为它新增 `EvtKind` 成员（会造死代码）。</para>
+        ///
+        /// <para>零回归保证：`AbilityTargetList == null` / 只有 1 个目标 / 这一件的三个位置选项都不含
+        /// `abilityTarget` ⇒ 走 `n <= 1` 那一支，**与改前逐字相同**（只多一次判空）。</para></summary>
+        void PlayPlacedOneMulti(BattleEvent e, string vfx, CardAnimPlacement? place,
+                                CardView self, CardView target, Vector3 fallbackPos,
+                                bool handAnchored = false, int slotGateSeat = -1)
+        {
+            var tl = e != null ? e.AbilityTargetList : null;
+            int n = MultiTargetPlayCount(e, place);
+            if (n <= 1 || tl == null)
+            {
+                PlayPlacedOne(e, vfx, place, self, target, fallbackPos, handAnchored, slotGateSeat);
+                return;
+            }
+            for (int i = 0; i < n; i++)
+            {
+                var t = tl[i];
+                bool ok = t.Player >= 0 && t.Slot >= 0;   // ⛔ 非棋盘目标（`-1` 档）不覆盖，退回事件自己的目标（`BattleEventTarget` 是 struct ⇒ 没有 null 档）
+                PlayPlacedOne(e, vfx, place, self,
+                              ok ? AbilityTargetView(t.Player, t.Slot, t.InstanceId) : target,
+                              fallbackPos, handAnchored, slotGateSeat,
+                              ok ? t.Player : -1, ok ? t.Slot : -1, ok ? t.InstanceId : 0);
+            }
+        }
+
+        /// <summary>这一件**要播几遍**（判据 `AbilityLogic__PlayAnim.c:171-176`）：
+        /// 三个位置选项任一 == `abilityTarget(2)` **且** `BattleEvent.AbilityTargetList` 有 ≥2 个目标 ⇒
+        /// 目标个数；否则 1。自检读口（`B142_E3_Assert` 用它钉「放宽的只是目标表、不是 beat 表」）。</summary>
+        public static int MultiTargetPlayCount(BattleEvent e, CardAnimPlacement? place)
+        {
+            if (e == null || !place.HasValue) return 1;
+            var p = place.Value;
+            bool usesTgt = p.StartPos == (int)PositionOption.abilityTarget
+                        || p.EndPos == (int)PositionOption.abilityTarget
+                        || p.PointTowards == (int)PositionOption.abilityTarget;
+            var tl = e.AbilityTargetList;
+            return (usesTgt && tl != null && tl.Count > 1) ? tl.Count : 1;
+        }
+
+        /// <summary>称号那两颗 TMP 的**字体面**（自检读口 + 口径只此一处）。
+        /// 判据 = `:30067` / `:30070` 建标签时传的**最后一个实参** `TmpFont.Face.LatinUi`（= **Asar**，
+        /// `Label.OrigFace` 的对照表在 `Battle/Label.cs:2015`）。原版那两颗 `EnemyTitle` 用的就是 Asar。
+        /// ⚠️ `Midline` 档 `OrigInkCenterPx` 恒 0（`Label.cs:2146`）⇒ 今天传 Pragati 或 Asar **数值上一样**；
+        /// 这一格是为了「档位换成 `Middle/Top/Bottom` 时面必须对」而钉死的口径（`B141-TITLEFACE`）。</summary>
+        public const Label.OrigFace TitleFace = Label.OrigFace.Asar;
+
+        /// <summary>`duringBattleFlag(+0x25c)` 的**唯一判据**（原版 `BattleManager.CanShowCemetery` 的第一道闸）。
+        /// <para>**判据（第一权威）** = `d:/2/tools/decomp_full/BattleManager._StartBattlePhase_d__334__MoveNext.c:161-165`：
+        /// `*(undefined8 *)(lVar3 + 0x25c) = *puVar7; *(undefined4 *)(lVar3 + 0x264) = uVar2;
+        /// *(undefined4 *)(lVar3 + 0x290) = 1;` ⇒ `duringBattleFlag` 与 `UIstate = 1` **同一句**置真。
+        /// 换牌期 `UIstate ∈ {11,12}`、`_StartBattlePhase` **还没跑** ⇒ **换牌期它是假**。</para>
+        /// <para>`BattleManager__CanShowCemetery.c:16-27` 第一句就读它、为假直接 `return 0`。
+        /// ⇒ 等价物 = 「未终局 **且** 不在换牌期」。⛔ 别再把 `MulliganOpen` 那一维去掉（删了这条断言会红：
+        /// `B142_E3_Assert` A 组）。</para></summary>
+        public static bool CemeteryDuringBattle(bool isOver, bool mulliganOpen) { return !isOver && !mulliganOpen; }
+
+        /// <summary>3D 战场那一支的**卡根缩放**（= 原版 `BattleManager.GetUnitSizeInPlay` 的三条支）。
+        /// <para>判据（第一权威） = `d:/2/tools/decomp_full/BattleManager__GetUnitSizeInPlay.c:16-73`：
+        ///  · `param_3 == 0`（部队）⇒ `:16-30` 取 `MinionArea.desiredScale`（我方 0.36 / 敌 0.69）；
+        ///  · `param_3 == 10`（督军）⇒ `:70` 取 `heroScale`（0.40 / 0.77）；
+        ///  · **其余（defence 39 / enchantment 2）⇒ `:32-53` `globalVars.minionInPlayScale(+0x68) 0.75`
+        ///    × (`isPlayer ? 1 : enemyUnitsScaleRatio(+0x74) 0.86`)** = **0.75 / 0.645**。</para>
+        /// <para>✅ 已复刻（2026-11-04 · B142-E26 · `B142-POSEFOR-THIRD`）：`PoseFor` 的 3D 支原来只有
+        /// 「督军 : 部队」两条，第三支缺失 ⇒ 非部队/非督军的在场卡会拿到 0.36/0.69。
+        /// ⚠️ 今天 defence/enchantment **不进 `Board`**（`Board/ArenaSlots.cs:235-237` 自陈）⇒ **零观测面**；
+        /// 补它是铁律 11（判据已定就得做），不是可见缺陷。</para></summary>
+        static float PoseScale3D(UnitState u, bool foe)
+        {
+            return PoseScale3DBranch(u != null && u.IsWarlord, u != null && u.Card != null && u.Card.IsUnit, foe);
+        }
+
+        /// <summary><see cref="PoseScale3D"/> 的**纯判据**（自检读口 —— 与生产路径**同一段代码**，⛔ 别在别处再写一份）。
+        /// <para>⚠️ 断言用它钉住第三支：`PoseScale3DBranch(false, false, false) == 0.75f`、`(false, false, true) == 0.645f`；
+        /// 把第三支删掉（退化成 `CardScale`）⇒ 这两条当场红。</para></summary>
+        public static float PoseScale3DBranch(bool warlord, bool isUnit, bool foe)
+        {
+            if (warlord) return ArenaSlots.HeroScale(foe);
+            if (!isUnit) return ArenaSlots.InPlayScale(foe);
+            return ArenaSlots.CardScale(foe);
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-04（执行代理 `B142-E43` · `B142-TURNBTN-GRAY` / `B142-CHATBTN-GRAY`）：
+        //  **两颗 HUD 钮的 `interactable` 判据**（原版 `ClockManager.clockButton` / `VoiceLinesController.chatButton`）
+        //
+        //  判据（第一权威 = 反汇编，逐跳实读）：
+        //   · `TurnBtn`（`End Turn`）：`ClockManager__StartTimer.c:11` → `SetStartUi`（`interactable = 1`）是**己方回合**
+        //     那一支（调用点 `BattleManager._NextTurn_d__395__MoveNext.c:426`）；而 `SetEnemyTurnUI.c:7`（敌回合）、
+        //     `StopClock.c:35`（点完 / 终局）、`StopClockUi.c:27`、`Start` 里的 `Replay` 档
+        //     （`cpp2il/out_cpp2il_dev_ilspy/ClockManager.cs:122`）全置 **false** ⇒ 等价物 = 「己方回合 ∧ 未终局 ∧ 非回放」。
+        //     ⚠️ 原版那颗 `m_Transition = 2`：精灵不换（`m_DisabledSprite` = null），但 `colorTintGreyOnDisable = 1`
+        //     ⇒ **换灰化材质**（`SetToStateActiveOrDisabled → SwitchMaterial`，与 `m_Transition` 无关）。
+        //   · `ChatButton`（玩家名牌下那颗）：`SetChatButtonOnCooldown` 协程开场置 false、冷却结束置 true
+        //     （`out_cpp2il_dev_ilspy/VoiceLinesController.cs:128/143`），`PopUpShowed` 置 false / `PopUpHid` 置 true
+        //     （同文件 `:1160/1171`）⇒ 等价物 = 「冷却结束 ∧ 气泡关着」。
+        //  ⚠️ 这两条**只喂视觉**：点不点得动仍走 `ClickEndTurnHud` / `ClickChatHud` 那两道既有的闸（⛔ 别在这里再判一次）。
+        // ==================================================================
+
+        /// <summary>结束回合钮此刻可不可点（原版 `ClockManager.clockButton.interactable`；判据 → 上面那一段）。
+        /// <para>消费者 = `TickHudButtonFeedback` 每帧 `SetDisabled(!EndTurnInteractable)`（连带灰化材质）。</para></summary>
+        public bool EndTurnInteractable
+        {
+            get { return Ctx != null && Ctx.Active == _me && !Ctx.IsOver && !_replaySession; }
+        }
+
+        /// <summary>聊天（语音条）钮此刻可不可点（原版 `VoiceLinesController.chatButton.interactable`）。
+        /// <para>消费者 = `TickHudButtonFeedback` 每帧 `SetDisabled(!ChatButtonInteractable)`。</para></summary>
+        public bool ChatButtonInteractable
+        {
+            get { return _chatCooldown <= 0f && !(_chatPopup != null && _chatPopup.Visible); }
         }
 
     }

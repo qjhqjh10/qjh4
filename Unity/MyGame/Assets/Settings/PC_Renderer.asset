@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WarpforgeVFX.GrabPassTransparentFeature
   m_Active: 1
   passEvent: 500
-  redrawAt501: 0
+  redrawAt501: 1
   redrawLayerMask:
     serializedVersion: 2
     m_Bits: 64
@@ -51,13 +51,13 @@ MonoBehaviour:
   m_AssetVersion: 3
   m_PrepassLayerMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 1207963447
   m_OpaqueLayerMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 1207963447
   m_TransparentLayerMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 1207963447
   m_DefaultStencilState:
     overrideStencilState: 0
     stencilReference: 0

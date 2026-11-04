@@ -567,7 +567,7 @@ namespace CardPresentation
             int cur;
             if (!_achProgress.TryGetValue(id, out cur)) cur = 0;
             if (value <= cur) return;
-            _achProgress[id] = value;
+            _achProgress[id] = value; RaiseAchievementHighest(id, value);
             SaveIfAuto();
         }
 
@@ -993,7 +993,7 @@ namespace CardPresentation
             public bool avatarBorderOn = true; public int equippedBorderIndex = 0;   // 🆕 2026-10-28（B90-N1 · FP-PROFILE-02）：已装备边框下标（`borders[]`；0 = `Default`，越界由读口按 0 处理）。⚠️ 与 `avatarBorderOn` 同一行是为了**零行数变化**（`SaveDto` 在文件中段，加行会让下游 ~45 处账落点整体下移）
             /// <summary>成就进度：与 <see cref="achValues"/> 同下标配对（`Ach_N`）。</summary>
             public string[] achIds = new string[0];
-            public int[] achValues = new int[0];
+            public int[] achValues = new int[0]; public int[] achHighest = new int[0];   // 🆕 2026-11-04（B142_E66 · 账 `个人资料_成就_排行#L37`）：原版 `AchievementPersistence` 的第二格 `highestValue`（判据 `AchievementsManager__GetHighestValue.c` = `Math.Max(current, highest, 0)`），与 `achIds` 同下标、与 `achValues` 等长。⚠️ 与 `achValues` **同一行**是为了**零行数变化**（`SaveDto` 在文件中段，加行会让下游几十处账落点整体下移）。旧档没有这个键 ⇒ `LoadFromDisk` 按 `achValues` 初始化（⛔ 不清零）
         }
 
         public const string SaveDirName = "WarpforgeProfile";
@@ -1017,7 +1017,7 @@ namespace CardPresentation
         }
 
         static SaveDto _save;
-        static Dictionary<string, int> _achProgress;
+        static Dictionary<string, int> _achProgress; static Dictionary<string, int> _achHighest;   // 🆕 2026-11-04（B142_E66）：`highestValue` 那一格的内存表（键集 = `_achProgress`；**只涨不落**）。⚠️ 与 `_achProgress` **同一行**是为了**零行数变化**（加行会让下游十几条账落点整体下移）
         static bool _saveTried;
 
         /// <summary>头像边框显隐（`Avatar Tab/Toggle borde`）。**读写都落盘**（原版在 `PlayerAvatarDataManager`）。</summary>
@@ -1033,7 +1033,7 @@ namespace CardPresentation
             if (_saveTried) return;
             _saveTried = true;
             _save = new SaveDto();
-            _achProgress = new Dictionary<string, int>();
+            _achProgress = new Dictionary<string, int>(); _achHighest = new Dictionary<string, int>();
             if (Application.isBatchMode) return;      // 自检不碰真存档
             LoadFromDisk(); EnsureLocalDefaultTitleOnce();   // 🔶 自己设计（非原版）：未装备时默认装「清单第 1 条」· 原版称号来自服务器 `PlayerDataManager.get_PlayerTitle`、本地拿不到 · 调度台 2026-10-27 裁定。⚠️ 只在**非批处理**装载期跑一次（自检那一路在同一行前面 return ⇒「没选」这个状态对断言仍可达）
             // 🆕 **2026-10-25（执行代理 `X18`）**：`Ach_24` 的**唯一写点** —— 真实档案加载完之后
@@ -1073,7 +1073,7 @@ namespace CardPresentation
                 _titleIndex = d.titleIndex;
                 if (d.achIds != null && d.achValues != null)
                     for (int i = 0; i < d.achIds.Length && i < d.achValues.Length; i++)
-                        if (!string.IsNullOrEmpty(d.achIds[i])) _achProgress[d.achIds[i]] = d.achValues[i];
+                        if (!string.IsNullOrEmpty(d.achIds[i])) { _achProgress[d.achIds[i]] = d.achValues[i]; _achHighest[d.achIds[i]] = (d.achHighest != null && i < d.achHighest.Length) ? d.achHighest[i] : d.achValues[i]; }   // 🆕 2026-11-04（B142_E66）：旧档没有 `achHighest`（或数组短了）⇒ **用 currentValue 初始化**（⛔ 不清零，那会把历史最高丢掉）
             }
             catch (Exception e)
             {
@@ -1099,9 +1099,9 @@ namespace CardPresentation
                 else _save.avatarIndex = _avatarIndex;
             }
             _save.playerName = _nameOverride ?? ""; _save.equippedBorderIndex = EquippedBorderIndex;   // 🆕 2026-10-28（B90-N1 · FP-PROFILE-02）：边框下标随整份 payload 一起写（双写中央档 + `profile.json`）
-            var ids = new List<string>(); var vals = new List<int>();
-            foreach (var kv in _achProgress) { ids.Add(kv.Key); vals.Add(kv.Value); }
-            _save.achIds = ids.ToArray(); _save.achValues = vals.ToArray();
+            var ids = new List<string>(); var vals = new List<int>(); var hivals = new List<int>();
+            foreach (var kv in _achProgress) { ids.Add(kv.Key); vals.Add(kv.Value); int hv; hivals.Add(_achHighest != null && _achHighest.TryGetValue(kv.Key, out hv) ? Mathf.Max(hv, kv.Value) : kv.Value); }
+            _save.achIds = ids.ToArray(); _save.achValues = vals.ToArray(); _save.achHighest = hivals.ToArray();
 
             string json;
             try { json = JsonUtility.ToJson(_save, true); }
@@ -1158,7 +1158,7 @@ namespace CardPresentation
         public static void ReloadSaveForTest()
         {
             EnsureSave();
-            _achProgress = new Dictionary<string, int>();
+            _achProgress = new Dictionary<string, int>(); _achHighest = new Dictionary<string, int>();
             LoadFromDisk();
         }
 
@@ -1177,7 +1177,7 @@ namespace CardPresentation
         {
             if (string.IsNullOrEmpty(id)) return;
             EnsureSave();
-            _achProgress[id] = Mathf.Max(0, value);
+            _achProgress[id] = Mathf.Max(0, value); RaiseAchievementHighest(id, _achProgress[id]);
             SaveIfAuto();
         }
 
@@ -1194,7 +1194,7 @@ namespace CardPresentation
             EnsureSave();
             int cur;
             if (!_achProgress.TryGetValue(id, out cur)) cur = 0;
-            _achProgress[id] = Mathf.Max(0, cur) + delta; AchievementMilestoneToast.OnValueChanged(id, Mathf.Max(0, cur), _achProgress[id]);   // 原版 `Achievement.OnReachMilestone`（账 `个人资料_成就_排行:29`；实现在 `Shell/AchievementMilestoneToast.cs`）
+            _achProgress[id] = Mathf.Max(0, cur) + delta; RaiseAchievementHighest(id, _achProgress[id]); AchievementMilestoneToast.OnValueChanged(id, Mathf.Max(0, cur), _achProgress[id]);   // 原版 `Achievement.OnReachMilestone`（账 `个人资料_成就_排行:29`；实现在 `Shell/AchievementMilestoneToast.cs`）
             SaveIfAuto();
         }
 
@@ -1654,5 +1654,60 @@ namespace CardPresentation
             return term;
         }
         static readonly HashSet<string> _descKeyWarned = new HashSet<string>();
+
+        // ============================================================ 成就「历史最高」（`AchievementPersistence.highestValue`）
+        // 🆕 2026-11-04（B142_E66 · 账 `个人资料_成就_排行#L37`）—— 新成员一律**追加在类尾**（本文件账落点最深到 :1619，
+        //   插进中间会让下游整片行号漂）。
+        // 【判据】原版 `AchievementsManager.GetSave(ach)` 返回 `AchievementPersistence`，两格：
+        //   `CurrentValue`（`set_CurrentValue.c` → 偏移 0x3c）与 `highestValue`（0x38）；
+        //   读口 `AchievementsManager__GetHighestValue.c` = `Math.Max(current, highest, 0)`（**两个都夹 0**）。
+        //   ⇒ 我们这一侧：写点每写一次 current 就把 highest 抬到 `max(highest, current)`；
+        //     读口再取一次 `max(current, highest, 0)`（与 `GetHighestValue` 逐字同形）。
+        //   ⚠️ **只涨不落**：`SetAchievementValue` 可以调小 current（自检 / 修档），但 ⛔ 不许把 highest 拉下来。
+        // ⚠️ 已知残差（如实记）：中央档的 `AchievementsData` **投影**（`SaveKeys.AchievementsData`）仍由
+        //   `LegacySaveReader.BuildAchievementsPayload(ids, vals)` 生成，**只有 currentValue** —— 那份是**只写没人读**
+        //   的投影（读口走 `CosmeticData`／`profile.json` 那两份，都带 `achHighest`），而改它要动
+        //   `Shell/LegacySaveReader.cs`（本批白名单外）⇒ 留给后续。
+
+        /// <summary>把 `id` 的历史最高抬到至少 <paramref name="value"/>（⛔ 从不写小）。</summary>
+        static void RaiseAchievementHighest(string id, int value)
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            EnsureSave();
+            int h;
+            if (_achHighest.TryGetValue(id, out h) && h >= value) return;
+            _achHighest[id] = value;
+        }
+
+        /// <summary>一条成就的**历史最高**进度（原版 `AchievementsManager.GetHighestValue(ach)`）：
+        /// `Math.Max(current, highest, 0)` —— 与 `AchievementsManager__GetHighestValue.c` 同形。
+        /// <para>⚠️ 为什么不直接返回 `_achHighest`：原版读口自己就做这个 `Math.Max`，所以即便
+        /// `highestValue` 那一格当天没人写过（= 0），读出来也不会低于 current。</para></summary>
+        public static int AchievementHighestValue(string id)
+        {
+            EnsureSave();
+            if (string.IsNullOrEmpty(id)) return 0;
+            int h, cur = AchievementValue(id);
+            return _achHighest.TryGetValue(id, out h) ? Mathf.Max(0, Mathf.Max(h, cur)) : Mathf.Max(0, cur);
+        }
+
+        /// <summary>原版 `AchievementPersistence` 的两格（= `AchievementsManager.GetSave(ach)` 的返回形状）。</summary>
+        public struct AchievementPersistenceView
+        {
+            /// <summary>`AchievementPersistence.CurrentValue`（偏移 0x3c）。</summary>
+            public int currentValue;
+            /// <summary>`AchievementPersistence.highestValue`（偏移 0x38；读口口径 = `Math.Max(current, highest, 0)`）。</summary>
+            public int highestValue;
+        }
+
+        /// <summary>原版 `AchievementsManager.GetSave(ach)` 的等价物：**两格一起返回**
+        /// （查不到那条 ⇒ 原版会 `new AchievementPersistence` 再塞回；我们这里 = 两格都是 0，语义同「还没记过」）。</summary>
+        public static AchievementPersistenceView AchievementPersistenceOf(string id)
+        {
+            AchievementPersistenceView v;
+            v.currentValue = AchievementValue(id);
+            v.highestValue = AchievementHighestValue(id);
+            return v;
+        }
     }
 }

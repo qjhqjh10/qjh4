@@ -13,9 +13,9 @@
 //
 // ============================ 我们这边缺的两格（⛔ 别当成「已复刻」）============================
 //   ① **GUID → prefab 的装载口**：原版走 Addressables（`ComponentReference<EventBadge>(GUID).Load()`）。
-//      本仓没有 Addressables；`assets_full` 按 `notificationHolder` 字段名全量搜 = **0 命中** ⇒
-//      那个 prefab **不在离线包里**（它是活动组件 `EventComponents[25]` 的远端引用）。
-//      ⇒ 这里建出来的是**没有视觉节点的逻辑壳**（`EventBadge.Bind(...)` 留给将来的建树者），并出声一次。
+//      本仓没有 Addressables；**2026-11-04（B142-E34）三源复核**：离线 `assets_full` 按字段名 0 命中 · AssetRipper 导出只有脚本 ·
+//      安卓 1.35.0 的 `UnityDataAssetPack.apk`（= 远端 Addressables 包，460 个引用脚本里 459 个可解析）722 个 `MonoScript` **无 `EventBadge`**
+//      ⇒ 那个 prefab **本机拿不到**（它是活动组件 `EventComponents[25]` 的远端引用）。⇒ 这里建的是**没有视觉节点的逻辑壳**，并出声一次。
 //   ② **数据侧当前恒 0**：本仓 `LiveOpsLocalCatalog` 的 13 份 SO 里**没有任何一份带 `Components[25]`**
 //      （`EventBadge = 25` 只出现在枚举里）⇒ 本地跑起来**一个角标都不会建**（这是如实结果，不是 bug）。
 //      判据 = `grep -c EventBadge Shell/LiveOpsLocalCatalog.cs` = 1（只有枚举那一行）。
@@ -56,19 +56,20 @@ namespace CardPresentation
             }
             if (n > 0)
                 Debug.LogWarning("[EventBadgeController] 建了 " + n + " 个角标的**逻辑壳** —— 🔴 视觉节点没绑："
-                               + "EventBadge prefab 不在离线包里（`assets_full` 按 `notificationHolder` 搜 0 命中）⇒ "
-                               + "`EventBadge.Bind(...)` 还没人调（账 `日常_奖励` 第 12 行仍为 B）");
+                               + "EventBadge prefab 本机拿不到（2026-11-04 B142-E34 三源复核：离线 `assets_full` 字段名 0 命中 · "
+                               + "AR 导出只有脚本 · 安卓 1.35.0 包 722 个 MonoScript 无 `EventBadge`）⇒ `Bind` 无节点可交（账 `日常/奖励` 第 12 行）");
             return n;
         }
 
-        /// <summary>原版 `Instantiate(ComponentReference<EventBadge>(GUID).Load(), transform)` + `Initialize(e)`。
-        /// ⚠️ 我们**Load 不了 prefab**（见文件头 ①）⇒ 只 `AddComponent` 建壳。</summary>
-        void BuildBadge(ILiveOps evt)
+        /// <summary>原版 `Instantiate(ComponentReference&lt;EventBadge&gt;(GUID).Load(), transform)` + `Initialize(e)`。
+        /// ⚠️ 我们**Load 不了 prefab**（见文件头 ①）⇒ 只 `AddComponent` 建壳。返回建出来的件（自检口用）。</summary>
+        EventBadge BuildBadge(ILiveOps evt)
         {
             var go = new GameObject("Event Badge (" + (evt.GetID() ?? "?") + ")");
             go.transform.SetParent(transform, false);
             var badge = go.AddComponent<EventBadge>();
             badge.Initialize(evt);                                  // id = evt.GetID()（判据与旁证 → EventBadge 文件头 ②）
+            return badge;
         }
 
         /// <summary>该事件的 `EventComponents[EventBadge = 25]` 的 GUID（没有 ⇒ null）。
@@ -115,5 +116,13 @@ namespace CardPresentation
             return null;
         }
 #endif
+
+        // ============================================================ 自检口（2026-11-04 · B142-E34）
+        /// <summary>原版 `Awake()` 循环体的**单次**（`BuildBadge`）。生产路径当前恒 0 次
+        /// （离线目录 13 份 SO 无一带 `EventComponents[25]`）⇒ 自检只能直接调这里。
+        /// <para>⚠️ 建出来的仍是**逻辑壳**：视觉节点（`notificationHolder` 等 6 个）**仍为 null** ——
+        /// 原版靠 prefab 序列化给，而该 prefab 本机拿不到（三源证据见文件头 ①）⇒ 自检里那条「视觉节点非空」
+        /// 只对 `EventBadge.Bind(...)` 这个**口本身**成立（用替身对象验），⛔ 不是「已复刻视觉」。</para></summary>
+        public EventBadge BuildBadgeForTest(ILiveOps evt) { return BuildBadge(evt); }
     }
 }

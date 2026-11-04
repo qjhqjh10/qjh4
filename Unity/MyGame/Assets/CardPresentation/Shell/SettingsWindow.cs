@@ -678,9 +678,9 @@ namespace CardPresentation
         /// 的 `12 / fs / 12 · 折行 0`。</summary>
         public const float GenOnlineFontPx = 38f;
         /// <summary>下拉框底图的染色（原版 `LanguagesDropdown` 那颗 `Image.m_Color`）。
-        /// ⚠️ 与底下两颗钮那个绿**不是同一个值**（(0.286,0.965,0.686) vs (0.369,0.894,0.588)）——
+        /// ⚠️ 与底下两颗钮那个绿**不是同一个值**（(0.28627452,0.9647059,0.6862745) vs (0.369,0.894,0.588)）——
         /// 两处**各抄各的**，⛔ 别合并成一个常量。</summary>
-        public static readonly Color GenFieldTint = new Color(0.286f, 0.965f, 0.686f, 1f);
+        public static readonly Color GenFieldTint = new Color(0.28627452f, 0.9647059f, 0.6862745f, 1f);   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Main Menu Settings Window.prefab` 11 颗 `Image.m_Color` 逐位 = (0.28627452, 0.9647059, 0.6862745, 1)；使用点 5 处：`:2293/:3681/:3933/:4477/:5594`）
         public const string ArtLangField = "40K_dropdown_field_closed";
         /// <summary>✅ 已复刻（2026-11-04 · B141-W44 · 5-07）：**四个下拉框自己**（`LanguagesDropdown` /
         /// `Quality DropDown` / `Text in Hand DropDown` / `Media ▸ Dropdown`）的 `m_SpriteState.m_SelectedSprite`
@@ -799,8 +799,8 @@ namespace CardPresentation
         /// 🔴 **它运行时会被 `ScrollRect.UpdateBounds` 重算**；而本列表 **12 × 40.8707 = 490.45 &lt; 视口 573.96
         /// ⇒ 根本没有可滚范围**（照原版 `AdjustBounds`，同本窗图像页那一列 A172 的那条结论）⇒
         /// 原版 `m_VerticalScrollbarVisibility = **2**(AutoHideAndExpandViewport)` 会把整根 Scrollbar
-        /// **SetActive(false)**（内容装得下就不显示）。本窗照办：**Scrollbar 建出来但恒关着**。</summary>
-        public const float LstHandleH = 533.69f;
+        /// **SetActive(false)**（内容装得下就不显示）。本窗照办：**Scrollbar 建出来但恒关着**。✅ 2026-11-04（`B142-E73` · 任务 `B142-LSTHANDLE`）：**从手抄的 `533.69f` 改成算式** —— 与 `Battle/SettingsPanel.cs:1790` 的 `slideH = panelH − 20; handleH = slideH × 0.9273074865341187 + 20` **同一口径**（那边 `panelH` = 本窗 `DdPanelHFull`）⇒ 逐位同值 `533.691…`。</summary>
+        public const float LstHandleH = (DdPanelHFull - 20f) * 0.9273074865341187f + 20f;
         /// <summary>`ScrollRect` 实读：`m_Horizontal 0` · `m_Vertical 1` · **`m_MovementType 2`(Clamped)**
         /// · `m_Elasticity 0.1` · `m_Inertia 1` · `m_DecelerationRate 0.135` · `m_ScrollSensitivity 1.0`
         /// · `m_VerticalScrollbar` → 上面那颗 · **`m_VerticalScrollbarVisibility 2`** · spacing **−3.0**。
@@ -967,7 +967,7 @@ namespace CardPresentation
         public const float AcErrL = 596.52f, AcErrT = 524.59f, AcErrR = 1516.52f, AcErrB = 571.69f;
         public const float AcFormFontPx = 37f, AcLinkFontPx = 32f;
         /// <summary>输入框底板那抹绿 —— 原版 `Image.m_Color` 原文 `(0.2901961, 0.9529412, 0.6823529, 1)`。
-        /// ⚠️ 与 General 页 `GenFieldTint`（`0.286,0.965,0.686`）**不是同一个值**（两处各抄各的，别归一）。</summary>
+        /// ⚠️ 与 General 页 `GenFieldTint`（`0.28627452,0.9647059,0.6862745`）**不是同一个值**（两处各抄各的，别归一）。</summary>
         public static readonly Color AcInTint = new Color(0.2901961f, 0.9529412f, 0.6823529f, 1f);
         public static readonly Color AcLinkColor = new Color(1f, 1f, 1f, 0.8235294f);
         public static readonly Color AcErrColor = new Color(1f, 0f, 0.0580378f, 1f);
@@ -2287,7 +2287,7 @@ namespace CardPresentation
                 //    ⛔ 别把字挂到 `Language Selector` 那一层（自检 `FindChild` 与将来取裁切都按这条链走）。
                 var fld = Node(row, "LanguagesDropdown", GenL, GenSelT, GenFieldR, selB);
                 // 下拉框底图：原版那颗 `Image` 是 **`m_Type = 0`(Simple)** ⇒ **拉伸**（⛔ 不是九宫格）+
-                //   `m_Color = (0.286,0.965,0.686,1)`（那抹绿是**这一颗自己的** `m_Color` —— 与底下两颗钮
+                //   `m_Color = (0.28627452,0.9647059,0.6862745,1)`（那抹绿是**这一颗自己的** `m_Color` —— 与底下两颗钮
                 //   那个绿**不是同一个值**，见 `GenFieldTint` 那条：两处各抄各的）。
                 var field = Rect(fld, "bg", GenL, GenSelT, GenFieldR, selB,
                                  ArtLangField, QContent, GenFieldTint);
@@ -2598,7 +2598,7 @@ namespace CardPresentation
                     var lb = Text(_acResetBtn, "Text", AcTerm(lkAcResetPwd, "Reset Password"),
                                   AcLinkL, AcLinkR, AcLinkT, AcLinkB, AcLinkFontPx, AcLinkColor, QText,
                                   null, AcLinkR - AcLinkL, 29f, 32f, 36f, 42f, 10f);   // B106_W15：小屏档 42/10（§3·11 Reset Password）
-                    if (lb != null) AlignRight(lb, new PxRect(AcLinkL, AcLinkT, AcLinkR, AcLinkB));
+                    if (lb != null) AlignRight(lb, new PxRect(AcLinkL, AcLinkT, AcLinkR, AcLinkB)); if (lb != null) lb.SetFontStyle(TMPro.FontStyles.Underline);   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Main Menu Settings Window.prefab` 的 `Reset Password < Account Form` 那颗 TMP `m_fontStyle = 4`（Underline）；枚举 4 = `TMP_Text.cs:105`）
                     OnLangText(lb, () => AcTerm(lkAcResetPwd, "Reset Password"));
                     Hit(_acResetBtn, "Hit", AcLinkL, AcLinkT, AcLinkR, AcLinkB, QOverlay,
                         () => AccountLocalNote("Reset Password", AcLocalNote));
@@ -2608,7 +2608,7 @@ namespace CardPresentation
                     var lb = Text(_acForgotBtn, "Text", AcTerm(lkAcForgotPwd, "Forgot Password"),
                                   AcLinkL, AcLinkR, AcLinkT, AcLinkB, AcLinkFontPx, AcLinkColor, QText,
                                   null, AcLinkR - AcLinkL, 29f, 32f, 36f, 42f, 10f);   // B106_W15：小屏档 42/10（§3·11 Forgot Password）
-                    if (lb != null) AlignRight(lb, new PxRect(AcLinkL, AcLinkT, AcLinkR, AcLinkB));
+                    if (lb != null) AlignRight(lb, new PxRect(AcLinkL, AcLinkT, AcLinkR, AcLinkB)); if (lb != null) lb.SetFontStyle(TMPro.FontStyles.Underline);   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Main Menu Settings Window.prefab` 的 `Forgot Password < Account Form` 那颗 TMP `m_fontStyle = 4`）
                     OnLangText(lb, () => AcTerm(lkAcForgotPwd, "Forgot Password"));
                     Hit(_acForgotBtn, "Hit", AcLinkL, AcLinkT, AcLinkR, AcLinkB, QOverlay,
                         () => AccountLocalNote("Forgot Password", AcLocalNote));
@@ -2631,7 +2631,7 @@ namespace CardPresentation
                 var lb = Text(_acNewsBtn, "Label", AcTerm(lkAcNewsletter, "Subscribe to the Newsletter?"),
                               AcNewsL, AcNewsR, AcNewsT, AcNewsB, AcNewsFontPx, Color.white, QText,
                               null, AcNewsR - AcNewsL, 32f, 40f, 44f, 45f, 10f);   // B106_W15：小屏档 45/10（§3·11 Subscribe Newsletter）
-                if (lb != null) AlignLeft(lb, new PxRect(AcNewsL, AcNewsT, AcNewsR, AcNewsB));
+                if (lb != null) AlignLeft(lb, new PxRect(AcNewsL, AcNewsT, AcNewsR, AcNewsB)); if (lb != null) lb.SetFontStyle(TMPro.FontStyles.Underline);   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Main Menu Settings Window.prefab` 的 `Subscribe Newsletter < Account Tab` 那颗 TMP `m_fontStyle = 4`）
                 OnLangText(lb, () => AcTerm(lkAcNewsletter, "Subscribe to the Newsletter?"));
                 Hit(_acNewsBtn, "Hit", AcNewsL, AcNewsT, AcNewsR, AcNewsB, QOverlay,
                     () => AccountLocalNote("Subscribe Newsletter", AcLocalNote));
@@ -3084,10 +3084,10 @@ namespace CardPresentation
                 //   去掉下面那一句即可，⛔ 不删件。
                 var terms = Node(links, "Terms of Service", SpTermsL, SpTermsT, SpTermsR, SpTermsB);
                 SpIcon(terms, "External Link Icon", SpTermIconL, SpTermIconT, SpTermIconR, SpTermIconB);
-                SpText(terms, "Terms of Service Text", lkSupTerms, "Terms of Service",
+                var termsLb = SpText(terms, "Terms of Service Text", lkSupTerms, "Terms of Service",
                        SpTermsTxtL, SpTermsT, SpTermsTxtR, SpTermsB, 1, 29f, 35f, 36f, 44f, 10f);   // B106_W15：小屏档 44/10（§3·11）
                 Hit(terms, "Hit", SpTermsL, SpTermsT, SpTermsR, SpTermsB, QOverlay,
-                    () => SpTermsNoUrl());
+                    () => SpTermsNoUrl()); if (termsLb != null) termsLb.SetFontStyle(TMPro.FontStyles.Underline);   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Main Menu Settings Window.prefab` 的 `Terms of Service Text < Terms of Service` 那颗 TMP `m_fontStyle = 4`）
                 SetAct(terms, false);        // 🔴 原版恒关（判据见上）；⛔ 删不得 —— 见 ⑩ 那条 log
 
                 // ⑧·b `Privacy Policy`（容器 → `External Link Icon` + `Privacy Policy Button`）
@@ -3099,7 +3099,7 @@ namespace CardPresentation
                 SpUrlButton(priv, "Privacy Policy Button", SpPrivacyBtnL, SpPrivacyT, SpPrivacyR, SpPrivacyB,
                             lkSupPrivacy, "Privacy Policy",
                             new PxRect(SpPrivacyTxtL, SpPrivacyTxtT, SpPrivacyTxtR, SpPrivacyTxtB),
-                            null, SpPrivacyTint, () => SpOpenUrl("Privacy Policy", SpPrivacyUrl), keepAspect: true);
+                            null, SpPrivacyTint, () => SpOpenUrl("Privacy Policy", SpPrivacyUrl), keepAspect: true, underlineText: true);   // ✅ 已复刻（2026-11-04 · B142-E5 · 原版 `Button Text < Privacy Policy Button` 那颗 TMP `m_fontStyle = 4`）
             }
 
             // ⑨ 两颗 **mobile 专用**的行（**PC 档灭**；`android`/`iOS` 才亮）—— 照原版建 + 照原版关。
@@ -3181,10 +3181,10 @@ namespace CardPresentation
         /// <para>⚠️ **底图按不按 PA 画是逐颗不同的**（原版实读）：`Faq` / `Contact` / `Support` 三颗
         /// **`m_PreserveAspect = 0`**（拉伸），只有 `Privacy Policy Button` 那颗是 **1** ⇒ 由调用点传。</para>
         /// <param name="tint">底图 `Image.m_Color` 原文色（三颗绿钮 = `BtnGreen`；`Privacy Policy` 那颗
-        /// **alpha 是 0**，见 `SpPrivacyTint`）。</param>
+        /// **alpha 是 0**，见 `SpPrivacyTint`）。</param> <param name="underlineText">原版那一颗的 `Button Text` 是否带下划线（`m_fontStyle = 4`）：`Privacy Policy Button` 是，同族另三颗不是。</param>
         Transform SpUrlButton(Transform parent, string name, float x1, float y1, float x2, float y2,
                               string key, string en, PxRect txtRect, PxRect? iconRect, Color tint, Action onClick,
-                              bool keepAspect = false)
+                              bool keepAspect = false, bool underlineText = false)
         {
             var n = Node(parent, name, x1, y1, x2, y2);
             if (iconRect.HasValue)
@@ -3192,8 +3192,8 @@ namespace CardPresentation
                        iconRect.Value.x2, iconRect.Value.y2);
             var bg = Rect(n, "bg", x1, y1, x2, y2, ArtButton, QContent, tint, keepAspect);
             // 那行字（自适应 = 原版逐颗实读 `min 12 / max 35 / base 12` · **折行 0**）
-            SpText(n, "Button Text", key, en, txtRect.x1, txtRect.y1, txtRect.x2, txtRect.y2, 0, 12f, 35f, 12f, 44f, 12f);   // B106_W15：小屏档 44/12（§3·11 大钮 Button Text）
-            Hit(n, "Hit", x1, y1, x2, y2, QOverlay, onClick, bg, ArtButton);
+            var lbText = SpText(n, "Button Text", key, en, txtRect.x1, txtRect.y1, txtRect.x2, txtRect.y2, 0, 12f, 35f, 12f, 44f, 12f);   // B106_W15：小屏档 44/12（§3·11 大钮 Button Text）
+            Hit(n, "Hit", x1, y1, x2, y2, QOverlay, onClick, bg, ArtButton); if (underlineText && lbText != null) lbText.SetFontStyle(TMPro.FontStyles.Underline);   // ✅ 已复刻（2026-11-04 · B142-E5 · 只有 `Privacy Policy Button` 那颗是 `m_fontStyle = 4`，见调用点）
             return n;
         }
 
@@ -3280,7 +3280,7 @@ namespace CardPresentation
                 var lb = Text(f, "Text", AcTerm(lkAcForgotPwd, "Forgot Password"), LwForgotL, LwForgotR,
                               LwForgotT, LwForgotB, LwLinkFontPx, AcLinkColor, QLwText,
                               null, LwForgotR - LwForgotL, 29f, 32f, 36f);   // 🆕 A1181：原版 `29 / 32 / 36 · 折行 1`
-                if (lb != null) AlignRight(lb, new PxRect(LwForgotL, LwForgotT, LwForgotR, LwForgotB));
+                if (lb != null) AlignRight(lb, new PxRect(LwForgotL, LwForgotT, LwForgotR, LwForgotB)); if (lb != null) lb.SetFontStyle(TMPro.FontStyles.Underline);   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Main Menu Settings Window.prefab` 的 `Forgot Password < Login Window` 那颗 TMP `m_fontStyle = 4`）
                 OnLangText(lb, () => AcTerm(lkAcForgotPwd, "Forgot Password"));
                 Hit(f, "Hit", LwForgotL, LwForgotT, LwForgotR, LwForgotB, QLwHit,
                     () => AccountLocalNote("Forgot Password", AcLocalNote));
@@ -3675,7 +3675,7 @@ namespace CardPresentation
             float panelB = withRows ? Mathf.Min(LstB, LstT + DropdownContentH(total)) : LstB;
             // 面板底图：`40K_dropdown_bg` **Sliced**、端帽过 ppuMul 1.09、染色 (0.2863,0.9647,0.6863)
             // 🔴 **2026-10-17（T17）就地更正**：这一句原来 tint 传 **null**（= 白）—— 而原版 `Template`
-            //   那颗 `Image.m_Color` 实读是 **(0.286,0.965,0.686,1)**（同一颗 MB 现读；贴图本身是灰的
+            //   那颗 `Image.m_Color` 实读是 **(0.28627452,0.9647059,0.6862745,1)**（同一颗 MB 现读；贴图本身是灰的
             //   `(44.6,44.6,44.6)`）⇒ 照原版应染成绿。与三颗新下拉**同一个模板**，一并走 `GenFieldTint`。
             NineOut(listRoot, "bg", LstL, LstT, LstR, panelB, ArtLstPanel, LstPanelTexW, LstPanelTexH,
                     LstPanelBorder, LstPanelBorderOut, QListBg, null, GenFieldTint);
@@ -3684,9 +3684,9 @@ namespace CardPresentation
             var s = Screen(LstL, LstT, LstVpR, panelB);
             var vpR = new PxRect(s.x1, s.y1, s.x2, s.y2);
             var vp = ViewportClip.Hang(listRoot, "Viewport", vpR, Vector4.zero, Vector2Int.zero).transform;
-            // `Content`（`aMin(0,1) aMax(1,1) pivot(0.5,1)`）—— 高 = 行数 × 行高
-            //（原版模板位是 `sizeDelta.y = 41.7226`（一个 `Item`）；运行时 `Show()` 按 `itemSize.y × 选项数` 重算）
-            var content = Node(vp, "Content", LstL, LstT, LstVpR, LstT + total * LstItemH);
+            // `Content`（`aMin(0,1) aMax(1,1) pivot(0.5,1)`）—— 高 = 行数 × 行高 **+ `LstItemGap`**
+            //（原版模板位是 `sizeDelta.y = 41.7226`（= 一个 `Item` 40.8707 + 0.8519）；运行时 `Show()` 按 `itemSize.y × 选项数 + offsetMin.y − offsetMax.y` 重算 ⇒ 多那 0.8519）
+            var content = Node(vp, "Content", LstL, LstT, LstVpR, LstT + total * LstItemH + LstItemGap);   // ✅ 已复刻（2026-11-04 · B142-E41 · 判据 `TMP_Dropdown.Show():842-843/927`：`offsetMin.y = +0.4259`、`offsetMax.y = −0.4259` ⇒ 高 = `n×40.8707 + 0.8519`；同函数 `:3675` 的面板早就是这个高 ⇒ 改前两者自相矛盾 0.8519；原型（`total = 1`）也因此回到 prefab 的 41.7226）
             // 滚动条：**建出来但恒关着**（原版 `m_VerticalScrollbarVisibility = 2` + 内容 = 视口高
             // ⇒ `SetVerticalScrollbarVisibility` 会把它 `SetActive(false)`）。见 `LstHandleH` 那条。
             {
@@ -3705,11 +3705,11 @@ namespace CardPresentation
         }
 
         /// <summary>列表里的一行（原版 `Content > Item`，`Toggle` + 三个子件）。
-        /// 行顶 = `Content` 顶 + `i × LstItemH`（原版 `Show():840-844` 把第 0 项摆在**最上**、
+        /// 行顶 = `Content` 顶 + `LstItemGap/2` + `i × LstItemH`（原版 `Show():840-844` 把第 0 项摆在**最上**、
         /// `anchoredPosition.y = offsetMin.y + itemSize.y*(n-1-i) + itemSize.y*pivot.y`）。</summary>
         void BuildLangItem(Transform content, int i, bool real)
         {
-            float t = LstT + i * LstItemH, b = t + LstItemH;
+            float t = LstT + LstItemGap * 0.5f + i * LstItemH, b = t + LstItemH;   // ✅ 已复刻（2026-11-04 · B142-E41 · 首行顶 = `Content` 顶 + `LstItemGap/2 = 0.42595`；判据 `TMP_Dropdown.Show():842-843/964` 的 `offsetMin.y`；🔴 与 `:3689` 的 `Content` 高**必须成对**（只加高 ⇒ 首/末行内缩仍缺；只加偏移 ⇒ 行相对 `Content` 整体偏 0.426））
             string nm = real ? ("Item " + i + (i < Loc.Languages.Length ? ": " + Loc.LanguageName(Loc.Languages[i]) : ""))
                              : "Item";
             var item = Node(content, nm, LstL, t, LstVpR, b);
@@ -3928,7 +3928,7 @@ namespace CardPresentation
             float panelB = withRows ? DropdownPanelB(box) : box.B;
             float vpR = box.R - DdViewportInsetR;
             // 面板底图：`40K_dropdown_bg` **Sliced**、端帽过 ppuMul 1.09；染色 = 原版 `Image.m_Color`
-            // (0.286,0.965,0.686,1)（= `GenFieldTint` 那三格逐值相同 —— 同一个模板）。
+            // (0.28627452,0.9647059,0.6862745,1)（= `GenFieldTint` 那三格逐值相同 —— 同一个模板）。
             NineOut(root, "bg", box.L, box.T, box.R, panelB, ArtLstPanel, LstPanelTexW, LstPanelTexH,
                     LstPanelBorder, LstPanelBorderOut, QListBg, null, GenFieldTint);
             // `Viewport`（原版 `Mask` + `Image(UIMask, showGraphic = 0)` ⇒ 不画、只当裁切框）
@@ -3948,11 +3948,11 @@ namespace CardPresentation
             for (int i = 0; i < n; i++) BuildDropdownItem(box, content, vpR, i, withRows, opts);
         }
 
-        /// <summary>列表里的一行（原版 `Content > Item`，`Toggle` + 三个子件）。行顶 = 面板顶 + `i × 40.8707`。
+        /// <summary>列表里的一行（原版 `Content > Item`，`Toggle` + 三个子件）。行顶 = 面板顶 + `LstItemGap/2` + `i × 40.8707`。
         /// 字号 / 内边距 / 色 / 四态图与语言那颗**同一个模板** ⇒ 复用 `Lst*` 常量（⛔ 别各抄一份）。</summary>
         void BuildDropdownItem(DropdownBox box, Transform content, float vpR, int i, bool real, string[] opts)
         {
-            float t = box.T + i * LstItemH, b = t + LstItemH;
+            float t = box.T + LstItemGap * 0.5f + i * LstItemH, b = t + LstItemH;   // ✅ 已复刻（2026-11-04 · B142-E41 · 首行顶 = `Content` 顶 + `LstItemGap/2 = 0.42595`；`:3937` 的 `Content` 高 `DropdownContentH` 早已含 gap ⇒ 本次只差这一行；判据 `TMP_Dropdown.Show():842-843/964`）
             string label = (real && i < opts.Length) ? opts[i] : "Option A";
             var item = Node(content, real ? ("Item " + i + (label != null ? ": " + label : "")) : "Item",
                             box.L, t, vpR, b);
@@ -6814,7 +6814,7 @@ namespace CardPresentation
             var areaN = ViewportClip.Hang(f.Root, "Text Area", area, TextInputField.AreaPad, TextInputField.AreaSoftness).transform;
             // 原版那两颗 TMP：`Placeholder` 画占位（空框时）、`Text` 画真值 —— **裁切**由上面的 `Text Area` 掩码给
             f._placeholderLb = MenuDraw.Text(areaN, area, f._placeholder, new Color(1f, 1f, 1f, 0.45f),
-                                             "Placeholder", FontPx, qText, face: TmpFont.Face.LatinCardBody);
+                                             "Placeholder", FontPx, qText, face: TmpFont.Face.LatinCardBody); if (f._placeholderLb != null) f._placeholderLb.SetFontStyle(TMPro.FontStyles.Italic);   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Main Menu Settings Window.prefab` 4 颗 `Placeholder ▸ m_fontStyle = 2`（Italic）：`Account Form` 的 InputEmail/InputPassword + `Login Window` 的 InputEmail/InputPassword —— 本类 `Create` 只被这 4 处调用）
             f._value = MenuDraw.Text(areaN, area, "", Color.white, "Text", FontPx, qText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(f._value, area);
             if (f._placeholderLb != null) MenuDraw.AlignLeft(f._placeholderLb, area);

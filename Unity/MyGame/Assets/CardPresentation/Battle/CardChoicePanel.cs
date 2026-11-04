@@ -775,17 +775,17 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-20（W57 · `T09`）**：只在**两处**调 —— `Open`（置 `false`）与
         /// `TogglePick` 首次选中（置 `true`）。⛔ 别在 `Close` / 眼睛开合 / 换选里再改：
         /// 原版 `ChooseCardMenu` 全类只有 `Setup` 与 `SelectCard` 两处写它。</para>
-        /// <para>✅ **2026-11-04（`B141-W35b`）「灰掉」已接线**：原版 `Continue Button` 子树四颗件各挂一颗
-        /// `EverguildButtonStateFollower`（`m_Script -9096086197743689236`，无序列化字段），`interactable = false`
-        /// ⇒ 换 `EverguildButtonHelper.get_DisabledMaterial` 造出来的**灰度材质**（`…StateFollower__Disabled.c` → `DoMaterialRefresh`），
-        /// 同时按钮自己的 `m_Colors.m_DisabledColor`（`0.7843137`×3、α **0.5019608**，再 × `m_ColorMultiplier 2`）照常生效。
-        /// 我们这一侧 = `_fxBar.SetDisabled(!on)`：颜色走 `BattleButtonFx` 的 Disabled 档、灰化走 `ApplyGray`
-        /// （`Everguild/UI/Greyscale`；取不到 shader ⇒ **不变灰但出声**，可断 `GrayShaderMissingForTest`）。
-        /// ⚠️ 今天只接了 `BG` 那一颗（`_bar`）；父命中面（α=0、看不见）/ `ContinueButton` / `ContinueText` 三颗**还没挂**
-        /// （记在报告「遗留」——⛔ 别拿一件的灰冒充四颗都对）。</para></summary>
+        /// <para>✅ **2026-11-04（`B141-W35b` → `B142-E7` 收口）「灰掉」已接线**：原版 `Continue Button`（GO 779）根上那颗
+        /// `EverguildButton`（MB 4897，`m_Script 1015376240363272691`，`colorTintGreyOnDisable = 1`）在禁用时走
+        /// `DoStateTransition → SwitchMaterial → EverguildButtonHelper.DoMaterialRefresh(list, …)`，把子树里每颗
+        /// `EverguildButtonMaterialModifier`（`m_Script -9096086197743689236`，无序列化字段）的 `ToogleGreyScale` 置 1 ⇒ 换 `DisabledMaterial`
+        /// （`Everguild/UI/Greyscale` 一份静态材质）；同一颗按钮自己的 `m_Colors`（MB 4262：`m_DisabledColor` `0.7843137`×3、α **0.5019608**、× `m_ColorMultiplier 2`）照常生效。
+        /// 我们这一侧 = `_fxBar.SetDisabled(!on)`：颜色走 `BattleButtonFx` 的 Disabled 档、灰化走 `ApplyGray`（取不到 shader ⇒ **不变灰但出声**，可断 `GrayShaderMissingForTest`）。
+        /// 🔴 **有效灰化 = 3 颗**（`B142-E7` 现读）：根透明图 `_doneParentHit` / `BG` `_bar` / `ContinueButton` `_play`；`ContinueText` 身上那颗 modifier **实际空转**
+        /// （`EverguildButtonMaterialModifier.GetModifiedMaterial` 对 `TextMeshProUGUI` / `TMP_SubMeshUI` 原样返回 `baseMaterial`）⇒ ⛔ 不挂它、⛔ 别按「四颗」改。</para></summary>
         void SetConfirmInteractable(bool on)
         {
-            _confirmInteractable = on; if (_fxBar != null) _fxBar.SetDisabled(!on);   // ✅ 已复刻（2026-11-04 · B141-W35b · 判据 = `EverguildButtonStateFollower__Disabled.c` → `DoMaterialRefresh` + MB4262 `m_DisabledColor`）
+            _confirmInteractable = on; if (_fxBar != null) _fxBar.SetDisabled(!on);   // ✅ 已复刻（2026-11-04 · B141-W35b → B142-E7 · 判据 = `EverguildButton__DoStateTransition.c` → `SwitchMaterial` → `DoMaterialRefresh` + MB4262 `m_DisabledColor`；灰化 3 颗见 `BuildFeedback`）
         }
 
         public void Close()
@@ -896,10 +896,10 @@ namespace CardPresentation
             BuildFeedback();
         }
 
-        /// <summary>🆕 2026-10-19（B4 · `N70` P0-2）：建/重建按钮反馈（与换牌面板同族判据）。✅ 已复刻（2026-11-04 · B141-W35 · 判据 = `Battle Arena 1.unity` GO779 `Button` MB4262 `m_Colors` + 其 `m_TargetGraphic` = `BG` GO1153 Image MB4210 `m_Color`）：Continue Button 走**绿族四态 × `m_ColorMultiplier 2`**；⚠️ 重建前**先把底条还原成原版基准色**（绿），否则第二次建时 `_base` 会读到上一次的合成色、越乘越偏（同 `SettingsPanel` 绿开关那条先例）。</summary>
+        /// <summary>🆕 2026-10-19（B4 · `N70` P0-2）：建/重建按钮反馈（与换牌面板同族判据）。✅ 已复刻（2026-11-04 · B141-W35 · 判据 = `Battle Arena 1.unity` GO779 `Button` MB4262 `m_Colors` + 其 `m_TargetGraphic` = `BG` GO1153 Image MB4210 `m_Color`）：Continue Button 走**绿族四态 × `m_ColorMultiplier 2`**；⚠️ 重建前**先把底条还原成原版基准色**（绿），否则第二次建时 `_base` 会读到上一次的合成色、越乘越偏（同 `SettingsPanel` 绿开关那条先例）。🔴 2026-11-04（`B142-E7`）：建完把 `_doneParentHit` / `_play` 追加进灰化组（`AddGrayTarget`）—— 原版 3 颗 modifier，`ContinueText` 那颗对 TMP 空转、不挂。</summary>
         void BuildFeedback()
         {
-            if (_bar != null) _bar.SetTint(BattleButtonFx.ContinueNormal); _fxBar = BattleButtonFx.Tint(_bar, "Continue Button", BattleButtonFx.ContinueNormal, BattleButtonFx.ContinueHighlighted, BattleButtonFx.ContinuePressed, BattleButtonFx.Disabled, BattleButtonFx.ContinueColorMultiplier); if (_fxBar != null) { _fxBar.ApplyInstant(); _fxBar.SetDisabled(!_confirmInteractable); }
+            if (_bar != null) _bar.SetTint(BattleButtonFx.ContinueNormal); if (_fxBar != null) _fxBar.SetDisabled(false); _fxBar = BattleButtonFx.Tint(_bar, "Continue Button", BattleButtonFx.ContinueNormal, BattleButtonFx.ContinueHighlighted, BattleButtonFx.ContinuePressed, BattleButtonFx.Disabled, BattleButtonFx.ContinueColorMultiplier); if (_fxBar != null) { _fxBar.AddGrayTarget(_doneParentHit); _fxBar.AddGrayTarget(_play); _fxBar.ApplyInstant(); _fxBar.SetDisabled(!_confirmInteractable); }
             var eh = CardArt.MenuUi("40k_UI_bt_eye_hover");
             var ep = CardArt.MenuUi("40k_UI_bt_eye_pressed");
             _fxEye = (eh != null && ep != null)

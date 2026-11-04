@@ -716,7 +716,7 @@ namespace CardPresentation
             //    ⇒ 用行上的两份数据比即可，⛔ 不另引一份配置。
             RowButton(row, r, 1046.30f, 24.46f, "Join", Loc.T("SocialMenu/Alliances/Join"),
                 () => RefuseServerAction("加入", m.Name, "邀请", "AllianceInvitationEntry.HandleJoin"),
-                interactable: m.Members < m.MemberMax);
+                interactable: m.Members < m.MemberMax, tint: new Color(1f, 0.4739555f, 0.0990566f, 1f));   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Social Submenu Variant.prefab` 的 `Join < Invitation List Entry` 2 颗 `Image.m_Color` 逐位，sprite = `40K_button_0`）
             // 🔴 **2026-10-18（第十轮 · B 类）**：这颗钮的**文案**走词条（只换第 4 实参）——
             //   键 = 原版那颗 `Reject/Button Text` 的 `Localize.mTerm` 原文 `SocialMenu/Alliances/Dismiss`
             //   （3 颗同键；父链 = `Button Text < Reject < Invitation List Entry < List < Invitations < List Area
@@ -768,7 +768,7 @@ namespace CardPresentation
                                              : Loc.T("SocialMenu/Alliances/Join");
             RowButton(row, r, 1188.00f, 21.18f, "Generic UI Button", joinText,
                 () => RefuseServerAction("加入", m.Name, "公开列表", "AllianceListEntry.TryJoin"),
-                interactable: openForJoin);
+                interactable: openForJoin, tint: new Color(1f, 0.4739555f, 0.0990566f, 1f));   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Generic UI Button < Entry < List < Viewport < Open Alliances` 那颗同值）
             // 🆕 2026-10-04（A55②）：**点公开列表里的某个盟 → 看它的详情**那一态（原版
             // `AllianceListEntry.HandleInfo` → `OnInfoClick` → `JoinAllianceMenu.OnDisplayAlliance`
             // → `AllianceSearchTab.HandleDisplayAlliance`）。
@@ -784,7 +784,7 @@ namespace CardPresentation
         void RowBase(Transform row, PxRect r, string name)
         {
             Nine(row, "40K_dropdown_bg", r, new Vector4(23f, 20f, 23f, 20f), name, L_Panel,
-                 new Color(0.981f, 0.469f, 0.356f, 1f));
+                 new Color(0.9811321f, 0.46865106f, 0.35635456f, 1f));   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Social Submenu Variant.prefab` 3 颗 `background < {Invitation List Entry, Invitation List Entry (1), Entry}` 的 `m_Color` 逐位；原取整 (0.981,0.469,0.356)）
         }
 
         /// <summary>行里的五段字。⚠️ **两款行的 `Members Header` / `Member Count` / `Ranking Header`
@@ -856,13 +856,13 @@ namespace CardPresentation
         /// <summary>行尾那颗钮（`40K_button` 489×107 · 九宫 (234,46,234,46) · preserveAspect）。
         /// <paramref name="interactable"/> = 原版 `Selectable.interactable`（两款行族各自的判据见两个调用点）。
         /// 🔴 **必须排在 `BindNine` 之后**（`WindowButton.Interactable` 的 doc：`Bind` 之前调会缓存一个空表 ⇒
-        /// 这颗钮以后永远不变色，静默）。</summary>
+        /// 这颗钮以后永远不变色，静默）。<para>`tint` = 原版那颗 `Image.m_Color`（行尾钮 = `(1, 0.4739555, 0.0990566, 1)`；显式传；缺省 `null` = 旧行为 ⇒ 不染色 = 白 —— ⛔ 别把缺省改成白以外的值，那是「未核就染色」）。</para></summary>
         void RowButton(Transform row, PxRect r, float x1, float y1, string name, string text, System.Action onClick,
-                       bool interactable = true)
+                       bool interactable = true, Color? tint = null)
         {
             var br = new PxRect(x1, r.y1 + y1, x1 + 200f, r.y1 + y1 + 57f);
             var n = Node(row, name, br);
-            var bgNine = Nine(n, "40K_button", br, new Vector4(234f, 46f, 234f, 46f), "Bg", L_Btn);
+            var bgNine = Nine(n, "40K_button", br, new Vector4(234f, 46f, 234f, 46f), "Bg", L_Btn, tint);
             // 🔴 **2026-10-08（A213）`wrap: false`**：原版行尾那颗 `Join` / `Reject` 的
             //    `Invitation List Entry … Button Text` 实读 **`折行=0`**（`字号=36.65 / 44 auto[12~44]`，
             //    同一条 dump；公开联盟行那颗是 44）—— 走 `SocialWindow.Text` 会**默认折行**。
@@ -922,7 +922,7 @@ namespace CardPresentation
                  autoMaxPx: 40f, autoBasePx: 36f);   // A323：原版 `Left/Middle`；A414（表 #12）`auto[18~40] 基准=36.0`
             var price = new PxRect(428.09f, 714.21f, 678.14f, 792.99f);
             var pb = Node(_createView, "Price Display Button", price);
-            var pbNine = Nine(pb, "40K_button", price, new Vector4(234f, 46f, 234f, 46f), "Generic UI Button", L_Btn);
+            var pbNine = Nine(pb, "40K_button", price, new Vector4(234f, 46f, 234f, 46f), "Generic UI Button", L_Btn, new Color(1f, 0.4739555f, 0.0990566f, 1f));   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Generic UI Button < Price Display Button < Create Alliance Text` 那颗 `Image.m_Color`）
             // `Price Display`：水晶图标 + 价格（`1000`）
             // 🔴 **2026-10-07（A77⑫④）`text` 矩形就地重算**：旧值 `542.06 → 609.12`（**= 图标布局框的右沿**起算）。
             //   重算命令（现读）= `python 工具/menu_dump.py bundle_menus_assets_all "Social Submenu Variant" --depth 14 --md`
@@ -1004,14 +1004,14 @@ namespace CardPresentation
             MenuDraw.SetVAlign(lbTitle, Label.VAlign.Midline, titleR);
             var box = Node(parent, boxName, boxR);
             // 🔴 **2026-10-30（`B102_ALLY` · 判据 AUD04 第 50 行）**：底图 / 九宫 / tint 仍是原来那三句的**原样实参**
-            //   （`40K_dropdown_bg` · (23,20,23,20) · (1,0.475,0.098,1)）—— tint 走 `Create` 的 `bgTint` 形参
+            //   （`40K_dropdown_bg` · (23,20,23,20) · (1,0.4745098,0.09803922,1)）—— tint 走 `Create` 的 `bgTint` 形参
             //   （⛔ 没换图、没换色）；原来那句 `Hit(...)⇒Say("打不了字")` 交代给 `TextInputField.Create` 自己的命中区。
             //   ⚠️ 占位字**留空**：原版这两格的 placeholder 文字本轮**没读到** ⇒ 不编一个字放上去（`InputData.Label = ""`）。
             //   ⚠️ 字体面传 **Cjk**：这两格的字可能含中文（提示窗缺省是拉丁体，会画不出汉字）。
             var input = TextInputField.Create(box, boxR,
                 new PromptContext.InputData(boxName, "", TMPro.TMP_InputField.ContentType.Standard, ""),
                 0, Page.Q + QOff + L_Btn, null,
-                bgTint: new Color(1f, 0.475f, 0.098f, 1f), face: TmpFont.Face.Cjk);
+                bgTint: new Color(1f, 0.4745098f, 0.09803922f, 1f), face: TmpFont.Face.Cjk);   // ✅ 已复刻（2026-11-04 · B142-E5 · 判据 = `Social Submenu Variant.prefab` 16 颗 `Image.m_Color` 逐位）
             if (input == null)
                 Debug.LogWarning("[Alliance] `" + boxName + "` 的输入框没建出来（`TextInputField.Create` 返回 null）"
                                + " —— 如实说：这一格仍然打不了字（⛔ 不假装能输）");

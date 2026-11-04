@@ -722,9 +722,9 @@ namespace CardPresentation
             // 🔴 **A406**：`…/Alliance Rating Display/Individual rating value` 原版
             //   `字号=37.4 基准=**24.0** auto[18.0~**40.0**]` ⇒ 上限 **40.0**（我们原来拿 37.4 当上限）·
             //   base **24.0**（⚠️ 这一族的 base 不是 36，别按族统一填）。
-            Text(rt, Dash6, new PxRect(AlRtL + 49.31f, AlRtT, AlRtR, AlRtB), Color.white, "Individual rating value",
+            var alRt = Text(rt, Dash6, new PxRect(AlRtL + 49.31f, AlRtT, AlRtR, AlRtB), Color.white, "Individual rating value",
                  AlRtPx, L_Text, autoFit: true, autoMinPx: AlRtAutoMin, alignLeft: true, wrap: true,
-                 autoMaxPx: 40f, basePx: 24f, face: TmpFont.Face.LatinCardBody);
+                 autoMaxPx: 40f, basePx: 24f, face: TmpFont.Face.LatinCardBody); if (alRt != null) alRt.SetSmallScreenFontSizes(45f, 0f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：Player Profile Window `Profile Tab ▸ Info Section with Alliance ▸ Alliance Rating Display` = 45/0）
             sec.gameObject.SetActive(false);
         }
 
@@ -931,7 +931,7 @@ namespace CardPresentation
             var tmTx = Text(tm, "", new PxRect(ctL - 64.40f, ctB - 25.45f, ctL + 103.24f, ctB + 30.45f), Color.white,
                             "Timer", 32f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: false,
                             autoMaxPx: 32f, basePx: 50f, face: TmpFont.Face.LatinCardBody);
-            if (tmTx != null) tmTx.SetWrapping(false);
+            if (tmTx != null) { tmTx.SetWrapping(false); tmTx.SetSmallScreenFontSizes(38f, 10f); }   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：Player Profile Window `Ranking/{Current,Highest} Rank/Content/Timer/Timer` = 38/10）
 
             // `DivisionImage`：**槽的矩形照 prefab 真值**（见 `CrDivR`/`HrDivR` 的 doc —— 宽度 390.92 是字段值、
             // 高度 0.00 是「布局组 + 图还没喂」的伪值，所以这里把槽建成**零高**、图由 `DrawDivisionArt` 画）。
@@ -997,9 +997,9 @@ namespace CardPresentation
             // 🔴 **A406**：`Ranking/{Current,Highest} Rank/Content/footer/MainRating/Global Rating/Individual rating value`
             //   原版 `auto[18.0~40.0] 基准=31.3799991607666` ⇒ 上限 40（= 标称）· base **31.38**
             //   （⚠️ 两颗的 `m_fontSize` 不同：`Current` 40.0 / `Highest` 36.3 —— 上限与 base 仍逐位相同）。
-            Text(gl, Dash6, new PxRect(glL + 60f, glT + dy, glR, glB + dy), Color.white, "Individual rating value",
+            var glLb = Text(gl, Dash6, new PxRect(glL + 60f, glT + dy, glR, glB + dy), Color.white, "Individual rating value",
                  RvPx, L_Text, autoFit: true, autoMinPx: RvAutoMin, alignLeft: true, wrap: true,
-                 autoMaxPx: 40f, basePx: 31.3799991607666f, face: TmpFont.Face.LatinCardBody);
+                 autoMaxPx: 40f, basePx: 31.3799991607666f, face: TmpFont.Face.LatinCardBody); if (glLb != null) glLb.SetSmallScreenFontSizes(45f, 0f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：Player Profile Window `Ranking/{Current,Highest} Rank/Content/footer/MainRating/Global Rating` = 45/0）
             // 🔴 **2026-10-24（U2 · 父链归真）**：`MainRating` 出厂 **F** 的那一份（`Highest Rank`，`displaySeals=0`）
             //   ⇒ **整块关**（连 `Global Rating` 一起关）。这句**必须放在 `Global Rating` 建完之后** ——
             //   改前 `Global Rating` 建在 `footer` 上、不归 `MainRating` 管 ⇒ 关不掉
@@ -1097,7 +1097,7 @@ namespace CardPresentation
                            HrLcValPx, L_Text, autoFit: true, autoMinPx: HrLcValAutoMin, alignLeft: true, wrap: true,
                            autoMaxPx: 32f, basePx: 31.3799991607666f, face: TmpFont.Face.LatinCardBody);
             // 原版这一格是 `Left/**Midline**`（dump 那一行），`Text(...)` 只表达左右 ⇒ 纵向另接一次。
-            MenuDraw.SetVAlign(val, Label.VAlign.Midline, valR);
+            MenuDraw.SetVAlign(val, Label.VAlign.Midline, valR); if (val != null) val.SetSmallScreenFontSizes(45f, 0f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：Player Profile Window `Ranking/{Current,Highest} Rank/…/Legendary Counter/Rating Text` = 45/0）
         }
 
         /// <summary>`Legendary Display Profile`（传奇支）—— **出厂 T，但与 `Highest Rank` 互斥**（判据 ②）。
@@ -1160,9 +1160,9 @@ namespace CardPresentation
             // 🔴 **A406**：`Ranking/Legendary Display Profile/Content/Legendary Counter/Rating Text/Individual rating value`
             //   原版 `auto[18.0~32.0] 基准=31.3799991607666` ⇒ 上限 32（= 标称）· base **31.38**
             //   （⚠️ 与同页 `Global Rating` 那颗**上限不同**：它 32、那颗 40 —— 同名不同站，别按名统一）。
-            Text(rt, Dash6, new PxRect(LgRtL + 60f, LgRtT, LgRtR, LgRtB), Color.white,
+            var lgRt = Text(rt, Dash6, new PxRect(LgRtL + 60f, LgRtT, LgRtR, LgRtB), Color.white,
                  "Individual rating value", 32f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: true, wrap: true,
-                 autoMaxPx: 32f, basePx: 31.3799991607666f, face: TmpFont.Face.LatinCardBody);
+                 autoMaxPx: 32f, basePx: 31.3799991607666f, face: TmpFont.Face.LatinCardBody); if (lgRt != null) lgRt.SetSmallScreenFontSizes(45f, 0f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：Player Profile Window `Ranking/Legendary Display Profile/Content/Legendary Counter/Rating Text` = 45/0）
 
             // 三档奖杯（Gold / Silver / Bronze）。⚠️ `Victories number` / `Victories text` 这两个**名字**
             //    是原版预制体复制粘贴来的 —— 装的其实是「奖杯数」与 `Trophies` 文案（照原版名字建）。

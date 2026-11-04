@@ -303,7 +303,7 @@ namespace CardPresentation
                 TargetInWindow = MenuTutorialTargetKind.RewardsTabForge,
                 // ✅ 第三步（2026-10-19 接上）：停在 Forge 页签且 `forgeHelpTexts` 弹过之后，指针换指
                 //   第一格**可领**的 `Claim` 钮（原版 `ForgeWindowTab.GetForgeItem` 那颗）。
-                //   ⚠️ 原版那个 AddPointer 的 offset 传的是运行时鼠标位置 ⇒ 我们取 (0,0)，等价实现。
+                //   ⚠️ 原版那个 AddPointer 的 offset 传的是运行时鼠标位置 ⇒ **E66 已改为点击位置**；没记录到才退回 (0,0) + 出声（⛔ 别按旧注「我们取 (0,0)」读）。
                 DeepTarget = MenuTutorialTargetKind.ForgeClaimButton,
                 // 类桩字段：`rewardsMenuButton` / `forgeButton` + `goToForgeTexts` / `forgeHelpTexts`。
                 // 文案键名按本地化族对出（`GoToForge*` / `InForge*`），⛔ 不是实读。

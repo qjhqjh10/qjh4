@@ -570,7 +570,7 @@ namespace CardPresentation
         public static List<Badge> For(IEnumerable<KeyValuePair<string, int>> keywords, string orderHint = null,
                                       IReadOnlyCollection<string> numericKeys = null,
                                       System.Func<string, bool> isActive = null,
-                                      bool isPlayer = true, bool cardIcons = false)
+                                      bool isPlayer = true, bool cardIcons = false, RuleEngine.CardDef derivedCard = null, RuleEngine.CardDef traitSource = null)
         {
             var list = new List<Badge>();
             if (keywords == null) return list;
@@ -581,6 +581,7 @@ namespace CardPresentation
             //    ⚠️ 先 `Copy` 再判：`keywords` 可能是**只能走一遍**的惰性序列，判两次就空了。
             var ordered = new List<KeyValuePair<string, int>>();
             foreach (var kv in keywords) ordered.Add(kv);
+            RetargetBadgeSourceToCardTraits(ordered, traitSource);   // ✅ 已复刻（2026-11-04 · B142-E26 · `B142-CARDTRACTS-BADGE`）：原版徽标源 = SO 的 `CardTraits`（`BattleCardUI__UpdateTraitIcons.c:59` → `CardTraitCollection__GetTraitInPlayListForIcons.c:47-113` 遍历 `card+0x128`，而 `+0x128` 是 `CardScript__SetBaseCardTraits.c:36-70` 从 `rawCard+0x230` 整表拷来的）；`keywords` 列**不是**它的来源 ⇒ 活例 `AM72` 改前多画 `strike`、少画 `slay`
             if (!isPlayer && HasKeyword(ordered, "ambush")) return list;
 
             // 顺序：**卡面效果文字里先出现的排前面**（和玩家在卡上读到的词序一致），
@@ -604,7 +605,7 @@ namespace CardPresentation
                 if (ia != ib) return ia.CompareTo(ib);
                 return string.CompareOrdinal(a.Key, b.Key);
             });
-
+            var derivedKeys = MergeDerivedTraits(ordered, derivedCard, cardIcons);   // ✅ 已复刻（2026-11-04 · B142-E3 · `B141-L986-DERIVED-TRAIT`）：原版 `CardTraitCollection.GetTraitInPlayListForIcons.c:112-192` 第二支 = `GetAbilityToTraitDict` 那 25 对 (trigger→trait) 派生的 trait **也进**这 7 格图标；⛔ 只并表现层，⛔ 不写 `_keywords`（写了会让 587 张卡凭空 `Has("rally")`）
             foreach (var kv in ordered)
             {
                 if (list.Count >= MaxSlots) break;
@@ -628,7 +629,7 @@ namespace CardPresentation
                 {
                     sprite = spr,
                     key = kv.Key,
-                    counter = CarriesValue(kv.Key, kv.Value, numericKeys) ? Mathf.Max(1, kv.Value) : 0,
+                    counter = (derivedKeys != null && Contains(derivedKeys, Key(Strip(kv.Key)))) ? 0 : (CarriesValue(kv.Key, kv.Value, numericKeys) ? Mathf.Max(1, kv.Value) : 0),
                     active = act
                 });
             }
@@ -720,6 +721,131 @@ namespace CardPresentation
             int colon = k.IndexOf(':');
             if (colon > 0) k = k.Substring(0, colon);
             return System.Text.RegularExpressions.Regex.Replace(k, @"[\s\.]*\d+[\s\.]*$", "").Trim();
+        }
+
+        /// <summary>**把「由 ability trigger 派生的 trait」并进这张表**（原版
+        /// `CardTraitCollection.GetTraitInPlayListForIcons.c:112-192` 的**第二支**）。
+        ///
+        /// <para>**判据链**（三跳全活，见 `报告/B141_W128_CHK05_543_986.md` §2.1）：
+        /// ① `GetAbilityToTraitDict(cardArmy)`（`CardTraitCollection__GetAbilityToTraitDict.c:1-53`）= 25 对
+        /// (trigger→trait) 表 → 我们的等价物 = `RuleEngine.CardDef.ExtraAbilityTraits`（`CardDefExtraTraits.cs:110`）；
+        /// ② 本方法 = 那一支「命中的 trait 也进 7 格」；③ 消费者 = `BattleCardUI.UpdateTraitIcons`。</para>
+        ///
+        /// <para>🔴 **只收 step ①**（`TriggerName != null`）：step ② 是 `hasActiveAbility` 补的那一条
+        /// （`TriggerName == null`），原版**图标路径只查 25 对表** ⇒ 它不进这里。</para>
+        ///
+        /// <para>🔴 **去重按【图标】不按关键词名** —— 原版按 **trait id** 去重、先出现者赢
+        /// （`GetTraitInPlayListForIcons.c` 那句 `List.Find`）。我们的等价物 = `SpriteOf` 解析出来的**图名**
+        /// （一张图 = 一条 trait）。⚠️ 按关键词名去重会多出 14 张**假缺口**：
+        /// `Penitence`（= `DefinedTrait.rage 280` 的官方显示名，`Alias` 里映射到 `rage` 那枚图）与
+        /// `Ecstasy 1`（带数值后缀）在 `Strip`/`SpriteOf` 下**本来就是同一枚图标** ⇒ 已经画出来了。</para>
+        ///
+        /// <para>只并「能进这 7 格」的那些（`PlaysInPlayIcon` / `cardIcons:true` 时 `PlaysCardIcon`）——
+        /// 其余（`rally` / `talent` / `teleport` …）原版这一支**也不画**，提前挡掉还能避免它们扰动排序与 7 格容量。</para>
+        ///
+        /// <para>**返回值** = 本方法**真加进去**的那些键（`Key(Strip(...))` 归一化）；调用方必须把它们传给
+        /// 角标那一档压制数字 —— 派生 trait 的 counter 走 `GetCurrentTraitValueWithModifiers(card, traitId)`，
+        /// 而它**不在 `CurrentTraits` 里**（`UpdateTraitIcons.c:83-88` 的 `List.Find` 命中不了）⇒ counter 恒 0。
+        /// ⚠️ 不压制的话 `ecstasy` 会多印一个「1」（它在 `CarriesValue` 的 ③ 表里）。
+        /// 返回 `null` = 一条都没加。</para>
+        ///
+        /// <para>⚠️ **已知边界（如实记）**：原版次序 = 卡自己的 traits 先、派生的后，且按 trait id 去重；
+        /// 我们 `For` 的排序整体是替身（见上面那段 `ordered.Sort` 的注释）。派生项由本方法**追加在排序之后**
+        /// ⇒ 落在这张表的末尾，与「自己的先、派生的后」同向，但仍不是原版的 trait 数据作者序。</para>
+        /// </summary>
+        static List<string> MergeDerivedTraits(List<KeyValuePair<string, int>> acc, RuleEngine.CardDef card, bool cardIcons)
+        {
+            if (acc == null || card == null) return null;
+            List<string> added = null;
+            // 已经在这张表里的图标（= 卡自己的 traits 那一支已收的），按图名去重
+            var seen = new HashSet<string>();
+            for (int i = 0; i < acc.Count; i++)
+            {
+                string s0 = SpriteOf(acc[i].Key);
+                if (s0 != null) seen.Add(Key(s0));
+            }
+            var all = card.ExtraAbilityTraits;
+            if (all == null) return null;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var e = all[i];
+                if (e == null || e.TriggerName == null || string.IsNullOrEmpty(e.Keyword)) continue;   // ⛔ step ②（`TriggerName == null`）不进图标路径
+                string spr = SpriteOf(e.Keyword);
+                if (spr == null) continue;                                        // 认不出图 ⇒ 原版这一支也画不出来
+                if (!(cardIcons ? PlaysCardIcon(spr) : PlaysInPlayIcon(spr))) continue;
+                if (!seen.Add(Key(spr))) continue;                                // 按 trait（= 图名）去重，先出现者赢
+                acc.Add(new KeyValuePair<string, int>(e.Keyword, 0));
+                if (added == null) added = new List<string>();
+                added.Add(Key(Strip(e.Keyword)));
+            }
+            return added;
+        }
+
+        // ================================================================================================
+        //  ✅ 已复刻（2026-11-04 · B142-E26 · 新账 `B142-CARDTRACTS-BADGE`）：**徽标源换成原版真正的源**
+        //
+        //  【病灶】`For` 原来只吃 `u.Keywords`（= `CardDef.Keywords` = `keywords` 列）。原版那 7 格里画什么
+        //    读的是 **`CardTraitCollection.GetTraitInPlayListForIcons.c:47-113`**，它逐条遍历 `card+0x128`；
+        //    而 `+0x128` = **`CardScript__SetBaseCardTraits.c:36-70`** 把 SO 的 `rawCard.CardTraits(+0x230)`
+        //    **整表拷进去**的那一张 ⇒ **原版源 = SO 的 `CardTraits`，`keywords` 列不是它的来源**。
+        //
+        //  【活例】`AM72 Vitus Gryf`：`keywords` 列 = `Flying / Strike`、`cardTraits` 列 = `Flying / Slay`
+        //    ⇒ 改前我们多画一枚 `strike`、少画一枚 `slay`（原版画的是后者）。
+        //    （`Strike` 是那张卡**效果正文**里的触发词 `Strike: Deploy …`，不是关键词行 —— `keywords` 列那一层
+        //     把它收了进来；判据 = PnP 成品图 `d:/2/Warpforge部队卡片/Astra Militarum/3部队/Warpforge_08_Vitus-Gryf.png` 亲读。）
+        //
+        //  【只换基础那一半】运行期授予（`UnitState.AddKeyword` / 光环 / `AddEffect` 的 addTrait）在原版里由
+        //    `CardScript.AddTraitSilently` 直接追加进 `+0x128` ⇒ **仍然要画**。判别式 = 「这个键**不在**卡自己的
+        //    `CardDef.Keywords`（= `keywords` 列那一批）里」⇒ 运行期授予。
+        //    ⚠️ **已知边界（如实记）**：运行期**重复授予**一个「卡面 `keywords` 列有、但 `cardTraits` 里没有」的
+        //       词（如 `AM72` 的 `strike`）时，我们分不出「授予」与「卡面那一批」⇒ 会被一起滤掉（原版会画）。
+        //       本池现读 **0 例**（全池现扫：`_keywords` 里能被运行的只有 `AddKeyword` 的那几族）。
+        //    ⚠️ 另一条边界：`[data]` 层个别卡的 SO `cardTraits` 与 PnP 印字不一致（现读 1 例：
+        //       `GOF76 Mozrog Skragbad` PnP 印 `Stomp`、SO `cardTraits` 只有 `Talent`）⇒ 按铁律 18·0「照抄原版」
+        //       取 SO，**不拿 `keywords` 列去补**（那正是本条要修掉的那条错源）。
+        //
+        //  【零回归】`traitSource == null` 或 `CardTraitsKnown == false`（夹具 / 合成卡 / 旧表）⇒ **原样不动**
+        //    —— 所以既有的调用点（含 `B142_E3_Assert` 那批只传 `derivedCard` 的比对）逐位不变。
+        //
+        //  ⚠️ 追加在**类尾**（`账/*.tsv` 按 `文件:行号` 引，本文件现读落点最大 = `:570`）。
+        // ================================================================================================
+        /// <summary>见上面那段：把 <paramref name="acc"/> 的**基础那一半**换成 <paramref name="card"/> 的
+        /// `CardTraits`（SO `+0x230`），运行期授予那一半原样保留。
+        /// <para>值优先取**当前**那份（`acc` 里同名那条，可能被 modifier / 光环抬过），取不到才用 SO 的
+        /// `_traitValue`（没印数字的 trait 是 `0` —— 原版 `CardTrait.GetNewTrait` 的默认值）。</para></summary>
+        static void RetargetBadgeSourceToCardTraits(List<KeyValuePair<string, int>> acc, RuleEngine.CardDef card)
+        {
+            if (acc == null || card == null || !card.CardTraitsKnown) return;
+            var traits = card.CardTraits;
+            if (traits == null) return;
+            // ① 运行期授予那一半：不在卡自己的 `keywords` 列里（= 不是卡面印的基准那一批）
+            var runtime = new List<KeyValuePair<string, int>>();
+            for (int i = 0; i < acc.Count; i++)
+            {
+                string k = Key(Strip(acc[i].Key));
+                if (k.Length == 0 || card.Keywords == null || !card.Keywords.ContainsKey(k)) runtime.Add(acc[i]);
+            }
+            // ② 基础那一半改由 `CardTraits` 出（原版按 `+0x128` 的 `List` 索引序、按 trait 去重、先出现者赢）
+            var seen = new HashSet<string>();
+            var rebuilt = new List<KeyValuePair<string, int>>();
+            for (int i = 0; i < traits.Count; i++)
+            {
+                var e = traits[i];
+                if (e == null || string.IsNullOrEmpty(e.Name)) continue;
+                if (!seen.Add(e.Name)) continue;
+                int v = e.Value;
+                for (int j = 0; j < acc.Count; j++)
+                    if (Key(Strip(acc[j].Key)) == e.Name) { v = acc[j].Value; break; }
+                rebuilt.Add(new KeyValuePair<string, int>(e.Name, v));
+            }
+            // ③ 运行期授予的那些（按图名去重同 ②；与基础同名的，② 已经按当前值收过 ⇒ 这里跳过）
+            for (int i = 0; i < runtime.Count; i++)
+            {
+                if (!seen.Add(Key(Strip(runtime[i].Key)))) continue;
+                rebuilt.Add(runtime[i]);
+            }
+            acc.Clear();
+            acc.AddRange(rebuilt);
         }
     }
 }

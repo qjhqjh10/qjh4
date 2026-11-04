@@ -15,9 +15,9 @@
 //     DH  en `{0:0}d {1:0}h`      zh-CN `{0:0}天 {1:0}小时`
 //     HM  en `{0:0}h {1:0}m`      zh-CN `{0:0}小时 {1:0}分钟`
 //     MS  en `{0:0}m {1:0}s`      zh-CN `{0:0}分钟 {1:0}秒`
-//   ⚠️ `D_Only` / `H_Only` / `M_Only` 三条**官方表里没有**（表里只有 `MainMenu/Time/D`、`H`、`M`，
-//      而那三条是 `{0:0}d ago` / `…ago` —— **不是**倒计时用的那一族）。⇒ 下面这三条格式是
-//      按 DH/HM/MS 里出现的单位**机械拼出来**的，**我们挑的**（不是原版文案），改文案时别把它们当正本。
+//   ✅ **2026-11-04（B142-E46）就地订正**：原文写「`D_Only`/`H_Only`/`M_Only` 官方表里没有」——**不成立**：
+//      三条键 = `MainMenu/Time/{D,H,M}_Only`（`il2cpp_out/script.json` 的 `ScriptString` 按 VA 反查：
+//      `0x42C1C10/0x42C2010/0x42C2310`）。官方表 zh = `{0:0}天`/`{0:0}小时`/`{0:0}分`（⚠️ 分钟档是「分」不是「分钟」）。
 // · `CardShopTab.CheckTimer`（9 点规则）：`d:/2/tools/decomp_full/CardShopTab__CheckTimer.c:20-35`
 //   （常量 `DAT_1834b32c0` 实读 = **9.0**）；施工图 `资料/阶段二_商店_原版规格.md` §四。
 //
@@ -184,16 +184,16 @@ namespace CardPresentation
             return string.Format(FmtMS(), ts.Minutes, ts.Seconds);
         }
 
-        // ---- 六条格式（en = 官方表原文；zh = 官方表原文；`_Only` 三条 = 我们按单位机械拼的）----
+        // ---- 六条格式（**全部**走官方 I2 键 `MainMenu/Time/{DH,HM,MS,D_Only,H_Only,M_Only}` ⇒ 13 语言各取各的列）----
 
-        static bool Zh { get { return Loc.Current == AvailableLanguages.Chinese; } }
+        // ✅ 已复刻（2026-11-04 · B142-E72 · 官方 13 语言表 `Resources/official_loc_13lang.json` 的 `MainMenu/Time/{DH,HM,MS}` 三键 13 列逐条现读）：原 `Zh ? … : …` 兜底属性已删（另外 11 种语言不再掉回英文）；本行只占位保持行号 —— 账按 `文件:行号` 引用本文件，⛔ 别删行
 
-        static string FmtDH() { return Zh ? "{0:0}天 {1:0}小时" : "{0:0}d {1:0}h"; }      // 官方
-        static string FmtHM() { return Zh ? "{0:0}小时 {1:0}分钟" : "{0:0}h {1:0}m"; }    // 官方
-        static string FmtMS() { return Zh ? "{0:0}分钟 {1:0}秒" : "{0:0}m {1:0}s"; }      // 官方
-        static string FmtDOnly() { return Zh ? "{0:0}天" : "{0:0}d"; }                    // ⚠️ 我们挑的
-        static string FmtHOnly() { return Zh ? "{0:0}小时" : "{0:0}h"; }                  // ⚠️ 我们挑的
-        static string FmtMOnly() { return Zh ? "{0:0}分钟" : "{0:0}m"; }                  // ⚠️ 我们挑的
+        static string FmtDH() { return Loc.T("MainMenu/Time/DH"); }      // 官方（en `{0:0}d {1:0}h` · zh `{0:0}天 {1:0}小时` · 13 列全有：ru `{0:0}д {1:0}ч` · it `{0:0}g {1:0}h` · ko `{0:0}일 {1:0}시간` …）
+        static string FmtHM() { return Loc.T("MainMenu/Time/HM"); }      // 官方（en `{0:0}h {1:0}m` · zh `{0:0}小时 {1:0}分钟` · 13 列全有：ru `{0:0}ч {1:0}м` · ja `{0:0}時間 {1:0}分` · tr `{0:0}sa {1:0}dk` …）
+        static string FmtMS() { return Loc.T("MainMenu/Time/MS"); }      // 官方（en `{0:0}m {1:0}s` · zh `{0:0}分钟 {1:0}秒` · 13 列全有：ru `{0:0}м {1:0}с` · ko `{0:0}분 {1:0}초` · tr `{0:0}dk {1:0}sn` …）
+        static string FmtDOnly() { return Loc.T("MainMenu/Time/D_Only"); }                // 官方（en `{0:0}d` · zh `{0:0}天`）
+        static string FmtHOnly() { return Loc.T("MainMenu/Time/H_Only"); }                // 官方（en `{0:0}h` · zh `{0:0}小时`）
+        static string FmtMOnly() { return Loc.T("MainMenu/Time/M_Only"); }                // 官方（en `{0:0}m` · zh `{0:0}分`）
 
         /// <summary>原版 `MainMenu/LastMinutes` 的正文（官方表：en `Last Minutes` · zh-CN `最后时刻`）。
         /// 我们接的消费点里，`useLastMinutesText = 1` 的是**商店**
@@ -203,7 +203,7 @@ namespace CardPresentation
         /// 「**正文不在官方表快照里** ⇒ 那一档暂未接」，**已过期**：当前官方表里该键 =
         /// en `Ends soon` / zh `即将结束`，能源窗与遭遇战窗两处**都已接上**）。</summary>
         public static string LastMinutesText()
-        { return Zh ? "最后时刻" : "Last Minutes"; }
+        { return Loc.T("MainMenu/LastMinutes"); }   // ✅ 已复刻（2026-11-04 · B142-E72 · 官方 13 语言表 `MainMenu/LastMinutes` 13 列现读：en `Last Minutes` · zh `最后时刻` · ru `Последние минуты` · ko `마지막 순간` · ja `最後の瞬間` …）；原 `Zh ? "最后时刻" : "Last Minutes"` 已删
 
         // ============================================================ 目标时刻
 

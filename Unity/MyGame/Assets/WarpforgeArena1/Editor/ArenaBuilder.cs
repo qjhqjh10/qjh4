@@ -578,8 +578,8 @@ public static class ArenaBuilder
     /// <summary>把 13 个战场**全建一遍**（每个存一个独立场景）—— 批量入口，串行跑。</summary>
     public static void BuildAll()
     {
-        foreach (var s in AllArenas) BuildInternal(s); B139_H_Assert.VerifyAll();   // 🆕 B139_H：建完立刻自检（13 场全绿才算数）
-        MeshPostProcess();   // ✅ 已复刻（2026-11-04 · B141/W18 · 判据/B141_W130_对账_资源.md §二 W130-O6）
+        foreach (var s in AllArenas) BuildInternal(s); B139_H_Assert.VerifyAll();   // 🆕 B139_H：建完立刻自检（13 场全绿才算数）｜⚠️ 2026-11-04 核（B142-E28）：本断言**不读网格盘上字段**（只读 manifest / 场景 YAML / 粒子 .mat / ArtBaker 表 / .meta；`Editor/B139_H_Assert.cs` 里搜 mesh / Mesh / .asset = 0 命中）⇒ 排在写口 `MeshPostProcess()`（下一行，转 `B140_WS_MeshFlags.ApplyAll`）**之前是安全的**；⛔ 但别把下一行的 `B141_W18_Assert` 挪到写口之前 —— 它第 ④ 项专验网格标志，必须在写口之后。
+        MeshPostProcess(); B141_W18_Assert.VerifyAll();   // ✅ 已复刻（2026-11-04 · B141/W18 · 判据/B141_W130_对账_资源.md §二 W130-O6）｜B142-E28 接线：W18 第 ④ 项要求写口先跑 ⇒ 只能排在 MeshPostProcess（转发唯一写口 B140_WS_MeshFlags.ApplyAll）之后；W18 无 Pass/Fail 读口，结论看它自己打印的「[B141_W18] 合计」行
     }
 
     // ==================================================================

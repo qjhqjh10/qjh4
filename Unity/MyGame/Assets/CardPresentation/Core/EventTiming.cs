@@ -928,9 +928,9 @@ namespace CardPresentation
         /// 但该资产 **`waitAnimation = 0`（非阻塞）** ⇒ 它**不决定**下一条动作何时开始
         /// （`assets_full/bundle_tweenandshakes_assets_all/MonoBehaviour/Summon Troop Tween.json`）。
         /// **错因**：把「那条 tween 有多长」当成了「这条动作占多久」。</para>
-        /// <para>⚠️ **还差的**：原版在**带 `cardAnim` 的那一支**会先 `yield ResolveTraitAnim`（按卡的召唤动画），
-        /// 时长 = `AnimInfo.GetAnimDuration()` —— 我们**还没接**，所以本档只覆盖「基础 0.45 s」；
-        /// 接上之后应为 `0.45 + 该卡召唤 clip`。</para>
+        /// <para>⚠️ **已核（`B141/W83` 2026-11-04 · `B142_E2` 落地）**：原版「带 `cardAnim` 先 `yield ResolveTraitAnim`」那一支在本 build 是**死码**
+        /// —— `BattleAction.cardAnim`（真偏移 0xF8）**全树 0 写点**，唯一生产 `summonUnit` 的动作 `AddSummonUnit` 不写它 ⇒ 0.45 s 即完整寿命；
+        /// ⛔ 别再按「0.45 + 该卡 clip」加时长（那个式子在原版里也不对：还有 `startDelay` 与 tween 两支）。</para>
         /// <para>⚠️ `Reanimate` 共用本常量：本轮只核了 `_ResolveSummonUnit` 那条协程，**没单独核再造**。</para></summary>
         public const float DeploySummonHold = 0.45f;
 

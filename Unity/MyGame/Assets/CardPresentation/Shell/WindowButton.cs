@@ -446,7 +446,7 @@ namespace CardPresentation
 
         void SwapTo(Texture tex)
         {
-            if (tex == null) return;
+            if (tex == null) return; if (_nine != null) MaybeResliceNine(tex);   // ✅ 已复刻（2026-11-04 · B142-E17 · 判据 = UGUI `Image.cs:279-295` 换 sprite 重建网格 + `:1157` 按**新图 border** 重切）
             SetOn(target, tex);
             if (_nine != null) for (int i = 0; i < _nine.Length; i++) SetOn(_nine[i], tex);
         }
@@ -560,13 +560,13 @@ namespace CardPresentation
         /// 但**比例用每块自己那一格**（`ImageQuad.CreateNineSlice` / `MenuDraw.PlaceCell` 切出来的），⛔ 不许套 `qs[0]` 的比（类尾 `InNine` 的 doc 有实算）。
         /// `40K_button` 与 `40K_button_hover` 实测**同尺寸 489×107**（2026-10-03 核对），uv 切分不变、只换纹理。</summary>
         public void BindNine(GameObject nine, string art, string hoverArt = null, string pressedArt = null,
-                             string selectedArt = null)
+                             string selectedArt = null, NineMeta? normal = null, NineMeta? hover = null, NineMeta? pressed = null, NineMeta? selected = null)   // ✅ 已复刻（2026-11-04 · B142-E17）：4 个可选 meta，**默认 null = 今天的行为逐位不变**
         {
             if (nine == null) return;
             var qs = nine.GetComponentsInChildren<ImageQuad>();
             if (qs == null || qs.Length == 0) return;
-            _nine = qs;
-            Bind(qs[0], art, hoverArt, pressedArt, selectedArt);   // 常态图取第一张（九张同源）
+            _nine = qs; _nineRoot = nine; _nineMeta = new NineMeta?[] { normal, hover, pressed, selected }; NineMeasure();
+            Bind(qs[0], art, hoverArt, pressedArt, selectedArt); NineMarkBuilt(normal);   // 常态图取第一张（九张同源）
         }
 
         /// <summary>便捷：**按钮自己就是那张图**时（`quad.gameObject.AddComponent&lt;WindowButton&gt;()` 那种写法）
@@ -976,9 +976,9 @@ namespace CardPresentation
         /// 另：全 1,276 颗 Selectable 里**只有 13 颗**有 `m_SpriteState.m_DisabledSprite` ⇒ 其余「禁用时视觉不变」是原版事实。
         /// 默认 `true` 保住本仓既有各站点的可见态（`Edit Deck` / 12 颗 `Collect` 真包实读全是 `grey=1`）；
         /// 需要对齐原版 grey=0 的站点**由该文件的写手**显式置 `false`（本轮只交表，见报告 §5 的改派清单）。</para>
-        /// <para>⚠️ 原版那颗方法的另一半（`disabledColor.a = colorTintGreyOnDisableAlpha`(`+0x17C`/`+0x14C`)
-        /// 再 `set_colors`）我们**没有对应物**：那颗 `ColorBlock` 是 uGUI `Selectable` 的字段，
-        /// 而我们的禁用观感走的是**材质换 Greyscale**（同一族、另一条路）⇒ 这一半记在账 179/231 的「还差什么」。</para></summary>
+        /// <para>✅ **2026-11-04 就地订正（铁律 5 · `B142-E51` 现核）**：这「另一半」原写「我们**没有对应物**」——**已过期**：
+        /// `disabledColor` 的 **RGB 与 α 两半都在**（`KeyOf` 禁用档返 <see cref="DisabledKeyNow"/>，`ApplyTint` 走 `ComposeVertexColor(底座, 色键, 乘数)` 四通道同乘）；
+        /// 仅剩的**不可观测**残差 = 原版那句 `set_colors` 写回 `ColorBlock`（写进去的值与序列化值逐值相同 ⇒ 净效果为零，见 `B90-N2` 现算）⇒ 不引进 uGUI `ColorBlock`。</para></summary>
         public bool ColorTintGreyOnDisable = true;
 
         /// <summary>该灰了吗（原版那两条路在 `DoStateTransition` 里合成的那一个布尔：
@@ -1235,7 +1235,7 @@ namespace CardPresentation
             // 压暗层（原版 `BackgroundCloseButton`）**没有**按钮音 —— 它只负责触发窗自己的 `Close()`
             // （那一声由 `GameWindow.PlayCloseSound` 出）。判据见上面那段普查。
             if (MenuDraw.WasShadeHit(transform)) return;
-            WindowSounds.PlayFx(clickCue ?? WindowSounds.DefaultButtonCue, $"按钮 `{name}`");
+            string cue = ResolveClickCue(); if (cue == null) return; WindowSounds.PlayFx(cue, $"按钮 `{name}`");   // ✅ 已复刻（2026-11-04 · B142-E51 · 原版 `PlayButtonSound` 的 `HasAudios()` 那跳；三档决议见类尾）
         }
 
         // ============================================================ 🆕 2026-10-18（音效线缺口 `AUD` §三 C9）
@@ -1334,5 +1334,170 @@ namespace CardPresentation
             for (int i = 0; i < _nine.Length; i++) if (_nine[i] == q) return true;
             return false;
         }
+
+        // ============================================================ ✅ 已复刻（2026-11-04 · B142-E17 · `B141-BINDNINE-BORDER`）
+        //
+        //  **判据（第一权威 = 本机 uGUI 包源码 `Library/PackageCache/com.unity.ugui@*/Runtime/UGUI/UI/Core/Image.cs`）**：
+        //   · `:279-295` `sprite` setter：`m_Sprite != value` ⇒ `SetAllDirty()`（换 sprite = **重建整张网格**）；
+        //   · `:1130 / :1157` `GenerateSlicedSprite`：`adjustedBorders = GetAdjustedBorders(border / multipliedPixelsPerUnit, rect)`
+        //     —— `border` 是**新 sprite 的 `Sprite.border`**（逐次现读）⇒ 换图后要按**新图**重切；
+        //   · `:756` `multipliedPixelsPerUnit => pixelsPerUnit * m_PixelsPerUnitMultiplier` ⇒ 画出来的边 = `m_Border ÷ ppuMul`；
+        //   · `:1479-1500` `GetAdjustedBorders`：某轴「两条角块之和 > 矩形边长」时**逐轴**按比例缩。
+        //
+        //  **为什么要这一套**：`BindNine` 原来只记 `ImageQuad[] _nine`，`SwapTo → SetOn` 只换纹理、`_uv` 一个字节不动
+        //  ⇒ 换到 **border 不同**的那一档时，uv 分界与角块宽仍沿用**常态图**的切分（静默偏一点点，没有任何报错）。
+        //  实测三族 border 各不相同：`40K_button_square` 36/28/37/29 ↔ `_hover` 32/27/34/28 ↔ `_pressed` 28/27/27/25 ·
+        //  `40K_tab_button` 183/0/128/29 ↔ `…_overwindow` 188/0/99/30（`Sprite/*.json` 现读）。
+        //  ⚠️ **同 border 的站点一个字节都不会变**：`NineMeta` 不给（`Valid = false`）⇒ `MaybeResliceNine` 直接返回。
+
+        /// <summary>九宫格某一档的切分元数据（原版 = `Sprite.border` + `Image.m_PixelsPerUnitMultiplier`）。
+        /// <para>不给（`Valid = false`）= 沿用建件那一刻的切分（= 2026-11-04 之前的行为，逐位不变）。</para></summary>
+        public struct NineMeta
+        {
+            /// <summary>贴图 px 的 (L, B, R, T) —— 原版 `Sprite.border`（uv 分界按它算）。</summary>
+            public Vector4 BorderPx;
+            /// <summary>该 `Image` 实例的 `m_PixelsPerUnitMultiplier`：画出来的边 = `BorderPx ÷ PpuMul`（`Image.cs:756`）。</summary>
+            public float PpuMul;
+            /// <summary>false = 这一档没有判据 ⇒ 一次都不重切。</summary>
+            public bool Valid;
+        }
+
+        // [0]=常态 [1]=悬停 [2]=按下 [3]=选中（与 `NineFor` 的取法一一对应）
+        NineMeta?[] _nineMeta;
+        /// <summary>九宫格树根（`BindNine` 传进来的那个 GameObject；`ImageQuad.ResliceNineSlice` 要它）。</summary>
+        GameObject _nineRoot;
+        /// <summary>建件那一刻九宫格的外框（世界单位）—— 换 sprite 时框不变（uGUI 也是按 `rect` 夹 border）。</summary>
+        float _nineWorldW, _nineWorldH;
+        /// <summary>建件那一刻有没有中心块（= 原版 `Image.m_FillCenter`；9 块里有没有 `*_11`）。</summary>
+        bool _nineFillCenter;
+        /// <summary>已经按哪一份 meta 切过（`false` = 还没切过，= 建件那一刻那一份）。</summary>
+        bool _nineApplied;
+        Vector4 _nineAppliedBorder;
+        int _nineAppliedTexW, _nineAppliedTexH;
+
+        /// <summary>量一次九宫树的外框 + 记中心块在不在（`BindNine` 那一刻调；一次性、不随换图重算）。</summary>
+        void NineMeasure()
+        {
+            _nineFillCenter = false;
+            float x1 = float.MaxValue, x2 = float.MinValue, y1 = float.MaxValue, y2 = float.MinValue;
+            for (int i = 0; i < _nine.Length; i++)
+            {
+                var q = _nine[i];
+                if (q == null || !q.gameObject.activeSelf) continue;
+                var lp = q.transform.localPosition;
+                float ax = q.anchor.x, ay = q.anchor.y;
+                x1 = Mathf.Min(x1, lp.x - ax * q.WorldW);
+                x2 = Mathf.Max(x2, lp.x + (1f - ax) * q.WorldW);
+                y1 = Mathf.Min(y1, lp.y - ay * q.WorldH);
+                y2 = Mathf.Max(y2, lp.y + (1f - ay) * q.WorldH);
+                if (_nineRoot != null && q.gameObject.name == _nineRoot.name + "_11") _nineFillCenter = true;
+            }
+            _nineWorldW = x2 > x1 ? x2 - x1 : 0f;
+            _nineWorldH = y2 > y1 ? y2 - y1 : 0f;
+        }
+
+        /// <summary>建件那一刻用的是哪一份切分 —— 记成「已应用」，这样第一次换到**同 border** 的档时也能走早退。
+        /// <para>⚠️ 前提：传 `normal` 的站点，**建件时用的就是这份 border**（两个生产站点都满足：
+        /// `OfferContainer` 建件用 `WebShopBorder`、`DeckSelectionPopup` 建件用 `on ? TabBorderOn : TabBorderOff`）。</para></summary>
+        void NineMarkBuilt(NineMeta? m)
+        {
+            if (m.HasValue && m.Value.Valid && _normalTex != null)
+            {
+                _nineApplied = true;
+                _nineAppliedBorder = m.Value.BorderPx;
+                _nineAppliedTexW = _normalTex.width; _nineAppliedTexH = _normalTex.height;
+            }
+        }
+
+        /// <summary>按贴图引用找这一档的 meta；这一档没给（或 `Valid = false`）⇒ 退回**常态**那档
+        /// （保证几何不会停在上一档上）；常态也没给 ⇒ 返回 `Valid = false`（= 今天的行为）。</summary>
+        NineMeta NineFor(Texture tex)
+        {
+            if (_nineMeta == null) return default(NineMeta);
+            int idx = tex == _normalTex ? 0 : tex == _hoverTex ? 1 : tex == _pressedTex ? 2 : tex == _selectedTex ? 3 : -1;
+            if (idx >= 0 && _nineMeta[idx].HasValue && _nineMeta[idx].Value.Valid) return _nineMeta[idx].Value;
+            return (_nineMeta[0].HasValue && _nineMeta[0].Value.Valid) ? _nineMeta[0].Value : default(NineMeta);
+        }
+
+        static bool SameBorder(Vector4 a, Vector4 b)
+        {
+            return Mathf.Abs(a.x - b.x) < 1e-4f && Mathf.Abs(a.y - b.y) < 1e-4f
+                && Mathf.Abs(a.z - b.z) < 1e-4f && Mathf.Abs(a.w - b.w) < 1e-4f;
+        }
+
+        /// <summary>换图那一刻按**新图的 border** 重切九宫树（原版 uGUI 每次换 sprite 都会重算网格）。
+        /// <para>🔴 **第一道回归闸 = 早退**：同 border **且**同贴图尺寸 ⇒ 一次都不重切
+        /// （`40K_button` 三档、`40K_dropdown_field_closed/opened`、`UI_Button_Mulligan` 三档这些同 border 家族
+        /// 走这条 ⇒ 子块引用/几何/uv 一个字节都不动，`B141_W81_Assert` 的 B4–B7b 靠它）。</para></summary>
+        void MaybeResliceNine(Texture tex)
+        {
+            if (_nine == null || _nine.Length == 0 || tex == null) return;
+            NineMeta meta = NineFor(tex);
+            if (!meta.Valid) return;                        // 这一档没有判据 ⇒ 不重切（= 今天的行为）
+            if (_nineApplied && SameBorder(_nineAppliedBorder, meta.BorderPx)
+                && _nineAppliedTexW == tex.width && _nineAppliedTexH == tex.height) return;
+            if (_nineRoot == null || _nineWorldW <= 0f || _nineWorldH <= 0f) return;
+            if (!ImageQuad.ResliceNineSlice(_nineRoot, tex, meta.BorderPx, meta.PpuMul,
+                                            _nineWorldW, _nineWorldH, _nineFillCenter)) return;
+            _nineApplied = true;
+            _nineAppliedBorder = meta.BorderPx;
+            _nineAppliedTexW = tex.width; _nineAppliedTexH = tex.height;
+        }
+
+        // ============================================================ ✅ 已复刻（2026-11-04 · B142-E51 · 账 `菜单_外壳.tsv` L229）
+        //
+        //  **判据 = `d:/2/tools/decomp_full/EverguildToggle__PlayButtonSound.c`（69 行逐句现读；`EverguildButton`
+        //  那份字段偏移不同、控制流同形）**：
+        //    · `cue = m_onClickSound(+0x130)`；
+        //    · `cue == null || !cue.HasAudios()` ⇒ 若 `useDefaultSound(+0x138)` 为真，改取 `SoundManager.defaultButtonSound`；
+        //    · 最终 `cue != null && cue.HasAudios()` 才 `SoundManager.Play2D(cue, MixerType.FX)`；**否则整段 return（静音）**。
+        //  ⇒ **三档决议**：① 自身 cue **有声音** ⇒ 播它；② 否则 `useDefaultSound` 为真 ⇒ 默认按钮音；
+        //    ③ 否则 ⇒ **一条都不播**（⛔ 连 `PlayFx` 都不请求 —— 「请求一条空 cue」在播放入口里是静默无输出）。
+        //  ⚠️ 改前本类是 `clickCue ?? DefaultButtonCue`：把 ① 与 ② 并成「有名字就播名字」——
+        //     (a) 名字在表里但 `clipList` 为空时，原版退默认音、我们却请求那条空 cue（挑不出 clip ⇒ 静默少一声）；
+        //     (b) **生产站点零行为变化**：`EverguildButton` **1022/1022** · `EverguildToggle` **151/151** 的
+        //     `useDefaultAudioClipIfNull = 1`，而现存 73 条 cue 映射逐条都在 `animfx_sounds.json`（513 条、空 cue 0）
+        //     ⇒ 「空 cue 仍走默认音」这一档一个字节没动。
+        //  🔴 红线：`clickCue` 写了名字却在音效表里查不到 ⇒ **出声**（每个名字一次），⛔ 不许把它当「原版就没声音」静默吞掉。
+
+        /// <summary>原版 `EverguildButton.useDefaultAudioClipIfNull`（**字段 `+0x178`**；`EverguildToggle` 是 **`+0x138`**）——
+        /// 自身 cue 为空 / 无声音时要不要拿 `SoundManager.defaultButtonSound` 兜底。
+        /// 逐实例实读：`EverguildButton` **1022/1022 = 1** · `EverguildToggle` **151/151 = 1** ⇒ 出厂 `true`。
+        /// （置 false 只为自检能走到「静音档」——生产里没有这一族。）</summary>
+        public bool useDefaultSound = true;
+
+        /// <summary>原版 `PlayButtonSound` 的**三档 cue 决议**（判据见上一段）；`null` = 静音档（原版整段 `return`）。</summary>
+        string ResolveClickCue()
+        {
+            if (CueHasAudios(clickCue)) return clickCue;                        // ① 自身 cue 有声音 ⇒ 播它
+            return useDefaultSound ? WindowSounds.DefaultButtonCue : null;      // ② 默认音 / ③ 静音
+        }
+
+        /// <summary>自检用：这一颗**此刻**会请求哪条 cue（`null` = 原版「整段 return」那一档）。</summary>
+        public string ClickCueForTest { get { return ResolveClickCue(); } }
+
+        /// <summary>= 原版 `AudioCue.HasAudios()`（`clipList` 至少一条）。
+        /// 🔴 **先 `HasCue` 再 `TryGetCue`**：`WFSoundBank.TryGetCue` 查不到会 `BadCues++`（那是别人的读口，
+        /// 别被我们污染 —— 先例 `Battle/RemnantSfx.cs:340`）。⚠️ 只判**清单**、不判 clip 能否加载
+        /// （原版 `HasAudios` 读的就是 `clipList.Count`）。</summary>
+        static bool CueHasAudios(string cueName)
+        {
+            if (string.IsNullOrEmpty(cueName)) return false;
+            if (!WarpforgeVFX.WFSoundBank.HasCue(cueName))
+            {
+                // 红线：数据侧写了一个表里没有的名字 —— 出声（每名字一次），别让它静默退回默认音。
+                if (_noSuchClickCue.Add(cueName))
+                    Debug.LogWarning("[Button] 点击音 cue `" + cueName + "` 在音效表里查不到 —— 原版这一档 = "
+                                     + "「cue 无声音」⇒ 按 `useDefaultSound` 走默认音 / 静音；数据侧要补进 "
+                                     + "`工具/import_original_sfx.py` 的 `EXTRA_CUES`。");
+                return false;
+            }
+            WarpforgeVFX.WFSoundCue cue;
+            return WarpforgeVFX.WFSoundBank.TryGetCue(cueName, out cue)
+                   && cue != null && cue.clips != null && cue.clips.Length > 0;
+        }
+
+        /// <summary>上面那条告警的去重表（每个 cue 名一次；cue 名是有限集合 ⇒ 不会无限长）。</summary>
+        static readonly System.Collections.Generic.HashSet<string> _noSuchClickCue = new System.Collections.Generic.HashSet<string>();
     }
 }

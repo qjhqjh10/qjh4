@@ -16,7 +16,7 @@
 //     ⇒ A1 实得 1 ⇒ 红；A3 钉住的正是「旧源在**同一份夹具**上确实会给出 1」，所以 A1 的 0 不是空转。
 //   · A0/A0'/A0''：同一份夹具（`Discard` 与 `DeadUnits` 逐字相同、只差 `IsRemnant` 这一位）+「它确实在两处都登记过」
 //     ⇒ A1 的 0 **不可能**是「它压根不在墓地」或「兵种被筛掉」造成的。
-//   · B 组：放逐 / 侧别 / 卡种三道闸各一条，删任何一条都会让对应那张冒出来。
+//   · B 组：放逐 / 侧别 / 卡种三道闸各一条，删任何一条都会让对应那张冒出来。· C 组（2026-11-04 `B142-E56` 收掉死亡回合窗口后）：同一份夹具上「旧形状」`LegacyDeadCandidates` 仍只给 1 张、新源给 2 张（C1'' 的判别式）⇒ 把窗口加回来 C1'/C1'' 一起红；`DeathTurn = -1` 那张同理由 0 变 1（C2'）。
 //   · D4：真卡跑一遍 —— 墓地里同时摆「残骸 + 普通单位」⇒ 候选必须**恰好 1 张**且是普通单位。
 //
 // ============================ 怎么接（宿主）============================
@@ -205,7 +205,7 @@ public static class B141_W77_Assert
     // ==================================================================
     static void GroupC_DeathTurnWindow()
     {
-        Section("C `since_last_turn` 窗口档（**原样保留**）与 `DeathTurn = -1`（手牌超上限弃掉）那一档");
+        Section("C `since_last_turn` 窗口档（**2026-11-04 `B142-E56` 已收掉**）与 `DeathTurn = -1`（手牌超上限弃掉）那一档");
 
         var ctx = NewCtx();
         ctx.Players[0].LastTurnStartMark = 5;          // 定死，免得依赖 `NewBattle` 的初始回合号
@@ -215,10 +215,10 @@ public static class B141_W77_Assert
         var all = RuleCore.DeadCandidatesForTest(ctx, 0, "all", DeadOp("all"));
         Check(all.Count, 2, "C1 `all` 档两张都在（本局死过 ⇒ 不看回合）｜实际 = " + Names(all));
         var since = RuleCore.DeadCandidatesForTest(ctx, 0, "since_last_turn", DeadOp("since_last_turn"));
-        Check(since.Count, 1,
-              "C1' ★ `since_last_turn` 只留 `DeathTurn >= mark`（5）那张 ⇒ 1 张｜实际 = " + Names(since));
-        CheckTrue(since.Count == 1 && since[0].Name == "B141W77_Since",
-              "C1'' ★ 留下的正是 `DeathTurn = 5` 那一张（不是按名字/顺序蒙的）");
+        Check(since.Count, 2,
+              "C1' ★ `since_last_turn` 窗口**已收掉**（`B142-E56`，原版 `GetCardsInCemetery.c` 无该维）⇒ 整座墓地 2 张｜实际 = " + Names(since));
+        CheckTrue(since.Count == 2 && since[0].Name == "B141W77_Early" && since[1].Name == "B141W77_Since" && LegacyDeadCandidates(ctx, 0, "since_last_turn").Count == 1,
+              "C1'' ★ 两张都在（`DeathTurn = 4 / 5` 不再影响候选）＋🧨 灭自证：旧窗口形状同一夹具仍只给 1 张 ⇒ 这里的 2 不是「夹具本来两张」；⛔ 别把窗口加回来");
 
         // ---- C2 `DeathTurn = -1` = 手牌超上限弃掉的单位卡（没有阵亡登记）----
         var ctx2 = NewCtx();
@@ -226,8 +226,8 @@ public static class B141_W77_Assert
         CemeteryCard(ctx2, Unit("B141W77_HandOverflow"), 0, withDeathRecord: false);   // 只在 Discard，没有 DeadUnits 记录
         Check(RuleCore.DeadCandidatesForTest(ctx2, 0, "all", DeadOp("all")).Count, 1,
               "C2 ★ `DeathTurn = -1`（手牌超上限弃掉 —— 原版同样 `SendToCemetery` ⇒ 墓地里**有**它）在 `all` 档**照收**");
-        Check(RuleCore.DeadCandidatesForTest(ctx2, 0, "since_last_turn", DeadOp("since_last_turn")).Count, 0,
-              "C2' ★ 窗口档里它被排除（没有死亡回合 ⇒ 判不了就不猜）");
+        Check(RuleCore.DeadCandidatesForTest(ctx2, 0, "since_last_turn", DeadOp("since_last_turn")).Count, 1,
+              "C2' ★ `DeathTurn = -1`（手牌超上限弃掉）在窗口档**也照收**（没有死亡回合 ⇒ 原版照样在墓地里）");
     }
 
     // ==================================================================

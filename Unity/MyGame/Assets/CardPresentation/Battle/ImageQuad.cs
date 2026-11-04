@@ -571,54 +571,11 @@ namespace CardPresentation
             root.transform.localPosition = center;
             if (tex == null) { Debug.LogWarning($"[ImageQuad] {name}: 贴图为空，九宫格没建"); return root; }
 
-            float l = borderPx.x, b = borderPx.y, r = borderPx.z, t = borderPx.w;
-            // 归一化 uv 分界
-            float uL = l / texW, uR = 1f - r / texW, vB = b / texH, vT = 1f - t / texH;
-            // 🔴 **2026-10-04 修（真 bug：误报 + 中段被吃掉）**。
-            //   旧写法 `if (uR <= uL || vT <= vB)` 把「**端帽正好铺满整张图**」这种**合法**形状也当成了越界：
-            //   判据 = 原版 uGUI `Image.GetAdjustedBorders`（`com.unity.ugui/Runtime/UGUI/UI/Core/Image.cs` 的 `Image.GetAdjustedBorders` —— 关键那一句就是 `adjustedRect.size[axis] < combinedBorders`）——
-            //   它只在 **`border.x + border.z > rect.width`**（两边边宽之和 **>** 矩形宽）时才按比例缩，
-            //   **`uR == uL`（= 边宽之和 == 贴图宽）是合法形状**，中段宽就是 0（`GenerateSlicedSprite`
-            //   对「宽 ≤ 0 的那一格」是 `continue` 跳过，见 `Image.GenerateSlicedSprite`）。
-            //   实测受害例：`WF_Special offer_Value` 324×87 · `m_Border = (162,0,162,0)`（L+R **正好** = 324）
-            //   ⇒ `uL == uR == 0.5` ⇒ 旧代码每次都打一条「border 比图还大，退回单块」的**假警告**
-            //   （`BoosterPackOpenWindow` 每个卡位一枚 `New Card Badge`、`OfferContainer` 19 个变体各一枚 —— 任务书记的实测是 **21 次**），而它根本没有退回单块。
-            //   ⇒ 只有**真正的越界**（`uR < uL` / `vT < vB`）才出声。
-            //   另：真的越界时把分界**夹成不反向**（下面两行）——旧代码会拿着一个反过来的 uv 去切图
-            //   （画出来是垃圾且**静默**）；夹完之后退化成「中段取同一列纹素」，与原版同形。
-            if (uR < uL || vT < vB)
-                Debug.LogWarning($"[ImageQuad] {name}: border 比图还大（{l}+{r} > {texW} 或 {b}+{t} > {texH}）—— "
-                               + "`m_Border` 与贴图尺寸不自洽，中段退回同一列纹素");
-            uR = Mathf.Max(uR, uL); vT = Mathf.Max(vT, vB);
-
-            // 目标里三段的长（角块**不缩放**，按 108 px = 1 世界单位）
-            float ol = borderOutPx.HasValue ? borderOutPx.Value.x : l;
-            float ob = borderOutPx.HasValue ? borderOutPx.Value.y : b;
-            float orr = borderOutPx.HasValue ? borderOutPx.Value.z : r;
-            float ot = borderOutPx.HasValue ? borderOutPx.Value.w : t;
-            float wl = ol / PixelsPerUnit, wr = orr / PixelsPerUnit;
-            float hb = ob / PixelsPerUnit, ht = ot / PixelsPerUnit;
-            // ⚠️ **目标比「两边角加起来」还小时，按比例把角缩下来** —— 原版 uGUI 也是这么退化的
-            //    （`GetAdjustedBorders`：把角块压扁），不这么做的话角块会**互相重叠**画出去。
-            // 🔴 **2026-10-04：按【轴】缩，不是两轴共用一个比例**（判据同上 `GetAdjustedBorders` ——
-            //    它是 `for (axis = 0; axis <= 1; axis++)` **逐轴**判 `rect.size[axis] < border[axis]+border[axis+2]`）。
-            //    旧写法 `sc = min(1, W/(wl+wr), H/(hb+ht))` 两轴共用：**一个轴挤了，另一个轴的角块也跟着缩**。
-            //    实测受害例：提示条用 `40k_popup`（边 169/160）塞进 1323×90 —— 只有**竖**着挤，
-            //    原版横边的两个端帽仍是 **169px**（中段 985），旧写法把它们缩成 **47.5px**（中段 1228）。
-            //    ⚠️ 受影响的是「某一轴被挤」的那些件（横竖两轴都够的、或被挤的那个轴本来就该缩的，值不变）；
-            //    块数不变（被挤那一轴的中段该归零还是归零）。已记在交接报告里。
-            float scX = (wl + wr) > worldW ? worldW / Mathf.Max(1e-4f, wl + wr) : 1f;
-            float scY = (hb + ht) > worldH ? worldH / Mathf.Max(1e-4f, hb + ht) : 1f;
-            wl *= scX; wr *= scX; hb *= scY; ht *= scY;
-            float wm = worldW - wl - wr, hm = worldH - hb - ht;
-            if (wm < 0f) { wm = 0f; }
-            if (hm < 0f) { hm = 0f; }
-
-            float x0 = -worldW * 0.5f, y0 = -worldH * 0.5f;
-            float[] xs = { x0, x0 + wl, x0 + wl + wm, x0 + worldW };
-            float[] ys = { y0, y0 + hb, y0 + hb + hm, y0 + worldH };
-            float[] us = { 0f, uL, uR, 1f };
-            float[] vs = { 0f, vB, vT, 1f };
+            // ✅ 已复刻（2026-11-04 · B142-E17）：算式抽到类尾 `NineSliceLayout`，与 `ResliceNineSlice` **共用同一份**
+            //   （换 sprite 那一刻要按新图的 border 重切，见类尾那一段判据）。
+            float[] xs, ys, us, vs;
+            NineSliceLayout(name, texW, texH, borderPx, borderOutPx ?? borderPx, worldW, worldH,
+                            out xs, out ys, out us, out vs);
 
             for (int i = 0; i < 3; i++)
                 for (int j = 0; j < 3; j++)
@@ -1119,6 +1076,151 @@ namespace CardPresentation
                                + "（Unity 对 null 贴图会绑内置白图 = 一块**不透明白块**；判据 → "
                                + "`判据/B118_J6_卡牌表示层矩阵.md` §3）");
             return t;
+        }
+
+        // ============================================================ ✅ 已复刻（2026-11-04 · B142-E17 · `B141-BINDNINE-BORDER`）
+        //
+        //  判据（第一权威 = 本机 uGUI 包源码 `Library/PackageCache/com.unity.ugui@*/Runtime/UGUI/UI/Core/Image.cs`）：
+        //   · `:279-295` `sprite` setter：`m_Sprite != value` ⇒ `SetAllDirty()`（换 sprite = **重建整张网格**）；
+        //   · `:1130 / :1157` `GenerateSlicedSprite`：`adjustedBorders = GetAdjustedBorders(border / multipliedPixelsPerUnit, rect)`
+        //     —— 那个 `border` 是**新 sprite 的 `Sprite.border`**（逐次现读）⇒ 换图后必须按**新图**重切；
+        //   · `:756` `multipliedPixelsPerUnit => pixelsPerUnit * m_PixelsPerUnitMultiplier`
+        //     ⇒ 画出来的边 = `m_Border ÷ ppuMul`（**乘数在分母**）；
+        //   · `:1479-1500` `GetAdjustedBorders`：某轴「两条角块之和 > 矩形边长」时**逐轴**按比例缩。
+        //
+        //  我们这颗九宫格是「根 + 9 张 quad」，建件那一刻按**常态图**的 border 切好；换到 border 不同的那一档
+        //  （实测三族：`40K_button_square` 36/28/37/29 ↔ `_hover` 32/27/34/28 ↔ `_pressed` 28/27/27/25 ·
+        //   `40K_tab_button` 183/0/128/29 ↔ `…_overwindow` 188/0/99/30）时**必须重切**，
+        //  否则 uv 分界与角块宽一起错（静默：画面只是「差一点」，没有任何报错）。
+
+        /// <summary>九宫格切分算式 —— `CreateNineSlice`（建件那一刻）与 <see cref="ResliceNineSlice"/>（换 sprite 那一刻）
+        /// **共用这一份**（⛔ 别在两处各写一遍：CLAUDE.md §三「两处写同一条规则 = 迟早不一致」）。
+        /// <para>`borderPx` = **贴图 px** 的边宽（uGUI `Sprite.border`，决定 uv 分界）；`borderOutPx` = **画出来**的
+        /// 角块 px（= `m_Border ÷ m_PixelsPerUnitMultiplier`，见 `Image.cs:756/1157`）。
+        /// 输出 = 三段坐标（世界单位，以根为原点）+ 三段 uv；`GetAdjustedBorders` 的逐轴夹也在本方法里做
+        /// ⇒ 两个入口拿到的是**同一份夹过的值**。</para></summary>
+        static void NineSliceLayout(string name, float texW, float texH, Vector4 borderPx, Vector4 borderOutPx,
+                                    float worldW, float worldH,
+                                    out float[] xs, out float[] ys, out float[] us, out float[] vs)
+        {
+            float l = borderPx.x, b = borderPx.y, r = borderPx.z, t = borderPx.w;
+            // 归一化 uv 分界
+            float uL = l / texW, uR = 1f - r / texW, vB = b / texH, vT = 1f - t / texH;
+            // 🔴 **2026-10-04 修（真 bug：误报 + 中段被吃掉）**。
+            //   旧写法 `if (uR <= uL || vT <= vB)` 把「**端帽正好铺满整张图**」这种**合法**形状也当成了越界：
+            //   判据 = 原版 uGUI `Image.GetAdjustedBorders`（关键那一句就是 `adjustedRect.size[axis] < combinedBorders`）——
+            //   它只在 **`border.x + border.z > rect.width`**（两边边宽之和 **>** 矩形宽）时才按比例缩，
+            //   **`uR == uL`（= 边宽之和 == 贴图宽）是合法形状**，中段宽就是 0（`GenerateSlicedSprite`
+            //   对「宽 ≤ 0 的那一格」是 `continue` 跳过，见 `Image.GenerateSlicedSprite`）。
+            //   实测受害例：`WF_Special offer_Value` 324×87 · `m_Border = (162,0,162,0)`（L+R **正好** = 324）
+            //   ⇒ `uL == uR == 0.5` ⇒ 旧代码每次都打一条「border 比图还大，退回单块」的**假警告**
+            //   （`BoosterPackOpenWindow` 每个卡位一枚 `New Card Badge`、`OfferContainer` 19 个变体各一枚 —— 实测 21 次），而它根本没有退回单块。
+            //   ⇒ 只有**真正的越界**（`uR < uL` / `vT < vB`）才出声。
+            //   另：真的越界时把分界**夹成不反向**（下面一行）——旧代码会拿着一个反过来的 uv 去切图
+            //   （画出来是垃圾且**静默**）；夹完之后退化成「中段取同一列纹素」，与原版同形。
+            if (uR < uL || vT < vB)
+                Debug.LogWarning($"[ImageQuad] {name}: border 比图还大（{l}+{r} > {texW} 或 {b}+{t} > {texH}）—— "
+                               + "`m_Border` 与贴图尺寸不自洽，中段退回同一列纹素");
+            uR = Mathf.Max(uR, uL); vT = Mathf.Max(vT, vB);
+
+            // 目标里三段的长（角块**不缩放**，按 108 px = 1 世界单位）
+            float ol = borderOutPx.x, ob = borderOutPx.y, orr = borderOutPx.z, ot = borderOutPx.w;
+            float wl = ol / PixelsPerUnit, wr = orr / PixelsPerUnit;
+            float hb = ob / PixelsPerUnit, ht = ot / PixelsPerUnit;
+            // ⚠️ **目标比「两边角加起来」还小时，按比例把角缩下来** —— 原版 uGUI 也是这么退化的
+            //    （`GetAdjustedBorders`：把角块压扁），不这么做的话角块会**互相重叠**画出去。
+            // 🔴 **2026-10-04：按【轴】缩，不是两轴共用一个比例**（判据同上 `GetAdjustedBorders` ——
+            //    它是 `for (axis = 0; axis <= 1; axis++)` **逐轴**判 `rect.size[axis] < border[axis]+border[axis+2]`）。
+            //    旧写法 `sc = min(1, W/(wl+wr), H/(hb+ht))` 两轴共用：**一个轴挤了，另一个轴的角块也跟着缩**。
+            //    实测受害例：提示条用 `40k_popup`（边 169/160）塞进 1323×90 —— 只有**竖**着挤，
+            //    原版横边的两个端帽仍是 **169px**（中段 985），旧写法把它们缩成 **47.5px**（中段 1228）。
+            float scX = (wl + wr) > worldW ? worldW / Mathf.Max(1e-4f, wl + wr) : 1f;
+            float scY = (hb + ht) > worldH ? worldH / Mathf.Max(1e-4f, hb + ht) : 1f;
+            wl *= scX; wr *= scX; hb *= scY; ht *= scY;
+            float wm = worldW - wl - wr, hm = worldH - hb - ht;
+            if (wm < 0f) { wm = 0f; }
+            if (hm < 0f) { hm = 0f; }
+
+            float x0 = -worldW * 0.5f, y0 = -worldH * 0.5f;
+            xs = new[] { x0, x0 + wl, x0 + wl + wm, x0 + worldW };
+            ys = new[] { y0, y0 + hb, y0 + hb + hm, y0 + worldH };
+            us = new[] { 0f, uL, uR, 1f };
+            vs = new[] { 0f, vB, vT, 1f };
+        }
+
+        /// <summary>✅ 已复刻（2026-11-04 · B142-E17 · 判据见上一段类注释，`Image.cs:279-295 / :1157 / :756 / :1479-1500`）：
+        /// 按**新 sprite 的 border** 把一棵**已经建好**的九宫树**原地**重切（= uGUI `SetAllDirty → GenerateSlicedSprite` 的等价动作）。
+        /// <para>块名沿用 `CreateNineSlice` 的 `<root.name>_<i><j>`；
+        /// 新算法用不到的旧块 **`SetActive(false)`、⛔ 不删节点**（与 `MenuDraw.ClipNineChildren` 同一条纪律，
+        /// 自检按名字仍找得到、`PointerLayer` 自动跳过未激活件）；新出现的块用 `Create` 补建，
+        /// 并拷第一颗兄弟的 `RenderQueue` / `Tint`（`MenuDraw.Nine` 给 9 块上的是同一个值）。</para>
+        /// <para>🔴 **选「原地改」而不是「销毁重建」**：子块身份不变 ⇒ 调用方（`WindowButton.target`）的引用、
+        /// 染色表 `_tq/_tqBase`、灰材质 `_graySaved/_grayMats/_graySavedQ`、`RenderQueue` **全部不用动**；
+        /// 销毁重建会让 `RefreshGray` 的按下标缓存错位、`target` 变成已销毁对象（且**静默**）。</para>
+        /// <para>⚠️ 只改**几何与 uv**（贴图由调用方在同一跳换）；`worldW/H` 是**换之前**那棵树的外框
+        /// （九宫格的框不随 sprite 变，uGUI 也是按 `rect` 夹 border）。</para>
+        /// <para>⚠️ **本方法会补建缺失的块**（新 border 让某格从 0 变成正）：新块是拿本次 `tex` 建的、队列/基色拷兄弟，
+        /// 但**不在 `WindowButton._nine` 的建件快照里** ⇒ 「建件时缺中心块、换 border 后又要它」的站点本方案不覆盖
+        /// （今天两个生产站点 9 块齐全；`fillCenter:false` 的站点永远不补中心块）。</para>
+        /// <returns>true = 真的重切了；false = 参数不成立（根/贴图为空、贴图或框尺寸为 0）⇒ **没有动任何东西**。</returns></summary>
+        public static bool ResliceNineSlice(GameObject root, Texture tex, Vector4 borderPx, float ppuMul,
+                                            float worldW, float worldH, bool fillCenter)
+        {
+            if (root == null || tex == null || tex.width <= 0 || tex.height <= 0) return false;
+            if (worldW <= 0f || worldH <= 0f) return false;
+            if (ppuMul <= 0f) ppuMul = 1f;
+
+            float[] xs, ys, us, vs;
+            NineSliceLayout(root.name, tex.width, tex.height, borderPx, borderPx / ppuMul,
+                            worldW, worldH, out xs, out ys, out us, out vs);
+
+            // 模板（队列 / 基色）取第一颗**直属**子块 —— `MenuDraw.Nine` 对 9 块上的是同一个值。
+            var kids = root.GetComponentsInChildren<ImageQuad>(true);
+            int tplQ = 0; Color tplTint = Color.white; bool hasTpl = false;
+            for (int i = 0; i < kids.Length; i++)
+            {
+                var k = kids[i];
+                if (k == null || k.transform.parent != root.transform) continue;
+                tplQ = k.RenderQueue; tplTint = k.Tint; hasTpl = true; break;
+            }
+
+            var used = new HashSet<Transform>();
+            for (int i = 0; i < 3; i++)
+                for (int j = 0; j < 3; j++)
+                {
+                    if (!fillCenter && i == 1 && j == 1) continue;      // 原版 `m_FillCenter = 0` ⇒ 中间那块不画
+                    float w = xs[i + 1] - xs[i], h = ys[j + 1] - ys[j];
+                    if (w <= 0f || h <= 0f) continue;                   // 与原版 `GenerateSlicedSprite` 同形：宽/高 ≤ 0 的格子跳过
+                    string cn = root.name + "_" + i + j;
+                    Vector3 pos = new Vector3((xs[i] + xs[i + 1]) * 0.5f, (ys[j] + ys[j + 1]) * 0.5f, 0f);
+                    var tr = root.transform.Find(cn);
+                    var cell = tr != null ? tr.GetComponent<ImageQuad>() : null;
+                    if (cell == null)
+                    {
+                        cell = Create(root.transform, tex, pos, h, new Vector2(0.5f, 0.5f), cn);
+                        if (cell == null) continue;
+                        if (hasTpl) { cell.SetRenderQueue(tplQ); cell.SetTint(tplTint); }
+                    }
+                    else
+                    {
+                        pos.z = cell.transform.localPosition.z;         // z 不动（同队列里还靠它排序）
+                        cell.transform.localPosition = pos;
+                        if (!cell.gameObject.activeSelf) cell.gameObject.SetActive(true);
+                        cell.SetWorldHeight(h);
+                    }
+                    cell.SetAspect(w / h);
+                    cell.SetUvRect(new Rect(us[i], vs[j], us[i + 1] - us[i], vs[j + 1] - vs[j]));
+                    used.Add(cell.transform);
+                }
+
+            // 新算法用不到的旧块 ⇒ 关掉、⛔ 不删（裁切那一族也要能把它们再打开）
+            for (int i = 0; i < kids.Length; i++)
+            {
+                var k = kids[i];
+                if (k == null || k.transform.parent != root.transform) continue;
+                if (!used.Contains(k.transform) && k.gameObject.activeSelf) k.gameObject.SetActive(false);
+            }
+            return true;
         }
     }
 }

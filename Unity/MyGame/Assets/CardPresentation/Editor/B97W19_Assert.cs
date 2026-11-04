@@ -169,9 +169,9 @@ public static partial class RuleEngineTest
     //     夹具：一张**卡面没写替身那句**（⇒ `Bodyguard == false`）、但**数据层真有 trigger 280** 的单位
     //     ⇒ 它必须是候选（原版 `CardScript__HasCancelAttackAbility.c:34-43`：扫自己 `cardAbilities`
     //     里 `trigger == 0x118` 的那条，⛔ 不看任何「替身」数据列）。
-    //     ⚠️ 如实标着的一格：它的正文（`chosenAbility` 族）本版没有派发口 ⇒
-    //        `CardDef.Bodyguard` 仍是「正文 = AddRedirectedAttack」的等价判定 ⇒ **这一记不会改向**
-    //        （原版会），池内这种卡 **0 张**。
+    //     ✅ 2026-11-04（`B142_E2` 就地订正）：它的正文（`chosenAbility` 族）本版没有派发口 ⇒
+    //        `CardDef.Bodyguard` 仍是「正文 = AddRedirectedAttack」的等价判定 ⇒ **这一记被【取消】**
+    //        （= 原版 `_ResolveAttack…:531-541` 的 `CancelAttack` 早退），⛔ 不再是「不改向但照打」；池内这种卡 **0 张**。
     // ==========================================================================================
     static void W19D_CandidateComesFromUnifiedList()
     {
@@ -189,8 +189,8 @@ public static partial class RuleEngineTest
         var u280 = Place(ctx, 1, 2, f280, exhausted: true);
         // 🔴🆕 **2026-10-30（`B101_R1`）：`4` → `5`。** `BoardSpec.WarlordSlot == 4`（`BoardSpec.cs:30`），
         //   开局 `RuleCore.cs:655` 正是 `p.Board[4] = p.Warlord` ⇒ 把普通部队摆 4 号格会**把督军挤出盘面**；
-        //   而 `DeclareAttack`（`RuleCore.cs:6687`）的 target 就是 `Board[tgtSlot]`、
-        //   `TryCancelAttackByUnits`（`:17409`）第一句要 `target.IsWarlord` ⇒ 改前那一记压根没进 280 那条路
+        //   而 `DeclareAttack`（`RuleCore.cs:6431`，2026-11-04 现读）的 target 就是 `Board[tgtSlot]`、
+        //   `TryCancelAttackByUnits`（`:17518`，2026-11-04 现读）第一句要 `target.IsWarlord` ⇒ 改前那一记压根没进 280 那条路
         //   （实测 b100g `:341265` 声明攻击 OK、`:341281` 280 实得 0、`:341296` 出声句也没有）。
         var plain = Place(ctx, 1, 5, Unit("FPlain19D", 1, 1, 9), exhausted: true);
         var lord = ctx.Players[1].Warlord;
@@ -208,15 +208,15 @@ public static partial class RuleEngineTest
         CheckTrue(!cands.Contains(atk),
             "★ 反例：**攻方自己**不在候选表里（它在对面那一侧；能力 criteria 写的是 `friendlyUnits`）");
 
-        int before = CountTrigger(ctx, KeywordTable.AboutToAttack);
+        int before = CountTrigger(ctx, KeywordTable.AboutToAttack); int lordHp = lord.Health;
         CheckCode(RuleCore.DeclareAttack(ctx, 0, 3, 1, BoardSpec.WarlordSlot), RuleCodes.OK,
                   "打敌方督军格（场上有一个「只有 280 ability」的单位）");
         Check(CountTrigger(ctx, KeywordTable.AboutToAttack) - before, 1,
             "★ 它的 280 照样响一次（数据层 ability 也有 `OnTrigger(0x118)` 那一跳）");
-        CheckTrue(ctx.Events.Exists(s => s != null && s.Contains("不是重定向")),
-            "★ 而且**出声**：候选有、但本版判不出「它的正文是重定向」⇒ 明说这一记照旧结算"
-            + "（原版会取消）｜🧨 静默吞掉 ⇒ 红");
-        CheckTrue(u280.IsAlive, "★（反例的边界）这个夹具**没挨打**（它不替督军挡）—— 本版如实标着的缺口");
+        Check(lord.Health, lordHp, "★ 候选存在、正文**不是重定向** ⇒ **这一记被取消**（督军一滴没掉；改前是照旧结算）｜🧨 把取消跳删掉 / 退回 `DeclareAttackExecute` ⇒ 红");
+        CheckTrue(ctx.Events.Exists(s => s != null && s.Contains("取消这一记")),
+            "★ 而且**出声**：明说这一记被取消（⛔ 不许静默）｜🧨 删掉那句日志 ⇒ 红");
+        CheckTrue(u280.IsAlive, "★（反例的边界）这个夹具**没挨打**（它不是替身、这一记被取消）");
     }
 
     // ==========================================================================================

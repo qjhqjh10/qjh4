@@ -469,6 +469,9 @@ bash d:/4/Unity/工具/ruleprobe.sh play SOR42 preset dead=1              # 墓�
 bash d:/4/Unity/工具/ruleprobe.sh play UM61  preset dead=1:Infantry     # 指定兵种（UM61 要 Infantry）
 bash d:/4/Unity/工具/ruleprobe.sh play ASH82 preset enemyhand=1         # P1 手牌预置 1 张垫牌
 bash d:/4/Unity/工具/ruleprobe.sh play UM2   preset chipenemy=1         # 敌方非督军各扣 2 血（要「受伤的敌人」）
+bash d:/4/Unity/工具/ruleprobe.sh play BL8   preset herodmg=2           # 🆕 B142-E76：P0 督军受 2 伤（验「督军受伤」一族）
+bash d:/4/Unity/工具/ruleprobe.sh play TAU34 preset hand=self,event=deploy  # 🆕 B142-E76：手牌态跑 Deploy(190) 广播
+bash d:/4/Unity/工具/ruleprobe.sh play SOR10 preset hand=self,event=kills   # 🆕 B142-E76：手牌态跑 Kills(120) 广播
 ```
 
 🆕 **`preset` 的语义**（`PlayProbe.PresetSpec` / `ApplyPreset`）：预置项**只改这一次单卡局**，
@@ -481,6 +484,8 @@ bash d:/4/Unity/工具/ruleprobe.sh play UM2   preset chipenemy=1         # 敌�
 - `chipenemy=1` —— 把 P1 的**非督军**单位各扣 `FixtureChip` 血（走引擎 `ApplyDamage`）⇒
   验「给一个**受伤的**敌人」那一族（`UM2`）。
 - 🆕 `killbymate=1`（`B94_P1`，2026-10-29）—— 事件电池 ⑥ 的凶手**从被测单位之外**挑
+- 🆕 `herodmg=N`（`B142-E76`，2026-11-04）—— 电池 ②a 步打 **P0 督军** `min(N, Health-1)` 点（走引擎 `ApplyDamage`，真发 `Damaged`）⇒ 验「督军受伤」一族（`BL8`）；不传时 `sh1==sc1`、产物零变化。
+- 🆕 `hand=self,event=deploy|kills`（`B142-E76`）—— 手牌态直调 `BroadcastWhen`：`deploy`=`Deploy(190)`（P0 活部队为 subject）、`kills`=`Kills(120)`（P1 活部队被 P0 击杀）；**棋盘不动**。⚠️ 池内写这两族的 11 张全被第三道闸 `HandListenerContextAllows` 挡住 ⇒ 实测 0 条是**真实结论**，不是夹具坏。
   （默认优先让被测单位当凶手，见 `PickKiller`）。治「`When an enemy dies, …` 的被测卡自己当凶手
   ⇒ 引擎 `preCalled: actingCard` 把它一起排除 ⇒ 电池净差恒 0」。⛔ 只影响电池那一步、
   不影响全池读数（`steps` 只在传它时多出 `killPick=` / `afterKill=` 两格诊断）。

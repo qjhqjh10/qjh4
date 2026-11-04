@@ -129,7 +129,7 @@ namespace RuleEngine
         /// <summary>它属于哪一方（`Choose a **friendly** troop that died …` 只在自己这边挑）</summary>
         public int Owner;
         /// <summary>死在第几回合（全局 `ctx.Turn`）。与 <see cref="PlayerState.LastTurnStartMark"/> 比出窗口</summary>
-        public int DeathTurn;   public bool IsRemnant;   // 🔴 2026-10-28（`B89-E2` · 账 `L336`）：**`IsRemnant`** = 原版 `CardScript.isRemnant`（`+0x65`）的等价物 ——「**死的那一刻**是不是一具残骸」的**冻结快照**。判据（逐句实读）：① 写点 `CardScript__TransformIntoRemnant.c` 翻面时 `*(undefined2*)(card+0x65)=1`、`CardScript__TransformFromRemnant.c:10` 变回来时清 0；② `CemeteryManager__AddCardToCemetery.c` 里 `0x65` **0 命中** ⇒ 那张卡进墓地时**带着当时的值**；③ 唯一消费者 `BattleManager__GetCardsInCemetery.c:60` **无条件排除** `+0x65 != 0` 的牌（与 cardType 那几格并列、**不受** `incl*` 影响）⇒「残骸被摧毁」进墓的那张在原版**从墓地查询里查不出来**（我们原来分不出 ⇒ 多算）。⚠️ 与 `UnitState.IsRemnant`（「**现在**是不是残骸」）不是一回事：残骸事后被 `reanimate` 变回来**不改历史**。⚠️ 分不出时默认 `false` = 照旧查得到（与改前逐字相同，⛔ 别反过来默认 `true`）。读点 = `RuleCore.GetCardsInCemetery`（⚠️ `EffectResolver.ReturnFromCemetery` 仍自己筛、**还没切过去** ⇒ 那一支的残骸闸还没生效）。⛔ **别把它拆成单独一行** —— 本文件下面还有 30+ 处账的落点，插一行就整体漂移
+        public int DeathTurn;   public bool IsRemnant;   // 🔴 2026-10-28（`B89-E2` · 账 `L336`）：**`IsRemnant`** = 原版 `CardScript.isRemnant`（`+0x65`）的等价物 ——「**死的那一刻**是不是一具残骸」的**冻结快照**。判据（逐句实读）：① 写点 `CardScript__TransformIntoRemnant.c` 翻面时 `*(undefined2*)(card+0x65)=1`、`CardScript__TransformFromRemnant.c:10` 变回来时清 0；② `CemeteryManager__AddCardToCemetery.c` 里 `0x65` **0 命中** ⇒ 那张卡进墓地时**带着当时的值**；③ 唯一消费者 `BattleManager__GetCardsInCemetery.c:60` **无条件排除** `+0x65 != 0` 的牌（与 cardType 那几格并列、**不受** `incl*` 影响）⇒「残骸被摧毁」进墓的那张在原版**从墓地查询里查不出来**（我们原来分不出 ⇒ 多算）。⚠️ 与 `UnitState.IsRemnant`（「**现在**是不是残骸」）不是一回事：残骸事后被 `reanimate` 变回来**不改历史**。⚠️ 分不出时默认 `false` = 照旧查得到（与改前逐字相同，⛔ 别反过来默认 `true`）。读点 = `RuleCore.GetCardsInCemetery`（✅ **2026-11-04 `B142_E2` 订正**：`EffectResolver.ReturnFromCemetery` **已**换到 `CemeteryDeadUnits`（现读 `EffectResolver.cs:6949`，`B98_K4`）⇒ 那一支的残骸闸**已生效**）。⛔ **别把它拆成单独一行** —— 本文件下面还有 30+ 处账的落点，插一行就整体漂移
 
         public override string ToString() { return (Card != null ? Card.Name : "?") + "@T" + DeathTurn; }
     }
@@ -2324,19 +2324,19 @@ namespace RuleEngine
         }
 
         /// <summary>原版 `BattleManager.IsDuringBattle(bool includeMulligan)`（`decomp_full/BattleManager__IsDuringBattle.c`，
-        /// 19 行，`UIstate = +0x290`）：
-        /// `UIstate == 0` ⇒ false · `UIstate ∈ {7 finishBattleSequence, 8 postBattle}` ⇒ false ·
-        /// `UIstate ∈ {11 mulligan, 12 mulliganFinished}` ⇒ **`includeMulligan`** · 其余 ⇒ true。
-        /// <para>我们没有单一 `UIstate` 枚举 ⇒ 按判据文件给的映射落到两个字段：
-        /// `!isOver &amp;&amp; (includeMulligan || !mulliganOpen)`（`isOver` = `Winner != 0`、`mulliganOpen` = `ctx.MulliganOpen`）。
-        /// 15 档对应：`{7,8}` → `isOver`；`{11,12}` → `mulliganOpen`；其余战斗态 → 两者皆假 ⇒ true。</para>
-        /// <para>⚠️ **已知近似（如实标注）**：`UIstate == 0`（inactive，**开打前**）与「正常战斗态」在
-        /// `isOver/mulliganOpen` 两字段下**不可区分**（都不是 `isOver`）⇒ 本式对 `UIstate==0` 会判 true
-        /// （原版判 false）。今天**0 消费者**、且开打前没人问这个谓词 ⇒ 先按判据映射实现并标注；
-        /// 真用到 `0` 那一档时再补一个 `started` 位（别在这里凭空加字段猜）。</para></summary>
-        public static bool IsDuringBattle(bool isOver, bool mulliganOpen, bool includeMulligan)
+        /// 19 行，`UIstate = +0x290`）：`UIstate == 0` ⇒ false · `∈ {7 finishBattleSequence, 8 postBattle}` ⇒ false ·
+        /// `∈ {11 mulligan, 12 mulliganFinished}` ⇒ **`includeMulligan`** · 其余 ⇒ true（共 15 档）。
+        /// <para>我们没有单一 `UIstate` 枚举 ⇒ 按已定口径**吃 `ctx`**：
+        /// `ctx != null &amp;&amp; !ctx.IsOver &amp;&amp; (includeMulligan || !ctx.MulliganOpen)`。
+        /// 15 档对应：`{0}` → `ctx == null`（还没开打）· `{7,8}` → `IsOver`（= `Winner != 0`）· `{11,12}` → `MulliganOpen`；其余战斗态三者皆假 ⇒ true。</para>
+        /// <para>✅ **2026-11-04（`B142_E2` · 铁律 5）**：`UIstate==0` 那一档**已补** —— 旧签名 `(isOver, mulliganOpen, includeMulligan)`
+        /// 把「开打前」与「正常战斗态」判成同一个 true（15 档里唯一反的一档）；改吃 `ctx` 后 `ctx == null` 就是那一档（原版 false）。
+        /// 换牌期 `{11,12}` 在 `includeMulligan == false` 时为假 ⇒ 消费者接上后**换牌期不能聊天**（向原版靠）。</para>
+        /// <para>⚠️ 全仓**今天仍 0 消费者**（`grep IsDuringBattle` 只有本定义 + 注释）：接线点 = `BattleDriver.CanLocalChat`（现读 `:35404`）
+        /// （自带一份等价判据）与 `NetBattle.cs:2165` 那道闸；两处都在表现/联机线，⛔ 本件不动。</para></summary>
+        public static bool IsDuringBattle(BattleContext ctx, bool includeMulligan)
         {
-            return !isOver && (includeMulligan || !mulliganOpen);
+            return ctx != null && !ctx.IsOver && (includeMulligan || !ctx.MulliganOpen);
         }
 
         /// <summary>原版 `BattleManager.IsReplayMatch(bm, 0)`（`decomp_full/BattleManager__IsReplayMatch.c`，28 行）=

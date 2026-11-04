@@ -798,17 +798,17 @@ namespace CardPresentation
 
         /// <summary>原版 `FormatTime()`：取 `End − Start`（没 start 时取 `End − ServerNow`）→
         /// `SupportMethods.GetTimeString(ts, eventTimer:true)` → `Replace("0m","").Replace("0h","")`。
-        /// ⚠️ **`SupportMethods.GetTimeString` 我们没有** ⇒ 这里自己出 `<d>d <h>h <m>m` 再套**同样那两次 Replace**
-        /// （如实标：日那一段原版由 GetTimeString 决定要不要出现，我们固定带）。</summary>
+        /// ✅ **2026-11-04（B142-E34）已收口**：`GetTimeString` 早有逐句移植（`Shell/TimerDisplay.cs:164`）⇒ 下面**一行转发**；
+        /// 判据 = `decomp_full/EphemeralState__FormatTime.c`（`GetTimeString(ts,1,0,0,0)` + 那两次 `Replace`，**无 `Trim`**）。</summary>
         public string FormatTime()
         {
             TimeSpan ts;
             if (StartTimeMs > 0) ts = EphemeralEndTime - EphemeralStartTime;
             else if (!string.IsNullOrEmpty(BoundEventId)) ts = EphemeralEndTime - DateTime.UtcNow;
             else ts = TimeSpan.Zero;
-            if (ts < TimeSpan.Zero) ts = TimeSpan.Zero;
-            string s = ((long)ts.TotalDays) + "d " + ts.Hours + "h " + ts.Minutes + "m";
-            return s.Replace("0m", "").Replace("0h", "").Trim();
+            // ✅ 2026-11-04（B142-E46）：原版 `EphemeralState__FormatTime.c` 传 `clampTo0 = 0` ⇒ **不夹负值**；原来这里那句 `ts < TimeSpan.Zero ⇒ 0` 是我们加的，已删（留注释 ⇒ 本文件行数不变，账按行号引用）。
+            string s = TimerDisplay.FormatTimeString(ts, eventTimer: true);
+            return s.Replace("0m", "").Replace("0h", "");
         }
     }
 
@@ -1688,13 +1688,13 @@ namespace CardPresentation
             public override string ToString() { return string.IsNullOrEmpty(code) ? type.ToString() : code; }
         }
 
-        /// <summary>🔶 自己设计（非原版）：本地「货币名册」= 原版 `ConfigManager.GetConfig&lt;CurrencyConfig&gt;().currencies` 的等价物
+        /// <summary>本地「货币名册」= 原版 `ConfigManager.GetConfig&lt;CurrencyConfig&gt;().currencies` 的等价物
         /// （判据 `decomp_full/CurrencyExtensions__ToCurrency.c`：`ConfigManager.GetConfig&lt;object&gt;()` → `+0x10` 那张表 → `FirstOrDefault(c =&gt; c.type == 目标)`）。
-        /// 我们**没有 ConfigManager / 货币 SO** ⇒ 用一张可注册的名册；B12/B25 接入真配置后把 `Register` 换成从 SO 播种即可（调用点不动）。
-        /// 谁定的：调度台 2026-10-27（B26 批次）。</summary>
+        /// ✅ 已复刻（2026-11-04 · B142-E65）：**本地三份货币 SO 已在字段初始化里播种**（`CurrencyCatalogSeed.LocalDefaults`，C2/C3/C5）；
+        /// ⚠️ 原句「我们**没有 ConfigManager / 货币 SO** ⇒ 用一张可注册的名册」已被这三份 SO 推翻；全量 `CurrencyConfig` 仍在服务端 ⇒ `Register` 留给将来。</summary>
         public static class CurrencyCatalog
         {
-            static readonly List<ICurrency> _all = new List<ICurrency>();
+            static readonly List<ICurrency> _all = CurrencyCatalogSeed.LocalDefaults();   // ✅ 已复刻（2026-11-04 · B142-E65）：C2/C3/C5 三份货币 SO 在此播种
             public static IReadOnlyList<ICurrency> All { get { return _all; } }
 
             public static void Register(ICurrency c) { if (c != null && !_all.Contains(c)) _all.Add(c); }
@@ -1751,13 +1751,13 @@ namespace CardPresentation
                         "`ToCurrency(" + currencyType + ")` 查不到货币（名册里没注册这一种）⇒ 拥有数按 0 算；原版同一情形 `FirstOrDefault` 也给 null");
                     return 0;
                 }
-                if (InventoryManager.GetInventory<ICurrency>() == null)
-                {
-                    InventoryManager.Note("cur-noinv",
-                        "没有登记 `Inventory<ICurrency>` ⇒ 货币拥有数恒 0（原版那条走 `InventoryManager.GetOwnedCount(ICurrency)`）");
-                    return 0;
-                }
-                return InventoryManager.GetOwnedCount<ICurrency>(c);
+                if (InventoryManager.GetInventory<ICurrency>() != null)
+                    return InventoryManager.GetOwnedCount<ICurrency>(c);   // 原版那条：真背包登记了就走它（今天只有自检夹具会登记）
+                // ✅ 已复刻（2026-11-04 · B142-E65 · 判据 `CurrencyExtensions__GetOwnedCount.c`）：生产**唯一货币账 = `Wallet`**；
+                //   映射 = `MainMenuRuntime.CounterSpecs.WalletKey`（`MainMenuRuntime.OwnedOf` 本来就被标成「原版这一句的等价物」）
+                //   ⇒ 顶栏与本读口**同一账、同一张表**（⛔ 不另开映射表 / ⛔ 不建第二个钱包）。
+                return CurrencyCatalogSeed.WalletOf(currencyType);
+                // （0 = 这一种没有 `Wallet` 记账路（今天 C3/C5/raidMedals）—— 与顶栏一致；⛔ 不是「查不到货币」，上面已判过 c != null。）
             }
 
             /// <summary>原版 `CanGetMore(ICurrency)`：① `MaxAmount &lt; 0` ⇒ **true**（不封顶）；② 否则 `owned &lt; MaxAmount`
@@ -1785,12 +1785,12 @@ namespace CardPresentation
                     NoSource("energy 的 `SpendEnergy`（`AddCurrency` 那一支）");
                     return;
                 }
-                if (InventoryManager.GetInventory<ICurrency>() == null)
-                {
-                    InventoryManager.Note("cur-add:noinv", "没有登记 `Inventory<ICurrency>` ⇒ `AddCurrency(" + currency.GetID() + ", " + amount + ")` 无处可加");
-                    return;
-                }
-                InventoryManager.Add<ICurrency>(currency, amount);
+                if (InventoryManager.GetInventory<ICurrency>() != null) { InventoryManager.Add<ICurrency>(currency, amount); return; }   // 原版那条（真背包优先）
+                // ✅ 已复刻（2026-11-04 · B142-E65）：没有货币背包 ⇒ 生产账 = `Wallet`（与 `GetOwnedCount` 同一账、同一张 `CounterSpecs` 映射表）
+                string walletKey = CurrencyCatalogSeed.WalletKeyOf(currency.Type);
+                if (walletKey == null)
+                    InventoryManager.Note("cur-add:nokey", "`AddCurrency(" + currency.GetID() + ", " + amount + ")`：`MainMenuRuntime.CounterSpecs` 里这一种没有 `WalletKey`（我们没有这一路记账）⇒ 加不上");
+                else Wallet.Grant(walletKey, amount);
             }
 
             static int NoSource(string what)
@@ -1803,8 +1803,8 @@ namespace CardPresentation
 
         /// <summary>原版 `CurrencyCondition : EventCondition`（`CurrencyCondition.cs` 全文；真体 `decomp_full/CurrencyCondition__Validate.c`）：
         /// `return InventoryManager.Instance.HasEnough(targetCurrency, minimumAmount);` —— **只调本地背包，0 处 PlayFab / 云脚本**
-        /// （这正是 2026-10-27 调度台驳回「判 D」的那条依据）。⚠️ 我们用静态门面 ⇒ 去掉 `.Instance`。
-        /// `targetCurrency.targetId` 为空时 `HasEnough` **出声 + false**（⛔ 不许静默 true）。</summary>
+        /// （这正是 2026-10-27 调度台驳回「判 D」的那条依据）。✅ 2026-11-04（`B142-E73`）：登记过 `Inventory&lt;Currency&gt;` 时照原版；否则读 `Wallet`（与 `GetOwnedCount` 同一账，见 `CurrencyConditionWallet`）。
+        /// `targetCurrency.targetId` 为空 ⇒ **出声 + false**（⛔ 不许静默 true）；原版那一跳 `HasEnough` 亦同。</summary>
         [Serializable]
         public class CurrencyCondition : EventCondition
         {
@@ -1813,7 +1813,7 @@ namespace CardPresentation
 
             public override bool Validate(ILiveOps liveOps)
             {
-                return InventoryManager.HasEnough<Currency>(targetCurrency, minimumAmount);
+                return CurrencyConditionWallet.Enough(targetCurrency, minimumAmount);
             }
         }
 
@@ -2033,7 +2033,7 @@ namespace CardPresentation
             }
             var currencies = InventoryManager.GetInventory<ICurrency>();
             var held = currencies != null ? currencies.Get(id) : null;
-            if (held != null && held.Item != null) { CollectItemReward<ICurrency>(held.Item, instanceId, quantity); return; } if (CollectItemRewardCard(id, instanceId, quantity)) return;   // 🆕 C9 2026-10-31：卡那一支（`Shell/RewardServicePartial_C9.cs`）—— 原版这一跳 = `Add<RawCardScript>`
+            if (held != null && held.Item != null) { CollectItemReward<ICurrency>(held.Item, instanceId, quantity); return; } if (CollectItemRewardCard(id, instanceId, quantity)) return; if (CollectItemRewardNonCard(id, quantity)) return;   // 🆕 C9 2026-10-31：卡那一支（`Shell/RewardServicePartial_C9.cs`）—— 原版这一跳 = `Add<RawCardScript>`；✅ 已复刻（2026-11-04 · B142-E54 · `RewardService__CollectSingleReward.c` 的类型分派）：非卡那几支（货币/万能卡/装饰 + 容器/掉落表/预组的出声档）在 `Shell/RewardServicePartial_B142E54.cs`
 
             string type = ItemDrawer.Spec(id, null, null).Type;
             InventoryManager.Note("rs-item:unresolved",
@@ -2263,5 +2263,59 @@ namespace CardPresentation
         /// <summary>自检用：把「已播过种」这一位清掉（配合把 `CollectionWindow._cardsState` 反射置 null ⇒ 造出「还没人开过收藏窗」的干净态）。
         /// ⚠️ 只有 `Editor/**` 的自检该调它 —— ⛔ 别在运行时路径里拿它当开关。</summary>
         public static void ResetCardsSeedFlagForTest() { _cardsSeedDoneForAdd = false; }
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════════════════
+    //  `CurrencyCondition.Validate` 的**读口**（🆕 2026-11-04 · 执行写手 `B142-E73` · 任务 `B142-CURRENCY-CONDITION`）
+    //  ⚠️ 本节**追加在文件尾**（`CLAUDE.md`：新成员别插进既有成员之间 —— 那一段的 `:1814/1858/…/2152` 钉着账）。
+    //
+    //  改前：`Validate` = `InventoryManager.HasEnough<Currency>(targetCurrency, minimumAmount)`
+    //        ⇒ `GetOwnedCount<Currency>(id)` ⇒ `GetInventory<Currency>()`。本工程**从未登记** `Inventory<Currency>`
+    //        （`Inventories` 的静态构造只登记 `Cards / Shop / AltArts / Wildcards`）⇒ **恒 0 ⇒ 条件恒 false**。
+    //        这是 `报告/B142_E54.md` §6·3 / `报告/B142_E65.md` §1 那条「货币两处读数」的**第二个读口**。
+    //  改后：① **登记过 `Inventory<Currency>` 时照原版**（`HasEnough` 那一条，逐句不变）；
+    //        ② 否则读 **`Wallet`**（`CurrencyCatalogSeed.WalletOf` → `MainMenuRuntime.OwnedOf`，即顶栏那个口）
+    //           —— 与 `CurrencyExtensions.GetOwnedCount`（E65 已改成同一账）**同一账、同一张 `CounterSpecs` 表**。
+    //
+    //  🔶 自己设计（非原版）：① 原版 `Validate` 只调 `InventoryManager.HasEnough`，那份背包**由服务器解包灌入**
+    //     （`CurrencyExtensions__GetOwnedCount.c` 末跳）⇒ 已关服、本地永远没有来源；② 用户 2026-09-17 / 2026-10-24
+    //     定的「资源固定 2000」落在 `Wallet.StartAmount` ⇒ 不能另开第二个钱包。
+    //     调度台 2026-11-04 裁定（`B142-E73` 简报：「改读 `Wallet`，与 E65 同一口径」）。
+    //
+    //  🔴 **code → 币种**只在 `CurrencyCatalog`（= 原版三份 Currency SO 的 `code` 实读：`C2/C3/C5`）里查 ——
+    //     ⛔ 不按 id 前缀/数字猜。查不到的 code（将来真有新货币 SO）⇒ 出声 + **false**（⛔ 不许静默 true）。
+    // ════════════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>`CurrencyCondition.Validate` 的唯一读口（见上节头）。</summary>
+    internal static class CurrencyConditionWallet
+    {
+        /// <summary>`Validate` 本体：有真货币背包 ⇒ 原版那一跳；否则按 `targetCurrency.targetId` 查币种、读 `Wallet`。</summary>
+        internal static bool Enough(LoadableRef<Currency> target, int minimumAmount)
+        {
+            if (InventoryManager.GetInventory<Currency>() != null)
+                return InventoryManager.HasEnough<Currency>(target, minimumAmount);   // 原版那条（只有自检夹具会登记）
+
+            string id = target != null ? target.TargetId : null;
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                InventoryManager.Note("curcond:empty",
+                    "`CurrencyCondition.Validate` 的 `targetCurrency.targetId` 是空 ⇒ **false**"
+                    + "（原版 `HasEnough` 同一档也出声 + false；⛔ 不许静默 true）");
+                return false;
+            }
+
+            IReadOnlyList<ICurrency> all = CurrencyCatalog.All;
+            ICurrency c = null;
+            for (int i = 0; i < all.Count; i++)
+                if (all[i] != null && string.Equals(all[i].Code, id, StringComparison.Ordinal)) { c = all[i]; break; }
+            if (c == null)
+            {
+                InventoryManager.Note("curcond:nocode:" + id,
+                    "`CurrencyCondition.Validate`：id `" + id + "` 在 `CurrencyCatalog`（三份货币 SO 的 code 实读表 C2/C3/C5）里"
+                    + "查不到币种 ⇒ **false**（⛔ 不猜；真有新货币 SO 时先把它播进 `CurrencyCatalogSeed.LocalDefaults`）");
+                return false;
+            }
+            return CurrencyExtensions.GetOwnedCount(c.Type) >= minimumAmount;   // 🔴 与 `GetOwnedCount` **同一个读口**（E65 口径：真背包 ⇒ 否则 `Wallet`）
+        }
     }
 }

@@ -1709,7 +1709,7 @@ namespace CardPresentation
 
             // `To Battle Button`（Ongoing 显示 · Finished 隐藏）—— ✅ 已复刻（2026-11-04 · B141-W75 · 判据 = `Draft Mode Timed Mode Window.prefab:30629-30746`：这颗就是**活树上**那一颗（`playButton` 指着它），`Battle Button Button` 那套只在没人引用的孤儿 prefab 里 ⇒ ⛔ 别照它改建，见 `报告/B141_W129_DraftBattleBtn.md`）
             _toBattleNode = MenuDraw.Node(page, "To Battle Button", OnBattleR);
-            var battleBg = MenuDraw.Rect(_toBattleNode, Tex("UI_Button_Mulligan"), OnBattleR, "Bg", QArt, null, true);
+            var battleBg = MenuDraw.Rect(_toBattleNode, Tex("UI_Button_Mulligan"), OnBattleR, "Bg", QArt, null, true); ApplyOrangeButtonToGreen(battleBg);   // ✅ 已复刻（2026-11-04 · B142-E31 · 判据 = `Draft Mode Timed Mode Window.prefab` 那颗 `Image`（`m_Script {fileID: -765806418}`）的 `m_Material = {fileID: 2100000, guid: 6ef1a6acedd47434d89c8087abfbcff3}` = `Material/UI Orange Button To Green`（`_Hue_Offset 0.303`）—— 底图本身是橙色的 `UI_Button_Mulligan`，原版靠这颗材质**转绿**）
             var battleTx = MenuDraw.Text(_toBattleNode, OnBattleTxR, Loc.T("Demo/ToBattle"), Color.white,
                                          "Button Text", 74.25f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.SetVAlign(battleTx, Label.VAlign.Capline, OnBattleTxR);  // 原版 align 2/8192
@@ -4903,6 +4903,56 @@ namespace CardPresentation
             MenuDraw.Nine(vc.transform, tex, imgR, new Vector4(63f, 0f, 63f, 0f), 128f, 4f, QText,
                           new Color(0.7019608f, 0.46274513f, 0.17254902f, 1f), true, "Glow",
                           new Vector4(63f / 0.34f, 0f, 63f / 0.34f, 0f));
+        }
+
+        // ============================================================ `B141-DRAFT-MATERIAL`（`B142-E31`，追加在类尾）
+        /// <summary>✅ 已复刻（2026-11-04 · B142-E31 · 判据 = `Draft Mode Timed Mode Window.prefab:30627-30640`：
+        /// `To Battle Button` 那颗 `UnityEngine.UI.Image` 的 `m_Material = {fileID: 2100000, guid: 6ef1a6acedd47434d89c8087abfbcff3}`，
+        /// 即 `Material/UI Orange Button To Green.mat`：`m_SavedProperties.m_Floats` = **`_Hue_Offset 0.303`** · `_Contrast 1` ·
+        /// `_Saturation 1` · `_Brightness 0`，`m_Shader` guid `0c65e4f5b9c047847acffd215703def4` =
+        /// `Shader Graphs/Sprite HUE Color change`（`d:/2/tools/assetripper_out/ExportedProject/Assets/Material/UI Orange Button To Green.mat` 现读）。
+        /// 那颗 shader 的属性表 = `_Brightness/_Contrast/_Hue_Offset/_MainTex/_Saturation`、**没有 `_Color`**
+        /// （`WarpforgeVFX/Runtime/OriginalShaderBlendTable.cs:422`）。
+        /// <para>🔴 **走的是既有那条路**：原件 shader 在 `wf_shaders.bundle` 里、**落不成工程资产** ⇒ 运行期 `new Material`
+        /// （同 `Shell/MenuFxMaterials` 的 `ApplyOrangeButtonToPurple`，那一支 `_Hue_Offset = 0.679`）。
+        /// ⛔ **别抄那一支的参数** —— 这里是 **0.303**（抄成 0.679 ⇒ 绿变紫，断言会红）。</para>
+        /// <para>📌 更干净的落点是 `Shell/MenuFxMaterials.ApplyOrangeButtonToGreen`（那条同族有 `ApplyProto` 可复用），
+        /// 但该文件不在本写手白名单 ⇒ 这一份是**等价实现**，两处合并时按这里的三条判据搬过去即可。</para></summary>
+        static Material _orangeToGreenProto;
+
+        static Material OrangeToGreenProto()
+        {
+            if (_orangeToGreenProto != null) return _orangeToGreenProto;
+            Shader sh; string src;
+            if (!WarpforgeVFX.WarpforgeShaderMap.TryResolve(MenuFxMaterials.ShaderSpriteHueColorChange, out sh, out src) || sh == null)
+            {
+                Debug.LogWarning("[Draft] 取不到原版 shader `" + MenuFxMaterials.ShaderSpriteHueColorChange + "`"
+                               + " ⇒ `To Battle` 的底图**保持橙色**（原版靠 `UI Orange Button To Green` 转绿；出声，不静默）");
+                return null;
+            }
+            var m = new Material(sh);
+            m.name = "UI Orange Button To Green (runtime)";
+            void F(string n, float v) { if (m.HasProperty(n)) m.SetFloat(n, v); }
+            F("_Hue_Offset", 0.303f);   // 原版 `m_Floats._Hue_Offset`（⛔ 不是 0.679 —— 那是 `…To Purple`）
+            F("_Contrast",   1f);
+            F("_Saturation", 1f);
+            F("_Brightness", 0f);
+            _orangeToGreenProto = m;
+            return m;
+        }
+
+        /// <summary>把上面那颗材质挂到一张 quad 上。纪律同 `MenuFxMaterials.ApplyProto`：
+        /// **每颗克隆一份**（`renderQueue` 是 per-quad 的）· 原版这支 shader **没有 `_Color`** ⇒ 染色走**顶点色**通道
+        /// （`ImageQuad.SetVertexTint`，判据 = `ImageQuad.cs` 的 `B-190` 那一节：PS 末句 `mul o0, r0, v2` 乘的就是顶点色）。</summary>
+        static void ApplyOrangeButtonToGreen(ImageQuad q)
+        {
+            if (q == null) return;
+            var proto = OrangeToGreenProto();
+            if (proto == null) return;
+            Color tint = q.Tint;                       // ⚠️ 必须在 `SetMaterial` **之前**取（换完读到的就是新材质了）
+            var inst = new Material(proto);
+            if (inst.HasProperty("_Color")) inst.color = tint; else q.SetVertexTint(tint);
+            q.SetMaterial(inst);                       // 队列由 `ImageQuad.SetMaterial` 从旧材质读走（`:299-303`）
         }
     }
 }

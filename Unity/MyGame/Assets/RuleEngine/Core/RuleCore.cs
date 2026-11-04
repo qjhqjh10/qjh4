@@ -6458,7 +6458,7 @@ namespace RuleEngine
             int atkLimit = ActionQuota(attacker);   // 上面 `CanAttackNow` 已查过一次，这里要用来记账（判据只一处）
 
             int code = IsValidTarget(ctx, p, atkSlot, tgtP, tgtSlot, ranged);
-            if (code != RuleCodes.OK) return code;
+            if (code != RuleCodes.OK) return code; UnitState cancelTargetLocal = ctx.Players[tgtP].Board[tgtSlot];   // 🆕 B142_E2（2026-11-04）：原版 `_ResolveAttack…:531` 的「单位取消攻击」要**上移到配额/隐身/迷彩之前**（调用点见下面 `TryCancelAttackByOwnAboutToAttack` 那一行之前）；这个名字只为把 `ref UnitState` 形参传进去
 
             // ---- 🔴 **2026-10-20（`W58-AMBUSH`）：面朝下的伏击单位出手 ⇒ 取消这一记、再由续攻补打** ----
             //  判据 = `BattleManager._ResolveAttack_d__438__MoveNext.c:288-305`（逐行读过，**原版原文**）：
@@ -6589,7 +6589,7 @@ namespace RuleEngine
             //    （原版 ① 的真载体，`Core/Enchantment.cs`），再退回「攻方自有 ability」那一半；
             //    另外 `A1983` 的**状态闸**（`CardScript__CancelAttack.c:35`）已补在函数最前面。
             //    今天的可达性仍然是 **0 张卡**（卡池没有附魔列、`abouttoattack` 0 命中）。
-            if (!forced && TryCancelAttackByOwnAboutToAttack(
+            if (!forced && TryCancelAttackByUnits(ctx, p, atkSlot, tgtP, ref tgtSlot, ref cancelTargetLocal)) return RuleCodes.OK; if (!forced && TryCancelAttackByOwnAboutToAttack(   // 🆕 B142_E2（2026-11-04）：**单位取消攻击**放在这儿 = 原版 `_ResolveAttack…:531` 的位置（早于 `:601` 迷彩、早于攻击动画里的 `attacksTurn++`）—— 真 = 这一记**被取消**（一点伤害都不出、不吃配额、不失隐身/迷彩）；重定向那一支返回 false（目标已就地改掉、照打）
                     ctx, p, atkSlot, attacker, ctx.Players[tgtP].Board[tgtSlot]))
                 return RuleCodes.OK;
 
@@ -6799,7 +6799,7 @@ namespace RuleEngine
             //    自己决定「取消 / 改打谁」，替身只是其中一张卡。旧写法（私有 `Bodyguard` 闸 + 就地改目标的
             //    `TryRedirectAttackToBodyguard`）是它的**硬编码捷径**：不响 280、也不走「取消」那一步。
             //    现在 = 候选表 + 逐候选响 280 ＋「`redirectedAttack(74)` 的同步等价＝就地改目标」。
-            //  ⚠️ **位置不能挪**：必须排在 `IsValidTarget` **之后** ——
+            //  ⚠️ **位置**：必须排在 `IsValidTarget` **之后**（🆕 B142_E2：本跳已上移到 `DeclareAttackCore`，且排在**配额 / 隐身 / 迷彩之前** —— 原版 `:531` 早于 `:601` 的迷彩判定与攻击动画里的 `attacksTurn++`）——
             //     原版 `redirectedAttack` 那条路**不复检目标合法性**（`AllowResolveAttack` 直接 return 1），
             //     带 Stealth 的替身照样挨打；换到验证之前既会与「督军格特殊」那套判据打架，
             //     也会把这条原版行为改掉。
@@ -6808,7 +6808,7 @@ namespace RuleEngine
             //     `_ResolveForceAttack_d__504` 结算，**全库只有 `_ResolveAttack` 调
             //     `CheckUnitsCancellingAttack`** ⇒ 那条路根本不经过替身。判据写在 `DeclareAttack` 的
             //     `forced` 形参上（含 `grep -rln` 的出处）。
-            if (!forced) TryCancelAttackByUnits(ctx, p, atkSlot, tgtP, ref tgtSlot, ref target); RemoveDuplicitousTrait(ctx, target);   // 🔴 2026-10-27（B88-E1 · 账行 `CardScript.RemoveDuplicitous()`）：原版 `_ResolveAttack_d__438__MoveNext.c:512-519` 在结算段开头判**被打者** `HasCurrentTrait(0xa0 tainted)` ⇒ `RemoveDuplicitous`（摘一次，这一记照常结算，不是取消攻击）
+            RemoveDuplicitousTrait(ctx, target);   // 🔴 2026-10-27（B88-E1 · 账行 `CardScript.RemoveDuplicitous()`）：原版 `_ResolveAttack_d__438__MoveNext.c:512-519` 在结算段开头判**被打者** `HasCurrentTrait(0xa0 tainted)` ⇒ `RemoveDuplicitous`（摘一次，这一记照常结算，不是取消攻击）｜🆕 B142_E2（2026-11-04）：「单位取消攻击」这一跳**已上移到 `DeclareAttackCore`**（`IsValidTarget` 之后、配额/隐身/迷彩之前 = 原版 `:531`）⇒ 本行不再调 `TryCancelAttackByUnits`（否则同一记会响两遍 280）
 
             // 🔴🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-2` · D9）：`Attack` 宣言/广播的【位置】。**
             //   **原来那两句（`Emit(Attack)` + `BroadcastWhen(Attack)`）就摆在这儿** ——
@@ -13035,7 +13035,7 @@ namespace RuleEngine
                 { var fuSinkEvt = EmitFollowUpResolution(ctx, u.Card, owner, slot, u.InstanceId); FireTriggerByNumber(ctx, u, 410, owner, slot, actingCard: chosen ?? subject, targetCard: subject ?? chosen, triggerEvent: fuSinkEvt); }   // 🆕 2026-10-29（B97_W28 · 账 517 ②）：原版这一跳是 `CardScript__FollowUpResolutionPlayed.c:7` → `OnTrigger(0x19a = 410)`，**410 那条 ability 才是正文所在**（我们改前只发表现层事件 = 只做了动画那一半）。⛔ 别只加执行口不接线（`B95_WRE` 已反证 = 死代码）
             }
 
-            return;
+            if (only == null && u != null && u.Card != null) RunHighlightBloodThirstRowsOfKeywordTrigger(ctx, u, keyword, owner, slot, chosen ?? subject); return;   // ✅ 已复刻（2026-11-04 · B142_E24 · 判据 `AbilityLogic__PlayAbility.c:1960-1972`）：`ca 480 highlightBloodThirst` 的**关键词触发路**一跳。原版行序 = 同一 trigger 的 `abilityLogic` **逐行**跑（`SW34 Murderfang` 的 `120` = lg0 `ca20` → lg1 `ca40` → lg2 `ca480`，`cards_engine.json` `triggerAbilityIndices` 现读）⇒ 480 必须排在**正文结算之后**：lg1 那条「本回合获得 bloodthirst」先结算，`EmitBloodThirst` 的四道闸（`Has(bloodthirst)` / `AttacksThisTurn==1` / `owner==ctx.Active` / 非待死）才可能过；排在结算之前会因 bloodthirst 还没挂上而**静默不亮**。`only == null` 与上面 `followUp` 那一跳同口径（附魔递归不再各发一次）。
         }
 
         /// <summary>
@@ -15929,7 +15929,7 @@ namespace RuleEngine
         ///
         /// <para>✅ **消费方已切**（2026-10-29 `B98_K4`）：`EffectResolver.ReturnFromCemetery` / `DoDeployOnce`
         /// 经 `CemeteryDeadUnits` → `ResolveCemeteryTargets` 走本口（原版唯一调用点 = `AbilityLogic__GetTargets.c:951`，`ta=60`）。
-        /// ⛔ 别在别处再造第二份 incl* 过滤；`choose … died …` 那一路（`DeadCandidates`）尚未切，见其上方注。</para>
+        /// ⛔ 别在别处再造第二份 incl* 过滤；`choose … died …` 那一路（`DeadCandidates`）**已切**（`B141_W77`，见其 doc）。</para>
         /// </summary>
         public static List<CardInstance> GetCardsInCemetery(BattleContext ctx, bool inclMinions,
             bool inclSpells, bool inclWhispers, bool inclWeapons, bool inclPlayer, bool inclEnemy)
@@ -17508,13 +17508,13 @@ namespace RuleEngine
         ///       ⛔ **不要真去排一条动作**（原版那是「入队再出队」，净效果就是一记攻击；我们同步再入队 = 打两遍）。</item>
         /// </list>
         ///
-        /// <para>⚠️ **两条今天表示不出来的（如实标着，⛔ 别当已做）**：
-        /// ① 候选存在、但它的 280 正文**不是**重定向（别的一族「取消攻击」卡）⇒ 原版这一记**被取消、
-        ///    一点伤害都不出**；我们这一格只认 `CardDef.Bodyguard`（重定向正文的文本层标记），
-        ///    其余只**响 280 + 出声**、这一记照常结算 —— 📊 池内这种卡 **0 张**；
-        /// ② `RegisterPlayerActionCancelled`（`bm + 0x3bc` 那个联机计数器 `-1`）属 `Net/*` 那条线。</para>
+        /// <para>✅ **2026-11-04（`B142_E2` · 铁律 5 订正）**：① 已补 —— 候选存在、但它的 280 正文**不是**重定向
+        ///    （别的一族「取消攻击」卡）⇒ **这一记被真的取消**：一点伤害都不出、不吃攻击配额、不失隐身/迷彩
+        ///    （调用点已上移到 `DeclareAttackCore`，正好排在原版 `_ResolveAttack…:531` 的位置上，早于 `:601` 迷彩与
+        ///    攻击动画里的 `attacksTurn++`）。判据 = `.c:531-541`（`CancelAttack` + 两次 `ClearPendingDamage` + 早退）；
+        /// ② **仍表示不出来**：`RegisterPlayerActionCancelled`（`bm + 0x3bc` 那个联机计数器 `-1`）属 `Net/*` 那条线。</para>
         /// </summary>
-        /// <returns>真 = 已把这一记攻击改到替身身上（<paramref name="tgtSlot"/> / <paramref name="target"/> 已就地改掉）。</returns>
+        /// <returns>真 = **这一记被取消**（一点伤害都不出；候选的 280 正文不是重定向）—— ⛔ 重定向那一支返回 false（`tgtSlot` / `target` 已就地改掉、照打）。</returns>
         static bool TryCancelAttackByUnits(BattleContext ctx, int p, int atkSlot, int tgtP,
                                            ref int tgtSlot, ref UnitState target)
         {
@@ -17548,12 +17548,12 @@ namespace RuleEngine
 
             // ⑤' 「排一条 `redirectedAttack(74)`」的同步等价 = 就地改目标继续打（见上面第 3 条）
             bool redirected = TryRedirectAttackToBodyguard(ctx, p, atkSlot, tgtP, ref tgtSlot, ref target);
-            if (!redirected)
-                ctx.Log($"「{attacker.Name}」这一记攻击：`CheckUnitsCancellingAttack` 有 {cands.Count} 个候选，"
-                      + "但它们的 `AboutToAttack(280)` 正文**不是重定向**（本版的等价判定 = `CardDef.Bodyguard`）"
-                      + "⇒ 原版这一记应当被**取消**（一点伤害都不出），本版照旧结算 —— "
-                      + "池内这种卡 0 张（判据 → `RuleCore.TryCancelAttackByUnits` 的 doc ⚠️①）");
-            return redirected;
+            if (redirected) return false;   // 改向那一支：这一记照打（新目标），⛔ 不算取消
+            ctx.Log($"「{attacker.Name}」这一记攻击：`CheckUnitsCancellingAttack` 有 {cands.Count} 个候选，"
+                  + "但它们的 `AboutToAttack(280)` 正文**不是重定向**（本版的等价判定 = `CardDef.Bodyguard`）"
+                  + "⇒ 按原版 `_ResolveAttack…:531-541` **取消这一记**（一点伤害都不出、不吃攻击配额、不失隐身/迷彩）"
+                  + "（池内这种卡 0 张；判据 → `RuleCore.TryCancelAttackByUnits` 的 doc ✅①）");
+            return true;
         }
 
         /// <summary>

@@ -2371,7 +2371,7 @@ namespace CardPresentation
 
         /// <summary>第②拍到第④拍之间的等待 = `WaitForSeconds(gVars + **0x8c**)` = `VarsGlobal.minionDeathTime`
         /// **0.2 s**（`CardScript._UnitDeath_d__446__MoveNext.c:374-379`）。
-        /// ⇒ 阵亡视图从「引擎说它死了」到被收掉一共 **0.9 s（小兵）/ 1.2 s（督军）**。</summary>
+        /// ⇒ 阵亡视图从「引擎说它死了」到被收掉一共 **0.7 s，小兵/督军同**（`DOShakePosition` 0.2 / 0.5 **不 await**、与那 0.5 s 等待同帧起算 ⇒ ⛔ 别把抖动时长加进来；判据 = <see cref="DeathTotal"/>）｜✅ 已复刻（2026-11-04 · B142-E61 · `_UnitDeath_d__446:114-126,374-379`，旧口径 0.9/1.2 已订正）。</summary>
         public const float DeathFxHold = 0.2f;
 
         /// <summary>墓地卡位的**世界**坐标 = `VarsGlobal.cardInCemeteryPos`（偏移 0x98，**Vector2**）

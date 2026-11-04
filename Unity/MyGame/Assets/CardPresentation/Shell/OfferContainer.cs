@@ -1682,7 +1682,7 @@ namespace CardPresentation
             var hit = MenuDraw.Hit(node, "Hit", R(wr.x1, wr.y1, wr.x2, wr.y2),
                                    qBase + QoWebShopHit, WebShopClick, clickCue: WindowSounds.PurchaseCue);
             var wb = hit != null ? hit.GetComponent<WindowButton>() : null;
-            if (wb != null && n9 != null) wb.BindNine(n9, WebShopArt, "40K_button_square_hover", "40K_button_square_pressed");
+            if (wb != null && n9 != null) wb.BindNine(n9, WebShopArt, "40K_button_square_hover", "40K_button_square_pressed", null, new WindowButton.NineMeta { BorderPx = new Vector4(36f, 28f, 37f, 29f), PpuMul = WebShopPpuMul, Valid = true }, new WindowButton.NineMeta { BorderPx = new Vector4(32f, 27f, 34f, 28f), PpuMul = WebShopPpuMul, Valid = true }, new WindowButton.NineMeta { BorderPx = new Vector4(28f, 27f, 27f, 25f), PpuMul = WebShopPpuMul, Valid = true });   // ✅ 已复刻（2026-11-04 · B142-E17 · 判据 = `sharedassets0/Sprite/40K_button_square{,_hover,_pressed}.json` 现读：三张 border 各不同，原版同一个 Image 换 sprite ⇒ 每次按新图重切，UGUI `Image.cs:1157`）
         }
 
         /// <summary>`WebShop` 那一颗点了干什么 —— **原版是打开网页商店**（`EverguildButton` 的

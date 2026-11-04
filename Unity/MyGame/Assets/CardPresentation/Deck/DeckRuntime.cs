@@ -3971,7 +3971,7 @@ namespace CardPresentation
         /// ⇒ 整条 = **`Vector2.Angle(dragInput, Vector2.right) ∈ (60°, 120°)`**（`Vector2.Angle` 自带那道守卫，
         /// 逐行等价 ⇒ 直接用公共件，不自己再写一遍 acos）。</para>
         /// <para>语义：位移与**水平轴**的夹角落在 60°~120°（= 竖向为主）⇒ 判成**滚动**，**不起拖**；
-        /// 只有基本水平的位移才算拖拽。原版**两条链用的是同一个函数**（`CheckCosmeticDrag` 与 `CheckCardDrag`）
+        /// 只有基本水平的位移才算拖拽。原版 `DeckEditingWindow` 的两条链（`CheckCosmeticDrag.c:28` · `CheckCardDrag.c:30`）**调的都是这个函数**。🔴 **2026-11-04（`B142-E53`）现核订正**：⛔ **别把这条换成 30/150** —— 那个带子属于**另一个组件** `DragAndDropItem.OnBeginDrag.c:32`（`|atan2(dy,dx)|·Rad2Deg`，`ang < 30 || 150 < ang` 才起拖 ⇒ 30~150 转给 `ScrollRect`，常量 `read_literal` 现读 30/150），我们的等价物在 `Shell/PointerLayer.cs:2032 IsScrollDragAngle`（收藏窗卡组格重排用，B141/W32 已落、断言 `B141_W32_Assert` §D）。两条**不是同一个门**：合并会把 30°~60° 与 120°~150° 四段方向判错（判据 → `判据/B142_R15_CHK05块3块4.md` §4·4；回归断言 `Editor/B142_E53_Assert.cs`）
         /// ⇒ 我们也只写这一份。</para></summary>
         static bool IsScrollDragThreshold(Vector2 dragInput)
         {
@@ -5567,7 +5567,7 @@ namespace CardPresentation
         /// ⚠️ 本类**没法**替 `DeckEditorState.TryAdd` 收口：那个 `out string why` 出的也是键
         /// （`Deck/DeckEditorState.cs` 不在本笔白名单里）⇒ 谁显示它谁负责过一道 `Loc.T`。
         /// </summary>
-        public static string DeckErrorText(DeckError e)
+        public static string DeckErrorText(DeckError e, int copiesCap = -1)
         {
             if (e == DeckError.None) return "";
             // 🟢 **2026-10-25（`E1` · 第八段）：「上屏用哪个键」的判据收在 `DeckRules.ErrorTextKey`（只此一处）。**
@@ -5579,8 +5579,8 @@ namespace CardPresentation
             //           （`NoWarlord→MissingHero` · `TooFew/TooMany→IncompleteDeck` · 其余→`InvalidDeck`）。
             //   ⚠️ `MenuDeckErrorNumber` / `MenuDeckErrorKey`（数字族）**保留**：`DeckRuntime.cs` 另一处弹窗还在用，
             //     但它只是「取不到就退 `InvalidDeck`」，与 `ToRawLocalizationString` 的兜底同形 ⇒ 不是本函数的判据。
-            //   ⛔ 别在调用点各写一份这个选择。
-            return Loc.T(DeckRules.ErrorTextKey(e));
+            //   ⛔ 别在调用点各写一份这个选择。🆕 **2026-11-04（`B142-E4` · 账 `B141-MAXCOPIES-0`）**：`copiesCap` = 那张卡的**同名份数上限**（原版 `CardDeck__CanAddCard.c:58,65-71` 的 `GetMaxCopiesInDeck`；只有 `DeckEditorState.TryAdd` 那一层手里有那张卡）—— `>= 0` ⇒ 填进 `MaxCopiesReached` 文案的 `{0}`；`< 0`（拿不到）⇒ `DeckRules.ErrorTextKey` 退回原版 catch-all `InvalidDeck`，⛔ 绝不把 `{0}` 印上屏。
+            string key = DeckRules.ErrorTextKey(e, copiesCap); return copiesCap >= 0 ? Loc.T(key).Replace("{0}", copiesCap.ToString()) : Loc.T(key);
         }
 
         /// <summary>「卡组存档**写不进去**」那条**人话**的词条键（🔴 **2026-10-18 `G8` 自拟**）。
@@ -10516,8 +10516,8 @@ namespace CardPresentation
         const int SdNone = 0, SdPool = 1, SdDeckList = 2, SdFilter = 3, SdCosmetic = 4;
         /// <summary>原版 `ScrollRect.m_DecelerationRate`（四台实读都是 **0.135**）—— 松手后的惯性衰减。</summary>
         const float ScrollDecelerationRate = 0.135f;
-        /// <summary>原版 `ScrollRect.m_Inertia = 1`；速度低于这个数就不值得再滚（我们自己挑的截止，⭐ 见报告）。</summary>
-        const float ScrollInertiaMinPxPerSec = 10f;
+        /// <summary>原版 UGUI `ScrollRect.cs:866`：`if (Mathf.Abs(m_Velocity[axis]) &lt; 1) m_Velocity[axis] = 0;`（画布 px/s）⇒ 低于 **1 px/s** 归零；同一原版值另一处 = `CardPresentation/Shell/MenuScroll.cs:594`（`Mathf.Abs(_vel) &lt; 1f`）。✅ 已复刻（2026-11-04 · B142-E4 · 账 `B141-DECK-INERTIA`，改前 = 10f「我们自己挑的」）。</summary>
+        const float ScrollInertiaMinPxPerSec = 1f;
 
         int _sdKind;                  // 这一按落在哪台滚动面上（0 = 不是滚动面）
         bool _sdActive;               // 已越过 5 px ⇒ 真的在拖滚动

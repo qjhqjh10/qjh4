@@ -1274,7 +1274,7 @@ namespace RuleEngine
 
             // 目标集已经定死 ⇒ 让 `DoStun` 走「调用方已点定目标」那一支（`SubjectTargetsAffected = 30` + `Count = 1`，
             // 与 `RunRecallToOwnerHandRowOfEnchantment` 同一手法）；⛔ 别让它自己再扫一遍棋盘。
-            var unresolved = new List<string>(1);
+            // ✅ 已复刻（2026-11-04 · B142_E24 · 判据：本方法体内从来没有一次 `unresolved.Add`；原版 `AbilityLogic__PlayAbility.c:642-657` 的 `ca 130` 逐目标 `AddStun` 也没有「未解析」这一档）⇒ 死变量 `unresolved` 已删。⚠️ 本行留空注释只为**零行号漂移**（本文件有账落点在 `:1289/:1317/:1334/:1387/:1464/:1515/:1573/:1880`）
             int stunned = 0;
             for (int i = 0; i < targets.Count; i++)
             {
@@ -1294,7 +1294,7 @@ namespace RuleEngine
                 ApplyStunTo(ctx, t, by, op);                // 🆕 2026-11-03（`B123_E1` 实现 / `B123_E2` 接线）：原版 `AddStun` 没有 jam 闸（`PlayAbility.c:642-657`）⇒ 走共用件，绕开 `DoStun` 的 `AddEffectCasterGates` ｜ ✅ 已复刻（2026-11-04 · B141 `W76` · 判据 `CardScript__Stun.c:44-48/:98/:125` + `AbilityLogic__PlayAbility.c:642-657`；断言 = `RuleEngine/Editor/B141_W76_Assert.cs` A/B 组）
                 if (!before && t.IsStunned) stunned++;      // 真晕上的才计数（`DoStun` 的返回真只表示「这一 op 跑完了」）
             }
-            if (unresolved.Count > 0) ReportUnresolved(ctx, by, unresolved);
+            // ✅ 已复刻（2026-11-04 · B142_E24）：死分支 `if (unresolved.Count > 0) ReportUnresolved(ctx, by, unresolved);` 已删 —— 那个列表**从未被 `.Add`** ⇒ 恒假（同文件 `:1016/:1035`、`:1332/:1344` 那两处才是活的）
             ctx.Log($"{by}：`chosenAbility 130`（stun）⇒ {stunned}/{targets.Count} 张被眩晕"
                   + "（原版 `AbilityLogic__PlayAbility.c:642-657` 逐目标 `AddStun`；施加体 = `RuleCore.DoStun`）");
             return stunned;

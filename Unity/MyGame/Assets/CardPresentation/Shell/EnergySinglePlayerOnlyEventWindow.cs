@@ -792,7 +792,7 @@ namespace CardPresentation
             string TimerPrefix = Loc.T("Event_Description/General/EndsInPlusOrangeTime");
             var tx = MenuDraw.Text(tm, txR, TimerDisplay.Compose(TimerPrefix, "23d 5h"), Color.white, "Timer", 38f, QText,
                                    txR.W, 10f, 38f, 38f, face: TmpFont.Face.LatinCardBody);
-            if (tx != null) tx.SetWrapping(false);
+            if (tx != null) { tx.SetWrapping(false); tx.SetSmallScreenFontSizes(38f, 10f); }   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：`EnergySinglePlayerOnlyEventWindow ▸ Timer/Timer` = 38/10）
             // 🔴 **A1178**：量 preferred width ⇒ 把框收成它（= 原版 CSF 那一档）。
             float txW = PreferredWidthPx(tx, "Timer");
 

@@ -1865,15 +1865,15 @@ public static class SettingsScene
                           + "｜🔴 底 = 内容高（13 × 40.8707 + 0.8519 = 532.171）而非满高 573.96 ⇒ "
                           + "🧨 把它改回 573.96（底 922.16）⇒ 本行红");
                 CheckTrue(win.LangRowCount == 13, $"…装了 **13 行**（实得 {win.LangRowCount}）");
-                // 行矩形 = `Content` 里按 `i × 40.8707` 往下排（原版 `Show():840-844`：第 0 项在**最上**）
+                // 行矩形 = `Content` 里按 `LstItemGap/2 + i × 40.8707` 往下排（原版 `Show():840-844`：第 0 项在**最上**）
                 // ⚠️ `CheckRectPx` 的期望值是**屏幕 px**（× 0.9 之后的），算式写在调用点：
-                //    行 0 顶 = 540 + (390.667−540)×0.9 = **405.60**、行高 40.8707×0.9 = **36.78**；
-                //    行 11 顶 = 540 + (390.667 + 11×40.8707 − 540)×0.9 = **810.22**；右沿 = 960 + (975.222−960)×0.9 = **973.70**。
+                //    行 0 顶 = 540 + (390.667 + 0.42595 − 540)×0.9 = **405.98**、行高 40.8707×0.9 = **36.78**；
+                //    行 11 顶 = 540 + (390.667 + 0.42595 + 11×40.8707 − 540)×0.9 = **810.60**；右沿 = 960 + (975.222−960)×0.9 = **973.70**。
                 var r0 = win.LangRowBg(0); var r11 = win.LangRowBg(11);
-                CheckRectPx(r0 != null ? r0.transform : null, 632.90f, 405.60f, 973.70f, 442.38f,
-                            "（A862 锚）第 0 行的底图 = 原版 `Item` 那一格（屏幕高 **36.78** = 40.8707 × 0.9）");
-                CheckRectPx(r11 != null ? r11.transform : null, 632.90f, 810.22f, 973.70f, 847.00f,
-                            "（A862 锚）第 11 行 = `Content` 里第 11 格（`390.667 + 11 × 40.8707`）"
+                CheckRectPx(r0 != null ? r0.transform : null, 632.90f, 405.98f, 973.70f, 442.77f,
+                            "（A862 锚）第 0 行的底图 = 原版 `Item` 那一格（屏幕高 **36.78** = 40.8707 × 0.9；⚠️ 2026-11-04（`B142-E41`）就地改：首行顶再让 `LstItemGap/2 = 0.42595`（×0.9 = 0.383）⇒ 405.60 → **405.98**；🧨 删掉 `SettingsWindow.BuildLangItem` 那个 `+ LstItemGap * 0.5f` ⇒ 回到 405.60、本行红）");
+                CheckRectPx(r11 != null ? r11.transform : null, 632.90f, 810.60f, 973.70f, 847.39f,
+                            "（A862 锚）第 11 行 = `Content` 里第 11 格（`390.667 + 0.42595 + 11 × 40.8707`）"
                           + " —— 与第 0 行合起来才说明**真是 13 行往下排**、不是叠在一处");
                 var l0 = win.LangRowLabel(0); var l11 = win.LangRowLabel(11);
                 CheckTrue(l0 != null && l11 != null && l0.Text != l11.Text,
@@ -5538,7 +5538,7 @@ public static class SettingsScene
             // 断言本体在 `Editor/B94W2_Assert.cs`（本宿主是它唯一的调用方）。
             // 🔴 必须在**关窗之前**跑：那一段要在**开着**的窗上点下拉（它自己会 `OpenTab(Graphics)`，
             //    并在 `finally` 里把档位 / 脏位 / 行集逐值放回）。
-            B94W2Assert.Run(_sink, win); B97W14Assert.Run(); _sink.Pass += B97W14Assert.Pass; _sink.Fail += B97W14Assert.Fail; bool _nlPrev108 = DemoDataStore.Current.suscriptionPopupShowed; DemoDataStore.Current.suscriptionPopupShowed = true; B106W15_Assert.Run(win); _sink.Pass += B106W15_Assert.Pass; _sink.Fail += B106W15_Assert.Fail; B108A10_Assert.RunNewsletter(win); _sink.Pass += B108A10_Assert.Pass; _sink.Fail += B108A10_Assert.Fail; B108A10_Assert.RunGraphicsApplyOnClose(win); _sink.Pass += B108A10_Assert.Pass; _sink.Fail += B108A10_Assert.Fail; DemoDataStore.Current.suscriptionPopupShowed = _nlPrev108; B109_E1_SettingsPersist_Assert.Run(); _sink.Pass += B109_E1_SettingsPersist_Assert.Pass; _sink.Fail += B109_E1_SettingsPersist_Assert.Fail; B109_E1_SettingsPersist_Assert.RunInitialValue(win); _sink.Pass += B109_E1_SettingsPersist_Assert.Pass; _sink.Fail += B109_E1_SettingsPersist_Assert.Fail; B109_E34_CopyArt_Assert.Run(); _sink.Pass += B109_E34_CopyArt_Assert.Pass; _sink.Fail += B109_E34_CopyArt_Assert.Fail; B111S1_Assert.Run(); _sink.Pass += B111S1_Assert.Pass; _sink.Fail += B111S1_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W14`）：账 `未分类_其他:584` 设置窗 Cog 自转 -20°/s（含「关着就冻住」那一档）；同一行追加 ⇒ 行数零变化；🆕 2026-10-31（`B106_W34` 接线 · `B106_W15`）：设置窗 5 条状态缺口 G2~G6
+            B94W2Assert.Run(_sink, win); B97W14Assert.Run(); _sink.Pass += B97W14Assert.Pass; _sink.Fail += B97W14Assert.Fail; bool _nlPrev108 = DemoDataStore.Current.suscriptionPopupShowed; DemoDataStore.Current.suscriptionPopupShowed = true; B106W15_Assert.Run(win); _sink.Pass += B106W15_Assert.Pass; _sink.Fail += B106W15_Assert.Fail; B108A10_Assert.RunNewsletter(win); _sink.Pass += B108A10_Assert.Pass; _sink.Fail += B108A10_Assert.Fail; B108A10_Assert.RunGraphicsApplyOnClose(win); _sink.Pass += B108A10_Assert.Pass; _sink.Fail += B108A10_Assert.Fail; DemoDataStore.Current.suscriptionPopupShowed = _nlPrev108; B109_E1_SettingsPersist_Assert.Run(); _sink.Pass += B109_E1_SettingsPersist_Assert.Pass; _sink.Fail += B109_E1_SettingsPersist_Assert.Fail; B109_E1_SettingsPersist_Assert.RunInitialValue(win); _sink.Pass += B109_E1_SettingsPersist_Assert.Pass; _sink.Fail += B109_E1_SettingsPersist_Assert.Fail; B109_E34_CopyArt_Assert.Run(); _sink.Pass += B109_E34_CopyArt_Assert.Pass; _sink.Fail += B109_E34_CopyArt_Assert.Fail; B111S1_Assert.Run(); _sink.Pass += B111S1_Assert.Pass; _sink.Fail += B111S1_Assert.Fail; B140_V4b_Assert.Run(); _sink.Pass += B140_V4b_Assert.Pass; _sink.Fail += B140_V4b_Assert.Fail; B142_E5_Assert.Run(); _sink.Pass += B142_E5_Assert.Pass; _sink.Fail += B142_E5_Assert.Fail;   // 🆕 2026-10-29（调度台代接线 · `B97_W14`）：账 `未分类_其他:584` 设置窗 Cog 自转 -20°/s（含「关着就冻住」那一档）；同一行追加 ⇒ 行数零变化；🆕 2026-10-31（`B106_W34` 接线 · `B106_W15`）：设置窗 5 条状态缺口 G2~G6｜✅ 已复刻（2026-11-04 · B142-E13 · 同一物理行追加）：`B140_V4b_Assert`（存档沙箱 5 处 · A0 要求 `-batchmode`，⛔ GUI 跑会红）＋ `B142_E5_Assert`（ITEMBG-TINT / TINTS-ROUND / SETTINGS-STYLE 逐值 29 条）
 
             // 关窗
             Click(FindChild(Area(root), "Generic Close Button"), "Hit");

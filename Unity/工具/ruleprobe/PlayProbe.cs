@@ -229,6 +229,8 @@ class PlayProbe
                                         + " —— 例 `preset dead=1:Infantry` / `preset enemyhand=2` / `preset chipenemy=1`"
                                         + " / `preset sub=BL1`（把夹具的 `FIX_A` 换成池内一张真卡，`B8_AH`）"
                                         + " / `preset hand=self,event=gainfaith`（**手牌态监听卡**，`B8_AV`）"
+                                        + " / `preset hand=self,event=deploy|kills`（手牌态监听 · Deploy(190)/Kills(120)，`B142-E76`）"
+                                        + " / `preset herodmg=2`（**P0 督军受伤**，治 `BL8`；`B142-E76`）"
                                         + " / `preset face=ambush`（**面朝下 + 带 `ambush` 的出手**，`B9_A3`）");
                 return 2;
             }
@@ -481,8 +483,9 @@ class PlayProbe
         /// <summary>`hand &lt;卡id|卡名|self&gt;` —— 以**手牌态**放进 P0 手牌的那一张（见上面整段注释）。</summary>
         public string Hand;
         public int HandCount = 1;
-        /// <summary>`event &lt;gainfaith|gainquest|gainspirit|createssecret|createssabotage&gt;` ——
-        /// 要打进去的那个广播（取值就是 `WhenEventKind` 的常量串，⛔ 不另立一套名字）。</summary>
+        /// <summary>`event &lt;gainfaith|gainquest|gainspirit|createssecret|createssabotage|deploy|kills&gt;` ——
+        /// 要打进去的那个广播（前五个取值就是 `WhenEventKind` 的常量串，⛔ 不另立一套名字；
+        /// `deploy` / `kills` 🆕 `B142-E76` = **直调广播** Deploy(190) / Kills(120)，见 `FireHandEvent`）。</summary>
         public string Event;
         public int EventAmount = 1;
         /// <summary>`legacy=1` —— **改前形状**：广播不带 `boardAndPersistentOnly`（= 四跳，会把
@@ -592,6 +595,33 @@ class PlayProbe
         public int KillByMate;
 
         // ==================================================================
+        //  🆕 `B142-E76`（2026-11-04）：**督军受伤**（`herodmg=N`）
+        // ==================================================================
+        //
+        // 🔴 **它治的是哪一条**：`BL8 Noise Marine` 的卡面是
+        //   `When your Warlord receives damage, gain a ❄ Dark Pact of Excess`
+        //   （`WhenEvent.Damaged` + `CardCriteria.WarlordOnly`，判据 → `Core/WhenEvent.cs:2019`）。
+        //   而电池的两局（主档 / 空正文对照局）**都不打督军**：`BuildFixture` 只在**基线快照之前**
+        //   扣过 P0 督军 2 点（`FixtureChip`），`RunBatterySteps` 那 20 多个步骤里**没有任何一步**
+        //   再让 P0 督军挨伤害 ⇒ 这个事件在 `play all dump` / `play check` 里**结构上造不出来**
+        //   （实测 `BL8` 逐字节不变，而它不是「没实现」，是**量具盲区**）。
+        //
+        // **形状**：`play BL8 preset herodmg=2`（`N` 缺省 = 2，与 `FixtureChip` 同一量级）。
+        //   · 走引擎自己的 `RuleCore.ApplyDamage`（与 `selfChip` / 夹具扣血**同一个口**）——
+        //     它自带 `BeginAction` 作用域（监听器会在返回前出队结算），并**真发
+        //     `WhenEventKind.Damaged`**（`EmitHit` → `BroadcastWhen`，判据 `RuleCore.cs:9558`）；
+        //   · 封顶到 `Health-1`：督军被打死会牵出 `IsOver` 那一串，读数会变成「终局」而不是「受伤事件」；
+        //   · **两局（电池局 / 对照局）都跑这一步** ⇒ 夹具自身的噪声在净差里相减抵消，
+        //     剩下的才是「被测卡对督军受伤这一事件的反应」。
+        //
+        // ⚠️ **这是量具干预**（与 `preset selfdies=` / `killbymate=` 同一档）：它不声称原版有这样一个
+        //   受伤顺序；它只回答「让 P0 督军挨这一下，挂在上面的那一族会不会响」。
+        // ⛔ **不传 `herodmg=` 时 `steps` 与读数一个字节都不变** —— 这一步**不进**默认电池，
+        //   所以全池 `play check` 的 `PinnedPlayMd5` **不受影响**（⛔ 别把它加成无条件的一步）。
+        /// <summary>`herodmg=N` —— 电池里让 **P0 督军**挨 N 点（治「督军受伤」那一族，`BL8`）。</summary>
+        public int HeroDamage;
+
+        // ==================================================================
         //  🆕 `B9_W41S3B`（2026-10-27）：**督军档的电池宿主**（`hero=1`）
         // ==================================================================
         //
@@ -671,7 +701,7 @@ class PlayProbe
         public bool Any { get { return Dead > 0 || EnemyHand > 0 || ChipEnemy > 0
                                     || !string.IsNullOrEmpty(Substitute) || Legal > 0
                                     || HandListenMode || Big > 0 || SelfDies > 0 || HeroBattery > 0
-                                    || KillByMate > 0 || Marks > 0
+                                    || KillByMate > 0 || Marks > 0 || HeroDamage > 0
                                     || !string.IsNullOrEmpty(StripKw); } }
 
         /// <summary>`dead[=N][:Subtype][,enemyhand=N][,chipenemy=1]`。⛔ 认不出的 token 一律**抛错**（不静默忽略 ——
@@ -777,7 +807,7 @@ class PlayProbe
                         ps.Event = string.IsNullOrEmpty(rest) ? null : rest;
                         if (string.IsNullOrEmpty(ps.Event))
                             throw new ArgumentException("`event=` 后面要写事件名（gainfaith / gainquest / gainspirit "
-                                                      + "/ createssecret / createssabotage）");
+                                                      + "/ createssecret / createssabotage / deploy / kills）");
                         break;
                     case "amount":
                         ps.EventAmount = string.IsNullOrEmpty(val) ? 1 : int.Parse(val);
@@ -809,9 +839,14 @@ class PlayProbe
                             || !string.Equals(ps.Face, "ambush", StringComparison.OrdinalIgnoreCase))
                             throw new ArgumentException("`face=` 今天只认 `ambush`（现读 `" + (ps.Face ?? "") + "`）");
                         break;
+                    // 🆕 `B142-E76`（2026-11-04）：`herodmg=N` —— 电池里让 **P0 督军**挨 N 点
+                    //   （治「督军受伤」族，`BL8 Noise Marine`；见 `PresetSpec.HeroDamage` 的整段注释）。
+                    case "herodmg":
+                        ps.HeroDamage = string.IsNullOrEmpty(val) ? 2 : int.Parse(val);
+                        break;
                     default:
                         throw new ArgumentException("不认识的预置项 `" + raw + "`（只认 dead / enemyhand / chipenemy / sub / legal"
-                                                  + " / pick / tpick / big / selfdies / killbymate / hero / aa"
+                                                  + " / pick / tpick / big / selfdies / killbymate / hero / herodmg / aa"
                                                   + " / hand / handn / event / amount / legacy / face / marks / kw）"
                                                   + "　⚠️ `preset` 是用**逗号**分项的 ⇒ 卡名里带逗号的两张"
                                                   + "（`Varius, Lord Kakophonist` / `Xarahan, Daemon Prince`）"
@@ -1053,6 +1088,8 @@ class PlayProbe
                                     + "现读 hand=`" + (ps.Hand ?? "") + "` event=`" + (ps.Event ?? "") + "`");
             Console.Error.WriteLine("   例：play SOR38 preset hand=self,event=gainfaith"
                                     + "     （再跑一遍加 `,legacy=1` 看**改前**会多出什么）");
+            Console.Error.WriteLine("       play <id> preset hand=self,event=deploy   （或 `event=kills` —— "
+                                    + "Deploy(190) / Kills(120) 两档直调广播，`B142-E76`）");
             return 2;
         }
         // 手牌里要放哪一张：`self` = `play <id>` 指的那一张；否则按 id / 卡名在池内精确找。
@@ -1134,6 +1171,10 @@ class PlayProbe
         Console.WriteLine("      不同 = 本夹具**有鉴别力**（它照得到那条差异），且产品当前**没有**多跳。");
         Console.WriteLine("    ⚠️ 变化 0 条也可能是「这张卡在手牌里本来就不监听」（拿逐触发头判：`traits <id>`）");
         Console.WriteLine("      ⇒ ⛔ 别把「0 条」单独当结论，务必配一次 `legacy=1` 对照。");
+        Console.WriteLine("    · `event=deploy|kills`（`B142-E76`）= **直调广播** Deploy(190) / Kills(120)；"
+                          + "`legacy=` 对这两档**没有另一档语义**（产品这两个发射口本来就传默认 `false` = 四跳）—— ⛔ 别拿两者比。");
+        Console.WriteLine("      ⚠️ 判断「没被叫醒」是不是**该有的**：手牌监听还要过 `HandListenerContextAllows`"
+                          + "（`abilityContext == Hand` + trigger presence 两道闸，`B142_E36`）—— 读 0 条时先按那两道闸核对，⛔ 别先判「夹具坏了」。");
         return 0;
     }
 
@@ -1428,7 +1469,10 @@ class PlayProbe
     ///    产品代码里⛔ 别照抄。</para>
     /// <para>③ `createssecret` / `createssabotage` → 只能**直调广播**（产品那两处发射点埋在
     ///    `DoCreate`/`CreateHandCard` 的造牌流程里、要真造出一张牌）⇒ 本档按**与发射点同一组实参**
-    ///    发一次广播（`boardAndPersistentOnly` 跟 `legacy` 走），并在读数里**明说这是直调**。</para></summary>
+    ///    发一次广播（`boardAndPersistentOnly` 跟 `legacy` 走），并在读数里**明说这是直调**。</para>
+    /// <para>④ 🆕 `B142-E76`：`deploy` / `kills` → **直调广播** Deploy(190) / Kills(120)
+    ///    （subject / actor 取**场上已有的夹具部队** ⇒ 棋盘一个单位都不动；
+    ///    `boardAndPersistentOnly` 用产品默认 `false`，`legacy=` 对这一档没有另一档语义）。</para></summary>
     static string FireHandEvent(BattleContext ctx, PresetSpec ps, out string pathDesc)
     {
         string ev = (ps.Event ?? "").Trim().ToLowerInvariant();
@@ -1472,10 +1516,74 @@ class PlayProbe
                     pathDesc = "**直调广播**（`RuleCore.BroadcastWhen`，与发射点同一组实参但 `subject=null` —— "
                              + "本档没有真造出一张牌；`boardAndPersistentOnly=" + (!ps.Legacy ? "true" : "false") + "`）";
                     return null;
+                // ==========================================================
+                //  🆕 `B142-E76`（2026-11-04）：**Deploy(190) / Kills(120)** 两档广播
+                // ==========================================================
+                // 🔴 为什么需要它们：`RunHandListen` 原来只支持 5 个事件（gainfaith / gainquest /
+                //   gainspirit / createssecret / createssabotage）—— 而手牌态监听卡里还有一批写的是
+                //   `When a friendly unit is deployed, …` / `When … kills …, …` ⇒ 它们**结构上测不到**
+                //   （任务 `B142-RULEPROBE-HAND-EVENTS`）。
+                // ⚠️ 这两档都走**直调广播**（⛔ 不真部署 / 不真击杀）：
+                //   · `deploy`：subject = 场上已有的那张 **P0 夹具部队**（`FIX_A/B/C`，卡面为空 ⇒ 它自己
+                //     不会因为这条广播而多响），`who = 0`；
+                //   · `kills` ：subject = 场上已有的那张 **P1 夹具部队**（= 被击杀的那一个），
+                //     `actor` = 场上已有的那张 P0 夹具部队（= 凶手），`who = 1`（死者的阵营）——
+                //     与产品发射口 `RuleCore.BroadcastWhen(Kills, victimP, victim.Card, victim, actor: killer)`
+                //     同一形状（判据 `RuleCore.cs:6400`）。
+                //   ⇒ 棋盘一个单位都不动 ⇒ 「变化逐条」里剩下的就只有**监听器真的做了什么**。
+                // ⚠️ `legacy=` 对这两档**没有另一档语义**：那个开关复现的是 2026-10-26 那 9 个发射点
+                //   加 `boardAndPersistentOnly: true` **之前**的形状，而 Deploy / Kills 两个产品发射口
+                //   本来就传默认值（`false` = 四跳）⇒ 这里也用默认值。
+                case "deploy":
+                {
+                    int depSlot = -1;
+                    for (int s = 0; s < BoardSpec.Size && depSlot < 0; s++)
+                    {
+                        var u = ctx.Players[0].Board[s];
+                        if (u != null && !u.IsWarlord && !u.IsRemnant && u.Health > 0) depSlot = s;
+                    }
+                    if (depSlot < 0)
+                    {
+                        pathDesc = "（未执行）";
+                        return "`event=deploy` 需要一张 P0 部队当 subject，但棋盘上没有（夹具坏了）";
+                    }
+                    var dep = ctx.Players[0].Board[depSlot];
+                    RuleCore.BroadcastWhen(ctx, WhenEventKind.Deploy, 0, dep.Card, dep);
+                    pathDesc = "**直调广播**（`RuleCore.BroadcastWhen(Deploy=190)`，subject = P0 第 " + depSlot
+                             + " 格 " + (dep.Name ?? "?") + "，默认四跳；⛔ 没有真部署任何牌）";
+                    return null;
+                }
+                case "kills":
+                {
+                    int vicSlot = -1, kilSlot = -1;
+                    for (int s = 0; s < BoardSpec.Size && vicSlot < 0; s++)
+                    {
+                        var u = ctx.Players[1].Board[s];
+                        if (u != null && !u.IsWarlord && !u.IsRemnant && u.Health > 0) vicSlot = s;
+                    }
+                    for (int s = 0; s < BoardSpec.Size && kilSlot < 0; s++)
+                    {
+                        var u = ctx.Players[0].Board[s];
+                        if (u != null && !u.IsWarlord && !u.IsRemnant && u.Health > 0) kilSlot = s;
+                    }
+                    if (vicSlot < 0 || kilSlot < 0)
+                    {
+                        pathDesc = "（未执行）";
+                        return "`event=kills` 需要一张 P1 部队（死者）和一张 P0 部队（凶手），"
+                             + "但棋盘上没有（死者格=" + vicSlot + " · 凶手格=" + kilSlot + "）";
+                    }
+                    var vic = ctx.Players[1].Board[vicSlot];
+                    var kil = ctx.Players[0].Board[kilSlot];
+                    RuleCore.BroadcastWhen(ctx, WhenEventKind.Kills, 1, vic.Card, vic, actor: kil);
+                    pathDesc = "**直调广播**（`RuleCore.BroadcastWhen(Kills=120)`，subject = P1 第 " + vicSlot
+                             + " 格 " + (vic.Name ?? "?") + "、actor = P0 第 " + kilSlot + " 格 " + (kil.Name ?? "?")
+                             + "，默认四跳；⛔ 没有真击杀任何牌）";
+                    return null;
+                }
                 default:
                     pathDesc = "（未执行）";
                     return "`event=` 不认识 `" + ps.Event + "`（只认 gainfaith / gainquest / gainspirit "
-                         + "/ createssecret / createssabotage）";
+                         + "/ createssecret / createssabotage / deploy / kills）";
             }
         }
     }
@@ -2337,7 +2445,7 @@ class PlayProbe
     /// 为的是让**督军档**（<see cref="RunHeroBattery"/>）能复用同一份步骤 —— ⛔ 别复制第二份。
     /// 参数：`slot` = 被测单位那一格（单位档 = 落入的格；督军档 = `BoardSpec.WarlordSlot`）。
     /// `snaps` 由调用方建好（变体要先把「打出那一拍」那个 `sPre` 塞进去），本方法**按序追加**。
-    /// `preset` 只用于 `selfdies=1` 那一步（⛔ 缺省 null ⇒ 与改前逐字相同）。</summary>
+    /// `preset` 只用于 `herodmg=`（②a）与 `selfdies=1`（⑦）那两步（⛔ 缺省 null ⇒ 与改前逐字相同）。</summary>
     //  🆕 2026-10-27（`B87_A3`）：`tested` = **被测卡的定义**（只用来做两件事：判 `hasActiveAbility`、
     //  按**实例**把它找回来 —— 见下面 ④b 那一段）。`null` = 不跑主动能力那一格（督军档就是这样传的：
     //  它自己有一段「③ 主动能力 / 替代行动（最后用）」，在这里再塞一格会先把行动花掉、
@@ -2380,6 +2488,28 @@ class PlayProbe
         else ep.Steps.Add("selfChip=-");
         var sc1 = Capture(ctx);
 
+        // ---- ②a 🆕 `B142-E76`（2026-11-04）：**让 P0 督军挨 `herodmg=N` 点** ----
+        //   治 `When your Warlord receives damage, …` 那一族（池内只有 `BL8 Noise Marine`，
+        //   判据 → `PresetSpec.HeroDamage` 的整段注释）。⛔ 不传 `herodmg=` 时**这一步一行都不执行**，
+        //   快照 `sh1` 与 `sc1` 逐字段相同 ⇒ `Diff` 产出 0 条，`steps` 一个字节都不写。
+        //   🔴 **两局（电池 / 对照局）都跑** —— 否则夹具自身的受伤噪声会留在净差里。
+        var sh1 = sc1;
+        if (preset != null && preset.HeroDamage > 0)
+        {
+            var hero = ctx.Players[0].Board[BoardSpec.WarlordSlot];
+            if (hero == null)
+                ep.Steps.Add("heroDmg=skip(no-hero)");
+            else
+            {
+                // 封顶到 `Health-1`：督军被打死会牵出 `IsOver`，读数就变成「终局」而不是「受伤事件」。
+                int cap = Math.Max(1, hero.Health - 1);
+                int amt = Math.Min(preset.HeroDamage, cap);
+                int rc = RuleCore.ApplyDamage(ctx, hero, amt, "夹具事件电池（督军受伤）");
+                ep.Steps.Add("heroDmg=" + rc + "/" + amt + "/hp" + hero.Health);
+            }
+            sh1 = Capture(ctx);
+        }
+
         // ---- 🆕 2026-10-19（`A2001` 残余 · `SW22`）：**一发非致命攻击** ----
         //   `Strike: If the target is a troop and **survives**, …`（`SW22 Blackmane Inceptor`）要的是
         //   「目标挨了这一下**还活着**」；而下面 `chip2` 会把两个敌人削到 1 血、⑤ 的那两发按设计
@@ -2390,7 +2520,7 @@ class PlayProbe
         //   ⚠️ `forced: true` = 引擎自己的「不是玩家点出来的」那一档（原版 `scriptedAttack(0x34)`，
         //      跳过回合/配额），与 ⑤ 那两发**同一档**。
         //   ⚠️ 战后状态一并打出来（`same` = 目标还活着 ⇒ 这一发达成了设计目的）。
-        var ss1 = sc1;
+        var ss1 = sh1;
         if (slot >= 0 && ctx.Players[0].Board[slot] != null)
         {
             var me = ctx.Players[0].Board[slot];
@@ -2729,7 +2859,7 @@ class PlayProbe
             s8 = Capture(ctx);
         }
 
-        snaps.AddRange(new[] { s0, s1, sc1, ss1, sc2, sc3, sc4, se0, sd1, s2, sd2, s3, s4, sMate, s5, s6, s7, s8 });
+        snaps.AddRange(new[] { s0, s1, sc1, sh1, ss1, sc2, sc3, sc4, se0, sd1, s2, sd2, s3, s4, sMate, s5, s6, s7, s8 });
         ep.End = s8;
     }
 
@@ -4402,7 +4532,7 @@ class PlayProbe
     //    ⛔ **另外三颗指纹原样不动**：`PinnedPoolMd5`（卡池没改）· `PinnedParseMd5`（`check` 现跑
     //      解析差异仍 0 行、输出指纹 ✓）· `PinnedBaselineMd5`（`基线/out_baseline.txt` 没重生成）。
     //    判据全文 → `资料/普查产出_1025/E6_十三行接闸.md` §五·2 / §六。
-    public const string PinnedPlayMd5 ="a0e9c63d7bfa33735f5dad8230a26edd";   // 🔴 2026-11-03（B123 收口 · 调度台）重钉：上一版 = 837ef1fb…。差异面 = **①-a 13 张 `TRANSFORM_*`（`faceOps 0→1`，来源 `B123_C1`：`WillRunOps` 改走 `RuleCore.TacticOpsOf`）+ ①-b 1 张 `GOF96`（`raw 48→49`、落场/生成记账位移，来源 `B123_E3` 探针补挂 `abilitySummon`）**；新增 0 / 消失 0，两笔各自单变量（E3 隔离实验：只关 `AttachAbilitySummon` ⇒ 指纹回到 `a29e662c…`）。重钉三条件满足：无 `.cs` 写手 · 串行两跑一致（`a0e9c63d…` ×2）· 归因单一。 ｜ 🔴 2026-11-02（收口代理 `B117-WREPIN` · 第一百一十七会话收口）重钉：上一版 = d6c68354…。差异面 = **①-a 主档 1 张 + ①-b 电池 1 张，都只有 `UM64`**（= `B117-10` 的 `Count=1→0` 修好之后：`playRc 18→0`、`played 0→1`、`energyDelta 0→-6`，电池 `note`「没起步 · ErrNoTargetAvailable」消失）。脚本逐行核旧/新基线 = **恰好 2 行（`UM64` / `E|UM64`）**，新增 0 / 消失 0。重钉三条件全部满足：无写手 · 串行两跑指纹一致（`a8b7eac3…` ×2）· 逐卡差异归因单一。 ｜ 🔴 2026-11-03（第一百一十七会话 · 调度台）重钉：上一版 = a6ab8bcb…。差异面 = **①-a 主档 169 张 + ①-b 电池 218 张，形状只有一种** —— 每行都是 `WARLORD 2/0/0/28 → …/38`（30 → 40 同形），即**督军血 +10**，**新增 0 / 消失 0**；来源 = `B117-R18`（用户 2026-11-03 指正「督军原始血量 35」⇒ `GameplayVariables` 经典 `warlordLifeChange 0→10`、小冲突 `-10→0`）。重钉三条件全部满足：无写手 · 串行两跑指纹一致（`d6c68354…` ×2）· 逐卡差异归因单一。   // 🔴 2026-11-02 02:45（第一百一十六会话 · 调度台）重钉：上一版 = a8a2a218…。差异面 = **①-a 主档 4 张（`8482077f…` / `UM110` / `UM111` / `UM118`）+ ①-b 电池 5 张（再加 `TAU18`）**，两笔各自单变量定死：① 4 张誓约战术卡 = **探针补 `cardTraits`**（`B-324`/`W33`）—— 旧探针「判不了 traits ⇒ 誓约无条件付」，补上后走原版「平/誓二选一」，**生产路径 `CardDatabase.cs:1734` 一直有这列** ⇒ 旧基线测的是引擎从不产生的状态；② `TAU18` = **`ENG-16①` 的 `chosen: target`**（`RuleCore.cs:7058`）—— 原版 `ResolveUnitAttacked.c:99-101` 传被打者、`GetTargets.c:192-207` 的 `ta=30` 读它；另 `GSC17` 曾被这条改动带偏（`subjTa=-1` 走 `<0` 兜底、把「random enemy」换成被攻击者），已由传参闸 `StrikeChosenOrNull` 修回、**不在差异里**。两轮串行读数一致（`a6ab8bcb` ×2）。   // 🔴 2026-11-02（第一百一十六会话 · 调度台）重钉：上一版 = cdf608b5…。差异面 = **①-a 主档 1 张（`TL52`）+ ①-b 电池 2 张（`SW8` / `TL52`）**，全部是 `B115_W23` 的 `ta=140/150` 支**修好之后**的预期变化（旧基线编码的是「`give` 支没有 150 支 ⇒ 落回文本 spec、把 +1 错加到棋盘部队 `FIX_A` 或施放者自己」）；隔离实验证明只来自该支，原版判据 `AbilityLogic__GetTargets.c:867-883` + `FilterMethods__CheckIfMeetsCriteria.c:172-183`，逐条归因 → `报告/B115_W23_卡级目标W1整批.md` §3。   // 🔴 2026-11-01（第一百一十三会话 · 账 `B-218`）重钉：上一版 = 65874fdb…。差异面 = **①-a 主档 1 张（`TAU73`）+ ①-b 电池 2 张（`TAU73` + 一张 hash 卡）**，归因完 ⇒ 全是 `B-189`（`and` 处丢 `your`）与 `B-203`（`<兵种词> troops` 被 `troops` 吃掉）**修好之后**的预期变化（旧基线编码的是**修好之前**的行为）。   // 🔴 2026-11-01（`B112W` · 第一百一十二会话）重钉：上一版 = bcbcdf19…。差异面 = **①-a 主档 1 张 + ①-b 电池 4 张，全部预期、⛔ 不是回归**：① `8425b809e9e64e24f9035f709f5aaee4`（**Worst Temper**）= `B-186` 把 `[Shield] Armour 1` 从 `shield` 关键词的前缀匹配下救回（`shield1` → `armour1`，全池 447 条 payload 逐行 diff 只此 1 行）；② `EC14`（**Varius, Lord Kakophonist**）= `B-127 S1` 跨阵营 `until your next turn` 的到期点由「施放者回合开始」改为「持卡人回合开始」（原版 `CardScript__OnTurnSetup.c:29-46`）；③ `SW49`（**Fenrisian Blizzard**）= 同上，敌方单位身上的 `blind` 提前一拍撤（⚠️ 显示里的「伤害累计 8→14」两边逐字相同，是 `changesFull` 截断的错觉）；④ `b3735ef3d1408d544b0947e31f898e20`（**Grisly Feast**）= 其 `+1 attack` 是 `dur=nextturn` 且有跨阵营副本，到期点随 S1 变（⛔ 与 B-186 无关）。⚠️ **S2 在 play check 里没有可观测面**（Worst Temper 电池变化条数两边都是 2）⇒ 别拿「重钉后绿了」当 S2 验过；S2 只能靠 `RuleEngineTest` 的三格断言。 ｜ 🆕 2026-11-03（第一百二十一/二十二会话收口 · `B121` 批次）重钉：上一版 = a8b7eac3…。差异面 = **①-a 主档新增 13 · 消失 0 · 既有 3 张变（SAU45/UM114/af98d423…）+ ①-b 电池新增 13 · 消失 0 · 既有 6 张变（BL32/DA71/SAU45/UM114/UM90/af98d423…）**；隔离实验：把 13 张 `TRANSFORM_*` 临时摘出卡池再跑 ⇒ 指纹回到 a8b7eac3…、rc=0 ⇒ 引擎对既有 1,129 张逐字节中性；9 条差异全部来自「池子变大 ⇒ 随机取样下标位移」。重钉三条件满足：无 `.cs` 写手 · 两跑一致 · 归因单一。
+    public const string PinnedPlayMd5 ="2f640db50876e5630a6a5dd4fcbe82ad";   // 🔴 2026-11-05（第一百二十九会话 `B142` 收尾 · 调度台）重钉：上一版 = 4f366bb0…。差异面 = **①-a 主档 3 张（BL20/BL6/BL8，`selfPlace 0→1` / `other 1→0`）+ ①-b 电池 11 张（AM7/ASH66/BL20/BL30/BL6/BL8/DA28/GOF57/TAU34/UM12/UM66）**，旧/新基线逐行 diff = **28 行 = 14 张卡 × 2**，新增 0 / 消失 0。来源 = `B142-E36` 的**手牌过宽闸**（`EffectResolver.cs:10957/:11092` 加 `HandListenerContextAllows`：手牌里只有 `abilityContext==10` 的能力能执行）；`SOR38` 手牌夹具 over-fire 3→1 条。重钉三条件满足：无 `.cs` 写手 · 串行两跑一致 · 归因单一。 ｜ 🔴 2026-11-04（第一百二十九会话 `B142` · 调度台）重钉：上一版 = a0e9c63d…。差异面 = **①-a 主档 0 张**（1142/1142 全等）· **①-b 电池 1 张 `GSC14`**（`raw 54→61`，`FIX_WAY/FIX_A/FIX_B/FIX_C` 各 +1 = 手牌跳多跑一趟）；旧/新基线逐行 diff = **恰好 2 行（`E|GSC14` 一对）**，新增 0 / 消失 0。来源 = `B142-E1` 的 `ENG-11b`（监听者路对 `ca 320` 让路闸 + `ca 30/40` BodyOp 执行器；影响面只 `ASH81`/`GSC14`，施工单 → `报告/B141_W128_ENG11b_施工单.md`）。重钉三条件满足：无 `.cs` 写手 · 串行两跑一致 · 逐卡差异归因单一。 ｜ 🔴 2026-11-03（B123 收口 · 调度台）重钉：上一版 = 837ef1fb…。差异面 = **①-a 13 张 `TRANSFORM_*`（`faceOps 0→1`，来源 `B123_C1`：`WillRunOps` 改走 `RuleCore.TacticOpsOf`）+ ①-b 1 张 `GOF96`（`raw 48→49`、落场/生成记账位移，来源 `B123_E3` 探针补挂 `abilitySummon`）**；新增 0 / 消失 0，两笔各自单变量（E3 隔离实验：只关 `AttachAbilitySummon` ⇒ 指纹回到 `a29e662c…`）。重钉三条件满足：无 `.cs` 写手 · 串行两跑一致（`a0e9c63d…` ×2）· 归因单一。 ｜ 🔴 2026-11-02（收口代理 `B117-WREPIN` · 第一百一十七会话收口）重钉：上一版 = d6c68354…。差异面 = **①-a 主档 1 张 + ①-b 电池 1 张，都只有 `UM64`**（= `B117-10` 的 `Count=1→0` 修好之后：`playRc 18→0`、`played 0→1`、`energyDelta 0→-6`，电池 `note`「没起步 · ErrNoTargetAvailable」消失）。脚本逐行核旧/新基线 = **恰好 2 行（`UM64` / `E|UM64`）**，新增 0 / 消失 0。重钉三条件全部满足：无写手 · 串行两跑指纹一致（`a8b7eac3…` ×2）· 逐卡差异归因单一。 ｜ 🔴 2026-11-03（第一百一十七会话 · 调度台）重钉：上一版 = a6ab8bcb…。差异面 = **①-a 主档 169 张 + ①-b 电池 218 张，形状只有一种** —— 每行都是 `WARLORD 2/0/0/28 → …/38`（30 → 40 同形），即**督军血 +10**，**新增 0 / 消失 0**；来源 = `B117-R18`（用户 2026-11-03 指正「督军原始血量 35」⇒ `GameplayVariables` 经典 `warlordLifeChange 0→10`、小冲突 `-10→0`）。重钉三条件全部满足：无写手 · 串行两跑指纹一致（`d6c68354…` ×2）· 逐卡差异归因单一。   // 🔴 2026-11-02 02:45（第一百一十六会话 · 调度台）重钉：上一版 = a8a2a218…。差异面 = **①-a 主档 4 张（`8482077f…` / `UM110` / `UM111` / `UM118`）+ ①-b 电池 5 张（再加 `TAU18`）**，两笔各自单变量定死：① 4 张誓约战术卡 = **探针补 `cardTraits`**（`B-324`/`W33`）—— 旧探针「判不了 traits ⇒ 誓约无条件付」，补上后走原版「平/誓二选一」，**生产路径 `CardDatabase.cs:1734` 一直有这列** ⇒ 旧基线测的是引擎从不产生的状态；② `TAU18` = **`ENG-16①` 的 `chosen: target`**（`RuleCore.cs:7058`）—— 原版 `ResolveUnitAttacked.c:99-101` 传被打者、`GetTargets.c:192-207` 的 `ta=30` 读它；另 `GSC17` 曾被这条改动带偏（`subjTa=-1` 走 `<0` 兜底、把「random enemy」换成被攻击者），已由传参闸 `StrikeChosenOrNull` 修回、**不在差异里**。两轮串行读数一致（`a6ab8bcb` ×2）。   // 🔴 2026-11-02（第一百一十六会话 · 调度台）重钉：上一版 = cdf608b5…。差异面 = **①-a 主档 1 张（`TL52`）+ ①-b 电池 2 张（`SW8` / `TL52`）**，全部是 `B115_W23` 的 `ta=140/150` 支**修好之后**的预期变化（旧基线编码的是「`give` 支没有 150 支 ⇒ 落回文本 spec、把 +1 错加到棋盘部队 `FIX_A` 或施放者自己」）；隔离实验证明只来自该支，原版判据 `AbilityLogic__GetTargets.c:867-883` + `FilterMethods__CheckIfMeetsCriteria.c:172-183`，逐条归因 → `报告/B115_W23_卡级目标W1整批.md` §3。   // 🔴 2026-11-01（第一百一十三会话 · 账 `B-218`）重钉：上一版 = 65874fdb…。差异面 = **①-a 主档 1 张（`TAU73`）+ ①-b 电池 2 张（`TAU73` + 一张 hash 卡）**，归因完 ⇒ 全是 `B-189`（`and` 处丢 `your`）与 `B-203`（`<兵种词> troops` 被 `troops` 吃掉）**修好之后**的预期变化（旧基线编码的是**修好之前**的行为）。   // 🔴 2026-11-01（`B112W` · 第一百一十二会话）重钉：上一版 = bcbcdf19…。差异面 = **①-a 主档 1 张 + ①-b 电池 4 张，全部预期、⛔ 不是回归**：① `8425b809e9e64e24f9035f709f5aaee4`（**Worst Temper**）= `B-186` 把 `[Shield] Armour 1` 从 `shield` 关键词的前缀匹配下救回（`shield1` → `armour1`，全池 447 条 payload 逐行 diff 只此 1 行）；② `EC14`（**Varius, Lord Kakophonist**）= `B-127 S1` 跨阵营 `until your next turn` 的到期点由「施放者回合开始」改为「持卡人回合开始」（原版 `CardScript__OnTurnSetup.c:29-46`）；③ `SW49`（**Fenrisian Blizzard**）= 同上，敌方单位身上的 `blind` 提前一拍撤（⚠️ 显示里的「伤害累计 8→14」两边逐字相同，是 `changesFull` 截断的错觉）；④ `b3735ef3d1408d544b0947e31f898e20`（**Grisly Feast**）= 其 `+1 attack` 是 `dur=nextturn` 且有跨阵营副本，到期点随 S1 变（⛔ 与 B-186 无关）。⚠️ **S2 在 play check 里没有可观测面**（Worst Temper 电池变化条数两边都是 2）⇒ 别拿「重钉后绿了」当 S2 验过；S2 只能靠 `RuleEngineTest` 的三格断言。 ｜ 🆕 2026-11-03（第一百二十一/二十二会话收口 · `B121` 批次）重钉：上一版 = a8b7eac3…。差异面 = **①-a 主档新增 13 · 消失 0 · 既有 3 张变（SAU45/UM114/af98d423…）+ ①-b 电池新增 13 · 消失 0 · 既有 6 张变（BL32/DA71/SAU45/UM114/UM90/af98d423…）**；隔离实验：把 13 张 `TRANSFORM_*` 临时摘出卡池再跑 ⇒ 指纹回到 a8b7eac3…、rc=0 ⇒ 引擎对既有 1,129 张逐字节中性；9 条差异全部来自「池子变大 ⇒ 随机取样下标位移」。重钉三条件满足：无 `.cs` 写手 · 两跑一致 · 归因单一。
     // ：上一版 = 5ba2967a…。差异面两半、逐组归因完：①-a 19 张 = 11 张带 Tide（GOF1/GOF8/GOF56/GOF89/TL1/TL2/TL4/TL7/TL66/TL67/TL75）+ 8 张带 Companion（TAU9/TAU20/TAU22/TAU26/TAU27/TAU28/TAU31/TAU34）—— 本批把潮涌/伴生改成原版形状「一次只造一张、新卡自带 X-1」（判据 CardScript__ProcessTide.c:68/:98 · CardScript__ProcessCompanion.c:85/:88-89）；①-b 13 张 = 上述子集 + GSC31/GSC52 —— 破坏牌创建改成「先广播/展示、后进手」并新增 EvtKind.SabotageCreated（判据 BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:89-102）。两条都是补上的原版行为，⛔ 不是回归。   // 🔴 2026-10-29 重钉②（第九十八会话 · 调度台串行 · **先测后钉**）：差异面 **5 张**（`AM22` `AM59` `SOR13` `SOR25` `SW8`），全部由同一件修复引起 = `RuleCore` 的 `ca∈{30,31}` 执行器**原来跑的是「该卡已挂的全部 op」、而且每条 `ca=30` 行各跑一次** ⇒ 一卡两条 `ca=30` 行就双份。本笔把计划表带上行号、只跑本行 op（`RuleCore.cs:15434/:15485-15486`，源码零行数变化）。**逐张方向都对**：`SOR25`（卡面 `Pray: Give +1 [Attack], +1 [Ranged] and Flank`）现读 `6/5/0/2 {pray1} → 7/6/0/2 {flank1, pray1}` = **各一次**（改前是 +2/+2 两次）；`AM59`/`SW8` 的「多抽一张」消失（`net 7→5` / `11→8`）；`SOR13` 从 gap 变真结算；`AM22` 的主动能力第一次真的跑一次（另：`AM22` 的 `chooseone` 建模仍偏离，引擎线 C3③ 仍开，⛔ 别用本笔核销）。⚠️ 派单预测 6 张，实到 **5 张** —— `DA27`/`SOR37` **未观察到变化**（原因未查清，已记待办：它们的 op 可能不在 `ca=30` 行上或电池抬不到那一支）。上一版 = `e4d04a1c…`（同一会话前半段钉的，归因见下一条）。   // 🔴 2026-10-29 重钉（第九十八会话 · 调度台串行 · **全 50 张逐张归因完、零残留**）：①-b 事件电池 **50 张**，两个根因、都已对 `.c` 核过：**(a) 37 张 = `RuleCore` 残骸支的 `ResetToValuesInHand(clearBacklash:false)`（账 866；判据 `_ResolveTransformIntoRemnant_d__554__MoveNext.c:43` = `CardScript__ResetToValuesInHand(card, 0)`，它把 `+0x48 AttacksThisTurn` 清 0）** —— 形态一律 `atkCount`/`exhausted` 由 `P*[n]=1` 变空；**(b) 13 张 = `EffectResolver.TakePickCard` 的 `BuildChoiceOptions` 按原版消耗 `min(池, maxTargets)` 次随机（账 254/255 ①；判据 `decomp_full/BattleManager__GetChoiceOptions.c:38-70`：循环 `iVar1 = min(+0x40, 池.Count)`，每轮一次 `BattleManager__GetRandomInt`）** —— 形态一律是 `net`/`netFull` 的 `filler` 序号位移（派生随机流位置变化，与 2026-10-20 `DA44` 同型），语义未变。**A/B 实证**：`BuildChoiceOptions` 换回空表 ⇒ 指纹 `c86ca111…`、差异面只剩那 37 张；`RuleCore.cs` 回退 `HEAD~1` ⇒ 只剩 13 张 net。**两条都是补上的原版行为，⛔ 不是回归**。上一版 = `e04907bc…`（第九十六会话钉的，归因见下一条）。   // 🔴 2026-10-29 重钉（第九十六会话 · 同步点 · 调度台串行 · **先测后钉**）：上一版 = `228f4304…`（第九十四会话钉的，**钉在 oath 闸落地前 44 分钟 ⇒ 它自己就是错的**）。本次差异面两半、**每张都归因过**：①-a 主档 **28 张** = oath 出牌费订正（`RuleCore.cs` 删两处无条件付费 + 恢复 `.c` 1:1；判据 `B96_oath付费回归_诊断.md`，逐张 `energyDelta = KwValue(Oath)` 零例外）；①-b 事件电池 **75 张** = 两条独立归因叠出来的：(a) `ActionPump.cs:143` 每动作收尾重算 `Exhausted`（原版 `FinishResolvingAction.c:105/:115` 就是这么做的；旧基线是「永不刷新」的陈旧值），(b) 残骸新造 `UnitState` 时搬 `AttacksThisTurn`/`SummonSickness`（原版残骸是同一个 `CardScript`，`TransformIntoRemnant.c` 不碰 `+0x48/+0x58`）；其中 **2 张（`GSC31`/`GSC52`）** 由 `B97_RC` 的 `DeployFreeCore` 补 `ambush ⇒ FaceDown` 引入（这两张夹具都摆/改 `ambush`）。⚠️ `B97_RC2`/`B97_AI`/`B97_ER2`/`B97_BD`/`B97_US2` 那几批实测 **`play all dump` 逐字节 0 差**（探针不含 `CardPresentation`、且 `LoadPool` 未映射 `abilityActingCriteria`）⇒ 它们**既不进指纹、也不能拿零差异当验收证据**。   // 🔴 2026-10-29 重钉（第九十四会话 · 同步点 · 调度台串行 · **先测后钉**）   // 🔴 2026-10-29 重钉（第九十四会话 · 同步点 · 调度台串行 · **先测后钉**）：差异面**只有 28 张卡**，形态**全部是「多付一次能量」**（`energyDelta` 更负 1~2 格、`other` 列 +1、`changesFull` 里出现「照卡面应付 N · 除付费外净 -M」）。**归因 = 本会话 `B94_F1` 的誓约出牌费 `RuleCore.PayCardPlayedCostOath`（`RuleCore.cs:16960`）+ `B94_Z3` 的 `chosenAbility 360` 支** —— 名单 = `UM89`–`UM118` 共 26 张 + 2 张带 `Oath N:` 的战术卡（`Angel's Wrath` / `Catechism of Death`）。判据 = 原版 `AbilityLogic__PlayAbility.c:2033`（`0x168=360` 支先 `PayCardPlayedCostOath` 再放）⇒ **这是补上的原版行为，不是回归**。⚠️ 同批 `B94_B21` 的 `BroadcastTurnSetup` / `Z2` 的手牌跳 / `B13` 的 `damageType` 全部**池内 0 张可达 ⇒ 不进指纹**（逐条已核）。另：`⑧ 事件电池自检` 本会话修好了夹具（`B94_P1`，`killbymate=1` + `big=1`），**池内 1073 条 steps 逐行未变**（已 cmp 验证），所以那次修复不参与本次重钉。上一版 = 2f901cc9…（其归因：`B93_F7` 的死亡广播补 `preCalled: actingCard`）   // 🔴 2026-10-28 重钉（第九十三会话 · 同步点 · 调度台串行 · **先测后钉**）：差异面**只有 3 张卡**（全在 ①-b 事件电池，①-a 主档 **1,129 张逐字节全等**）：`DA19` raw 49→48 / net 1→0 · `SAU32` raw 45→44 / netDmg 3→0 · `TAU70` 同类。**归因（`B93_F7` 634 第②条）= `RuleCore.cs:10063` 的死亡广播补 `preCalled: actingCard`** —— 原版 `BattleManagerSupport__BroadcastDeadUnit.c` 棋盘跳是 `if (unitsInPlay[i] != battleAction.actingCard)` ⇒ **凶手不会被自己这一记的死亡唤醒**；我们改前没有这道排除 ⇒ 这三张（`abilityTriggers` 都含 **90**，且电池那一步是「被它自己那一记攻击打死」）**多响了**，net→0 是修掉多响，**不是回归**。⚠️ 同会话另两笔（`559` 的 `TriggerSacrificeOnDeath`、`RuleCore.cs:10109` 那行）**池内 0 张可达**，不参与本指纹。上一版 = ef8a0249…（其归因：`DA72` 的 `create`+`decktop` 照抄原版随机）。   // 🔴 2026-10-28 重钉（第九十二会话 · 同步点 · 调度台串行 · **先测后钉**）：差异面**只有 1 张卡 `DA72`**（事件电池 `net 8→6`；①-a 主档 **1,129 张逐字节全等**）。归因 = `报告/B92_B2b.md` §2·2 的 W2「`create`+`decktop` 照抄原版随机」（`AddCardInPlayToDeck.c:48-51` 的 `toTop` 是**字面 0**、卡面却承诺 `at the top of your deck` ⇒ **原版 bug**，按 18·0 照抄，⛔ 别修好；全池只有 DA72 写 at the top）。同批另三件（W1 伴生卡 `ephemeral` / `IsUnitInPlay` 收紧 / `cardState` 写点）**结构上不在 `play check` 的可见窗口** ⇒ 由 `RuleEngineTest.Run` 覆盖，⛔ 别把这里的「只有 1 张变」当成「那三件没改」。上一版 = 6cbb80d7…（其归因：本批**两处有意改行为**，差异面**只有 2 张卡**（逐卡已核）：① `UM118`（主档 + 电池）—— `valueOptions 101` 按原版语义改（`referencedBaseCard` 1,351 张全空、唯一写点池内 0 行 ⇒ 原版这一格恒 null ⇒ 誓约伤害恒 0；调度台 2026-10-28 裁定「照抄原版」，⛔ 别改回近似）；② `GSC49`（电池）—— `stealMinion` 改回**永久**（原版 `ChangeOwner` 只取反 `isPlayer`、`EndTurn` 无归还路）；另有 `RuleCore` 回合末撤增益改「逐条入队」+ 一条 `ctx.Log` 文案订正（对指纹的贡献已含在上面两张里，其余 1,127 张逐字节不变）。上一版 = be75a11d…）   // 🔴 2026-10-28 重钉（第九十一会话 · 同步点 · 由调度台串行执行）：本批**两处有意改行为**，差异面**只有 2 张卡**（逐卡已核）：① `UM118`（主档 + 电池）—— `valueOptions 101` 按原版语义改（`referencedBaseCard` 1,351 张全空、唯一写点池内 0 行 ⇒ 原版这一格恒 null ⇒ 誓约伤害恒 0；调度台 2026-10-28 裁定「照抄原版」，⛔ 别改回近似）；② `GSC49`（电池）—— `stealMinion` 改回**永久**（原版 `ChangeOwner` 只取反 `isPlayer`、`EndTurn` 无归还路）；另有 `RuleCore` 回合末撤增益改「逐条入队」+ 一条 `ctx.Log` 文案订正（对指纹的贡献已含在上面两张里，其余 1,127 张逐字节不变）。上一版 = be75a11d…
 
 

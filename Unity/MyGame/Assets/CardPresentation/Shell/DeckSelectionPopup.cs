@@ -771,7 +771,7 @@ namespace CardPresentation
             {
                 var tabWb = tabHit.GetComponent<WindowButton>();
                 string norm = on ? TabOnArt : TabOffArt;
-                if (tabWb != null) tabWb.BindNine(tabBgNode, norm, norm, norm, TabOffArt);
+                if (tabWb != null) { var onMeta = new WindowButton.NineMeta { BorderPx = on ? TabBorderOn : TabBorderOff, PpuMul = TabPpuMul, Valid = true }; var selMeta = new WindowButton.NineMeta { BorderPx = TabBorderOff, PpuMul = TabPpuMul, Valid = true }; tabWb.BindNine(tabBgNode, norm, norm, norm, TabOffArt, onMeta, onMeta, onMeta, selMeta); }   // ✅ 已复刻（2026-11-04 · B142-E17 · 判据 = `Deck Selection Popup with Tabs.prefab` 两颗 Image `m_Type=1`/`ppuMul 1.5` + `Sprite/40K_tab_button{,_overwindow}.json` 的 border 183/0/128/29 ↔ 188/0/99/30，UGUI `Image.cs:1157`；⚠️ 原版 `m_Transition = 0` ⇒ Selected 档指针不可达，接线只把字段照抄全）
             }
         }
 

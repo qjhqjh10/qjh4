@@ -122,8 +122,8 @@ namespace CardPresentation
         /// <summary>某座位的**手牌世界锚**（原版 `150/155` = `BattleManager.get_{Friendly,Enemy}HandAnchor`）。</summary>
         public static Func<int, Transform> HandWorldAnchorOf;
         /// <summary>`PlayerManager` 的三族能量锚（原版 `60/61/70/71/80/90/100/110/120/130`）。
-        /// 参数 = `(档号, isPlayer)`。⚠️ **我们 HUD 里没有** Psychic / SpiritStone / Plasma 这三种能量的件
-        /// （原版取的是 `PlayerManager.Get{X}ManaTransform` 那颗 `TMP_Text` 的 transform）⇒ 目前**不挂** ⇒ 那 10 档落「取不到」。</summary>
+        /// 参数 = `(档号, isPlayer)`。⚠️ 2026-11-04 订正（`B142-E71`）：**已挂 `61/71` 两档（SpiritStone）** —— `BattleDriver.cs:3797-3815`
+        /// 取 HUD 的 `_myStoneIcon`/`_foeStoneIcon`（原版 = `PlayerManager.Get{X}ManaTransform` 那颗 `TMP_Text`）；Psychic / Plasma 那 8 档（`60/70/80/90/100/110/120/130`）无件 ⇒ 落「取不到」（原版那两族 HUD 上也空，⛔ 别造件）。</summary>
         public static Func<PositionOption, bool, Transform> ManaTransformOf;
         /// <summary>这张卡的 `GetEffectAnchor()` 该走**哪一支**（原版读 `card + 0x228` = `CardStateOptions`）。
         /// `true` = 场上档（`effectsAnchor`）；`false` = 手牌 / 牌堆档（`card2DController`）。

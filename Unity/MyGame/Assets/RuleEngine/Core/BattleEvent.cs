@@ -551,7 +551,7 @@ namespace RuleEngine
     }
 
     /// <summary>一条已经发生的事。字段全是**引擎知道的事实**，表现层只管往画面上翻译。</summary>
-    public class BattleEvent
+    public partial class BattleEvent
     {
         public EvtKind Kind;
 
@@ -953,6 +953,50 @@ namespace RuleEngine
         /// `CardScript__MoveToDeck.c`（三条同长补间飞回 `DeckManager.DeckReferenceObject`；
         /// 本调用点实参 `time = 0.05` = `.rdata 0x1834b2f94` 实读）。</para></summary>
         public const string ReshuffleToDeck = "reshuffleToDeck";
+    }
+
+    // ==========================================================================================
+    //  🆕 2026-11-04（执行写手 `B142_E62` · 账 `其他_基础设施:586`）—— `GainQuest` 的「中间值」
+    //
+    //  ⛔ **追加在命名空间末尾**（铁律 18·b）：`BattleEvent.cs` 在账里有 `文件:行号` 落点（最深 `:874`）
+    //     ⇒ 插在成员之间会把下游落点整体推走；本段在所有既有行之后，零漂移（本笔对 `:554` 只做
+    //     `class` → `partial class` 的**同行**改写）。
+    // ==========================================================================================
+    public partial class BattleEvent
+    {
+        /// <summary>🆕 **`GainQuest` 专用：这次加完之后、扣阈值【之前】的累计任务点**（`-1` = 没写）。
+        ///
+        /// <para>**它装的是原版 HUD 在「加任务点那一拍」打印的**分子**。原版链路（逐句现读）：
+        /// `PlayerManager__AddQuestPoints.c:51-65` 先把新值写进 `questPoints(+0xC4)`，紧接着
+        /// `:80`（非结算支）/ `:97`（结算支）调 `ManaManager__SetQuestPoints(新值, 阈值, 0)` ——
+        /// 第三个实参 `silently = false`（⛔ **不是**「不播动画/不弹」，`.c` 里那个 `0` 是它的**真值**）；
+        /// `ManaTypeHolder.SetMana(value, value2, silently)` 立刻把文本写成
+        /// `string.Format("{0}/{1}", value, value2)` 并（`silently == false` 时）`DoTextAnim()` + `TryDOVfx(value)`
+        /// ⇒ **数字即时到、弹跳/上升特效也在这一拍**。</para>
+        ///
+        /// <para>之后 `PlayerManager__AddQuestPoints.c:83` 起协程
+        /// `PlayerManager._SetQuestPointsWithDelay_d__43__MoveNext.c:24-31` 先 `WaitForSeconds(delay)`
+        /// （两档字面量：非结算支 `DAT_1834b2bb4 = 0.5`、结算支 `DAT_1834b2bb8 = 1.0`），
+        /// 到点再 `:76` 调 `ManaManager__SetQuestPoints(余数, 阈值, 1)` —— 第三实参 `silently = true`
+        /// ⇒ **只改文本、不弹不闪**（所以「降到余数」那一下是**静默**的）。</para>
+        ///
+        /// <para>🔴 **我们缺的就是这条中间值**：引擎在 `RuleCore.QuestPointThreshold` 里同步把阈值减掉，
+        /// HUD 每帧只读得到**余数** ⇒ 「一次加满/加超阈值」时**数字根本不弹**（原版会先弹到加完的值）。
+        /// 这里把那个分子随 `GainQuest` 信号一起发出去，HUD 就能照原版演两拍。</para>
+        ///
+        /// <para>**字段**：`Player` = 收点数那一方 · `Slot` 恒 `-1`（阵营资源是玩家的）·
+        /// `Amount` **不变**（仍是 `+N` 的 N，别拿它当分子）· 本字段 = 分子（`加完的累计值`）。
+        /// ⚠️ 派发走 `ctx.Signals`（纯表现，**不进 `ctx.Events`**）⇒ 不动 `NetProtocol.Fingerprint`、
+        /// 不进动作流、不影响本地录像 / 联机。</para>
+        ///
+        /// <para>⚠️ **精确值不是「满阈值」而是「加完的值」**（判据 `:66-71` 比的是 `新值 &gt;= 阈值`）——
+        /// 例：余 2 时 `+3` ⇒ 原版先显示 `5/3`，1.0 s 后静默变成 `2/3`；判据文里「先按满阈值显示」是那句
+        /// 的粗略说法，以本字段的**真值**为准。</para>
+        ///
+        /// <para>⚠️ 只有 `EvtKind.GainQuest` 会填；其余种类与自检里手工合成的 `BattleEvent` **保持 `-1`**
+        /// （哨兵 = 没写，⛔ 别拿 0 顶）。</para>
+        /// </summary>
+        public int QuestPointsAfterAdd = -1;
     }
 }
 // ==========================================================================================

@@ -245,8 +245,8 @@ namespace CardPresentation
             /// <para>⛔ 键名不许自拟：照原版 `Localize.mTerm` 原文（逐条出处 → `Core/Loc.cs` 的 F1 / F2 两节）。</para></summary>
             public readonly string Term;
             public readonly float FontPx, AutoMin, AutoMax;
-            /// <summary>红点 y 偏移 = **原版 uGUI `pos.y` 原值**（+ = 偏上；落到我们的像素帧 y 向下时取反 ⇒ 摆放式写 `cy − BadgeDy`，见 `:852`）。
-            /// 实测（`Rewards Base Submenu Variant.prefab` 四颗 `Badge Highlight` 的 `m_AnchoredPosition`）：**第 4 键 `+47.9`、其余三颗 `−27.2`** —— 逐键不同 ⇒ 放进规格里，别在循环里写死 `idx == 3`。</summary>
+            /// <summary>红点纵向偏置 —— **存 uGUI 口径的原值**：原版 prefab 上 `Badge Highlight` 的 `m_AnchoredPosition.y`（uGUI 帧 y 向【上】，+ = 偏上），**字段本身不取负**。
+            /// 摆放走**像素帧**（y 向【下】）：红点中心 = `cy − BadgeDy`（`:853` / `:867`）⇒ `+47.9` 落键心**上方** 47.9 px、`−27.2` 落**下方** 27.2 px。实测（`Rewards Base Submenu Variant.prefab` 四颗 `Badge Highlight`）：**第 4 键 `+47.9`、其余三颗 `−27.2`** —— 逐键不同，别在循环里写死 `idx == 3`。⚠️ 2026-11-04 订正（`B141-BADGEDOC`）：原句「像素帧 y 向下时取反」被读成「`BadgeDy` 要取负」，两个写手都读反过（同族订正 `SocialWindow.cs:75`）；取反只发生在摆放式子里。</summary>
             public readonly float BadgeDy;
             /// <summary>🔴 **2026-10-12（A336①）：原版那一颗 `TabButtonLabel` 的 `m_fontSizeBase`**（画布 px）。
             /// 它只影响自适应的**二分起点**（`TextMeshPro.cs:2148-2149`），终点收敛到「装得下的最大号」

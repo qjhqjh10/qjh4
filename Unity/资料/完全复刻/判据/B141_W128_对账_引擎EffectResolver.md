@@ -67,6 +67,7 @@
 > 12 行所在的 `10/120/145/300/301/455/560/580` **一条都到不了该口** ⇒ 改成无条件先跑对 12 行**净覆盖 = 0**（还会破坏 `战斗逻辑驱动.tsv:1151` 记的「只在正文 op 为空时进 ⇒ 与文本路天然互斥」不变式）。
 > 现读后的真结论：9×320 里 **7 行已由关键词路在跑**（`FollowUpSchedulerOf` 硬编码表 + `TriggerNameOfKeyword`），2 行（ASH81/GSC14）缺的是 `ActionPump.ExtraTriggerName` 两条映射；340×2 已有等价物；480×1（SW34）需 `RuleCore.FireTriggerDeferred` 尾部加一跳，且**尚未定**「480 早于正文 ⇒ `Has(bloodthirst)` 闸」的顺序。
 > ⇒ 本轮**生产代码 0 行**（不建 `CardAbilityDispatch_B141Passive.cs`：唯一挂点不可达 = 死代码）。证据全文 → `报告/B141_W128_ENG11.md`。
+> 📌 **账侧待补（`B141-ENG11-DOC`，由调度台改 · 本条只登记）**：`账/战斗逻辑驱动.tsv:80`（`AbilityLogic.PlayAbility(BattleManager, AbilityData, AbilityTrigger)`）与 `:1151`（`PlayerHand.AddHandEffect(HandEffect)`）都引用了 `EffectResolver.cs:21078` 那道闸，但**都没写服务范围** ⇒ 宜各在 `备注` 列补一句「**本口只服务 trigger `60` / `185` / `187` / `210` / `410`；对其余被动行（含 12 行 meta-op：`10/120/145/300/301/455/560/580`）净覆盖 0**」，否则后人会把它当成覆盖全部被动的入口、再去接一遍 `ca`。只改 `备注` 列 ⇒ `check_ledger_points` 零漂移。
 
 ---
 

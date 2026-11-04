@@ -166,5 +166,48 @@ namespace CardPresentation
             }
             return res.ToArray();
         }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  uniqueId 查询口（🆕 2026-11-04 · 执行写手 `B142-E73` · 任务 `B142-CARDBACK-ID`）
+        //  ✅ 已复刻（2026-11-04 · B142-E73 · 判据 = `Resources/Cardbacks.json` 每条的 `uniqueId`；断言 = `Editor/B142_E73_Assert.cs` B 组）
+        //  ⚠️ 本节成员**追加在类尾**（`CLAUDE.md`：新成员别插进既有成员之间）。
+        //
+        //  为什么要有它：战役奖励表（`Shell/CampaignData.cs:439`）里**两张卡背奖励**带的是
+        //  **`uniqueId`（32 位 hex）**，而 `_byName` 只按**图名**索引 ⇒ `RewardService.RewardKindOf`
+        //  认不出 ⇒ 落 `rs-item:unresolved`（`报告/B142_E54.md` §6·1 那 2 条）。
+        //  判据 = `Resources/Cardbacks.json` 每条的 `uniqueId`（生成器 `工具/gen_cardbacks.py` 从原版
+        //  cosmetic SO **实读**；现读 233/233 都有、0 个重复，13 条 `defaults` 的 uniqueId 全落在 items 里）。
+        //  ⛔ 不按「名字像卡背」猜 —— 只认这张表里登记过的 id。
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        static Dictionary<string, Item> _byUniqueId;
+
+        /// <summary>`uniqueId` → 整条（原版 `ObtainableItem.uniqueId` 的查法）。查不到返回 **null**
+        /// （⛔ 不拿空串冒充 —— 调用方要能区分「查不到」与「名字为空」）。
+        /// <para>字典**懒建**：第一次调用时从已加载的 `_all` 建一次（不碰 <see cref="EnsureLoaded"/> 的既有流程）。</para></summary>
+        public static Item FindByUniqueId(string uniqueId)
+        {
+            EnsureLoaded();
+            if (string.IsNullOrEmpty(uniqueId)) return null;
+            if (_byUniqueId == null)
+            {
+                _byUniqueId = new Dictionary<string, Item>(StringComparer.Ordinal);
+                for (int i = 0; i < _all.Length; i++)
+                {
+                    Item it = _all[i];
+                    if (it == null || string.IsNullOrEmpty(it.uniqueId)) continue;
+                    if (!_byUniqueId.ContainsKey(it.uniqueId)) _byUniqueId[it.uniqueId] = it;
+                }
+            }
+            Item hit;
+            return _byUniqueId.TryGetValue(uniqueId, out hit) ? hit : null;
+        }
+
+        /// <summary>`uniqueId` → **图名**（= `FindByUniqueId(...).name`）。查不到返回 **null**。</summary>
+        public static string NameOfUniqueId(string uniqueId)
+        {
+            Item it = FindByUniqueId(uniqueId);
+            return it != null ? it.name : null;
+        }
     }
 }

@@ -873,7 +873,7 @@ namespace CardPresentation
         /// <para>原版定位 = `ForgeHandler.GetForgeItems()` 里第一条可领的 → `SelectArmy(army)` →
         /// `GetForgeItem(0)`（字段 `+0x30` 的组件）→ `AddPointer(它的 gameObject, 鼠标位置, filterRaycast=1)`。
         /// ⚠️ 原版那个 offset 传的是 `UnityEngine.Rendering.MousePositionDebug.GetMouseClickPosition()`
-        /// （**运行时鼠标位置**，不是设计常量）⇒ 我们取 **(0,0)**，如实标「等价实现」。
+        /// （**运行时鼠标位置**，不是设计常量）⇒ **E66 已改为点击位置**（`MenuTutorialFlow.ForgeClaimPointerOffset`）；没记录到才退回 (0,0) + 出声（⛔ 别按旧注「我们恒取 (0,0)」读）。
         /// <para>本地等价物 = **当前选中阵营第一条 `ToCollect` 格的 Claim 钮**；格没被建出来
         /// （`BuildCell` 只建视口内的）或没有可领格 ⇒ `null`（指针退回页签）。
         /// 只由 `MenuTutorialFlow` 读（`MenuTutorialTargetKind.ForgeClaimButton`）。</para></summary>

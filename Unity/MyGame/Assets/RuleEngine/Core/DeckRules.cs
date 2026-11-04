@@ -596,7 +596,7 @@ namespace RuleEngine
             if (e == DeckError.EffectOnlyCard) return TermPrefix + "InvalidCard";
             // 🆕 **2026-11-04（`B141 · W31` · 对账 3-18）三条键名映射**（值 = 官方 13 语言表现读；`Legendary` 那档 2026-10-25 `E1` 已做）：`LegendaryTotalExceeded ⇒ MaxLegendayCopiesReached`（⚠️ 原版把 `Legendary` 拼成 **`Legenday`** —— 键名字面量如此，⛔ 别改，改了 `Loc.T` 就取不到；判据 = 地址 `0x42CF8F0`）·
             //   `CopyLimitExceeded ⇒ MenuDeck/Error/MaxCopiesReached`（`CardDeck__CanAddCard.c:58,65-71` 的 `GetMaxCopiesInDeck` 支）· `TooManyCards ⇒ **MenuDeck/Tip/DeckFull**`（`.c:166-174` 的 `DAT_1842d0be0`；⚠️ 不在 `MenuDeck/Error/` 前缀下）。
-            //   🔴 `MaxCopiesReached` 的文案带 **`{0}`**（= 同名份数上限）⇒ 上屏前必须 `string.Format`；**本层拿不到那张卡** ⇒ 暂**不进** `HasOfficialNamedKey`（`ErrorTextKey` 会退回 `InvalidDeck`，⛔ 绝不把 `{0}` 印到屏幕上）。接线点 = `CardPresentation/Deck/DeckRuntime.DeckErrorText`（本批白名单外，已上报）。
+            //   🔴 `MaxCopiesReached` 的文案带 **`{0}`**（= 同名份数上限）⇒ 上屏前必须填数；**本层拿不到那张卡** ⇒ `ErrorTextKey(e)` 的默认档（`copiesCap < 0`）退回 `InvalidDeck`（⛔ 绝不把 `{0}` 印到屏幕上），**拿得到上限时才走具名键**。✅ 接线已落（2026-11-04 `B142-E4`）：`DeckRuntime.DeckErrorText(e, copiesCap)` 填 `{0}` —— 剩 `DeckEditorState.TryAdd` 那一行传上限（白名单外，已上报）。
             //   `Tip/DeckFull` 与 `MaxLegendayCopiesReached` 都**没有**占位符 ⇒ 已进 `HasOfficialNamedKey`。
             if (e == DeckError.LegendaryTotalExceeded) return TermPrefix + "MaxLegendayCopiesReached"; if (e == DeckError.CopyLimitExceeded) return TermPrefix + "MaxCopiesReached"; if (e == DeckError.TooManyCards) return "MenuDeck/Tip/DeckFull";
             return TermPrefix + e;
@@ -635,7 +635,7 @@ namespace RuleEngine
         {
             return e == DeckError.InvalidDeck                 // `MenuDeck/Error/InvalidDeck`（原版有）
                 || e == DeckError.EffectOnlyCard              // `Describe` 已把它映射成 `InvalidCard`（原版有；🆕 2026-11-04 `B141 · W31` 订正 —— 原来写的 `InvalidDeck` 是兜底，不是原版那一支）
-                || e == DeckError.LegendaryTotalExceeded || e == DeckError.InvalidArmy || e == DeckError.InvalidCard || e == DeckError.TooManyCards;  // 前者 = `MaxLegendayCopiesReached`；`InvalidArmy` = 原版 `CardDeck.CanAddCard` 的具名键（判据见文件尾 `DeckArmy` 那段）；🆕 `InvalidCard` = `CardDeck__CanAddCard.c:40` 的具名键；🆕 2026-11-04（`B141 · W31` · 3-18）`TooManyCards` = `MenuDeck/Tip/DeckFull`（`.c:166-174`，无占位符 ⇒ 能直接上屏）。⚠️ `CopyLimitExceeded` **故意不在这里** —— 它的 `MaxCopiesReached` 文案带 `{0}`，本层填不了 ⇒ 让 `ErrorTextKey` 退回 `InvalidDeck`，⛔ 绝不把 `{0}` 印到屏幕上（接线点见 `Describe` 那段）
+                || e == DeckError.LegendaryTotalExceeded || e == DeckError.InvalidArmy || e == DeckError.InvalidCard || e == DeckError.TooManyCards || e == DeckError.CopyLimitExceeded;  // 前者 = `MaxLegendayCopiesReached`；`InvalidArmy` = 原版 `CardDeck.CanAddCard` 的具名键（判据见文件尾 `DeckArmy` 那段）；🆕 `InvalidCard` = `CardDeck__CanAddCard.c:40` 的具名键；🆕 2026-11-04（`B141 · W31` · 3-18）`TooManyCards` = `MenuDeck/Tip/DeckFull`（`.c:166-174`，无占位符 ⇒ 能直接上屏）；🆕 2026-11-04（`B142-E4`）`CopyLimitExceeded` = `MenuDeck/Error/MaxCopiesReached`（官方 EN/ZH 两表真有；⚠️ 它的**文案**带 `{0}`）—— 这说的是「原版表里**有没有这条键**」，与「拿不拿得到上限」是两件事：**能不能上屏由 `ErrorTextKey` 判**（`copiesCap < 0` ⇒ 退回 `InvalidDeck`，⛔ 绝不把 `{0}` 印到屏幕上）｜✅ 已复刻（2026-11-04 · B142-E4 · 断言 `B142_E4_Assert` B1/B2）
         }
 
         /// <summary>这一档是**我们自己的槽位判据**（原版不查督军/防御卡槽位）⇒ 原版**没有对应错误码**。
@@ -666,12 +666,12 @@ namespace RuleEngine
         /// <summary>**上屏该用哪个词条键**（判据只此一处，见本段顶部那张三档表）。
         /// `None` ⇒ 空串。
         /// ① 原版有具名键 · ② 我们自己的槽位判据 ⇒ `Describe(e)`；③ 其余 ⇒ `MenuDeck/Error/<原版枚举名>`。
-        /// ⚠️ 调用方一律 `Loc.T(ErrorTextKey(e))` —— ⛔ 别在调用点再拼一遍 `Describe` / 数字族。
+        /// ⚠️ 调用方一律 `Loc.T(ErrorTextKey(e))` —— ⛔ 别在调用点再拼一遍 `Describe` / 数字族。`copiesCap` 只服务 `CopyLimitExceeded`：它的具名键文案带 `{0}`（= 同名份数上限，`CardDeck__CanAddCard.c:58,65-71`）⇒ `copiesCap < 0`（调用方拿不到那张卡）**退回原版 catch-all `InvalidDeck`**（⛔ 绝不把 `{0}` 印上屏），拿得到上限 ⇒ 走 `Describe` 的具名键、由 `DeckRuntime.DeckErrorText` 填数。
         /// </summary>
-        public static string ErrorTextKey(DeckError e)
+        public static string ErrorTextKey(DeckError e, int copiesCap = -1)
         {
             if (e == DeckError.None) return "";
-            if (HasOfficialNamedKey(e) || IsOurOwnSlotRule(e)) return Describe(e);
+            if (e == DeckError.CopyLimitExceeded && copiesCap < 0) return TermPrefix + OriginalErrorName(e); if (HasOfficialNamedKey(e) || IsOurOwnSlotRule(e)) return Describe(e);
             return TermPrefix + OriginalErrorName(e);
         }
 

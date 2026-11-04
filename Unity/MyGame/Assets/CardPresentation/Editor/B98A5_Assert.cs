@@ -292,7 +292,7 @@ public static class B98A5_Assert
         Check(Vector3.Distance(anchor.localPosition, before) > 1e-4f,
               "★ 1.05 s 时卡容器**真的在抖**（等价物：菜单层没有可抖的相机 ⇒ 抖 `Booster Animation Parent`）");
 
-        // 粒子：原版粒子画在 UI 背景之上、卡之下；我们把它们提到 `QCard`（背景 = `QShade` 3170、卡从 3171 起）
+        // 粒子：原版粒子画在 UI 背景之上、卡之下；我们把它们提到 `QCard`（背景 = `QShade` 3122、卡从 3123 起；2026-11-04 `B142-E30` 订正旧号 3170/3171
         var ps = item.GetComponentsInChildren<ParticleSystemRenderer>(true);
         Check(ps.Length > 0, "（前提）实物子树里有粒子（原版 `Booster Pack Particles` 那一族）");
         int lifted = 0;

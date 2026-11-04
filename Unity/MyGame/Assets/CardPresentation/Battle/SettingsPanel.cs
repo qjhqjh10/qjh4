@@ -1749,7 +1749,7 @@ namespace CardPresentation
             //   即 **面板高 = 内容高**；`B141_W129_对账_UI动画.md` §4 `4-05`）。
             //   `withRows = false` ⇒ 那是 `Template` **原型**：原版 prefab 里它就是满高 **573.96**（序列化值），⛔ 别一起缩。
             //   克隆体 13 项 ⇒ 内容高 532.171 ⇒ 面板比满高矮 41.79；12 项 ⇒ 491.30。
-            float botFull = top - LstHPx;
+            float botFull = top - LstHPx; if (withRows) { _langRows.Clear(); _btnLangRows.Clear(); }   // ✅ 2026-11-04（B142-E46）：重建克隆体前先清空那两个表 —— 旧子树被销毁后 `_langList` 会退化成 `== null`（Unity 的假 null）⇒ `ShowLangList` 会再建一次，不清就**行数翻倍**（`LangRowCount`/`LangRowBg(i)` 全指到销毁件）。`Template` 那一档（`withRows=false`）不清。
             float bot = withRows ? Mathf.Max(botFull, top - DropdownContentH(rows)) : botFull;
             float panelH = top - bot;                                                   // 面板高（= 内容高；原型 = 573.96）
             float l = -w * 0.5f, r = w * 0.5f;
@@ -1775,9 +1775,9 @@ namespace CardPresentation
             else Debug.LogWarning("[Settings] 语言下拉的底板（`list_bg`）没建起来"
                                 + "（`40k_dropdown_bg` 取不到？）");
 
-            // `Viewport`（原版 `Mask` + `Image(UIMask, m_ShowMaskGraphic = 0)` ⇒ **不画**、只当裁切框）
-            var vp = Node(list, "Viewport", vpCx, vpCy, z);
-            float ctCy = top - rows * LstItemH * 0.5f;                                   // `Content` 框心（框中心系）
+            // `Viewport`（原版 `Mask` + `Image(UIMask, m_ShowMaskGraphic = 0)` ⇒ **不画**、只当裁切框）—— ✅ 已复刻（2026-11-04 · B142-E31 · 判据 = `Social Submenu Variant.prefab` 的 `Viewport`：`!u!224 &224737469884136080`（`m_SizeDelta.x = −17` ⇒ 宽 = Template − 17、`m_SizeDelta.y = 0` + 四边拉伸锚 ⇒ 高 = Template 高）+ `!u!114 &114189131814739177`（`Mask`、`m_ShowMaskGraphic: 0`）；🔴 **本文件是 uGUI 子画布档**（件全走 `HudCanvas.MakeSlicedPiece`）⇒ `ViewportClip` 只在 `MenuDraw.*` 建件那一刻被解析（`ViewportClip.Resolve`）、挂在这儿是**空操作** ⇒ 等价物只能用 `RectMask2D`（同 `Battle/UnitChatPanel.PartB118W3.cs:42` 的 uGUI 先例；矩形硬边 = 全仓对原版 `Mask` 的一贯等价）。⚠️ `Node()` 出来的 `sizeDelta` 是 **(0,0)** —— 不先给尺寸，掩码会把整棵子树裁没（⛔ 别只挂组件不量框））
+            var vp = Node(list, "Viewport", vpCx, vpCy, z); HudCanvas.SetPxSize((RectTransform)vp, w - LstVpInsetR, panelH); var vpMask = vp.gameObject.AddComponent<UnityEngine.UI.RectMask2D>(); vpMask.padding = Vector4.zero; vpMask.softness = Vector2Int.zero;   // 宽 = 245.0002 − 17（原版 `m_SizeDelta.x = −17`）· 高 = 面板高（原版 `m_SizeDelta.y = 0`）· `m_Padding (0,0,0,0)` / `m_Softness (0,0)`（原版 11/11 颗下拉 `Viewport` 都是硬边）
+            float ctCy = top - (rows * LstItemH + LstItemGap) * 0.5f;                   // `Content` 框心（框中心系）—— ✅ 已复刻（2026-11-04 · B142-E40 · 判据 `TMP_Dropdown.Show():842-843/927`：`offsetMin.y = +0.4259`、`offsetMax.y = −0.4259` ⇒ `Content` 高 = `n×40.8707+0.8519`、首/末行各让 0.426；🔴 面板高/`Viewport` 高/`Content` 高/首行偏移**四处必须同批**，只改一半 ⇒ 末行被切 0.426 或整体下移）
             var content = Node(vp, "Content", 0f, ctCy - vpCy, z);
             // `Scrollbar`：**建出来但恒关着**（原版 `m_VerticalScrollbarVisibility = 2`(AutoHide) + 内容 531.32（13 行 = `Loc.Languages.Length`）
             // < 视口 532.171（✅ 2026-11-04 `B141` 起面板按内容收缩）⇒ `SetVerticalScrollbarVisibility` 会 `SetActive(false)`）。见上面那段。
@@ -1793,7 +1793,7 @@ namespace CardPresentation
                 sb.gameObject.SetActive(false);
             }
             for (int i = 0; i < rows; i++)
-                BuildLangItem(content, i, rows > 1, top, z, l, vpR, ctCy);
+                BuildLangItem(content, i, rows > 1, top - LstItemGap * 0.5f, z, l, vpR, ctCy);   // ✅ 已复刻（2026-11-04 · B142-E40 · 首行顶 = `Content` 顶 + 0.4259；与上面 `ctCy` 那一处**必须成对**，否则行相对 `Content` 整体偏移 0.426）
             return list;
         }
 

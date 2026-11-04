@@ -762,7 +762,7 @@ namespace CardPresentation
             //    且**与同窗那颗 `Button Text`（12）完全不同** ⇒ 逐个读（铁律 5·c）。
             var lb = MenuDraw.Text(st, textR, "Last season", Color.white, "Last Season Text", 40f, QText,
                                    textR.W, 18f, 40f, 50f, face: TmpFont.Face.LatinCardBody);
-            if (lb != null) MenuDraw.AlignRight(lb, textR);
+            if (lb != null) MenuDraw.AlignRight(lb, textR); if (lb != null) lb.SetSmallScreenFontSizes(45f, 10f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：`{Ranked Leaderboard Display,RankedSkirmishLeaderboardPopup,RankedClassicLeaderboardPopup Variant,DraftLeaderboardPopup} ▸ Ranking Display ▸ Last Season Text` = 45/10）
             _lastSeasonText = st; st.gameObject.SetActive(!ShowCurrent);   // 原版 `ChangeSeasonRankingView` 的 `lastSeasonText.SetActive(!showCurrent)`（`showCurrent` 默认 true ⇒ 出厂关着）
         }
 

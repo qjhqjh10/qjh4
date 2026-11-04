@@ -443,13 +443,13 @@ namespace CardPresentation
                       new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT + FIconH,
                                  r.x1 + CardInnerOff + CardInnerW, r.y1 + FIconT + FIconH + FRtH),
                       SmallIconW, CardValPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase, center: true,
-                      value: e.HasValue ? e.Value.Rating : null);   // A413/A1537：标称 40（原版 `字号=40.0`；align 4 居中）
+                      value: e.HasValue ? e.Value.Rating : null, ssMaxPx: 45f);   // A413/A1537：标称 40（原版 `字号=40.0`；align 4 居中）
             RatingRow(card, "MaxRating", ArtGalonIcon,
                       new PxRect(r.x1 + CardInnerOff, r.y1 + FIconT + FIconH + FRtH,
                                  r.x1 + CardInnerOff + CardInnerW,
                                  r.y1 + FIconT + FIconH + FRtH + FMaxH),
                       SmallIconW, CardMxPx, RowValAutoMin, ScoreBigAutoMax, ScoreAutoBase, center: true,
-                      value: e.HasValue ? e.Value.MaxRating : null);    // A413/A1537：标称 28.2（原版 `字号=28.200000762939453`；align 4 居中）
+                      value: e.HasValue ? e.Value.MaxRating : null, ssMaxPx: 45f);    // A413/A1537：标称 28.2（原版 `字号=28.200000762939453`；align 4 居中）
             fs.Bind(icon, ArdOf(card, "Alliance Rating Display"), ArdOf(card, "MaxRating"));
             if (e.HasValue)
                 fs.InitializeOrEmpty(FactionOfSprite(e.Value.FactionArt), ScoreOf(e.Value.Rating),
@@ -476,7 +476,7 @@ namespace CardPresentation
         /// （`px` 只在自适应不跑时才决定字号）—— 🔴 **`px` 那一笔已由 A413（2026-10-12）收掉**：
         /// 卡那一族改用新常量 `CardValPx = 40f` / `CardMxPx = 28.2f`，`RowValPx`/`RowMxPx` 只留给榜单行那一族。</para></summary>
         void RatingRow(Transform parent, string name, string iconArt, PxRect r, float iconW, float px, float autoMin,
-                       float autoMax, float basePx, bool center = false, string value = null)
+                       float autoMax, float basePx, bool center = false, string value = null, float ssMaxPx = 0f, float ssMinPx = 0f)
         {
             var row = Node(parent, name, r);
             var si = Rect(row, ArtRankIcon, new PxRect(r.x1, r.y1, r.x1, r.y1), "Secondary Icon", L_Art, null, true);
@@ -492,10 +492,10 @@ namespace CardPresentation
             Rect(row, iconArt, new PxRect(ix, r.y1, ix + iw, r.y2), "Main Icon", L_Art, null, true);
             // 🔴 **2026-10-24（`U2` V2）**：值那一格改为**可喂**（`value`）—— 有数据时印真分数、
             //   没有才退回原版自己的空态串 `------`（⛔ 别把 `------` 当成「有数据」画上去）。
-            Text(row, string.IsNullOrEmpty(value) ? ScoreEmpty : value, new PxRect(ix + iw, r.y1, r.x2, r.y2),
+            var lb = Text(row, string.IsNullOrEmpty(value) ? ScoreEmpty : value, new PxRect(ix + iw, r.y1, r.x2, r.y2),
                  Color.white, "Individual rating value",
                  px, L_Text, autoFit: true, autoMinPx: autoMin, alignLeft: !center, wrap: true,
-                 autoMaxPx: autoMax, basePx: basePx, face: TmpFont.Face.LatinCardBody);
+                 autoMaxPx: autoMax, basePx: basePx, face: TmpFont.Face.LatinCardBody); if (lb != null && (ssMaxPx > 0f || ssMinPx > 0f)) lb.SetSmallScreenFontSizes(ssMaxPx, ssMinPx);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `判据/B90_N2_小屏字号实例.tsv`：小屏档必须在 `SetAutoFitBox` 之后落）
         }
 
         /// <summary>中间那一列：大标题 `Global Rating` → 段位大图 → `footer`（`MainRating` > `Global Rating`）。</summary>
@@ -551,9 +551,9 @@ namespace CardPresentation
             Rect(gr, ArtRankIcon, new PxRect(gx, GrT, gx + SIconW, GrB), "Main Icon", L_Art, null, true);
             // 🔴 **A406**：`Ranking Tab/Top4/content/center/footer/MainRating/Global Rating/Individual rating value`
             //   原版 `auto[18.0~40.0] 基准=31.3799991607666` ⇒ 上限 40（= 标称）· base 31.38。
-            Text(gr, ScoreEmpty, new PxRect(gx + SIconW, GrT, 946.73f, GrB), Color.white,
+            var lbGr = Text(gr, ScoreEmpty, new PxRect(gx + SIconW, GrT, 946.73f, GrB), Color.white,
                  "Individual rating value", 40f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: false, wrap: true,
-                 autoMaxPx: 40f, basePx: ScoreAutoBase, face: TmpFont.Face.LatinCardBody);
+                 autoMaxPx: 40f, basePx: ScoreAutoBase, face: TmpFont.Face.LatinCardBody); if (lbGr != null) lbGr.SetSmallScreenFontSizes(45f, 0f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：Player Profile Window `Top4/center/footer/MainRating/Global Rating` = 45/0）
         }
 
         // ============================================================ ③ `AllFactions`
@@ -637,10 +637,10 @@ namespace CardPresentation
             _rowIcons[i] = FactionIconQuad(row, ic);   // 空态节点（贴图由 `FactionScore.Initialize` 第 1 句写，⛔ 不在这里画第二份）
             RatingRow(row, "Alliance Rating Display", ArtRankIcon,
                       new PxRect(r.x1 + RowRtL, r.y1 + RowRtT, r.x1 + RowRtL + RowRtW, r.y1 + RowRtT + RowRtH),
-                      SmallIconWBig, RowValPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase, false, null);
+                      SmallIconWBig, RowValPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase, false, null, ssMaxPx: 110f);
             RatingRow(row, "Alliance Rating Display (1)", ArtGalonIcon,
                       new PxRect(r.x1 + RowRtL, r.y1 + RowMxT, r.x1 + RowRtL + RowRtW, r.y1 + RowMxT + RowMxH),
-                      SmallIconWBig, RowMxPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase, false, null);
+                      SmallIconWBig, RowMxPx, RowValAutoMin, ScoreSmallAutoMax, ScoreAutoBase, false, null, ssMaxPx: 110f);
             var fs = row.gameObject.AddComponent<CardPresentation.ScoreBars.FactionScore>();   // 原版这一行 = 一颗挂着 `FactionScore` 的 `FactionScoreSmall`
             fs.Bind(_rowIcons[i], ArdOf(row, "Alliance Rating Display"), ArdOf(row, "Alliance Rating Display (1)"));
             fs.InitializeOrEmpty(FactionOf(army), FactionScoreValue(i, false), FactionScoreValue(i, true), ScoreEmpty);   // 三句 = 原版 `FactionScore.Initialize` 的唯一实现

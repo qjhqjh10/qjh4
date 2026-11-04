@@ -394,19 +394,19 @@ namespace CardPresentation
         }
 
         /// <summary>当前画出来的那套在「选中阵营 ∧ 本窗模式」表里的**0 基**序号；不在表里 ⇒ −1。
-        /// ⚠️ 预组不在卡组库里 ⇒ 恒 −1（原版 `List.IndexOf` 同解）。</summary>
+        /// ⚠️ 预组不在卡组库里 ⇒ 恒 −1（原版 `List.IndexOf` 同解）。
+        /// <para>✅ 已复刻（2026-11-04 · B142-E67 · 判据 `RankedDeckSelector.cs:382-386`）：序号 = `currentArmyCardDeckList.IndexOf(deck)`，
+        /// 而那张表是 `Where(阵营 ∧ 模式) → OrderByDescending(ValidateDeck)` 之后建的（`:195-207`）⇒ **合法优先**。</para>
+        /// <para>⚠️ 2026-11-04 更正（铁律 5）：改前按**集合序**逐格数 ⇒ 表里同时有合法 / 不合法卡组时，
+        /// 序号与上/下一套的循环次序都不同（三处夹具全合法 ⇒ 今天自检看不出来）。</para>
+        /// <para>⛔ 别把合法性当过滤器 —— 不合法卡组**留在表里**，只是排在后面（见类尾 `DeckIsLegal`）。
+        /// 表长 = `ArmyDeckCount()`（分母同一张表）；原版在 `ChangeArmy` 那一刻建快照、我们每次现算 —— 窗口开着时卡组库不变 ⇒ 等价。</para>
+        /// <para>判据只认 `out_il2csharp`：`.c` 那份把谓词返回值打成 `void`（返回值被吞，见类尾 `DeckIsLegal` 那段）。</para></summary>
         int ShownDeckOrdinal()
         {
             if (ShownPrebuilt != null) return -1;
-            string fac = SelectedArmyFaction;
-            if (!InArmyDeckList(DeckIndex, fac)) return -1;
-            int ord = 0;
-            for (int i = 0; i < CollectionData.DeckCount(); i++)
-            {
-                if (i == DeckIndex) return ord;
-                if (InArmyDeckList(i, fac)) ord++;
-            }
-            return -1;
+            var list = SortedArmyDeckList(SelectedArmyFaction);   // = 原版 `currentArmyCardDeckList`（合法优先）
+            return list.IndexOf(DeckIndex);                       // 原版 `list11.IndexOf(obj10)`；不在表里 ⇒ −1
         }
 
         /// <summary>本窗**这一栏该不该画「有卡组」那一套**（= 原版 `ChangeDeck` 的 `cVar1 = deck != null`）。
@@ -1835,29 +1835,29 @@ namespace CardPresentation
         /// `currentArmyCardDeckList` 的 `Next`）。表里 ≤1 套时什么都不做（原版那两颗钮本来就关着）。</summary>
         void StepDeck(int dir)
         {
-            int total = CollectionData.DeckCount();
+            // ✅ 已复刻（2026-11-04 · B142-E67 · 判据 `RankedDeckSelector.cs:262-279`）：上/下一套 = **排序后**那张表的
+            // `currentDeckIndexInTempList ± 1`（越界回卷到 `0` / `size-1`），⛔ 不是「集合序里跳过不匹配的」——
+            // 表里同时有合法 / 不合法卡组时两者次序不同（合法优先，见 `ShownDeckOrdinal`）。
+            var list = SortedArmyDeckList(SelectedArmyFaction);   // = 原版 `currentArmyCardDeckList`（合法优先、不丢不合法）
+            int total = list.Count;
             if (total <= 0) return;
             // 🔴 **2026-10-24（E11）**：改前这里在**全库**里循环、只「跳过」不匹配的，且**找不到也照样落子**
             //   （`DeckIndex = cur` 最后落在某套别的模式/阵营的牌上 = 静默换错牌）。原版是「只在表里 Next」。
-            if (ArmyDeckCount() <= 1)
+            if (total <= 1)
             {
-                Debug.Log("[Event] 换卡组：本阵营 ∧ 本窗模式只有 " + ArmyDeckCount() + " 套 ⇒ "
+                Debug.Log("[Event] 换卡组：本阵营 ∧ 本窗模式只有 " + total + " 套 ⇒ "
                           + "原版这两颗箭头是关着的，什么都不做");
                 return;
             }
-            string fac = SelectedArmyFaction;
-            int cur = DeckIndex;
-            for (int k = 0; k < total; k++)
-            {
-                cur = ((cur < 0 ? 0 : cur) + dir + total) % total;
-                if (InArmyDeckList(cur, fac)) break;
-            }
-            if (!InArmyDeckList(cur, fac))
-            {
-                Debug.LogWarning("[Event] 换卡组：表里明明有 >1 套却绕了一圈没找到（" + total + " 套里阵营「" + fac
-                                 + "」∧ 模式 " + DeckGameMode + "）⇒ 不动 `DeckIndex`（⛔ 不落到别的模式上）");
-                return;
-            }
+            // 原版 `currentDeckIndexInTempList`（`ChangeDeck` 里 `IndexOf` 那一句）：不在表里 ⇒ −1，
+            // 两个方向都按原版那两条分支回卷（`<0 ⇒ size-1` / `>=size ⇒ 0`）。
+            int idx = list.IndexOf(DeckIndex);
+            int next = idx + dir;                      // `OnNext/PreviousDeckButtonClick` 的 `+= ±1`
+            if (next < 0) next = total - 1;            // 越界：向前回卷到 `size-1` …
+            else if (next >= total) next = 0;          // …向后回卷到 `0`
+            int cur = list[next];                      // ⛔ 「绕圈找」那一支不需要了：`cur` 一定在表里
+            // ⚠️ 改前那条「绕了一圈没找到 ⇒ 不动 `DeckIndex`」的死闸已删 —— 它防的是「在全库里绕」那种写法，
+            //   现在表就是「阵营 ∧ 模式」筛选后的结果（回调里那句警告不会再触发，留着只会误导）。
             DeckIndex = cur;
             // 🔴 **2026-10-21（真缺陷）**：同 `PickArmy` —— 上/下一套这两颗箭头改的是「我的卡组」那一档，
             //   而这一栏的显示与开战都是**预组优先**（`ShownPrebuilt` / `PickedPrebuilt`）
@@ -2507,5 +2507,37 @@ namespace CardPresentation
         //   `RankedEventWindowV2.prefab` 与 `SkirmishModeEventWindow.prefab` 的 `Help Button` Image；
         //   而全 prefab 只有这两颗非零 pad ⇒ 无第二族混淆。
         public static readonly Vector4 HelpHitPad = new Vector4(-30f, -30f, -30f, -30f);
+
+        // ================================================================================================
+        //  ✅ 已复刻（2026-11-04 · B142-E67）：「阵营 ∧ 本窗模式」那张表 + 它的**排序**
+        //  判据（`d:/2/tools/cpp2il/out_il2csharp/Assembly-CSharp/RankedDeckSelector.cs`）：
+        //    · `:195-209` `currentArmyCardDeckList` = `Where(GetItemInstances(true), 阵营 ∧ 模式)`
+        //      → `OrderByDescending(DeckUtility.ValidateDeck)` → `ToList()`（**合法性是排序键，⛔ 不是过滤器**）；
+        //    · `:382-386` 序号 = 该表的 `IndexOf(deck)`（`i+1 / Count` 那个分母也是它）；
+        //    · `:262-279` 上/下一套 = `currentDeckIndexInTempList ± 1`（越界回卷）。
+        //  ⚠️ 每次现算（原版在 `ChangeArmy` 那一刻建快照）：本窗开着时卡组库不变 ⇒ 两者等价。
+        // ================================================================================================
+        /// <summary>「选中阵营 ∧ 本窗模式」那张表的**下标序**（= 原版 `currentArmyCardDeckList`，合法优先）。
+        /// ⛔ 不合法卡组**留在表里**，只排在后面（见类尾 `DeckIsLegal`）。</summary>
+        List<int> SortedArmyDeckList(string faction)
+        {
+            var ids = new List<int>();
+            for (int i = 0; i < CollectionData.DeckCount(); i++) if (InArmyDeckList(i, faction)) ids.Add(i);
+            return SortDeckIdsLegalFirst(ids, DeckIsLegal);
+        }
+
+        /// <summary>稳定分区：合法的在前、不合法的在后，**组内保持原集合序**（= LINQ `OrderByDescending` 的稳定排序）。
+        /// ⚠️ 这是 `SortedArmyDeckList` 唯一的排序口 —— 自检直接喂合成数据验它（⛔ 别在断言里抄一份同样的循环 = 自证）。</summary>
+        public static List<int> SortDeckIdsLegalFirst(List<int> ids, System.Func<int, bool> isLegal)
+        {
+            var head = new List<int>(ids.Count);
+            var tail = new List<int>(ids.Count);
+            for (int k = 0; k < ids.Count; k++) (isLegal(ids[k]) ? head : tail).Add(ids[k]);
+            head.AddRange(tail);
+            return head;
+        }
+
+        /// <summary>自检口：当前那套在表里的 0 基序号（原版 `currentDeckIndexInTempList`）。</summary>
+        public int ShownDeckOrdinalForTest() { return ShownDeckOrdinal(); }
     }
 }

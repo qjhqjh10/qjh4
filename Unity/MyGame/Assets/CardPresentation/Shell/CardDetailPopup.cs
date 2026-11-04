@@ -107,7 +107,7 @@ namespace CardPresentation
     }
 
     /// <summary>单机口径的卡牌进度（拥有数 / 等级）。**升级表数值是我们编的**，见文件头。</summary>
-    public static class CardProgress
+    public static partial class CardProgress
     {
         /// <summary>升到第 i 级**累计**要几张副本（下标 = 等级）。`MaxLevel = 4`。</summary>
         public static readonly int[] NeedCopies = { 0, 0, 2, 5, 9 };

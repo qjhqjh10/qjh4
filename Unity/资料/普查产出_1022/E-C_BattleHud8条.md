@@ -110,6 +110,8 @@
 
 （逐场完整 pid 列表与 hash 见 JSON `perArena`；13 场的 `clipPids` / `clipNames` / `hash` 全等。）
 
+> ⚠️ **2026-11-04 订正（`B141-CLIPS-DOC` · 铁律 5）**：本文件里的 `9a4e484c…` / `clipsHash 9a4e484c3dba918b4c513da4e55fe125`（开头交付物那条，以及上面 §二 表的「clip hash」列）是**键名 `is/os` 时代**的读数。2026-11-04 `B141-W46`/`W51` 把生成器键名统一成 `si/so`（原版 `JsonUtility` 按字段名绑定，`is/os` 绑不上 ⇒ 斜率恒 null 的哑弹）后重算 = **`ae1b8380c3b9bd2543939a3c23868e0b`**（现读 `CardPresentation/Resources/battlehud_clips.json:6`）。**曲线数值未变**：把旧 JSON 的 `is/os` 改名后与现盘逐值相等（仅 `clipsHash` 一格不同）；现读 170 个键 / 340 个 `si`/`so` 数组**全 0**。⇒ 旧 hash 只作历史标注，⛔ 别当成「产物变了」。
+
 ### 2·1 场景里那 9 个节点的**静态 rest 值**（13 场逐场读，UnityPy 直读 `scenes_scenes_battlearena*.bundle`）
 
 13 场**完全一致**（只有 float32 末位噪声）：

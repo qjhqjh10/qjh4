@@ -403,7 +403,7 @@ namespace CardPresentation
                                    face: TmpFont.Face.LatinCardBody);
             if (tx == null) return;                     // 建不出来 ⇒ `TimerDisplay.Attach` 会自己出声，这里不再补一句
             // 字号四格 = 原版 `38 / 10 / 38 / 38`（本窗与 V2 同档）。⚠️ `SetAutoFitBox` 内部会 `SetWrapWidth` ⇒ 紧跟一句还原**原版折行 0**
-            tx.SetAutoFitBox(LayoutSpace.Px(txR.W), LayoutSpace.Px(txR.H), 10f, 38f, 38f); tx.SetWrapping(false);
+            tx.SetAutoFitBox(LayoutSpace.Px(txR.W), LayoutSpace.Px(txR.H), 10f, 38f, 38f); tx.SetWrapping(false); tx.SetSmallScreenFontSizes(38f, 10f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：`Ranked Division Info ▸ Content ▸ Timer/Timer` = 38/10）
             TimerDisplay.Attach(tx, () => ClassicTimerDeadline, prefix, "遭遇战窗（非活动期）经典式左列 Timer",
                                 "小冲突的结束时刻由服务端下发，本地没有");
         }
@@ -677,7 +677,7 @@ namespace CardPresentation
             var txR0 = new PxRect(icR0.x2, TmTextT, icR0.x2 + TmPrefabTextW, TmTextB);
             var tx = MenuDraw.Text(tm, txR0, TimerDisplay.Compose(TimerPrefix, "23d 5h"), Color.white, "Timer", 38f, QText,
                                    txR0.W, 10f, 38f, 38f, face: TmpFont.Face.LatinCardBody);
-            if (tx != null) tx.SetWrapping(false);
+            if (tx != null) { tx.SetWrapping(false); }   // ✅ 已复刻（2026-11-04 · B142-E74 · 小屏档在方法尾**只落一次**，见 `TimerDisplay.Attach` 那一行）
             float txW = PreferredWidthPx(tx, "Timer");
 
             // HLG 重排：`content = 图标宽 + 文字宽`（`spacing 0` · `align 4 MiddleCenter` · `pad (0,0,5,0)`）。
@@ -707,7 +707,7 @@ namespace CardPresentation
             if (tx != null)
                 TimerDisplay.Attach(tx, () => TimerDeadline, TimerPrefix, "遭遇战活动窗 Timer",
                                     "活动截止时刻由服务端 LiveOps 事件下发，本地没有",
-                                    lastMinutesPrefix: Loc.T("Event_Description/Generic/EndsSoon"));
+                                    lastMinutesPrefix: Loc.T("Event_Description/Generic/EndsSoon")); if (tx != null) tx.SetSmallScreenFontSizes(38f, 10f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：`SkirmishModeEventWindow ▸ Timer/Timer` = 38/10；**只在最后一次 `SetAutoFitBox` 之后落一次**）
         }
 
         /// <summary>🆕 **2026-10-17（A1248）**：量 TMP 自己的 `GetPreferredValues().x`（= 原版 CSF

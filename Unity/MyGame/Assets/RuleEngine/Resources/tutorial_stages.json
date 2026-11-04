@@ -1,6 +1,6 @@
 {
  "format": 1,
- "note": "由 工具/gen_tutorial_stages.py 生成，**别手改**。数据源 = 原版 6 个 TutorialStage SO（`bundle_tutorialso_assets_all`）。🔴 这是**全量**（462 条动作 = 回合内 430 + preMulligan 19 + onVictory 13）；`数据/游戏数据/tutorial_stages.json` 是 Godot 原型的**派生快照**（只有 152 条、且 tip 的时序没了）—— **两份文件名字恰好相同**，⛔ 别混（那份不能当运行时数据源，出处见 report）。⚠️ 有 2 张卡是按 `card_stats.json` 的 `ocrName` **裁定映射**到我们卡池的（**不是原版明确指认**）—— 判据与保留原名的约定见 `ocrNameFixes`/`ocrNameFixNote`。",
+ "note": "由 工具/gen_tutorial_stages.py 生成，**别手改**。数据源 = 原版 6 个 TutorialStage SO（`bundle_tutorialso_assets_all`）。🔴 这是**全量**（462 条动作 = 回合内 430 + preMulligan 19 + onVictory 13）；`数据/游戏数据/tutorial_stages.json` 是 Godot 原型的**派生快照**（只有 152 条、且 tip 的时序没了）—— **两份文件名字恰好相同**，⛔ 别混（那份不能当运行时数据源，出处见 report）。⚠️ `ocrNameFixes`/`ocrNameFixNote` 记着那 2 条**裁定映射**的判据（2026-10-14/15 池名换官方表名后已能 `exact`/`norm` 直接命中；2026-11-04 `B142-TUT-HAND3` 起，`*StartingTroops*` 另有 `allcardsId` 一档 = 2026 allcards SO 的 `pid ↔ uniqueId`）。",
  "source": "d:/2/新解包资源/assets_full/bundle_tutorialso_assets_all/MonoBehaviour/Warpforge_TutorialStage{1..6}.json",
  "generatedFrom": "原版 6 个 SO（sha1 见每关 `soSha1`）+ 原版 bundle 查牌组名/音效名 + cards_engine.json 查卡 id",
  "fieldSource": [
@@ -9,7 +9,7 @@
   "startingPlayerMana/EnemyMana/PlayerDamage/EnemyDamage = 同名四个 int（6 关全 0）",
   "hideCemetery/hideCardsLeftInDeck/hideLargeCardDisplay/hideChat = 同名四个 bool",
   "playerAlwaysWins/preventPlayerResign/skipNormalBattleEndOnVictory/skipNormalBattleEndOnDefeat = 同名四个 bool",
-  "{player,enemy}StartingTroops{InHand} = 同名四个 `List<RawCardScript>`（pid → 名字见 `name`；名字来自 SO 自己的 actionType 字符串，见 gen_tutorial_stages.py 的 parse_action_arg）",
+  "{player,enemy}StartingTroops{InHand} = 同名四个 `List<RawCardScript>`（pid → 名字见 `name`；名字来自 SO 自己的 actionType 字符串，见 gen_tutorial_stages.py 的 parse_action_arg；**该字符串只写「发起单位」** ⇒ 只被摆进起手的 pid 取不到名字，2026-11-04 起由 `load_allcards_pid_index`（2026 allcards）补 `allcardsId` 一档）",
   "preMulligan/onVictory/onDefeat/turns = `preMulliganScriptedActions`/`onVictoryScriptedActions`/`onDefeatScriptedActions`/`turnScriptedData`；动作组内**原序**",
   "每个动作：type=scriptedActionData[0].actionType 的枚举名（**运行时读的就是它**）· text=SO 的 `actionType` 原串 · arg=括号里那半 · sound/waitBefore/waitAfter/textReference/isPCTip/playerAction/shouldHighlightElement/smallTipParams = 同名 SO 字段（一对一的）",
   "每条 ScriptedActionData：type/typeName（`ScriptedActionType` 枚举）+ acting/target（unitType/unitTypeName=`ScriptedActionUnit` 枚举 · pid · name · ourId · matchTier）"
@@ -88,29 +88,20 @@
   "Stage6: 13 回合 / 玩家动作 27 / tip 7 / 不符 0"
  ],
  "crossCheckNote": "⚠️ 快照的 `turn` 字段 79 条**全是 \"1\"**（原型那管道的口径）⇒ 它跟 SO 的回合序号对不上，没拿它对账",
- "unresolvedNoName": [
-  "pid=-124800208381561086  tier=no-name  名字=（没有）  出现 9 处（S2  第1 条 RadioMessage、S2 Player 1 第1 条 SmallTip、S2 Player 2 第0 条 RadioMessage 等）",
-  "pid=1696504206920290120  tier=no-name  名字=（没有）  出现 1 处（S3 playerStartingTroopsInHand[0]）",
-  "pid=4406439244507976715  tier=no-name  名字=（没有）  出现 2 处（S5 AI 5 第6 条 SmallTip、S5 AI 5 第7 条 PlayCard）",
-  "pid=7386907376838221809  tier=no-name  名字=（没有）  出现 1 处（S3 AI 2 第2 条 PlayCard）",
-  "pid=8095124868697240450  tier=no-name  名字=（没有）  出现 1 处（S4 Player 2 第0 条 DrawCard）",
-  "pid=8223774895360888806  tier=no-name  名字=（没有）  出现 1 处（S1 AI 7 第0 条 Attack）",
-  "pid=8270355771166178363  tier=no-name  名字=（没有）  出现 1 处（S6 playerStartingTroopsInHand[1]）",
-  "pid=8906429412044970690  tier=no-name  名字=（没有）  出现 1 处（S6 playerStartingTroopsInHand[2]）"
- ],
+ "unresolvedNoName": [],
  "unresolvedNotPool": [],
  "ocrNameFixes": [
-  "「Gauss Warrior (tutorial)」(= SO 原名，产物 `name` 字段**原样保留**) → `SAU4`（我们卡池里叫「Gauss Reaper Warrior」，其 `card_stats.json` 的 `ocrName` = 'Gauss Warrior'）",
-  "「Tesla Immortal」(= SO 原名，产物 `name` 字段**原样保留**) → `SAU6`（我们卡池里叫「Tesla Carbine Immortal」，其 `card_stats.json` 的 `ocrName` = 'Tesla Immortal'）"
+  "「Gauss Warrior (tutorial)」(= SO 原名，产物 `name` 字段**原样保留**) → `SAU4`（我们卡池里叫「Gauss Warrior」，其 `card_stats.json` 的 `ocrName` = 'Gauss Warrior'）",
+  "「Tesla Immortal」(= SO 原名，产物 `name` 字段**原样保留**) → `SAU6`（我们卡池里叫「Tesla Immortal」，其 `card_stats.json` 的 `ocrName` = 'Tesla Immortal'）"
  ],
- "ocrNameFixNote": "🔴 **这 2 条是【裁定映射】，不是原版明确指认**：判据 = 教程 SO 用的那个名字（= 原版卡 SO 的 `cardName`）与 `数据/游戏数据/card_stats.json` 的 **`ocrName`** 列（当年从 **PnP 成品卡图**上 OCR 出来的名字）**逐字吻合**、且在我们卡池里**位置唯一**。⚠️ 原版那份卡 SO（`allcards_assets_all.bundle`）本地没有 ⇒ **钉不死**它俩与映射到的那两张是同一张卡（数值可能被教程改过）。产物里 **SO 原名原样保留**（`name` 字段），只在 `ourId` 写我们的 id、`matchTier` 写 `ocrName`（⛔ 别当 exact/norm 用）。裁定：调度台 2026-10-17。",
- "refNote": "`pid` 是原版 SO 里 `RawCardScript` 的 PPtr（64 位有符号，当**坐标**用）；`name` 来自原版 SO 自己的 `actionType` 字符串（**一个字都不改**，见 gen_tutorial_stages.py 的 parse_action_arg）；`ourId` 是 `cards_engine.json` 里的卡 id，`matchTier` = exact / norm / ocrName（**不做模糊匹配**，宁可认不出；`ocrName` = 走了裁定映射，见 `ocrNameFixes`）；`note` 只在解不出时给候选线索（⛔ 候选不当结果用）",
- "matchTierHistogram": "exact=216 · no-name=14 · norm=44 · null-ref=638 · ocrName=12 · 起始单位:exact=22 · 起始单位:no-name=3 · 起始单位:norm=2 · 起始单位:ocrName=3",
+ "ocrNameFixNote": "🔴 **这 2 条是【裁定映射】**：判据 = 教程 SO 用的那个名字（= 原版卡 SO 的 `cardName`）与 `数据/游戏数据/card_stats.json` 的 **`ocrName`** 列（当年从 **PnP 成品卡图**上 OCR 出来的名字）**逐字吻合**、且在我们卡池里**位置唯一**。产物里 **SO 原名原样保留**（`name` 字段），只在 `ourId` 写我们的 id、`matchTier` 写 `ocrName`（⛔ 别当 exact/norm 用）。裁定：调度台 2026-10-17。🔴 **2026-11-04 就地订正（铁律 5 · `B142-TUT-HAND3`）**：本段原文写着「原版那份卡 SO（`allcards_assets_all.bundle`）本地没有 ⇒ 钉不死它俩与映射到的那两张是同一张卡」—— **那句已不成立**：2026 build 的 allcards 工程内导出（`资料/普查产出_1018/allcards_1350/cards_raw.json`）里 `pathID=7386907376838221809` 的 `cardName` 就是 `Gauss Warrior`（→ `SAU4`），与该裁定**同卡同证**（那是 2026 build 的名称，⛔ 别据此把 `(tutorial)` 那张的数值当成同一个版本）。",
+ "refNote": "`pid` 是原版 SO 里 `RawCardScript` 的 PPtr（64 位有符号，当**坐标**用）；`name` 来自原版 SO 自己的 `actionType` 字符串（**一个字都不改**，见 gen_tutorial_stages.py 的 parse_action_arg）；⚠️ `PID_NAME_EXTRA` 那 5 个 pid 例外（SO 字符串给不出名字）⇒ `name` 取自 2026 build allcards 的 `cardName`，同样**一字不改**（含 `Aggressor Sergeant (tutorial)` 的 `(tutorial)` 尾巴）；`ourId` 是 `cards_engine.json` 里的卡 id，`matchTier` = exact / norm / ocrName / **allcardsId**（**不做模糊匹配**，宁可认不出；`ocrName` = 走了裁定映射，见 `ocrNameFixes`；`allcardsId` = `*StartingTroops*` 那 4 张表专用的 2026 allcards 回退档，`pid ↔ uniqueId` 逐字取，见 gen_tutorial_stages.py 的 `load_allcards_pid_index`）；`note` 只在解不出时给候选线索（⛔ 候选不当结果用）",
+ "matchTierHistogram": "exact=244 · norm=42 · null-ref=638 · 起始单位:allcardsId=3 · 起始单位:exact=24 · 起始单位:norm=3",
  "knownIssues": [
   "`actionOnPlayerResign` 6 关**全是空动作**（`actionType` 空串）⇒ 与 `preventPlayerResign` 全 0 自洽（原版原文如此，⛔ 别当缺失去补）",
-  "🔴 有 8 个 pid **连名字都拿不到**（`unresolvedNoName`）：它们是 `scriptedActionData` 里引用的卡 SO，住在 **`allcards_assets_all.bundle`**（= SO externals 的第 3 项 `CAB-fb8f01449289635703d83d52c3f18245`）——那个包**在 catalog 里有、本地 84 个 bundle 里没有**（同缺的还有 `alternateartstyles`/`localization`）⇒ 解不出名字。⚠️ 名字的**唯一**来源是 SO 自己的 `actionType` 字符串（只写发起单位），所以「只当目标」的那些 pid 天然没名字（督军那几种由 `unitType` 就够用了，不需要卡名）",
+  "🔴 有 0 个 pid 拿不到卡名（`unresolvedNoName`）：它们只出现在 `scriptedActionData` 里、**只当目标或只被摆进起手**，而 SO 的 `actionType` 字符串**只写「发起单位」** ⇒ 天然没名字。🔴 **2026-11-04 就地订正（铁律 5 · `B142-TUT-HAND3`）**：本行原文写着「它们是住在 `allcards_assets_all.bundle` 里的卡 SO，那个包在 catalog 里有、本地 84 个 bundle 里没有 ⇒ 解不出名字」—— **这半句已不成立**：2026 build 的 allcards 导出就在本地（`资料/普查产出_1018/allcards_1350/cards_raw.json`），那 3 张起手卡正是靠它解出来的（`matchTier=allcardsId`）。🔴 **2026-11-04 补（`B142-E42` · 账 `B142-PID-GLOBAL-5`）**：原来那 **5 个** pid（Makari the Grot / Veteran Guardian / Gauss Warrior / Unhallowed Gifts / Aggressor Sergeant (tutorial)）已由 `PID_NAME_EXTRA`（判据 = 2026 build allcards 的 `pathID ↔ cardName/uniqueId`）补上名字 ⇒ 本数归 0（`matchTier` 的 `no-name` 也从 14 归 0）。其中 Aggressor 那条原版 `cardName` 带 `(tutorial)`、与池内 `Aggressor Sergeant` **字符串不等** ⇒ 它**显式钉死 `ourId=UM19`**（运行时 `ScriptedCardMatches` 第一跳比 name 必然对不上、靠第二跳比 id 命中）。⚠️ `allcardsId` 那一档仍只用在 `*StartingTroops*`",
   "🔴 有 0 张卡**有名字但我们的池里没有**（`unresolvedNotPool`）—— **没有猜**：`ourId` 留空、线索写进该 ref 的 `note`（= `card_stats.json` 的 `ocrName` 列）。要落地得像别的账一样先裁定",
-  "🔴 2 张卡走了**裁定映射**（`ocrNameFixes`）：**判据 = `card_stats.json` 的 `ocrName` 列与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包本地没有 ⇒ 钉不死）。产物里 **SO 原名一字未改**（`name`），只在 `ourId` 写我们的 id、`matchTier` = `ocrName`（与 exact/norm 分开，别当「名字对上了」）",
+  "🔴 `ocrNameFixes` 那 2 条是 2026-10-17 的**裁定映射记录**：**判据 = `card_stats.json` 的 `ocrName` 列与 SO 名逐字吻合 + 池内唯一**。🔴 **2026-11-04 就地订正（铁律 5 · `B142-TUT-HAND3`）**：本行原文还写着「不是原版明确指认（原版卡 SO 包本地没有 ⇒ 钉不死）」与「`matchTier` = `ocrName`」——**两句都已不成立**：① 2026 build 的 allcards 导出已在本地（`ALLCARDS_RAW`），`pathID=7386907376838221809` 的 `cardName` 就是 `Gauss Warrior`，与该裁定同卡同证；② 2026-10-14/15 池名换成官方表名后，这两张已能被 `exact`/`norm` **直接命中** ⇒ 产物里 `matchTier` **不再出现 `ocrName`**（本表只作历史判据保留）。产物里 **SO 原名一字未改**（`name`）",
   "`sound.volume` 原样保留（SO 序列化那一层）：多数是 0.0（82/95），少数 1.0。🔴 **2026-10-18 就地订正（铁律 5）**：本行原文写着「`BattleManager.PlayNextSoundInQueue.c` 是 `PlayOneShot(clip, AudioListener.volume * sound.volume)` ⇒ **0 就是静音**」——**后半句是错的**：运行时读的那支音量**不是** SO 里这一格，而是 `ScriptedActionCampaignData__GetSoundAsset.c` 新建 `SoundAsset` 时**硬编码写死的 `0x3f800000`（= 1.0）**（`*(lVar2 + 0x18) = 0x3f800000`）。SO 那一格**在运行时根本不被采信** ⇒ 0.0 的那些**照样出声**（`PlayOneShot(clip, AudioListener.volume * 1.0)`）。⛔ 所以「别顺手修成 1.0」那句要反过来理解：**播放侧就该按 1.0**（照 `GetSoundAsset`），而产物里这一格留着只作**记账/对账**。",
   "教程文案的**本地化表在远端**（`textReference` = `Tutorial1/Turn1/Tip1` 这类键，84 个 bundle 里没有语言表）⇒ 只能沿用 SO 内嵌的英文（`arg` 字段就是它）",
   "教程关卡的**第一句对白/提示的时序**：本产物把 `preMulligan` 与每回合的动作分成独立数组、**组内保持原序**（tip 就是组里的一条 `SmallTip` 动作）⇒ 「第几条 tip 在第几个动作之前」这层信息在，别重排"
@@ -4224,10 +4215,10 @@
           "unitType": 30,
           "unitTypeName": "PlayerMinion",
           "pid": "8223774895360888806",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
-          "note": ""
+          "name": "Aggressor Sergeant (tutorial)",
+          "ourId": "UM19",
+          "matchTier": "norm",
+          "note": "🔴 `ourId` 由 `PID_NAME_EXTRA`（2026 build allcards 的 `pathID ↔ uniqueId`）**显式钉死** = UM19：原版 `cardName` 是 'Aggressor Sergeant (tutorial)'、池里那张叫别的名字 ⇒ 运行时 `ScriptedCardMatches` **第一跳比 name 对不上**、靠第二跳 `c.Id == ourId` 命中。⛔ 别只填 name 不填 ourId（那样「有键但永不命中」= 仍退回 list[0]）"
          }
         }
        ]
@@ -4640,9 +4631,9 @@
          "unitType": 40,
          "unitTypeName": "EnemyMinion",
          "pid": "-124800208381561086",
-         "name": "",
-         "ourId": "",
-         "matchTier": "no-name",
+         "name": "Makari the Grot",
+         "ourId": "GOF2",
+         "matchTier": "exact",
          "note": ""
         },
         "target": {
@@ -4951,9 +4942,9 @@
           "unitType": 30,
           "unitTypeName": "PlayerMinion",
           "pid": "-124800208381561086",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
+          "name": "Makari the Grot",
+          "ourId": "GOF2",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -5530,9 +5521,9 @@
           "unitType": 30,
           "unitTypeName": "PlayerMinion",
           "pid": "-124800208381561086",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
+          "name": "Makari the Grot",
+          "ourId": "GOF2",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -5632,9 +5623,9 @@
           "unitType": 30,
           "unitTypeName": "PlayerMinion",
           "pid": "-124800208381561086",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
+          "name": "Makari the Grot",
+          "ourId": "GOF2",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -6058,9 +6049,9 @@
           "unitType": 30,
           "unitTypeName": "PlayerMinion",
           "pid": "-124800208381561086",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
+          "name": "Makari the Grot",
+          "ourId": "GOF2",
+          "matchTier": "exact",
           "note": ""
          }
         }
@@ -6100,9 +6091,9 @@
           "unitType": 0,
           "unitTypeName": "None",
           "pid": "-124800208381561086",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
+          "name": "Makari the Grot",
+          "ourId": "GOF2",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -6202,9 +6193,9 @@
           "unitType": 30,
           "unitTypeName": "PlayerMinion",
           "pid": "-124800208381561086",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
+          "name": "Makari the Grot",
+          "ourId": "GOF2",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -6739,9 +6730,9 @@
           "unitType": 30,
           "unitTypeName": "PlayerMinion",
           "pid": "-124800208381561086",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
+          "name": "Makari the Grot",
+          "ourId": "GOF2",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -7318,9 +7309,9 @@
           "unitType": 30,
           "unitTypeName": "PlayerMinion",
           "pid": "-124800208381561086",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
+          "name": "Makari the Grot",
+          "ourId": "GOF2",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -8004,17 +7995,17 @@
    "playerStartingTroopsInHand": [
     {
      "pid": "1696504206920290120",
-     "name": "",
-     "ourId": "",
-     "matchTier": "no-name",
-     "note": ""
+     "name": "Monolith",
+     "ourId": "SAU34",
+     "matchTier": "allcardsId",
+     "note": "🔴 `name`/`ourId` 取自 **2026 build 的 allcards SO**（`pathID=1696504206920290120` ↔ `uniqueId=SAU34`），**不是**本 TutorialStage SO 的 `actionType` 字符串；uniqueId 与 `cards_engine.json` 的 id 同源（同一 CAB `CAB-fb8f01449289635703d83d52c3f18245`）"
     },
     {
      "pid": "1289725038268339793",
      "name": "Gauss Warrior (tutorial)",
      "ourId": "SAU4",
-     "matchTier": "ocrName",
-     "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+     "matchTier": "norm",
+     "note": ""
     },
     {
      "pid": "3356863723264883210",
@@ -8050,7 +8041,7 @@
      "pid": "-5320547842097736041",
      "name": "Extermination Protocol",
      "ourId": "SAU38",
-     "matchTier": "norm",
+     "matchTier": "exact",
      "note": ""
     }
    ],
@@ -8855,9 +8846,9 @@
           "unitType": 40,
           "unitTypeName": "EnemyMinion",
           "pid": "7386907376838221809",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
+          "name": "Gauss Warrior",
+          "ourId": "SAU4",
+          "matchTier": "exact",
           "note": ""
          }
         }
@@ -9478,7 +9469,7 @@
           "pid": "-5320547842097736041",
           "name": "Extermination Protocol",
           "ourId": "SAU38",
-          "matchTier": "norm",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -9529,8 +9520,8 @@
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
           "ourId": "SAU4",
-          "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "matchTier": "norm",
+          "note": ""
          },
          "target": {
           "unitType": 0,
@@ -9742,8 +9733,8 @@
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
           "ourId": "SAU4",
-          "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "matchTier": "norm",
+          "note": ""
          },
          "target": {
           "unitType": 0,
@@ -10117,8 +10108,8 @@
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
           "ourId": "SAU4",
-          "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "matchTier": "norm",
+          "note": ""
          }
         }
        ]
@@ -10321,7 +10312,7 @@
           "pid": "-5320547842097736041",
           "name": "Extermination Protocol",
           "ourId": "SAU38",
-          "matchTier": "norm",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -10525,8 +10516,8 @@
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
           "ourId": "SAU4",
-          "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "matchTier": "norm",
+          "note": ""
          },
          "target": {
           "unitType": 0,
@@ -11002,8 +10993,8 @@
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
           "ourId": "SAU4",
-          "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "matchTier": "norm",
+          "note": ""
          },
          "target": {
           "unitType": 0,
@@ -11053,8 +11044,8 @@
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
           "ourId": "SAU4",
-          "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "matchTier": "norm",
+          "note": ""
          },
          "target": {
           "unitType": 40,
@@ -12528,9 +12519,9 @@
           "unitType": 10,
           "unitTypeName": "PlayerWarlord",
           "pid": "8095124868697240450",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
+          "name": "Unhallowed Gifts",
+          "ourId": "141c5ed661a9e42bd9a793f0d2a1c682",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -14369,7 +14360,7 @@
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
           "ourId": "BL18",
-          "matchTier": "norm",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -14420,7 +14411,7 @@
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
           "ourId": "BL18",
-          "matchTier": "norm",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -14846,7 +14837,7 @@
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
           "ourId": "BL18",
-          "matchTier": "norm",
+          "matchTier": "exact",
           "note": ""
          }
         }
@@ -15008,7 +14999,7 @@
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
           "ourId": "BL18",
-          "matchTier": "norm",
+          "matchTier": "exact",
           "note": ""
          }
         }
@@ -15050,7 +15041,7 @@
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
           "ourId": "BL18",
-          "matchTier": "norm",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -15101,7 +15092,7 @@
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
           "ourId": "BL18",
-          "matchTier": "norm",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -15152,7 +15143,7 @@
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
           "ourId": "BL18",
-          "matchTier": "norm",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -15425,7 +15416,7 @@
           "pid": "-6744931264921040270",
           "name": "Bringer of Decay",
           "ourId": "BL18",
-          "matchTier": "norm",
+          "matchTier": "exact",
           "note": ""
          }
         }
@@ -16423,8 +16414,8 @@
      "pid": "1289725038268339793",
      "name": "Gauss Warrior (tutorial)",
      "ourId": "SAU4",
-     "matchTier": "ocrName",
-     "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+     "matchTier": "norm",
+     "note": ""
     }
    ],
    "playerStartingTroopsInHand": [
@@ -16455,8 +16446,8 @@
      "pid": "9144355707003112947",
      "name": "Tesla Immortal",
      "ourId": "SAU6",
-     "matchTier": "ocrName",
-     "note": "🔴 按裁定映射到 SAU6（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+     "matchTier": "exact",
+     "note": ""
     },
     {
      "pid": "3356863723264883210",
@@ -17163,8 +17154,8 @@
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
           "ourId": "SAU4",
-          "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU4（池里叫「Gauss Reaper Warrior」）：**判据 = card_stats.json 的 `ocrName`='Gauss Warrior' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "matchTier": "norm",
+          "note": ""
          }
         }
        ]
@@ -17469,8 +17460,8 @@
           "pid": "9144355707003112947",
           "name": "Tesla Immortal",
           "ourId": "SAU6",
-          "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU6（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "matchTier": "exact",
+          "note": ""
          },
          "target": {
           "unitType": 0,
@@ -17640,8 +17631,8 @@
           "pid": "9144355707003112947",
           "name": "Tesla Immortal",
           "ourId": "SAU6",
-          "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU6（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "matchTier": "exact",
+          "note": ""
          }
         }
        ]
@@ -17691,8 +17682,8 @@
           "pid": "9144355707003112947",
           "name": "Tesla Immortal",
           "ourId": "SAU6",
-          "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU6（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "matchTier": "exact",
+          "note": ""
          }
         }
        ]
@@ -17955,8 +17946,8 @@
           "pid": "9144355707003112947",
           "name": "Tesla Immortal",
           "ourId": "SAU6",
-          "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU6（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "matchTier": "exact",
+          "note": ""
          }
         }
        ]
@@ -18219,8 +18210,8 @@
           "pid": "9144355707003112947",
           "name": "Tesla Immortal",
           "ourId": "SAU6",
-          "matchTier": "ocrName",
-          "note": "🔴 按裁定映射到 SAU6（池里叫「Tesla Carbine Immortal」）：**判据 = card_stats.json 的 `ocrName`='Tesla Immortal' 与 SO 名逐字吻合 + 池内唯一，不是原版明确指认**（原版卡 SO 包 `allcards_assets_all.bundle` 本地没有，钉不死）"
+          "matchTier": "exact",
+          "note": ""
          }
         }
        ]
@@ -20293,9 +20284,9 @@
           "unitType": 30,
           "unitTypeName": "PlayerMinion",
           "pid": "4406439244507976715",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
+          "name": "Veteran Guardian",
+          "ourId": "ASH7",
+          "matchTier": "exact",
           "note": ""
          },
          "target": {
@@ -20353,9 +20344,9 @@
           "unitType": 30,
           "unitTypeName": "PlayerMinion",
           "pid": "4406439244507976715",
-          "name": "",
-          "ourId": "",
-          "matchTier": "no-name",
+          "name": "Veteran Guardian",
+          "ourId": "ASH7",
+          "matchTier": "exact",
           "note": ""
          }
         }
@@ -21505,17 +21496,17 @@
     },
     {
      "pid": "8270355771166178363",
-     "name": "",
-     "ourId": "",
-     "matchTier": "no-name",
-     "note": ""
+     "name": "Exocrine",
+     "ourId": "TL27",
+     "matchTier": "allcardsId",
+     "note": "🔴 `name`/`ourId` 取自 **2026 build 的 allcards SO**（`pathID=8270355771166178363` ↔ `uniqueId=TL27`），**不是**本 TutorialStage SO 的 `actionType` 字符串；uniqueId 与 `cards_engine.json` 的 id 同源（同一 CAB `CAB-fb8f01449289635703d83d52c3f18245`）"
     },
     {
      "pid": "8906429412044970690",
-     "name": "",
-     "ourId": "",
-     "matchTier": "no-name",
-     "note": ""
+     "name": "Tyrannofex",
+     "ourId": "TL30",
+     "matchTier": "allcardsId",
+     "note": "🔴 `name`/`ourId` 取自 **2026 build 的 allcards SO**（`pathID=8906429412044970690` ↔ `uniqueId=TL30`），**不是**本 TutorialStage SO 的 `actionType` 字符串；uniqueId 与 `cards_engine.json` 的 id 同源（同一 CAB `CAB-fb8f01449289635703d83d52c3f18245`）"
     }
    ],
    "enemyStartingTroopsInHand": [

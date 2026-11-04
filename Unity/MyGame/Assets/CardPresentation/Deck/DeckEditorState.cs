@@ -473,7 +473,7 @@ namespace CardPresentation
         public bool TryAdd(CardDef c, out string why)
         {
             var e = CanAddCore(c);
-            why = e == DeckError.None ? "" : DeckRuntime.DeckErrorText(e);
+            why = e == DeckError.None ? "" : DeckRuntime.DeckErrorText(e, c == null ? -1 : (c.Type == "defence" ? 1 : DeckRules.CopyLimit(c.Rarity, c.Type)));   // ✅ 已复刻（2026-11-04 · B142-E4 · 账 `B141-MAXCOPIES-0`）：`MaxCopiesReached` 的 `{0}` = 同名上限（`CardDeck__CanAddCard.c:58,65-70` 用 `GetMaxCopiesInDeck(rarity)`）—— ⚠️ **督军/防御卡槽那两支原版硬编码 1**（`CardDeck__CanAddHero.c:99-103` · `CardDeck__CanAddDefensive.c:99-103`：`GetTranslation(DAT_1842cf7f0)` → `local_res8[0] = 1` → `String.Format` ⇒ 印「已有 1 张」，**不是** rarity 上限 2），督军那支 `CopyLimit(rarity,"hero")` 本来就恒 1 ⇒ 只有 `defence` 需要单独给 1；`c == null`（`TryAdd(string)` 找不到那张卡 ⇒ `UnknownCard`）传 -1 ⇒ 走安全档，⛔ 别在这里解引用
             if (e != DeckError.None) return false;
 
             if (c.Type == "hero") { Deck.WarlordId = c.Id; Deck.SetDeckArmyFromCard(c); }   // 🆕 2026-11-01（`B111_R1WB`）：原版 `AddHero` 同时写 `deckArmy`。⚠️ 换督军 = 直接替换槽位（原版 `AddHero` 只写 deckHero/deckArmy）；⚠️ **编辑期不清卡**：旧卡留着 ⇒ `Validate` 报 `WrongFaction` 熄 Done，**下次开窗**才由 `LoadDeck` 按 `RemoveInvalidCards` 清

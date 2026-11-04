@@ -3155,13 +3155,93 @@ namespace CardPresentation
         public static void Grant(string art, int n)
         {
             if (string.IsNullOrEmpty(art)) return;
+            EnsureLoaded();
             Gold[art] = Of(art) + n;
+            Save();
         }
 
         public static int Of(string art)
         {
+            EnsureLoaded();
             int cur;
             return Gold.TryGetValue(art, out cur) ? cur : StartAmount;
         }
+
+        // ════════════════════════════════════════════════════════════════════════════════════
+        //  落盘（🆕 2026-11-04 · 执行写手 `B142-E73` · 任务 `B142-WALLET-PERSIST`）
+        //  ⚠️ **本节成员全部追加在类尾**（`CLAUDE.md`：新成员别插进既有成员之间，免得下游行号漂）。
+        //
+        //  判据 / 为什么必须自己定：
+        //    · 原版货币是**服务端 inventory**（`InventoryManager.DeserializeInventory(userInfo…)`，P3、已关服）
+        //      ⇒ `PlayerDataKey` 里**没有**货币这个 key，本地永远拿不到原版容器名 ⇒ 只能 `_ours_` 前缀
+        //      （`Shell/SaveKeys.cs` 的 `OursPrefix` 文档：加 `_ours_` key **不用改键表**）。
+        //    · 落盘口 = `SaveCenter`（Step 5 起的唯一写盘口，形状照 `Shell/ChatCache.cs` 那第一个消费者：
+        //      `SaveCenter.Get<T>` / `Set<T>`；`JsonUtility` 不吃 `Dictionary` ⇒ 落成 `key/amount` 数组，
+        //      与 `CardProgress` 的 `levels/owned/wildcards` 同一条既有约束）。
+        //    · 🔶 自己设计（非原版）：`_ours_Wallet` 这个 key 与它的 payload 形状 · 原版钱包在服务器、本地没有判据 ·
+        //      调度台 2026-11-04 裁定（`B142-E73` 简报：「沿用 `SaveKeys`/`SaveCenter` 的既有写法」）。
+        //
+        //  ⚠️ **落盘门 = `SaveCenter.StoreOn`**（与 `SaveCenter` / `DailyData.StoreOn` 同一条纪律）：
+        //     批处理自检 / 没注入 `SaveCenter.OverrideRoot` ⇒ **读也不读、写也不写**（一个字节都不碰玩家真档）。
+        // ════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>存档键。`_ours_` 前缀 = 原版没有这个 key（见本节头「为什么必须自己定」）。</summary>
+        public const string SaveKey = "_ours_Wallet";
+
+        static bool _loaded;   // 懒加载过没有（无论读盘成功与否）
+
+        /// <summary>懒加载（**每进程一次**）。旧档无键 ⇒ 什么都不做 ⇒ `Of()` 照旧返回 <see cref="StartAmount"/>。
+        /// <para>⚠️ `SaveCenter.Get` 缺 key 时会 `SpeakOnce` 说一句（第一次跑的正常态，⛔ 不是错误）。</para></summary>
+        static void EnsureLoaded()
+        {
+            if (_loaded) return;
+            _loaded = true;
+            if (!SaveCenter.StoreOn) return;                       // 自检 / 批处理：不读玩家真档
+            WalletSave dto = SaveCenter.Get<WalletSave>(SaveKey);
+            if (dto == null || dto.gold == null) return;           // 第一次跑 / 坏档（`Get` 已出声）⇒ 出厂态
+            for (int i = 0; i < dto.gold.Length; i++)
+            {
+                WalletEntry e = dto.gold[i];
+                if (e != null && !string.IsNullOrEmpty(e.key)) Gold[e.key] = e.amount;
+            }
+        }
+
+        /// <summary>落盘（`Grant` 之后调）。失败**必须出声**（红线：不许静默失败）。
+        /// <para>键按序数排序 ⇒ payload 可复现（自检能逐字节比）。</para></summary>
+        static void Save()
+        {
+            if (!SaveCenter.StoreOn) return;                       // 自检 / 批处理：设计上的空操作，⛔ 不是失败
+            var dto = new WalletSave();
+            var keys = new System.Collections.Generic.List<string>(Gold.Keys);
+            keys.Sort(System.StringComparer.Ordinal);
+            dto.gold = new WalletEntry[keys.Count];
+            for (int i = 0; i < keys.Count; i++) dto.gold[i] = new WalletEntry { key = keys[i], amount = Gold[keys[i]] };
+            if (!SaveCenter.Set(SaveKey, dto))
+                UnityEngine.Debug.LogError("[Wallet] 货币账**没能落盘**（`SaveCenter.Set('" + SaveKey
+                                         + "')` 返回 false，见它自己那条日志）⇒ 本次发放只在内存里（关掉游戏会丢）");
+        }
+
+        /// <summary>自检用：清内存 + 复位懒加载闩（**不删盘**）—— 等价于「重开一次进程」。
+        /// <para>⚠️ 只有 `Editor/**` 的自检该调它（配合 `SaveCenter.OverrideRoot` 指到临时目录）。</para></summary>
+        public static void ResetForTest() { Gold.Clear(); _loaded = false; }
+    }
+
+    /// <summary>`Wallet` 存的**一条**（`JsonUtility` 不吃 `Dictionary` ⇒ 落成数组；容器放在**文件级**
+    /// —— 同 `SaveVersionProbe` 的理由：`JsonUtility` 对**嵌套类型**的支持在各 Unity 版本上不一致）。</summary>
+    [System.Serializable]
+    public class WalletEntry
+    {
+        /// <summary>`Wallet.Gold` 的键（= `MainMenuRuntime.CounterSpecs` 的 `WalletKey`）。</summary>
+        public string key;
+        /// <summary>余额。</summary>
+        public int amount;
+    }
+
+    /// <summary>`_ours_Wallet` 的 payload（`{"gold":[{key,amount},…]}`）。文件级、非 `MonoBehaviour`。</summary>
+    [System.Serializable]
+    public class WalletSave
+    {
+        /// <summary>全部有记账的货币格。</summary>
+        public WalletEntry[] gold;
     }
 }

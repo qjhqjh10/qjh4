@@ -121,7 +121,7 @@ public static class B98A8_Assert
         CheckLt(cardsZ, packZ, "5 张卡那层在包实物**前**（更近 ⇒ 叠在上面）");
         CheckNear(cardsZ, BoosterPackOpenWindow.CardsFrontZ, "卡那层 world z = `CardsFrontZ`");
 
-        // ---- 粒子队列：必须 ≥ `QCard`(3171) 才画在本窗透明背景(`QShade` 3170)之上（A5 的 LiftPackParticles）----
+        // ---- 粒子队列：必须 ≥ `QCard`(3123) 才画在本窗透明背景(`QShade` 3122)之上（A5 的 LiftPackParticles；2026-11-04 `B142-E30` 订正旧号 3170/3171）----
         var prs = _win.VisualItem.GetComponentsInChildren<ParticleSystemRenderer>(true);
         Check(prs.Length > 0, "（前提）卡包实物子树里有粒子（本段才可判队列）");
         if (prs.Length > 0)
@@ -133,7 +133,7 @@ public static class B98A8_Assert
                 if (r == null || r.sharedMaterial == null) { anyNull = true; allLifted = false; continue; }
                 if (r.sharedMaterial.renderQueue < BoosterPackOpenWindow.QShade) allLifted = false;
             }
-            Check(!anyNull, "包面粒子都拿得到材质（否则下一条判不了队列）"); Check(allLifted, "包面粒子的 renderQueue 全部 ≥ QShade(3170)（否则透明背景后画会盖掉它）");
+            Check(!anyNull, "包面粒子都拿得到材质（否则下一条判不了队列）"); Check(allLifted, "包面粒子的 renderQueue 全部 ≥ QShade(" + BoosterPackOpenWindow.QShade + ")（否则透明背景后画会盖掉它；2026-11-04 `B142-E30`：改打印常量、不再写死 3170）");
         }
     }
     // 🆕 2026-10-31（B109 · AUD11）：宿主聚合行原来只裸调 `Run()`、不进 `_sink` ⇒ 全红宿主仍绿。追加到类尾（零行漂）。

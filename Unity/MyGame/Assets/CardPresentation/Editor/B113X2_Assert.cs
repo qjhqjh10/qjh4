@@ -116,7 +116,11 @@ public static class B113X2_Assert
         box.Open();
         Tr(box.IsOpen, "A0 夹具：`Open()` 之后 `IsOpen`（列表已建）");
         var list = box.ListRoot;
-        Tr(list != null, "（前提）列表根（原版 `Template`）建出来了");
+        // 🔴 **2026-11-04（`B142-E18`）**：条目**不再直接挂 `Template`** —— 原版层级是
+        //   `Template ▸ Viewport ▸ Content ▸ Item n`（`Social Submenu Variant.prefab`），
+        //   `ListRoot` 仍是 `Template`，条目在那下面两层 ⇒ 按路径找件一律走 `ContentRoot`。
+        var content = box.ContentRoot;
+        Tr(list != null && content != null, "（前提）列表根（原版 `Template`）与条目层（原版 `Template ▸ Viewport ▸ Content`）都建出来了");
 
         // A1：结构性 —— 三行**每一行**都有一颗 `Item Checkmark` 子件。
         bool allThree = true, anyNull = false;
@@ -124,7 +128,7 @@ public static class B113X2_Assert
         {
             var q = box.CheckAt(i);
             if (q == null) { anyNull = true; allThree = false; continue; }
-            if (list != null && list.Find("Item " + i + "/Item Checkmark") == null) allThree = false;
+            if (content != null && content.Find("Item " + i + "/Item Checkmark") == null) allThree = false;
         }
         Tr(!anyNull, "A1① 三行的 `CheckAt(i)` 都不是 `null`（勾的渲染件建出来了）");
         Tr(allThree, "A1② 三行各自都有名为 `Item Checkmark` 的子节点（原版 `Item` 的第三颗子件，⛔ 不是只建当前那一行）");
@@ -143,7 +147,7 @@ public static class B113X2_Assert
 
         // A4：🔴 灭自证 —— 把「选中行」挪走而**值不动**，勾必须钉在原行。
         //   驱动口 = 第 0 行命中区上的 `WindowButton.onDown`（`BuildList` 里接的就是 `MoveSelectionTo(0)`）。
-        var hit0 = list != null ? list.Find("Item 0/Hit") : null;
+        var hit0 = content != null ? content.Find("Item 0/Hit") : null;
         Tr(hit0 != null, "（前提）第 0 行的命中节点 `Item 0/Hit` 在（A4 要借它的 `onDown`）");
         var wb0 = hit0 != null ? hit0.GetComponent<WindowButton>() : null;
         Tr(wb0 != null, "（前提）那颗命中区上挂着 `WindowButton`（`MoveSelectionTo` 的接线点）");

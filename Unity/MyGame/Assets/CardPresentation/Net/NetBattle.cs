@@ -2162,7 +2162,7 @@ namespace CardPresentation.Net
         void OnFinishWaitEnded()
         {
             if (!_peerGone) return;
-            if (_d == null || _d.Ctx == null || _d.Ctx.IsOver) return;   // 原版那道 `IsDuringBattle()` 闸
+            if (_d == null || !MatchTypes.IsDuringBattle(_d.Ctx, false)) return;   // 原版那道 `IsDuringBattle()` 闸（🆕 2026-11-04 `B142_E2`：改吃 `MatchTypes.IsDuringBattle(ctx, false)` —— 改前是 `_d.Ctx == null || _d.Ctx.IsOver` 的等价内联；换成共享口后**同一份口径**，且补上「换牌期 / 开打前」两档）
             PeerMatchFinished = false;                                   // 原版 `+0x2cc = 0`
             HandlePeerLost();                                            // = 原版 `ShowDisconnectionPopup(false)`
         }

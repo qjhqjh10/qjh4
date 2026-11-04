@@ -228,7 +228,7 @@ namespace CardPresentation
             // 字号四格 = 原版 `38 / 10 / 38 / 38`（`menu_dump … --depth 6` 现读）。
             // ⚠️ `SetAutoFitBox` 内部会 `SetWrapWidth` ⇒ 紧跟一句把**原版折行 0** 还原（同 `SkirmishEventWindow.BuildTimer`）。
             tx.SetAutoFitBox(LayoutSpace.Px(txR.W), LayoutSpace.Px(txR.H), 10f, 38f, 38f);
-            tx.SetWrapping(false);
+            tx.SetWrapping(false); tx.SetSmallScreenFontSizes(38f, 10f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：`{RankedEventWindow,RankedEventWindowV2} ▸ Ranked Division Info ▸ Content ▸ Timer/Timer` = 38/10）
             TimerDisplay.Attach(tx, () => RankTimerDeadline, prefix, "排位窗段位块 Timer",
                                 "赛季结束时刻由服务端 LiveOps 事件下发，本地没有");
         }

@@ -27,10 +27,10 @@
 //  我们这一侧（改后）：`BattleButtonFx.ContinueNormal/…/ContinueSelected/ContinueColorMultiplier` 承载上表；
 //  `Battle/CardChoicePanel.cs` 建底条时传基准绿、`BuildFeedback` 每次重建**先还原基准色**再建 fx 并 `ApplyInstant()`。
 //
-//  **`B141-W35b`（同日续做）· 确认钮禁用态**：原版 `Continue Button` 子树四颗件各挂一颗
-//  `EverguildButtonStateFollower`（`EverguildButtonStateFollower__Disabled.c` → `DoMaterialRefresh` ⇒
-//  `EverguildButtonHelper.get_DisabledMaterial` 的灰度材质），与按钮自己的 `m_DisabledColor` × multiplier **同时**生效。
-//  我们这一侧 = `SetConfirmInteractable(false)` → `_fxBar.SetDisabled(true)`（色 + 灰化），重建后重放；E 组钉住。
+//  **`B141-W35b`（同日续做）· 确认钮禁用态**：⚠️ 2026-11-04 订正（`B142-E71`）—— 灰化**不是** `StateFollower` 驱动。
+//  `Continue Button`（GO **779**）上四颗件 = `Button` / `Image` / `EverguildButton` / `EverguildButtonMaterialModifier`，
+//  其中 `m_Script -9096086197743689236` 是 **`EverguildButtonMaterialModifier`**（不是 StateFollower）；真正驱动灰化的是同 GO 的
+//  **`EverguildButton`**（pathID `1015376240363272691`，`colorTintGreyOnDisable=1` ⇒ `SwitchMaterial → EverguildButtonHelper.DoMaterialRefresh`）；**该子树没有 `StateFollower`**（全场景仅 2 颗，在 `CircleButton` 上）。我们这一侧 = `SetConfirmInteractable(false)` → `_fxBar.SetDisabled(true)`（色 + 灰化），重建后重放；E 组钉住。
 //
 // ============================ 灭自证（🧨 结构上不可能同时满足）============================
 //  🧨 1（两处绿）：B1 把复合值钉在 **base × N × 2 = 0.2717724**，同时 B2 断言它 **≠ 0.7372（= N × 2，漏掉基准色）**
@@ -265,8 +265,8 @@ public static class B141_W35_Assert
     // ============================================================ E · 确认钮禁用态（`B141-W35b`）
     static void E_ConfirmDisabled(Transform parent)
     {
-        // 原版：`Continue Button` 子树四颗件各挂一颗 `EverguildButtonStateFollower` ⇒ `interactable=false`
-        // 换灰化材质；同时按钮自己的 `m_DisabledColor`（× multiplier）照常生效。我们这一侧 = `_fxBar.SetDisabled(!on)`。
+        // 原版：⚠️ 2026-11-04 订正（`B142-E71`）—— 灰化由 `Continue Button` 上的 **`EverguildButton`**（`colorTintGreyOnDisable=1`）
+        // 走 `SwitchMaterial → EverguildButtonHelper.DoMaterialRefresh`；该子树**没有** `StateFollower`（`m_Script -9096086197743689236` 是 `EverguildButtonMaterialModifier`）。我们这一侧 = `_fxBar.SetDisabled(!on)`。
         var p1 = MakePiece(parent, "DisabledGrey", OrigNormal);
         var f1 = BattleButtonFx.Tint(p1, "Continue Button(disabled)",
                                      BattleButtonFx.ContinueNormal, BattleButtonFx.ContinueHighlighted,

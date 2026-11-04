@@ -2473,7 +2473,7 @@ namespace CardPresentation
         /// （24 颗另带 `fontSizeMin`）。</para></summary>
         public void SetSmallScreenFontSizes(float maxPx, float minPx)
         {
-            _ssMaxPx = maxPx;
+            _ssMaxPx = maxPx; SmallScreenSetCount++; _ssSetCount++;   // ✅ 2026-11-04（B142-E74）：两个计数只给自检读「每颗标签被接了几次」（行尾追加 = 零行数变化，见 CLAUDE.md 18·b）
             _ssMinPx = minPx;
             ApplySmallScreenTextSize();
         }
@@ -2933,5 +2933,29 @@ namespace CardPresentation
         /// <summary>「我们请求过什么段距」那一侧的记账（TMP 的真值走 <see cref="ParagraphSpacingNow"/>）。
         /// ⚠️ 单独一个字段是为了让**灭自证**能只写一边 —— ⛔ 别拿它当渲染真值用。</summary>
         float _paragraphSpacing;
+
+        // ==================================================================
+        //  ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `判据/B90_N2_小屏字号实例.tsv`）
+        //  小屏字号档的**接线读口**：79 颗原版实例在各自建点上落 `SetSmallScreenFontSizes(maxPx, minPx)`。
+        //  ⚠️ 一律追加在**类尾**（本文件被账按 `文件:行号` 引用到 `:2696`；插在中段会让下游落点整体漂移）。
+        // ==================================================================
+
+        /// <summary>自检读口：**最近一次请求**的小屏两格（设计 px，原样存 = 原版 `smallScreenMaxFontSize`
+        /// / `smallScreenMinFontSize`）。两格都是 0 ⇒ 这一颗**没被接线**（= 站点漏了）。</summary>
+        public float SmallScreenMaxRequestedPx { get { return _ssMaxPx; } }
+
+        /// <summary>自检读口：见 <see cref="SmallScreenMaxRequestedPx"/>。</summary>
+        public float SmallScreenMinRequestedPx { get { return _ssMinPx; } }
+
+        /// <summary>自检读口：**这一颗**被 `SetSmallScreenFontSizes` 调过几次（= 1 才算「每个 helper 只接一次」）。</summary>
+        public int SmallScreenSetCountForTest { get { return _ssSetCount; } }
+
+        /// <summary>自检读口：**进程内**一共调过多少次（配 <see cref="ResetSmallScreenSetCountForTest"/> 用）。</summary>
+        public static int SmallScreenSetCount { get; private set; }
+
+        /// <summary>自检夹具用：把进程内的总计数清零（⛔ 生产路径不碰）。</summary>
+        public static void ResetSmallScreenSetCountForTest() { SmallScreenSetCount = 0; }
+
+        int _ssSetCount;
     }
 }

@@ -177,8 +177,8 @@ public static class B141_W44_Assert
         var ds = Src("Shell/DeckSelectionPopup.cs");
         Check(ds.Contains("const string TabOnArt = \"40K_tab_button\", TabOffArt = \"40K_tab_button_overwindow\";"),
               "A9 牌组选择弹窗两颗页签的选中图 = `40K_tab_button_overwindow`（逐颗实读 · 两颗同值）");
-        Check(ds.Contains("tabWb.BindNine(tabBgNode, norm, norm, norm, TabOffArt);"),
-              "A9b 两颗页签**逐颗**绑了选中图（九宫格走 `BindNine`）");
+        Check(ds.Contains("tabWb.BindNine(tabBgNode, norm, norm, norm, TabOffArt"),
+              "A9b 两颗页签**逐颗**绑了选中图（九宫格走 `BindNine`；✅ 2026-11-04 B142-E17：判据改成**前缀**匹配 —— 尾随可选的 `NineMeta` 实参不该让这条假红）");
         Check(ds.Contains("var tabBgNode = MenuDraw.Nine("),
               "A9c 九宫格根节点被接住（否则 `BindNine` 没东西可绑）");
     }
