@@ -92,7 +92,7 @@ namespace CardPresentation
         /// 直接照 dump 四边写，⛔ 别按「居中」反推（同族别的窗居中、这一扇不是）。</summary>
         public static readonly PxRect ShadeR = new PxRect(-1290.30005f, -746.17761f, 3284.30005f, 1826.18250f);
         /// <summary>`Menu Dark Background/Image.m_Color`（实读 (0,0,0,0.772549)）。</summary>
-        public static readonly Color ShadeTint = new Color(0f, 0f, 0f, 0.773f);
+        public static readonly Color ShadeTint = new Color(0f, 0f, 0f, 0.7725490f);
 
         /// <summary>`Generic Window Red Background Big`（1510.6368×990.6129）· 九宫 `UI_Deck_Information_Back` 1100×701 · border (42,363,655,81)。</summary>
         public static readonly PxRect PanelR = new PxRect(204.68158f, 16.32612f, 1715.31842f, 1006.93902f);

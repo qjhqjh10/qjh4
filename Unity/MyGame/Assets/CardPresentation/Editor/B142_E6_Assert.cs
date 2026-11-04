@@ -60,7 +60,7 @@ public static class B142_E6_Assert
         Debug.Log(Tag + " --- Tooltip 正文：语种字号（28 px）+ 像素宽折行（468.9）+ 面板高上限（220）"
                        + "（判据 = 原版 `BasicToolTip.prefab`）---");
         GroupA_Params();
-        GroupB_Applied();
+        GroupB_TwoModes();
         Debug.Log(Tag + " 合计：✓ " + _pass + " · ✗ " + _fail);
     }
 
@@ -253,5 +253,44 @@ public static class B142_E6_Assert
         float v;
         return float.TryParse(sb.ToString(), System.Globalization.NumberStyles.Float,
                               System.Globalization.CultureInfo.InvariantCulture, out v) ? v : float.NaN;
+    }
+
+    // ==================================================================
+    //  ✅ 已复刻（2026-11-05 · B143-W4 · 判据 = `Tooltip.BodyMaxPx` 的两档：桌面 28 / 小屏 34，
+    //    来源 `decomp_full/EverguildTextController__Awake.c:17-20`）：E6 的 A 组是**静态参数**（与 `smallScreenUI` 无关），
+    //    但 B 组每一条期望都读 `Tooltip.BodyMaxPx` ⇒ 宿主默认只跑一档（由 `SmallScreenUI.Enabled` 决定）。
+    //    这里**显式切两档各跑一遍**，并 `try/finally` 复原 —— ⛔ 不许污染同宿主后续断言。
+    // ==================================================================
+    static void GroupB_TwoModes()
+    {
+        bool wasPersist = SmallScreenUI.PersistOverride;
+        bool wasEnabled = SmallScreenUI.Enabled;
+        SmallScreenUI.PersistOverride = true;              // 自检⛔ 不动玩家的真设置
+        try
+        {
+            RunGroupBForMode(false, "桌面档（smallScreenUI=false ⇒ BodyMaxPx=28）");
+            RunGroupBForMode(true,  "小屏档（smallScreenUI=true  ⇒ BodyMaxPx=34）");
+        }
+        finally
+        {
+            SmallScreenUI.Set(wasEnabled);
+            SmallScreenUI.PersistOverride = wasPersist;
+            if (!wasEnabled) SmallScreenUI.ResetForTest();
+        }
+    }
+
+    /// <summary>把 `SmallScreenUI` 钉到一档再跑 B 组（`GroupB_Applied` 自己收尾销毁夹具）。</summary>
+    static void RunGroupBForMode(bool smallScreen, string what)
+    {
+        SmallScreenUI.Set(smallScreen);
+        Check(SmallScreenUI.Enabled == smallScreen,
+              "（前提）已切到 " + what + " —— 两档都要真跑到（否则期望值那一读口没被覆盖）");
+        if (Tooltip.BodyMaxPx != (smallScreen ? 34f : 28f))
+        {
+            Check(false, "（前提）本档 `Tooltip.BodyMaxPx` = " + Tooltip.BodyMaxPx.ToString("F1")
+                       + "（应 " + (smallScreen ? 34f : 28f).ToString("F1") + "）");
+            return;
+        }
+        GroupB_Applied();
     }
 }

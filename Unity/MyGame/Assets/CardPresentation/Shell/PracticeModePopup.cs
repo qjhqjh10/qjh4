@@ -198,7 +198,7 @@ namespace CardPresentation
         const int QPrItemHL = 3102, QPrItemBd = 3103, QPrItemArt = 3104, QPrItemSeal = 3105, QPrItemTxBg = 3106;
 
         // ---- 几何（§二 A 逐条）----
-        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
+        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.7725490f);
         public const float BackL = 215.76f, BackT = 892.86f, BackR = 280f, BackB = 956.10f;
         public const float BackIcL = 224.19f, BackIcT = 901.15f, BackIcR = 271.58f, BackIcB = 947.81f;
         public const float BackTxL = 289.07f, BackTxR = 594.40f;

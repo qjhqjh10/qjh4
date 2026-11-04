@@ -763,15 +763,15 @@ namespace CardPresentation
         ///     LeaderboardManager.Instance.GetLeaderboard(leaderboardName, …, forceRefresh:false);
         /// }, ActionRule.BlockActionsFromSameGroup, …, menuFilter: new[]{"ScoringEvent"});
         /// </code>
-        /// <para>⚠️ 第二跳的 `MenuFilter = {"ScoringEvent"}`（原版那段 `Type[] array2` 实际装的是**字符串**，
-        /// cpp2il 把 `typeof` 那一段丢成了字符串数组）；本地的 `MenuAction.MenuFilter` 是 `Type[]` ⇒
-        /// **不传 filter**（我们的 `MenuActions` 没有「按组名过滤窗类型」那一格），如实记差异。</para></summary>
+        /// <para>🔴 **就地订正（2026-11-05 · B143-W7 · 铁律 5）**：本节原写「`MenuFilter = {"ScoringEvent"}`，cpp2il 把 `typeof` 丢成字符串数组 ⇒ 不传 filter」——**两句都错**：
+        /// `{"ScoringEvent"}` 是**第 4 个形参 `groups`**（`out_il2csharp/…/Everguild/LiveOps/RaidEvent.cs:125-131`），`menuFilter` 原版传的是 **`Array.Empty&lt;Type&gt;()`**；
+        /// 而 `MenuActions.QueueAction` 体内会把空 filter 换成 `[typeof(MainMenuWindow)]`（`MenuActions.cs:151-165`）⇒ 现在照原版**传 `groups: {ScoringEvent}` + `recurring: true` + 空 filter**（三样都是原版实参，⛔ 别只补一半）。</para></summary>
         public override void Initialize()
         {
             base.Initialize();
             RaidSignals.CollectRewards += OnRewardCollected;
             MenuActions.BlockGroups(new[] { ScoringGroup });
-            _refreshAction = MenuActions.QueueAction(RefreshScoreValues, ActionRule.BlockActionsFromSameGroup);
+            _refreshAction = MenuActions.QueueAction(RefreshScoreValues, ActionRule.BlockActionsFromSameGroup, 0, new[] { ScoringGroup }, false, false, true, System.Array.Empty<System.Type>());   // ✅ 已复刻（2026-11-05 · B143-W7 · `out_il2csharp/…/Everguild/LiveOps/RaidEvent.cs:120-131`：`QueueAction(action, BlockActionsFromSameGroup, 0, groups:["ScoringEvent"], 0, 0, recurring:1, menuFilter:Array.Empty<Type>())`）；🔴 2026-11-05（B143-W4）补第 4 实参 `groups` —— 原版**先 `BlockGroups(["ScoringEvent"])` 再带同组排队** ⇒ 补 groups 后本动作在 `usedGroups` 被清（`MenuActions.ResetBlocking()` = 原版 `ResumeMenuActions`）之前**不触发**，这是**原版形状**，⛔ 别当 bug 去「修」（不补 groups 则 `Recurring` 无组可锁 ⇒ 每次 `TryDrain` 都重触发）
         }
 
         /// <summary>原版 `RaidEvent.Dispose()`（`RaidEvent.cs:421`，**逐句**）：

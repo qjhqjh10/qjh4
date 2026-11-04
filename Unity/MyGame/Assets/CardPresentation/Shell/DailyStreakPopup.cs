@@ -344,9 +344,9 @@ namespace CardPresentation
 
             // 1) 压暗整屏
             // ⚠️ **2026-10-18（T29 · 顺手）**：alpha 原来写 `0.77f`，原版 `Menu Dark Background` 的 `m_Color.a` 是
-            //    **0.773**（同 `DailyRewardPopup.ShadeColor` / `SettingsWindow.ShadeColor` 那一族）⇒ 对齐成 0.773f。
+            //    **0.77254903 = 197/255**（同 `DailyRewardPopup.ShadeColor` / `SettingsWindow.ShadeColor` 那一族）⇒ ✅ 2026-11-05 B144-D 订正：原来取整成 0.773f，现按精确值。
             MenuDraw.Rect(root, CardArt.Solid(), Shade, "Menu Dark Background", QShade,
-                          new Color(0f, 0f, 0f, 0.773f));
+                          new Color(0f, 0f, 0f, 0.7725490f));
             // 🔴 **2026-10-05（A81）**：压暗层的**点击区**（「点窗外关窗」）—— **原来零 `ShadeHit(`**。
             //   判据：原版是压在 `Menu Dark Background` **自身节点**上的 `BackgroundCloseButton`；
             //   本窗的接线字段叫 **`backgroundButton`**（`DailyStreakWindow__Start.c`，偏移 `0x98`）——

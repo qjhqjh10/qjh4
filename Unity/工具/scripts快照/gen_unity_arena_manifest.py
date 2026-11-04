@@ -2199,6 +2199,18 @@ def build_manifest(a, include_all_particles=False):
             'normalDirection': r6(_f(psr.get('m_NormalDirection'), 1.0)),
             'sortMode': int(_f(psr.get('m_SortMode'), 0)),
             'maskInteraction': int(_f(psr.get('m_MaskInteraction'), 0)),
+            # 🔴 2026-11-05（`B144_R1` · B136 B-07/08/09 的**粒子那一半**）：
+            #   这三个 `ParticleSystemRenderer` 字段**原来只给 `meshes` 抽**（`:1961-1963`），
+            #   粒子条目根本没有 ⇒ 建场侧 34 颗 PSR 全落 Unity 默认 `(1, 0, 0)`。
+            #   原版 `battlearena1` 的 60 个 PSR 逐颗实读：
+            #     · `m_RenderingLayerMask` —— `1` × 32 · **`4294967295`（All）× 28**；
+            #     · `m_LightProbeUsage`   —— `0` × 46 · **`1`（BlendedProbes）× 14**；
+            #     · `m_SortingOrder`      —— **`1` × 2**（其余 0）。
+            #   ⚠️ 兜底值 = 我们「不接」时的现状 / 新建 PSR 的默认：`renderingLayerMask 1` · `lightProbeUsage 0` · `sortingOrder 0`
+            #      （实测战场 prefab 34 颗 PSR 全是 `(1,0,0)`；⛔ 别照 MeshRenderer 那支写成 `lightProbeUsage 1`）。
+            'renderingLayerMask': int(_f(psr.get('m_RenderingLayerMask'), 1)),
+            'lightProbeUsage': int(_f(psr.get('m_LightProbeUsage'), 0)),
+            'sortingOrder': int(_f(psr.get('m_SortingOrder'), 0)),
             'matColor': (lambda m: ([r6(_f(m.get('r'), 1.0)), r6(_f(m.get('g'), 1.0)),
                                      r6(_f(m.get('b'), 1.0)), r6(_f(m.get('a'), 1.0))]
                                     if isinstance(m, dict) else None))(

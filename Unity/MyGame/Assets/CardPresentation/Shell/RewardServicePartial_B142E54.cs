@@ -40,10 +40,10 @@
 //  ⛔ **Points**：原版那是一支独立分派（`item.Collect(qty)` → `Points<T>.Collect` → `IPointReceiver.CollectPoints`）。
 //     战役 89 条奖励里**一条 Points 都没有**，而本机**没有**「按 id 认得出 Points」的判据（那要 `PointsConfig` 的 SO 名册）
 //     ⇒ 今天**不建这一档**（落到 `Unknown` 出声、不发）。将来出现 Points 奖励时按 `Shell/Points.cs` 那条链接。
-//  ⛔ **容器 / 掉落表 / 预组卡组**：本工程**没有对应背包**
-//     （没有「未开的卡包计数」：`BoosterPackOpenWindow` 是买完直接开、掉落表是我们自拟的；
-//       没有卡组背包：预组卡组全部可用）。⇒ 认得出这一类、**出声说明无处可落**，**不落账为已发**。
-//     ⛔ 别为此新造一个「拥有的卡包」机制（那是原版 `ShopContainerInventory` 的整套语义，超出本件）。
+//  ✅ **容器 / 掉落表 / 预组卡组**：🔴 **2026-11-05 就地订正（B143-R4，铁律 5）** —— 原来这三行写「本工程没有对应背包、
+//     出声不发」。现在**三档都真发了**：卡包 → `Inventories.Containers`（`Shell/BoosterInventory.cs`）· 掉落表 →
+//     `Inventories.DropTables`（同文件）· 预组 → `DeckRuntime.SharedLibrary` + 它的卡/卡背/督军（`Shell/BoosterPrebuiltDeck.cs`）。
+//     判据与施工单 → `资料/完全复刻/判据/B143_奖励背包与待裁四项.md`。⚠️ 卡包的「打开」（购买链）仍是 Step 3，未接。
 //
 // ============================ 落在哪（零行数变化）============================
 //  `Shell/Inventory.cs` 的 `CollectItemRewardById` 里，`CollectItemRewardCard(...)` 那一句**同一物理行**追加
@@ -126,11 +126,22 @@ namespace CardPresentation
 
             var spec = ItemDrawer.Spec(id, null, null);
             if (spec.Kind == ItemKind.Wildcard) return RewardKind.Wildcard;
+            // 🆕 2026-11-05（B143-R4 · 铁律 5 就地订正）：**先问 `booster_tables.json`**。
+            //   原版这一层的判据本来就是「物品 SO 的运行时类型」，而 `ItemDrawer.IdTypes` 只收了
+            //   **4 条手维护的实据**（2 个容器 + 2 张 DT）⇒ 战役奖励里的 `DT Ultramarines R3` / `R4`
+            //   原来被判 `Unknown`（旧注释写「本地没有它们的 SO」——**错**：34 份 DT 全在
+            //   `assets_full` 里，R3 = 23 张候选 / R4 = 18 张，见 `booster_tables.json`）。
+            if (BoosterTables.TryGetDropTable(id, out _)) return RewardKind.DropTable;
+            if (BoosterTables.TryGetContainer(id, out _)) return RewardKind.ShopContainer;
             // 下面两条字符串 = `ItemDrawer.IdTypes` 的**右值**（那是原版 SO 的 `m_ClassName` 实读表）。
             // ⚠️ 断言 `Editor/B142_E54_Assert.cs` 的 E4b/E5b **独立重读那张表**来核这两个值 —— ⛔ 不是自证。
             if (spec.Type == "Everguild.LiveOps.ShopContainer") return RewardKind.ShopContainer;
             if (spec.Type == "DropTableItem") return RewardKind.DropTable;
             if (PrebuiltDecks.ById(id) != null) return RewardKind.PrebuiltDeck;
+            // 🆕 2026-11-05（B143-R4 · Step 4）：**突袭池**那 78 副在 `prebuilt_deck_lists.json` 里，不在
+            //   `prebuilt_decks.json`（后者只收练习池 103 副）⇒ 战役奖励的 `UM_SK_Starter`（`isPracticeDeck = 0`）
+            //   原来一路落 `Unknown`。判据 = 原版 `CollectDeckReward` 吃的是任意 `PrebuiltDeck` SO。
+            if (BoosterPrebuiltDecks.ById(id) != null) return RewardKind.PrebuiltDeck;
             if (IsCosmeticId(id)) return RewardKind.Cosmetic;
             return RewardKind.Unknown;
         }
@@ -145,9 +156,9 @@ namespace CardPresentation
                 case RewardKind.Currency: return CollectCurrencyRewardByCode(id, quantity);
                 case RewardKind.Wildcard: return CollectWildcardRewardById(id, quantity);
                 case RewardKind.Cosmetic: return CollectCosmeticRewardById(id, quantity);
-                case RewardKind.ShopContainer: return NoteContainerReward(id, quantity, "`Everguild.LiveOps.ShopContainer`（卡包）");
-                case RewardKind.DropTable: return NoteContainerReward(id, quantity, "`DropTableItem`（掉落表）");
-                case RewardKind.PrebuiltDeck: return NoteContainerReward(id, quantity, "`PrebuiltDeck`（预组卡组）");
+                case RewardKind.ShopContainer: return GrantContainerReward(id, quantity);   // 🆕 2026-11-05（B143-R4 · Step 2）：真落 `Inventories.Containers`（原版 `InventoryManager.Add<ShopContainerBase>`），实现见 `Shell/BoosterRewards.cs`
+                case RewardKind.DropTable: return GrantDropTableReward(id, quantity);       // 🆕 同上：真落 `Inventories.DropTables`（原版 `InventoryManager.Add<DropTableItem>`）
+                case RewardKind.PrebuiltDeck: return GrantPrebuiltDeckReward(id, quantity);   // 🆕 2026-11-05（B143-R4 · Step 4）：真进卡组库 + 发它的卡/卡背/督军（原版 `CollectDeckReward`），实现见 `Shell/BoosterPrebuiltDeck.cs`
                 default: return false;
             }
         }
@@ -231,16 +242,6 @@ namespace CardPresentation
                 "装饰类奖励 `" + id + "`（avatar / title / border / **卡背**）在本工程按**全解锁**口径**本来就拥有**"
                 + "（用户 2026-09-17 边界「头像全解锁」；收藏窗的 `Owned only` 在单机下恒真；卡背同样全量可选）⇒ 发放**净零**"
                 + "（原版走 `InventoryManager.Add<装饰类型>`，我们没有那套装饰背包）");
-            return true;
-        }
-
-        /// <summary>容器 / 掉落表 / 预组卡组：认得出是哪一类，但本工程**没有对应背包** ⇒ 出声、不落账为已发。
-        /// ⛔ 别在这里新造「拥有的卡包计数」—— 那是原版 `ShopContainerInventory` 整套语义（含开包与掉落表），超出本件。</summary>
-        static bool NoteContainerReward(string id, int quantity, string typeName)
-        {
-            InventoryManager.Note("rs-item:no-inventory-for:" + typeName,
-                "奖励 `" + id + "` 的原版类型是 " + typeName + "（数量 " + quantity + "）—— 本工程**没有这一类的背包** ⇒ **不发**。"
-                + "缺口与要做的东西写在 `资料/完全复刻/报告/B142_E54.md`（⛔ 不是「原版没有」）");
             return true;
         }
     }

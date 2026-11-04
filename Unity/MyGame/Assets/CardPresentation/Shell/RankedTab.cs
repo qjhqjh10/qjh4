@@ -308,7 +308,7 @@ namespace CardPresentation
 
             // 两份 `Info Section` 互斥（出厂 = with-OFF / without-ON）；`Edit Name Button` 两份**都 F** ——
             // 原版由「是不是本人」在运行期点亮（§A·1）。**我们看的永远是自己的档案 ⇒ 按运行期那份：显示**。
-            var wa = Node(info, "Info Section with Alliance", new PxRect(InsL, InsT, InsR, InsB));
+            var wa = Node(info, "Info Section with Alliance", new PxRect(InsL, InsT, InsR, InsB)); if (wa != null) BuildInfoSectionWithAlliance(wa);   // ✅ 已复刻（2026-11-05 · B143-W9 · 判据 `报告/B142_E74.md` §四-2 + `判据/B90_N2_小屏字号实例.tsv`：`…/Alliance Info/Alliance Rating Display/Individual rating value` = 45.0/0）
             wa.gameObject.SetActive(false);
             var na = Node(info, "Info Section without Alliance", new PxRect(InsL, InsT, InsR, InsB));
             var nh = Node(Node(na, "Name and Title Holder", new PxRect(IhL, IhT, IhR, IhB)),
@@ -848,6 +848,43 @@ namespace CardPresentation
         {
             int v;
             return !string.IsNullOrEmpty(s) && int.TryParse(s, out v) ? (int?)v : null;
+        }
+
+        // ============================================================ 类尾追加（B143-W9 · 2026-11-05）
+        /// <summary>`Ranking ▸ Profile Player Info ▸ Info Section with Alliance ▸ Alliance Info` 那一整棵
+        /// （`Alliance Name` + `Alliance Rating Display ▸ {Secondary Icon, Main Icon, Individual rating value}`）。
+        /// 以前 `Info Section with Alliance` **只建空壳** ⇒ 那颗 `Individual rating value` 无处安放
+        /// （`报告/B142_E74.md` §四-2 的那 2 颗）。
+        /// <para>✅ 已复刻（2026-11-05 · B143-W9 · 判据 `判据/B90_N2_小屏字号实例.tsv`：
+        /// `Player Profile Window ▸ …/Alliance Info/Alliance Rating Display/Individual rating value` = **45.0/0**；
+        /// 几何 = `Player Profile Window.prefab` 现读的绝对矩形，`menu_dump … --depth 12`）。</para>
+        /// <para>⚠️ 父件 `Info Section with Alliance` 出厂 INACT ⇒ 整棵不可见（原版只有「本人有联盟」时运行期才点亮）；
+        /// 小屏两格照 TSV 接上，⛔ 不编联盟名 / 不编分数（那两格都是服务器数据）。</para></summary>
+        void BuildInfoSectionWithAlliance(Transform wa)
+        {
+            var info = Node(wa, "Alliance Info", new PxRect(510.20f, 220.50f, 1388.80f, 286.50f));
+            Text(info, "", new PxRect(510.20f, 212.10f, 1388.80f, 251.10f), Color.white, "Alliance Name",
+                 31.80f, L_Text, autoFit: true, autoMinPx: 23f, alignLeft: true, wrap: true,
+                 autoMaxPx: 37.40f, basePx: 36f, face: TmpFont.Face.LatinCardBody);
+
+            var ad = Node(info, "Alliance Rating Display", new PxRect(510.20f, 251.10f, 774.10f, 286.50f));
+            var sec = RankIcon(ad, new PxRect(510.20f, 251.10f, 554.60f, 310.20f), "Secondary Icon");
+            if (sec != null) sec.gameObject.SetActive(false);      // 原版这一颗 INACT
+            RankIcon(ad, new PxRect(510.20f, 246.30f, 570.20f, 291.30f), "Main Icon");
+            var val = Text(ad, "------", new PxRect(570.20f, 251.10f, 774.10f, 286.50f), Color.white,
+                           "Individual rating value", 37.40f, L_Text, autoFit: true, autoMinPx: 18f,
+                           alignLeft: true, wrap: true, autoMaxPx: 40f, basePx: 24f,
+                           face: TmpFont.Face.LatinCardBody);
+            if (val != null) val.SetSmallScreenFontSizes(45f, 0f);   // 小屏两格 = 45.0/0（TSV 现读）
+        }
+
+        /// <summary>评分的 `Main/Secondary Icon`（原版 sprite `40k_UI_icon_ranked_Skirmish`，`m_PreserveAspect=1`）。
+        /// 取不到图 ⇒ **只留节点**（⛔ 不拿纯色块顶替 —— `Rect` 那条路会把 null 图变成白块）。</summary>
+        ImageQuad RankIcon(Transform parent, PxRect r, string name)
+        {
+            var tex = Art("40k_UI_icon_ranked_Skirmish");
+            if (tex == null) { Node(parent, name, r); return null; }
+            return MenuDraw.Rect(parent, tex, r, name, Q + L_Art, null, true);
         }
     }
 }

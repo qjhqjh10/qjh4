@@ -15,7 +15,7 @@
 // ③ 🔴 **页签数按 `tabDefinitions` 算，不按树上的钮数** —— 轮抽树上有 `Armies`/`Alliances` 两个钮，
 //    但 `tabDefinitions` **只登记了 `Alliances`**（`Armies` 那个在**原版里点不动**）⇒ 我们照原版：
 //    钮建出来、点了**如实出声**、不切页（红线：不许静默失败）。
-// ④ 🔴 **`Timer` 不建**（赛季倒计时：服务器数据 + 用户 2026-09-26 明确不要赛季倒计时）。
+// ④ 🔴 **`Timer`：建节点、无截止时刻时整棵藏**（⚠️ **2026-11-05（B143-W9）就地订正**：原文写「`Timer` **不建**」——**已过期**，那是把「不显示」写成了「不建」。原版 `UIRankingListController.SetTimer` 无值那一支 = `timerCounter.SetActive(false)`，节点**在**；现由 `BuildTimerBlock` 建三件并关着）。
 //    `Generic Simplified UI Button_updated`（'Last season'）与 `Last Season Text` **建**，
 //    但**照原版的运行期规则关掉**：`UIRankingListController.Initialize` 末尾传 `showCurrent = true`
 //    ⇒ `lastSeasonText.SetActive(!showCurrent)` = **关**；`AllowChangeSeason(有上一赛季榜?)`
@@ -413,7 +413,7 @@ namespace CardPresentation
             _listContent = Node(vp, "Content", new PxRect(ListL, ScrollR.y1, ListR, ScrollR.y1)); BuildHighlightMount();   // 原版 `Highlight Mount Point` 是 `Content/Scroll View` 的**兄弟**（不随滚动）
             RebuildRows();
 
-            BuildSeasonPieces(false);
+            BuildSeasonPieces(false); BuildTimerBlock(panel, false);   // ✅ 已复刻（2026-11-05 · B143-W9 · 判据 `报告/B142_E74.md` §四-7 + `UIRankingListController__SetTimer.c`：原版 `Ranking Display ▸ Timer` 四个榜单 prefab 逐份都有，无截止时刻时 `timerCounter.SetActive(false)` —— 节点**建**、只是关着）
             BuildCloseButton();
         }
 
@@ -613,7 +613,7 @@ namespace CardPresentation
             MenuDraw.Text(transform, EmbTitleR, "TOP PLAYERS", Color.white, "Title", 55f, QText, EmbTitleR.W, 18f,
                           55f, 36f, face: TmpFont.Face.LatinUi);   // 🆕 A336③：同上面那颗（`fs 55 auto[18~55] base 36`）
             MenuDraw.Rect(transform, Art(ArtLine), EmbTopBarR, "TopBar", QContent, null, false);
-            BuildSeasonPieces(true);
+            BuildSeasonPieces(true); BuildTimerBlock(transform, true);   // ✅ 已复刻（2026-11-05 · B143-W9 · 判据同上：嵌入版 `Ranked Leaderboard Display` 是**根下** `Timer`（无 `Ranking Display` 那一层），原版 rect = `1276.5,92.2 → 1674.5,156.9`）
 
             var sv = Node(content, "Scroll View", EmbListR);
             // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：嵌入版这一棵**同样**把裁切状态挂在 `Viewport` 上
@@ -733,7 +733,7 @@ namespace CardPresentation
         }
 
         /// <summary>`Generic Simplified UI Button_updated`（'Last season'）+ `Last Season Text`。
-        /// 🔴 **两件都建、但都关着**（判据 ④）。`Timer` **整块不建**。</summary>
+        /// 🔴 **两件都建、但都关着**（判据 ④）。`Timer` **建节点、无截止时刻时整棵藏**（2026-11-05 `B143-W9` 订正：原文写「整块不建」已过期，见 `BuildTimerBlock`）。</summary>
         void BuildSeasonPieces(bool embedded)
         {
             // 照原版的运行期规则算出来（**不是我们挑的显隐**）：
@@ -929,8 +929,8 @@ namespace CardPresentation
         /// ① `showCurrent = optionShowCurrent`；② `timerCounter.SetActive(showCurrent &amp;&amp; showTimer)`；
         /// ③ `lastSeasonText.SetActive(!showCurrent)`；④ 钮文案 = `SeasonButtonText(showCurrent)`；
         /// ⑤ `Refresh((RankingType)(showCurrent ? 0 : 1))`（切数据源）。
-        /// <para>🔴 **三步如实记缺**：(a) 原版 `Timer` 那一块我们**整块没建**（`BuildSeasonPieces` 头注：「`Timer` 整块不建」），
-        /// ⇒ ② 无载体；(b) ⑤ 的「上一赛季数据源」本地没有（服务器 P3）⇒ 只保留**同一条**数据源；
+        /// <para>🔴 **三步如实记缺**：(a) ⚠️ **2026-11-05（B143-W9）就地订正**：原文写「原版 `Timer` 那一块我们**整块没建**」——**已过期**，`BuildTimerBlock` 现在**建节点 + 无截止时刻时整棵藏**；但 `TimerDeadline` 恒空 ⇒ ② 那一刻**可见性**上仍无载体；
+        /// (b) ⑤ 的「上一赛季数据源」本地没有（服务器 P3）⇒ 只保留**同一条**数据源；
         /// (c) 原版那颗钮由 `AllowChangeSeason(previousSeasonLeaderboardKey 非空)` 控制显隐，我们恒 false ⇒
         /// 本方法生产路径**不可达**（只在自检里调），如实记，⛔ 不编一个「上一赛季榜」。</para></summary>
         public void SetSeasonView(bool showCurrent)
@@ -939,6 +939,76 @@ namespace CardPresentation
             if (_lastSeasonText != null) _lastSeasonText.gameObject.SetActive(!showCurrent);
             if (_seasonBtnLabel != null) _seasonBtnLabel.SetText(SeasonButtonText(showCurrent));
             RebuildRows();
+        }
+
+        // ============================================================ 类尾追加（B143-W9 · 2026-11-05 · `Timer` 那一块）
+        // 🔴 为什么原来「整块不建」是错的（`报告/B142_E74.md` §四-7 / §六-1）：原版 `UIRankingListController.SetTimer`
+        //    **无截止时刻那一支是 `timerCounter.SetActive(false)`** —— 节点**在**、只是关着。
+        //    「本地没有赛季数据」只能解释「不显示」，解释不了「不建节点」（铁律 5 就地订正）。
+
+        /// <summary>赛季倒计时的**截止时刻**（原版由 LiveOps 事件下发到 `UIRankingListController.SetTimer(DateTime?)`；
+        /// 本地 0 命中 ⇒ 出厂 `null`）。⛔ 不编日期、⛔ 不印 `--`。
+        /// <para>非空 ⇒ 建节点 + `TimerDisplay.Attach`（= 原版 `SetTimer` 有值那一支）；
+        /// 空 ⇒ **建节点 + 整棵藏**（= 原版无值那一支 `SetActive(false)`）。将来接上赛季结束时刻只改这一格。</para></summary>
+        public static System.DateTime? TimerDeadline;
+
+        /// <summary>本窗建出来的 `Timer` 根节点（自检读口 —— ⛔ 别让断言去猜路径）。`null` = 没建（不该发生）。</summary>
+        public Transform TimerNode { get; private set; }
+        /// <summary>`Timer` 那一块现在可不可见（照原版 `SetTimer` 规则：有截止时刻才显示）。自检读口。</summary>
+        public bool TimerVisible { get { return TimerNode != null && TimerNode.gameObject.activeSelf; } }
+
+        /// <summary>`Ranking Display ▸ Timer`（三扇弹窗一份）／嵌入版根下 `Timer`（一份）。
+        /// <para>几何 = 原版 prefab 逐份实读（`menu_dump … --depth 8`）：
+        /// 弹窗 `1257.0,51.4 → 1655.0,132.0`（398.04×80.61）· 嵌入版 `1276.5,92.2 → 1674.5,156.9`（398.04×64.72）；
+        /// `Timer Icon` **55.90²**（`WF_icon_clock`，`m_PreserveAspect=0` ⇒ 拉伸）。
+        /// 内层 TMP = `fs 40 · base 50 · auto[18~40] · 折行 0 · Center/Middle`，**小屏 45/10**
+        /// （`判据/B90_N2_小屏字号实例.tsv` 的 `…/Timer/Timer` = 45.0/10.0）。</para>
+        /// <para>⚠️ **宽度是我们推的（不是原版字段值）**：原版这颗 TMP 的序列化宽 = **0**、由 `ContentSizeFitter`
+        /// （horizontal PreferredSize）在运行期按文本撑开 ⇒ 静态读不到。取 **209.55** = 同一颗 TMP（同文本
+        /// `Ends in: 23d 5h`、同 40pt）在**嵌入版实例**上工具算出的宽；`Timer Icon` 按 HLG spacing **5.84**
+        /// 反推（`icon.x2 = text.x1 − 5.84`；嵌入版复算 = **1403.21**，与 prefab 的 1403.2 逐位吻合 ✓）。
+        /// ⛔ 别把弹窗那份的 `1593.3` 当准 —— 那是「文字宽 0」的排版伪值。</para></summary>
+        void BuildTimerBlock(Transform parent, bool embedded)
+        {
+            var rootR = embedded ? new PxRect(1276.5f, 92.2f, 1674.5f, 156.9f)
+                                 : new PxRect(1257.0f, 51.4f, 1655.0f, 132.0f);
+            var tm = Node(parent, "Timer", rootR);
+            TimerNode = tm;
+
+            const float txW = 209.55f, iconW = 55.90f, spacing = 5.84f;
+            var txR = new PxRect(rootR.x2 - txW, embedded ? 73.1f : 40.3f,
+                                 rootR.x2, embedded ? 176.0f : 143.2f);
+            var icR = new PxRect(txR.x1 - spacing - iconW, embedded ? 96.6f : 63.8f,
+                                 txR.x1 - spacing, embedded ? 152.5f : 119.7f);
+
+            Rect(tm, "WF_icon_clock", icR, "Timer Icon", QContent);
+            var tx = MenuDraw.Text(tm, txR, "", Color.white, "Timer", 40f, QText, txR.W, 18f, 40f, 50f,
+                                   face: TmpFont.Face.LatinCardBody);
+            if (tx != null)
+            {
+                tx.SetWrapping(false);                     // 原版 折行 = 0
+                tx.SetSmallScreenFontSizes(45f, 10f);      // ✅ 已复刻（2026-11-05 · B143-W9 · 判据 `判据/B90_N2_小屏字号实例.tsv`：四个榜单 prefab 的 `…/Timer/Timer` = 45.0/10.0）
+            }
+
+            if (TimerDeadline.HasValue)
+            {
+                // 原版 `SetTimer` 有值那一支：`SetActive(true)` + `TimerDisplay.Initialize(target, extraText)`
+                tm.gameObject.SetActive(true);
+                TimerDisplay.Attach(tx, () => TimerDeadline,
+                                    Loc.T("Event_Description/General/EndsIn"),          // 原版 `extraText.mTerm`（prefab 现读）
+                                    "排行榜 Timer（" + NameOf(Kind) + "）",
+                                    "赛季结束时刻由服务端 LiveOps 下发，本地没有",
+                                    lastMinutesPrefix: Loc.T("MainMenu/RankedWindow/LastMinutes"),   // 原版 `lastMinutesText.mTerm`（prefab 现读）
+                                    prefixKey: "Event_Description/General/EndsIn");
+            }
+            else
+            {
+                // 原版 `SetTimer` 无值那一支：`timerCounter.SetActive(false)`（⛔ 不是「不建」）
+                tm.gameObject.SetActive(false);
+                Debug.Log("[Leaderboard] `" + NameOf(Kind) + "` 的 `Timer` —— **节点建了、整棵藏**"
+                          + "（原版 `UIRankingListController.SetTimer` 无截止时刻那一支 = `timerCounter.SetActive(false)`；"
+                          + "赛季结束时刻由服务端 LiveOps 下发、本地没有 ⇒ `TimerDeadline` 为空。⛔ 不编日期、⛔ 不印 `--`）");
+            }
         }
     }
 }

@@ -23,6 +23,10 @@
 //       B142E74_Assert.CheckStation(root, "<相对路径>", 45f, 0f, "<这一站是什么>");
 //     或直接拿 `Label` 调 `CheckLabel(lb, 45f, 0f, "...")`。
 //     逐窗表格见 `资料/完全复刻/报告/B142_E74.md` §三（79 颗 → 建点文件:行号）。
+//   · 🔴 **计数纪律（2026-11-05 · B143-W4 加注）**：`Run()` 开头会 `_pass = 0; _fail = 0;`（`:69`）⇒
+//     宿主若把 B 组站点断言跑在 `Run()` **之前**（`ShellScene` 就是这样：`:5511` / `:5540` / `:7831`），
+//     **必须先把 `Pass`/`Fail` 抓下来再调 `Run()`**（先例 `ShellScene.cs:11301` 的 `int e74bP = …`）——
+//     不抓就会把 B 组那几十条**静默清零**，而合计看着还是绿的。
 //   · 全量搬树口径：`B142E74_Assert.Dump(root, "<窗名>")` 把这一棵树里**所有接了线的标签**
 //     逐颗印出 `路径 → (max,min)`，用来人工对表。
 //
@@ -153,6 +157,8 @@ public static class B142E74_Assert
             SmallScreenUI.PersistOverride = wasPersist;
             if (!wasEnabled) SmallScreenUI.ResetForTest();
         }
+        // 🆕 2026-11-05 `B143-W8`（调度台裁定 ③）：`未验` 单独印出来 —— 它**不计入通过**，但也⛔ 不许从合计里消失（宿主只加 Pass/Fail）。
+        Debug.Log(Tag + " 合计：✓ " + _pass + " · ✗ " + _fail + "（未验 " + _unverified + " 条，不计入通过）");
     }
 
     // ==================================================================
@@ -215,5 +221,40 @@ public static class B142E74_Assert
             s = t.name + "/" + s;
         }
         return s;
+    }
+
+    /// <summary>宿主用的**前提**断言（2026-11-05 `B143-W8` · 调度台裁定 ①）：条件不成立 ⇒ 显式红，⛔ 不用 `if (前提) Check(结论)` 静默跳过。计数与 <see cref="Check"/> 同源（进 Pass/Fail）。</summary>
+    public static void Premise(bool ok, string msg) { Check(ok, msg); }
+
+    /// <summary>E74 站点「建节点 + 藏」那一档：`root.Find(path)` 必须**在**、且 `activeSelf == false`
+    /// （原版 `SetActive(false)` 那一支；先例 `LeaderboardWindow.cs:1007` / `SkirmishEventWindow__TryOpen`）。</summary>
+    public static void CheckHidden(Transform root, string path, string what)
+    {
+        Transform t = root != null && !string.IsNullOrEmpty(path) ? root.Find(path) : null;
+        Check(t != null, "（前提）`" + what + "`：`" + path + "` **应该在树上**（无值只是藏、⛔ 不是不建）—— 找不到 ⇒ 红");
+        if (t == null) return;
+        Check(!t.gameObject.activeSelf,
+              "★ `" + what + "`：无值/无活动 ⇒ 节点在、`activeSelf == false`（原版 `SetActive(false)`）｜实得 activeSelf=" + t.gameObject.activeSelf);
+    }
+
+    /// <summary>「有值」半的**同组件**探针：`TimerDisplay.Attach(Now+3h)` ⇒ `activeSelf == true` 且文本真的被写出来。
+    /// <para>⚠️ Skirmish 窗级「有值」本机不可达（`ClassicTimerDeadline` 是恒 null 的只读口；`TimerDeadline` 被 `ActiveEventDeadline()` 覆写），
+    /// 所以这一半钉在**同一个 `TimerDisplay` 组件**上（判据同 `B99A4Assert` ①d）。</para></summary>
+    public static void CheckTimerPositiveControl(string what)
+    {
+        var go = new GameObject("B142E74_timer_probe");
+        try
+        {
+            var lb = Label.Create(go.transform, "BUILD", Vector3.zero, 5, Color.white, new Vector2(0.5f, 0.5f), "b142e74_timer");
+            Check(lb != null, "（前提）`" + what + "`：计时探针 Label 建出来了");
+            if (lb == null) return;
+            TimerDisplay.Attach(lb, () => System.DateTime.Now.AddHours(3), "P: ", what, null);
+            Check(lb.gameObject.activeSelf, "★ `" + what + "`：**有值 ⇒ 节点 active**（`TimerDisplay` 的 `remain > 0` 支 `SetActive(true)`）");
+            string txt = lb.Text ?? "";
+            Check(txt.StartsWith("P: ", System.StringComparison.Ordinal) && txt.IndexOf("BUILD", System.StringComparison.Ordinal) < 0
+                  && System.Text.RegularExpressions.Regex.IsMatch(txt, "[0-9]"),
+                  "★ `" + what + "`：**有值 ⇒ 文本真的被写出来**（描述串 + 带数字的时间串，⛔ 不是出厂占位）｜实得「" + txt + "」");
+        }
+        finally { UnityEngine.Object.DestroyImmediate(go); }
     }
 }

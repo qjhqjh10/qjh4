@@ -376,9 +376,9 @@ namespace CardPresentation
             MissingArt.Clear();
 
             // 🆕 **2026-10-19（`T29` 剩余五屏 · 收件箱）**：alpha 原来是 `0.77f`，原版 `Menu Dark Background`
-            //   的 `m_Color = (0,0,0,0.773)`（prefab 实读）⇒ 对齐成 0.773f（同 `DailyRewardPopup` D6 那一族）。
+            //   的 `m_Color = (0,0,0,0.77254903)`（prefab 实读）⇒ ✅ 2026-11-05 B144-D 订正：原来对齐成 0.773f（取整），现按精确值（同 `DailyRewardPopup` D6 那一族）。
             MenuDraw.Rect(root, CardArt.Solid(), Shade, "Menu Dark Background", QShade,
-                          new Color(0f, 0f, 0f, 0.773f));
+                          new Color(0f, 0f, 0f, 0.7725490f));
             // 🔴 **2026-10-05（A81）**：压暗层的**点击区**（「点窗外关窗」）—— **原来零 `ShadeHit(`**
             //   （只有 `:87` 那一层压暗的 `Image`，点了什么也不发生）。
             //   判据：原版是压在 `Menu Dark Background` **自身节点**上的 `BackgroundCloseButton`，
@@ -1402,15 +1402,15 @@ namespace CardPresentation
         }
 
         /// <summary>屏幕指针（**屏幕像素、原点左下**，与 legacy `Input.mousePosition` 同口径）。
-        /// 🔴 本工程 `activeInputHandler: 1`（只启用 Input System 包）⇒ **不许读 `Input.mousePosition`**（一调就抛）。
-        /// 读数口径照抄 `Shell/PopUpGameWindow.PointerScreenForLink`（同一条链的既有实现）。
-        /// ⚠️ 批处理/自检里没有鼠标设备 ⇒ 退回 `(0,0)` ⇒ 这条链**只能在真机上点**（自检改核「命中区建出来 + `onDown` 接的是本方法」）。</summary>
+        /// ✅ 2026-11-05（`B144-A`）：本工程已迁旧 Input Manager ⇒ 这里**直接读 `Input.mousePosition`**。
+        /// 原文「本工程 `activeInputHandler: 1` ⇒ 不许读 `Input.mousePosition`（一调就抛）」**已过期**（那次抛出正是 New-only 后端）。
+        /// ⚠️ 批处理/自检里没有鼠标（`Input.mousePresent == false`）⇒ 退回 `(0,0)` ⇒ 这条链**只能在真机上点**（自检改核「命中区建出来 + `onDown` 接的是本方法」）。</summary>
         static Vector3 PointerScreenForLink()
         {
-            var m = UnityEngine.InputSystem.Mouse.current;
-            if (m != null) return m.position.ReadValue();
-            var ts = UnityEngine.InputSystem.Touchscreen.current;
-            if (ts != null) return ts.primaryTouch.position.ReadValue();
+            if (Input.mousePresent) return Input.mousePosition;
+            if (Input.touchCount > 0) return Input.GetTouch(0).position;
+            // ⚠️ 两支都取不到（批处理无设备）⇒ `(0,0)`，与原实现一致
+            //    （✅ 已复刻 2026-11-05 · B144-A：`Mouse.current.position` → `Input.mousePosition`、`Touchscreen.primaryTouch.position` → `Input.GetTouch(0).position`）
             return Vector3.zero;
         }
 

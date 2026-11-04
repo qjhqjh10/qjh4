@@ -945,7 +945,7 @@ namespace CardPresentation
         /// （抬手时**不关窗**）；松手后按 `m_DecelerationRate` 惯性滑一段并夹在 `[0, MaxScroll]`。</para></summary>
         public void TickScroll(Vector3 world, bool held, float dt)
         {
-            if (!Visible) { _dragActive = false; _dragLastPx = float.NaN; _dragTravelPx = 0f; return; }
+            if (!Visible) { _dragActive = false; _dragLastPx = float.NaN; _dragTravelPx = 0f; _lastPointerValid = false; return; } _lastPointerWorld = world; _lastPointerValid = true;   // 🆕 2026-11-05（B144-W3 · B129 二·★33）：缓存指针世界坐标 —— 背景关闭件要用它判「这一下落在卡上吗」
             // 🔴 **2026-10-25（AU4）：x 的斜率换成 `LayoutSpace.PxPerWorldX`**（= `DesignPxW ÷ VisibleWidth`）。
             //   旧写法 `world.x * EndPanel.PxPerUnit`（= 写死 108）**只在 16:9 是那个意思**：4:3 ⇒ 0.75 倍、
             //   21:9 ⇒ 1.3125 倍 ⇒ **拖拽滚动量在别的宽高比下与指针不同步**（判据与整族说明 →
@@ -1025,10 +1025,12 @@ namespace CardPresentation
         void RequestCloseByUgui()
         {
             if (!Visible) return;              // 窗关着 ⇒ 这一下不算（件本来也收不到射线，双保险）
-            if (DraggedSincePress)
+            bool dragged = DraggedSincePress;
+            bool overCard = _lastPointerValid && AnyCardHit(_cards, _lastPointerWorld);   // ✅ 已复刻（2026-11-05 · B144-W3 · B129 二·★33 · 判据 = 原版输入链：卡片挂 `IPointerClickHandler`（`CardScript.OnTouchUpAsButton`）+ `EverguildPhysicsRaycaster` ⇒ **卡片自己吃掉点击**、`BackgroundCloseButton` 收不到；我们卡片是世界 `MeshRenderer`、没有 uGUI 射线件 ⇒ 必须在这里挡）
+            if (!ShouldCloseOnPointer(overCard, dragged))
             {
-                // 拖完抬手：吃掉这一下（⛔ 不记待关、⛔ 不报 `CloseRequested`）
-                _dragTravelPx = 0f;
+                if (dragged) _dragTravelPx = 0f;   // 拖完抬手：吃掉这一下（原行为：⛔ 不记待关、⛔ 不报 `CloseRequested`）
+                else _cardClickSwallowed++;        // 点卡片：卡片自己吃掉（本类没有卡点击的后续动作 —— 原版那张卡也只是 `OnTouchUpAsButton`，展示窗里没有可观察后果）
                 return;
             }
             _uguiCloseClicks++;
@@ -1334,5 +1336,39 @@ namespace CardPresentation
             if (!_closePending) { _escRequests++; _closePending = true; }
             return true;
         }
+
+        // ==========================================================================================
+        //  🆕 2026-11-05（执行写手 `B144-W3` · B129 二·★33）：**点卡片 ≠ 点背景** —— 背景关闭件的「卡片自己吃掉点击」
+        //  ------------------------------------------------------------------------------------------
+        //  判据（原版输入链）：卡片挂 `IPointerClickHandler`（`CardScript.OnTouchUpAsButton`）+ 场景里的
+        //  `EverguildPhysicsRaycaster` ⇒ 射线先被**卡片**接住、`BackgroundCloseButton` 收不到 ⇒ **点卡片不关窗**。
+        //  我们卡片是世界 `MeshRenderer`、没有 uGUI 射线件（本文件头已说明：「背景关闭的输入由一块全屏透明 uGUI 件承担」），
+        //  所以必须在关闭判定里**显式**挡一层：指针落在任意一张卡上 ⇒ 不关（并记一次「被卡片吃掉」）。
+        //  ⛔ 别把 `AnyCardHit` 换成「按布局矩形算」—— `HitByCollider` 与 `CardHit` 用的是同一颗 `BoxCollider2D`
+        //    （两颗之一命中都算），换一套就成第二份判据。
+        // ==========================================================================================
+        Vector3 _lastPointerWorld; bool _lastPointerValid; int _cardClickSwallowed;
+
+        /// <summary>指针落在**任意一张卡**上吗（= 原版「卡片自己吃掉点击」的等价物）。只读：不改状态。</summary>
+        public static bool AnyCardHit(List<CardView> cards, Vector3 world)
+        {
+            if (cards == null) return false;
+            for (int i = 0; i < cards.Count; i++)
+            {
+                var c = cards[i];
+                if (c == null || !c.gameObject.activeInHierarchy) continue;
+                if (c.HitByCollider(world)) return true;
+            }
+            return false;
+        }
+
+        /// <summary>自检：这一下落在卡上吗（走生产同一条 `AnyCardHit`）。</summary>
+        public bool HitAnyCardForTest(Vector3 world) { return AnyCardHit(_cards, world); }
+
+        /// <summary>自检/诊断：被「点卡片」吃掉、**没有**触发关窗的点击次数。</summary>
+        public int CardClickSwallowedForTest { get { return _cardClickSwallowed; } }
+
+        /// <summary>关窗判定（纯函数，判据只此一处）：拖拽抬手 ⇒ 不关；落在卡上 ⇒ 不关；其余 ⇒ 关。</summary>
+        public static bool ShouldCloseOnPointer(bool overCard, bool dragged) { return !dragged && !overCard; }
     }
 }

@@ -622,14 +622,31 @@ public static class MainMenuScene
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
         // 相机（外壳那边也有一台，`DontDestroyOnLoad` 会带过来；这里建一台是为了
-        // **单独打开本场景按 Play 也能看** —— 两台的参数一致，见 `ShellScene.Build`）
+        // **单独打开本场景按 Play 也能看**）。
+        // 🔴 **2026-11-05 就地订正（铁律 5）**：原来这里写「两台的参数一致，见 `ShellScene.Build`」——**不成立**。
+        //   **原版里就是两台不同的相机**：本场景这台 = `MainMenu Warpforge.unity` 的 `Camera &602`（GO 47 `UI Camera`，
+        //   depth −1 / HDR·MSAA·Occl 全关 / bits 32 / 背景 alpha 0.0196）；壳那台 = 常驻 `level0` 的 `Camera_258`
+        //   （depth 0 / HDR·MSAA·Occl 全开 / bits 全层 / 背景 alpha 1）⇒ ⛔ 别按「两台一致」去统一它们。
         var camGo = new GameObject("Main Camera");
         camGo.tag = "MainCamera";
         var cam = camGo.AddComponent<Camera>();
         cam.clearFlags = CameraClearFlags.SolidColor;
-        cam.backgroundColor = Color.black;
+        cam.backgroundColor = new Color(0f, 0f, 0f, 0.019607844f);   // ✅ 已复刻（2026-11-05 · B144-W3 · 原版主菜单 `Cam/602`（GO 47 `UI Camera`）的 `m_BackGroundColor` = `(0,0,0, 0.019607844)` —— **alpha 0.0196 不是 1**；判据 = `资料/主菜单_原版规格.md:198` + 原版 `MainMenu Warpforge.unity` 现读）
         cam.aspect = LayoutSpace.DesignAspect;   // ⚠️ 必须在建任何东西之前定死（批处理默认 4:3）
         LayoutSpace.Apply(cam);
+        // ✅ 已复刻（2026-11-05 · B144-W3 · 物理审计 #51/#52）：原版主菜单相机 `Cam/602` 的其余六格 ——
+        //   判据 = 原版 `MainMenu Warpforge.unity` 的 `Camera &602` 现读（`m_Depth: -1` · near `0.3` · far `1000` ·
+        //   `m_HDR: 0` · `m_AllowMSAA: 0` · `m_OcclusionCulling: 0`）+ `资料/主菜单_原版规格.md:198-201`。
+        //   · **必须写在 `Apply` 之后**：`Apply` 会把 near/far 改写成 `0.01 / 200`（那是正交档的自设计值，见 `Core/LayoutSpace.cs:74-84`）。
+        //   · ⛔ **`orthographic / fieldOfView / cullingMask(32)` 三格不照抄**：前两者是架构账 `A2098`（全线正交、
+        //     按「可见高 10 世界单位」布局，改透视整体缩 0.687×）；后者要求 UI 在层 5，而我们 UI 在层 0 ⇒ 写 32 = 界面全消失。
+        //     三者与 `#13` / `B143-UI-LAYER5` 同族，⛔ 别在这里单独改。
+        cam.depth = -1f;              // 原版 `m_Depth: -1`（原版主菜单那台先画；我们的壳相机会在切场景前被关掉，不会双渲）
+        cam.nearClipPlane = 0.3f;     // 原版 `near clip plane: 0.3`
+        cam.farClipPlane = 1000f;     // 原版 `far clip plane: 1000`
+        cam.allowHDR = false;         // 原版 `m_HDR: 0`
+        cam.allowMSAA = false;        // 原版 `m_AllowMSAA: 0`
+        cam.useOcclusionCulling = false; // 原版 `m_OcclusionCulling: 0`
 
         var rootGo = new GameObject("MainMenu");
         var rt = rootGo.AddComponent<MainMenuRuntime>();

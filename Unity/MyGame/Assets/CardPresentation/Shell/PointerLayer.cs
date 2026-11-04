@@ -159,7 +159,7 @@ namespace CardPresentation
         public void BeginText(string initial, int maxLen, System.Action<string> onCommit,
                               System.Action onCancel = null, System.Action<string> onChanged = null)
         {
-            _editing = true;
+            _editing = true; InputTextFrame.Claim(this);   // ✅ 已复刻（2026-11-05 · B144-A · 迁旧输入后打字没有事件 ⇒ 由 `InputTextFrame` 每帧取 `Input.inputString`，见该类的契约）
             _buf = initial ?? "";
             _maxLen = maxLen > 0 ? maxLen : 24;
             _onCommitText = onCommit; _onCancelText = onCancel; _onChangedText = onChanged;
@@ -186,7 +186,7 @@ namespace CardPresentation
         {
             if (!_editing) return;
             string s = _buf;
-            _editing = false; _buf = ""; _typed.Clear();
+            _editing = false; _buf = ""; _typed.Clear(); InputTextFrame.Release(this);   // ✅ 2026-11-05 B144-A：交还打字焦点（见 `BeginText`）
             var cb = commit ? _onCommitText : null;
             var cb2 = _onCancelText;
             _onCommitText = null; _onCancelText = null; _onChangedText = null;
@@ -196,9 +196,9 @@ namespace CardPresentation
 
         void HandleTyping()
         {
-            var kb = Keyboard.current;
-            if (!_inputEnabled) return; if (kb == null || !_editing) return;   // 🆕 2026-10-28（B93_E24）：输入层停用 ⇒ 打字整段不跑（= 原版 `Process()` 不跑、`SendUpdateEventToSelectedObject` 压根没被调用，`StandaloneInputModule.cs:299`）
-            if (kb.escapeKey.wasPressedThisFrame)
+            if (!_inputEnabled || !_editing) return;   // 🆕 2026-10-28（B93_E24）：输入层停用 ⇒ 打字整段不跑（= 原版 `Process()` 不跑、`SendUpdateEventToSelectedObject` 压根没被调用，`StandaloneInputModule.cs:299`）
+            foreach (char __c in InputTextFrame.Take(this)) OnText(__c);   // ✅ 已复刻（2026-11-05 · B144-A · `onTextInput` 事件 → 每帧取 `Input.inputString`；「同一帧只取一次 / 只有焦点能取」由 `InputTextFrame` 保证）
+            if (Input.GetKeyDown(KeyCode.Escape))
             {
                 // 🆕 **2026-10-18（`N67`）出声**：这一下 ESC 是「取消编辑」、**不是**「关窗」——
                 //   原来两条都静默，日志里分不出「ESC 被文本框吃掉」与「ESC 根本没进来」。
@@ -206,9 +206,9 @@ namespace CardPresentation
                           + "（`PointerLayer.Update` 的 `wasEditing` 守卫）—— 再按一次才是关窗。");
                 EndText(false); return;
             }
-            if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame) { EndText(true); return; }
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)) { EndText(true); return; }   // ✅ 2026-11-05 B144-A：`enterKey/numpadEnterKey` → `Return/KeypadEnter`，1:1
             // 🆕 2026-11-03（B121-COLL-01）：Ctrl+V 粘贴 —— 判据与「为什么 TypeChar 仍拒 `\n`」见类尾 `InsertText` 的 doc
-            if (kb.backspaceKey.wasPressedThisFrame) Backspace(); if (kb.ctrlKey.isPressed && kb.vKey.wasPressedThisFrame) InsertText(GUIUtility.systemCopyBuffer); for (int i = 0; i < _typed.Count; i++) TypeChar(_typed[i]);
+            if (Input.GetKeyDown(KeyCode.Backspace)) Backspace(); if ((Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && Input.GetKeyDown(KeyCode.V)) InsertText(GUIUtility.systemCopyBuffer); for (int i = 0; i < _typed.Count; i++) TypeChar(_typed[i]);   // ✅ 2026-11-05 B144-A：`backspaceKey/ctrlKey/vKey` → `Backspace`/左右 Ctrl/`V`，1:1
             _typed.Clear();
         }
 
@@ -216,14 +216,14 @@ namespace CardPresentation
         //    2026-09-23 加键盘时一度各写了一份 ⇒ `error CS0111: already defines a member`。
         void OnEnable()
         {
-            if (Keyboard.current != null) Keyboard.current.onTextInput += OnText;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧输入后**没有** `onTextInput` 事件）：打字改由 `InputTextFrame` 每帧取 `Input.inputString`，见 `BeginText`/`HandleTyping`
             // 🩺 2026-10-11 临时诊断（`A1491` 收口前删）：指针层什么时候活起来、挂在谁下面
             Debug.Log($"[PL] OnEnable 父={(transform.parent != null ? transform.parent.name : "<null>")} 场景={gameObject.scene.name}");
         }
 
         void OnDisable()
         {
-            if (Keyboard.current != null) Keyboard.current.onTextInput -= OnText;
+            // ✅ 2026-11-05 B144-A：没有事件要退订了（见 `OnEnable` 那一行）；焦点由 `EndText` 的 `InputTextFrame.Release(this)` 交还
             if (_inst == this) _inst = null;
             // 🩺 2026-10-11 临时诊断（`A1491` 收口前删）：**它是不是在这里死的**
             Debug.Log($"[PL] OnDisable 场景={gameObject.scene.name} 父={(transform.parent != null ? transform.parent.name : "<null>")}");
@@ -390,39 +390,39 @@ namespace CardPresentation
             // ⑥ 🆕 A49 键盘导航（方向键选 + 回车确认 + ESC 关窗）—— 判据见「键盘导航」那一节
             // ⚠️ `wasEditing` = **这一帧的键盘归文本框**（`HandleTyping` 刚用 ESC/回车把编辑收掉了）
             //    ⇒ 导航不许接着把同一次 ESC 当成「关窗」（否则「取消编辑」会顺手关掉整扇窗）。
-            var kb = Keyboard.current;
-            // 🆕 **2026-10-18（`N67`）**：**键盘设备看不到就明说一次** —— 此前这一整块是**静默跳过**的，
-            //   「按 ESC 没反应」在日志里与「窗根本没接 ESC」**分不开**（N67 真机那次零日志，只能逐句读代码排除）。
-            //   ⚠️ 这只覆盖「设备没建出来」；**窗口失焦**是另一档（Input System 的 `backgroundBehavior` 会把
-            //   非后台设备置灰，`Keyboard.current` 仍非空、但 `wasPressedThisFrame` 恒 false）—— 那一档
-            //   进程内看不到任何痕迹，只能靠「先把游戏窗口置前再发键」。
-            if (kb == null && !_warnedNoKeyboard)
-            {
-                _warnedNoKeyboard = true;
-                Debug.LogWarning("[Key] `Keyboard.current == null` ⇒ **方向键 / 回车 / ESC 这一整组都收不到**"
-                    + "（新输入系统的键盘设备没建出来）。⚠️ 这不是「窗不接 ESC」—— 派的链在 `KeyCancel`。");
-            }
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：下面整块改成读旧 `Input`（见逐行）。
+            // 🆕 **原注保留（`N67`，2026-10-18）**：这一块以前会在「键盘设备没建出来」时打一次警告 ——
+            //   「按 ESC 没反应」在日志里与「窗根本没接 ESC」**分不开**，那次真机零日志只能逐句读代码。
+            //   ⚠️ **旧输入下那一档不存在**（`Input.GetKey*` 永远可调、设备缺失不会变成 null）⇒ 那段警告随之删除。
+            //   ⚠️ 仍存在、且**仍然看不见**的是**窗口失焦**那一档（旧输入的后台行为看 Player Settings 的
+            //   `Run In Background`）—— 进程内没有痕迹，只能靠「先把游戏窗口置前再发键」。
+            //   原 `Keyboard.current == null` 的三条后果，迁移后各自的归宿：
+            //     · 打字：→ `InputTextFrame` 每帧取 `Input.inputString`（无键盘时恒空串，不报错）；
+            //     · 方向键/回车/ESC 导航：→ `Input.GetAxisRaw` / `GetButtonDown` / `GetKeyDown`（同上，恒 false）；
+            //     · 手柄：→ 同一条轴（`InputManager.asset` 的 alt 绑定已含手柄）。
+            //   ⇒ 结论：**这一类「设备没建出来」的静默失败在旧输入下被彻底消除**，代价是失去那条诊断日志。
+            //
             // 🆕 **2026-10-17（T12 · 手柄导航）**：左侧摇杆 + 南键/A + 东键/B —— 判据 = 原版
             //   `InputManager_2.json` 里那几条：`Horizontal`/`Vertical` 的 **type=2 摇杆轴（axis 0/1、
             //   joyNum 0、dead 0.19、gravity 0、sensitivity 1）** · `Submit` 的 alt **`joystick button 0`** ·
             //   `Cancel` 的 alt **`joystick button 1`**。
             //   ⚠️ 摇杆自带的 0.19 死区不必在这里再判一次：UGUI `DetermineMoveDirection(..., 0.6f)`
             //   那道 0.6 的死区更严 ⇒ 方向判定结果与「先过 0.19 再过 0.6」等价。
-            var gp = Gamepad.current;
-            if ((kb != null || gp != null) && !wasEditing)
+            // ✅ 已复刻（2026-11-05 · B144-A · 调度台裁定用 `GetAxisRaw`）：原版那几条轴**本来就内含键盘与手柄**（alt 绑定），叠加语义不变。
+            if (!wasEditing)
             {
-                float ax = (kb != null ? AxisX(kb) : 0f) + (gp != null ? AxisX(gp) : 0f);
-                float ay = (kb != null ? AxisY(kb) : 0f) + (gp != null ? AxisY(gp) : 0f);
-                bool submit = (kb != null && SubmitDown(kb)) || (gp != null && SubmitDown(gp));
-                bool cancel = (kb != null && kb.escapeKey.wasPressedThisFrame)
-                              || (gp != null && gp.buttonEast.wasPressedThisFrame);
+                float ax = Input.GetAxisRaw("Horizontal");      // = 键盘量 + 手柄量（同原来两边相加）
+                float ay = Input.GetAxisRaw("Vertical");
+                bool submit = Input.GetButtonDown("Submit");    // `Submit` 的 alt = `joystick button 0`（南键/A）
+                bool cancel = Input.GetKeyDown(KeyCode.Escape)  // ESC 仍走原路（「取消编辑」那一帧由 `wasEditing` 挡掉）
+                              || Input.GetButtonDown("Cancel"); // `Cancel` 的 alt = `joystick button 1`（东键/B）
                 KeyFrame(cancel, ax, ay, submit, Time.unscaledTime);
             }
 
-            var mouse = Mouse.current;
-            if (mouse == null) return;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：`Mouse.current` 非空 ≡ `Input.mousePresent`；下面指针/左键/滚轮一律读 `Input.*`
+            if (!Input.mousePresent) return;
 
-            Vector3 wp = LayoutSpace.ScreenToWorld(mouse.position.ReadValue(), LayoutSpace.Cam);
+            Vector3 wp = LayoutSpace.ScreenToWorld(Input.mousePosition, LayoutSpace.Cam);   // ✅ 2026-11-05 B144-A：`mouse.position.ReadValue()` → `Input.mousePosition`
             // 🔴 **2026-10-18（A990②）**：这一帧 = 「**设计 px × 父链缩放**」——
             //    `MenuDraw.PixelOfDesign` 是 `LayoutSpace.FromPixel` 的逆（x 用**实测** `VisibleWidth`）。
             //    改前是 `LayoutSpace.ToPixel`（x 写死 108px/世界单位）⇒ **只在 16:9 与设计帧重合**
@@ -448,7 +448,7 @@ namespace CardPresentation
             }
 
             // ② 拖拽 + 点击（同一套「按下 → 移动 → 抬起」；照原版 EventSystem 的 5px 阈值，`Intro.unity:5429`）
-            if (mouse.leftButton.wasPressedThisFrame)
+            if (Input.GetMouseButtonDown(0))
             {
                 _pressed = true; _dragging = false;
                 _pressPx = px;
@@ -465,7 +465,7 @@ namespace CardPresentation
                 Select(_down);
                 if (_down != null) _down.Press();
             }
-            else if (_pressed && mouse.leftButton.isPressed)
+            else if (_pressed && Input.GetMouseButton(0))
             {
                 // 🔴 **2026-11-04（`B141-W32` · 条目 3-10）**：原版可拖件的**方向门**（判据 = `DragAndDropItem__OnBeginDrag.c:33-37`）：
                 //   越过阈值那一帧先算 `|atan2(Δy,Δx)|·Rad2Deg`，**30°~150°（竖向）⇒ 这一下不给格、转交 ScrollRect**
@@ -501,7 +501,7 @@ namespace CardPresentation
                     if (_dragging) _dragScroll.DragTo(AxisOf(_dragScroll, px));
                 }
             }
-            else if (_pressed && mouse.leftButton.wasReleasedThisFrame)
+            else if (_pressed && Input.GetMouseButtonUp(0))
             {
                 if (_itemDragging)
                 {
@@ -538,7 +538,7 @@ namespace CardPresentation
                 // 🆕 **2026-10-18（W16）**：取整个 `Vector2`（原来是 `.y`）—— 触控板/倾斜滚轮的
                 //   **横向分量**要能驱动横向滚动区（见下面那条私有重载）。普通鼠标滚轮 `x` 恒 0
                 //   ⇒ 与旧的 `float dy = ….y` 逐位相同。
-                Vector2 sc = mouse.scroll.ReadValue();
+                Vector2 sc = Input.mouseScrollDelta;   // ✅ 2026-11-05 B144-A：`mouse.scroll.ReadValue()` → `Input.mouseScrollDelta`（同为「一格 ±1」的 Vector2）
                 if (Mathf.Abs(sc.y) >= 1f || Mathf.Abs(sc.x) >= 1f)
                 {
                     if (WheelAt(px.x, px.y, sc)) scrollMoved = true;

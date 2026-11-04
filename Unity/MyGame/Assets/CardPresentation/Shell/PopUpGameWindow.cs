@@ -564,17 +564,17 @@ namespace CardPresentation
         }
 
         /// <summary>屏幕指针（**屏幕像素、原点左下**，与 legacy `Input.mousePosition` 同口径）。
-        /// 🔴 **2026-10-26（执行代理 `X2`）**：原来这里直接读 `UnityEngine.Input.mousePosition`，而本工程
-        /// `ProjectSettings.asset` 的 `activeInputHandler: 1` = **只启用 Input System 包** ⇒ 那句**一调用就抛**
-        /// `InvalidOperationException`（点带 `<link>` 的弹窗正文必崩）。现读数口径**照抄已有的那一套**
-        /// （`BattleDriver.PointerScreen()` / `Hand/CardInteraction.PointerScreen()`）：`Mouse.current` →
-        /// `Touchscreen.current` → `(0,0)`（批处理没有设备 ⇒ `(0,0)`，与上面 doc 那句一致）。</summary>
+        /// ✅ **2026-11-05（`B144-A`）就地订正（铁律 5）**：本工程已迁旧 Input Manager（`activeInputHandler` 过渡态 2）⇒
+        /// 这里**改回直接读 `Input.mousePosition`**。原文「`activeInputHandler: 1` ⇒ 那句一调用就抛 `InvalidOperationException`」
+        /// **已过期** —— 那正是 New-only 后端的行为；迁到旧输入后 `UnityEngine.Input` 才是合法的那个。
+        /// 读数口径与 `BattleDriver.PointerScreen()` / `Hand/CardInteraction.PointerScreen()` 完全一致：
+        /// 鼠标 → 首指 → `(0,0)`（批处理没有设备 ⇒ `(0,0)`，与下面那支兜底一致）。</summary>
         static Vector3 PointerScreenForLink()
         {
-            var m = UnityEngine.InputSystem.Mouse.current;
-            if (m != null) return m.position.ReadValue();
-            var ts = UnityEngine.InputSystem.Touchscreen.current;
-            if (ts != null) return ts.primaryTouch.position.ReadValue();
+            if (Input.mousePresent) return Input.mousePosition;
+            if (Input.touchCount > 0) return Input.GetTouch(0).position;
+            // ✅ 已复刻（2026-11-05 · B144-A）：`Mouse.current.position` → `Input.mousePosition`、
+            //    `Touchscreen.primaryTouch.position` → `Input.GetTouch(0).position`；两支都没有 ⇒ `(0,0)`（同上）
             return Vector3.zero;
         }
 

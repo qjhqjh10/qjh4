@@ -1231,10 +1231,10 @@ namespace CardPresentation
         /// ⚠️ **护甲那个容器原版就没有 tooltip**（`子代理读报_2dcard_0827.md:95`）⇒ 这里也不给。</summary>
         void TickTooltip()
         {
-            var mouse = Mouse.current;
-            if (mouse == null) { Tooltip.Hide(); return; }
-            if (mouse.leftButton.wasPressedThisFrame || mouse.rightButton.wasPressedThisFrame) { Tooltip.Hide(); return; }
-            TickTooltipAt(LayoutSpace.ScreenToWorld(mouse.position.ReadValue(), _cam));
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：`Mouse.current` → `Input.mousePresent`、左右键 → `GetMouseButtonDown(0/1)`、位置 → `Input.mousePosition`
+            if (!Input.mousePresent) { Tooltip.Hide(); return; }
+            if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1)) { Tooltip.Hide(); return; }
+            TickTooltipAt(LayoutSpace.ScreenToWorld(Input.mousePosition, _cam));
         }
 
         /// <summary>自检入口：批处理没有鼠标 ⇒ 直接喂世界坐标（**和鼠标那条路同一个函数**）。
@@ -1730,7 +1730,7 @@ namespace CardPresentation
                 //   —— 那是 `SetVAlign` 还不存在时的**绕法**；现在档位能真落了，落完之后**几何中心就是原版那一格**，
                 //   自检要**量渲染图**这条纪律对**别的**件仍然成立，但不再是本件的唯一出路。
                 MenuDraw.SetVAlign(_wcTxt[i], Label.VAlign.Capline,
-                                   new PxRect(WcIconX[i] + WcIconW, WcIconY, WcIconX[i] + WcIconW + WcCntW, WcIconY + WcIconH));
+                                   new PxRect(WcIconX[i] + WcIconW, WcIconY, WcIconX[i] + WcIconW + WcCntW, WcIconY + WcIconH)); if (_wcTxt[i] != null) MenuDraw.SetParagraphSpacing(_wcTxt[i], 0.08f);   // ✅ 已复刻（2026-11-05 · B144-C · 原版 `Header/WIldcard Counter/Counters/*/Counter` 的 `m_paragraphSpacing = 0.08`）
             }
             // 🔴 **2026-10-17（A893）**：这一格喂的是【**阵营徽记**】。
             //   改之前喂的是 `FactionIcon(null)` ⇒ 拿到的是**卡组图标** `40k_collection_bt_decks`，
@@ -3251,16 +3251,16 @@ namespace CardPresentation
         readonly List<ImageQuad> _poolBars = new List<ImageQuad>();
         readonly List<Label> _poolBarTexts = new List<Label>();
 
-        /// <summary>那条「张数」的**文本**。两个格式来自**两处不同的代码**（别当成一条规则）：
-        ///   · **卡组里还没有督军** ⇒ `x{…}` —— 原版 `CardCollectionDisplay__SetCell.c:72` 的格式串实测是
-        ///     **`x{0}`，喂的是【拥有数】**（同一处还有 `ToggleGreyScale(拥有数 &lt; 1)` ⇒ 没拥有的那张置灰）。
-        ///     ⚠️ **我们这版不照喂那个数**：本作资源固定 2000（用户 2026-10-24 从 9999 改）、`CardProgress.Owned` 给足
-        ///     （= 卡组上限 + 升满所需）⇒ 照原式会显示 `x11` 那种**没有意义**的数。
-        ///     按**用户 2026-09-28 的口径**显示 `min(拥有, 卡组上限)` = 「**能放进卡组的张数**」。
-        ///   · **已经有督军** ⇒ `{已在卡组中}/{min(拥有, 卡组上限)}` —— 原版
-        ///     `DeckEditorCollectionDisplay__DrawCell.c` 的格式串**实测就是 `"{0}/{1}"`**
-        ///     （`stringliteral.json@0x426DE28`，两个数：一个「组里已有几张」、一个「最多能放几张」）。
-        /// 分母两处相同；⚠️ **详情弹窗**那条 `x{a}/ {b}`（可放入张数 / 多余副本数）是**第三个**格式，别混。
+        /// <summary>那条「张数」的**文本**：**恒 `{已在卡组中}/{min(拥有, 卡组上限)}`** —— 卡组编辑这一格**没有「无督军」分支**。
+        ///   · 原版判据 = `DeckEditorCollectionDisplay__DrawCell.c:42-76`：`:42` 拥有数 · `:51` 卡组上限 · `:54` `min` 夹一次
+        ///     · `:72` `{0}` = `Count(GetLibraryInFull())`（**含督军与防御卡**）· `:76` 格式串 `"{0}/{1}"`。
+        ///   ⚠️ `x{拥有数}` 那个格式出自**另一个类** `CardCollectionDisplay__SetCell.c:72`（**收藏页**），⛔ 别搬到本窗
+        ///     —— 2026-11-04（`B141 · W29 · 3-16/17`）之前我们就是那么搬的（无督军档印 `xN`），已按本窗那一格改回。
+        ///   · 分母 = `min(拥有, 卡组上限)`（原版 `:54` 逐字同义；⛔ 别删 `Mathf.Min`），上限喂**带卡型那一档**
+        ///     （`if (cardType == 10) return 1;` 排在稀有度判断之前 ⇒ 非传说督军也是 1）。
+        ///   · ⚠️ **收藏页**那条仍是 `x{min(拥有, 上限)}`（`Shell/CollectionWindow.cs` 的 `CardsCounterText`，
+        ///     `🔶 自己设计`、用户 2026-09-28 拍板；原版印**原始拥有数**）—— 两个宿主两套口径，复核见 `B131` D-12。
+        /// ⚠️ **详情弹窗**那条 `x{a}/ {b}`（可放入张数 / 多余副本数）是**第三个**格式，别混。
         ///
         /// <para>🔴 **2026-10-17（D21）—— 分母到底是不是「上限」：判据坐实了，我们的实现【已经对】。**
         /// 施工单 D21 写「原版印 `1/2`、我们印 `1/1` ⇒ 看着是**上限**」（置信「中 · 未坐实」）。
@@ -4993,14 +4993,14 @@ namespace CardPresentation
 
         void HandlePointer()
         {
-            var mouse = Mouse.current;
-            if (mouse == null) return;
-            Vector2 sp = mouse.position.ReadValue();
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：`Mouse.current` → `Input.mousePresent`（指针/左右键一律读 `Input.*`）
+            if (!Input.mousePresent) return;
+            Vector2 sp = Input.mousePosition;
             Vector3 wp = LayoutSpace.ScreenToWorld(sp, _cam);
             Vector2 px = ToPx(wp);
 
-            bool downL = mouse.leftButton.wasPressedThisFrame;
-            bool downR = mouse.rightButton.wasPressedThisFrame;
+            bool downL = Input.GetMouseButtonDown(0);
+            bool downR = Input.GetMouseButtonDown(1);
 
             // 🆕 2026-10-04（A24）：卡组行的**悬停变暗**（原版 `Deck Selector *` 是 `trans=1(ColorTint)`，
             //   `m_HighlightedColor = 0.6887`）。每帧重算一次（≤11 行的矩形比较，代价可忽略），
@@ -5008,7 +5008,7 @@ namespace CardPresentation
             UpdateRowHover(px);
             // 🆕 同上：那 5 颗 `SpriteSwap` 按钮的悬停 / 按下态（判据见 `Build()` 末尾那段与 `HoverTargetUnder`）
             UpdateButtonHover(px);
-            UpdateButtonPress(mouse.leftButton.wasPressedThisFrame, mouse.leftButton.wasReleasedThisFrame, px);   // 🆕 2026-11-04（B141·W29·3-08/09/11）：按住拖动滚动（四台 ScrollRect 的原版行为）—— 消费本帧就 return
+            UpdateButtonPress(Input.GetMouseButtonDown(0), Input.GetMouseButtonUp(0), px);   // 🆕 2026-11-04（B141·W29·3-08/09/11）：按住拖动滚动（四台 ScrollRect 的原版行为）—— 消费本帧就 return
             if (HandleScrollDragTick(px)) return;
 
             // 🆕 **真实点击记录**（用户 2026-09-24；与 `PointerLayer` 那条同源）。
@@ -5028,7 +5028,7 @@ namespace CardPresentation
             if (_dragging && _dragQuad != null)
             {
                 // 🆕 2026-11-04（B141 · W29）：起拖门（5 px + 60°–120° 方向门）→ **起拖那一帧摘牌**（3-27）→ 跟手 → 边缘自滚动
-                bool released0 = mouse.leftButton.wasReleasedThisFrame || !mouse.leftButton.isPressed;
+                bool released0 = Input.GetMouseButtonUp(0) || !Input.GetMouseButton(0);
                 if (TickRowDrag(wp, px, released0)) { if (released0) EndDragAt(px.x, px.y); return; }
                 if (released0) { EndDragAt(px.x, px.y); return; }   // 🆕 B89-R3e · 账 109：落点在列表内 ⇒ 重排（否则走「拖出删除 / 没动开窗」）
                 return;
@@ -5040,14 +5040,14 @@ namespace CardPresentation
             if (_cosmDrag != null && _cosmDrag.Dragging)
             {
                 _cosmDrag.OnDrag(DragEvent(px, Vector2.zero, false));          // 原版 `OnDrag`：预览贴指针
-                if (mouse.leftButton.wasReleasedThisFrame || !mouse.leftButton.isPressed)
+                if (Input.GetMouseButtonUp(0) || !Input.GetMouseButton(0))
                     { EndCosmeticDragAt(px, Vector2.zero); return; }           // 原版 `OnEndDrag`：关预览 + 投递
                 return;
             }
             if (_cardDrag != null && _cardDrag.Dragging)
             {
                 _cardDrag.OnDrag(DragEvent(px, Vector2.zero, false));
-                if (mouse.leftButton.wasReleasedThisFrame || !mouse.leftButton.isPressed)
+                if (Input.GetMouseButtonUp(0) || !Input.GetMouseButton(0))
                     { EndCardDragAt(px, Vector2.zero); return; }
                 return;
             }
@@ -5059,7 +5059,7 @@ namespace CardPresentation
             //     卡牌 —— **弹详情窗**（原版左键 = `OnCardClick`，而 uGUI 的 click 是**抬起**那一帧才发）。
             if (_cosmArmName != null || _cardArmDef != null)
             {
-                bool held = mouse.leftButton.isPressed && !mouse.leftButton.wasReleasedThisFrame;
+                bool held = Input.GetMouseButton(0) && !Input.GetMouseButtonUp(0);
                 Vector2 d0 = px - _armPx;
                 if (!held)
                 {
@@ -5110,7 +5110,7 @@ namespace CardPresentation
                   + " dragCard=" + (_cardDrag != null && _cardDrag.Dragging)
                   + " armed=" + (_cosmArmName != null || _cardArmDef != null)
                   + " | inPoolX=" + (px.x >= PoolX && px.x <= PoolX + PoolW)
-                  + " rawMouse=" + mouse.position.ReadValue().ToString("F1") + " focus=" + Application.isFocused);
+                  + " rawMouse=" + Input.mousePosition.ToString("F1") + " focus=" + Application.isFocused);
             }
 
             // 🆕 **2026-10-12（A364）：模态消息窗开着 ⇒ 本窗**不吃点击**（点哪儿都不穿透）。
@@ -7111,11 +7111,11 @@ namespace CardPresentation
 
         void HandleScroll()
         {
-            var mouse = Mouse.current;
-            if (mouse == null) return;
-            float dy = mouse.scroll.ReadValue().y;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：`Mouse.current` → `Input.mousePresent`、滚轮/位置 → `Input.mouseScrollDelta`/`Input.mousePosition`
+            if (!Input.mousePresent) return;
+            float dy = Input.mouseScrollDelta.y;
             if (Mathf.Abs(dy) < 1f) return;
-            Vector2 px = ToPx(LayoutSpace.ScreenToWorld(mouse.position.ReadValue(), _cam));
+            Vector2 px = ToPx(LayoutSpace.ScreenToWorld(Input.mousePosition, _cam));
             float notches = dy / ScrollUnitsPerNotch;      // 🔴 一格 = 1（见上面 ①）
 
             if (FltStripOn && px.x < FltX + FltW)
@@ -7166,18 +7166,18 @@ namespace CardPresentation
         public bool NameEditing { get { return _nameEdit != null; } }
         public string NameBuffer { get { return _nameEdit; } }
 
-        void BeginNameEdit() { _nameEdit = State.Deck.Name ?? ""; _editKind = 1; Say("改名中：输入后回车确认，ESC 取消"); }
+        void BeginNameEdit() { _nameEdit = State.Deck.Name ?? ""; _editKind = 1; InputTextFrame.Claim(this); Say("改名中：输入后回车确认，ESC 取消"); }   // ✅ 2026-11-05 B144-A：争用打字焦点（见 `InputTextFrame` 契约）
         /// <summary>卡名筛选的输入框（原版 `CardNameFilter` 用 `TMP_InputField`）。</summary>
-        void BeginFilterNameEdit() { _nameEdit = State.Filter.Name ?? ""; _editKind = 2; RefreshFilters(); Say("筛选卡名：输入后回车确认，ESC 取消"); }
+        void BeginFilterNameEdit() { _nameEdit = State.Filter.Name ?? ""; _editKind = 2; InputTextFrame.Claim(this); RefreshFilters(); Say("筛选卡名：输入后回车确认，ESC 取消"); }   // ✅ 2026-11-05 B144-A：争用打字焦点
 
         void HandleTyping()
         {
-            var kb = Keyboard.current;
-            if (kb == null || _nameEdit == null) return;
+            if (_nameEdit == null) return;
+            foreach (char __c in InputTextFrame.Take(this)) OnText(__c);   // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager：`onTextInput` 事件 → 每帧取 `Input.inputString`；同一帧只取一次 / 只有焦点能取，由 `InputTextFrame` 保证）
 
-            if (kb.escapeKey.wasPressedThisFrame) { EndTextEdit(false); return; }
-            if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame) { EndTextEdit(true); return; }
-            if (kb.backspaceKey.wasPressedThisFrame && _nameEdit.Length > 0)
+            if (Input.GetKeyDown(KeyCode.Escape)) { EndTextEdit(false); return; }
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)) { EndTextEdit(true); return; }
+            if (Input.GetKeyDown(KeyCode.Backspace) && _nameEdit.Length > 0)
                 _nameEdit = _nameEdit.Substring(0, _nameEdit.Length - 1);
 
             // `onTextInput` 是 InputSystem 的回调，拿得到已按本地化处理的字符（中文输入法也能进来）
@@ -7199,7 +7199,7 @@ namespace CardPresentation
         {
             int kind = _editKind;
             string buf = _nameEdit ?? "";
-            _nameEdit = null; _editKind = 0;
+            _nameEdit = null; _editKind = 0; InputTextFrame.Release(this);   // ✅ 2026-11-05 B144-A：交还打字焦点
             _typed.Clear();
 
             if (kind == 1)
@@ -7234,8 +7234,8 @@ namespace CardPresentation
             // 🔴 **2026-10-17（T23 删件）**：这里原来还有 `kind == 3`（导入框）那一支 —— 导入弹窗删了。
         }
 
-        void OnEnable() { if (Keyboard.current != null) Keyboard.current.onTextInput += OnText; }
-        void OnDisable() { if (Keyboard.current != null) Keyboard.current.onTextInput -= OnText; }
+        void OnEnable() { /* ✅ 2026-11-05 B144-A：迁旧输入后没有 `onTextInput` 事件 —— 打字由 `HandleTyping` 每帧 `InputTextFrame.Take(this)` 取 */ }
+        void OnDisable() { /* ✅ 2026-11-05 B144-A：没有事件要退订；焦点在 `EndTextEdit` 里 `InputTextFrame.Release(this)` 交还 */ }
         void OnText(char c) { if (_nameEdit != null && !char.IsControl(c)) _typed.Add(c); }
 
         // ============================================================ 交互：ESC（原版 `DeckEditingWindow.ESCPressed`）
@@ -7299,8 +7299,8 @@ namespace CardPresentation
         /// <summary>每帧问一次 ESC 键（**批处理没有键** ⇒ 自检直接调 `EscPressed()`，同一条路）。</summary>
         void HandleEscape()
         {
-            var kb = Keyboard.current;
-            if (kb == null || !kb.escapeKey.wasPressedThisFrame) return;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：`escapeKey.wasPressedThisFrame` → `Input.GetKeyDown(KeyCode.Escape)`，1:1（旧输入没有「键盘设备为空」这一档）
+            if (!Input.GetKeyDown(KeyCode.Escape)) return;
             // 🆕 **2026-10-17（B25①）**：ESC 归**最上面那扇窗**（`PointerLayer.KeyCancel` 已经先吃过一次 ——
             //   它的 `Update` 排在本类之前）⇒ 本类**不许**再存盘离场（原版那一刻轮不到 `DeckEditingWindow`）。
             //   ⚠️ `_winShieldPrev` 就是为这一句记的：这一帧窗**已经被关掉了**，只问「此刻开着吗」会得到 false。
@@ -10601,10 +10601,10 @@ namespace CardPresentation
         /// <para>返回 true = 这一帧**被滚动吃掉**（点击链与拖拽链都不许再处理它）。</para></summary>
         bool HandleScrollDragTick(Vector2 px)
         {
-            var mouse = Mouse.current;
-            if (mouse == null) { _sdKind = SdNone; _sdActive = false; _sdInertia = false; return false; }
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：`Mouse.current` → `Input.mousePresent`（左键两态见下面 `held`）
+            if (!Input.mousePresent) { _sdKind = SdNone; _sdActive = false; _sdInertia = false; return false; }
             if (ModalPopupOpen) { _sdKind = SdNone; _sdActive = false; _sdInertia = false; return false; }   // 模态窗开着 ⇒ 本窗不吃
-            bool held = mouse.leftButton.isPressed && !mouse.leftButton.wasReleasedThisFrame;
+            bool held = Input.GetMouseButton(0) && !Input.GetMouseButtonUp(0);
             float dt = Mathf.Max(1e-4f, UnityEngine.Time.deltaTime);
             // 别的拖拽已经接手（行拖抬起 / 卡池卡或卡背的拖影已在跟手）⇒ 滚动这一支让位，⛔ 别把刚起来的拖拽改吞成滚动
             if ((_dragging && _rowDragArmed) || (_cardDrag != null && _cardDrag.Dragging)

@@ -241,7 +241,7 @@ namespace CardPresentation
         int Q(int q) { return QBase + (q - QDI); }
 
         // ---- 几何（A1 §2 逐条）----
-        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
+        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.7725490f);
         /// <summary>压暗层 `Menu Dark Background` 的**原版矩形** —— **超画幅 4574.60 × 2572.36**
         /// （中心恰好还是 (960,540)，所以 `Solid` 那两个尺寸实参 = `ShadeW/ShadeH`）。
         /// <para>判据 = `menu_dump.py bundle_menus_assets_all "Deck info Popup" --depth 7`

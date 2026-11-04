@@ -467,7 +467,7 @@ namespace CardPresentation
             }
             var o = offers[Index];
             Army = ArmyOfArt(o.Art);
-            Cards = RollPack(Army, unchecked(Page * 1000 + Index));
+            Cards = BoosterOpenOwned.TryTakeOwnedCards(o.ContainerId, unchecked(Page * 1000 + Index), out var _ownedCards, out var _ownedWhy) ? _ownedCards : RollPack(Army, unchecked(Page * 1000 + Index));   // 🆕 2026-11-05（B143-R4 · 调度台授权本文件）：**已拥有 ⇒ 开背包里的那一包**（原版 `ShopOfferContainer.OpenContainer` 那条「有实例就开、没有才买」的等价物；本工程没有 instanceId 概念 ⇒ 判据 = `ShopOffer.ContainerId` + `Inventories.Containers`，全文 → `资料/完全复刻/判据/B143_奖励背包与待裁四项.md` §6·9）。没有存货 / 没映射 ⇒ 返 false ⇒ 走原来的 `RollPack`（= 原版「买完即开」那条，⛔ 未删）
             CardsLeft = Cards.Length;
 
             // 🆕 **T19：防连开延迟**（原版 `BoosterPackOpenWindow.Initialize` 里那句
@@ -539,8 +539,8 @@ namespace CardPresentation
             //   ⚠️ **2026-10-12（A408 现读订正，铁律 5）**：**那一号 2026-10-04 同日（A47）就删了**、
             //   本文件里**已无此名**（同口径见 `QShade` / `QCard` 声明上方那一整段）——
             //   **本行只是复述改前**，⛔ 别照它去找那个常量。
-            //   按规矩收口到公共件 `MenuDraw.ShadeHit`，档改成**压暗层自己那一档** `QShade`(3170)
-            //   —— 仍**严格低于**卡命中区的最低档 `QCard`(3171) ⇒ 卡照样能点（规矩 → `MenuDraw.ShadeHit`）。
+            //   按规矩收口到公共件 `MenuDraw.ShadeHit`，档改成**压暗层自己那一档** `QShade`(3122)
+            //   —— 仍**严格低于**卡命中区的最低档 `QCard`(3123) ⇒ 卡照样能点（规矩 → `MenuDraw.ShadeHit`）。
             //   ⚠️ 摆法随之改变（**这是 `MenuDraw.Hit` 的既有摆法，别改**）：节点摆在父原点、
             //      quad 摆在矩形中心 —— 自检里原先那条量**节点位置**的断言因此改成量 quad（见 `ShopScene`）。
             var surf = MenuDraw.ShadeHit(CloseNode, CloseSurfaceR, QShade, QCard, CloseFromTap, "Collider");
@@ -1614,8 +1614,8 @@ namespace CardPresentation
 
         /// <summary>🔶 自己设计（非原版）：把包面自带的粒子提到「背景之上、卡之下」那一档。
         /// <para>**为什么必须自己定**：原版粒子与 UI 是两条队列（3D 在 UI 之前画），而本工程的**背景 quad 是
-        /// 透明队列 3170、后于默认 3000 画** ⇒ 不动它们的话，炸包粒子会被那块白底整个盖住。
-        /// 落点用本窗既有的档位（背景 = `QShade` 3170、卡从 `QCard` 3171 起）⇒ 粒子落 **3171**，
+        /// 透明队列 `QShade`（= 3122；2026-11-05 `B143-W8` 订正旧号 3170）、后于默认 3000 画** ⇒ 不动它们的话，炸包粒子会被那块白底整个盖住。
+        /// 落点用本窗既有的档位（背景 = `QShade` 3122、卡从 `QCard` 3123 起）⇒ 粒子落 **`QCard`**，
         /// ⛔ 不新造数字。谁定的：执行代理 `B98_A5` 2026-10-29（未跑 Unity 验收）。
         /// ⚠️ 必须 `new Material(...)`：`sharedMaterial` 是**包里的资产**，直接改会污染整个进程里那份。</para></summary>
         void LiftPackParticles(Transform root)

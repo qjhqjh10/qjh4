@@ -292,15 +292,19 @@ public static class B98A5_Assert
         Check(Vector3.Distance(anchor.localPosition, before) > 1e-4f,
               "★ 1.05 s 时卡容器**真的在抖**（等价物：菜单层没有可抖的相机 ⇒ 抖 `Booster Animation Parent`）");
 
-        // 粒子：原版粒子画在 UI 背景之上、卡之下；我们把它们提到 `QCard`（背景 = `QShade` 3122、卡从 3123 起；2026-11-04 `B142-E30` 订正旧号 3170/3171
+        // 粒子：原版粒子画在 UI 背景之上、卡之下；我们把它们提到 `QCard`（背景 = `QShade` 3122、卡从 3123 起；2026-11-04 `B142-E30` 订正旧号 3170/3171）。2026-11-05 `B143-W8`：材质 null 与「队列没提」**拆成两条独立断言**（原为一个 `lifted` 计数，两种失败同码）
         var ps = item.GetComponentsInChildren<ParticleSystemRenderer>(true);
         Check(ps.Length > 0, "（前提）实物子树里有粒子（原版 `Booster Pack Particles` 那一族）");
-        int lifted = 0;
+        int matNull = 0, lifted = 0, readable = 0;
         for (int i = 0; i < ps.Length; i++)
-            if (ps[i] != null && ps[i].sharedMaterial != null
-                && ps[i].sharedMaterial.renderQueue == BoosterPackOpenWindow.QCard) lifted++;
-        Check(ps.Length > 0 && lifted == ps.Length,
-              "★ 粒子材质的 renderQueue 全部提到 `QCard`（" + lifted + "/" + ps.Length + "）");
+        {
+            var mat = ps[i] != null ? ps[i].sharedMaterial : null;   // 渲染器自身 null 也算「拿不到材质」（原版 `LiftPackParticles` 对 null 材质是 continue）
+            if (mat == null) { matNull++; continue; }
+            readable++;
+            if (mat.renderQueue == BoosterPackOpenWindow.QCard) lifted++;
+        }
+        Check(matNull == 0, "①（前提 · 供第 ② 条）实物子树里每颗粒子都拿得到材质（null " + matNull + " / " + ps.Length + " 颗）—— 不成立时第 ② 条只覆盖可读的那 " + readable + " 颗，⛔ 不再连带把「队列没提」打红（2026-11-05 `B143-W8` · B142-TAILB-P3 同族收口）");
+        Check(lifted == ps.Length && readable > 0, "★ ② 粒子材质的 renderQueue 全部提到 `QCard`(" + BoosterPackOpenWindow.QCard + ")（提到 " + lifted + " / " + ps.Length + " 颗 · 可判 " + readable + " / " + ps.Length + " 颗" + (readable == ps.Length ? "" : readable == 0 ? " —— ⚠️ 可判 0 颗 ⇒ 未验，按红计（见第 ① 条）" : " —— ⚠️ 覆盖不全，缺材质那几颗见第 ① 条") + "）");
     }
 
     // ═══════════════════════════════════════════════════════════════════════════════════════

@@ -454,14 +454,14 @@ namespace CardPresentation
         /// `MainMenu/Settings/ButtonLabel/ReplayTutorial` 在**本地全部预制体里 0 使用**（只导出了词条）；
         /// 战斗侧那个 `Battle/Settings/SkipTutorial` + `BattleSettingsWindow.SkipTutorialButtonOnClick`
         /// 是**战斗内教程**的，不是本链。⇒ 不发明原版 UI，改走**引擎已有的输入路径**
-        /// （`UnityEngine.InputSystem`，与 `BattleDriver` 的 ESC/Enter 同一条；批处理里 `Keyboard.current == null` ⇒ 自动跳过）。</para></summary>
+        /// （✅ 2026-11-05 `B144-A`：已迁旧 Input Manager，与 `BattleDriver` 的 ESC/Enter 同一条；批处理里 `Input.GetKeyDown` 恒 false ⇒ 自动跳过）。</para></summary>
         void HandleSkipShortcut()
         {
             if (!_active) return;
-            var kb = Keyboard.current;
-            if (kb == null) return;                      // 批处理 / 无键盘设备
-            if (!kb.f9Key.wasPressedThisFrame) return;
-            if (kb.shiftKey.isPressed) SkipAll();
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：`f9Key` → `KeyCode.F9`、`shiftKey` → 左/右 Shift，1:1
+            //    （旧输入下没有「键盘设备为空」这一档；原来那句 `kb == null` 守卫随之删除）
+            if (!Input.GetKeyDown(KeyCode.F9)) return;
+            if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) SkipAll();
             else SkipCurrent();
         }
 
@@ -1266,10 +1266,10 @@ namespace CardPresentation
 
         void RecordClickPosition()
         {
-            var m = Mouse.current;
-            if (m == null) return;                                   // 批处理 / 无鼠标设备
-            if (!m.leftButton.wasPressedThisFrame) return;
-            _lastClickPx = m.position.ReadValue(); _hasClickPx = true; _warnedNoClickPx = false;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：`Mouse.current`/`position` → `Input.mousePresent`/`Input.mousePosition`，1:1
+            if (!Input.mousePresent) return;
+            if (!Input.GetMouseButtonDown(0)) return;
+            _lastClickPx = Input.mousePosition; _hasClickPx = true; _warnedNoClickPx = false;
         }
 
         /// <summary>深目标（第三步那一路）用的 offset：锻造首级领取 = **点击位置**，其余 = 阶段表里的 `DeepOffset`。

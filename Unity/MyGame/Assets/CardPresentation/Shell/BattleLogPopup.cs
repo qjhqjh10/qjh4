@@ -65,7 +65,7 @@ namespace CardPresentation
 
         // ---- 真值（§B 那张表，绝对画布像素）----
         static readonly PxRect DarkBgR = new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f);
-        static readonly Color DarkBgTint = new Color(0f, 0f, 0f, 0.773f);
+        static readonly Color DarkBgTint = new Color(0f, 0f, 0f, 0.7725490f);
         static readonly PxRect ContentR = new PxRect(135f, 55f, 1785f, 1055f);
         static readonly Vector4 ContentBorder = new Vector4(42f, 363f, 655f, 81f);
         static readonly PxRect CloseR = new PxRect(1685f, 25f, 1815f, 155f);

@@ -758,10 +758,24 @@ public static class ArenaBuilder
         //   · 整棵树 → `ArenaSlots.ArenaLayer`（HUD 相机不吃这一层，透视相机专画它）；⚠️ 这一步**也**把 `BuildTapHits` 按原版设的 0/11 刷成了 8 ⇒ 射线掩码必须含 bit8（`TapParticleController.CollisionMask` = `0x40000D01`，🔶 自己设计，见该常量处）；
         //   · **Volume 子物体回 `Default` 层** —— 原版那是 Default 层、只被 `BoardCamera` 的
         //     `m_VolumeLayerMask = 1` 够得着；不还原的话**后处理会静默失效**（不报错、只是没效果）。
-        int nLayer = 0;
-        foreach (var t in root.GetComponentsInChildren<Transform>(true)) { t.gameObject.layer = CardPresentation.ArenaSlots.ArenaLayer; nLayer++; }
+        // ✅ 已复刻（2026-11-05 · B144-A · 原版 `Battle Arena *.unity` 的 tap 宿主 `m_Layer`；B132 审计 #76）
+        //   ⚠️ 2026-11-05 订正：上面那句「也把 `BuildTapHits` 按原版设的 0/11 刷成了 8」**对 0 成立、对 11 不成立** ——
+        //     原版每场**恰有 1 颗** tap 宿主是层 11（`CardLowBoardLimit`，见 `<场>_manifest.json` 的 `tapHits[].layer`），
+        //     它的原版 `MeshRenderer` 是 `m_Enabled: 0`、我们压根没建渲染器 ⇒ **透视相机画不画它都无所谓**，
+        //     没有理由把它一起刷成 8。⇒ 凡清单 `layer != 0` 的宿主，刷层这一步**跳过**，保留原版层号。
+        //     （层 0 的宿主必须照旧刷 8：原版那些层 0 物件**有** MeshRenderer，回 0 会被 3D 相机整颗丢掉。）
+        var origLayers = OriginalNonZeroHostLayers(mf);
+        _origHostLayersByScene[sceneName] = origLayers;
+        int nLayer = 0, nOrigLayer = 0;
+        foreach (var t in root.GetComponentsInChildren<Transform>(true))
+        {
+            int orig;
+            if (origLayers.TryGetValue(t.gameObject.name, out orig)) { t.gameObject.layer = orig; nOrigLayer++; }
+            else { t.gameObject.layer = CardPresentation.ArenaSlots.ArenaLayer; nLayer++; }
+        }
         int nVol = 0;
         foreach (var v in root.GetComponentsInChildren<UnityEngine.Rendering.Volume>(true)) { v.gameObject.layer = 0; nVol++; }
+        int nCardBody = RestoreInactiveCardBodies(root.transform, sceneName);
 
         var data = root.AddComponent<CardPresentation.ArenaPrefabData>();
         data.state = FromManifest(mf);
@@ -774,11 +788,81 @@ public static class ArenaBuilder
                 + $"（网格/粒子/灯/Volume ＋ ArenaPrefabData：雾 mode {data.state.fogMode} 密度 {data.state.fogShapeDensity:F4}、"
                 + $"环境光 ({(int)(data.state.ambientSky.r * 255)},{(int)(data.state.ambientSky.g * 255)},{(int)(data.state.ambientSky.b * 255)})、"
                 + $"天空盒 {(data.state.skybox != null ? data.state.skybox.name : "(null)")}；"
-                + $"层：{nLayer} 个对象 → ArenaLayer({CardPresentation.ArenaSlots.ArenaLayer})、{nVol} 个 Volume → Default(0)）ok={ok}");
+                + $"层：{nLayer} 个对象 → ArenaLayer({CardPresentation.ArenaSlots.ArenaLayer})、{nVol} 个 Volume → Default(0)、"
+                + $"{nOrigLayer} 个宿主保留原版非零层（层 11 `CardLowBoardLimit`）、"
+                + $"`Cache Stealth` 卡体补建 {nCardBody} 颗）ok={ok}");
         return ok;
     }
 
-    /// <summary>把 13 个战场各渲一张预览图（`arenas/&lt;场景&gt;/preview_&lt;场景&gt;.png`）。
+    // ==================================================================
+    //  ✅ 已复刻（2026-11-05 · B144-A · B132 审计 #74/#75/#76）
+    //  【判据】原版 `d:/2/tools/assetripper_out/ExportedProject/Assets/Data/Scenes/Battle Scenarios/Battle Arena *.unity`
+    //    · `CardLowBoardLimit`：GO `m_Layer: 11`（`BoardCardLimit`）· `BoxCollider size (1,1,1) center 0` ·
+    //      缩放 `(81.16108, 0.82915014, 41.907936)` · `MeshRenderer m_Enabled 0`。13/13 场都有。
+    //    · `Cache Stealth`：GO `&323`（arena1）= `m_Layer: 10`（`BoardElements`）· **`m_IsActive: 0`** ·
+    //      `Transform` +`MeshRenderer(m_Enabled 1)` +`MeshFilter(mesh guid 3a56ea04… = `Card 3D WH40k`)`
+    //      +`BoxCollider(size 1.827034×3.01×0.5 · center (0.013507843,1.55,−0.016031265) · isTrigger 0)`。13/13 场都有。
+    //  【为什么只补 MeshFilter+BoxCollider、不补 MeshRenderer】那颗材质是 bundle 里的
+    //    `Everguild/Cards/3D Card Stealth` 着色器 —— 本地**没有 .mat 资产**（bundle shader 落不了工程），
+    //    硬建只会得到一颗 null 材质（将来一被激活就是品红）。而原版 GO 自己 `m_IsActive: 0`
+    //    ⇒ 这两颗 3D 件**从来就没被画过、也没参与过物理**，补齐它们只为「结构逐件对齐」。
+    //    ⇒ **⚠️ 判据不可得**：`MeshRenderer` 那一格**不补**（调度台 2026-11-05 裁定）。
+    //      ⛔ 别把它标成 `🔶 自己设计` —— 这不是我们的设计选择，是**原版那颗材质在本机拿不到**。
+    //  【灭自证】把 `RestoreInactiveCardBodies` 的调用删掉 ⇒ prefab 里 `Cache Stealth` 又只剩 Transform、
+    //    `CardLowBoardLimit` 又回层 8 ⇒ 断言 `B144_A_PhysLayer_Assert` 的 A2/A3/A4 变红。
+    // ==================================================================
+
+    /// <summary>清单里**原版层号非 0** 的 tap 宿主（名字 → 层号）。刷层那一步对这些对象**跳过**。
+    /// <para>⚠️ 只收 `1..31`：层 0 的宿主必须照旧刷成 `ArenaLayer(8)`（原版那些层 0 物件**有** MeshRenderer，
+    /// 回到层 0 会被透视相机整颗丢掉 ⇒ 那是「复刻了层号、丢了一整个模型」）。</para></summary>
+    static Dictionary<string, int> OriginalNonZeroHostLayers(Manifest mf)
+    {
+        var d = new Dictionary<string, int>();
+        if (mf == null || mf.tapHits == null) return d;
+        for (int i = 0; i < mf.tapHits.Length; i++)
+        {
+            var e = mf.tapHits[i];
+            if (e == null || string.IsNullOrEmpty(e.go)) continue;
+            if (e.layer <= 0 || e.layer >= 32) continue;
+            d[e.go] = e.layer;
+        }
+        return d;
+    }
+
+    /// <summary>原版那颗**自己关着**的 3D 卡体（`Cache Stealth`）：补 `MeshFilter` + `BoxCollider`、层号回 10。
+    /// <para>它 13/13 场都在、`m_IsActive: 0` ⇒ 补齐后**不画、不碰**，只是把结构对上原版。
+    /// 返回值 = 补到了几颗节点（0 = 这一场没有 / 已经补过）。</para></summary>
+    static int RestoreInactiveCardBodies(Transform root, string scene)
+    {
+        if (root == null) return 0;
+        const string CardBodyName = "Cache Stealth";
+        const string MeshPath = "Assets/WarpforgeVFX/Meshes/Card 3D WH40k.asset";
+        Mesh mesh = AssetDatabase.LoadAssetAtPath<Mesh>(MeshPath);
+        if (mesh == null)
+            Debug.LogWarning($"[Arena] {scene}：`{MeshPath}` 取不到 ⇒ `{CardBodyName}` 只补碰撞体、不补网格"
+                           + "（原版那颗 GO 自己关着 ⇒ 无画面影响）");
+        int n = 0;
+        foreach (var t in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (t.gameObject.name != CardBodyName) continue;
+            var go = t.gameObject;
+            if (mesh != null && go.GetComponent<MeshFilter>() == null)
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            if (go.GetComponent<BoxCollider>() == null)
+            {
+                var b = go.AddComponent<BoxCollider>();
+                b.size    = new Vector3(1.827034f, 3.01f, 0.5f);
+                b.center  = new Vector3(0.013507843f, 1.55f, -0.016031265f);
+                b.isTrigger = false;
+            }
+            go.layer = CardPresentation.ArenaSlots.BoardCardLayer;   // 原版 `m_Layer: 10` = `BoardElements`
+            n++;
+        }
+        if (n > 0) Debug.Log($"[Arena] {scene}：`{CardBodyName}`（原版 `m_IsActive: 0` 的死件）补 MeshFilter+BoxCollider ×{n}、层 → {CardPresentation.ArenaSlots.BoardCardLayer}");
+        return n;
+    }
+
+
     /// 用途 = **验收**：13 场搬过来了没有、建出来像不像（⚠️ 参数仍以清单/原始 JSON 为准，预览图只回答「像不像」）。</summary>
     public static void RenderAllPreviews()
     {
@@ -3983,11 +4067,34 @@ public static class ArenaBuilder
                 Debug.Log($"[Arena] WF_LENSSHIFT 覆盖：lensShift.y = {lv}（默认 = BoardLensShiftY() = {BattleScene.BoardLensShiftY()}）");
             }
             ConfigureBoardCamera(cam, mf.camera, lensY);
+            // ✅ 已复刻（2026-11-05 · B144-A · B132 审计 #36/#41/#42/#43：原版 `Battle Arena *.unity` 的 `Camera &1461`）
+            //   `ConfigureBoardCamera` 只管光学与后处理；清屏/背景/深度/掩码/HDR/MSAA/遮挡这几格原来**一个都没设**，
+            //   于是独立场景那台相机吃的是 `Camera` 构造默认值（`m_CullingMask` 全层、`m_ClearFlags: 1` Skybox、
+            //   `m_Depth: 0`、`m_HDR: 1`、`m_AllowMSAA: 1`、`m_OcclusionCulling: 1`）⇒ 预览图量出来的东西
+            //   **不是战斗里那台相机的画面**（掩码全层 = 连本该看不见的层也画）。
+            //   逐格照原版：`m_Bits 1137` 在本工程语义下 = `1<<8 | 1<<10`（= `BattleScene.BuildBoardCamera` 同式）；
+            //   `m_ClearFlags 2`(SolidColor) · `m_BackGroundColor` 逐值 · `m_Depth −1` · `m_HDR 1` · MSAA 0 · Occl 0。
+            cam.clearFlags       = CameraClearFlags.SolidColor;
+            cam.backgroundColor  = new Color(0.028763004f, 0.028794324f, 0.029411793f, 0.019607844f);
+            cam.depth            = -1;
+            cam.cullingMask      = 1137;   // 原版 `m_Bits: 1137` = 位 {0,4,5,6,10}。⚠️ **这里可以照抄整数**：
+                                           //   独立场景这条路上内容**留在层 0**（现读 `battlearena1.unity`：121 个对象层 0、
+                                           //   1 个 `CardLowBoardLimit` 层 11）—— 与原版同层，所以 1137 逐位有效；
+                                           //   层 11 没被 1137 画到，而原版那颗 `MeshRenderer` 本来就是 `m_Enabled: 0`，一致。
+                                           //   ⛔ 别换成战斗场景那条 `1<<8 | 1<<10`：那是 **prefab 那条路**（整树刷 `ArenaLayer(8)`）才成立，
+                                           //   套到这边会让 121 个层 0 的对象**一张都不画**（预览图全黑）。
+            cam.allowHDR         = true;
+            cam.allowMSAA        = false;
+            cam.useOcclusionCulling = false;
             ApplyTransform(camGo.transform, mf.camera.pos, mf.camera.rot, new float[] { 1, 1, 1 });
             camGo.AddComponent<AudioListener>();
         }
 
         // ---- 保存场景 ----
+        // ✅ 已复刻（2026-11-05 · B144-A · B132 审计 #74/#75）：独立场景这条路没有「整树刷层」那一步，
+        //   所以这里直接补 `Cache Stealth` 的 3D 卡体（原版 `m_IsActive: 0` 的死件）并把层设回 10。
+        foreach (var r in EditorSceneManager.GetActiveScene().GetRootGameObjects())
+            RestoreInactiveCardBodies(r.transform, mf.scene);
         Directory.CreateDirectory(ScenesDir); ApplySceneRenderAndBakeSettings(mf);
         EditorSceneManager.SaveScene(scene, ScenePath(mf.scene)); PatchLightmapEditorSettings(ScenePath(mf.scene));   // 🆕 B139_H：烘焙四格按原版落 YAML（必须在 SaveScene 之后）
         AssetDatabase.SaveAssets();
@@ -4626,6 +4733,10 @@ public static class ArenaBuilder
     // ---- Tap 产物自检（与顶点流 / 色彩空间那两条同一手法：读**产物文本**，不信「调过了」）----
     static readonly Dictionary<string, int> _tapDefsBuiltByScene = new Dictionary<string, int>();
     static readonly Dictionary<string, int> _tapCtrlBuiltByScene = new Dictionary<string, int>();
+    // ✅ 已复刻（2026-11-05 · B144-A · B132 审计 #76）：本场「原版层号非 0 的 tap 宿主」名字 → 层号。
+    //   刷层那一步对这些对象跳过（见 `BuildOneArenaPrefab`），自检那条也要认这个例外（见 `VerifyTapHostLayers`）。
+    static readonly Dictionary<string, Dictionary<string, int>> _origHostLayersByScene
+        = new Dictionary<string, Dictionary<string, int>>();
     const string TapDefScriptPath = "Assets/CardPresentation/Battle/TapHitMaterialDefinition.cs";
     const string TapCtrlScriptPath = "Assets/CardPresentation/Battle/TapParticleController.cs";
 
@@ -5268,7 +5379,7 @@ public static class ArenaBuilder
                 c.queue = rq;
             }
         }
-        c.applyAmbientColor = HasAmbientColorProp(props);
+        c.applyAmbientColor = HasAmbientColorProp(props); AttachQualityChanger(r, sceneName);   // ✅ 已复刻（2026-11-05 · B143-W7 · 账 `未分类_其他:423`）：同一个渲染器上补挂 `MaterialChangerByQuality`（方法体在文件尾；⛔ 位置不影响初始化顺序 —— 见那个方法的 doc）
         // 🆕 2026-09-25：**非主贴图槽**（`_NoiseTex1` / `_MinTex` / `_SecondaryTex` / `_MatCap` …）——
         //    必须带到这里（**不能只在建场期贴**：那时材质还是 `URP/Unlit` 兜底、没有这些槽，
         //    实测一次 BuildAll 会打 50 条「没有槽」跳过）。
@@ -6387,8 +6498,12 @@ public static class ArenaBuilder
     /// （`BuildOneArenaPrefab` 末尾把整棵树刷成 `ArenaLayer(8)`，而掩码原来不认 8 ⇒ 165 颗宿主一颗都命不中，
     /// 而旧自检只比「定义数 / 控制器数」，全绿）。
     /// <para>两个条件（缺一即报红）：① `(CollisionMask &amp; (1 &lt;&lt; layer)) != 0` —— 掩码打得中；
-    /// ② `layer == ArenaSlots.ArenaLayer` —— **本工程的硬约束**（arena prefab 整树刷 8、透视相机 `cullingMask = 1&lt;&lt;8`；
-    /// 165 颗宿主里 **109 颗的子树里有 MeshRenderer**（木桶/坦克/雕像…），按原版回 0/11 会被 3D 相机整颗丢掉）。</para>
+    /// ② `layer == ArenaSlots.ArenaLayer` **或** `layer == 清单里这颗宿主的原版层号（≠0）` ——
+    /// **本工程的硬约束**（arena prefab 整树刷 8、透视相机 `cullingMask = 1&lt;&lt;8`；
+    /// 165 颗宿主里 **109 颗的子树里有 MeshRenderer**（木桶/坦克/雕像…），按原版回 0 会被 3D 相机整颗丢掉）。
+    /// ✅ 2026-11-05（`B144-A`）：**但原版层号非 0 的那几颗按原版保留** —— 每场恰 1 颗层 11 `CardLowBoardLimit`
+    /// （原版 `MeshRenderer m_Enabled 0`、我们没建渲染器 ⇒ 相机画不画无所谓），see `BuildOneArenaPrefab` 的刷层段。
+    /// ⚠️ 例外**只按清单 `tapHits[].layer` 给**，⛔ 别在这里加「白名单名字」。</para>
     /// <para>⚠️ 读**产物文本**（与 `VerifyPrefabVertexStreams` 同一手法），不加载 prefab 资产。
     /// ⛔ 别把它降级成「数 `m_Layer: 8` 出现几次」—— 那样任何一颗宿主漏刷都发现不了。
     /// 灭自证：把 `BuildOneArenaPrefab` 那次刷层去掉（宿主回 0/11）⇒ 条件②红；把 bit8 从掩码拿掉 ⇒ 条件①红。</para></summary>
@@ -6448,7 +6563,19 @@ public static class ArenaBuilder
 
         int mask = CardPresentation.TapParticleController.CollisionMask;
         int arenaLayer = CardPresentation.ArenaSlots.ArenaLayer;
-        int nOut = 0, nGone = 0;
+        // ✅ 已复刻（2026-11-05 · B144-A · B132 审计 #76）：原版层号非 0 的宿主**保留原版层**是合法态
+        //   （每场恰 1 颗 `CardLowBoardLimit` = 层 11；它原版 `MeshRenderer m_Enabled 0`、我们没建渲染器
+        //   ⇒ 透视相机画不画它无所谓）。⚠️ 例外**只按清单给**，⛔ 别在这里加「白名单名字」——
+        //   那样任何一颗漏刷的宿主都能被放过去。
+        Dictionary<string, int> origLayers;
+        if (!_origHostLayersByScene.TryGetValue(scene, out origLayers))
+        {
+            // 兜底：自检被单独调（这一轮没建过 prefab）时，直接从清单现读 —— ⛔ 别退化成「严格按层 8」，
+            // 那样一条合法的原版例外会被报成缺陷（2026-11-05 B144-A）。
+            origLayers = OriginalNonZeroHostLayers(LoadManifest(scene));
+            _origHostLayersByScene[scene] = origLayers;
+        }
+        int nOut = 0, nGone = 0, nKeepOrig = 0;
         var bad = new List<string>();
         for (int i = 0; i < defGo.Count; i++)
         {
@@ -6461,22 +6588,30 @@ public static class ArenaBuilder
             }
             goName.TryGetValue(defGo[i], out nm);
             string who = "`" + (nm ?? defGo[i]) + "`";
+            int want = -1;
+            bool hasOrig = origLayers != null && nm != null && origLayers.TryGetValue(nm, out want) && want != 0;
             if (L < 0 || L >= 32 || ((mask >> L) & 1) == 0)
             {
                 nOut++;
                 bad.Add($"{who}：layer {L} **不在掩码 `0x{mask:X8}` 里** ⇒ 点它没有反馈");
             }
+            else if (L != arenaLayer && hasOrig && L == want)
+            {
+                nKeepOrig++;    // 合法例外：按原版保留的层号（当前只有层 11 `CardLowBoardLimit`）
+            }
             else if (L != arenaLayer)
             {
                 nOut++;
-                bad.Add($"{who}：layer {L} ≠ `ArenaLayer({arenaLayer})` ⇒ **透视相机不画它**（原版 0/11 在本地渲不出来）");
+                bad.Add($"{who}：layer {L} ≠ `ArenaLayer({arenaLayer})`"
+                      + (hasOrig ? $"、也 ≠ 原版层 {want}" : "")
+                      + " ⇒ **透视相机不画它**（原版 0/11 在本地渲不出来）");
             }
         }
         for (int i = 0; i < bad.Count; i++) Debug.LogError($"[Arena] Tap 层自检 🔴 {scene}：{bad[i]}");
         if (defGo.Count == 0) return "**没验**（产物里 0 个 `TapHitMaterialDefinition`，见左边那两条计数）";
         int nOk = defGo.Count - nOut - nGone;
         return (nOut == 0 && nGone == 0 && defGo.Count > 0)
-             ? $"**{defGo.Count} 颗宿主全部 {nOk}/{defGo.Count} 在掩码内且层 = {arenaLayer} ✅**"
+             ? $"**{defGo.Count} 颗宿主全部 {nOk}/{defGo.Count} 在掩码内、层 = {arenaLayer}（或按原版保留层 {nKeepOrig} 颗）✅**"
              : $"**🔴 {nOut + nGone} 条不合格**（在掩码内且层对的 {nOk}/{defGo.Count}；掩码 `0x{mask:X8}`、要求层 {arenaLayer}）";
     }
 
@@ -6810,6 +6945,33 @@ public static class ArenaBuilder
                 stale.Add($"源 `{path}`（{t:yyyy-MM-dd HH:mm:ss}Z）比【场景】新 ⇒ **改了生成器/清单生成器但场景没重建**");
         }
         return stale;
+    }
+
+    /// <summary>✅ 已复刻（2026-11-05 · B143-W7 · 账 `未分类_其他:423`）：给**同一颗渲染器**补挂
+    /// `CardPresentation.MaterialChangerByQuality`（= 原版那些对象上除 `ArenaOriginalMaterial` 之外的第二颗组件）。
+    /// <para>🔴 **为什么需要它**：原版这批对象同时挂「换原版材质」与「按画质档再换一次」两颗；
+    /// 我们过去只挂了前者 ⇒ `ArenaPresetTable.AttachForArena`（`Core/MaterialChangerByQuality.cs:257`）
+    /// **全仓 0 调用**（账 `未分类_其他.tsv:423` 那一行）。</para>
+    /// <para>判据 = 同一条账的「该做什么」：在 `AttachOriginalMaterial` 那一跳里对渲染器调它，
+    /// 并把 `priority` 补成 **2（`InitializationPriority.UI`）** —— 基类的 `priority` 是 private
+    /// `[SerializeField]`、本仓没有 setter（`Shell/InitializableBehaviour.cs` 不在本批白名单）⇒ 只能走 `SerializedObject`。</para>
+    /// <para>⚠️ **只对 `MeshRenderer` 挂**：`AttachOriginalMaterial` 的形参是 `Renderer`（粒子那一支也走它，
+    /// 见 2026-09-30 ⑨），而 `AttachForArena` 要的是 `MeshRenderer`；原版那批预设也全是网格。</para>
+    /// <para>⚠️ **调用位置不影响初始化顺序**：地块材质重建在 `ArenaOriginalMaterial.Awake` 就做完了，
+    /// 而 `MaterialChangerByQuality` 要到 `Start → SceneInitializer` 之后才 `Initialize()`
+    /// （判据 → `Core/MaterialChangerByQuality.cs` 文件头 ②）。</para></summary>
+    static void AttachQualityChanger(Renderer r, string sceneName)
+    {
+        var mr = r as MeshRenderer;
+        if (mr == null) return;                                  // 粒子渲染器：原版那一批没有这颗组件
+        if (!CardPresentation.MaterialChangerByQuality.ArenaPresetTable.AttachForArena(mr, sceneName, r.name)) return;
+        var changer = mr.GetComponent<CardPresentation.MaterialChangerByQuality>();
+        if (changer == null) return;
+        var so = new SerializedObject(changer);
+        var prio = so.FindProperty("priority");
+        if (prio != null) { prio.intValue = 2; so.ApplyModifiedPropertiesWithoutUndo(); }
+        else Debug.LogWarning($"[Arena/OS] {r.name}：`MaterialChangerByQuality.priority` 这个序列化字段找不到 "
+                            + "⇒ 保持类默认档（不影响画面，只影响初始化顺序；见 `InitializableBehaviour`）");
     }
 
 }

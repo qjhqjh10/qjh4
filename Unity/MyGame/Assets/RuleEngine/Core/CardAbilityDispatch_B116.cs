@@ -370,14 +370,25 @@ namespace RuleEngine
             Owned = 1,
             /// <summary>原版这一刻会执行，但**手牌上下文没有执行器** ⇒ 出声、不结算（真缺口，⛔ 不静默）。</summary>
             Unsupported = 2,
+            /// <summary>✅ 已复刻（2026-11-05 · 批次 `B143` · 执行写手 `B143-R3`）：原版这一刻会执行，但**本架构里
+            /// 那条行的效果已经由 at-turn 文本路结算**（`RuleCore.ResolveAtTurn → AtTurnHandJobDeferred → ResolveOps`）
+            /// ⇒ 不是缺口、不派发、也不出声。判据见 <see cref="HandTurnTextCoversRow"/>。
+            /// <para>🔴 **为什么不能改成结构化执行**：`Cult Propaganda` 的手牌 `ca 100` 已经由文本路造出 `GSC6`；
+            /// 再写一个结构化执行器 ⇒ **每回合双造一张**。而 B7 闸（<see cref="CardAbilityRowCoveredByTextLayer"/>）
+            /// 只查 `card.TriggerOpsByNumber(trigger)`，`CollectTriggerOps` 不收 `At the end of your turn, …`
+            /// （它不是关键词前缀）⇒ **B7 抓不到这一张**。</para></summary>
+            CoveredByText = 3,
         }
 
-        /// <summary>`chosenAbility` + `targetsAffected` → 手牌上下文的三档。纯函数（自检直接调，⛔ 不需要战场）。
+        /// <summary>`chosenAbility` + `targetsAffected` → 手牌上下文的四档。纯函数（自检直接调，⛔ 不需要战场）。
         /// <para>🔴 **在共用的 <see cref="TriggerRowKindOf"/> 之上再判一格**（⛔ 不是另开一张表）：
         /// `Unknown`（`ca &lt; 0`）原样透传；其余各档在手牌上下文里都缺执行器（`320`/`325`/`340`/`380`/`480`
-        /// 是 meta-op 或要 `UnitState`），**唯一例外** = `ca 160 ∧ ta = 20 self`。</para>
+        /// 是 meta-op 或要 `UnitState`），**例外三处**：`ca 160 ∧ ta = 20 self`（本层真跑）·
+        /// `ca 100` ∧ 卡面 at-turn 正文覆盖本行（✅ `B143-R3`：文本路已结算 ⇒ `CoveredByText`）·
+        /// `ca 165 discardWholeHand`（✅ `B143-R3`：按 `row.Pa` 分侧整手弃；⚠️ **休眠件 —— 全池 0 行**）。</para>
         /// <para>判据 = `AbilityLogic__PlayAbility.c:588-603`（160 逐目标 `AddDiscardFromHand`）＋
-        /// `AbilityLogic__GetTargets.c:184-192`（`ta = 20 self` ⇒ 目标 = `thisCard` 自己）。</para></summary>
+        /// `AbilityLogic__GetTargets.c:184-192`（`ta = 20 self` ⇒ 目标 = `thisCard` 自己）＋
+        /// `AbilityLogic__PlayAbility.c:986-1037`（100 = 逐张 `AddNewCardToHand`）。</para></summary>
         public static HandRowKind HandAbilityRowKindOf(CardDef card, CardDef.TriggerAbilityIndexSpec row, out string why)
         {
             why = null;
@@ -392,6 +403,17 @@ namespace RuleEngine
                 why = "`160 discardFromHand` 但 `targetsAffected = " + ta + "`（手牌上下文只实现 `ta = 20 self`）⇒ 不猜";
                 return HandRowKind.Unsupported;
             }
+            if (row.Ca == 100)                                        // ✅ 已复刻（2026-11-05 · B143_R3 · 判据 `PlayAbility.c:986-1037` + 本文件 `HandTurnTextCoversRow`）
+            {
+                string textWhy;
+                if (HandTurnTextCoversRow(card, row, out textWhy))
+                { why = textWhy; return HandRowKind.CoveredByText; }
+                why = "`ca 100 createCardInHand`：手牌上下文没有结构化执行器，且这张卡的 at-turn 正文**不覆盖**本行"
+                    + (string.IsNullOrEmpty(textWhy) ? "" : "（" + textWhy + "）");
+                return HandRowKind.Unsupported;
+            }
+            if (row.Ca == 165)                                        // ✅ 已复刻（2026-11-05 · B143_R3 · 判据 `AbilityLogic__PlayAbility.c:293-345`）—— ⚠️ 休眠件：全 1,351 张 SO 里 `ca 165` **0 行**，落地后仍不会有卡走到这里
+            { why = "`165 discardWholeHand` ⇒ 手牌侧执行器 `RunDiscardWholeHandRowOfHandCard`（按 `row.Pa` 分侧）"; return HandRowKind.Owned; }
             why = "`ca " + row.Ca + "`（共用判据判成 " + lane + "）在手牌上下文**没有执行器**"
                 + "（主路的执行器都挂在 `UnitState` 上）";
             return HandRowKind.Unsupported;
@@ -417,6 +439,7 @@ namespace RuleEngine
                 if (row == null) continue;
                 var kind = HandAbilityRowKindOf(card, row, out why);
                 if (kind == HandRowKind.Unknown) continue;
+                if (kind == HandRowKind.CoveredByText) continue;                          // ✅ B143_R3：文本路已结算 ⇒ 既不入队、也不出声（⛔ 不是缺口）
                 if (CardAbilityRowCoveredByTextLayer(card, tn, row, out why)) continue;   // B7：正文已覆盖 ⇒ 不是缺口
                 if (kind == HandRowKind.Unsupported) { NoteHandAbilityRowUnsupported(card, triggerName, tn, row, why); continue; }
                 return true;
@@ -443,10 +466,12 @@ namespace RuleEngine
                 string why;
                 var kind = HandAbilityRowKindOf(card, row, out why);
                 if (kind == HandRowKind.Unknown) continue;                                  // 改前行为
+                if (kind == HandRowKind.CoveredByText) continue;                            // ✅ B143_R3：文本路已结算 ⇒ 本层不派发、不出声（⛔ 双发）
                 if (CardAbilityRowCoveredByTextLayer(card, tn, row, out why))               // B7 双保险（同一条判据）
                 { NoteCardAbilityRowSkippedByTextCoverage(card, tn, row, why); continue; }
                 if (kind == HandRowKind.Unsupported) { NoteHandAbilityRowUnsupported(card, triggerName, tn, row, why); continue; }
                 if (row.Ca == 160) { fired += RunDiscardFromHandRowOfHandCard(ctx, owner, inst, row, by); continue; }
+                if (row.Ca == 165) { fired += RunDiscardWholeHandRowOfHandCard(ctx, owner, inst, row, by); continue; }   // ✅ 已复刻（2026-11-05 · B143_R3 · 判据 `PlayAbility.c:293-345`）—— ⚠️ 休眠件（全池 0 行）
                 NoteHandAbilityRowUnsupported(card, triggerName, tn, row, "`ca " + row.Ca + "` 在手牌上下文没有执行器");
             }
             return fired;
@@ -482,14 +507,89 @@ namespace RuleEngine
             return ok ? 1 : 0;
         }
 
+        /// <summary>✅ 已复刻（2026-11-05 · 批次 `B143` · 执行写手 `B143-R3` · 账 `B141-HAND-CA165`）：
+        /// **`chosenAbility 165 discardWholeHand` 的手牌上下文执行体**。
+        ///
+        /// <para>**判据**（`decomp_full/AbilityLogic__PlayAbility.c:293-345`，`iVar8 == 0xa5`）：读
+        /// `AbilityLogic.playersAffected(+0x20)` ⇒ `IsPlayerAffected(thisCard.isPlayer, pa)` /
+        /// `IsPlayerAffected(!thisCard.isPlayer, pa)` ⇒
+        /// `GetCardsInHandList(inclMinions=1, inclSpells=1, inclWhispers=0, inclWeapons=1, inclPlayer, inclEnemy)`
+        /// ⇒ **逐张** `AddDiscardFromHand(card, priority, blockPlayerActions)`。我们的等价物 = 同一套
+        /// `DiscardHandCardCore`（含 `RemoveCostEffects`；与 `_ResolveDiscardFromHand` 同一个核心）。</para>
+        ///
+        /// <para>**为什么不用现成的 `DoDiscardWholeHand`**：它内部用 `PlayersAffectedOf(ctx, op, by)` 读
+        /// `ActiveAbilityLogicGroup(ActiveAbilityObject)` —— 那是 **`activeAbility`** 那一组，而 `ca 165` 落在
+        /// **`cardAbilities`** 行上 ⇒ 手牌上下文恒读成 `-1`（判据 → `判据/B143_手牌施放者模型.md` §6.2）。
+        /// 本方法直接用行上的 `row.Pa`（v50 数据列），⛔ 不动 `PlayersAffectedOf`（那是一条独立账）。
+        /// 结算体仍复用 `DiscardHandCardCore` —— **不写第二份弃牌逻辑**。</para>
+        ///
+        /// <para>⚠️ **不可达（写死）**：全 1,351 张卡 SO 递归扫 `chosenAbility == 165` = **0 行**（含
+        /// `full_raw`）⇒ 落地后仍**不会有任何卡**走到这里。这是铁律 11 的「休眠机制照做」，⛔ 别当成活件。</para>
+        /// </summary>
+        static int RunDiscardWholeHandRowOfHandCard(BattleContext ctx, int owner, CardInstance inst,
+                                                    CardDef.TriggerAbilityIndexSpec row, string by)
+        {
+            if (ctx == null || inst == null || inst.Card == null || row == null) return 0;
+            string who = by ?? "手牌能力";
+            int pa = row.Pa;
+            if (pa < 0)
+            {
+                ctx.Log($"{who}：「{inst.Card.Name}」的手牌 `ca 165`（discardWholeHand）—— `playersAffected` **读不到**"
+                      + "（`TriggerAbilityIndexSpec.Pa` = -1：旧表 < v50 / 缺键）⇒ 判不出弃哪一侧，本行**不结算**");
+                return 0;
+            }
+            string paName = PaName(pa);
+            bool mine = IsPlayerAffected(true, paName);        // 原版 `IsPlayerAffected(thisCard.isPlayer, pa)`
+            bool theirs = IsPlayerAffected(false, paName);     // 原版 `IsPlayerAffected(!thisCard.isPlayer, pa)`
+            var op = SyntheticRowOp(null, "discardwholehand", row.Lg);   // 复用唯一构造口；`u == null` ⇒ Source 回落 verb
+            op.Source = inst.Card.Name ?? "?";
+            var unresolved = new List<string>();
+            int total = 0, done = 0;
+            for (int s = 0; s < 2; s++)
+            {
+                bool affected = s == owner ? mine : theirs;
+                if (!affected) continue;
+                var ps = ctx.Players[s];
+                if (ps == null || ps.Hand == null) continue;
+                var snap = new List<CardInstance>(ps.Hand);    // 先快照再改（`Hand.Remove` 不能边遍历边改）
+                for (int i = 0; i < snap.Count; i++)
+                {
+                    var c = snap[i];
+                    if (c == null || c.Card == null) continue;
+                    if (c.Card.CardType == CardDef.CardTypeWhispers) continue;   // `inclWhispers = 0`
+                    total++;
+                    if (DiscardHandCardCore(ctx, s, c, who, op.Source, unresolved)) done++;
+                }
+            }
+            if (unresolved.Count > 0)
+                ctx.Log($"「{inst.Card.Name}」的手牌 `chosenAbility 165`：{string.Join("；", unresolved)}");
+            ctx.Log($"{who}：「{inst.Card.Name}」的手牌 `ca 165`（discardWholeHand）⇒ "
+                  + (total == 0 ? "受影响那一侧**没有可弃的牌**（空过）"
+                                : $"候选 {total} 张、真弃掉 {done} 张（`playersAffected = {pa} / {paName}`）")
+                  + "（原版 `AbilityLogic__PlayAbility.c:293-345` 逐张 `AddDiscardFromHand`；结算体 = `DiscardHandCardCore`）");
+            return done > 0 ? 1 : 0;
+        }
+
         /// <summary>「同一 (卡, trigger, ca) 只喊一次」的闩（⛔ 不进 `ctx.Log` —— 那是诊断，
         /// 会改 `ctx.Events.Count` ⇒ 动联机指纹，纪律同 `NoteCardAbilityRowPending`）。</summary>
         static readonly HashSet<string> _handRowKindNoted = new HashSet<string>(System.StringComparer.Ordinal);
+
+        /// <summary>手牌上下文「原版会跑、我们没有执行器」的**出声尝试次数**（只给自检；⛔ 生产侧别读）。
+        /// <para>🔴 为什么需要它（`B143_R1` 复核指出）：只断 <see cref="HandRowKind"/> 的**枚举值**不足以证明
+        /// 「这一档不出声」—— 删掉 <see cref="DispatchHandAbilityRows"/> 里 `CoveredByText` 那个 `continue` 时，
+        /// 枚举值不变、手牌也不变，只会**静默**落到 <see cref="NoteHandAbilityRowUnsupported"/>。
+        /// 有了本计数，断言就能钉住「`CoveredByText` 一声不吭」。</para>
+        /// <para>计在去重闩**之前**（每次「想出声」都算）⇒ 同一张卡重复派发也数得出来。</para></summary>
+        public static int HandRowKindNotesForTest { get; private set; }
+
+        /// <summary>自检复位（⛔ 生产侧别调；只清计数，⛔ 不动去重闩）。</summary>
+        public static void ResetHandRowKindNotesForTest() { HandRowKindNotesForTest = 0; }
 
         /// <summary>手牌上下文「原版这一刻会跑、我们没有执行器」的出声口。</summary>
         static void NoteHandAbilityRowUnsupported(CardDef card, string triggerName, int triggerNumber,
                                                   CardDef.TriggerAbilityIndexSpec row, string why)
         {
+            HandRowKindNotesForTest++;                 // 计在去重闩之前（见属性 doc）
             string key = "hand|" + CardKeyOf(card) + "|" + triggerNumber + "|" + (row != null ? row.Ab : -1) + "|"
                        + (row != null ? row.Lg : -1) + "|" + (row != null ? row.Ca : -1);
             if (!_handRowKindNoted.Add(key)) return;
@@ -500,6 +600,63 @@ namespace RuleEngine
               + (string.IsNullOrEmpty(why) ? "" : "（" + why + "）")
               + " ⇒ 原版这一刻会执行，而**手牌上下文没有它的执行器** ⇒ **本行不结算**"
               + "（⛔ 不猜，也⛔ 不与正文重复；判据 = `AbilityLogic__PlayAbility.c:286` 起那个按 `chosenAbility` 分派的巨型 switch）。");
+        }
+
+        /// <summary>✅ 已复刻（2026-11-05 · 批次 `B143` · 执行写手 `B143-R3`）：**`ca 100` 这一行是不是已经由
+        /// at-turn 文本路结算**（`RuleCore.ResolveAtTurn → AtTurnHandJobDeferred → ResolveOps`）。
+        ///
+        /// <para>**为什么需要它（判据）**：原版 `AbilityLogic.PlayAbility` 的 `chosenAbility == 100` 支
+        /// （`decomp_full/AbilityLogic__PlayAbility.c:986-1037`）落到 `BattleManager.AddNewCardToHand`
+        /// （`BattleManager.cs:39101`）。我们这一层把**手牌卡自己的回合起止正文**交给文本路：
+        /// `EffectText.TryAtTurn`（`EffectText.cs:5660-5686`，doc 里点名 `Cult Propaganda` / `Poisoned Supplies`）
+        /// 把它解析成 `atturn` op，`RuleCore.ResolveAtTurn`（`EffectResolver.cs:8926-8945`）逐张
+        /// `EffectText.SplitAtTurn(c.Desc)` → `Parse(body)` → `DoCreate`（`EffectResolver.cs:1140`/`:4169`）
+        /// 造到对手手牌。⇒ **这张卡的 `ca 100` 效果已经在跑，只是不在结构路**。</para>
+        ///
+        /// <para>🔴 **为什么不能改成结构化执行**：两条路会同时结算 ⇒ `Cult Propaganda` 每回合**双造一张**
+        /// `GSC6`。而 B7 闸 <see cref="CardAbilityRowCoveredByTextLayer"/> 只查
+        /// `card.TriggerOpsByNumber(trigger)`，`CollectTriggerOps`（`CardDef.cs:3722`）只从「关键词前缀句」
+        /// 与 `keywords` 收 —— `At the end of your turn, …` 不是关键词前缀 ⇒ **B7 抓不到这一张**。</para>
+        ///
+        /// <para>**判据五条**：① `EffectText.SplitAtTurn(desc)` 非空（= 整条 desc 是一句、且是
+        /// `At the start|end of your turn, …` 形态 —— 与 `ResolveAtTurn` 用的**同一个**函数）；
+        /// ② 它的相位映射回的 trigger 号 == `row.Trigger`（`turn_start ⇒ 30` / `turn_end ⇒ 40`）；
+        /// ③ 正文 `EffectText.Parse(body, card: card)` 产出 ≥1 条 op；
+        /// ④ 其中**至少一条是 `create` op**（本行是 `ca 100 createCardInHand` ⇒ 文本路必须真在造牌，
+        ///    否则 `At the end of your turn, your troops take 1 damage` 这种 at-turn 正文也会被误认成覆盖）；
+        /// ⑤ 同一 trigger 下**只有 1 行 `ca 100`**（文本路整段只结算**一次** ⇒ 多行时不能让整批结构行都让路）。
+        /// ⚠️ **不比 `op.AbilityIndex == row.Ab`**：at-turn 正文是**整段**执行的，行号归属由
+        /// `AssignAbilityTargets` 事后贴片，拿它当闸会误伤多 ability 的卡（现读池内这两张都只有 1 组）。</para></summary>
+        static bool HandTurnTextCoversRow(CardDef card, CardDef.TriggerAbilityIndexSpec row, out string why)
+        {
+            why = null;
+            if (card == null || row == null) return false;
+            string desc = card.Desc;
+            if (string.IsNullOrEmpty(desc)) { why = "卡面没有正文"; return false; }
+            var at = EffectText.SplitAtTurn(desc);          // 与 `ResolveAtTurn` 同一个判据（⛔ 别另写一份）
+            if (at == null)
+            { why = "卡面没有 `At the start/end of your turn, …` 从句（`EffectText.SplitAtTurn` = null）"; return false; }
+            int phaseTrigger = at[0] == "turn_start" ? 30 : (at[0] == "turn_end" ? 40 : -1);
+            if (phaseTrigger != row.Trigger)
+            { why = "at-turn 相位 `" + at[0] + "`（= trigger " + phaseTrigger + "）≠ 本行 trigger " + row.Trigger; return false; }
+            var ops = EffectText.Parse(at[1], out _, out _, card: card);
+            if (ops == null || ops.Count == 0)
+            { why = "at-turn 正文 `" + at[1] + "` 解析不出可结算 op"; return false; }
+            bool hasCreate = false;
+            for (int i = 0; i < ops.Count; i++)
+                if (ops[i] != null && ops[i].Verb == "create") { hasCreate = true; break; }
+            if (!hasCreate)
+            { why = "at-turn 正文 `" + at[1] + "` 里没有 `create` op（本行是 `ca 100` ⇒ 文本路没在造牌）"; return false; }
+            int ca100Rows = 0;
+            var sameTrigger = card.TriggerAbilityRowsOf(row.Trigger);
+            if (sameTrigger != null)
+                for (int i = 0; i < sameTrigger.Length; i++)
+                    if (sameTrigger[i] != null && sameTrigger[i].Ca == 100) ca100Rows++;
+            if (ca100Rows != 1)
+            { why = "同一 trigger 下有 " + ca100Rows + " 行 `ca 100`（文本路整段只结算一次）⇒ 不认整批覆盖"; return false; }
+            why = "at-turn 文本 `" + at[1] + "` 已由 `RuleCore.ResolveAtTurn → AtTurnHandJobDeferred → ResolveOps` 结算"
+                + "（原版 `AbilityLogic__PlayAbility.c:986-1037` 的等价物；⛔ 别再加结构化执行器 —— 会双发）";
+            return true;
         }
 
         /// <summary>自检门：<see cref="DispatchHandAbilityRows"/>（不改任何行为，只让 Editor 程序集调得到）。</summary>

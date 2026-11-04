@@ -955,7 +955,7 @@ namespace RuleEngine
         {
             if (target == null || !target.IsAlive) return 0f;
             if (target.IsWarlord || target.Has("poisoned") || target.Has("resistant")) return 0f;
-            float f = target.IsStunned ? 0.8f
+            float f = target.StunnedAtStartOfTurn ? 0.8f   // 原版读 `+0x55 = stunnedAtStartOfTurn`（`AI__ScoreFromPoisoning.c`），⛔ 不是 `IsStunned`（本回合中途被晕仍走 0.5/0.2 支）
                     : (target.Has(KeywordTable.CantAttack) ? 0.5f
                        : (target.Health < 3 ? 0.2f : 0.5f));
             return ValueInPlay(target) * f;
@@ -998,8 +998,8 @@ namespace RuleEngine
                 case KeywordTable.Vanguard: return 2.0f;
                 case KeywordTable.Stealth: return 1.5f;
                 case "pack": return 1.5f;
-                case "camouflage": return 1.5f;          // 无 const：照 `RuleCore` 的写法用字面量
-                case KeywordTable.LongRange: return 1.5f;
+                case "camouflage": return 1.0f;          // 原版表 = 1.0（R6 §6·6；原写 1.5 是误值，2026-11-05 B144_R2 订正）
+                case KeywordTable.LongRange: return 1.0f; // 同上（原版表 = 1.0）
                 case KeywordTable.Backlash: return 1.0f;
                 case KeywordTable.Flying: return 1.0f;
                 case "shuriken": return 0.0f;
@@ -2152,8 +2152,8 @@ namespace RuleEngine
         /// ⇒ 合取三条：`mightAct` ∧（`近战+Δ ≥ 1` **或** `远程+Δ ≥ 1`）∧ `状态 == 2`（在场）。</para>
         ///
         /// <para>**机制差异 / 我们等价在哪**：
-        /// ① **第三条（`state == 2`）我们不另写判据** —— 交付进来的 `t.Unit` 本来就是
-        ///    **棋盘上**的单位（调用点先按 `ctx.Players[side].Board` 枚举），恒真；
+        /// ① **第三条（`state == 2`）已显式判**（2026-11-05 `B144_R2`）—— 棋盘上**不等于** state 2：
+        ///    `CardStateOf` 还可能是 3/5/15/17 ⇒ 方法体那一行必须 `== inPlay`，⛔ 别假设恒真；
         /// ② `mightAct` 走引擎唯一判据 <see cref="AiTargets.MightAct"/>
         ///    （→ `ConditionEval.MeetsUnit(..., 20, ...)`，同源 `CardScript__get_mightAct.c`），
         ///    ⛔ 不在这里另写一份；
@@ -2168,11 +2168,11 @@ namespace RuleEngine
         ///    整族不进 option 5 的候选；现在「带 buff」那一档的闸收在这一处。
         ///    ⚠️ **只对「带 buff」那一档生效**（见 ⑤）；`AiScoring.BestAttackScore` 的
         ///    `meleeDelta == 0` 是「不带 buff」的对照分，原版那条路不经过本闸。
-        ///    🔴 **两个闸谁管这一格待裁决**：本方法（原版 `mightAct`）与 `AiScoring` 的旧口径
-        ///    （`Exhausted || IsStunned` = 我们侧 `canAct`）在「已行动但未攻击」的单位上结论相反；
-        ///    2026-10-26 `B8_E` 取**保守合取**（两个都过才进候选，只会收紧不会放宽），
-        ///    并在实测夹具上看到两者确实分叉（`ai "Path of the Warrior"` 的 option 5 从 0 变 −1.2）
-        ///    ⇒ 已记账交引擎线裁决，⛔ 别单方面删掉 `Exhausted` 那一句；
+        ///    ✅ **2026-11-04 `B140_WN` 已裁决**：按原版删掉 `AiScoring` 那侧的 `Exhausted || IsStunned` 闸
+        ///    （判据 `AI__ScoreFromCriteria.c` case 5 只有 `get_mightAct`）⇒ 本方法就是**唯一**那道闸；
+        ///    断言 = `B140_WN_Assert` A1–A5（疲劳组与对照组的分数必须相等）。
+        ///    ⚠️ 旧 `B8_E` 的「保守合取」已作废；⛔ 别再把 `Exhausted` 加回去。
+        ///    （历史：2026-10-26 曾记「待裁决」；本条 2026-11-05 `B144_R2` 就地订正。）
         /// ④ 两个 Δ 由调用方从**它自己那套 buff 表示**里取（原版是 `CardEffect` 的
         ///    `+0x48 / +0x50` 两格）；`AiScoring.BestAttackScore` 那条链目前只有近战 Δ
         ///    （远程 Δ 传 0 —— 因为 `GetPotentialBuffedAttackActions` 只枚举**近战** action，
@@ -2180,7 +2180,7 @@ namespace RuleEngine
         /// ⑤ **为什么「不带 buff」那一档不套本闸**：原版 `AI__ScoreFromBestAttack.c:21`
         ///    **只调一次** `GetPotentialBuffedAttackActions(manager, actingCard, buff)`（带 buff），
         ///    拿到的列表逐条打分取 max；option 5 里那个「不带 buff」的对照分是我们自己重建的
-        ///    （判据里没有对应方法体），所以那一侧仍走原来的 `Exhausted || IsStunned`。</para>
+        ///    （判据里没有对应方法体），所以那一侧**不套本闸**（也不再有 `Exhausted` 闸，见 ③ 的 `B140_WN` 裁决）。</para>
         ///
         /// <para>**可观察量**：`bash d:/4/Unity/工具/ruleprobe.sh ai &lt;卡id&gt;` 的 `[出牌分·逐条]`
         /// 那一行 `cardTarget[0] option=5 … mightAct=真 M / 假 K` —— `M`/`K` 是这张卡
@@ -2193,8 +2193,8 @@ namespace RuleEngine
             var u = t.Unit;
             if (u == null || !u.IsAlive) return false;
             if (!AiTargets.MightAct(ctx, t)) return false;      // `.c:10`
-            if (u.Attack + meleeDelta >= 1) return true;        // `.c:12-16`（近战那支过闸）
-            return u.RangedAttack + rangedDelta >= 1;           // `.c:17-20`（近战不行再看远程）
+            if ((u.Attack + meleeDelta >= 1 || u.RangedAttack + rangedDelta >= 1) && u.CardStateOf(ctx) == CardStateOptions.inPlay) return true;   // `.c:12-24`：三闸 = mightAct ∧（近战+Δ≥1 ∨ 远程+Δ≥1）∧ cardState(+0x228)==**2（只在场）**；⛔ 不是 IsInPlayState 那五档（3/15/17 原版同样不放行），⛔ 也别假设「棋盘上⇒恒 2」
+            return false;
         }
 
         // ── ⑫ `ActiveAbility` 的第 ④ 类：原版通用那一格主动能力（🆕 2026-10-27 · `B87_A11`）──────

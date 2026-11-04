@@ -21,12 +21,12 @@ namespace CardPresentation.Net
         // ---- 常量（改这里 = 改行为，正本 §二 有对应说明）----
         public const int HeartbeatMs = 1000;        // 心跳间隔
         public const int SilentTimeoutMs = 10000;   // 多久没收到对面的任何包 = 掉线
-        public const int ReconnectEveryMs = 2000;   // 🔶 自己设计（非原版）：P2P 客机重连间隔 `ReconnectEveryMs = 2000` · 原版走 Photon 重连、本地没有对应参数（整套 `Net/*` 是自建 P2P） · 自建 P2P 时定（2026-09 下旬；`资料/完全复刻/报告/B8_L_联机层.md:122` 记「原版 3 秒 / 我们 2000ms」）；原始拍板人未记｜原注：客机重连尝试间隔
+        public const int ReconnectEveryMs = 3000;   // ✅ 已复刻（2026-11-05 · B143-W6 · 账 `B134-D7`）：**重连节拍 3 s** —— 判据 `BattleManager._AttemptReconnect_d__320__MoveNext.c:110-125`（剩余秒数 `% 3 == 0` 那一拍才 `TryReconnecting`）。原来写 2000 是 🔶 自定（当时记「原版 3 秒 / 我们 2000ms」但没按判据改）⇒ 本笔按判据改成 3 s、去掉自定标记
         public const int ConnectTimeoutMs = 4000;   // 单次连接超时
         /// <summary>🆕 🔴 **2026-10-20（W58-S6FIX）**：**待替换候选**从被接受到凭据齐了的最长等待。
         /// 过期 ⇒ 关候选、**旧连接原样保留**（`NET/BYE-S6/replacement-timeout`）。
         /// 取值理由：正常凭据往返是**毫秒级**（同机/局域网），6 秒足够容忍一次丢包重传；
-        /// 又不至于让「候选位被占着」把客机的下一次重试（`ReconnectEveryMs` = 2 秒）拖太久。
+        /// 又不至于让「候选位被占着」把客机的下一次重试（`ReconnectEveryMs` = 3 秒）拖太久。
         /// ⚠️ 这是**我们自拟的**边界值，原版没有对应参数（原版走 Photon 的重连，判据不在本地）。</summary>
         public const int ReplacementHandshakeTimeoutMs = 6000;
 

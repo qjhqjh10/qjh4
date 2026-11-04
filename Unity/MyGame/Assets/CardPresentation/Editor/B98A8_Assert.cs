@@ -121,19 +121,19 @@ public static class B98A8_Assert
         CheckLt(cardsZ, packZ, "5 张卡那层在包实物**前**（更近 ⇒ 叠在上面）");
         CheckNear(cardsZ, BoosterPackOpenWindow.CardsFrontZ, "卡那层 world z = `CardsFrontZ`");
 
-        // ---- 粒子队列：必须 ≥ `QCard`(3123) 才画在本窗透明背景(`QShade` 3122)之上（A5 的 LiftPackParticles；2026-11-04 `B142-E30` 订正旧号 3170/3171）----
+        // ---- 粒子队列：必须 ≥ `QCard`(3123) 才画在本窗透明背景(`QShade` 3122)之上（A5 的 LiftPackParticles；2026-11-04 `B142-E30` 订正旧号 3170/3171）。🔴 2026-11-05 `B143-W8`（B142-TAILB-P3）：材质 null 与队列偏低**拆成两条独立断言**，⛔ 别再合并 ----
         var prs = _win.VisualItem.GetComponentsInChildren<ParticleSystemRenderer>(true);
-        Check(prs.Length > 0, "（前提）卡包实物子树里有粒子（本段才可判队列）");
+        Check(prs.Length > 0, "（前提）卡包实物子树里有粒子（本段两条才可判）");
         if (prs.Length > 0)
         {
-            bool allLifted = true, anyNull = false;
+            int matNull = 0, lowQ = 0, readable = 0, lowestQ = int.MaxValue;
             for (int i = 0; i < prs.Length; i++)
             {
-                var r = prs[i];
-                if (r == null || r.sharedMaterial == null) { anyNull = true; allLifted = false; continue; }
-                if (r.sharedMaterial.renderQueue < BoosterPackOpenWindow.QShade) allLifted = false;
+                var mat = prs[i] != null ? prs[i].sharedMaterial : null;   // 渲染器自身 null 也算「拿不到材质」（原版 `LiftPackParticles` 对 null 材质是 continue）
+                if (mat == null) { matNull++; continue; }
+                readable++; if (mat.renderQueue < lowestQ) lowestQ = mat.renderQueue; if (mat.renderQueue < BoosterPackOpenWindow.QCard) lowQ++;
             }
-            Check(!anyNull, "包面粒子都拿得到材质（否则下一条判不了队列）"); Check(allLifted, "包面粒子的 renderQueue 全部 ≥ QShade(" + BoosterPackOpenWindow.QShade + ")（否则透明背景后画会盖掉它；2026-11-04 `B142-E30`：改打印常量、不再写死 3170）");
+            Check(matNull == 0, "①（前提 · 供第 ② 条）包面粒子都拿得到材质（null " + matNull + " / " + prs.Length + " 颗）—— 不成立时第 ② 条只覆盖可读的那 " + readable + " 颗，⛔ 不再连带把「队列偏低」打红（2026-11-05 `B143-W8` · B142-TAILB-P3）"); Check(lowQ == 0 && readable > 0, "② 包面粒子的 renderQueue 全部 ≥ QCard(" + BoosterPackOpenWindow.QCard + ")（偏低 " + lowQ + " 颗 · 可判 " + readable + " / " + prs.Length + " 颗 · 最低 " + (readable > 0 ? lowestQ.ToString() : "n/a") + (readable == prs.Length ? "" : readable == 0 ? " —— ⚠️ 可判 0 颗 ⇒ 未验，按红计（见第 ① 条）" : " —— ⚠️ 覆盖不全，缺材质那几颗见第 ① 条") + "）（否则透明背景后画会盖掉它；2026-11-04 `B142-E30`：改打印常量、不再写死 3170；2026-11-05 `B143-W8`：阈值由 `QShade` 收紧到 `QCard`，调度台裁定）");
         }
     }
     // 🆕 2026-10-31（B109 · AUD11）：宿主聚合行原来只裸调 `Run()`、不进 `_sink` ⇒ 全红宿主仍绿。追加到类尾（零行漂）。

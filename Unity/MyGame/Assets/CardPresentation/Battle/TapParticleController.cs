@@ -194,18 +194,18 @@ namespace CardPresentation
 
             // ⑦ 按下沿（⛔ 不是松手；⛔ 不用 `BattleDriver` 的那条一次性边沿）
             //     🔴 顺序照原版：先 `GetMouseButtonDown(0)`、再 `IsPointerOverGameObject`（`TapParticleController__Update.c` 那两句）
-            var mouse = Mouse.current;
-            if (mouse == null)
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager · `Mouse.current` → `Input.mousePresent`、`leftButton.wasPressedThisFrame` → `Input.GetMouseButtonDown(0)`，1:1；保留「没鼠标就出声」这一档是为批处理可诊断）
+            if (!Input.mousePresent)
             {
                 if (!_warnedNoMouse)
                 {
                     _warnedNoMouse = true;
-                    Debug.LogWarning("[Tap] `Mouse.current` 是 null（本工程 New Input System only）"
+                    Debug.LogWarning("[Tap] `Input.mousePresent == false`（批处理/无鼠标）"
                                    + " ⇒ 点地面反馈收不到按下沿。");
                 }
                 return;
             }
-            if (!mouse.leftButton.wasPressedThisFrame) return;
+            if (!Input.GetMouseButtonDown(0)) return;
             // ⑥ 指针压在 uGUI 射线靶上 ⇒ 不算点地面（原版 `IsPointerOverGameObject(pointerId)`，桌面 −1）
             if (PointerOverUi()) return;
 
@@ -224,7 +224,7 @@ namespace CardPresentation
             }
 
             // ⑨⑩ 射线
-            var ray = cam.ScreenPointToRay(mouse.position.ReadValue());
+            var ray = cam.ScreenPointToRay(Input.mousePosition);   // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager：`mouse.position.ReadValue()` → `Input.mousePosition`，1:1）
             int n = Physics.RaycastNonAlloc(ray, _hits, float.MaxValue, CollisionMask);
             LastHitCountForTest = n;
             if (debugCollisions)

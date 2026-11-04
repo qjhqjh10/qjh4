@@ -212,9 +212,9 @@ namespace CardPresentation
             _editing = true;
             if (!_hooked)
             {
-                var kb = Keyboard.current;
-                if (kb != null) { kb.onTextInput += OnText; _hooked = true; }
-                else Debug.LogWarning("[Input] 没有 `Keyboard.current` ⇒ 这一格**打不了字**（如实说，不假装能输）");
+                // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：`onTextInput` 事件 → 争用 `InputTextFrame` 焦点
+                //    旧输入只有 `Input.inputString`（每帧一个串）⇒ 谁 `Claim` 谁在 `Tick()` 里取，其余一个字符都不给。
+                InputTextFrame.Claim(this); _hooked = true;   // 旧输入下没有「键盘设备为空」这一档，原来那条警告随之删除
             }
             _typed.Clear();
             Refresh();
@@ -234,8 +234,8 @@ namespace CardPresentation
         void Unhook()
         {
             if (!_hooked) return;
-            var kb = Keyboard.current;
-            if (kb != null) kb.onTextInput -= OnText;
+            // ✅ 2026-11-05 B144-A：没有事件要退订；交还打字焦点（见 `BeginEdit` 的 `Claim`）
+            InputTextFrame.Release(this);
             _hooked = false;
         }
 
@@ -256,20 +256,20 @@ namespace CardPresentation
         public void Tick()
         {
             if (!_editing) return;
-            var kb = Keyboard.current;
-            if (kb != null)
+            foreach (char __c in InputTextFrame.Take(this)) OnText(__c);   // ✅ 已复刻（2026-11-05 · B144-A · `onTextInput` 事件 → 每帧取 `Input.inputString`；只有焦点能取、同一帧只取一次）
+            // ✅ 2026-11-05 B144-A · 迁旧 Input Manager：下面几句逐键 1:1
+            //    （`escapeKey/enterKey/numpadEnterKey/backspaceKey` → `KeyCode.Escape/Return/KeypadEnter/Backspace`）
+            //    ⚠️ 旧输入下没有「键盘设备为空」这一档 ⇒ 原来那层 `if (kb != null) { … }` 包装整段去掉。
+            if (Input.GetKeyDown(KeyCode.Escape)) { EndEdit(false); return; }
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
             {
-                if (kb.escapeKey.wasPressedThisFrame) { EndEdit(false); return; }
-                if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)
-                {
-                    EndEdit(true);
-                    var cb = _onSubmitCb;
-                    if (cb != null) cb(_value);
-                    return;
-                }
-                if (kb.backspaceKey.wasPressedThisFrame && _value.Length > 0)
-                    _value = _value.Substring(0, _value.Length - 1);
+                EndEdit(true);
+                var cb = _onSubmitCb;
+                if (cb != null) cb(_value);
+                return;
             }
+            if (Input.GetKeyDown(KeyCode.Backspace) && _value.Length > 0)
+                _value = _value.Substring(0, _value.Length - 1);
             if (_typed.Count == 0) return;
             for (int i = 0; i < _typed.Count; i++)
             {

@@ -419,7 +419,7 @@ namespace CardPresentation
                 options != null && options.TriggerBeforeOnboardingEnds,
                 forceRun,
                 false,          // recurring
-                null);          // menuFilter
+                System.Array.Empty<System.Type>());          // menuFilter —— ✅ 已复刻（2026-11-05 · B143-W4 · 纯保真）：显式空表 ⇒ 走默认 `[MainMenuWindow]` 过滤，与原版 `params Type[]` 省略等价（原版这里传的是静态空 `Type[]`，见 `decomp_generic_trial/out/LiveOpsHandler_object___QueueEventPopup__1018490.c:104-108`）
 
             handlerActions.Add(id, action);
             Debug.Log("[LiveOps][" + HandlerKey + "] QueueEventPopup：事件 '" + id + "' 已排入菜单队列"
@@ -1297,7 +1297,7 @@ namespace CardPresentation
             {
                 Callback = action, ActionRule = rule, Priority = priority, Groups = groups,
                 TriggerBeforeOnboardingEnds = triggerBeforeOnboardingEnds, ForceRun = forceRun,
-                Recurring = recurring, MenuFilter = menuFilter,
+                Recurring = recurring, MenuFilter = (menuFilter == null || menuFilter.Length == 0) ? new[] { typeof(MainMenuWindow) } : menuFilter,   // ✅ 已复刻（2026-11-05 · B143-W7 · `cpp2il/out_il2csharp/Assembly-CSharp/MenuActions.cs:151-165`：`if (menuFilter.Length == 0) menuFilter = new[]{ typeof(MainMenuWindow) }`；⛔ 原版没判 null ⇒ 我们收 null 时同等处理）
             };
             Enqueue(m);
             return m;
@@ -1312,7 +1312,7 @@ namespace CardPresentation
             {
                 AsyncCallback = action, ActionRule = rule, Priority = priority, Groups = groups,
                 TriggerBeforeOnboardingEnds = triggerBeforeOnboardingEnds, ForceRun = forceRun,
-                Recurring = recurring, MenuFilter = menuFilter,
+                Recurring = recurring, MenuFilter = (menuFilter == null || menuFilter.Length == 0) ? new[] { typeof(MainMenuWindow) } : menuFilter,   // ✅ 已复刻（2026-11-05 · B143-W7 · `cpp2il/out_il2csharp/Assembly-CSharp/MenuActions.cs:151-165`：`if (menuFilter.Length == 0) menuFilter = new[]{ typeof(MainMenuWindow) }`；⛔ 原版没判 null ⇒ 我们收 null 时同等处理）
             };
             Enqueue(m);
             return m;

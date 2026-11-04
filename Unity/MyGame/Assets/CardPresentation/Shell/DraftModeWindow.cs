@@ -42,8 +42,8 @@
 // · **Intro 页不建节点**：原版 `Draft Mode Intro State` **不在 `tabs` 里**、全反编译找不到它的激活者
 //   （S3 §七·1「查不到」）；而 `GetTabFromState(0)` 落到 **Pay 页**（else 分支）⇒ 我们的
 //   `DraftModeState.Intro` **路由到 Pay 页**，⛔ 不凭空造一个第 5 页。
-// · **付费活动倒计时 / 计时器不建**：`Timer` 读的是活动结束时刻（服务端下发的 liveop 数据，本地 0 命中）
-//   ⇒ 建一个假倒计时 = 骗玩家。`Open()` 出声说明。
+// · **付费活动倒计时**：`Timer` 读的是活动结束时刻（服务端下发的 liveop 数据，本地 0 命中）⇒ **不编时刻**。
+//   ⚠️ **2026-11-05（B143-W9）就地订正**：原文写「计时器**不建**」——**已过期**：原版节点**在**、只是无时刻时 `SetTimer` 走 `SetActive(false)` ⇒ 现在 `BuildTimerBlock` **建节点 + 整棵藏**（Pay 页 / Ongoing 页各一棵）。
 //
 // ==================================================================
 //  ⚠️ 缺口表（S3 §五）—— 哪些数是原版、哪些是我们挑的
@@ -1086,9 +1086,9 @@ namespace CardPresentation
                     + "`draftRounds` = " + DraftPacks.RoundsPerDraft + " 轮 × `packsPerDraft` = "
                     + DraftPacks.PacksPerRoundOffered + " 包 —— 🔴 这三个数是**我们挑的**，原版真值在服务端（S3 §五））"
                     + "；战绩基线：对局记录里已有 " + _run.consumedDraftMatches + " 条轮抽对局（⛔ 不算进本局）");
-            Debug.Log("[Draft] 本轮**不建**这两件（原版有、但判据缺失）："
+            Debug.Log("[Draft] 这两件事只做到【判据允许的那一半】（原版有、但判据在服务端）："
                     + "① `Premium` / `10x Premium` 两档（价格 `premiumPrice`/`premium10Price` 在服务端 ⇒ 不编价格）；"
-                    + "② `Timer`（活动结束时刻在服务端 ⇒ 不建假倒计时）。"
+                    + "② `Timer`（活动结束时刻在服务端 ⇒ **不编时刻**；节点按原版**建了、整棵藏**，判据见 `BuildTimerBlock`）。"
                     + "⚠️ `Reroll` 那一行**建了**，但价格表 `reRollCosts` 也在服务端、本地 0 命中 ⇒ 表空 ⇒ 恒「免费」"
                     + "（原版 `PriceDisplay.SetupFree` 同观感）；原版那一下的服务端扣费本地不做。");
         }
@@ -1158,7 +1158,7 @@ namespace CardPresentation
             _previewCardEngineIds.Clear();
             _previewCardRects.Clear();
             _previewRoot = null; _previewCards = null; _previewHeader = null;
-            _warlordScroll = null;
+            _warlordScroll = null; TimerNodes.Clear();   // `Timer` 那两棵每次 `Build()` 都会重建 ⇒ 读口先清（自检用）
             MenuDraw.ClearChildren(transform);
 
             var root = transform;
@@ -1255,7 +1255,7 @@ namespace CardPresentation
                           face: TmpFont.Face.LatinCardBody);
             MenuDraw.Text(bar, PayDescR, Loc.T("Demo/DraftMode/IntroHelp2"), Color.white,
                           "Description 1", 30f, QText, PayDescR.W, 18f, 32f, 22.50f,
-                          face: TmpFont.Face.LatinCardBody);
+                          face: TmpFont.Face.LatinCardBody); BuildTimerBlock(bar, PayTimerR, PayTimerIconR, PayTimerTxR, "Pay 页");   // ✅ 已复刻（2026-11-05 · B143-W9 · 判据 `报告/B142_E74.md` §四-3 + `UIRankingListController__SetTimer.c` 同族口径：原版 `Draft Mode Pay State ▸ Scale menu ▸ Timer` **节点建、无截止时刻时整棵藏**）
             // `ButtonsLayout`（原版 HLG：spacing 0 · align MiddleCenter）—— 三颗钮里我们只建 Free
             var btns = MenuDraw.Node(bar, "ButtonsLayout", PayBarR);
             var freeNode = MenuDraw.Node(btns, "Free Button", FreeBtnR);
@@ -1673,7 +1673,7 @@ namespace CardPresentation
             _victoriesNum = MenuDraw.Text(scaled, OnVictNumR, "0", Color.white, "Victories text Number",
                                           89.23f, QText, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(_victoriesNum, OnVictNumR);
-            MenuDraw.SetVAlign(_victoriesNum, Label.VAlign.Midline, OnVictNumR);   // 原版 align 1/4096
+            MenuDraw.SetVAlign(_victoriesNum, Label.VAlign.Midline, OnVictNumR); BuildTimerBlock(scaled, OnTimerR, OnTimerIconR, OnTimerTxR, "Ongoing 页");   // 原版 align 1/4096 · 紧跟的 `Timer`（原版 `Ongoing State ▸ MainContent ▸ Scaled Content ▸ Timer`，坐标已含 `MainContent.localScale 1.06`）= ✅ 已复刻（2026-11-05 · B143-W9 · 判据同 Pay 页那一处）
 
             // 胜场格（`Stages Container` GridLayoutGroup：cell 80² · spacing (23.7,30.04) · 2 列 · MiddleCenter）
             var winMarks = MenuDraw.Node(scaled, "Win Marks", new PxRect(697.90f, 373.80f, 1471.60f, 708.80f));
@@ -4953,6 +4953,76 @@ namespace CardPresentation
             var inst = new Material(proto);
             if (inst.HasProperty("_Color")) inst.color = tint; else q.SetVertexTint(tint);
             q.SetMaterial(inst);                       // 队列由 `ImageQuad.SetMaterial` 从旧材质读走（`:299-303`）
+        }
+
+        // ============================================================ 类尾追加（B143-W9 · 2026-11-05 · `Timer` 那一块）
+        // 🔴 为什么原来「整块不建」是错的（`报告/B142_E74.md` §四-3 / §六-2）：原版 `TimerDisplay.UpdateTimer`
+        //    **取不到目标时刻是 `return;`（静默）**、「`SetTimer` 无值那一支 = `SetActive(false)`」——
+        //    节点**在**、只是关着。「活动结束时刻在服务端」只能解释「不显示」，解释不了「不建节点」。
+
+        /// <summary>轮抽活动倒计时的**截止时刻**（原版由 liveop 数据下发；本地 0 命中 ⇒ 出厂 `null`）。
+        /// ⛔ 不编日期、⛔ 不印 `--`。非空 ⇒ `TimerDisplay.Attach`（并显示）；空 ⇒ **建节点 + 整棵藏**。</summary>
+        public static System.DateTime? TimerDeadline;
+
+        /// <summary>本窗建出来的 `Timer` 根节点（自检读口 —— Pay 页 / Ongoing 页各一棵 ⇒ 列表）。</summary>
+        public readonly List<Transform> TimerNodes = new List<Transform>();
+        /// <summary>有没有任何一棵 `Timer` 显示着（照原版 `SetTimer` 规则：有截止时刻才显示）。自检读口。</summary>
+        public bool AnyTimerVisible
+        {
+            get
+            {
+                for (int i = 0; i < TimerNodes.Count; i++)
+                    if (TimerNodes[i] != null && TimerNodes[i].gameObject.activeSelf) return true;
+                return false;
+            }
+        }
+
+        // 原版 prefab 现读（`menu_dump "Draft Mode Menu Demo" --depth 9`，坐标是**画出来的那一份** ——
+        // Ongoing 页那三格已含 `MainContent.localScale 1.06`）：
+        static readonly PxRect PayTimerR = new PxRect(964.90f, 322.40f, 1519.10f, 366.00f);
+        static readonly PxRect PayTimerIconR = new PxRect(1123.00f, 330.20f, 1156.00f, 363.20f);
+        static readonly PxRect PayTimerTxR = new PxRect(1161.90f, 318.70f, 1361.00f, 374.70f);
+        static readonly PxRect OnTimerR = new PxRect(673.80f, 245.00f, 1495.60f, 291.30f);
+        static readonly PxRect OnTimerIconR = new PxRect(958.60f, 253.30f, 993.60f, 288.30f);
+        static readonly PxRect OnTimerTxR = new PxRect(999.80f, 241.20f, 1210.80f, 300.40f);
+
+        /// <summary>建一棵 `Timer`（`Timer` 根 + `Timer Icon` + 内层 TMP）。
+        /// <para>判据：`Draft Mode Menu Demo.prefab` 里那颗 `TimerDisplay` 的 `extraText.mTerm` =
+        /// **`Event_Description/General/EndsIn`** · `lastMinutesText.mTerm` = **`MainMenu/LastMinutes`**
+        /// （`useExtraText=1` / `useLastMinutesText=1`；官方表现读 en `Ends in:`/`Last Minutes`、zh `结束于：`/`最后时刻`）。
+        /// 内层 TMP = `fs 38 · base 50 · auto[10~38] · 折行 0 · Center/Capline`，**小屏 38/10**
+        /// （`判据/B90_N2_小屏字号实例.tsv` 的 `…/Timer/Timer` = 38.0/10.0）。</para></summary>
+        void BuildTimerBlock(Transform parent, PxRect rootR, PxRect iconR, PxRect txR, string what)
+        {
+            var tm = MenuDraw.Node(parent, "Timer", rootR);
+            TimerNodes.Add(tm);
+            MenuDraw.Rect(tm, Tex("WF_icon_clock"), iconR, "Timer Icon", QArt);   // 原版 33²/34.98²、`m_PreserveAspect=0` ⇒ 拉伸
+            var tx = MenuDraw.Text(tm, txR, "", Color.white, "Timer", 38f, QText, txR.W, 10f, 38f, 50f,
+                                   face: TmpFont.Face.LatinCardBody);
+            if (tx != null)
+            {
+                MenuDraw.SetVAlign(tx, Label.VAlign.Capline, txR);   // 原版 对齐 = Center/Capline
+                tx.SetWrapping(false);                                // 原版 折行 = 0
+                tx.SetSmallScreenFontSizes(38f, 10f);                 // ✅ 已复刻（2026-11-05 · B143-W9 · 判据 `判据/B90_N2_小屏字号实例.tsv`：`Draft Mode Menu Demo ▸ … ▸ Timer/Timer` = 38.0/10.0）
+            }
+
+            if (TimerDeadline.HasValue)
+            {
+                tm.gameObject.SetActive(true);
+                TimerDisplay.Attach(tx, () => TimerDeadline,
+                                    Loc.T("Event_Description/General/EndsIn"),
+                                    "轮抽 " + what + " Timer",
+                                    "活动结束时刻由服务端 liveop 下发，本地没有",
+                                    lastMinutesPrefix: Loc.T("MainMenu/LastMinutes"),
+                                    prefixKey: "Event_Description/General/EndsIn");
+            }
+            else
+            {
+                tm.gameObject.SetActive(false);
+                Debug.Log("[Draft] " + what + " 的 `Timer` —— **节点建了、整棵藏**（原版 `UIRankingListController.SetTimer`"
+                          + " 无截止时刻那一支 = `SetActive(false)`；活动结束时刻在服务端、本地没有 ⇒ `TimerDeadline` 为空。"
+                          + "⛔ 不编日期、⛔ 不印 `--`）");
+            }
         }
     }
 }

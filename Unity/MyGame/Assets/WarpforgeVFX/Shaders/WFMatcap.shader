@@ -28,9 +28,10 @@
 //    ✅ **2026-10-02 复刻掉一条**：`_APPLYAMBIENTCOLOR`（WT 那支）原来写的是个**发明的加法项**，
 //      现在按反汇编改成原版的**乘性系数** `lerp(1, sRGB(_ExtraAmbientColor)×unity_AmbientSky,
 //      _AmbientColorBlend)`，乘在**整条积**上（判据与逐条指令 → `frag` 里那一支的注释）。
-//    ⚠️ **仍未复刻的**（12+ 个关键字分支，判据见 `资料/普查产出_0918/E组根因_B2.md` 与
-//      `项目任务.md` §三 第 4 条）：`_USEEMISSION`（t2×EmissionColor **加法**项）·
-//      `_USENOISE`+`_NOISECHANNEL_*`（溶解/边框：smoothstep + `_BorderColor1/2`）·
+//    ✅ **2026-11-05 复刻掉一条（`B144-D`）**：`_USEEMISSION`（`_EmissionTex × sRGB(_EmissionColor)` **加法**项）
+//      —— 逐条 DXBC 判据见 `frag` 里那一支的注释（`_tmp_view/dxbc/matcap_full_ps.txt:73-112`）。
+//    ⚠️ **仍未复刻的**（11+ 个关键字分支，判据见 `资料/普查产出_0918/E组根因_B2.md` 与
+//      `项目任务.md` §三 第 4 条）：`_USENOISE`+`_NOISECHANNEL_*`（溶解/边框：smoothstep + `_BorderColor1/2`）·
 //      `_ALPHATEST_ON`（alpha = `_MainTex.a × _Color.a × _MatCap.a × 顶点色.a`，且连 rgb 一起乘）·
 //      `_SURFACE_TYPE_TRANSPARENT` 的 alpha-to-coverage。
 //      ⇒ **列在这里 = 要做**，不是「不做」。
@@ -160,6 +161,12 @@ Shader "WarpforgeVFX/Matcap/Matcap"
             #pragma fragment frag
             #pragma shader_feature_local_fragment _APPLYAMBIENTCOLOR
             #pragma shader_feature_local_fragment _ALPHATEST_ON
+            // ✅ 已复刻（2026-11-05 · B144-D · 判据 = `Everguild/Matcap/Matcap Full Options` 的 emission 变体逐条 DXBC，
+            //   反汇编落 `_tmp_view/dxbc/matcap_full_ps.txt:73-112`）。用 `multi_compile` 而**不是** `shader_feature`：
+            //   原版材质的 `_USEEMISSION` 在 `m_ValidKeywords` 里，而我们 958 个 prefab 走 `WarpforgeEffectBinder`
+            //   运行时 `EnableKeyword`（`Runtime/WarpforgeEffectBinder.cs:500-501`），4 颗材质的 `.mat` 里
+            //   `m_ValidKeywords` 是空（关键字由 binder 补）⇒ `shader_feature` 的变体会被 build 剥掉。
+            #pragma multi_compile_local_fragment _ _USEEMISSION
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
@@ -203,6 +210,9 @@ Shader "WarpforgeVFX/Matcap/Matcap"
             SAMPLER(sampler_MainTex);
             TEXTURE2D(_MatCap);
             SAMPLER(sampler_MatCap);
+            // ✅ 已复刻（2026-11-05 · B144-D · `Matcap Full Options` 的 `_EmissionTex` 属性 def="white"）
+            TEXTURE2D(_EmissionTex);
+            SAMPLER(sampler_EmissionTex);
 
             struct Attributes
             {
@@ -268,6 +278,22 @@ Shader "WarpforgeVFX/Matcap/Matcap"
                 half4 main = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, IN.uv);
                 half4 cap4 = SAMPLE_TEXTURE2D(_MatCap, sampler_MatCap, IN.matcapUV);
                 half3 col  = LinearToSrgb(_Color.rgb) * main.rgb * cap4.rgb * _Intensity;
+
+                // ✅ 已复刻（2026-11-05 · B144-D · 判据 = `Everguild/Matcap/Matcap Full Options` 的
+                //   `_USEEMISSION` 变体逐条 DXBC，`_tmp_view/dxbc/matcap_full_ps.txt:73-112`）：
+                //     ① r1 = LinearToSrgb(cb1[8].xyz)        ← `_EmissionColor`（**也走 sRGB 编码**，同 `_Color`）
+                //     ② r2 = sample(t2, v1.xy)               ← `_EmissionTex`，UV = **主贴图那一路的 uv**（无 ST 变换）
+                //     ③ o0.xyz = r1·r2 + r0                  ← **加法**，加在四个因子全乘完的整条积上
+                //     ④ o0.w   = 1.0                         ← emission 不碰 alpha
+                //   ⚠️ 加法**不是乘法**（本仓 2026-09-15 踩过把 `_EmissionColor` 乘进去把材质乘黑的坑）。
+                //   ⚠️ 已知细微差：`IN.uv` 带了 `_MainTex_ST`，而原版采样用**未经 ST 的原始 uv**；
+                //     现读 4 颗带 emission 的材质（`ChemVial_1` / `GSC Dagger` / `RockSpike` / `RockSpike mild`）
+                //     的 `_MainTex` 的 `m_Scale` 全是 1、`m_Offset` 全是 0 ⇒ 两者相同。⛔ 别据此认为可以推广。
+                #ifdef _USEEMISSION
+                    half3 emiCol = LinearToSrgb(_EmissionColor.rgb);
+                    half4 emiTex = SAMPLE_TEXTURE2D(_EmissionTex, sampler_EmissionTex, IN.uv);
+                    col += emiCol * emiTex.rgb;
+                #endif
 
                 #ifdef _APPLYAMBIENTCOLOR
                     // ✅ **2026-10-02 复刻**（原来这里是个**发明的加法项** `col += _ExtraAmbientColor.rgb * main.a`）。

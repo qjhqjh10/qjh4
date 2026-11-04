@@ -107,8 +107,28 @@ def load_enum_stub(name, root=ENUM_STUBS):
 # ======================================================================
 # 全量件：构建
 # ======================================================================
-def _truth_rows(truth):
-    """基底行：2022 快照的 activeAbility + cardAbilities（与 A6 顺序逐字节一致）。"""
+def _cardability_rows(cid, army, ab_list):
+    """`cardAbilities[]` → 行。`ab_list` 可以来自 2022 快照或当前 SO（同一形状）。"""
+    rows = []
+    for ai, ab in enumerate(ab_list or []):
+        for li, lg in enumerate(ab.get("abilityLogic") or []):
+            for i, ca in enumerate(lg.get("cardAnimations") or []):
+                rows.append(dict(cardId=cid, armyId=army, path="cardAbilities", ai=ai, li=li,
+                                 trig=ab.get("trigger"), chosen=lg.get("chosenAbility"), i=i,
+                                 guid=(ca or {}).get("m_AssetGUID") or ""))
+    return rows
+
+
+def _truth_rows(truth, cur_by_id=None, current_only_ids=None):
+    """基底行：**activeAbility 来自 2022 快照（一字不动）**；`cardAbilities` 换成**当前 build SO 导出**
+    （`cur_by_id` 里有这张卡就用它的 `cardAbilities`；没有 = 2022 之后已下架的旧卡，回落快照）。
+
+    🔴 2026-11-05（`B143` · `B143-Play表覆盖缺口`）：原来 `cardAbilities` 也只取 2022 快照 ⇒
+    2022 之后新增/新增了动画的卡永远进不了全量件（SO 真值 803 张池内卡有动画，全量件只覆盖 722）。
+    ⚠️ activeAbility 那一段**必须保持原样**（它是 active 瘦身版的唯一输入，换源不得动它）。
+    ⚠️ `current_only_ids`：只有这些卡（= 2022 快照**有行**的卡，即旧 `base_ids`）才把 `cardAbilities`
+    换成当前 SO；其余卡由 `_augment_rows` 统一补（否则「快照无行、当前有行」的卡会被两路各加一遍 ⇒ 重复拍）。
+    """
     rows = []
     for t in truth:
         cid = t.get("uniqueId")
@@ -119,20 +139,17 @@ def _truth_rows(truth):
                 rows.append(dict(cardId=cid, armyId=army, path="activeAbility", ai=0, li=li,
                                  trig=None, chosen=lg.get("chosenAbility"), i=i,
                                  guid=(ca or {}).get("m_AssetGUID") or ""))
-        for ai, ab in enumerate(t.get("cardAbilities") or []):
-            for li, lg in enumerate(ab.get("abilityLogic") or []):
-                for i, ca in enumerate(lg.get("cardAnimations") or []):
-                    rows.append(dict(cardId=cid, armyId=army, path="cardAbilities", ai=ai, li=li,
-                                     trig=ab.get("trigger"), chosen=lg.get("chosenAbility"), i=i,
-                                     guid=(ca or {}).get("m_AssetGUID") or ""))
+        src = cur_by_id.get(cid) if (cur_by_id and (current_only_ids is None or cid in current_only_ids)) else None
+        ab_list = (src.get("cardAbilities") if src is not None else t.get("cardAbilities"))
+        rows.extend(_cardability_rows(cid, army, ab_list))
     return rows
 
 
 def _augment_rows(raw, base_ids):
-    """增量行：当前 build 里、基底没有的卡，只补 **activeAbility** 一路。
+    """增量行：当前 build 里、2022 基底没有的卡 ⇒ 补 **activeAbility + cardAbilities 两路**。
 
     返回 (per_card_rows, stats)。按卡 id 排序 ⇒ 与 raw 的文件序无关，稳定。
-    🔴 只读顶层 `activeAbility`，⛔ 不碰 `full_raw`。
+    🔴 只读顶层 `activeAbility` / `cardAbilities`，⛔ 不碰 `full_raw`。
     """
     by_card = {}
     for c in raw.get("cards") or []:
@@ -140,16 +157,19 @@ def _augment_rows(raw, base_ids):
         if not cid or cid in base_ids:
             continue
         rows = []
+        army = c.get("cardArmy")
         aa = c.get("activeAbility") or {}
         for li, lg in enumerate(aa.get("activeAbilityLogic") or []):
             for i, ca in enumerate(lg.get("cardAnimations") or []):
-                rows.append(dict(cardId=cid, armyId=c.get("cardArmy"), path="activeAbility", ai=0, li=li,
+                rows.append(dict(cardId=cid, armyId=army, path="activeAbility", ai=0, li=li,
                                  trig=None, chosen=lg.get("chosenAbility"), i=i,
                                  guid=(ca or {}).get("m_AssetGUID") or ""))
+        rows.extend(_cardability_rows(cid, army, c.get("cardAbilities")))
         if not [r for r in rows if r["guid"]]:
-            continue  # 当前 build 这张卡也没有 activeAbility 动画 ⇒ 不补
+            continue  # 当前 build 这张卡两路都没有非空动画 ⇒ 不补
         by_card[cid] = (rows, c.get("cardName"))
-    stats = {"cards": 0, "rows": 0, "blank": 0}
+    stats = {"cards": 0, "rows": 0, "blank": 0,
+             "activeRows": 0, "cardAbilityRows": 0}
     out = []
     for cid in sorted(by_card):
         rows, _ = by_card[cid]
@@ -157,6 +177,8 @@ def _augment_rows(raw, base_ids):
         stats["cards"] += 1
         stats["rows"] += len(rows)
         stats["blank"] += len([r for r in rows if not r["guid"]])
+        stats["activeRows"] += len([r for r in rows if r["path"] == "activeAbility"])
+        stats["cardAbilityRows"] += len([r for r in rows if r["path"] == "cardAbilities"])
     names = {cid: by_card[cid][1] for cid in by_card}
     return out, names, stats
 
@@ -313,13 +335,21 @@ def build_full(augment=True):
     map_keys = [k for k in camp if k != "_guid_summary"]
     gmap = _load_gmap()
 
-    base_rows = _truth_rows(truth)
-    base_ids = {r["cardId"] for r in base_rows}
+    # 🔴 基底集合仍按 **2022 快照** 判定（`base_ids` 必须与改前完全一致 —— 它决定「哪些卡走 augment」，
+    #    换了就会连 activeAbility 的取法一起变）。
+    base_ids = {r["cardId"] for r in _truth_rows(truth, None)}
     base_names = {t.get("uniqueId"): t.get("cardName") for t in truth}
 
-    aug_rows, aug_names, aug_stats = ([], {}, {"cards": 0, "rows": 0, "blank": 0})
+    raw = rj(RAW_CARDS) if augment else None
+    cur_by_id = None
+    if raw is not None:
+        cur_by_id = {c.get("uniqueId"): c for c in raw.get("cards") or [] if c.get("uniqueId")}
+    # activeAbility 仍取 2022（一字不动）；cardAbilities 取当前 SO（`cur_by_id` 优先、旧卡回落快照）。
+    base_rows = _truth_rows(truth, cur_by_id, base_ids)
+
+    aug_rows, aug_names, aug_stats = ([], {}, {"cards": 0, "rows": 0, "blank": 0,
+                                               "activeRows": 0, "cardAbilityRows": 0})
     if augment:
-        raw = rj(RAW_CARDS)
         aug_rows, aug_names, aug_stats = _augment_rows(raw, base_ids)
 
     rows = base_rows + aug_rows
@@ -376,14 +406,28 @@ def build_full(augment=True):
         "pool": {"cards": len(pool)},
         "poolActiveAbility": _pool_coverage(pool, cards, byguid),
         "augment": {
-            "source": "资料/普查产出_1018/allcards_1350/cards_raw.json（当前 build · 顶层 activeAbility）",
+            "source": "资料/普查产出_1018/allcards_1350/cards_raw.json（当前 build）",
             "base": "d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json（2022 · 897 卡）",
             "baseRefs": n_base,
             "augmentCards": aug_stats["cards"],
             "augmentRows": aug_stats["rows"],
             "augmentBlankGuids": aug_stats["blank"],
+            "augmentActiveRows": aug_stats.get("activeRows"),
+            "augmentCardAbilityRows": aug_stats.get("cardAbilityRows"),
             "augmentNewCardAnims": len(cardanims) - len(base_cardanims),
-            "note": "只补 activeAbility 一路；cardAbilities 不补（运行期不消费，且这些卡 2022 时尚未入库）。",
+            # ⚠️ 三个数**口径不同**，⛔ 别互相校验（2026-11-05 `B143-R2` 复核后订正）：
+            #   · `augmentNewCardAnims` = len(cardAnims) − len(**2022 基底**解析集)，本版 = 601 − 538 = 63；
+            #   · 相对**换源前盘上那一版**（旧 artifact）：旧 551 → 新 601 = **新增 51 条 / 移除 1 条**；
+            #   · 其中**新 cb guid = 60 个**（9 个原本已被 `activeAbility` 引用，故不新增表条目）。
+            "augmentNewCardAnimsBasis": (
+                "= len(cardAnims) − len(2022 基底解析集) = %d − %d = %d（口径 = **相对 2022 基底**，"
+                "⛔ 不是相对换源前盘上那一版）。2026-11-05 换源对旧 artifact 的实测（B143-R2）："
+                "旧 551 → 新 601 = 新增 **51** 条 cardAnims / 移除 **1** 条；新 cb guid **60** 个"
+                "（其中 9 个原本已被 activeAbility 引用）⇒ 63 / 51 / 60 是三个不同口径，别互相校验。"
+                % (len(cardanims), len(base_cardanims), len(cardanims) - len(base_cardanims))),
+            "note": ("`cardAbilities` 全量换成【当前 build SO 导出】（`cards_raw.json`；旧卡回落 2022）；"
+                     "`activeAbility` 仍是 2022 基底 + 「基底没有的卡」从当前 build 增量 —— 这一半未动。"
+                     "2026-11-05 `B143` 换源（判据 → `判据/B143_Play表覆盖缺口.md`）。"),
         },
     }
 
@@ -394,8 +438,8 @@ def build_full(augment=True):
                          "只读输入 · 未跑 Unity · 未动 git。"),
         "_what": "「带顺序」的逐卡逐技能演出步骤表。abilities[].steps[] = 原版 AbilityLogic.cardAnimations 的数组序（原版 foreach 全播、不挑下标）。",
         "_sources": {
-            "cardSOTruth": TRUTH + "（1,195 张 · 2022 快照 · 基底）",
-            "cardSOAugment": RAW_CARDS + "（当前 build · 只取顶层 activeAbility · 增量）",
+            "cardSOTruth": TRUTH + "（1,195 张 · 2022 快照 · **只作 activeAbility 的基底**）",
+            "cardSOAugment": RAW_CARDS + "（当前 build · **cardAbilities 全量取这里**；基底没有的卡另补 activeAbility）",
             "guidToAsset": "数据/索引/anim_address_map.json.guid_to_asset（只索引「以 GUID 为容器键」的条目）",
             "guidMap": GMAP + "（补 guid_to_asset 漏掉的【非 GUID 容器键】）",
             "factionParams": CAMP + "（只覆盖 12 个阵营 bundle；见 _coverage）",
@@ -415,7 +459,9 @@ def build_full(augment=True):
             "vfx": "cardAnims[].vfx = AnimInfo.animAdressable(0x10) → guid_to_asset 的名字（= 特效 prefab 名）；vfx 为 null 且 vfxGuid 非空 = 那个 prefab 的 guid 也不在本地索引里。",
             "paramsVerbatim": "cardAnims[].animInfo = 原版 CardAnim dump 的 animInfo 逐字照抄（~20 字段，未裁剪）；params 是其中 10 个核心字段的扁平副本（便于 JsonUtility 直接解）。",
             "noGuess": "γ（原版空 GUID）/ α（解析不出）两类留空 + 写 why，⛔ 不填替代值。",
-            "augmentScope": "增量只补「当前 build 有、2022 基底没有」的卡的 activeAbility；不回改基底里已有的行（含 SOR13 的 2022 vs 当前 build 差异，见报告）。",
+            "augmentScope": ("`cardAbilities` = **当前 build SO 全量**（2022 快照里的旧卡回落快照）；"
+                             "`activeAbility` = 2022 基底 + 「2022 基底没有的卡」从当前 build 增量（**这一半未动**，"
+                             "它是 active 瘦身版的唯一输入）。2026-11-05 `B143` 换源，判据 → `判据/B143_Play表覆盖缺口.md`。"),
         },
         "_coverage": coverage,
         "cardAnims": cardanims,

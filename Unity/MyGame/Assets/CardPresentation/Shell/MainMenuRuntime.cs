@@ -770,9 +770,9 @@ namespace CardPresentation
             //   ⚠️ 紧接着下面 `ImageQuad.Create(…, LayoutSpace.DesignHeight, …)` 与 `SetAspect(DesignWidth/DesignHeight)`
             //      两处是**世界单位**的正确用法（那两条口要的就是世界单位），**没动、别顺手改**。
             var go = New(root, "Background", 1920f, 1080f);
-            var quad = ImageQuad.Create(go, CardArt.Gradient(new Color(0.224f, 0.012f, 0.020f),
-                                                             new Color(0.047f, 0f, 0.016f), 188f,
-                                                             1080f / 1920f),   // 整屏 1920×1080 ⇒ h/w（原版 CompensateAspectRatio）
+            var quad = ImageQuad.Create(go, CardArt.Gradient(new Color(0.22352943f, 0.011764707f, 0.019607844f),
+                                                             new Color(0.047058828f, 0f, 0.015686275f), 188f,
+                                                             1080f / 1920f),   // 整屏 1920×1080 ⇒ h/w（原版 CompensateAspectRatio）· ✅ 已复刻（2026-11-05 · B144-D · 判据 = `bundle_scenes` MB_1931 `UIGradient` 的 c1/c2 精确值（B131色 E2：原来这里独一份取整成 0.224/0.012/0.020 与 0.047/0/0.016，同族其它窗口早已用精确值））
                                         Vector3.zero, LayoutSpace.DesignHeight,
                                         new Vector2(0.5f, 0.5f), "Gradient");
             if (quad == null) return;

@@ -722,7 +722,7 @@ namespace CardPresentation
                                    + $"{new ReplayRecord().version}）⇒ 不播：" + path);
                     return null;
                 }
-                if (rec.actions == null) rec.actions = new List<MsgAction>();
+                if (rec.actions == null) rec.actions = new List<MsgAction>(); rec.ValidateRandomCursors(fileName);   // 🔴 2026-11-05（B143-W1b · B143-REPLAY-RANDOM-INDEX 数据模型半）：随机游标两列的**唯一体检口** —— 老档（缺键 ⇒ null）出声「本层对账没做」；半列 / 条数不符 ⇒ 出声并把两列置 null（⛔ 半截数组会让回放侧逐条错位且不报错）。判据 → `判据/B143_回放随机流契约.md` §3·4 / §4
                 // 🔴 🆕 2026-10-18：**旧卡 id 的读时迁移闸**（卡池换过两代：`601005b` 一次性换 955 张 +
                 //   `K06` 换掉最后那批自造 token，两次都没迁玩家存档）。
                 //   录像里三处会带卡 id：`MsgStart.hostDeckJson/clientDeckJson`（`JsonUtility` 化的
@@ -1026,5 +1026,96 @@ namespace CardPresentation
         /// 空表 = **没记**（老录像）⇒ 回放里**不弹面板**（= 加这一格之前的行为）。
         /// 判据 → <see cref="ReplayAsk"/> 的类 doc。</summary>
         public List<ReplayAsk> asks = new List<ReplayAsk>();
+    }
+}
+
+// ====================================================================================================
+//  🔴🆕 2026-11-05（批次 `B143` · 执行写手 `W1b` · `B143-REPLAY-RANDOM-INDEX` 的**数据模型那一半**）
+//  判据 / 施工单 → `判据/B143_回放随机流契约.md` §3·1（数据形状）· §3·4（向后兼容）· §3·5（序列化）· §4（验收）
+//
+//  **它解决什么**：录像原来只有 `MsgStart.seed`（能重烧同一张表，但**不知道谁消耗了几格**）。
+//    一旦 AI 改吃共享随机流（`B134-AI 随机流`），录制时 AI 评分/挑目标会推进 `RandomNumbersIndex`，
+//    而**回放不重跑 AI** ⇒ 录制时被 AI 吃掉的格在回放里没人补 ⇒ 从第一个 AI 动作之后第一次引擎抽卡起分叉。
+//    ⇒ 逐动作记两条游标：执行前（回放据此**恢复**）+ 执行后（回放据此**断言**）。
+//
+//  ⛔ **不进 `MsgAction`**：那个结构同时是**网络协议**（`NetKind.Action/Applied` 发整个 `MsgAction`）
+//     ⇒ 加字段 = 把游标送上网络。
+//  ⛔ **本半只做「数据结构 + 体检」**：五个记账口（录制端）与回放端的恢复/断言在 `BattleDriver.cs`
+//     （`RecAct`/`RecRaw`/`RecMsg`/`RecFinish`/`ApplyReplayActionAt`），**不在本写手白名单**。
+//
+//  ⚠️ **为什么追加在文件最末的新 `partial` 块**：`账/*.tsv` 按 `ReplayStore.cs:9 / :358 / :376 / :900`
+//     落点引用 ⇒ 往既有成员之间插行会让它们整体漂移（铁律 18·b）。
+// ====================================================================================================
+namespace CardPresentation
+{
+    public partial class ReplayRecord
+    {
+        /// <summary>逐动作【执行前】的预烧表游标：`randomCursorBefore[i]` = 第 i 条动作交给引擎**之前**那一刻的
+        /// `BattleContext.RandomNumbersIndex`。回放侧据此**恢复**（`ApplyReplayActionAt` 里、所有分支之前）。
+        ///
+        /// <para>🔴 **`null` / 空 = 「这份录像没有游标记账」**（老档、或录制端还没接上这一列）
+        /// ⇒ 回放侧**不恢复、不判**，行为与加这一列之前**逐字相同**；但**必须出声**（见 <see cref="ValidateRandomCursors"/>）。
+        /// ⛔ **那不是「通过」**（红线：不许静默失败）。</para>
+        /// <para>⚠️ **`version` 不 +1**（纯新增字段，同 `traceFull` / `tutorialStage` / `botSeatPlus2`）：
+        /// 老录像读出来是「没记」= 它本来的行为。「改结构就 +1」那条防的是**同一格换语义**。
+        /// 🔴 **但**：若同批把随机流语义改掉（掷硬币 / AI 走共享表），旧档本来就会演成另一局
+        /// ⇒ 那时必须 `version +1` 并按既有纪律拒绝旧档（`ReplayStore.cs` 的版本闸）。两条分开写、⛔ 别混。</para>
+        /// <para>⚠️ 缺键的 JSON 读出 `null`（`int[]` 的 CLR 默认值 = 初始化器的值 = `null`，两条路相同）。</para></summary>
+        public int[] randomCursorBefore;
+
+        /// <summary>逐动作【执行后】的游标（采集点 = 与 `trace` / `traceFull` **同一处**，动作落地之后）。
+        /// 回放用它做「消耗格数逐条相等」的**断言**。
+        ///
+        /// <para>🔴 **这一列是必需的、不是冗余**：`randomCursorBefore` 恢复完再比 `before` 是**自证**（恒等）；
+        /// 只有「执行后」是**独立读数**（拿它才能发现「某条路多/少掷了一次」）。</para>
+        /// <para>与 <see cref="randomCursorBefore"/> **同生同死**（写点只有录制端 `RecFinish` 一处；
+        /// 长度必须等于 `actions.Count` —— 不等 ⇒ 两列都当「没记」，见 <see cref="ValidateRandomCursors"/>）。</para></summary>
+        public int[] randomCursorAfter;
+
+        /// <summary>两列的**唯一体检口**（`Load` 每读一份录像调一次；自检也直接调它）。
+        /// 返回四档：`"ok"` / `"missing"`（两列都没有）/ `"half"`（只有一列）/ `"count-mismatch"`（条数 ≠ `actions.Count` 或两列不等长）。
+        ///
+        /// <para>🔴 **规则（判据 → 施工单 §3·4 / §4）：</para>
+        /// <list type="bullet">
+        /// <item>`missing` ⇒ 一条 **warning**：「本层对账没做」（⛔ 不静默）—— 老录像走这一档，**行为逐字不变**；</item>
+        /// <item>`half` / `count-mismatch` ⇒ 一条 **error**，并把**两列都置 `null`**
+        ///   —— 写半截数组 / 错位数组比没有更糟：回放侧会**逐条拿错游标且不报错**（施工单 §3·2 第 5 步同一条纪律）。</item>
+        /// </list>
+        /// <para>⚠️ 本方法**只看内存里的这一份 `ReplayRecord`**，不读盘、不改盘。</para></summary>
+        /// <param name="where">日志里的来源（文件名 / 夹具名）—— 便于定位是哪一份录像。</param>
+        public string ValidateRandomCursors(string where)
+        {
+            int n = actions != null ? actions.Count : 0;
+            bool hasB = randomCursorBefore != null && randomCursorBefore.Length > 0;
+            bool hasA = randomCursorAfter != null && randomCursorAfter.Length > 0;
+            string tag = string.IsNullOrEmpty(where) ? "（未命名录像）" : where;
+
+            if (!hasB && !hasA)
+            {
+                Debug.LogWarning("[Replay] 「" + tag + "」没有随机游标记账（`randomCursorBefore` / `randomCursorAfter` 都空）"
+                               + " ⇒ **本层对账没做**：回放不恢复游标、也不比它（⛔ 这不是「通过」）。"
+                               + "判据 → `判据/B143_回放随机流契约.md` §3·4");
+                return "missing";
+            }
+            if (!hasB || !hasA)
+            {
+                Debug.LogError("[Replay] 「" + tag + "」的随机游标**只有一列**（before "
+                             + (randomCursorBefore != null ? randomCursorBefore.Length : -1) + " / after "
+                             + (randomCursorAfter != null ? randomCursorAfter.Length : -1)
+                             + "）⇒ 两列都当「没记」（半列 = 回放侧恢复或断言必有一半是瞎的）");
+                randomCursorBefore = null; randomCursorAfter = null;
+                return "half";
+            }
+            if (randomCursorBefore.Length != randomCursorAfter.Length || randomCursorBefore.Length != n)
+            {
+                Debug.LogError("[Replay] 「" + tag + "」的随机游标**条数与动作数不符**（before "
+                             + randomCursorBefore.Length + " / after " + randomCursorAfter.Length
+                             + " vs actions " + n + "）⇒ 两列都当「没记」"
+                             + "（⛔ 半截/错位数组会让回放侧逐条拿错游标**且不报错**）");
+                randomCursorBefore = null; randomCursorAfter = null;
+                return "count-mismatch";
+            }
+            return "ok";
+        }
     }
 }

@@ -79,6 +79,14 @@ public static class B102ALLY_Assert
             }
             Tr(sw != null, "（前提）社交窗在");
             if (sw == null) return;
+            SectionE74MemberRows(sw);   // ✅ 已复刻（2026-11-05 · B143-W4 · E74 B 组：成员行两颗 45/0；判据 `判据/B90_N2_小屏字号实例.tsv`）
+
+            // ✅ 2026-11-05 `B143-W8`（E74 剩余 20 颗之 ✅-2）：`AllianceMemberTab ▸ GeneralDetails` 那两颗 Label = 原版 8 个实例的**唯一 builder**（`AllianceMemberTab.cs:1412-1413` 的 `RatingRow`）⇒ 断 2 颗即覆盖 8 颗（45/0）。
+            var mt = sw.PageAlliances != null && sw.PageAlliances.Member != null ? sw.PageAlliances.Member.transform : null;
+            int e74p0 = B142E74_Assert.Pass, e74f0 = B142E74_Assert.Fail;
+            B142E74_Assert.CheckStation(mt, "GeneralDetails/Content/Alliance Rating Display/Individual rating value", 45f, 0f, "AllianceMemberTab ▸ GeneralDetails ▸ Alliance Rating Display");
+            B142E74_Assert.CheckStation(mt, "GeneralDetails/Content/Draft Rating Display/Individual rating value", 45f, 0f, "AllianceMemberTab ▸ GeneralDetails ▸ Draft Rating Display");
+            _sink.Pass += B142E74_Assert.Pass - e74p0; _sink.Fail += B142E74_Assert.Fail - e74f0;   // E74 的计数要并进本宿主（否则本宿主的合计看不到这两颗）
 
             view = sw.PageAlliances != null ? sw.PageAlliances.Search : null;
             Tr(view != null, "（前提）`Alliances` 页的 `AllianceSearchTab` 在（`sw.PageAlliances.Search`）");
@@ -324,5 +332,66 @@ public static class B102ALLY_Assert
             if (c.name == name) return c;
         }
         return null;
+    }
+
+    // ============================================================ E74 成员行两颗（B143-W4 · 2026-11-05）
+    // ✅ 判据 `判据/B90_N2_小屏字号实例.tsv`：`Alliance Member Entry ▸ Ratings ▸ {Draft,Ranked} Rating` = 45/0。
+    // ⚠️ 这两颗 Label 的 GameObject 名里**带字面 `/`**（`AllianceMemberTab.cs` 的 `name + "/Individual rating value"`）
+    //    ⇒ `Transform.Find("…/Ranked Rating/Individual rating value")` 一定找不到；只能按 **`gameObject.name` 全名相等**匹配
+    //    （`GetComponentsInChildren` 不解析 `/`）。⛔ 别改成路径写法。
+    // ⚠️ 夹具只用公开口：`SocialData.Members`（public List）+ `AllianceMemberTab.RebuildMembersForTest()`（public）⇒ 产品代码零改动。
+    static void SectionE74MemberRows(SocialWindow sw)
+    {
+        var mt = sw != null && sw.PageAlliances != null ? sw.PageAlliances.Member : null;
+        Tr(mt != null, "（前提）`AllianceMemberTab` 在（`sw.PageAlliances.Member`）—— 否则成员行两颗 45/0 没验到");
+        if (mt == null) return;
+
+        var backup = new List<SocialData.Member>(SocialData.Members);
+        try
+        {
+            SocialData.Members.Add(new SocialData.Member
+            {
+                Index = 1, Name = "B143W4_Member", Role = "Alliance Master",
+                DraftRating = "12", RankedRating = "34",
+            });
+            mt.RebuildMembersForTest();
+
+            Transform row = null;
+            var all = mt.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < all.Length; i++)
+                if (all[i] != null && all[i].name == "Alliance Member Entry") { row = all[i]; break; }
+            Tr(row != null, "（前提）成员行 `Alliance Member Entry` 建出来了（注入 1 条 `SocialData.Members` 后 `RebuildMembersForTest`）");
+            if (row == null) return;
+
+            Label draft = null, ranked = null;
+            var lbs = row.GetComponentsInChildren<Label>(true);
+            for (int i = 0; i < lbs.Length; i++)
+            {
+                if (lbs[i] == null) continue;
+                string nm = lbs[i].gameObject.name;
+                if (nm == "Draft Rating/Individual rating value") draft = lbs[i];
+                else if (nm == "Ranked Rating/Individual rating value") ranked = lbs[i];
+            }
+            E74MemberLabel(draft, "Draft Rating");
+            E74MemberLabel(ranked, "Ranked Rating");
+        }
+        finally
+        {
+            SocialData.Members.Clear();
+            SocialData.Members.AddRange(backup);
+            try { mt.RebuildMembersForTest(); } catch { /* 收尾清行失败不影响断言结论 */ }
+        }
+    }
+
+    /// <summary>断一颗成员行评级字：小屏 45/0 + 只接一次（判据 `B90_N2_小屏字号实例.tsv`）。</summary>
+    static void E74MemberLabel(Label lb, string what)
+    {
+        Tr(lb != null, "（前提）`" + what + "/Individual rating value` 那一颗 Label 在（名字含字面 `/`，按全名相等匹配）");
+        if (lb == null) return;
+        Tr(Mathf.Abs(lb.SmallScreenMaxRequestedPx - 45f) <= 0.01f && Mathf.Abs(lb.SmallScreenMinRequestedPx) <= 0.01f,
+           "★ `" + what + "` 的小屏字号 = **45/0**（判据 `B90_N2_小屏字号实例.tsv`）｜实得 "
+         + lb.SmallScreenMaxRequestedPx.ToString("F2") + "/" + lb.SmallScreenMinRequestedPx.ToString("F2"));
+        Tr(lb.SmallScreenSetCountForTest == 1,
+           "★ `" + what + "` **只被接了一次**（实得 " + lb.SmallScreenSetCountForTest + " 次）");
     }
 }

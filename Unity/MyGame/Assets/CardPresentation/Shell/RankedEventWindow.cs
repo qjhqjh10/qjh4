@@ -92,7 +92,7 @@ namespace CardPresentation
             var gen = MenuDraw.Node(root, "General Red Background", new PxRect(GenL, GenT, GenR, GenB));
 
             MenuDraw.Rect(gen, CardArt.Solid(), new PxRect(ShadeL, ShadeT, ShadeR, ShadeB),
-                          "Menu Dark Background", QBg, new Color(0f, 0f, 0f, 0.773f));
+                          "Menu Dark Background", QBg, new Color(0f, 0f, 0f, 0.7725490f));
             // 🔴 **2026-10-04（A47 接线批）订正档号 + 收口公共件**：原来用 `QHitBackdrop`(3115)，
             //   那是「内容档再往上留一档」的写法；规矩是**压暗层的命中区落在压暗层自己那一档**
             //   （`QBg` = 3104，见 `LiveOpsEventWindow.QBg` 的注释），且严格低于本窗内容命中区最低档

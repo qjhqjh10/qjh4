@@ -108,7 +108,7 @@ namespace CardPresentation
         // `General Red Background` 那一族
         static readonly PxRect GenRedR    = new PxRect(0f, 112.30f, 1920f, 1003.15f);
         static readonly PxRect ShadeR     = new PxRect(-1327.30f, -755.91f, 3247.30f, 1816.45f);
-        const float ShadeA = 0.773f;                    // 实读 `m_Color = (0,0,0,0.773)`
+        const float ShadeA = 0.7725490f;                    // 实读 `m_Color = (0,0,0,0.77254903)`（197/255；✅ 2026-11-05 B144-D 订正：原注释写 0.773 = 取整值）
 
         // `Image Mask` / `Event Image`
         static readonly PxRect MaskR      = new PxRect(425.71f, 116.92f, 1494.29f, 997.67f);

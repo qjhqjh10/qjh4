@@ -1104,7 +1104,7 @@ namespace RuleEngine
         static List<CardDef> _cache;
 
         /// <summary>🆕 2026-10-18（T09）：丢掉缓存 —— 编辑器里改完卡表、或自检要重读时用。</summary>
-        public static void InvalidateCache() { _cache = null; InvalidateEnchantmentGrants(); InvalidateOffensiveEnvCards(); }   // 🆕 B93/E16：第三张表（进攻卡）一并丢 —— 同一句里挤着写是故意的（加行会让下游 A 行账落点整体漂移）
+        public static void InvalidateCache() { _cache = null; InvalidateEnchantmentGrants(); InvalidateOffensiveEnvCards(); _tutorialVariants = null; _tutorialVariantById = null; _tutorialVariantArt = null; }   // 🆕 B93/E16：第三张表（进攻卡）一并丢 —— 同一句里挤着写是故意的（加行会让下游 A 行账落点整体漂移）；🆕 B143-W6：第四张表（教程变体）一并丢
 
         /// <summary>从 Resources 读卡表。取不到返回空表（不抛异常 —— 让调用方能自己决定怎么报）。
         /// 🔴 **2026-10-18（T09）起有进程级缓存**（见 `_cache` 的说明）；读不到的那一路**不缓存**，
@@ -5015,7 +5015,7 @@ namespace RuleEngine
             /// <summary>🆕 B109/C8（2026-10-31 · 判据 `判据/B109_R18_附魔三判据.md` §2）：原版 `CardAbility.triggerValue // +0x20`
             /// （`dump.cs:20340`）。`-1` = 缺键/旧表（<c>cards_engine.json</c> 未重生成）—— ⛔ **不是 0**。
             /// <para>唯一消费者 = 410 去重的闩（`Enchantments.ApplyFollowUpResolutionDedup` / `HasTriggerAbilityWithValue`）。</para></summary>
-            public int triggerValue = -1; public int ca = -1;   // 🆕 v47（2026-11-01 · 第 114 会话 · 写手 `W-B` · 账 `B-211`）：`ca` = 原版 **`AbilityLogic.chosenAbility`**（`AbilityEffect`；`Assembly-CSharp/AbilityLogic.cs:9` `public AbilityEffect chosenAbility;` —— 字段在 **AbilityLogic** 上、⛔ 不在 `CardAbility` 上 ⇒ 逐 `(ab, lg)` 行一个值）。`-1` = **未知**（`lg == -1` 没有 logic 实例 / 键缺失 / 旧表 `version < 47`）；`0`（`drawCard`）是**合法真值** ⇒ ⛔ 别把 `-1` 折成 `0`。⚠️ 同一物理行追加（铁律 18·b）：本文件账按行号引用，加行会推走下游 A 行落点。
+            public int triggerValue = -1; public int ca = -1; public int pa = -1;   // 🆕 v50（2026-11-05 · `B143-R3` · 账 `B141-HAND-CA165`）：`pa` = 原版 **`AbilityLogic.playersAffected`**（`+0x20`；`dump.cs:19459`；`PlayersAffected.cs:1-6`：`Both=0 / Self=10 / Enemy=20`）。字段在 **AbilityLogic** 上 ⇒ 逐 `(ab, lg)` 行；`-1` = **未知**（`lg == -1` / 键缺失 / 旧表 `version < 50`），`0`（Both）是**合法真值** ⇒ ⛔ 别把 `-1` 折成 `0`。⚠️ 同一物理行追加（铁律 18·b）。｜ 🆕 v47（2026-11-01 · 第 114 会话 · 写手 `W-B` · 账 `B-211`）：`ca` = 原版 **`AbilityLogic.chosenAbility`**（`AbilityEffect`；`Assembly-CSharp/AbilityLogic.cs:9` `public AbilityEffect chosenAbility;` —— 字段在 **AbilityLogic** 上、⛔ 不在 `CardAbility` 上 ⇒ 逐 `(ab, lg)` 行一个值）。`-1` = **未知**（`lg == -1` 没有 logic 实例 / 键缺失 / 旧表 `version < 47`）；`0`（`drawCard`）是**合法真值** ⇒ ⛔ 别把 `-1` 折成 `0`。⚠️ 同一物理行追加（铁律 18·b）：本文件账按行号引用，加行会推走下游 A 行落点。
         }
 
         public partial class CardDto
@@ -5051,7 +5051,7 @@ namespace RuleEngine
                                  + "撞键 = 表坏了）。重跑 工具/gen_cards_engine.py。");
                     continue;
                 }
-                list.Add(new CardDef.TriggerAbilityIndexSpec { Ab = r.ab, Lg = r.lg, Trigger = r.trigger, TriggerValue = r.triggerValue, Ca = (version >= 47 && r.ca >= -1) ? r.ca : -1 });   // 🆕 v47：`Ca`（`AbilityLogic.chosenAbility`）—— `version < 47` ⇒ `-1` 未知（⛔ 不是 0）
+                list.Add(new CardDef.TriggerAbilityIndexSpec { Ab = r.ab, Lg = r.lg, Trigger = r.trigger, TriggerValue = r.triggerValue, Ca = (version >= 47 && r.ca >= -1) ? r.ca : -1, Pa = (version >= 50 && r.pa >= -1) ? r.pa : -1 });   // 🆕 v50：`Pa`（`AbilityLogic.playersAffected`）—— `version < 50` ⇒ `-1` 未知（⛔ 不是 0 Both）｜🆕 v47：`Ca`（`AbilityLogic.chosenAbility`）—— `version < 47` ⇒ `-1` 未知（⛔ 不是 0）
             }
             return list.ToArray();
         }
@@ -5482,6 +5482,101 @@ namespace RuleEngine
             def.AttachAbilityManaBuff(mana == null ? EmptyAbilityManaBuff : mana.ToArray());
             def.AttachAbilitySummon(summon == null ? EmptyAbilitySummon : summon.ToArray());
             def.AttachAbilityTargetCriteria(crit == null ? EmptyCriteriaRows : crit.ToArray());
+        }
+    }
+}
+
+// ==================================================================================================
+//  🆕 2026-11-05（`B143-W6` · 账 `B142-AGGRESSOR-VARIANT` · 判据/施工单 → `报告/B143_W6_存档数据.md` §八）
+//  第四张表：**教程关卡专用卡** —— 原版 SO 名带 `(tutorial)` 的那 18 张（旧版本卡）。
+//  判据：原版教程牌组 SO 的 `cardLibraryIds` 里写的就是这些变体的 32 位 GUID（逐槽清单见报告 §8·3）；
+//       它们**不在可玩池**（`cards_engine` 现读 1,142 张里一张都没有）⇒ 必须单独一张表，
+//       ⛔ 绝不能并进 `cards_engine`（收藏窗 / 卡组编辑 / 商店会看见它们；原版 `IsHiddenCard` 是按名藏的）。
+//  生成器 = `工具/gen_tutorial_variants.py`（`--check` 可复跑比对）；表 = `Resources/tutorial_variants.json`。
+//  ⚠️ 与 `Load()` 用**同一个 `Parse()`** ⇒ `CardDef` 的结构、列语义与池卡完全一致（⛔ 不另开第二套解析）。
+// ==================================================================================================
+namespace RuleEngine
+{
+    public static partial class CardDatabase
+    {
+        /// <summary>教程变体表（`Resources/tutorial_variants.json`）的资源名。</summary>
+        public const string TutorialVariantsResourcePath = "tutorial_variants";
+
+        static List<CardDef> _tutorialVariants;
+        static Dictionary<string, CardDef> _tutorialVariantById;
+        static Dictionary<string, string> _tutorialVariantArt;
+        static bool _tutorialVariantsMissingLogged;
+
+        [Serializable] class TutorialVariantArtFileDto { public TutorialVariantArtDto[] cards; }
+        [Serializable] class TutorialVariantArtDto { public string id; public string artId; }
+
+        /// <summary>读 `Resources/tutorial_variants.json`（教程专用卡）→ `CardDef` 列表（浅拷贝）。
+        /// <para>⚠️ 读不到 / 解析出 0 张 ⇒ **出声**并返回空表 —— 调用方按「这一局没有变体」处置（退回池卡，⛔ 不静默）。</para></summary>
+        public static List<CardDef> LoadTutorialVariants()
+        {
+            if (_tutorialVariants != null) return new List<CardDef>(_tutorialVariants);
+            _tutorialVariantArt = new Dictionary<string, string>(StringComparer.Ordinal);
+            var asset = Resources.Load<TextAsset>(TutorialVariantsResourcePath);
+            if (asset == null)
+            {
+                if (!_tutorialVariantsMissingLogged)
+                {
+                    _tutorialVariantsMissingLogged = true;
+                    Debug.LogError($"[RuleEngine] 读不到 `Resources/{TutorialVariantsResourcePath}.json` —— "
+                                 + "教程关卡的 `(tutorial)` 变体卡**一律退回池卡**（数值/名字与原版不同）。"
+                                 + "重跑 `python -I -X utf8 工具/gen_tutorial_variants.py --write`。");
+                }
+                return new List<CardDef>();
+            }
+            _tutorialVariants = Parse(asset.text);          // 与池卡**同一个**解析器（同一套列）
+            if (_tutorialVariants.Count == 0)
+                Debug.LogError($"[RuleEngine] `{TutorialVariantsResourcePath}.json` 解析出 **0 张**（{asset.text.Length} 字符）—— 教程变体退回池卡。");
+            var art = JsonUtility.FromJson<TutorialVariantArtFileDto>(asset.text);
+            if (art != null && art.cards != null)
+                foreach (var c in art.cards)
+                    if (c != null && !string.IsNullOrEmpty(c.id) && !string.IsNullOrEmpty(c.artId))
+                        _tutorialVariantArt[c.id] = c.artId;
+            return new List<CardDef>(_tutorialVariants);
+        }
+
+        /// <summary>`id → 教程变体 CardDef`（**只按 id**，⛔ 不回落卡名 —— 变体名带 `(tutorial)`，
+        /// 名字比对是原版 `GetChosenCard` 那一侧的事，不该在这一层再开一条）。查不到返回 null。</summary>
+        public static Func<string, CardDef> TutorialVariantLookup()
+        {
+            if (_tutorialVariantById == null)
+            {
+                var list = LoadTutorialVariants();
+                var byId = new Dictionary<string, CardDef>(StringComparer.Ordinal);
+                foreach (var c in list) if (c != null && !string.IsNullOrEmpty(c.Id)) byId[c.Id] = c;
+                _tutorialVariantById = byId;
+            }
+            var map = _tutorialVariantById;
+            return key => { CardDef c; return !string.IsNullOrEmpty(key) && map.TryGetValue(key, out c) ? c : null; };
+        }
+
+        /// <summary>教程变体**借用的插图 id**（= 同名池卡的 id；原版变体 SO 的 `cardSprite` 就是那张图）。
+        /// 不是变体 ⇒ null。（`tutorial_variants.json` 的 `artId` 列，由生成器写）</summary>
+        public static string TutorialVariantArtId(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            if (_tutorialVariantArt == null) LoadTutorialVariants();
+            string art;
+            return _tutorialVariantArt != null && _tutorialVariantArt.TryGetValue(id, out art) ? art : null;
+        }
+
+        /// <summary>`BattleDriver.ArtKey` 的单行落点：变体 → 借用图 id；其余 → 原口径（池卡 = id、自造卡 = 名）。</summary>
+        public static string ArtKeyOr(string id, string fallback)
+        {
+            var art = TutorialVariantArtId(id);
+            return string.IsNullOrEmpty(art) ? fallback : art;
+        }
+
+        /// <summary>把「池卡 lookup」包一层：**先查教程变体、再查池**
+        /// （唯一落点 = `BattleDriver.BuildTutorialDeck` 那一个 `lookup`）。</summary>
+        public static Func<string, CardDef> WithTutorialVariants(Func<string, CardDef> poolLookup)
+        {
+            var variant = TutorialVariantLookup();
+            return key => variant(key) ?? (poolLookup != null ? poolLookup(key) : null);
         }
     }
 }

@@ -90,6 +90,14 @@ public static class B109_E12_Wiring_Assert
             win = DraftModeWindow.Create(wm, 20261031);
             if (!Ok(win != null, "①-前提：`DraftModeWindow.Create` 建出窗")) return;
 
+            // ✅ 2026-11-05 `B143-W8`（E74 剩余 20 颗之 ✅-3）：联盟计分面板 ▸ `No Alliance ▸ Join Alliance text`（原版 40/15）。
+            // ⚠️ 本文件跑在 **BattleScene**（`BattleScene.cs:47035`）⇒ E74 的计数必须并进本宿主的 `Pass/Fail`，否则这条只印不计数。
+            int e74p0 = B142E74_Assert.Pass, e74f0 = B142E74_Assert.Fail;
+            var sp = win.GetComponentInChildren<AllianceEventScorePanel>(true);
+            B142E74_Assert.CheckStation(sp != null ? sp.transform : null, "No Alliance/Join Alliance text", 40f, 15f,
+                "Alliance Scoring Panel ▸ No Alliance ▸ Join Alliance text");
+            Pass += B142E74_Assert.Pass - e74p0; Fail += B142E74_Assert.Fail - e74f0;
+
             var marks = Deep(win.transform, "Win Marks");
             if (!Ok(marks != null, "①-前提：`Win Marks` 在（结算页那棵树建出来了）")) return;
 

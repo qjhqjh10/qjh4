@@ -1781,9 +1781,9 @@ public static class ShopScene
                 // `Available Counter`：**整条要在格子里面**（第一版它中心在格底边上 ⇒ 半截跨到下一行）
                 if (RectOf(FindChild(cell, "Available Counter"), out vx1, out vy1, out vx2, out vy2))
                 {
-                    CheckTrue(vy1 >= y1 - 0.5f && vy2 <= y1 + cellH + 0.5f,
-                              $"格 {i + 1}：`Available Counter` **竖向不越出格子**"
-                              + $"（实测 y {vy1:F0}..{vy2:F0}，格 {y1:F0}..{y1 + cellH:F0}）");
+                    CheckNear((vy1 + vy2) * 0.5f, y1 + ShopTabPage.CellAvail.CY * (cellH / ShopTabPage.CellH), 2f,
+                              $"格 {i + 1}：`Available Counter` **竖向中心 = 原版锚点**（原版 TMP 锚点 y=476、零高框 + V=Geometry ⇒ **半截在格底之外**，⛔ 不是「不越出格子」）"
+                              + $"（实测 y {vy1:F0}..{vy2:F0}；✅ 2026-11-05 B144-C 按原版改判据，判据 B131 UI 三#10）");
                     CheckTrue(vx1 >= x1 - 0.5f && vx2 <= x1 + cellW + 0.5f,
                               $"格 {i + 1}：`Available Counter` **横向不越出格子**");
                     // 🔴 **2026-10-19（`N72`）**：原版横向档 = **Center**（现跑 `menu_dump` 实读 6 份
@@ -6642,7 +6642,7 @@ public static class ShopScene
     /// **下界** = 各项「数字 × 单位秒数」之和；**区间宽** = 这串里**最细**那一档单位的秒数
     /// （格式化**只截断不四舍**：`ts.Seconds` / `ts.Minutes` / `ts.Days` 都是截断 ⇒ 被丢掉的那一段就是宽度）。
     /// <para>六档全认：官方三档 `D天 H小时` / `H小时 M分钟` / `M分钟 S秒` + 我们拼的三档 `_Only`（天 · 小时 · 分钟），
-    /// 以及 en 三档 `d h` / `h m` / `m s`；前缀（`最后时刻` / `Last Minutes`）先剥掉。</para>
+    /// 以及 en 三档 `d h` / `h m` / `m s`；**2026-11-05（B143-W4）起单位表按当前语档的官方 13 语言表现解**（含 ru/ko/ja/tr …）；前缀（`最后时刻` / `Last Minutes`）先剥掉。</para>
     /// <para>**解析不出 ⇒ 返回 <c>false</c>**（空串 / `--` / 别的形状都算）—— 这正是那条断言要咬的：
     /// ⛔ 不许退回「非空就算过」那种没有鉴别力的写法。</para>
     /// <para>⚠️ 为什么需要它：`RunCore` 那条「倒计时文本」原来只解析 `X小时 Y分钟` 一档，
@@ -6655,19 +6655,19 @@ public static class ShopScene
         string lm = TimerDisplay.LastMinutesText();
         if (!string.IsNullOrEmpty(lm) && body.StartsWith(lm, System.StringComparison.Ordinal))
             body = body.Substring(lm.Length);
+        // 单位表按**当前语档**的官方 I2 六条格式串现解 —— 13 语言全覆盖（en/es/fr/de/pt/it/pl/cs `d/h/m/s` ·
+        //   ru `д/ч/м/с` · ko `일/시간/분/초` · ja `日/時間/分/秒` · zh `天/小时/分钟/秒` · tr `g/sa/dk/sn`）；
+        //   旧实现只认中英八种（`天|小时|分钟|秒|d|h|m|s`）⇒ 第三语言解析失败、退回「逐字相等」，鉴别力下降。
+        //   ⚠️ 同一语言里同一个字面量只对应一个单位（逐语言自洽；长单位优先，`分钟` 不会被 `分` 抢走）。
+        EnsureTimerUnits();
+        if (_timerUnitPattern == null) return false;
         int total = 0, finest = 0, n = 0;
         foreach (System.Text.RegularExpressions.Match m in
-                 System.Text.RegularExpressions.Regex.Matches(body, @"(\d+)\s*(天|小时|分钟|秒|d|h|m|s)"))
+                 System.Text.RegularExpressions.Regex.Matches(body, _timerUnitPattern))
         {
             int v = int.Parse(m.Groups[1].Value);
             int unitSec;
-            switch (m.Groups[2].Value)
-            {
-                case "天": case "d": unitSec = 86400; break;
-                case "小时": case "h": unitSec = 3600; break;
-                case "分钟": case "m": unitSec = 60; break;
-                default: unitSec = 1; break;                     // `秒` / `s`
-            }
+            if (!_timerUnitSecs.TryGetValue(m.Groups[2].Value, out unitSec)) continue;   // 表里没有（不该发生）⇒ 这一项不算
             total += v * unitSec;
             if (finest == 0 || unitSec < finest) finest = unitSec;
             n++;
@@ -6773,5 +6773,67 @@ public static class ShopScene
         }
         CheckTrue(seen > 0, "★⑤（正对照）`" + ctrlName + "`（`cbrc=0`）在 500 包里出现 " + seen + " 次 ⇒ 池子没被清空"
                           + "｜🧨 把 `RollPack` 改成返回空 / 恒同几张 ⇒ 本条红而 ③④ 未必红");
+    }
+
+    // ============================================================ 倒计时单位表（B143-W4 · 2026-11-05）
+    // ✅ 已复刻（2026-11-05 · B143-W4 · 判据 = 原版 `SupportMethods.GetTimeString` 的六条格式串，来自官方 I2 表
+    //   `MainMenu/Time/{DH,HM,MS,D_Only,H_Only,M_Only}` 13 语言列）：`ParseTimerText` 原来只认
+    //   `天|小时|分钟|秒|d|h|m|s` ⇒ 第三语言（ru/ja/ko/tr…）解析失败、退回「逐字相等」。现在单位表按当前语档现解。
+    static string _timerUnitPattern;
+    static System.Collections.Generic.Dictionary<string, int> _timerUnitSecs;
+    static CardPresentation.AvailableLanguages _timerUnitLang;
+    static bool _timerUnitLangSet;
+
+    /// <summary>按**当前语档**的官方六条格式串现解「单位字面量 → 秒」并拼正则。
+    /// 先播种旧的八种（官方表缺键时行为不倒退），再按当前语档覆盖（tr 的 `d` = 分钟、`s` = 小时）。</summary>
+    static void EnsureTimerUnits()
+    {
+        var lang = Loc.Current;
+        if (_timerUnitLangSet && _timerUnitLang == lang && _timerUnitPattern != null) return;
+        var map = new System.Collections.Generic.Dictionary<string, int>(System.StringComparer.Ordinal)
+        {
+            { "天", 86400 }, { "小时", 3600 }, { "分钟", 60 }, { "秒", 1 },
+            { "d", 86400 }, { "h", 3600 }, { "m", 60 }, { "s", 1 },
+        };
+        HarvestTimerUnits(Loc.T("MainMenu/Time/DH"), new[] { 86400, 3600 }, map);
+        HarvestTimerUnits(Loc.T("MainMenu/Time/HM"), new[] { 3600, 60 }, map);
+        HarvestTimerUnits(Loc.T("MainMenu/Time/MS"), new[] { 60, 1 }, map);
+        HarvestTimerUnits(Loc.T("MainMenu/Time/D_Only"), new[] { 86400 }, map);
+        HarvestTimerUnits(Loc.T("MainMenu/Time/H_Only"), new[] { 3600 }, map);
+        HarvestTimerUnits(Loc.T("MainMenu/Time/M_Only"), new[] { 60 }, map);
+        var units = new System.Collections.Generic.List<string>(map.Keys);
+        units.Sort((a, b) => b.Length != a.Length ? b.Length - a.Length : string.CompareOrdinal(a, b));
+        var sb = new System.Text.StringBuilder("(\\d+)\\s*(");
+        for (int i = 0; i < units.Count; i++)
+        {
+            if (i > 0) sb.Append('|');
+            sb.Append(System.Text.RegularExpressions.Regex.Escape(units[i]));
+        }
+        sb.Append(')');
+        _timerUnitSecs = map;
+        _timerUnitPattern = sb.ToString();
+        _timerUnitLang = lang;
+        _timerUnitLangSet = true;
+    }
+
+    /// <summary>把一条官方格式串（形如 `{0:0}天 {1:0}小时`）里**每个占位符后面的字面量**收进表。</summary>
+    static void HarvestTimerUnits(string fmt, int[] secsPerSlot, System.Collections.Generic.Dictionary<string, int> into)
+    {
+        if (string.IsNullOrEmpty(fmt)) return;
+        int i = 0;
+        while (i < fmt.Length)
+        {
+            int open = fmt.IndexOf('{', i);
+            if (open < 0) break;
+            int close = fmt.IndexOf('}', open);
+            if (close < 0) break;
+            int slot = -1, j = open + 1;
+            while (j < close && fmt[j] >= '0' && fmt[j] <= '9') { slot = (slot < 0 ? 0 : slot * 10) + (fmt[j] - '0'); j++; }
+            int next = fmt.IndexOf('{', close + 1);
+            int end = next < 0 ? fmt.Length : next;
+            string lit = fmt.Substring(close + 1, end - close - 1).Trim();
+            if (slot >= 0 && slot < secsPerSlot.Length && lit.Length > 0) into[lit] = secsPerSlot[slot];
+            i = end;
+        }
     }
 }

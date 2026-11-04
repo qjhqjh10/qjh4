@@ -1,0 +1,2215 @@
+{
+  "version": 1,
+  "source": "d:/2/新解包资源/assets_full（ShopContainer / DropTableItem 两类 SO 逐字段转写）",
+  "note": "由 工具/gen_booster_tables.py 生成，⛔ 别手改。判据：卡包 = m_Script -5965435178007098505；掉落表 = -2313241570638646064。`slots` = 卡包的 5 个卡位（每个一条掉落表 id）；`cards` = 叶子候选卡；`tables` = 子掉落表。权重原样照抄 SO。",
+  "counts": {
+    "containers": 11,
+    "dropTables": 34
+  },
+  "duplicates": [
+    [
+      "container",
+      "Booster Pack Legendary Ultramarines",
+      "bundle_cosmeticsso_assets_all/MonoBehaviour/Booster Pack Legendary Ultramarines.json",
+      "bundle_menus_assets_all/MonoBehaviour/Booster Pack Legendary Ultramarines.json"
+    ],
+    [
+      "droptable",
+      "DT Ultramarines All R2+",
+      "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Ultramarines All R2+.json",
+      "bundle_menus_assets_all/MonoBehaviour/DT Ultramarines All R2+.json"
+    ],
+    [
+      "droptable",
+      "DT Ultramarines All",
+      "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Ultramarines All.json",
+      "bundle_menus_assets_all/MonoBehaviour/DT Ultramarines All.json"
+    ]
+  ],
+  "containers": [
+    {
+      "id": "Booster Pack Emperors Children",
+      "army": 120,
+      "containerType": 1,
+      "nameKey": "MenuShop/ShopItemType/BoosterPack",
+      "previewSprite": "",
+      "legendary": "Booster Pack Legendary Emperors Children",
+      "slots": [
+        "DT EmperorsChildren All R2+",
+        "DT EmperorsChildren All",
+        "DT EmperorsChildren All",
+        "DT EmperorsChildren All",
+        "DT EmperorsChildren All"
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/Booster Pack Emperors Children.json"
+    },
+    {
+      "id": "Booster Pack Goff Expansion",
+      "army": 20,
+      "containerType": 1,
+      "nameKey": "MenuShop/ShopItemType/BoosterPack",
+      "previewSprite": "",
+      "legendary": "Booster Pack Legendary Goff Expansion",
+      "slots": [
+        "DT Goff All R2+",
+        "DT Goff All",
+        "DT Goff All",
+        "DT Goff All",
+        "DT Goff All Expansion Only"
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/Booster Pack Goff Expansion.json"
+    },
+    {
+      "id": "Booster Pack Legendary Emperors Children",
+      "army": 120,
+      "containerType": 0,
+      "nameKey": "",
+      "previewSprite": "",
+      "legendary": "",
+      "slots": [
+        "DT EmperorsChildren R4",
+        "DT EmperorsChildren All",
+        "DT EmperorsChildren All",
+        "DT EmperorsChildren All",
+        "DT EmperorsChildren All"
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/Booster Pack Legendary Emperors Children.json"
+    },
+    {
+      "id": "Booster Pack Legendary Goff",
+      "army": 0,
+      "containerType": 1,
+      "nameKey": "",
+      "previewSprite": "40K_shop_offer_booster_Goff",
+      "legendary": "",
+      "slots": [
+        "DT Goff R4",
+        "DT Goff All",
+        "DT Goff All",
+        "DT Goff All",
+        "DT Goff All"
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/Booster Pack Legendary Goff.json"
+    },
+    {
+      "id": "Booster Pack Legendary Goff Expansion",
+      "army": 0,
+      "containerType": 1,
+      "nameKey": "",
+      "previewSprite": "40K_shop_offer_booster_Goff",
+      "legendary": "",
+      "slots": [
+        "DT Goff R4",
+        "DT Goff All",
+        "DT Goff All",
+        "DT Goff All",
+        "DT Goff All Expansion Only"
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/Booster Pack Legendary Goff Expansion.json"
+    },
+    {
+      "id": "Booster Pack Legendary Space Wolves",
+      "army": 130,
+      "containerType": 1,
+      "nameKey": "MenuShop/ShopItemType/BoosterPack",
+      "previewSprite": "",
+      "legendary": "",
+      "slots": [
+        "DT SpaceWolves R4",
+        "DT SpaceWolves All",
+        "DT SpaceWolves All",
+        "DT SpaceWolves All",
+        "DT SpaceWolves All"
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/Booster Pack Legendary Space Wolves.json"
+    },
+    {
+      "id": "Booster Pack Legendary Ultramarines",
+      "army": 0,
+      "containerType": 1,
+      "nameKey": "",
+      "previewSprite": "40K_shop_offer_booster_UM",
+      "legendary": "",
+      "slots": [
+        "DT Ultramarines R4",
+        "DT Ultramarines All",
+        "DT Ultramarines All",
+        "DT Ultramarines All",
+        "DT Ultramarines All"
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/Booster Pack Legendary Ultramarines.json"
+    },
+    {
+      "id": "Booster Pack Legendary Ultramarines Expansion",
+      "army": 0,
+      "containerType": 1,
+      "nameKey": "",
+      "previewSprite": "",
+      "legendary": "",
+      "slots": [
+        "DT Ultramarines R4",
+        "DT Ultramarines All",
+        "DT Ultramarines All",
+        "DT Ultramarines All",
+        "DT UltraMarines All Expansion Only"
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/Booster Pack Legendary Ultramarines Expansion.json"
+    },
+    {
+      "id": "Booster Pack Space Wolves",
+      "army": 130,
+      "containerType": 1,
+      "nameKey": "MenuShop/ShopItemType/BoosterPack",
+      "previewSprite": "",
+      "legendary": "Booster Pack Legendary Space Wolves",
+      "slots": [
+        "DT SpaceWolves All R2+",
+        "DT SpaceWolves All",
+        "DT SpaceWolves All",
+        "DT SpaceWolves All",
+        "DT SpaceWolves All"
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/Booster Pack Space Wolves.json"
+    },
+    {
+      "id": "Booster Pack Ultramarines",
+      "army": 10,
+      "containerType": 1,
+      "nameKey": "MenuShop/ShopItemType/BoosterPack",
+      "previewSprite": "40K_shop_offer_booster_UM",
+      "legendary": "Booster Pack Legendary Ultramarines",
+      "slots": [
+        "DT Ultramarines All R2+",
+        "DT Ultramarines All",
+        "DT Ultramarines All",
+        "DT Ultramarines All",
+        "DT Ultramarines All"
+      ],
+      "src": "bundle_menus_assets_all/MonoBehaviour/Booster Pack Ultramarines.json"
+    },
+    {
+      "id": "Booster Pack Ultramarines Expansion",
+      "army": 10,
+      "containerType": 1,
+      "nameKey": "MenuShop/ShopItemType/BoosterPack",
+      "previewSprite": "",
+      "legendary": "Booster Pack Legendary Ultramarines Expansion",
+      "slots": [
+        "DT Ultramarines All R2+",
+        "DT Ultramarines All",
+        "DT Ultramarines All",
+        "DT Ultramarines All",
+        "DT UltraMarines All Expansion Only"
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/Booster Pack Ultramarines Expansion.json"
+    }
+  ],
+  "dropTables": [
+    {
+      "id": "DT EmperorsChildren All",
+      "army": 120,
+      "rarity": 1,
+      "cards": [],
+      "tables": [
+        {
+          "id": "DT EmperorsChildren R1",
+          "weight": 2600
+        },
+        {
+          "id": "DT EmperorsChildren R2",
+          "weight": 200
+        },
+        {
+          "id": "DT EmperorsChildren R3",
+          "weight": 97
+        },
+        {
+          "id": "DT EmperorsChildren R4",
+          "weight": 4
+        }
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT EmperorsChildren All.json"
+    },
+    {
+      "id": "DT EmperorsChildren All R2+",
+      "army": 120,
+      "rarity": 2,
+      "cards": [],
+      "tables": [
+        {
+          "id": "DT EmperorsChildren R2",
+          "weight": 1500
+        },
+        {
+          "id": "DT EmperorsChildren R3",
+          "weight": 110
+        },
+        {
+          "id": "DT EmperorsChildren R4",
+          "weight": 1
+        }
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT EmperorsChildren All R2+.json"
+    },
+    {
+      "id": "DT EmperorsChildren R1",
+      "army": 120,
+      "rarity": 1,
+      "cards": [
+        {
+          "id": "EC32",
+          "weight": 10000
+        },
+        {
+          "id": "EC11",
+          "weight": 10000
+        },
+        {
+          "id": "EC25",
+          "weight": 10000
+        },
+        {
+          "id": "EC34",
+          "weight": 10000
+        },
+        {
+          "id": "EC4",
+          "weight": 10000
+        },
+        {
+          "id": "EC8",
+          "weight": 10000
+        },
+        {
+          "id": "EC31",
+          "weight": 10000
+        },
+        {
+          "id": "EC16",
+          "weight": 10000
+        },
+        {
+          "id": "EC5",
+          "weight": 10000
+        },
+        {
+          "id": "EC27",
+          "weight": 10000
+        },
+        {
+          "id": "EC30",
+          "weight": 10000
+        },
+        {
+          "id": "EC28",
+          "weight": 10000
+        },
+        {
+          "id": "EC24",
+          "weight": 10000
+        },
+        {
+          "id": "EC36",
+          "weight": 10000
+        },
+        {
+          "id": "EC52",
+          "weight": 10000
+        },
+        {
+          "id": "EC58",
+          "weight": 10000
+        },
+        {
+          "id": "EC48",
+          "weight": 10000
+        },
+        {
+          "id": "EC43",
+          "weight": 10000
+        },
+        {
+          "id": "EC37",
+          "weight": 10000
+        },
+        {
+          "id": "EC45",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT EmperorsChildren R1.json"
+    },
+    {
+      "id": "DT EmperorsChildren R2",
+      "army": 120,
+      "rarity": 2,
+      "cards": [
+        {
+          "id": "EC1",
+          "weight": 10000
+        },
+        {
+          "id": "EC2",
+          "weight": 10000
+        },
+        {
+          "id": "EC7",
+          "weight": 10000
+        },
+        {
+          "id": "EC35",
+          "weight": 10000
+        },
+        {
+          "id": "EC3",
+          "weight": 10000
+        },
+        {
+          "id": "EC23",
+          "weight": 10000
+        },
+        {
+          "id": "EC29",
+          "weight": 10000
+        },
+        {
+          "id": "EC33",
+          "weight": 10000
+        },
+        {
+          "id": "EC17",
+          "weight": 10000
+        },
+        {
+          "id": "EC9",
+          "weight": 10000
+        },
+        {
+          "id": "EC6",
+          "weight": 10000
+        },
+        {
+          "id": "EC56",
+          "weight": 10000
+        },
+        {
+          "id": "EC41",
+          "weight": 10000
+        },
+        {
+          "id": "EC46",
+          "weight": 10000
+        },
+        {
+          "id": "EC38",
+          "weight": 10000
+        },
+        {
+          "id": "EC40",
+          "weight": 10000
+        },
+        {
+          "id": "EC44",
+          "weight": 10000
+        },
+        {
+          "id": "EC50",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT EmperorsChildren R2.json"
+    },
+    {
+      "id": "DT EmperorsChildren R3",
+      "army": 120,
+      "rarity": 3,
+      "cards": [
+        {
+          "id": "EC19",
+          "weight": 10000
+        },
+        {
+          "id": "EC10",
+          "weight": 10000
+        },
+        {
+          "id": "EC12",
+          "weight": 10000
+        },
+        {
+          "id": "EC26",
+          "weight": 10000
+        },
+        {
+          "id": "EC13",
+          "weight": 10000
+        },
+        {
+          "id": "EC15",
+          "weight": 10000
+        },
+        {
+          "id": "EC18",
+          "weight": 10000
+        },
+        {
+          "id": "EC57",
+          "weight": 10000
+        },
+        {
+          "id": "EC49",
+          "weight": 10000
+        },
+        {
+          "id": "EC54",
+          "weight": 10000
+        },
+        {
+          "id": "EC42",
+          "weight": 10000
+        },
+        {
+          "id": "EC39",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT EmperorsChildren R3.json"
+    },
+    {
+      "id": "DT EmperorsChildren R4",
+      "army": 120,
+      "rarity": 4,
+      "cards": [
+        {
+          "id": "EC22",
+          "weight": 10000
+        },
+        {
+          "id": "EC21",
+          "weight": 10000
+        },
+        {
+          "id": "EC20",
+          "weight": 10000
+        },
+        {
+          "id": "EC14",
+          "weight": 10000
+        },
+        {
+          "id": "EC55",
+          "weight": 10000
+        },
+        {
+          "id": "EC51",
+          "weight": 10000
+        },
+        {
+          "id": "EC47",
+          "weight": 10000
+        },
+        {
+          "id": "EC53",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT EmperorsChildren R4.json"
+    },
+    {
+      "id": "DT Goff All",
+      "army": 20,
+      "rarity": 1,
+      "cards": [],
+      "tables": [
+        {
+          "id": "DT Goff R1",
+          "weight": 2600
+        },
+        {
+          "id": "DT Goff R2",
+          "weight": 200
+        },
+        {
+          "id": "DT Goff R3",
+          "weight": 97
+        },
+        {
+          "id": "DT Goff R4",
+          "weight": 4
+        }
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Goff All.json"
+    },
+    {
+      "id": "DT Goff All Expansion Only",
+      "army": 20,
+      "rarity": 1,
+      "cards": [],
+      "tables": [
+        {
+          "id": "DT Goff R1 Expansion Only",
+          "weight": 2600
+        },
+        {
+          "id": "DT Goff R2 Expansion Only",
+          "weight": 200
+        },
+        {
+          "id": "DT Goff R3 Expansion Only",
+          "weight": 97
+        },
+        {
+          "id": "DT Goff R4 Expansion Only",
+          "weight": 4
+        }
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Goff All Expansion Only.json"
+    },
+    {
+      "id": "DT Goff All R2+",
+      "army": 20,
+      "rarity": 2,
+      "cards": [],
+      "tables": [
+        {
+          "id": "DT Goff R2",
+          "weight": 1500
+        },
+        {
+          "id": "DT Goff R3",
+          "weight": 110
+        },
+        {
+          "id": "DT Goff R4",
+          "weight": 1
+        }
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Goff All R2+.json"
+    },
+    {
+      "id": "DT Goff R1",
+      "army": 20,
+      "rarity": 1,
+      "cards": [
+        {
+          "id": "GOF1",
+          "weight": 10000
+        },
+        {
+          "id": "GOF10",
+          "weight": 10000
+        },
+        {
+          "id": "GOF89",
+          "weight": 10000
+        },
+        {
+          "id": "GOF14",
+          "weight": 10000
+        },
+        {
+          "id": "GOF16",
+          "weight": 10000
+        },
+        {
+          "id": "GOF95",
+          "weight": 10000
+        },
+        {
+          "id": "GOF96",
+          "weight": 10000
+        },
+        {
+          "id": "GOF66",
+          "weight": 10000
+        },
+        {
+          "id": "GOF25",
+          "weight": 10000
+        },
+        {
+          "id": "GOF26",
+          "weight": 10000
+        },
+        {
+          "id": "GOF55",
+          "weight": 10000
+        },
+        {
+          "id": "GOF80",
+          "weight": 10000
+        },
+        {
+          "id": "GOF58",
+          "weight": 10000
+        },
+        {
+          "id": "GOF59",
+          "weight": 10000
+        },
+        {
+          "id": "GOF60",
+          "weight": 10000
+        },
+        {
+          "id": "GOF63",
+          "weight": 10000
+        },
+        {
+          "id": "GOF81",
+          "weight": 10000
+        },
+        {
+          "id": "GOF69",
+          "weight": 10000
+        },
+        {
+          "id": "GOF5",
+          "weight": 10000
+        },
+        {
+          "id": "GOF83",
+          "weight": 10000
+        },
+        {
+          "id": "GOF8",
+          "weight": 10000
+        },
+        {
+          "id": "GOF85",
+          "weight": 10000
+        },
+        {
+          "id": "GOF30",
+          "weight": 10000
+        },
+        {
+          "id": "GOF98",
+          "weight": 10000
+        },
+        {
+          "id": "GOF107",
+          "weight": 10000
+        },
+        {
+          "id": "GOF39",
+          "weight": 10000
+        },
+        {
+          "id": "GOF42",
+          "weight": 10000
+        },
+        {
+          "id": "GOF43",
+          "weight": 10000
+        },
+        {
+          "id": "GOF45",
+          "weight": 10000
+        },
+        {
+          "id": "GOF100",
+          "weight": 10000
+        },
+        {
+          "id": "GOF33",
+          "weight": 10000
+        },
+        {
+          "id": "GOF104",
+          "weight": 10000
+        },
+        {
+          "id": "GOF71",
+          "weight": 10000
+        },
+        {
+          "id": "GOF36",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Goff R1.json"
+    },
+    {
+      "id": "DT Goff R1 Expansion Only",
+      "army": 20,
+      "rarity": 1,
+      "cards": [
+        {
+          "id": "GOF89",
+          "weight": 1200
+        },
+        {
+          "id": "GOF95",
+          "weight": 1200
+        },
+        {
+          "id": "GOF96",
+          "weight": 1200
+        },
+        {
+          "id": "GOF80",
+          "weight": 1200
+        },
+        {
+          "id": "GOF81",
+          "weight": 1200
+        },
+        {
+          "id": "GOF83",
+          "weight": 1200
+        },
+        {
+          "id": "GOF85",
+          "weight": 1200
+        },
+        {
+          "id": "GOF98",
+          "weight": 1200
+        },
+        {
+          "id": "GOF107",
+          "weight": 1200
+        },
+        {
+          "id": "GOF100",
+          "weight": 1200
+        },
+        {
+          "id": "GOF104",
+          "weight": 1200
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Goff R1 Expansion Only.json"
+    },
+    {
+      "id": "DT Goff R2",
+      "army": 20,
+      "rarity": 2,
+      "cards": [
+        {
+          "id": "GOF78",
+          "weight": 10000
+        },
+        {
+          "id": "GOF65",
+          "weight": 10000
+        },
+        {
+          "id": "GOF11",
+          "weight": 10000
+        },
+        {
+          "id": "GOF88",
+          "weight": 10000
+        },
+        {
+          "id": "GOF15",
+          "weight": 10000
+        },
+        {
+          "id": "GOF93",
+          "weight": 10000
+        },
+        {
+          "id": "GOF18",
+          "weight": 10000
+        },
+        {
+          "id": "GOF79",
+          "weight": 10000
+        },
+        {
+          "id": "GOF22",
+          "weight": 10000
+        },
+        {
+          "id": "GOF24",
+          "weight": 10000
+        },
+        {
+          "id": "GOF56",
+          "weight": 10000
+        },
+        {
+          "id": "GOF67",
+          "weight": 10000
+        },
+        {
+          "id": "GOF61",
+          "weight": 10000
+        },
+        {
+          "id": "GOF62",
+          "weight": 10000
+        },
+        {
+          "id": "GOF4",
+          "weight": 10000
+        },
+        {
+          "id": "GOF82",
+          "weight": 10000
+        },
+        {
+          "id": "GOF6",
+          "weight": 10000
+        },
+        {
+          "id": "GOF9",
+          "weight": 10000
+        },
+        {
+          "id": "GOF86",
+          "weight": 10000
+        },
+        {
+          "id": "GOF29",
+          "weight": 10000
+        },
+        {
+          "id": "GOF74",
+          "weight": 10000
+        },
+        {
+          "id": "GOF40",
+          "weight": 10000
+        },
+        {
+          "id": "GOF46",
+          "weight": 10000
+        },
+        {
+          "id": "GOF31",
+          "weight": 10000
+        },
+        {
+          "id": "GOF99",
+          "weight": 10000
+        },
+        {
+          "id": "GOF32",
+          "weight": 10000
+        },
+        {
+          "id": "GOF101",
+          "weight": 10000
+        },
+        {
+          "id": "GOF35",
+          "weight": 10000
+        },
+        {
+          "id": "GOF105",
+          "weight": 10000
+        },
+        {
+          "id": "GOF38",
+          "weight": 10000
+        },
+        {
+          "id": "GOF73",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Goff R2.json"
+    },
+    {
+      "id": "DT Goff R2 Expansion Only",
+      "army": 20,
+      "rarity": 2,
+      "cards": [
+        {
+          "id": "GOF78",
+          "weight": 280
+        },
+        {
+          "id": "GOF88",
+          "weight": 280
+        },
+        {
+          "id": "GOF93",
+          "weight": 280
+        },
+        {
+          "id": "GOF79",
+          "weight": 280
+        },
+        {
+          "id": "GOF82",
+          "weight": 280
+        },
+        {
+          "id": "GOF86",
+          "weight": 280
+        },
+        {
+          "id": "GOF99",
+          "weight": 280
+        },
+        {
+          "id": "GOF101",
+          "weight": 280
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Goff R2 Expansion Only.json"
+    },
+    {
+      "id": "DT Goff R3",
+      "army": 20,
+      "rarity": 3,
+      "cards": [
+        {
+          "id": "GOF12",
+          "weight": 10000
+        },
+        {
+          "id": "GOF13",
+          "weight": 10000
+        },
+        {
+          "id": "GOF90",
+          "weight": 10000
+        },
+        {
+          "id": "GOF92",
+          "weight": 10000
+        },
+        {
+          "id": "GOF17",
+          "weight": 10000
+        },
+        {
+          "id": "GOF19",
+          "weight": 10000
+        },
+        {
+          "id": "GOF97",
+          "weight": 10000
+        },
+        {
+          "id": "GOF20",
+          "weight": 10000
+        },
+        {
+          "id": "GOF3",
+          "weight": 10000
+        },
+        {
+          "id": "GOF70",
+          "weight": 10000
+        },
+        {
+          "id": "GOF84",
+          "weight": 10000
+        },
+        {
+          "id": "GOF7",
+          "weight": 10000
+        },
+        {
+          "id": "GOF77",
+          "weight": 10000
+        },
+        {
+          "id": "GOF27",
+          "weight": 10000
+        },
+        {
+          "id": "GOF41",
+          "weight": 10000
+        },
+        {
+          "id": "GOF44",
+          "weight": 10000
+        },
+        {
+          "id": "GOF47",
+          "weight": 10000
+        },
+        {
+          "id": "GOF102",
+          "weight": 10000
+        },
+        {
+          "id": "GOF103",
+          "weight": 10000
+        },
+        {
+          "id": "GOF37",
+          "weight": 10000
+        },
+        {
+          "id": "GOF72",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Goff R3.json"
+    },
+    {
+      "id": "DT Goff R3 Expansion Only",
+      "army": 20,
+      "rarity": 3,
+      "cards": [
+        {
+          "id": "GOF92",
+          "weight": 15
+        },
+        {
+          "id": "GOF97",
+          "weight": 15
+        },
+        {
+          "id": "GOF84",
+          "weight": 15
+        },
+        {
+          "id": "GOF77",
+          "weight": 15
+        },
+        {
+          "id": "GOF102",
+          "weight": 15
+        },
+        {
+          "id": "GOF103",
+          "weight": 15
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Goff R3 Expansion Only.json"
+    },
+    {
+      "id": "DT Goff R4",
+      "army": 20,
+      "rarity": 4,
+      "cards": [
+        {
+          "id": "GOF87",
+          "weight": 10000
+        },
+        {
+          "id": "GOF91",
+          "weight": 10000
+        },
+        {
+          "id": "GOF94",
+          "weight": 10000
+        },
+        {
+          "id": "GOF2",
+          "weight": 10000
+        },
+        {
+          "id": "GOF21",
+          "weight": 10000
+        },
+        {
+          "id": "GOF23",
+          "weight": 10000
+        },
+        {
+          "id": "GOF57",
+          "weight": 10000
+        },
+        {
+          "id": "GOF68",
+          "weight": 10000
+        },
+        {
+          "id": "GOF28",
+          "weight": 10000
+        },
+        {
+          "id": "GOF76",
+          "weight": 10000
+        },
+        {
+          "id": "GOF75",
+          "weight": 10000
+        },
+        {
+          "id": "GOF48",
+          "weight": 10000
+        },
+        {
+          "id": "GOF64",
+          "weight": 10000
+        },
+        {
+          "id": "GOF34",
+          "weight": 10000
+        },
+        {
+          "id": "GOF106",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Goff R4.json"
+    },
+    {
+      "id": "DT Goff R4 Expansion Only",
+      "army": 20,
+      "rarity": 4,
+      "cards": [
+        {
+          "id": "GOF87",
+          "weight": 6
+        },
+        {
+          "id": "GOF76",
+          "weight": 6
+        },
+        {
+          "id": "GOF106",
+          "weight": 6
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Goff R4 Expansion Only.json"
+    },
+    {
+      "id": "DT SpaceWolves All",
+      "army": 130,
+      "rarity": 1,
+      "cards": [],
+      "tables": [
+        {
+          "id": "DT EmperorsChildren R1",
+          "weight": 2600
+        },
+        {
+          "id": "DT SpaceWolves R2",
+          "weight": 200
+        },
+        {
+          "id": "DT SpaceWolves R3",
+          "weight": 97
+        },
+        {
+          "id": "DT EmperorsChildren R4",
+          "weight": 4
+        }
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT SpaceWolves All.json"
+    },
+    {
+      "id": "DT SpaceWolves All R2+",
+      "army": 130,
+      "rarity": 2,
+      "cards": [],
+      "tables": [
+        {
+          "id": "DT SpaceWolves R2",
+          "weight": 1500
+        },
+        {
+          "id": "DT SpaceWolves R3",
+          "weight": 110
+        },
+        {
+          "id": "DT EmperorsChildren R4",
+          "weight": 1
+        }
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT SpaceWolves All R2+.json"
+    },
+    {
+      "id": "DT SpaceWolves R1",
+      "army": 130,
+      "rarity": 1,
+      "cards": [
+        {
+          "id": "SW13",
+          "weight": 10000
+        },
+        {
+          "id": "SW16",
+          "weight": 10000
+        },
+        {
+          "id": "SW17",
+          "weight": 10000
+        },
+        {
+          "id": "SW5",
+          "weight": 10000
+        },
+        {
+          "id": "SW23",
+          "weight": 10000
+        },
+        {
+          "id": "SW24",
+          "weight": 10000
+        },
+        {
+          "id": "SW28",
+          "weight": 10000
+        },
+        {
+          "id": "SW31",
+          "weight": 10000
+        },
+        {
+          "id": "SW33",
+          "weight": 10000
+        },
+        {
+          "id": "SW38",
+          "weight": 10000
+        },
+        {
+          "id": "SW8",
+          "weight": 10000
+        },
+        {
+          "id": "SW10",
+          "weight": 10000
+        },
+        {
+          "id": "SW12",
+          "weight": 10000
+        },
+        {
+          "id": "SW39",
+          "weight": 10000
+        },
+        {
+          "id": "SW51",
+          "weight": 10000
+        },
+        {
+          "id": "SW55",
+          "weight": 10000
+        },
+        {
+          "id": "SW42",
+          "weight": 10000
+        },
+        {
+          "id": "SW43",
+          "weight": 10000
+        },
+        {
+          "id": "SW45",
+          "weight": 10000
+        },
+        {
+          "id": "SW47",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT SpaceWolves R1.json"
+    },
+    {
+      "id": "DT SpaceWolves R2",
+      "army": 130,
+      "rarity": 2,
+      "cards": [
+        {
+          "id": "SW4",
+          "weight": 10000
+        },
+        {
+          "id": "SW21",
+          "weight": 10000
+        },
+        {
+          "id": "SW22",
+          "weight": 10000
+        },
+        {
+          "id": "SW27",
+          "weight": 10000
+        },
+        {
+          "id": "SW30",
+          "weight": 10000
+        },
+        {
+          "id": "SW32",
+          "weight": 10000
+        },
+        {
+          "id": "SW6",
+          "weight": 10000
+        },
+        {
+          "id": "SW35",
+          "weight": 10000
+        },
+        {
+          "id": "SW37",
+          "weight": 10000
+        },
+        {
+          "id": "SW7",
+          "weight": 10000
+        },
+        {
+          "id": "SW11",
+          "weight": 10000
+        },
+        {
+          "id": "SW3",
+          "weight": 10000
+        },
+        {
+          "id": "SW48",
+          "weight": 10000
+        },
+        {
+          "id": "SW50",
+          "weight": 10000
+        },
+        {
+          "id": "SW52",
+          "weight": 10000
+        },
+        {
+          "id": "SW53",
+          "weight": 10000
+        },
+        {
+          "id": "SW41",
+          "weight": 10000
+        },
+        {
+          "id": "SW44",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT SpaceWolves R2.json"
+    },
+    {
+      "id": "DT SpaceWolves R3",
+      "army": 130,
+      "rarity": 3,
+      "cards": [
+        {
+          "id": "SW14",
+          "weight": 10000
+        },
+        {
+          "id": "SW19",
+          "weight": 10000
+        },
+        {
+          "id": "SW20",
+          "weight": 10000
+        },
+        {
+          "id": "SW25",
+          "weight": 10000
+        },
+        {
+          "id": "SW29",
+          "weight": 10000
+        },
+        {
+          "id": "SW34",
+          "weight": 10000
+        },
+        {
+          "id": "SW9",
+          "weight": 10000
+        },
+        {
+          "id": "SW2",
+          "weight": 10000
+        },
+        {
+          "id": "SW49",
+          "weight": 10000
+        },
+        {
+          "id": "SW56",
+          "weight": 10000
+        },
+        {
+          "id": "SW40",
+          "weight": 10000
+        },
+        {
+          "id": "SW58",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT SpaceWolves R3.json"
+    },
+    {
+      "id": "DT SpaceWolves R4",
+      "army": 130,
+      "rarity": 4,
+      "cards": [
+        {
+          "id": "SW15",
+          "weight": 10000
+        },
+        {
+          "id": "SW18",
+          "weight": 10000
+        },
+        {
+          "id": "SW26",
+          "weight": 10000
+        },
+        {
+          "id": "SW36",
+          "weight": 10000
+        },
+        {
+          "id": "SW1",
+          "weight": 10000
+        },
+        {
+          "id": "SW54",
+          "weight": 10000
+        },
+        {
+          "id": "SW57",
+          "weight": 10000
+        },
+        {
+          "id": "SW46",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT SpaceWolves R4.json"
+    },
+    {
+      "id": "DT UltraMarines All Expansion Only",
+      "army": 10,
+      "rarity": 1,
+      "cards": [],
+      "tables": [
+        {
+          "id": "DT UltraMarines R1 Expansion Only",
+          "weight": 2600
+        },
+        {
+          "id": "DT UltraMarines R2 Expansion Only",
+          "weight": 200
+        },
+        {
+          "id": "DT UltraMarines R3 Expansion Only",
+          "weight": 97
+        },
+        {
+          "id": "DT UltraMarines R4 Expansion Only",
+          "weight": 4
+        }
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT UltraMarines All Expansion Only.json"
+    },
+    {
+      "id": "DT UltraMarines R1 Expansion Only",
+      "army": 10,
+      "rarity": 1,
+      "cards": [
+        {
+          "id": "UM89",
+          "weight": 1200
+        },
+        {
+          "id": "UM105",
+          "weight": 1200
+        },
+        {
+          "id": "UM91",
+          "weight": 1200
+        },
+        {
+          "id": "UM94",
+          "weight": 1200
+        },
+        {
+          "id": "UM95",
+          "weight": 1200
+        },
+        {
+          "id": "UM109",
+          "weight": 1200
+        },
+        {
+          "id": "UM111",
+          "weight": 1200
+        },
+        {
+          "id": "UM113",
+          "weight": 1200
+        },
+        {
+          "id": "UM115",
+          "weight": 1200
+        },
+        {
+          "id": "UM103",
+          "weight": 1200
+        },
+        {
+          "id": "UM98",
+          "weight": 1200
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT UltraMarines R1 Expansion Only.json"
+    },
+    {
+      "id": "DT UltraMarines R2 Expansion Only",
+      "army": 10,
+      "rarity": 2,
+      "cards": [
+        {
+          "id": "UM101",
+          "weight": 280
+        },
+        {
+          "id": "UM107",
+          "weight": 280
+        },
+        {
+          "id": "UM92",
+          "weight": 280
+        },
+        {
+          "id": "UM97",
+          "weight": 280
+        },
+        {
+          "id": "UM110",
+          "weight": 280
+        },
+        {
+          "id": "UM112",
+          "weight": 280
+        },
+        {
+          "id": "UM114",
+          "weight": 280
+        },
+        {
+          "id": "UM104",
+          "weight": 280
+        },
+        {
+          "id": "UM108",
+          "weight": 280
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT UltraMarines R2 Expansion Only.json"
+    },
+    {
+      "id": "DT UltraMarines R3 Expansion Only",
+      "army": 10,
+      "rarity": 3,
+      "cards": [
+        {
+          "id": "UM99",
+          "weight": 15
+        },
+        {
+          "id": "UM90",
+          "weight": 15
+        },
+        {
+          "id": "UM116",
+          "weight": 15
+        },
+        {
+          "id": "UM117",
+          "weight": 15
+        },
+        {
+          "id": "UM102",
+          "weight": 15
+        },
+        {
+          "id": "UM96",
+          "weight": 15
+        },
+        {
+          "id": "UM88",
+          "weight": 15
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT UltraMarines R3 Expansion Only.json"
+    },
+    {
+      "id": "DT UltraMarines R4 Expansion Only",
+      "army": 10,
+      "rarity": 4,
+      "cards": [
+        {
+          "id": "UM106",
+          "weight": 6
+        },
+        {
+          "id": "UM118",
+          "weight": 6
+        },
+        {
+          "id": "UM87",
+          "weight": 6
+        },
+        {
+          "id": "UM100",
+          "weight": 6
+        },
+        {
+          "id": "UM93",
+          "weight": 6
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT UltraMarines R4 Expansion Only.json"
+    },
+    {
+      "id": "DT Ultramarines All",
+      "army": 10,
+      "rarity": 1,
+      "cards": [],
+      "tables": [
+        {
+          "id": "DT Ultramarines R1",
+          "weight": 2600
+        },
+        {
+          "id": "DT Ultramarines R2",
+          "weight": 200
+        },
+        {
+          "id": "DT Ultramarines R3",
+          "weight": 97
+        },
+        {
+          "id": "DT Ultramarines R4",
+          "weight": 4
+        }
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Ultramarines All.json"
+    },
+    {
+      "id": "DT Ultramarines All R2+",
+      "army": 10,
+      "rarity": 2,
+      "cards": [],
+      "tables": [
+        {
+          "id": "DT Ultramarines R2",
+          "weight": 1500
+        },
+        {
+          "id": "DT Ultramarines R3",
+          "weight": 110
+        },
+        {
+          "id": "DT Ultramarines R4",
+          "weight": 1
+        }
+      ],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Ultramarines All R2+.json"
+    },
+    {
+      "id": "DT Ultramarines R1",
+      "army": 10,
+      "rarity": 1,
+      "cards": [
+        {
+          "id": "UM89",
+          "weight": 10000
+        },
+        {
+          "id": "UM1",
+          "weight": 10000
+        },
+        {
+          "id": "UM98",
+          "weight": 10000
+        },
+        {
+          "id": "UM10",
+          "weight": 10000
+        },
+        {
+          "id": "UM11",
+          "weight": 10000
+        },
+        {
+          "id": "UM103",
+          "weight": 10000
+        },
+        {
+          "id": "UM15",
+          "weight": 10000
+        },
+        {
+          "id": "UM105",
+          "weight": 10000
+        },
+        {
+          "id": "UM19",
+          "weight": 10000
+        },
+        {
+          "id": "UM78",
+          "weight": 10000
+        },
+        {
+          "id": "UM23",
+          "weight": 10000
+        },
+        {
+          "id": "UM25",
+          "weight": 10000
+        },
+        {
+          "id": "UM91",
+          "weight": 10000
+        },
+        {
+          "id": "UM56",
+          "weight": 10000
+        },
+        {
+          "id": "UM57",
+          "weight": 10000
+        },
+        {
+          "id": "UM58",
+          "weight": 10000
+        },
+        {
+          "id": "UM59",
+          "weight": 10000
+        },
+        {
+          "id": "UM69",
+          "weight": 10000
+        },
+        {
+          "id": "UM4",
+          "weight": 10000
+        },
+        {
+          "id": "UM81",
+          "weight": 10000
+        },
+        {
+          "id": "UM70",
+          "weight": 10000
+        },
+        {
+          "id": "UM94",
+          "weight": 10000
+        },
+        {
+          "id": "UM71",
+          "weight": 10000
+        },
+        {
+          "id": "UM6",
+          "weight": 10000
+        },
+        {
+          "id": "UM95",
+          "weight": 10000
+        },
+        {
+          "id": "UM109",
+          "weight": 10000
+        },
+        {
+          "id": "UM41",
+          "weight": 10000
+        },
+        {
+          "id": "UM42",
+          "weight": 10000
+        },
+        {
+          "id": "UM43",
+          "weight": 10000
+        },
+        {
+          "id": "UM45",
+          "weight": 10000
+        },
+        {
+          "id": "UM61",
+          "weight": 10000
+        },
+        {
+          "id": "UM85",
+          "weight": 10000
+        },
+        {
+          "id": "UM63",
+          "weight": 10000
+        },
+        {
+          "id": "UM33",
+          "weight": 10000
+        },
+        {
+          "id": "UM75",
+          "weight": 10000
+        },
+        {
+          "id": "UM111",
+          "weight": 10000
+        },
+        {
+          "id": "UM113",
+          "weight": 10000
+        },
+        {
+          "id": "UM115",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Ultramarines R1.json"
+    },
+    {
+      "id": "DT Ultramarines R2",
+      "army": 10,
+      "rarity": 2,
+      "cards": [
+        {
+          "id": "UM66",
+          "weight": 10000
+        },
+        {
+          "id": "UM101",
+          "weight": 10000
+        },
+        {
+          "id": "UM14",
+          "weight": 10000
+        },
+        {
+          "id": "UM104",
+          "weight": 10000
+        },
+        {
+          "id": "UM16",
+          "weight": 10000
+        },
+        {
+          "id": "UM107",
+          "weight": 10000
+        },
+        {
+          "id": "UM2",
+          "weight": 10000
+        },
+        {
+          "id": "UM21",
+          "weight": 10000
+        },
+        {
+          "id": "UM22",
+          "weight": 10000
+        },
+        {
+          "id": "UM27",
+          "weight": 10000
+        },
+        {
+          "id": "UM79",
+          "weight": 10000
+        },
+        {
+          "id": "UM3",
+          "weight": 10000
+        },
+        {
+          "id": "UM30",
+          "weight": 10000
+        },
+        {
+          "id": "UM80",
+          "weight": 10000
+        },
+        {
+          "id": "UM92",
+          "weight": 10000
+        },
+        {
+          "id": "UM72",
+          "weight": 10000
+        },
+        {
+          "id": "UM7",
+          "weight": 10000
+        },
+        {
+          "id": "UM8",
+          "weight": 10000
+        },
+        {
+          "id": "UM97",
+          "weight": 10000
+        },
+        {
+          "id": "UM9",
+          "weight": 10000
+        },
+        {
+          "id": "UM31",
+          "weight": 10000
+        },
+        {
+          "id": "UM84",
+          "weight": 10000
+        },
+        {
+          "id": "UM44",
+          "weight": 10000
+        },
+        {
+          "id": "UM110",
+          "weight": 10000
+        },
+        {
+          "id": "UM73",
+          "weight": 10000
+        },
+        {
+          "id": "UM34",
+          "weight": 10000
+        },
+        {
+          "id": "UM112",
+          "weight": 10000
+        },
+        {
+          "id": "UM36",
+          "weight": 10000
+        },
+        {
+          "id": "UM114",
+          "weight": 10000
+        },
+        {
+          "id": "UM38",
+          "weight": 10000
+        },
+        {
+          "id": "UM39",
+          "weight": 10000
+        },
+        {
+          "id": "UM47",
+          "weight": 10000
+        },
+        {
+          "id": "UM108",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_cosmeticsso_assets_all/MonoBehaviour/DT Ultramarines R2.json"
+    },
+    {
+      "id": "DT Ultramarines R3",
+      "army": 10,
+      "rarity": 3,
+      "cards": [
+        {
+          "id": "UM99",
+          "weight": 10000
+        },
+        {
+          "id": "UM13",
+          "weight": 10000
+        },
+        {
+          "id": "UM17",
+          "weight": 10000
+        },
+        {
+          "id": "UM18",
+          "weight": 10000
+        },
+        {
+          "id": "UM67",
+          "weight": 10000
+        },
+        {
+          "id": "UM90",
+          "weight": 10000
+        },
+        {
+          "id": "UM24",
+          "weight": 10000
+        },
+        {
+          "id": "UM28",
+          "weight": 10000
+        },
+        {
+          "id": "UM55",
+          "weight": 10000
+        },
+        {
+          "id": "UM5",
+          "weight": 10000
+        },
+        {
+          "id": "UM83",
+          "weight": 10000
+        },
+        {
+          "id": "UM74",
+          "weight": 10000
+        },
+        {
+          "id": "UM32",
+          "weight": 10000
+        },
+        {
+          "id": "UM64",
+          "weight": 10000
+        },
+        {
+          "id": "UM86",
+          "weight": 10000
+        },
+        {
+          "id": "UM35",
+          "weight": 10000
+        },
+        {
+          "id": "UM37",
+          "weight": 10000
+        },
+        {
+          "id": "UM116",
+          "weight": 10000
+        },
+        {
+          "id": "UM117",
+          "weight": 10000
+        },
+        {
+          "id": "UM88",
+          "weight": 10000
+        },
+        {
+          "id": "UM48",
+          "weight": 10000
+        },
+        {
+          "id": "UM102",
+          "weight": 10000
+        },
+        {
+          "id": "UM96",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_duplicateassetisolationso_assets_all/MonoBehaviour/DT Ultramarines R3.json"
+    },
+    {
+      "id": "DT Ultramarines R4",
+      "army": 10,
+      "rarity": 4,
+      "cards": [
+        {
+          "id": "UM77",
+          "weight": 10000
+        },
+        {
+          "id": "UM12",
+          "weight": 10000
+        },
+        {
+          "id": "UM106",
+          "weight": 10000
+        },
+        {
+          "id": "UM20",
+          "weight": 10000
+        },
+        {
+          "id": "UM26",
+          "weight": 10000
+        },
+        {
+          "id": "UM29",
+          "weight": 10000
+        },
+        {
+          "id": "UM68",
+          "weight": 10000
+        },
+        {
+          "id": "UM82",
+          "weight": 10000
+        },
+        {
+          "id": "UM40",
+          "weight": 10000
+        },
+        {
+          "id": "UM118",
+          "weight": 10000
+        },
+        {
+          "id": "UM60",
+          "weight": 10000
+        },
+        {
+          "id": "UM62",
+          "weight": 10000
+        },
+        {
+          "id": "UM65",
+          "weight": 10000
+        },
+        {
+          "id": "UM76",
+          "weight": 10000
+        },
+        {
+          "id": "UM46",
+          "weight": 10000
+        },
+        {
+          "id": "UM87",
+          "weight": 10000
+        },
+        {
+          "id": "UM100",
+          "weight": 10000
+        },
+        {
+          "id": "UM93",
+          "weight": 10000
+        }
+      ],
+      "tables": [],
+      "src": "bundle_duplicateassetisolationso_assets_all/MonoBehaviour/DT Ultramarines R4.json"
+    }
+  ]
+}

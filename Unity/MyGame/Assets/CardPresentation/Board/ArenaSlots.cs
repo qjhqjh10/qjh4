@@ -45,7 +45,7 @@ namespace CardPresentation
     /// <summary>原版成品局里「一张已部署的卡」在世界空间的落点与缩放。**唯一判据**。</summary>
     public static class ArenaSlots
     {
-        /// <summary>战场 3D 那一层的 layer 号（透视相机只画这一层，正交相机把它摘掉）。
+        /// <summary>🔶 自己设计（非原版）：**arena prefab 整树刷层 8** 是我们的**载体约定**（透视相机只画这一层、正交相机把它摘掉）——原版是层 **0**（3D 155 个对象）+ 层 **5**（UI 1062 个），而层 8 在原版叫 `CustomPostEffectIgnore`；为什么必须自定：prefab 与 HUD 同场景共存，需要一条独立层给 3D 相机收（原版是「一个场景一条相机」的载体）；谁定的+日期：`B120` 系列落地、**2026-11-05 `B143-W6` 现读订正**（原文把「原版就是这么分的」当判据，**不成立**）—— 施工单 → `资料/完全复刻/判据/B144_W6_层语义施工单.md`。
         /// 判据只此一处 —— `Editor/BattleScene.cs` 也引用它。</summary>
         public const int ArenaLayer = 8;
 
@@ -264,12 +264,12 @@ namespace CardPresentation
         /// （`cpp2il/out_cpp2il_dev_ilspy/BattleManager.cs:46450-46495` 明文 + `decomp_full/BattleManager__GetTargetInPos.c:204-265`）。
         /// 原版层 10 上**只有卡** —— 这正是那条射线能「字面吃 `hits[0]`」的前提。</para>
         /// <para>🔴 **和 <see cref="ArenaLayer"/>(8) 的分工（⛔ 别把两个合并，也⛔ 别改 8 的值）**：
-        /// `ArenaLayer`(8) = **arena prefab 整棵树**（地面 / 背景 / 灯光 / 半透明道具 / tap 宿主 / VFX 宿主）；
+        /// `ArenaLayer`(8) = **arena prefab 整棵树**（地面 / 背景 / 灯光 / 半透明道具 / VFX 宿主；⚠️ tap 宿主**每场 1 颗例外**，见下）；
         /// `BoardCardLayer`(10) = **只有卡**。原版就是这么分的。</para>
-        /// <para>⚠️ **当前状态（2026-11-02 现读）**：`TagManager.asset` 已把索引 10 命名为 `BoardElements`，
-        /// 但**场上卡仍挂在 8**（`BattleDriver` 六处 `SetLayer(ArenaSlots.ArenaLayer)`）⇒ 迁移清单、
-        /// 还没迁的项、以及要改的相机掩码 → `资料/完全复刻/报告/B120_W19_层依赖审计.md`；
-        /// 自检闸 `Editor/B120_W19_Assert.cs` 的 C 段把**未迁项显式标红**（迁移落地后自动转绿）。</para></summary>
+        /// <para>✅ **2026-11-05 现读（`B144-A` 订正，铁律 5）**：`TagManager.asset` 索引 10 = `BoardElements`，且**场上卡已挂在 10**
+        /// （`BattleDriver` 六处 `SetLayer(ArenaSlots.BoardCardLayer)`：`:13907 / :25969 / :26064 / :26534 / :26808 / :37992`）——
+        /// 原文「场上卡仍挂在 8（`BattleDriver` 六处 `SetLayer(ArenaLayer)`）」**已过期**（`B120-W27` 当天就迁完了）。
+        /// 另：整树刷 8 的**唯一例外** = 每场 **1 颗** tap 宿主 `CardLowBoardLimit` 按原版留在**层 11**（`B144-A`，判据 = 原版 GO `m_Layer: 11`）。</para></summary>
         public const int BoardCardLayer = 10;
 
         // ════════════════════════════════════════════════════════════════════════════════════

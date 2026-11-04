@@ -55,9 +55,9 @@
 | 文件 | 原版名 | 下次烘焙的变化 |
 |---|---|---|
 | `boosterpack/Booster_Pack_Explosion.png` 及 `_Necron` / `_SW_1` / `_Tau` / `_Tyranid` / `Explosions_Sororitas`（6 张） | `Booster Pack Explosion…` | mip **0→1** · wrap **1,1→0,0** |
-| `boosterpack/Matcap_Booster_Pack.png` | `Matcap Booster Pack` | mip **0→1** · wrap **1,1→0,0** |
+| `boosterpack/Matcap_Booster_Pack.png` | `Matcap Booster Pack` | ~~mip **0→1** · wrap **1,1→0,0**~~ ⚠️ **2026-11-05 `B143-R1` 现读：盘上已是目标值**（`enableMipMap: 1` / `wrapU: 0` / `wrapV: 0`）⇒ 本条「下次烘焙会变」**已过期**，实际无变化 |
 | `boosterpack/Card_Booster_Pack_Normal.png` | `Card Booster Pack Normal` | wrap **1,1→0,0**（mip 已是 1） |
-| `ui_menu/Card_Ready_For_Level_Up.png` | `Card Ready For Level Up` | wrap **1,1→0,0** |
+| `ui_menu/Card_Ready_For_Level_Up.png` | `Card Ready For Level Up` | wrap **1,1→0,0**（⚠️ 2026-11-05 `B143-R1` 补：**mip 目标是 0 不是 1**，盘上现值 `enableMipMap: 0` 已对，别再按「mip 0→1」改它） |
 | `ui_menu/UI_Dirt_And_Noise_skratches.png` | `UI Dirt And Noise skratches` | wrap **1,1→0,0** |
 | `ui_menu/Up_Rays.png` | `Up Rays` | wrap **1,1→0,0** |
 | `ui_menu/Shine_trail.png` | `Shine trail` | wrap **1,1→0,1** |

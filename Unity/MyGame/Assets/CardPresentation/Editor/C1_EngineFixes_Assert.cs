@@ -3,7 +3,8 @@
 // ============================ 它盯的是什么 ============================
 // 本笔在引擎侧落了四件（判据与改动清单见 `资料/完全复刻/报告/C1.md`）：
 //   ① **`poisoned` 的通用 `addTrait` 钩子** —— 原版把 `BroadcastUnitPoisoned` 挂在【通用 addEffect】上
-//      （`decomp_full/BattleManager__ResolveAddEffect.c:180` 闸 `buffType == 200` ⇒ `:268` 调用），
+//      （`decomp_full/BattleManager__ResolveAddEffect.c:131` 闸 `buffType(+0x38) == 3` ∧ `:180` 闸 `trait(+0x3c) == 200`
+//      ⇒ `:268` 调用；🔴 2026-11-05 `B143-W3` 就地订正：原文写「闸 `buffType == 200`」是**误读**，`+0x3c` 是 trait 不是 buffType），
 //      我们改前只在 `poisonous` 关键词那一支里播（`RuleCore.cs:16307`）⇒ 效果文本给出的
 //      `give … poisoned` 原版会播、我们不会。落点 = `EffectResolver.ApplyOneGain` 的 `addTrait` 正支。
 //   ② **0 伤 / 盾挡不派 60**（核实项，**零代码改动**）—— 原版 `CardScript__ResolveDamageDealt.c:31/:34`
@@ -20,6 +21,8 @@
 // ============================ 🔴 灭自证（每条怎么才能红）============================
 //   · A6：把 `ApplyOneGain` 新钩子那半句删掉**不会**红（它只影响广播、不影响关键词落地）——
 //     这正是本组「只能锁到闸的前一半」的如实边界（见报告 §没查清）。
+//     🆕 **2026-11-05（`B143-W3`）就地补上另一半**：A2 组（A14/A15）用「带 290 正文的听众」观测广播 ⇒
+//     删钩子 / 把 `DefinedTraitNumber == 200` 改错 ⇒ **A14 红**；A5–A7 仍只锁「关键词落地」这一半（如实记）。
 //   · B6：把 `RuleCore.cs:9534` 的 `|| amount == 0` 删掉 ⇒ 广播会被走到；但池内今天 0 张卡带 60 正文
 //     ⇒ 事件数仍是 0。本条的判别式在报告里写清（**断言不是万能尺**，⛔ 别拿它当「闸一定在」的证明）。
 //   · C1：把 `CardDatabase.cs:1749` 的 `AttachTriggerOpsByNumber` 那一跳删掉 ⇒ `HasTriggerOpsByNumber` 全 false ⇒ 红。
@@ -49,6 +52,7 @@ public static class C1_EngineFixes_Assert
         CheckTrue(pool != null && pool.Count > 500, "A0 前提：卡池读得到且规模正常（≥ 500 张）");
 
         TestPoisonedHook();
+        TestPoisonBroadcastFromGive();   // 🆕 2026-11-05（`B143-W3`）：补 A 组缺的那条灭自证 —— `give poisoned` **真的触发了广播**
         TestZeroDamageNoTrigger();
         if (pool != null && pool.Count > 500)
         {
@@ -69,7 +73,7 @@ public static class C1_EngineFixes_Assert
 
     static void TestPoisonedHook()
     {
-        Section("A `poisoned` 的通用 `addTrait` 钩子（闸 = 原版 `buffType == 200`）");
+        Section("A `poisoned` 的通用 `addTrait` 钩子（闸 = 原版 `buffType(+0x38)==3` ∧ `trait(+0x3c)==200`）");
 
         Check(CardDef.DefinedTraitNumber(KeywordTable.Poisoned), 200,
               "A1 前提：`DefinedTraitNumber(\"poisoned\") == 200` —— 生产代码就是拿它比原版那道 `buffType == 200` 的闸"
@@ -104,6 +108,78 @@ public static class C1_EngineFixes_Assert
                 + "这正是新钩子的闸 `appliedTrait != null` 成立的那一格（原版 `local_198 != 0`）");
         CheckTrue(u.KwValue(KeywordTable.Poisoned) > 0,
                   "A7 ★ 而且是**正的**层数（`val > 0` ⇒ 走 `ApplyTraitEffect` 记录原语，不是空给）");
+    }
+
+    // ==================================================================
+    //  A2 组（🆕 2026-11-05 · `B143-W3`）：`give poisoned` **真的触发了 `BroadcastUnitPoisoned`**
+    //  为什么补：A5–A7 只断「关键词挂上了」—— **把 `EffectResolver.cs:12322` 那句钩子整句删掉，它们仍然全绿**
+    //    ⇒ 钩子本身没有灭自证。本条用一张**带 290 正文的听众**去观测广播：
+    //    原版 `ResolveAddEffect.c:131`（`buffType(+0x38)==3`）+ `:180`（`trait(+0x3c)==200`）⇒ `:268` 调广播。
+    //  判别式 = 把 `DefinedTraitNumber(p.Keyword) == 200` 那句改错（或整句删掉）⇒ A14/A15 红。
+    // ==================================================================
+    static void TestPoisonBroadcastFromGive()
+    {
+        Section("A2 `give poisoned` ⇒ 真的广播 `UnitPoisoned`（钩子的灭自证）");
+
+        var seg = EffectText.ParseSegment("Draw 1 card");
+        CheckTrue(seg.Kind == EffectText.SegKind.Ok && seg.Ops != null && seg.Ops.Count > 0,
+                  "A10 前提：`Draw 1 card` 解析得出 op（拿它给 listener 造一条 290 正文）");
+        if (seg.Kind != EffectText.SegKind.Ok || seg.Ops == null || seg.Ops.Count == 0) return;
+
+        var givePoison = new List<EffectOp> { new EffectOp { Verb = "give", Payload = "poisoned", Source = "C1 广播夹具" } };
+
+        // ---- ① 负对照：场上**没有 290 听众** ⇒ give 不产生任何 `UnitPoisoned` 触发 ----
+        UnitState victimN;
+        var ctxN = MakeBattle(out victimN);
+        CheckTrue(ctxN != null && victimN != null, "A11 前提：负对照的局面建出来了");
+        if (ctxN == null || victimN == null) return;
+        List<string> unresolvedN;
+        RuleCore.ResolveOps(ctxN, 0, null, givePoison, null, out unresolvedN);
+        CheckTrue(victimN.Has(KeywordTable.Poisoned),
+                  "A11b 前提：负对照里 `poisoned` 照样挂上了（否则本条测的是别的）");
+        Check(CountPoisonTriggers(ctxN), 0,
+              "A12 ★ **没有 290 听众 ⇒ 一条 `UnitPoisoned` 触发都不发**"
+            + "（`give` 本身只发 `StatusApplied`，不是触发）");
+
+        // ---- ② 正对照：一张**带 290 正文**的听众在场 ⇒ give 之后它必须被触发 ----
+        UnitState victimP;
+        var ctxP = MakeBattle(out victimP);
+        CheckTrue(ctxP != null && victimP != null, "A13 前提：正对照的局面建出来了");
+        if (ctxP == null || victimP == null) return;
+        var listener = PlaceUnit(ctxP, 1, 6, new CardDef("C1Listen", "C1Listen", "unit", "", null, "Test", 1, 1, 5, 0, null));
+        CheckTrue(listener != null, "A13b 前提：听众摆上了（1 号玩家格 6）");
+        if (listener == null) return;
+        listener.GrantOps("UnitPoisoned", seg.Ops, "Draw 1 card");
+        CheckTrue(RuleCore.HasUnitPoisonedBodyForTest(listener),
+                  "A13c 前提：听众身上**有** 290 正文（`GrantOps` 之后；= 原版 `OnTrigger(290)` 的接收端）");
+
+        List<string> unresolvedP;
+        RuleCore.ResolveOps(ctxP, 0, null, givePoison, null, out unresolvedP);
+        CheckTrue(victimP.Has(KeywordTable.Poisoned),
+                  "A13d 前提：正对照里 `poisoned` 挂上了（= 钩子的闸 `appliedTrait != null` 成立）");
+        int got = CountPoisonTriggers(ctxP);
+        CheckTrue(got >= 1,
+                  $"A14 ★★ **`give poisoned` ⇒ 带 290 正文的听众被触发**（`EvtKind.Trigger(UnitPoisoned)` +{got}）"
+                + "｜🧨 把 `EffectResolver.cs:12322` 那句钩子删掉（或把 `DefinedTraitNumber(p.Keyword) == 200` 改错）"
+                + "⇒ 这里 **+0** ⇒ 红（A5–A7 只锁「关键词落地」、锁不到这一跳）");
+        Check(got, 1,
+              "A15 ★ 这一次 `give` **恰好触发 1 条** —— 不双播（关键词路 `RuleCore.cs:16308` 走 `ApplyTraitEffect`、"
+            + "⛔ 不经过 `ApplyOneGain`，所以不会与本钩子各播一遍）"
+            + "｜🧨 把钩子挪进关键词那一支 / 两条路都接 ⇒ 这里变 2 ⇒ 红");
+    }
+
+    /// <summary>数这个局面里 `EvtKind.Trigger` 且 `Keyword == UnitPoisoned` 的条目
+    /// （`ctx.ActionLog` = `Emit` 的留档副本、不会被 `DrainSignals` 搬走）。</summary>
+    static int CountPoisonTriggers(BattleContext ctx)
+    {
+        int n = 0;
+        if (ctx == null || ctx.ActionLog == null) return 0;
+        for (int i = 0; i < ctx.ActionLog.Count; i++)
+        {
+            var e = ctx.ActionLog[i];
+            if (e != null && e.Kind == EvtKind.Trigger && e.Keyword == "UnitPoisoned") n++;
+        }
+        return n;
     }
 
     // ==================================================================

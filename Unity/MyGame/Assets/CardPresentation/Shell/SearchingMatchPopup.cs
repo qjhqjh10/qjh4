@@ -233,7 +233,7 @@ namespace CardPresentation
             //    （原版这个 GO 上挂的就是 `BackgroundCloseButton`）
             MenuDraw.Rect(_root, CardArt.Solid(),
                           new PxRect(ShadeL, ShadeT, ShadeR, ShadeB), "Menu Dark Background", QSr,
-                          new Color(0f, 0f, 0f, 0.773f));
+                          new Color(0f, 0f, 0f, 0.7725490f));
             // 🔴 **2026-10-04（A47 接线批）订正档号 + 收口公共件**：`QSrHitBackdrop`(3134) 是
             //   「内容档 − 1」的写法；规矩是**压暗层的命中区落在压暗层自己那一档**（`QSr` = 3130），
             //   且严格低于本窗内容命中区最低档（`QSrHit` = 3135）⇒ 改走 `MenuDraw.ShadeHit`

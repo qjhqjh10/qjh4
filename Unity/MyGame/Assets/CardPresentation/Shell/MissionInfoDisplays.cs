@@ -577,8 +577,8 @@ namespace CardPresentation
         /// ⛔ `MergeSameItem` 是唯一归并实现 —— 本方法只负责原版那一跳 `ApplyExtraRewards`。</summary>
         internal static List<Cell> Setup(List<Cell> rewardSource)
         {
-            // ⚠️ **本仓的每日任务不是 `ILiveOps` 事件**（`Shell/DailyData.cs` 的 `_daily` 是本地表）⇒ 调用点拿不到 `mission`
-            //   ⇒ 走 `evt = null` 那一支（回退调用点给的奖励表并出声一次）。原版那一跳本身已在这一支的上游实现好。
+            // ⚠️ **本仓拿不到 `ILiveOps` 实例**（`Shell/DailyData.cs` 的 `_daily` 是本地表）⇒ 走 `evt = null` 那一支（回退调用点给的表并出声一次）。
+            //   🔴 原版**有生产点**（`MissionInfoDisplay.Initialize` 对每张任务卡调 `Setup(mission, progress)`，判据 `MissionInfoDisplay.cs:50`）；缺的只是 `RewardEvent` 数据源（PlayFab）。
             // 🔴 **别把这个带 `evt` 的版本也叫 `Setup`**：`Editor/ShellScene_B94S2SelfCheck.cs:108` 用
             //   `Type.GetMethod("Setup", Static|Public|NonPublic)` 取方法 —— 同名两参重载会让它抛
             //   `AmbiguousMatchException`（整个 `ShellScene.Run` 那条断言炸）。⇒ 起名 `SetupWithExtraRewards`。
@@ -586,11 +586,11 @@ namespace CardPresentation
         }
 
         /// <summary>原版 `MissionRewardsDisplay.Setup(IMission, MissionChallengeProgress)` 的 **第 ② 段**：
-        /// `LiveOpsManager.GetHandler&lt;RewardEventHandler&gt;().ApplyExtraRewards(mission, null)`
-        /// （判据 `decomp_full/MissionRewardsDisplay__Setup.c:110-114`；handler 实现 = `Shell/RewardEventHandler.cs:66`，
+        /// `LiveOpsManager.GetHandler&lt;RewardEventHandler&gt;().ApplyExtraRewards(mission, milestone.rewards)`
+        /// （判据 `decomp_full/MissionRewardsDisplay__Setup.c:67-70`；handler 实现 = `Shell/RewardEventHandler.cs:66`，
         /// 取句柄口 = `Shell/LiveOpsManager.cs:143`）。
-        /// <para>原版第二实参是 **null**（`.c` 里 `AvailableRewards()` / `CurrentMilestone()` 算完**没被读**、`obj2` 全程未用）
-        /// ⇒ 返回值**替代**奖励源；返回 null / handler 取不到 ⇒ 回退调用点给的奖励表并**出声**。⛔ 不许静默。</para>
+        /// <para>🔴 **2026-11-05 就地订正（B143-R4，铁律 5）**：原来这里写「原版第二实参是 null」——**错**；
+        /// `.c:69` 传的是 `*(longlong *)(lVar7 + 0x18)` = `ChallengeMilestone.rewards`（`+0x18`）⇒ 原版 = `rewards.Concat(extras)`，**不是**「只有 extras」。</para>
         /// <para>⛔ 归并仍只走 <see cref="MergeSameItem"/>（同一份判据），本方法不写第二份。</para></summary>
         internal static List<Cell> SetupWithExtraRewards(ILiveOps evt, List<Cell> rewardSource)
         {
@@ -604,7 +604,7 @@ namespace CardPresentation
                 }
                 else
                 {
-                    var extra = h.ApplyExtraRewards(evt, null);      // 原版 `.c:110-114`（第二实参 = null）
+                    var extra = h.ApplyExtraRewards(evt, ToRewardInfos(rewardSource));   // 原版 `.c:67-70`（第二实参 = `milestone.rewards`；🔴 2026-11-05 B143-R4 前写死 null，会把基础奖励整批吞掉）
                     if (extra != null)
                     {
                         var merged = new List<Cell>();
@@ -621,11 +621,34 @@ namespace CardPresentation
             else if (!_warnedNoEvent)
             {
                 _warnedNoEvent = true;
-                Debug.Log("[MissionInfoDisplays] `MissionRewardsDisplay.Setup`：本仓每日任务不是 `ILiveOps` 事件 ⇒ 原版第 ② 段"
-                        + "（`ApplyExtraRewards(mission, null)`）**没有 mission 可传** ⇒ 走「调用点给的奖励表」这一支（只出声一次）。"
-                        + "要真正接线，需要调用点（`DailyData.LoginRewardCellList`）持有对应事件。");
+                Debug.Log("[MissionInfoDisplays] `MissionRewardsDisplay.Setup`：本仓拿不到 `ILiveOps` 实例 ⇒ 第 ② 段**休眠**（**原版有生产点**："
+                        + "`MissionInfoDisplay.Initialize` → `Setup(mission, progress)` 逐卡调，判据 `MissionInfoDisplay.cs:50`；缺的是 `RewardEvent` 数据源 = PlayFab）⇒ 走「调用点给的奖励表」这一支（只出声一次）。");
             }
             return MergeSameItem(rewardSource);
+        }
+
+        /// <summary>把调用点给的 `Cell` 表转成原版第二实参要的 `IEnumerable&lt;RewardInfo&gt;`。
+        /// <para>🔴 **这不是可选装饰**：原版 `ApplyExtraRewards(mission, milestone.rewards)` 的实现是
+        /// `rewards.Concat(extras)`（`Shell/RewardEventHandler.cs` 的 `GetExtraRewardsFunction` 闭包）——
+        /// 传 `null` 就等于把**基础奖励**整批丢掉。判据 `decomp_full/MissionRewardsDisplay__Setup.c:67-70`。</para>
+        /// <para>⚠️ `rewardSource` 为 null ⇒ 传空表（不是 null）：原版那一支 `rewards` 也允许为空，空表与 null
+        /// 在 `Concat` 下不等价（null 会抛/NRE），我们统一成空表并**出声**。</para></summary>
+        static IEnumerable<RewardInfo> ToRewardInfos(List<Cell> rewardSource)
+        {
+            var list = new List<RewardInfo>();
+            if (rewardSource == null)
+            {
+                Debug.LogWarning("[MissionInfoDisplays] `MissionRewardsDisplay.Setup`：调用点给的奖励表是 null ⇒ "
+                               + "第二实参按空表传（原版 `milestone.rewards` 允许为空）");
+                return list;
+            }
+            for (int i = 0; i < rewardSource.Count; i++)
+            {
+                var c = rewardSource[i];
+                if (string.IsNullOrEmpty(c.ItemId)) continue;
+                list.Add(new RewardInfo(c.ItemId, c.Quantity));
+            }
+            return list;
         }
     }
 

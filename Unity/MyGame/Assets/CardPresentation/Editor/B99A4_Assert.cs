@@ -145,6 +145,9 @@ namespace CardPresentation
                 var content2 = col2 != null ? col2.Find("Content") : null;
                 C(content2 != null, "③（前提）带截止时刻那一扇的 `Content` 建出来了");
                 var timer2 = content2 != null ? content2.Find("Timer") : null;
+                // ✅ 2026-11-05 `B143-W8`（E74 剩余 20 颗之 ✅-4）：一个 builder 同时覆盖 `RankedEventWindow` 与 `RankedEventWindowV2` 两个 prefab（38/10）。
+                B142E74_Assert.CheckStation(w2.transform, "Ranked Division Info/Content/Timer/Timer", 38f, 10f,
+                    "RankedEventWindow/V2 ▸ Ranked Division Info ▸ Content ▸ Timer");
                 C(timer2 != null, "★ ③b 有截止时刻 ⇒ **`Content/Timer` 建出来**（§2·4「留开关，不硬删」的恢复路）"
                 + "｜🧨 把闸写死恒假 ⇒ 本条红（与 ③a 合起来两个方向都能分辨）");
                 C(timer2 != null && timer2.Find("Timer Icon") != null,
@@ -197,6 +200,9 @@ namespace CardPresentation
                 C(w2 != null, "④（前提·不静默）第二扇（带截止时刻）建出来了");
                 if (w2 == null) return;
                 var timer2 = w2.transform.Find("Timer");
+                // ✅ 2026-11-05 `B143-W8`（E74 剩余 20 颗之 ✅-5）：`EnergySinglePlayerOnlyEventWindow ▸ Timer/Timer`（38/10）。
+                B142E74_Assert.CheckStation(w2.transform, "Timer/Timer", 38f, 10f,
+                    "EnergySinglePlayerOnlyEventWindow ▸ Timer/Timer");
                 C(timer2 != null, "★ ④c 有截止时刻 ⇒ **`Timer` 建出来**（§2·4「留开关，不硬删」的恢复路）"
                 + "｜🧨 把闸写死恒假 ⇒ 本条红（与 ④a 合起来两个方向都能分辨）");
                 C(timer2 != null && timer2.Find("Timer Icon") != null,

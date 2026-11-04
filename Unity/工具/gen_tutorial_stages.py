@@ -69,18 +69,36 @@ from collections import Counter, defaultdict
 # 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
 ## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
 import sys as _wf_help_sys
+USAGE = ('用法：python -I -X utf8 工具/gen_tutorial_stages.py <--write|--check|--dry>\n'
+         '  说明：教程 6 关的【关卡脚本】→ 运行时纯数据产物（B9 · 2026-10-17）。\n'
+         '    --write   重新生成并写盘（另加 43 条教程语音的幂等拷贝）\n'
+         '    --check   只比对、**不写盘**：重算产物与盘上逐字节比（一致 rc=0 / 不一致 rc=1）'
+         '+ A1856 教程语音三面对账\n'
+         '    --dry     只跑计算、打印读数与「会改什么」，**零写盘**\n'
+         '  🔴 不带任何动词 = 只打印本用法并以**退出码 2** 退出 —— 写盘类脚本的纪律（见 CLAUDE.md）')
 if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
     try:
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：python 工具/gen_tutorial_stages.py [参数...] [--dry] [--check]\n  说明：教程 6 关的【关卡脚本】→ 运行时纯数据产物（B9 · 2026-10-17）。\n  选项：--dry / --check（脚本内按字符串匹配；一个都不带 = 默认模式）\n  位置参数：sys.argv[1:] 全收（数量以脚本自身判断为准）')
+    print(USAGE)
     _wf_help_sys.exit(0)
 
-DRY = "--dry" in sys.argv[1:]
-# 🔴 `--check` = 只做 `A1856` 教程语音的**三面对账**（盘上 / 源包 / 产物引用）。
-#    不写盘、不跑生成、不需要 UnityPy（main 一进来就 return）。
-CHECK = "--check" in sys.argv[1:]
+# 🔴 2026-11-05（`B143-W1` · 调度台）：**动词参数改成必填**。
+#   改前：裸跑 = 直接写盘（`--dry` 只是可选开关）⇒ 与 `merge_ledger_parts.py` 那类事故同一个形状
+#   （那个脚本「不带参就是真合并」，冲掉过 232 行账）。现在三档必须显式选一个，裸跑**只打印用法 + rc 2**。
+_MODE_FLAGS = [f for f in ("--write", "--dry", "--check") if f in sys.argv[1:]]
+if len(_MODE_FLAGS) != 1:
+    if _MODE_FLAGS:
+        print("冲突的动作参数：%s（--write / --dry / --check 只能选一个）\n" % _MODE_FLAGS)
+    print(USAGE)
+    sys.exit(2)
+WRITE = _MODE_FLAGS[0] == "--write"
+DRY = _MODE_FLAGS[0] == "--dry"
+# 🔴 `--check` = ① 重算产物与盘上**逐字节比**（不写盘；一致 rc=0、不一致 rc=1，与 `gen_card_anim_order*.py` 同口径）
+#    ＋ ② 原来那一趟 `A1856` 教程语音**三面对账**（盘上 / 源包 / 产物引用；只报告不写盘、不删）。
+#    ⚠️ 它**不再**在 `main()` 一进来就 return —— ① 需要真的把产物算出来才谈得上比对。
+CHECK = _MODE_FLAGS[0] == "--check"
 
 # ============================================================ 路径
 D_SO = "d:/2/新解包资源/assets_full/bundle_tutorialso_assets_all/MonoBehaviour"
@@ -262,18 +280,39 @@ def pid2str(pid):
     return str(pid) if pid else ""
 
 
+# 🆕 2026-11-05（`B143-W6` · 账 `B142-AGGRESSOR-VARIANT`）：**教程变体表**（`工具/gen_tutorial_variants.py` 生成）。
+#   教程 SO 引用的 `X (tutorial)` / `X (tutortial)` 是**独立的卡**（不在可玩池）⇒ `ourId` 必须指向变体自己，
+#   否则「起始部队 / 回合末附魔」那两条走 `TutorialRules.PoolLookup` 的路径会拿到**池卡**（数值与原版不同）。
+#   本表**先于池名解析**（`build_card_resolver` 的 `variant` 档）。
+TUTORIAL_VARIANTS = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/tutorial_variants.json"
+
+
+def load_variant_by_name():
+    """变体表 → `{卡名: 变体 id}`（表不在 ⇒ 出声并返回空表 = 退回旧行为）。"""
+    if not os.path.exists(TUTORIAL_VARIANTS):
+        print("⚠️ 找不到教程变体表 %s —— `(tutorial)` 引用会**退回池卡**（数值与原版不同）。"
+              "先跑 `python -I -X utf8 工具/gen_tutorial_variants.py --write`。" % TUTORIAL_VARIANTS)
+        return {}
+    doc = json.load(open(TUTORIAL_VARIANTS, encoding="utf-8"))
+    return {c["name"]: c["id"] for c in (doc.get("cards") or []) if c.get("name") and c.get("id")}
+
+
 def build_card_resolver(pool):
-    """卡名 → 我们的卡 id。同名唯一才算命中；`exact` 优先、不然按 `norm`。"""
+    """卡名 → 我们的卡 id。**先查教程变体表**，再 `exact`、再 `norm`。同名唯一才算命中。"""
     by_exact = defaultdict(list)
     by_norm = defaultdict(list)
     for c in pool:
         by_exact[c["name"]].append(c)
         by_norm[norm(c["name"])].append(c)
+    variant_by_name = load_variant_by_name()
 
     def resolve(name):
-        """→ (our id, tier, note)。`tier`：exact / norm / no-hit。**模糊档一律不出结果**（宁可认不出）。"""
+        """→ (our id, tier, note)。`tier`：variant / exact / norm / no-hit。**模糊档一律不出结果**（宁可认不出）。"""
         if not name:
             return "", "", ""
+        vid = variant_by_name.get(name)      # 🆕 2026-11-05（B143-W6）：教程变体是**独立的卡**（不在可玩池）
+        if vid:
+            return vid, "variant", ""
         for table, tier in ((by_exact, "exact"), (by_norm, "norm")):
             hits = table.get(name if tier == "exact" else norm(name), [])
             ids = sorted({c["id"] for c in hits})
@@ -322,20 +361,21 @@ OCR_NAME_FIX = {
 #   | 8095124868697240450  | Unhallowed Gifts     | 141c5ed6…（= 池 id） | 同 id | exact |
 #   | 8223774895360888806  | Aggressor Sergeant (tutorial) | 8d04a976…（hash，**不是** UM19） | **UM19**（叫 `Aggressor Sergeant`） | **norm + 显式 ourId** |
 #
-# ⚠️ `Aggressor` 那条**必须显式写 `ourId`**：原版 `cardName` 带 `(tutorial)`，而运行时
-#    `ScriptedCardMatches`（`RuleEngine/Core/TutorialScript.cs`）**先逐字比 `c.Name == r.name`** ——
-#    池里那张叫 `Aggressor Sergeant` ⇒ 第一跳**永远对不上**，只能靠第二跳 `c.Id == r.ourId`；
-#    只填 name 不填 ourId = 「有键但永不命中」= 仍退回 `list[0]`（还多一次出声），等于白填。
+# ⚠️ `Aggressor` 那条**必须显式写 `ourId`**：原版 `cardName` 带 `(tutorial)`，那张卡是**独立的变体卡**
+#    （`Resources/tutorial_variants.json`，id = `8d04a976…`）；`ourId` 指向它才是「这张卡是哪一个」的真值。
+#    🔴 **2026-11-05（`B143-W6`）口径更新**：运行时匹配已改回**原版的一跳**（只比 `cardName`，见
+#    `TutorialScript.ScriptedCardMatches`）⇒ 名字现在按名字匹得上；`ourId` 只再被「起始部队 / 回合末附魔」
+#    那两条走 `TutorialRules.PoolLookup` 的路径当**卡身份**用 —— 所以它必须是**变体 id**、不能是池 id。
+#    ⛔ 别再钉成 `UM19`（那是池卡；`PoolLookup` 会拿到 5/5/5/6 的池版本，而变体是 8/4/7/6）。
 #    第二元非空 ⇒ `make_data_entry` 走**显式 ourId** 档，并当场复核 `resolve(name)` 是否也落到同一张卡。
-# ⚠️ tutorial 变体的数值（`mana 8 / melee 4 / range 7 / health 6`）与池版本不必相同 —— 那是**池版本问题**，
-#    与「按哪个键匹配」无关，另立账（`B142_R14_四查.md` §4·4）。
+# ⚠️ tutorial 变体的数值与池版本**未必相同** —— 变体表已按原版 SO 逐张落地（判据 → `报告/B143_W6_存档数据.md` §八）。
 # ⚠️ 判据落盘位置：`资料/完全复刻/判据/B142_R14_四查.md` §四。
 PID_NAME_EXTRA = {
     -124800208381561086: ("Makari the Grot", ""),                    # → GOF2
     4406439244507976715: ("Veteran Guardian", ""),                   # → ASH7
     7386907376838221809: ("Gauss Warrior", ""),                      # → SAU4
     8095124868697240450: ("Unhallowed Gifts", ""),                   # → 141c5ed6…（只当督军档 DrawCard）
-    8223774895360888806: ("Aggressor Sergeant (tutorial)", "UM19"),  # → UM19（靠显式 ourId 兜底）
+    8223774895360888806: ("Aggressor Sergeant (tutorial)", "8d04a976efd628e43ad37d67e57140a0"),  # → 变体卡（不是 UM19）
 }
 
 
@@ -351,7 +391,7 @@ def merge_pid_name_extra(pidname):
 
 
 def pid_ourid_extra():
-    """`PID_NAME_EXTRA` 里**显式钉死 ourId** 的那几条（pid → ourId）。"""
+    """`PID_NAME_EXTRA` 里**显式钉死 ourId** 的那几条（pid → ourId，值应是**变体 id**）。"""
     return {pid: our for pid, (_nm, our) in PID_NAME_EXTRA.items() if our}
 
 
@@ -623,8 +663,8 @@ def make_data_entry(d, pidname, resolve, extra_ourid=None):
     """一条 `ScriptedActionData` → 产物对象（谁打谁）。
 
     `extra_ourid`（= `pid_ourid_extra()`）：`PID_NAME_EXTRA` 里**显式钉死 ourId** 的那几条
-    （今天只有 `Aggressor Sergeant (tutorial) → UM19`）—— 原版 `cardName` 带 `(tutorial)`、
-    运行时第一跳比 name 必然对不上，只能靠 `ourId` 兜底（见 `PID_NAME_EXTRA` 头注）。
+    （今天只有 `Aggressor Sergeant (tutorial) → 8d04a976…`）—— 那张卡是**独立的变体卡**（不在可玩池），
+    `ourId` 指向它才是「这张卡是哪一个」的真值（见 `PID_NAME_EXTRA` 头注）。
     """
     extra_ourid = extra_ourid or {}
 
@@ -646,9 +686,10 @@ def make_data_entry(d, pidname, resolve, extra_ourid=None):
             return dict(unitType=typ, unitTypeName=ACTION_UNIT.get(typ, "?"),
                         pid=pid2str(pid), name=nm, ourId=ov, matchTier=tier,
                         note=("🔴 `ourId` 由 `PID_NAME_EXTRA`（2026 build allcards 的 `pathID ↔ uniqueId`）"
-                              "**显式钉死** = %s：原版 `cardName` 是 %r、池里那张叫别的名字 ⇒ 运行时 "
-                              "`ScriptedCardMatches` **第一跳比 name 对不上**、靠第二跳 `c.Id == ourId` 命中。"
-                              "⛔ 别只填 name 不填 ourId（那样「有键但永不命中」= 仍退回 list[0]）" % (ov, nm)))
+                              "**显式钉死** = %s：原版 `cardName` 是 %r —— 那是**独立的变体卡**"
+                              "（`Resources/tutorial_variants.json`，不在可玩池）⇒ `ourId` 必须指向变体自己。"
+                              "运行时的名字匹配走原版口径（只比 `cardName`）；`ourId` 只给 "
+                              "`TutorialRules.PoolLookup` 那两条路当卡身份" % (ov, nm)))
         our, tier, note = resolve(nm) if nm else ("", "no-name", "")
         return dict(unitType=typ, unitTypeName=ACTION_UNIT.get(typ, "?"),
                     pid=pid2str(pid), name=nm, ourId=our, matchTier=tier, note=note)
@@ -781,9 +822,6 @@ def assert_jsonable(o, path="doc"):
 
 # ============================================================ 主流程
 def main():
-    if CHECK:
-        tutorial_audio_check()
-        return
     stages_raw, so_sha = [], []
     for n in STAGE_NAMES:
         p = os.path.join(D_SO, n + ".json")
@@ -850,8 +888,8 @@ def main():
 
     # ---- ③·B 教程语音（`A1856`）：43 条 `Tutorial*.ogg` 幂等拷贝 -----------------
     # `Resources/Art/` 在 `.gitignore` 里 ⇒ 不拷的话 clone 出来教程必哑；`--dry` 一律零写盘。
-    if DRY:
-        print("干跑（未拷教程语音）：%s → %s" % (D_TUT_AUDIO, DST_VO))
+    if DRY or CHECK:
+        print("（未拷教程语音 · %s）：%s → %s" % ("dry" if DRY else "check", D_TUT_AUDIO, DST_VO))
     else:
         copy_tutorial_audio()
 
@@ -1099,8 +1137,24 @@ def main():
         stages=stages_out,
     )
     assert_jsonable(doc)
+    rc = 0
     if DRY:
         print("干跑（未写盘）：", OUT)
+    elif CHECK:
+        # 🔴 `--check`：**重算产物与盘上逐字节比**（本档一个字节都不写）。
+        #    文本形状必须与下面 `--write` 那条逐字同源（`json.dumps(..., indent=1)` ≡ `json.dump(..., indent=1)`）。
+        txt = json.dumps(doc, ensure_ascii=False, indent=1)
+        old = None
+        try:
+            with open(OUT, "r", encoding="utf-8") as f:
+                old = f.read()
+        except Exception:
+            old = None
+        same = old == txt
+        print("[check] 幂等 = %s  （盘上 %s）" % (same, OUT))
+        if not same:
+            print("[check] 盘上与重算结果**不一致** ⇒ rc=1（⛔ 本档不写盘；要更新请跑 --write）")
+            rc = 1
     else:
         with open(OUT, "w", encoding="utf-8", newline="\n") as f:
             json.dump(doc, f, ensure_ascii=False, indent=1)
@@ -1117,8 +1171,13 @@ def main():
         print("   ~ " + u.encode("ascii", "backslashreplace").decode("ascii"))
     if len(unresolved_no_name) > 3:
         print("   ~ ...（共 %d 个 pid 没名字，全在产物 unresolvedNoName）" % len(unresolved_no_name))
+    # 🔴 `--check` 的第二半：原来那一趟 `A1856` 教程语音**三面对账**（只报告、不写盘、不删）。
+    #    它排在产物比对之后 ⇒ `--check` 一次跑完「产物幂等 + 语音三面」两件事。
+    if CHECK:
+        tutorial_audio_check()
+    return rc
 
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
-    main()
+    sys.exit(main())

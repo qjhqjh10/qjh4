@@ -796,7 +796,7 @@ namespace CardPresentation
                 else
                     Debug.LogWarning("[GameModes] 没有 `WindowsManager` 实例 ⇒ 续局提示 '" + PracticeOngoingMatchTerm
                                    + "' 只记日志（原版走 `MenuActions.QueueAction` → `WindowsManager.ShowPopUp`）");
-            });
+            }, menuFilter: System.Array.Empty<System.Type>());   // ✅ 已复刻（2026-11-05 · B143-W4 · 纯保真）：显式空表 ⇒ 走默认 `[MainMenuWindow]` 过滤，与原版 `params Type[]` 省略等价（原版 `PracticeEvent__Initialize.c:45-47` 传的就是 `System_Array__Empty`）
             return true;
         }
 

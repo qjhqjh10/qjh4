@@ -109,7 +109,7 @@ namespace CardPresentation
         public const float FlavourMenuScale = 1.12f;
 
         /// <summary>`Menu Dark Background` 的 `Image.m_Color`（实读 (0,0,0,0.773)）。</summary>
-        public static readonly Color ShadeTint = new Color(0f, 0f, 0f, 0.773f);
+        public static readonly Color ShadeTint = new Color(0f, 0f, 0f, 0.7725490f);
 
         /// <summary>`Options/Panel` 的底图（`UI_Deck_Selection_Back` 439×664 · 九宫 (0,325,0,35) · Sliced · tint 白）。</summary>
         public const string ArtPanel = "UI_Deck_Selection_Back";

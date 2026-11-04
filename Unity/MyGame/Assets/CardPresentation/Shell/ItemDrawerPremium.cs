@@ -83,8 +83,8 @@ namespace CardPresentation
                          "礼包物品 `" + (item.Id ?? "?") + "` 的 `itemIcon` 取不到（图名 `" + (item.Art ?? "<空>")
                          + "`）⇒ 原版这一档**没有守卫**（`icon.sprite = Load()` 直接赋 null）⇒ 这一层空着，⛔ 不画占位板");
             }
-            if (armyText) DrawerArmyName(content, fr, item.CardArmy, st);
-            DrawerNameQuantity(content, fr, item, qty, st, hasName: true, hasQuantity: false);
+            if (armyText && !layers.NoArmySlot) DrawerArmyName(content, fr, item.CardArmy, st);
+            DrawerNameQuantity(content, fr, item, qty, st, hasName: !layers.NoNameSlot, hasQuantity: false);
         }
 
         /// <summary>原版 `PremiumDrawer.Draw`。</summary>
@@ -162,6 +162,17 @@ namespace CardPresentation
             /// ⛔ 别让所有档共用 `PremiumGlowSprite`。</summary>
             public string GlowSprite;
 
+            /// <summary>🔴 `true` = 该 prefab 的 **`label` 槽是 `null`** ⇒ 原版 `ItemDrawer&lt;T&gt;.Draw` 那句
+            /// `if ((bool)label) label.text = GetItemName(item)` 被守卫跳过 ⇒ **不画名字**。
+            /// ⚠️ 字段取**反义**（`No*`）是**必须的**：结构体的 bool 字段没有初始化器、默认 `false` ⇒
+            /// 这样既有 5 份 prefab 的 `Label` 都在、一个字节都不用改（⛔ 别改成 `HasNameSlot` 那种正意字段 —— 默认值会变成「没有槽」）。
+            /// 判据 → `判据/B109_R4_ExpansionPassPremium.md` §2（`Icon Expansion Pass Premium Drawer Variant` 的
+            /// `label` / `quantity` / `armyText` 三个槽**全是 `{fileID: 0}`**）。</summary>
+            public bool NoNameSlot;
+            /// <summary>🔴 `true` = 该 prefab 的 **`armyText` 槽是 `null`** ⇒ 原版 `PremiumDrawer.Draw` /
+            /// `ExpansionPassPremiumDrawer.Draw` 那句 `if ((bool)armyText)` 被守卫跳过 ⇒ **不画阵营名**（取反义的理由同上）。</summary>
+            public bool NoArmySlot;
+
             /// <summary>原版旧形状（= `ItemDrawerStyle.Default` 那一档）：画 `Background`、**不画**横带。
             /// `ItemDrawerStyle.PremiumLayers` 为 `null` 时也走这一档 ⇒ 既有调用点一个字节不变。</summary>
             public static readonly PremiumLayerFlags Original =
@@ -195,7 +206,8 @@ namespace CardPresentation
             public static readonly PremiumLayerFlags NoBaseWithExpansionGlow =
                 new PremiumLayerFlags { BaseBackground = false, CampaignGlow = true,
                                         GlowX1 = DrCx1, GlowY1 = DrImgY1, GlowX2 = DrCx2, GlowY2 = DrImgY2,
-                                        GlowSprite = "40K_general_icon_Expansion_Pass_XP" };
+                                        GlowSprite = "40K_general_icon_Expansion_Pass_XP",
+                                        NoNameSlot = true, NoArmySlot = true };   // ✅ 2026-11-05（B143-W5 · B143-CHK05-PREMIUM-NULL-UI）：该 prefab 的 `label`/`quantity`/`armyText` 三个槽**全是 `{fileID: 0}`** ⇒ 原版两句 `if ((bool)…)` 都跳过；⛔ 别再靠调用点 `st.NamePx = 0f` 兜
         }
 
         /// <summary>按**抽屉槽的 prefab 名**取那两层的开关（`null` = 不认识 ⇒ 保持旧形状）。

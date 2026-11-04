@@ -1,5 +1,5 @@
-// ListExtensions.cs — 原版静态工具类 `ListExtensions` 里本仓需要的两个成员
-//                   （`GetMax<T,TU>` / `GetMin<T,TU>`，账 `未分类_其他:398` / `:399`）
+// ListExtensions.cs — 原版静态工具类 `ListExtensions` 里本仓需要的三个成员
+//                   （`GetMax<T,TU>` / `GetMin<T,TU>` / `SpliceWhere<T>`，账 `未分类_其他:398` / `:399` / `:396`）
 //
 // ============================ 判据（本代理 2026-10-29 现读）============================
 //   · 容器体：`d:/2/tools/decomp_full/ListExtensions__GetMax_object__int_.c` 与
@@ -23,7 +23,7 @@
 //    原版返回的是**元素**、同分取**后者**。账面 B94_B6 记过一次方向搞反（`f(b).CompareTo(f(a))>0?b:a`，
 //    那形式同分取前者），B96_MENU 已就地订正，本文件按订正后的 `.c` 语义写。
 //
-// ============================ 本仓的消费点：**0 个**（如实记）============================
+// ============================ 本仓消费点：`GetMax`/`GetMin` 0 个；`SpliceWhere`（2026-11-05 B143-W7 补建）原版 4 个调用点里**只有 1 个**在本仓有对应件 —— `Shell/OfferContainer.cs:1100-1109`（`DrawRewards` 第 ② 拍，现为内联手写版：没有 `count` 上限、用下标 `RemoveAt`），另 3 处 `CarouselOfferPopupDrawer`/`GeneralOfferPopupDrawer`/`DraftEventBase` 本仓**没有同名件** ============================
 //   · 原版调用点三处，本地都**没有等价件**：
 //       `Everguild.LiveOps.ForgeHandler.cs:321`（`GetMax` 算最高锻造等级）—— 我们 `Shell/ForgeTab.cs`
 //         的 `ForgeData.MaxLevel` 是**常量**（不是「逐件取最大」）⇒ 无同形。
@@ -89,6 +89,42 @@ namespace CardPresentation
                 }
                 return best;
             }
+        }
+
+        /// <summary>= 原版 `public static List&lt;T&gt; SpliceWhere&lt;T&gt;(IList&lt;T&gt; list, Func&lt;T, bool&gt; predicate, int count = 0)`。
+        /// ✅ 已复刻（2026-11-05 · B143-W7 · `cpp2il/out_cpp2il_dev_ilspy/ListExtensions.cs:2362-2467`）
+        /// <para>体（ILSpy 可读的那三句 + 循环尾部）：</para>
+        /// <code>
+        /// IEnumerable&lt;T&gt; e = Enumerable.Where(list, predicate);      // :2377
+        /// if (count &gt; 0) e = Enumerable.Take(e, count);                 // :2378-2385（`count &lt;= 0` 才整表）
+        /// List&lt;T&gt; picked = Enumerable.ToList(e);                      // :2386
+        /// foreach (T x in picked) list.Remove(x);                       // :2387-2461（接口派发 `IList&lt;T&gt;.Remove`，逐条摘）
+        /// return picked;                                                // :2461
+        /// </code>
+        /// <para>🔴 **会被「摘走」**（这也是它叫 `Splice` 的原因）：返回的是**被挑出来的那批**，
+        /// 而 `list` 里对应的元素被 `Remove` 掉（`Remove` 摘**第一处相等**，与 `List&lt;T&gt;.Remove` 同义）。</para>
+        /// <para>🔴 **`count` 的语义**：`count &gt; 0` ⇒ 只取**前 `count` 条命中**（`Take` 是**惰性短路**，
+        /// 命中够数就停 ⇒ 不会多枚举后面的元素）；`count &lt;= 0` ⇒ 全表。⛔ 别写成 `list.Where(...).Take(count)` 无脑取。</para>
+        /// <para>⚠️ 空参：原版 `Enumerable.Where(null, …)` 抛 `ArgumentNullException` —— 这里照抛（⛔ 不悄悄返回空表）。</para>
+        /// <para>⚠️ 本仓**消费点 = 1 处待接**：`Shell/OfferContainer.cs:1100-1109`（`DrawRewards` 第 ② 拍）现在是
+        /// **内联手写版**（`for` + `RemoveAt`），**没有 `count` 上限**、且用下标 `RemoveAt(i--)` 而不是值相等 `Remove`
+        /// ⇒ 等那一处改成调本方法（该文件不在本批白名单，见 `报告/B143_W7_R20九缺口.md`）。</para></summary>
+        public static List<T> SpliceWhere<T>(IList<T> list, Func<T, bool> predicate, int count = 0)
+        {
+            if (list == null) throw new ArgumentNullException("list");         // 原版 `Enumerable.Where(null,…)` 同此
+            if (predicate == null) throw new ArgumentNullException("predicate");
+            var picked = new List<T>();
+            // = 原版 `Where(list, predicate)` → `count > 0 ? Take(count) : 整表` → `ToList()`：
+            // 先把**命中且没超过上限**的元素全部物化出来（`Take` 的短路语义 = 够数就停）。
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (!predicate(list[i])) continue;
+                picked.Add(list[i]);
+                if (count > 0 && picked.Count >= count) break;
+            }
+            // `foreach (T x in picked) list.Remove(x);` —— 逐条摘（值相等，摘第一处）
+            for (int i = 0; i < picked.Count; i++) list.Remove(picked[i]);
+            return picked;
         }
     }
 }

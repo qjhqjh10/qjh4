@@ -48,7 +48,7 @@
 //   一旦 `_playing == true` 就会把 `boardCam` 推进 clip 中段，屏幕量测/射线/落点往返全按错位姿算，
 //   一片红（实测数值探针卡屏外、落点往返 0/18、敌方行 −32.5%、T09 `RaycastAll` 首中无 ……）。
 //   自检要验时序的走**显式**口 `StartForTest` / `BattleDriver.StartCameraIntroForTest()`（仍在批处理下真播）。
-//   ⚠️ 与 `CardFeel.ShakeCamera` 共用相机 transform 写权；开场期间没有战斗事件 ⇒ 不会互相踩。
+//   🔴 **与 `CardFeel.ShakeCamera` 共用相机 transform 写权 —— 这是【已知的时序冲突】，不是「不会互相踩」**（铁律 5 就地订正 · `B132` C11 · 2026-11-05 `B144-B` 现核）：原版 impulse 是**叠加**在 Cinemachine 最终 state 上的、两者互不覆盖；而这里两个写手都直接写 `localPosition/localRotation`，且 shake 的 `OnKill` 会把相机复位到**它起播那一刻**的位姿（那时运镜正播到中段）⇒ 开场进行中挨打会互相覆盖 + 收尾跳一下。修法 = 把位姿拆成 base(运镜) + offset(震屏) 两层，落点含 `Core/CardFeel.cs`（⛔ 不在本文件）；**生产可达性未证**（开局 2.5 s 内是否可能有战斗事件，需真机）。
 //   ⚠️ **回放/教程是否播运镜：原版 `OnInitializationComplete` 没有按 `matchType` 分支（推断播），未实况**。
 // ─────────────────────────────────────────────────────────────────────────────
 

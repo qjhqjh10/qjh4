@@ -262,9 +262,18 @@ namespace CardPresentation
             // ---- ④ `footer` → `MainRating` → `Mission Milestones Progress` ----
             //    ⚠️ `footer` 的**真高按 `MainRating` 取**（判据 ⚠️：工具对嵌套布局组不递归，算成 0）
             var footer = MenuDraw.Node(content, "footer", MainRatingR);
-            MenuDraw.Rect(footer, art(ArtBanner), MainRatingR, "MainRating", qArt, null, false);
-
-            var ms = MenuDraw.Node(footer, "Mission Milestones Progress", MilestonesR);
+            // 🔴 **2026-11-05（B143-W9）父链归真**：原版 `footer.m_Children` 顺序 = `[Highest Faction Rating, FactionScoreSmall, MainRating]`
+            //   （`RankedEventWindowV2.prefab` 现读，三颗的 `m_Father` 都是 footer）⇒ 两个评分族**先建**、`MainRating` 后建（顺序 = uGUI 画序）。
+            BuildHighestFactionRating(footer, art, qArt, qInk); BuildFactionScoreSmall(footer, art, qArt, qInk);
+            var mrQ = MenuDraw.Rect(footer, art(ArtBanner), MainRatingR, "MainRating", qArt, null, false);
+            var mrNode = mrQ != null ? mrQ.transform : MenuDraw.Node(footer, "MainRating", MainRatingR);
+            // 🔴 **2026-11-05（B143-W9）父链归真**：`Mission Milestones Progress` / `Legendary Ratings` 原版挂在 **`MainRating`** 下
+            //   （`RankedEventWindowV2.prefab`：`MainRating.m_Children` = 这两个，顺序也是这个），⛔ 不是 `footer` 的直接子件。
+            //   ✅ 换父**不动一像素**：本仓 `MenuDraw.Node(parent, name, r)` 的 `r` 是**绝对设计 px**，
+            //      `Local() = RectCenter(r) − PosInDesignSpace(parent)`；`footer` 与 `MainRating` 在本文件里**同一个矩形** `MainRatingR`
+            //      且原版全链 `m_LocalScale = 1`（Content / Ranked Division Info / footer / MainRating 逐颗现读）⇒ 两者 `PosInDesignSpace` 相等
+            //      ⇒ 子件的 `localPosition` 与尺寸**逐位不变**（改前/改后 rect 见报告 §七）。
+            var ms = MenuDraw.Node(mrNode, "Mission Milestones Progress", MilestonesR);
             // `Background`：**比父宽**（511.24 vs 410，左右各溢 49.38）—— 原版就那样，**别「对齐」掉**（§A·4 第 ③）
             MenuDraw.Rect(ms, art(ArtBanner), MsBackgroundR, "Background", qArt, MsBgTint, false);
             // `counter`（里程碑计数 `16`）**出厂 inactive + 全 bundle 零引用者** ⇒ 不建
@@ -281,14 +290,26 @@ namespace CardPresentation
             }
 
             // ---- ⑤ `Legendary Ratings`（`Position` / `Global Rating` 两支）----
-            var leg = MenuDraw.Node(footer, "Legendary Ratings", LegendaryR);
-            MenuDraw.Node(leg, "Position", PositionR);
-            MenuDraw.Node(leg, "Global Rating", GlobalRatingR);
+            var leg = MenuDraw.Node(mrNode, "Legendary Ratings", LegendaryR);   // ✅ 父件 = `MainRating`（原版 `m_Father`，2026-11-05 B143-W9 归真；rect 不变见上）
+            var posNode = MenuDraw.Node(leg, "Position", PositionR);
+            var gloNode = MenuDraw.Node(leg, "Global Rating", GlobalRatingR);
+            // ✅ 已复刻（2026-11-05 · B143-W9 · 判据 `判据/B90_N2_小屏字号实例.tsv` 的 `…/Legendary Ratings/{Position,Global Rating}/Individual rating value` = 45.0/0；
+            //   几何 = 本文件既有的 `PositionValueR` / `GlobalValueR`）—— 两颗评分标签**以前整族没建**（常规档也没有），这里补上。
+            RatingValueLabel(posNode, PositionValueR, qInk, "Position", 45f, 45f, 0f);
+            RatingValueLabel(gloNode, GlobalValueR, qInk, "Global Rating", 45f, 45f, 0f);
             // 🔴 判据 ④ + ⑤：这两支在**预制体里出厂就是 inactive**，而 `displayPosition=1` / `displayRating=0`
             //    说的是**运行期**（有数据时才 `SetActive`）。本地一条数据都没有 ⇒ **两支都保持关着**。
             //    ⇒ 里面那些静态件（`#` 号、金奖杯）**不画** —— 画了就是「有分数」的样子。
             //    它们各自的 `Main Icon` 还是 `m_Enabled = 0` 的件（全 bundle 唯一两处），本来就不该画。
             //    （`Position`/`Global Rating` 的 rect 已建：将来有数据时按 `RankingDisplay.Initialize` 填。）
+
+            // ---- ⑥ `Highest Faction Rating` / `FactionScoreSmall` 两个评分族 ----
+            // 🔴 **2026-11-05（B143-W9）就地订正**：这两个族**已挪到 `footer` 建完之后立刻建**（见上面 ④ 那一段）——
+            //   原版 `footer.m_Children` 顺序 = `[Highest Faction Rating, FactionScoreSmall, MainRating]`，
+            //    先建 MainRating 会把画序做反。⛔ 别搬回这里。
+            // 🔴 为什么要有它们：它俩下面挂 11 颗 `Individual rating value`（`报告/B142_E74.md` §四-5/§四-6），
+            //   以前两族整棵没建 ⇒ 那些标签无处安放。原版两族**出厂 INACT**（`RankingDisplay.displayRating` 运行期才点亮）
+            //   ⇒ 我们**照原版建出来并关着**。矩形判据 = `menu_dump "RankedEventWindowV2" --depth 9`（实例 ③）。
 
             Debug.Log("[RankedDivisionInfo] 段位块 `Content` 建完 —— 两个评分 / 里程碑进度 / 名次图"
                       + "**留空**（都是服务器数据，用户 2026-09-26 口径：不编数字）；"
@@ -312,5 +333,99 @@ namespace CardPresentation
 
         /// <summary>`RankedSealStep` 的个数（照预制体：**2**）。</summary>
         public static int StepCount { get { return StepX.Length; } }
+
+        // ============================================================ 类尾追加（B143-W9 · 2026-11-05 · 两个评分族）
+        // 全部矩形 = `menu_dump "RankedEventWindowV2" --depth 9` 的**绝对矩形**（实例 ③ · 本文件唯一那份判据）。
+
+        static readonly PxRect HighestFactionR = new PxRect(141.30f, 717.90f, 496.70f, 757.70f);
+        /// <summary>`Rating Text`（原版 HLG，序列化宽 **0** —— 内层 TMP 由自适应撑开）。
+        /// ⚠️ 我们取 **右边缘 = 父件右边缘（496.70）**、左边缘 = prefab 值节点左边（439.00）⇒ 宽 **57.70**。
+        /// 这是**我们推的**（原版静态读不到宽）；⛔ 不拿别的实例的宽顶替。</summary>
+        static readonly PxRect HighestRatingTextR = new PxRect(319.00f, 708.30f, 496.70f, 767.40f);
+        static readonly PxRect HfSecondaryR = new PxRect(319.00f, 708.30f, 379.00f, 767.40f);
+        static readonly PxRect HfMainIconR = new PxRect(379.00f, 708.30f, 439.00f, 767.40f);
+        static readonly PxRect HfValueR = new PxRect(439.00f, 708.30f, 496.70f, 767.40f);
+        const string ArtFactionUm = "40k_DeckSelection_icon_FactionUM";   // `Secondary Icon`（prefab 现读）
+        const string ArtRankIcon = "40k_UI_icon_ranked_Skirmish";         // `Main Icon`（prefab 现读）
+
+        static readonly PxRect FactionScoreR = new PxRect(141.30f, 717.90f, 496.70f, 835.70f);
+        static readonly PxRect FsIconR = new PxRect(139.00f, 717.90f, 319.00f, 835.70f);
+        static readonly PxRect ArBig1R = new PxRect(106.70f, 702.60f, 496.70f, 813.60f);
+        static readonly PxRect ArBig1SecR = new PxRect(300.30f, 730.20f, 322.60f, 760.00f);
+        static readonly PxRect ArBig1MainR = new PxRect(300.30f, 730.20f, 376.70f, 786.00f);
+        static readonly PxRect ArBig1ValR = new PxRect(376.70f, 730.20f, 496.70f, 786.00f);
+        static readonly PxRect ArBig2R = new PxRect(106.70f, 768.40f, 496.70f, 840.80f);
+        static readonly PxRect ArBig2SecR = new PxRect(300.30f, 786.40f, 322.60f, 816.20f);
+        static readonly PxRect ArBig2MainR = new PxRect(300.30f, 786.40f, 376.70f, 822.80f);
+        static readonly PxRect ArBig2ValR = new PxRect(376.70f, 786.40f, 496.70f, 822.80f);
+        const string ArtGalon = "Menu_Icon_Galon";                        // `Alliance Rating Display (1)/Main Icon`（prefab 现读）
+
+        /// <summary>`footer ▸ Highest Faction Rating`（banner + `Rating Text ▸ {Secondary Icon, Main Icon, 值}`）。
+        /// ✅ 已复刻（2026-11-05 · B143-W9 · 判据 `判据/B90_N2_小屏字号实例.tsv`：
+        /// `Ranked Division Info ▸ Content/footer/Highest Faction Rating/Rating Text/Individual rating value` = **45.0/0**；
+        /// 父件原版 **INACT** ⇒ 建完立刻 `SetActive(false)`）。</summary>
+        static void BuildHighestFactionRating(Transform footer, System.Func<string, Texture2D> art, int qArt, int qInk)
+        {
+            if (footer == null) return;
+            var q = MenuDraw.Rect(footer, art == null ? null : art(ArtBanner), HighestFactionR,
+                                  "Highest Faction Rating", qArt, null, false);
+            var node = q != null ? q.transform : MenuDraw.Node(footer, "Highest Faction Rating", HighestFactionR);
+            node.gameObject.SetActive(false);      // 原版出厂 INACT（`displayRating` 那一族运行期才点亮）
+            var rt = MenuDraw.Node(node, "Rating Text", HighestRatingTextR);
+            var hfSec = Sprite(rt, art, ArtFactionUm, HfSecondaryR, "Secondary Icon", qArt);
+            if (hfSec != null) hfSec.gameObject.SetActive(false);   // 原版这一颗 INACT
+            Sprite(rt, art, ArtRankIcon, HfMainIconR, "Main Icon", qArt);
+            RatingValueLabel(rt, HfValueR, qInk, "Highest Faction Rating", 45f, 45f, 0f);
+        }
+
+        /// <summary>`footer ▸ FactionScoreSmall`（阵营评分：`icon` + 两组 `Alliance Rating Display`）。
+        /// ✅ 已复刻（2026-11-05 · B143-W9 · 判据同上：两组 `…/Alliance Rating Display[ (1)]/Individual rating value` = **110.0/0**；
+        /// 父件原版 **INACT**）。</summary>
+        static void BuildFactionScoreSmall(Transform footer, System.Func<string, Texture2D> art, int qArt, int qInk)
+        {
+            if (footer == null) return;
+            var fs = MenuDraw.Node(footer, "FactionScoreSmall", FactionScoreR);
+            fs.gameObject.SetActive(false);        // 原版出厂 INACT
+            Sprite(fs, art, ArtFactionUm, FsIconR, "icon", qArt);
+
+            var a1 = MenuDraw.Node(fs, "Alliance Rating Display", ArBig1R);
+            var sec1 = Sprite(a1, art, ArtRankIcon, ArBig1SecR, "Secondary Icon", qArt);   // 原版这一颗 INACT
+            if (sec1 != null) sec1.gameObject.SetActive(false);
+            Sprite(a1, art, ArtRankIcon, ArBig1MainR, "Main Icon", qArt);
+            RatingValueLabel(a1, ArBig1ValR, qInk, "FactionScoreSmall/Alliance Rating Display", 90f, 110f, 0f);
+
+            var a2 = MenuDraw.Node(fs, "Alliance Rating Display (1)", ArBig2R);
+            var sec2 = Sprite(a2, art, ArtRankIcon, ArBig2SecR, "Secondary Icon", qArt);
+            if (sec2 != null) sec2.gameObject.SetActive(false);
+            Sprite(a2, art, ArtGalon, ArBig2MainR, "Main Icon", qArt);
+            RatingValueLabel(a2, ArBig2ValR, qInk, "FactionScoreSmall/Alliance Rating Display (1)", 76.3499984741211f, 110f, 0f, 90f);
+        }
+
+        /// <summary>画一颗 `Image`（取不到图就只留节点 —— ⛔ 不静默：`art` 那一路自己会记 `MissingArt`）。</summary>
+        static Transform Sprite(Transform parent, System.Func<string, Texture2D> art, string name, PxRect r, string nodeName, int q)
+        {
+            if (parent == null) return null;
+            var tex = art == null ? null : art(name);
+            if (tex != null) { var quad = MenuDraw.Rect(parent, tex, r, nodeName, q, null, true); if (quad != null) return quad.transform; }
+            return MenuDraw.Node(parent, nodeName, r);
+        }
+
+        /// <summary>一颗 `Individual rating value`（原版 TMP；`align Left/Middle` · `base 31.38` · `auto[18~autoMax]`）。
+        /// <para>✅ 已复刻（2026-11-05 · B143-W9 · 判据 `判据/B90_N2_小屏字号实例.tsv`：小屏两格由调用方给 ——
+        /// `Highest Faction Rating` / `MainRating ▸ Global Rating` / `Position` 都是 **45.0/0**、
+        /// `FactionScoreSmall` 那两个是 **110.0/0**）。</para>
+        /// <para>⚠️ 文字**留空**：这四格都是服务器数据（名次 / 阵营评分），用户 2026-09-26 口径「不编数字」
+        /// ⇒ 原版出厂占位（`4879` / `152` / `2`）⛔ 不抄。</para></summary>
+        static Label RatingValueLabel(Transform parent, PxRect r, int qInk, string what,
+                                      float fontPx, float ssMaxPx, float ssMinPx, float autoMaxPx = 0f)
+        {
+            if (parent == null) return null;
+            var lb = MenuDraw.Text(parent, r, "", ValueInk, "Individual rating value", fontPx, qInk, r.W, 18f,
+                                   autoMaxPx > 0f ? autoMaxPx : fontPx, 31.3799991607666f, face: TmpFont.Face.LatinCardBody);
+            if (lb == null) return null;
+            MenuDraw.AlignLeft(lb, r);
+            lb.SetSmallScreenFontSizes(ssMaxPx, ssMinPx);
+            return lb;
+        }
     }
 }

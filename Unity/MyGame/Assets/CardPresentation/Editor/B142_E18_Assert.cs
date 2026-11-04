@@ -13,7 +13,7 @@
 //   · A2 `Viewport` 上挂的是 `ViewportClip` 且 `padding/softness` 全 0 —— 原版那颗是 `Mask`
 //     （stencil，`m_ShowMaskGraphic: 0`；**⛔ 不是 `RectMask2D`**），我们只有矩形裁切 ⇒ 这是**效果等价物**；
 //     同时断「`Template` 上**不挂**」—— 底板要整块画，挂了会把底板裁成条目宽；
-//   · A3 `Viewport` 宽 = `Template` 宽 − 17（= 原版 `m_SizeDelta.x = −17`）、高 = 列表高 `rows × ItemH + ItemGap`（`m_SizeDelta.y = 0`；`ItemGap` = `AllianceDropdownBox.ItemGap`，`B142-E31` 起）；
+//   · A3 `Viewport` 宽 = **两档**（原版 `ScrollRect.SetLayoutHorizontal`：先撑满，`vScrollingNeeded` 才缩 −17）—— **不滚动 = `Template` 满宽** / **要滚动 = `Template` − 17**（后者才是 prefab 序列化那一帧的 `m_SizeDelta.x = −17`）；高 = 列表高 `rows × ItemH + ItemGap`（`m_SizeDelta.y = 0`；`ItemGap` = `AllianceDropdownBox.ItemGap`，`B142-E31` 起）；
 //   · A4 条目的**父链**逐级对原版，并**灭自证**：`Template` 下**没有** `Item 0`
 //     （否则就是「两边各建一份」，路径断得出来但实际没挪家）；
 //   · A5 `Blocker` **仍在 `Template`**、且仍是整屏 —— 挪进 `Viewport` 会被裁成 `itemW × listH`
@@ -74,27 +74,33 @@ public static class B142_E18_Assert
 
     /// <summary>14 项夹具 = **真站点那组几何**（`AllianceMemberTab.cs` 的 `LanguagesDropdown`：`:1454` 的
     /// `new PxRect(1130.90, 210.41, 1380.90, 269.81)` + `SocialData.LanguageOptionLabels()` 的 14 项）。
-    /// ⇒ `Viewport` 宽必须实测 = **228**（= 250 − 5 − 17，原版 `m_SizeDelta.x = −17`）。</summary>
+    /// ⇒ `Viewport` 宽必须实测 = **245**（= 250 − 5；**不滚动档**：14 项装得下 ⇒ 原版 `SetLayoutHorizontal` 先撑满）。
+    /// ⚠️ 2026-11-05 `B143-W5`：**228 → 245（不滚动档）**；要滚动档才是 250 − 5 − 17 = **228**。</summary>
     static readonly PxRect Field14 = new PxRect(1130.90f, 210.41f, 1380.90f, 269.81f);
 
     /// <summary>照 `BuildList` 的算式算**第 i 行**的矩形。
     /// ⚠️ 必须与生产那两行**同一算式**（`listR.x1 + itemW` / `(top + ItemGap*0.5 + i*ItemH) + ItemH`）——
-    /// `MenuDraw.ClipRect` 判「整块在框内」是**无容差**逐字段比，算式不同就等于换了被测对象。</summary>
-    static PxRect RowRect(PxRect fieldR, int i)
+    /// `MenuDraw.ClipRect` 判「整块在框内」是**无容差**逐字段比，算式不同就等于换了被测对象。
+    /// <para>🔴 **2026-11-05 `B143-W5`：item 宽走【两档】**（原版 `ScrollRect.SetLayoutHorizontal`：先撑满，
+    /// `vScrollingNeeded` 才缩 `−(SbW 20 + m_VerticalScrollbarSpacing −3) = −17`）——
+    /// `needBar = false`（本文件的 3 / 14 项夹具都装得下）⇒ **满宽**；`needBar = true` ⇒ `w − 17`。
+    /// ⚠️ 原来写死 `w − 17`（228），那是**只取了「要滚动」那一档**。</para></summary>
+    static PxRect RowRect(PxRect fieldR, int i, bool needBar = false)
     {
         float w = fieldR.W - WidthLoss;
         float top = fieldR.CY + TopGap;
-        float itemW = w - ScrollW;
+        float itemW = needBar ? w - ScrollW : w;
         float y1 = top + AllianceDropdownBox.ItemGap * 0.5f + i * ItemH;   // ⚠️ 直接引用生产常量 `ItemGap`（⛔ 别在这里写第二份 0.8519）
         return new PxRect(fieldR.x1, y1, fieldR.x1 + itemW, y1 + ItemH);
     }
 
-    /// <summary>照 `BuildList` 的算式算 `Viewport` 的矩形（四条边与 `RowRect` 同源；`y2 = top + rows*ItemH + ItemGap`，`ItemGap` 直接取生产常量）。</summary>
-    static PxRect ViewportRect(PxRect fieldR, int rows)
+    /// <summary>照 `BuildList` 的算式算 `Viewport` 的矩形（四条边与 `RowRect` 同源；`y2 = top + rows*ItemH + ItemGap`，`ItemGap` 直接取生产常量）。
+    /// 🔴 2026-11-05 `B143-W5`：宽与 `RowRect` **同一套两档**（`needBar` 缺省 false = 不滚动 = 满宽）。</summary>
+    static PxRect ViewportRect(PxRect fieldR, int rows, bool needBar = false)
     {
         float w = fieldR.W - WidthLoss;
         float top = fieldR.CY + TopGap;
-        float itemW = w - ScrollW;
+        float itemW = needBar ? w - ScrollW : w;
         return new PxRect(fieldR.x1, top, fieldR.x1 + itemW, top + rows * ItemH + AllianceDropdownBox.ItemGap);
     }
 
@@ -108,7 +114,7 @@ public static class B142_E18_Assert
         MenuCheck.Section(_sink, "B142-E18 · 下拉 `Viewport ▸ Content`（原版 `Template ▸ Viewport ▸ Content ▸ Item n`）");
 
         SocialWindow own = null;
-        AllianceDropdownBox b3 = null, b14 = null;
+        AllianceDropdownBox b3 = null, b14 = null, b15 = null;   // 🆕 2026-11-05 B143-W5：`b15` = **15 项**夹具（> `MaxVisibleRows`）⇒ 实测「要滚动」那一档
         try
         {
             if (sw == null)
@@ -126,6 +132,7 @@ public static class B142_E18_Assert
             {
                 SectionA(ref b3, tab, sw);
                 SectionB(ref b14, tab, sw);
+                SectionC(ref b15, tab, sw);   // 🆕 2026-11-05 B143-W5：15 项 ⇒ 「要滚动」档（228 + 滚动条可见）
             }
         }
         catch (Exception e)
@@ -136,6 +143,7 @@ public static class B142_E18_Assert
         {
             if (b3 != null && b3.Node != null) MainMenuSubmenuWindow.DestroySafe(b3.Node.gameObject);
             if (b14 != null && b14.Node != null) MainMenuSubmenuWindow.DestroySafe(b14.Node.gameObject);
+            if (b15 != null && b15.Node != null) MainMenuSubmenuWindow.DestroySafe(b15.Node.gameObject);
             if (own != null) SocialWindow.DestroySafe(own.gameObject);
             Debug.Log(_sink.P + "=== B142E18 合计：" + _sink.Pass + " 通过 / " + _sink.Fail + " 失败 ===");
         }
@@ -180,10 +188,10 @@ public static class B142_E18_Assert
         Tr(list.GetComponent<ViewportClip>() == null,
            "A2⑤ 🔴 `Template` 上**不挂** `ViewportClip`（底板要整块画；挂了会被裁成条目宽 ⇒ 列表底少一圈）");
 
-        // A3：宽高（原版 `Viewport` 的 `m_SizeDelta = (−17, 0)` + 四边拉伸锚点）
+        // A3：宽高（原版 `Viewport` 宽是**两档**：`SetLayoutHorizontal` 先撑满，`vScrollingNeeded` 才缩 −17）
         var vpR = ViewportRect(Field3, 3);
-        Nr(PxW(vp), PxW(list) - ScrollW, 0.01f, "A3① `Viewport` 实测宽 = `Template` 实测宽 − 17（原版 `m_SizeDelta.x = −17`）");
-        Nr(PxW(vp), vpR.W, 0.01f, "A3② 同上，按 `BuildList` 的算式核（= `fieldR.W − 5 − 17`）");
+        Nr(PxW(vp), PxW(list), 0.01f, "A3① `Viewport` 实测宽 = `Template` 实测宽（**不滚动档**：3 项装得下 ⇒ 撑满。2026-11-05 B143-W5：228→245（不滚动档））");
+        Nr(PxW(vp), vpR.W, 0.01f, "A3② 同上，按 `BuildList` 的算式核（= `fieldR.W − 5`，不滚动档；要滚动档再 − 17）");
         Nr(PxH(vp), vpR.H, 0.01f, "A3③ `Viewport` 实测高 = 列表高 `rows × ItemH + ItemGap`（原版 `m_SizeDelta.y = 0`，靠锚点撑满；`B142-E31` 起含 `ItemGap`）");
 
         // A4：条目父链
@@ -239,7 +247,11 @@ public static class B142_E18_Assert
         Nr(clip.Value.y1, vpR.y1, 0.01f, "B0③ 解析到的裁切框上边 = `vpR.y1`");
         Nr(clip.Value.x2, vpR.x2, 0.01f, "B0③ 解析到的裁切框右边 = `vpR.x2`");
         Nr(clip.Value.y2, vpR.y2, 0.01f, "B0③ 解析到的裁切框下边 = `vpR.y2`（差 ≥0.05px 就说明公式改了）");
-        Nr(PxW(vp), 228f, 0.01f, "B0④ `Viewport` 实测宽 = **228**（= 250 − 5 − 17；原版 `m_SizeDelta.x = −17`）");
+        Nr(PxW(vp), 245f, 0.01f, "B0④ `Viewport` 实测宽 = **245**（= 250 − 5，**不滚动档**；2026-11-05 B143-W5：228→245。要滚动档才是 228 = 250 − 5 − 17）");
+        // 🆕 2026-11-05 `B143-W5`（W8 审查补）：14 项装得下 ⇒ 原版 `m_VerticalScrollbarVisibility 2` 把整根 `Scrollbar` 关掉。
+        //   与 `SectionC` 的「15 项 ⇒ 显示」**成对**（两档互斥：只断一边的话把 AutoHide 写反也能过）。
+        Tr(box.ScrollbarRoot != null, "B0⑤（前提）滚动条**节点建出来了**（`ScrollbarRoot != null` —— 关着 ≠ 没建）");
+        Tr(!box.ScrollbarShown, "B0⑥ 14 项装得下 ⇒ **滚动条不显示**（`ScrollbarShown == false`；= 原版 `AutoHideAndExpandViewport` 的 AutoHide 那一半）");
 
         // B1–B3：逐行不裁 + quad 仍是整块
         int clipBad = 0, quadMissing = 0, quadBad = 0;
@@ -266,5 +278,44 @@ public static class B142_E18_Assert
         var last = RowRect(Field14, opts.Length - 1);
         Nr(PxH(vp), opts.Length * ItemH + AllianceDropdownBox.ItemGap, 0.01f, "B4① `Viewport` 实测高 = 14 × 40.8707 + `ItemGap`（`AllianceDropdownBox.ItemGap`；`MaxVisibleRows` 装满内容高，不溢出）");
         Nr(PxH(vp) - (last.y2 - vpR.y1), AllianceDropdownBox.ItemGap * 0.5f, 0.01f, "B4② 末行底距 `Viewport` 底 = `ItemGap/2`（首行让半格、末行让半格必须成对；只改高或只改行偏移任一半 ⇒ 本条红）");
+    }
+
+    // ============================================================ C 段：15 项 ⇒ 「要滚动」那一档（228 + 滚动条可见）
+
+    /// <summary>15 项（&gt; `MaxVisibleRows 14`）⇒ 原版 `ScrollRect.SetLayoutHorizontal` 的**另一档**：
+    /// `vScrollingNeeded = true` ⇒ `Viewport` 缩 `−(SbW 20 + m_VerticalScrollbarSpacing −3)`、`Scrollbar` `SetActive(true)`。
+    /// <para>🔴 **为什么必须有这一段**（2026-11-05 `B143-W5` · W8 审查）：上一版把 228 那一档只写成「纯算式自检」，
+    /// **一行实测都没有** ⇒ 把生产写成「永远 −17」或「两档并一档」都照样绿。这里用**真夹具**把那档量出来。</para>
+    /// <para>🔴 **期望值用【字面量 17】**（`245 − 17 = 228`），⛔ **不用** `AllianceDropdownBox.ScrollbarW` ——
+    /// 用生产常量的话，把 17 改成 25 时「生产」和「期望」会一起变 ⇒ 恒等式，抓不到。</para></summary>
+    static void SectionC(ref AllianceDropdownBox box, AllianceMemberTab tab, SocialWindow sw)
+    {
+        MenuCheck.Section(_sink, "C 段 · 15 项（> 14）⇒ **要滚动档**：Viewport/Content 缩 17、滚动条可见");
+
+        var opts = new string[MaxRows + 1];
+        for (int i = 0; i < opts.Length; i++) opts[i] = "E18-" + i;
+        box = AllianceDropdownBox.Create(tab, sw.transform, "E18 Probe Dropdown 15", Field14, opts);
+        Tr(box != null, "（前提）15 项测试下拉建出来了（几何 = 真站点那组：field 250 宽 ⇒ Template 245）");
+        if (box == null) return;
+        box.Open();
+        Tr(box.IsOpen, "（前提）`Open()` 之后列表已建");
+        var list = box.ListRoot;
+        var vp = box.ViewportRoot;
+        var content = box.ContentRoot;
+        Tr(list != null && vp != null && content != null, "C0（前提）`Template / Viewport / Content` 三层都在");
+        if (list == null || vp == null || content == null) return;
+
+        Nr(PxW(list), 245f, 0.01f, "C0'（前提）`Template` 实测宽 = 245（= field 250 − `ListWidthLoss` 5）");
+        Nr(PxW(vp), 228f, 0.01f,
+           "C1 ★ 15 项 ⇒ `Viewport` 实测宽 = **228**（= 245 − **17**，字面量；17 = `SbW 20` + `m_VerticalScrollbarSpacing −3`）"
+         + "｜🧨 生产写成「两档并一档（恒满宽）」⇒ 本红；`ScrollbarW` 17→25 ⇒ 本红");
+        Nr(PxW(content), 228f, 0.01f,
+           "C2 ★ `Content` 与 `Viewport` 同宽 = 228（原版 `Content` 左右拉伸锚 ⇒ 永远跟 `Viewport`）｜🧨 只缩 Viewport 不缩 Content ⇒ 本红");
+        Tr(box.ScrollbarShown,
+           "C3 ★ 15 项 ⇒ **滚动条显示**（`ScrollbarShown == true`；= 原版 `vScrollingNeeded` ⇒ `SetActive(true)`）"
+         + "｜🧨 ① `needBar` 写死 false ⇒ 本红；② **把 `MenuScroll.TopAligned` 的第二实参改回 `contentR.H`**（= 只按已建 14 行算）"
+         + " ⇒ `MaxOffset == 0` ⇒ `Scrollbar.BindScrollbar → SyncScrollbar` 会把它又关掉 ⇒ **本红**（2026-11-05 B143-W5 复核抓到的真 bug 的回归钉）"
+         + "｜与 `B0⑥` 成对：两档互斥");
+        Tr(box.ScrollbarRoot != null, "C4（前提）滚动条节点在（`ScrollbarRoot != null`）");
     }
 }

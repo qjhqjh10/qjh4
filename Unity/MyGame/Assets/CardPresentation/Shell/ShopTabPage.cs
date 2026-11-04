@@ -149,9 +149,9 @@ namespace CardPresentation
         /// <summary>`Available Counter`。🔴 **原版的锚点落在 `y = 476`** —— 那是**格子底边之内 1px**
         /// （格子高 475、`background` 是 −1..476）。而它的 TMP 是 **`v = Geometry`（`m_VerticalAlignment 4096`）
         /// + 零高框** ⇒ 垂直方向以锚点为中心 ⇒ **原版自己有半截落在格底之外、和下一行挨着**。
-        /// 我们**把整条抬进格子里**（放在价格钮下面），并在自检里钉一条「不许越出格底」——
-        /// ⚠️ **这是相对原版的一处偏离，原因写在 `资料/阶段二_商店_原版规格.md` §六**。</summary>
-        public static readonly PxRect CellAvail = new PxRect(18.87f, 452f, 315.33f, 474f);
+        /// ✅ 2026-11-05（B144-C）按原版改回：框中心 = **476**（22 px 高 ⇒ 465..487），半截出格；宿主断言同步改成**断中心**（B131 UI 三#10）。
+        /// ⛔ 别再退回「把整条抬进格子里」（452..474 那一版）；它也⛔ 不再算 `资料/阶段二_商店_原版规格.md` §六 的那条偏离。</summary>
+        public static readonly PxRect CellAvail = new PxRect(18.87f, 465f, 315.33f, 487f);
         public static readonly PxRect CellPrice = new PxRect(79.69f, 412.73f, 255.91f, 446.17f);
         public static readonly PxRect CellCount = new PxRect(-1f, 372.23f, 336.60f, 404.78f);
         public static readonly PxRect CellCountText = new PxRect(58.48f, 381.47f, 277.12f, 403.28f);
@@ -672,9 +672,9 @@ namespace CardPresentation
                     al.SetRenderQueue(QCellText);
                     // 🆕 **2026-10-16（A712 阶段 2）**：纵向那一半 —— 原版这颗 `Available Counter`
                     //   是 `v = Geometry (4096)` = **`Midline`**（判据 = `CellAvail` 那条注释自己逐字写的
-                    //   `m_VerticalAlignment 4096`）。⚠️ 原版那颗是**零高框、锚点落在格底之外**，
-                    //   我们**把整条抬进格子里**（`CellAvail`，见 `:291-295` 那条如实登记的偏离）
-                    //   ⇒ 本笔只落**档位**，框仍是我们挑的那个（同 A712 阶段 2 的口径）。
+                    //   `m_VerticalAlignment 4096`）。✅ 2026-11-05（B144-C）框也按原版落了：`CellAvail` 中心 = 476，
+                    //   零高锚点 + Midline ⇒ 文字中心 476（半截出格，原版如此）
+                    //   ⇒ 档位与框**两边都照原版**（同 A712 阶段 2 的口径）。
                     MenuDraw.SetVAlign(al, Label.VAlign.Midline, ar);
                     // 🔴 **2026-10-19（N72）**：横向 **Center** —— 原版 6 份变体实读 `Center/Midline`，
                     //   我们原来 `AlignRight` 把整串往右推 ~55px。⛔ **别改回 `AlignRight`**：那条是旧施工图的错值。

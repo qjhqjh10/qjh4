@@ -339,7 +339,7 @@ namespace CardPresentation
     // ============================================================ 共享数据管理（原版 `SharedEventDataManager`）
     /// <summary>跨事件共享数据的**唯一入口**。原版是 MonoBehaviour 单例（`Initialize()` 从子件收集 context）；
     /// 我们同样保留 `Initialize()` 这个名字与「收集」语义，只是收集源换成显式注册（差异 ②）。</summary>
-    public static class LiveOpsSharedDataManager
+    public static partial class LiveOpsSharedDataManager
     {
         /// <summary>原版 `Dictionary&lt;Type, SharedDataContext&gt; SharedContexts`（静态字段）。
         /// 原版由 `GetComponentsInChildren&lt;SharedDataContext&gt;()` + `ToDictionary` 建（`SharedEventDataManager__Initialize.c`）。</summary>
@@ -576,6 +576,40 @@ namespace CardPresentation
                 d.ResultCounter[mode] = rv;
             }
             return d;
+        }
+    }
+
+    // ============================================================ B143-W7（续）· 默认 context 那一族（原版靠 prefab 子件收集）
+    /// ✅ 已复刻（2026-11-05 · B143-W7 · 判据 `decomp_full/SharedEventDataManager__Initialize.c`：
+    /// `GetComponentsInChildren&lt;SharedDataContext&gt;().ToDictionary(x =&gt; x.GetType())`）
+    /// <para>原版 `SharedEventDataManager` 是 `Intro.unity` 上的 MonoBehaviour，它的子件里挂着
+    /// **`EnergyContext`**（GameObject 98，`m_Script` guid `515abff5bccd3b61fd270362f5cca79f`、`m_Enabled: 1`）⇒
+    /// 原版启动时必然登记一族 context。本仓没有那种 prefab（差异 ②）⇒ **在启动期显式登记同一族**。</para>
+    /// <para>⚠️ `RuntimeInitializeOnLoadMethod` 只扫**顶层静态方法**（同 `Core/PlayerBoot.cs:67` /
+    /// `Battle/BattleSfx.cs:466`）⇒ ⛔ 别把它挪进嵌套类。</para>
+    /// <para>⚠️ 自检宿主调 <see cref="ResetForTest"/> 会把这张表清空（那是测试语义），
+    /// 所以生产读数一律走 <see cref="TryGetContext{T}"/> 的 null 判，⛔ 不许假设表里一定有东西。</para>
+    public static partial class LiveOpsSharedDataManager
+    {
+        /// <summary>启动期登记「一族 context」（= 原版 `GetComponentsInChildren&lt;SharedDataContext&gt;()` 的等价物）。
+        /// <para>`Unpack(new SharedEventData())` 是**照原版那一跳**：关服后服务器不再下发，
+        /// 等于「服务器送了个空载荷」⇒ `EnergyContext.UnpackData` 会按原版自建 `{ energy = 配置最大值 ?? 100, lastUpdated = 现在 }`。
+        /// ⛔ 不要为了「看起来有数据」塞假值。</para></summary>
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        static void InstallDefaultContexts()
+        {
+            Initialize(new LiveOpsSharedContext[] { new EnergyContext() });
+            Unpack(new SharedEventData());
+        }
+
+        /// <summary>= <see cref="GetContext{T}"/>，但**没登记时不出声**（返回 null）。
+        /// <para>给「原版本来就先判 null」的那几处用（`CurrencyExtensions.GetOwnedCount` / `AddCurrency` /
+        /// `RewardService.CollectCurrencyReward` 都是 `GetContext&lt;T&gt;() != null` 的形状）——
+        /// 那几处今天会被高频调用，用 `GetContext` 会在自检 `ResetForTest` 之后刷出一片假警告。</para></summary>
+        public static T TryGetContext<T>() where T : class
+        {
+            LiveOpsSharedContext c;
+            return SharedContexts.TryGetValue(typeof(T), out c) ? c as T : null;
         }
     }
 }

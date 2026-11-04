@@ -8,7 +8,13 @@ namespace UnityEngine
     public static class Debug
     {
         public static void Log(object m) { }
-        public static void LogWarning(object m) { }
+        // 🔴 2026-11-05（`B143-W1` · 调度台追加 2）：**本行原来是空实现**（`{ }`）⇒ 探针里**所有**走
+        //   `UnityEngine.Debug.LogWarning` 的判据都是**静默**的（实测撞上：`B141-CHOOSECARD-ROW` 的
+        //   「`ta=60` 的 `abilityTargetCriteria` 行读不到」那条 warning 在 `play` 里一个字都看不见 ⇒
+        //   「警告没了」不能当证据、「警告该响」也永远看不见）。现在真打到 **stderr**（不污染 stdout 的读数行）。
+        //   ⚠️ 判据：本改动**不进结算** ⇒ `play check` 的结算指纹必须**一字不变**（`2f640db5…`）；
+        //      变了 = 有别的副作用，立刻回滚。⚠️ `Log` / `LogError` 仍是空实现（本批只按裁定改这一个）。
+        public static void LogWarning(object m) { Console.Error.WriteLine("[RuleEngine/WARN] " + (m == null ? "null" : m.ToString())); }
         public static void LogError(object m) { }
     }
     public static class Random

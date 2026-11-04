@@ -373,14 +373,14 @@ namespace CardPresentation
         /// <summary>原版 `CardsHorizontalLayout` 的**中心距**（px）。**问出来的**，不是推算的
         /// —— 出处：实况报告 §③（`GetPosition(i,n)` 直接调用，n=2 算得 502.1 与序列化字段吻合）。
         /// ⚠️ **n=4 就开始压**（原来文档写「>7 张才压」是错的，2026-09-14 晚更正）。
-        /// ⚠️ 原版只测到 **n=7**；`n≥8` 按 7 的间距走 —— **这一格是外推，如实标着**。</summary>
+        /// ⚠️ 原版只测到 **n=7**；`n≥8` 走原版那条**通用式** `spacing = min(…, 可用宽/n)`（可用宽 1882.4 由 n=4..7 反推 ⇒ n=8→235.3）—— ✅ 已复刻（2026-11-05 · B144-W3 · `CardsHorizontalLayout__GetPosition.c:149,201-210`；原「n≥8 按 7 的间距走」的外推已作废）</summary>
         public static float SpacingPx(int n)
         {
             if (n <= 3) return 502.2f;
             if (n == 4) return 470.6f;
             if (n == 5) return 376.5f;
             if (n == 6) return 313.7f;
-            return 268.9f;                      // n>=7（7 是实测，8+ 是外推）
+            return n >= 8 ? 1882.4f / n : 268.9f;   // ✅ 已复刻（2026-11-05 · B144-W3 · 判据 = `CardsHorizontalLayout__GetPosition.c:149,201-210`：`spacing = min(lossyScale.x*(+0x48), 可用宽/n)`，可用宽由 n=4..7 实测反推 = **1882.4** ⇒ n≥8 = 1882.4/n（n=8 ⇒ 235.3）；原「n≥8 恒 268.9」是外推，已作废）
         }
 
         /// <summary>面板里那张卡的缩放 —— 原版 `CardsHorizontalLayout.Scale = 183.41`
@@ -645,9 +645,9 @@ namespace CardPresentation
         void Update()
         {
             if (!Visible) return;
-            var kb = Keyboard.current;
-            if (kb == null) return;
-            if (!kb.spaceKey.wasPressedThisFrame && !kb.enterKey.wasPressedThisFrame) return;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：`spaceKey/enterKey` 的按下沿 → `KeyCode.Space/Return`，逐键 1:1
+            //    ⚠️ 旧输入下没有「键盘设备为空」这一档（原来的 `kb == null` 守卫随之删除，行数保持不变）
+            if (!Input.GetKeyDown(KeyCode.Space) && !Input.GetKeyDown(KeyCode.Return)) return;
             OnUguiDone();     // 内含 Visible / interactable 闸；未选牌时**什么都不做**（同原版）
         }
 

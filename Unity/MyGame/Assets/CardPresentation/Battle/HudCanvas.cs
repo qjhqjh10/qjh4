@@ -46,11 +46,11 @@ namespace CardPresentation
     /// <summary>战斗 HUD 的 uGUI 层。**判据只此一处** —— 调用点别自己 new 一个 Canvas。</summary>
     public static class HudCanvas
     {
-        /// <summary>`planeDistance` —— 决定这个 canvas 落在 HUD 的**哪一层 z** 上。
+        /// <summary>🔶 自己设计（非原版）：`planeDistance` —— 决定这个 canvas 落在 HUD 的**哪一层 z** 上。
         /// 相机在 `z = −20`、看 +Z ⇒ `z = planeDistance − 20` = **`HudImageZ`(0.3)**。
         /// 🔴 **2026-10-16 订正**：本行原来写「现值 **20.299** ⇒ 比 `HudImageZ` 略靠前」，
         /// **已过期** —— 图族**整族**迁上 canvas 之后，那个「0.001 的临时错位」就**没有意义了**，
-        /// 已改回 **20.3**（判据 → `T09` §五·补⑦ 开头）。⛔ 别再按 20.299 推。</summary>
+        /// 已改回 **20.3**（判据 → `T09` §五·补⑦ 开头）。⛔ 别再按 20.299 推。**为什么必须自己定**：原版 `Canvas &2572` 的 `m_PlaneDistance = 100`（`Battle Arena 1.unity`；13 场同值），但我们的 HUD 是**世界空间 quad + 画布共用一条 z 轴**，取 100 ⇒ 画布落到 z=80、被全部 HUD quad（z ≤ 0.3）盖住。⛔ 不单独改，随 `T09`/`A2098` 一起；调度台 2026-11-04 裁定（`报告/B132_审计_镜头与相机.md` B22 · 账 `B139-S1`）。</summary>
         public const float PlaneDistance = 20.3f;
 
         /// <summary>参考分辨率（原版 `CanvasScaler` 那两个字段）。</summary>
@@ -115,7 +115,7 @@ namespace CardPresentation
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;   // 原版 `m_ScreenMatchMode = 1`
             scaler.referencePixelsPerUnit = 100f;                           // 原版那 6 行表里的值
 
-            go.AddComponent<GraphicRaycaster>();       // 射线面；可点件由 `BattleHudButton.Attach` 喂（`T09` A1 起）
+            go.AddComponent<EverguildGraphicRaycaster>();   // 射线面；可点件由 `BattleHudButton.Attach` 喂（`T09` A1 起）· ✅ 已复刻（2026-11-05 · B144-A · 原版 `EverguildGraphicRaycaster`，`sortOrderPriority` 覆写成序列化 `priority`(=0)，⛔ 别换回基类 `GraphicRaycaster` —— 基类那是 `int.MinValue`，B132 #82）
 
             RootRect = (RectTransform)go.transform;
             return RootRect;
@@ -550,7 +550,7 @@ namespace CardPresentation
             cv.overrideSorting = true;
             cv.sortingLayerID = sortingLayerId;
             cv.sortingOrder = sortingOrder;
-            go.AddComponent<GraphicRaycaster>();       // 原版这 4 件宿主都带 GR（判据 → T09b §A·2）
+            go.AddComponent<EverguildGraphicRaycaster>();   // 原版这 4 件宿主都带 GR（判据 → T09b §A·2）· ✅ 已复刻（2026-11-05 · B144-A · 原版类名是 `EverguildGraphicRaycaster` 不是基类，B132 #82）
             ApplySubCanvasRank();
             return rt;
         }

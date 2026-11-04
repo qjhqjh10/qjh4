@@ -378,46 +378,46 @@ namespace CardPresentation
         RawInput ReadRaw()
         {
             var r = new RawInput();
-            var m = UnityEngine.InputSystem.Mouse.current;
-            if (m != null)
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：本方法原来把新输入逐格翻译成 legacy 语义，
+            //    现在直接用 legacy `Input.*`（每格见行尾注释）；`RawInput` 的契约（legacy 量纲）一个字没变。
+            if (Input.mousePresent)
             {
-                r.PointerPos = m.position.ReadValue();                 // 屏幕像素、原点左下（与 legacy 同）
+                r.PointerPos = Input.mousePosition;                    // 屏幕像素、原点左下（与 legacy 同）
                 // 🔬 除之前的原始值先落一个局部（只有探针要用；生产语义**没变**：仍是「除完 ⇒ legacy 一格 ±1」）。
-                float rawScrollY = m.scroll.ReadValue().y;
+                float rawScrollY = Input.mouseScrollDelta.y;
                 // 真机实测「一格 = ±1」（= legacy 量纲）⇒ 除数 = 1，这一句**是恒等**（见 ScrollUnitsPerNotch）。
                 r.Scroll = new Vector2(0f, rawScrollY / ScrollUnitsPerNotch);
-                r.LeftHeld = m.leftButton.isPressed;
-                r.RightHeld = m.rightButton.isPressed;
-                r.LeftDown = m.leftButton.wasPressedThisFrame;
-                r.RightDown = m.rightButton.wasPressedThisFrame;
+                r.LeftHeld = Input.GetMouseButton(0);
+                r.RightHeld = Input.GetMouseButton(1);
+                r.LeftDown = Input.GetMouseButtonDown(0);
+                r.RightDown = Input.GetMouseButtonDown(1);
 
                 // 🔬 探针：`WF_SCROLL_PROBE=1` 且这一帧**真有滚动**时才打一行（见 ScrollProbe 的注释）。
                 if (rawScrollY != 0f) ScrollProbe(rawScrollY, r.Scroll.y);
             }
-            var ts = UnityEngine.InputSystem.Touchscreen.current;
-            if (ts != null)
+            int touchCount = Input.touchCount;
+            if (touchCount > 0)
             {
-                // legacy `Input.touchCount` = 「当前活跃的手指数」；新输入系统里 `touches` 是**定长 10 个**
-                // ⇒ 等价物 = 数 `press.isPressed` 的那几个。
+                // legacy `Input.touchCount` = 「当前活跃的手指数」——**旧输入直接给这个数**，
+                // 不必再像新输入那样把定长 10 个 `touches` 数一遍 `press.isPressed`（语义完全相同）。
+                // 只有前两指被 `RawInput` 收（`Touch0*` / `Touch1*` 各一组）。
+                // ⚠️ `Input.GetTouch(i)` 的 `i` 是活跃手指序号（0 起），与 legacy `fingerId` 不是一回事 —— 本类不用 `fingerId`，契约不受影响。
                 var pos = new Vector2[2]; var delta = new Vector2[2]; var phase = new int[2];
-                int n = 0;
-                foreach (var t in ts.touches)
+                int n = touchCount < 2 ? touchCount : 2;
+                for (int ti = 0; ti < n; ti++)
                 {
-                    if (!t.press.isPressed) continue;
-                    if (n < 2)
-                    {
-                        pos[n] = t.position.ReadValue();
-                        delta[n] = t.delta.ReadValue();
-                        // 🔴 **两套 `TouchPhase` 的枚举值【不同序】**，必须映射：
-                        //    legacy `UnityEngine.TouchPhase` = Began **0** / Moved 1 / Stationary 2 / Ended 3 / Canceled 4；
-                        //    新输入系统 `UnityEngine.InputSystem.TouchPhase` = None 0 / Began **1** / Moved 2 / Ended 3 /
-                        //    Canceled 4 / Stationary 5。原版判的是 `== 0`（Began）⇒ 直接强转会把 `None` 当 `Began`
-                        //    （而 `None` 永远不该出现在「活跃手指」上）⇒ 这里显式映射，`RawInput` 那几格才有资格叫「≡ legacy」。
-                        phase[n] = t.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Began ? PhaseBegan : 1;
-                    }
-                    n++;
+                    var t = Input.GetTouch(ti);
+                    pos[ti] = t.position;
+                    delta[ti] = t.deltaPosition;
+                    // 🔴 **两套 `TouchPhase` 的枚举值【不同序】**，原来必须显式映射：
+                    //    legacy `UnityEngine.TouchPhase` = Began **0** / Moved 1 / Stationary 2 / Ended 3 / Canceled 4；
+                    //    新输入系统 `UnityEngine.InputSystem.TouchPhase` = None 0 / Began **1** / Moved 2 / Ended 3 /
+                    //    Canceled 4 / Stationary 5。原版判的是 `== 0`（Began）⇒ 直接强转会把 `None` 当 `Began`。
+                    //    改用旧输入后拿到的**本来就是 legacy 的 `Touch.phase`** ⇒ 这一行变成良定义的恒等，
+                    //    `RawInput` 那几格（`PhaseBegan` / 1）的契约逐字不变。
+                    phase[ti] = t.phase == UnityEngine.TouchPhase.Began ? PhaseBegan : 1;
                 }
-                r.TouchCount = n;
+                r.TouchCount = touchCount;
                 if (n >= 1) { r.Touch0Pos = pos[0]; r.Touch0Delta = delta[0]; r.Touch0Phase = phase[0]; }
                 if (n >= 2) { r.Touch1Pos = pos[1]; r.Touch1Phase = phase[1]; }
             }

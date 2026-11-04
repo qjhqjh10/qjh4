@@ -1697,11 +1697,11 @@ namespace CardPresentation
             return c == null ? -1 : _cards.IndexOf(c);
         }
 
-        // ---- 输入（新输入系统）----
+        // ---- 输入（✅ 2026-11-05 · B144-A：已迁旧 Input Manager）----
         static Vector2 PointerScreen()
         {
-            if (Mouse.current != null) return Mouse.current.position.ReadValue();
-            if (Touchscreen.current != null) return Touchscreen.current.primaryTouch.position.ReadValue();
+            if (Input.mousePresent) return Input.mousePosition;           // ✅ B144-A：`Mouse.current.position` → `Input.mousePosition`，1:1
+            if (Input.touchCount > 0) return Input.GetTouch(0).position;  // ✅ B144-A：`Touchscreen.primaryTouch.position` → `Input.GetTouch(0).position`，1:1
             return Vector2.zero;
         }
 
@@ -1741,26 +1741,26 @@ namespace CardPresentation
         public bool IsRightButtonOrTwoFingerTouch()
         {
             if (_rightHeldForTest.HasValue) return _rightHeldForTest.Value;   // 自检口（生产恒为 null）
-            if (Mouse.current != null && Mouse.current.rightButton.isPressed) return true;
-            var ts = Touchscreen.current;
-            if (ts == null) return false;
-            int active = 0;
-            foreach (var t in ts.touches) if (t.press.isPressed) active++;
-            return active > 1;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：下面这一行**现在就是原版那句** ——
+            //    `CardScript__IsRightButtonOrTwoFingerTouch.c:8` = `bVar1 = Input.GetMouseButton(1);`（电平，不是按下沿）
+            if (Input.GetMouseButton(1)) return true;
+            // ✅ 同上：`…c:9-10` = `iVar2 = Input.get_touchCount(); return 1 < iVar2 | bVar1;`
+            //    新输入那边要「数 `touches` 里 `press.isPressed` 的个数」，legacy 下 `Input.touchCount` **直接就是**这个数。
+            return Input.touchCount > 1;
         }
 
         static bool PressedThisFrame()
         {
-            if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) return true;
-            if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame) return true;
-            return false;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：左键按下沿。
+            //    移动端由 `Input.simulateMouseWithTouches`（默认开）把「首指按下」映射成左键 ⇒ 与原式的
+            //    「`Mouse.current` 或 `Touchscreen.primaryTouch.press` 的按下沿」等价。
+            return Input.GetMouseButtonDown(0);
         }
 
         static bool ReleasedThisFrame()
         {
-            if (Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame) return true;
-            if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasReleasedThisFrame) return true;
-            return false;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：左键抬起沿（口径同 `PressedThisFrame`）。
+            return Input.GetMouseButtonUp(0);
         }
 
         Vector3 PointerWorld()
@@ -2695,10 +2695,10 @@ namespace CardPresentation
         bool PointerHeldNow()
         {
             if (_pointerHeldForTest.HasValue) return _pointerHeldForTest.Value;
-            if (Mouse.current != null && Mouse.current.leftButton.isPressed) return true;
-            var ts = Touchscreen.current;
-            if (ts != null && ts.primaryTouch.press.isPressed) return true;
-            return false;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：左键「按着」（电平）—— `leftButton.isPressed` 的 1:1。
+            //    触摸那一支由 `Input.simulateMouseWithTouches`（默认开）映射成左键，故不再单独判 `Touchscreen`。
+            // ⚠️ 将来若关掉 `Input.simulateMouseWithTouches`，这里要补 `Input.touchCount > 0 && Input.GetTouch(0).phase != TouchPhase.Ended`。
+            return Input.GetMouseButton(0);
         }
 
         /// <summary>**撤销判定本体**（生产与自检共用，判据只此一处）。

@@ -169,7 +169,7 @@ namespace CardPresentation
         public static void ResetCounters()
         {
             Played = 0; Throttled = 0; LastCue = null; LastClip = null;
-            _lastAt.Clear();
+            WarpforgeVFX.WFSoundPlayer.ResetThrottle();   // ✅ 2026-11-05（B144-B2 · B131 C6）：冷却表已并进 `WFSoundPlayer` 那一张 ⇒ 清它那本（本类自己的 `_lastAt` 已删）
             _warned.Clear();
         }
 
@@ -179,13 +179,13 @@ namespace CardPresentation
         /// 跨域复用同一个 cue 时会带着上一场的窗口。调用链：
         /// `BattleSfx.ResetCounters()` → `WFSoundPlayer.ResetThrottle()`（①④）· `RemnantSfx.ResetThrottle()`（②）
         /// · **`WindowSounds.ResetThrottle()`（③）**。⚠️ `ResetCounters()` 里也会清这张表（全清档）。</summary>
-        public static void ResetThrottle() { _lastAt.Clear(); }
+        public static void ResetThrottle() { WarpforgeVFX.WFSoundPlayer.ResetThrottle(); }   // ✅ 2026-11-05（B144-B2 · B131 C6）：只剩共享那一张表 ⇒ 转发
 
         /// <summary>节流表。🔴 2026-11-02 `B120-W5b`：键从 **cue 名（string）** 改成 **`WFSoundCue` 实例** ——
         /// 原版 `lastTimePlayed` 住在 `AudioCue` 资产上（`AudioCue.cs` 的 `+0x34`，`AudioCue__OnEnable.c` 写回 0），
         /// 与「从哪条 `Play2D` 路播」无关 ⇒ 键必须是**cue 资产**，不是它的名字
         /// （`WFSoundBank` 对同名 cue 只给同一个实例，所以行为上等价，但名字漂了不会静默分叉）。</summary>
-        static readonly Dictionary<WFSoundCue, float> _lastAt = new Dictionary<WFSoundCue, float>();
+        // 🔴 2026-11-05（`B144-B2` · `B131` C6）：本类原来那张 `_lastAt` 已【删除】—— 冷却表合并成一张（原版形状：`lastTimePlayed` 只住在 cue 资产上）；现在直接调 `WFSoundPlayer.CanPlayByCooldown(cue)`，与 `BattleSfx` / `RemnantSfx` 共用同一本表 ⇒ 同一个 cue 经不同路径播时共享同一个 0.1 s 窗口。⛔ 别建回来。
         static readonly HashSet<string> _warned = new HashSet<string>();
 
         /// <summary>FX 组（原版 `MixerType.FX`）。</summary>
@@ -225,7 +225,7 @@ namespace CardPresentation
             //    `last != 0` 那半句（= 从没播过）也在那里 —— 漏掉它就会把第一次也拦掉。
             //    键 = **`WFSoundCue` 实例**（2026-11-02 `B120-W5b`：原版 `lastTimePlayed` 住在 `AudioCue` 资产上，
             //    键必须是 cue 本身、不是它的名字；`WFSoundBank` 对同名 cue 只给同一个实例 ⇒ 与旧写法等价且不易漂）。
-            if (!WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(_lastAt, cue, cue.timeToPlayAgain))
+            if (!WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(cue))   // ✅ 2026-11-05（B144-B2 · B131 C6）：走**共享那一张表**（`WFSoundPlayer._lastAt`），⛔ 不再传本类自己的字典
             {
                 Throttled++;
                 return false;

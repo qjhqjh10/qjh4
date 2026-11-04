@@ -9,13 +9,13 @@
   "pure_wait": 0,
   "cards": 93,
   "steps": 158,
-  "cards_no_steps": 741,
-  "rows_not_active": 911,
-  "steps_not_active": 1178,
+  "cards_no_steps": 816,
+  "rows_not_active": 1024,
+  "steps_not_active": 1319,
   "movers": 13,
   "offset_beats": 4,
-  "not_in_pool": 94,
-  "renamed": 35,
+  "not_in_pool": 123,
+  "renamed": 36,
   "poolMissing": 0
  },
  "cards": [

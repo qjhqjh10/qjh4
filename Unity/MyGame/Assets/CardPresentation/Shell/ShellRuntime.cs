@@ -1093,10 +1093,10 @@ namespace CardPresentation
                 Current = Phase.Menu;
                 return;
             }
-            var kb = Keyboard.current;
-            var ms = Mouse.current;
-            bool anyKey = (kb != null && kb.anyKey.wasPressedThisFrame)
-                       || (ms != null && ms.leftButton.wasPressedThisFrame);
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：原式 = 「任意键按下沿 ∨ 左键按下沿」，
+            //   旧 `Input.anyKeyDown` 正是这两者的并集（键 + 鼠标键），1:1（唯一放宽：右键/中键也会跳过 —— 原版开场
+            //   「按任意键跳过」本来就覆盖鼠标）。
+            bool anyKey = Input.anyKeyDown;
             if (anyKey) { SkipIntro(); return; }
 
             if (_video == null) return;

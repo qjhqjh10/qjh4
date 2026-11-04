@@ -2249,7 +2249,7 @@ namespace CardPresentation
     ///   `list.x2 = field.x2 − 5`、`list.top = field.center.y + 22`
     ///   （判据：`m_AnchorMin/Max (0,0.5)-(1,0.5)` + `m_Pivot (0.5,1)` + `m_AnchoredPosition (−2.5,−22)` +
     ///   `m_SizeDelta (−4.9998, 573.96)`；两处实值 = `1130.90,262.11→1375.90,836.07` / `1129.90,235.32→1374.90,809.28`）。</item>
-    /// <item>`Viewport` = 列表左侧 **228** 宽（= 列表宽 − 17，右边那 17 是 `Scrollbar` 的 `Background` 宽）。</item>
+    /// <item>`Viewport` 宽 = **两档**（原版 `m_VSliderExpand` 成立）：**不滚动 ⇒ 撑满列表宽**（245）；**要滚动 ⇒ 列表宽 − 17**（那 17 = `Scrollbar` 宽 **20** + `m_VerticalScrollbarSpacing` **−3**）。⚠️ prefab 里 `m_SizeDelta.x = −17` 只是**序列化那一帧**的值，运行期由 `SetLayoutHorizontal` 改写。</item>
     /// <item>`Item` 高 **40.8707**（`m_SizeDelta (0, 40.8707)`），条目自顶向下紧排（uGUI `Dropdown.AddItem` 的
     ///   `anchoredPosition = (0, −i·itemHeight)`）。</item>
     /// <item>`Item Label` 相对 Item：`x1+20 / x2−10 / y1+1 / y2−2`（由 `m_AnchorMin/Max (0,0)-(1,1)` +
@@ -2260,9 +2260,9 @@ namespace CardPresentation
     /// <para>**列表高度**：`min(选项数, 14) × 40.8707` —— 14 = `floor(573.96 / 40.8707)`，即 prefab 那份
     /// `Template` 框**自己装得下的行数**（uGUI `Dropdown.Show()` 就是按 `itemHeight × 可见行数` 改
     /// `m_Template.sizeDelta.y`）。我们的两张表（语言 14 / 隐私 2）**都 ≤ 14** ⇒ **内容永不滚动**。</para>
-    /// <para>⚠️ **因此 `Scrollbar`（`Background` 32×32 / `Handle` = `UISprite` 32×32）不建**，理由两条：
-    /// ① 那两张是 **Unity 内置图**（`m_Sprite` 名就是 `Background` / `UISprite`，不在 `assets_full` 里）⇒ **判据为空**；
-    /// ② 内容装得下 ⇒ 滚条恒为「满条」、功能上无差异（**视觉上少一条轨**，如实记）。</para>
+    /// <para>**滚动**（✅ 2026-11-05 `B143-W5` 补建 —— ⛔ 别再按旧口径说「不建」）：原版 `Template` 上带
+    /// `ScrollRect` + 子件 `Scrollbar ▸ Sliding Area ▸ Handle`，我们已照建并接上 `MenuScroll`（几何与字段见类尾
+    /// `BuildScrollbar`）；今天 `Content` 高 == `Viewport` 高 ⇒ `m_VerticalScrollbarVisibility 2` 把它整根关着。</para>
     /// <para>🔴 **`Item Checkmark`（2026-11-01 `B-229` 补建）**：原版是 `Item` 的**第三颗子件**
     /// （顺序 = `Item Background` → `Item Checkmark` → `Item Label`），组件 = `Image`：
     /// `m_Sprite` = Unity **内置** `Checkmark`（`m_FileID 15 / m_PathID 6419449077939965772`；图 40×40）·
@@ -2296,7 +2296,7 @@ namespace CardPresentation
         public const float ItemH = 40.8707f;
         public const float ListTopGap = 22f;        // list.top = field.cy + 22
         public const float ListWidthLoss = 5f;      // list 宽 = field 宽 − 5
-        public const float ScrollbarW = 17f;        // item 宽 = list 宽 − 17
+        public const float ScrollbarW = 17f;        // `SbW 20 + SbSpacing −3`；**只有要滚动时** item 宽才 = list 宽 − 它（不滚动撑满，见 `BuildList` 的 `needBar`）
         public const int MaxVisibleRows = 14;       // floor(573.96 / 40.8707)
         /// <summary>✅ 已复刻（2026-11-04 · B142-E31）：`Content` 模板高 **41.7226** − `Item` 高 **40.8707** = **0.8519**
         /// （`Social Submenu Variant.prefab` 的 `Content` `m_SizeDelta.y = 41.7226`）—— 原版 `Show():926-932` 的内容高 =
@@ -2539,7 +2539,19 @@ namespace CardPresentation
             if (chkTex == null)
                 SocialPage.Say("[Social] `40K_settings_icon_checkmark` 取不到 ⇒ 下拉里**没有「当前值」那颗勾**"
                              + "（原版那颗 `Item Checkmark` 的替代图缺）。");
-            float itemW = w - ScrollbarW;   var vpR = new PxRect(listR.x1, listR.y1, listR.x1 + itemW, listR.y1 + rows * ItemH + ItemGap); var vc = ViewportClip.Hang(_list, "Viewport", vpR, Vector4.zero, Vector2Int.zero); _viewport = vc.transform; var contentR = new PxRect(vpR.x1, vpR.y1, vpR.x2, vpR.y1 + rows * ItemH + ItemGap); _content = MenuDraw.Node(vc.transform, "Content", contentR);   // ✅ 已复刻（2026-11-04 · B142-E18 / E31 · 判据 = `Social Submenu Variant.prefab` 的 `Template ▸ Viewport`（`!u!224 &224737469884136080`：`m_SizeDelta.x = −17` ⇒ 宽 = Template − 17；`m_SizeDelta.y = 0` + 四边拉伸锚 ⇒ **高 = Template 高**；`!u!114 &114189131814739177` = `Mask`、`m_ShowMaskGraphic: 0`）`▸ Content`（`!u!224 &224868640879826322`）`▸ Item n`。⚠️ 原版是 `Mask`(stencil)、掩码形状 = 内置 `Background` 图的圆角矩形；我们只有矩形裁切 ⇒ 用 `ViewportClip.Hang(…, zero, zero)` 等效（不是 `RectMask2D`）。🔴 **高 = `rows × ItemH + ItemGap`（B142-E31 起）**：`Show():926-932` 让 `Content` 高 = 内容高、`extraSpace > 0` 时面板也缩到内容高 ⇒ `Viewport`（`sd.y = 0`）跟着变成内容高；条目从 `Content` 顶下让 `ItemGap/2 = 0.426`、底边同样留 0.426（`TMP_Dropdown.cs:964` 的 `offsetMin.y + itemSize·(n−1−i) + itemSize·pivot.y`）⇒ **条目恒在框内、不必再用「与 Item 同算式」去博那 1 ULP**）
+            // 🔴 **`B143-W5`（2026-11-05，调度台裁定「照原版」）**：原版 `ScrollRect.m_VSliderExpand` 是**运行期算的**
+            //   （prefab 的 ScrollRect 块里**没有**这个字段，本行下方脚本已核）；它的三条输入都有序列化出处 =
+            //   `m_VerticalScrollbarVisibility: 2` + `m_VerticalScrollbar ≠ null` + `Viewport`/`Scrollbar` 都是 `Template` 的**子件**
+            //   （判据 `ScrollRect.cs:560-567`）。成立后 `SetLayoutHorizontal`（`:1166-1176`）**先**把 `Viewport` 撑满
+            //   （`anchorMin 0 / anchorMax 1 / sizeDelta 0 / anchoredPosition 0`），**只有 `vScrollingNeeded` 才再缩
+            //   `−(m_VSliderWidth + m_VerticalScrollbarSpacing) = −(20 + (−3)) = −17`** ⇒ 原版是**两档**：不滚动 = **满宽 245**
+            //   / 要滚动 = **228**。⛔ 别再把它写死成 −17（`m_SizeDelta.x` 只是 prefab 那一帧的序列化值）。
+            float viewH = listR.H;                                  // 面板高 = `rows × ItemH + ItemGap`
+            float contentH = n * ItemH + ItemGap;                   // 原版 `Show()` 的 `Content` 高 = **全部 n 行**
+            bool needBar = contentH > viewH + 0.01f;                // = `ScrollRect.vScrollingNeeded`（`:1103-1109`，阈值 0.01）
+            float itemW = needBar ? w - ScrollbarW : w;             // 要滚动 ⇒ 让出 17（= `SbW 20` + `SbSpacing −3`）；否则撑满
+            var vpR = new PxRect(listR.x1, listR.y1, listR.x1 + itemW, listR.y1 + rows * ItemH + ItemGap); var vc = ViewportClip.Hang(_list, "Viewport", vpR, Vector4.zero, Vector2Int.zero); _viewport = vc.transform; var contentR = new PxRect(vpR.x1, vpR.y1, vpR.x2, vpR.y1 + rows * ItemH + ItemGap); _content = MenuDraw.Node(vc.transform, "Content", contentR);   // ✅ 已复刻（2026-11-04 · B142-E18 / E31 · 判据 = `Social Submenu Variant.prefab` 的 `Template ▸ Viewport`（`!u!224 &224737469884136080`：`m_SizeDelta.x = −17`（**序列化值**；⚠️ 运行期是**两档**：不滚动撑满 / 要滚动才 −17，见本方法上方的 `needBar`）；`m_SizeDelta.y = 0` + 四边拉伸锚 ⇒ **高 = Template 高**；`!u!114 &114189131814739177` = `Mask`、`m_ShowMaskGraphic: 0`）`▸ Content`（`!u!224 &224868640879826322`）`▸ Item n`。⚠️ 原版是 `Mask`(stencil)、掩码形状 = 内置 `UIMask` 图（`{fileID: 10917}`，32²/border 10；⚠️ 2026-11-05 `B143-W5` 现读订正：不是 `Background`）的圆角矩形；我们只有矩形裁切 ⇒ 用 `ViewportClip.Hang(…, zero, zero)` 等效（不是 `RectMask2D`）。🔴 **高 = `rows × ItemH + ItemGap`（B142-E31 起）**：`Show():926-932` 让 `Content` 高 = 内容高、`extraSpace > 0` 时面板也缩到内容高 ⇒ `Viewport`（`sd.y = 0`）跟着变成内容高；条目从 `Content` 顶下让 `ItemGap/2 = 0.426`、底边同样留 0.426（`TMP_Dropdown.cs:964` 的 `offsetMin.y + itemSize·(n−1−i) + itemSize·pivot.y`）⇒ **条目恒在框内、不必再用「与 Item 同算式」去博那 1 ULP**）
+            BuildScrollbar(listR, vpR, contentR, vc, needBar, contentH);   // ✅ 已复刻（2026-11-05 · B143-W5 · `Template ▸ Scrollbar` + 原版 `Template` 上那颗 `ScrollRect` 的等价物 —— 判据见类尾 `BuildScrollbar` 段头）
             _selRow = _value;      // 建列表那一刻：`_selected` 落在当前值那行（= 原版 `Dropdown.Show()` 的 `if (isOn) Select()`）
             for (int i = 0; i < rows; i++)
             {
@@ -2691,6 +2703,122 @@ namespace CardPresentation
         //   合上面的常态图 = `_closed`；悬停 / 按下 / 选中三档**同值** = `_opened`（`m_Transition = 2`，三个 sprite 同一 guid）。
         //   常量收在这里（类尾）⇒ 不挪既有成员的行号；`Create` 与 `_art` 调用点共用同一份名字（⛔ 别再写第二份字面量）。
         const string ArtFieldClosed = "40K_dropdown_field_closed", ArtFieldOpened = "40K_dropdown_field_opened";
+
+        // ============================================================ 滚动（原版 `Template` 上那颗 `ScrollRect` ＋ `Template ▸ Scrollbar`）
+        // ✅ 已复刻（2026-11-05 · B143-W5 · 判据 = `Social Submenu Variant.prefab`：
+        //   `ScrollRect !u!114 &114502290573962188`（`:20204`）· `Scrollbar !u!224 &224916014319211171`（`:20633`）
+        //   与它的组件 `!u!114 &114535744792750200`（`:20703`）· `Sliding Area !u!224 &224403888976083535`（`:20755`）
+        //   · `Handle !u!224 &224893598567297033`（`:20764`）；行为判据 = 本机 uGUI
+        //   `Library/PackageCache/com.unity.ugui@27635d171b1a/Runtime/UGUI/UI/Core/ScrollRect.cs:1155-1241`）
+        //
+        // 🔴 **今天逐像素零变化**（三条，缺一条都不成立）：
+        //   ① `Content` 高恒 = `Viewport` 高（两者都 = `rows × ItemH + ItemGap`）⇒ 原版 `vScrollingNeeded`
+        //      （`ScrollRect.cs:1103-1109`：`contentBounds > viewBounds + 0.01`）恒 **false**；
+        //   ② `m_VerticalScrollbarVisibility = 2`(AutoHideAndExpandViewport) ⇒ 那一刻 `Scrollbar` 被 `SetActive(false)`
+        //      （`UpdateOneScrollbarVisibility`，`:1226-1241`）⇒ 与「建出来就关着」等价；
+        //   ③ `MenuScroll` 的 `MinOffset == MaxOffset == 0` ⇒ 滚轮 / 拖拽的位移量恒 0。
+        //
+        // ⚠️ **已知未对齐（⛔ 不在本件范围、别顺手改）**：原版 `m_VSliderExpand`（`ScrollRect.cs:560-567`：
+        //   `Viewport` 与 `Scrollbar` 都是 `Template` 的子件 ⇒ 成立）在**不需要滚动**时会把 `Viewport` 的
+        //   `sizeDelta.x` 置 0（`SetLayoutHorizontal`，`:1166-1176`）⇒ 原版这一刻 `Viewport` 宽 = **Template 满宽**，
+        //   而我们是 `Template − 17`（`vpR` 的算式见 `BuildList`）。这条会改动 **17px 可见宽度** ⇒ 另立一条账。
+        /// <summary>原版 `Scrollbar` 的 `m_SizeDelta.x`（`!u!224 &224916014319211171`：`aMin(1,0) aMax(1,1) pivot(1,1)`）。
+        /// `ScrollbarW = SbW + SbSpacing = 17` —— 即条目宽让出来的那 17px（同一份判据，⛔ 别写第二个 17）。</summary>
+        public const float SbW = 20f;
+        /// <summary>原版 `ScrollRect.m_VerticalScrollbarSpacing = **−3**`（`!u!114 &114502290573962188` 现读）。</summary>
+        public const float SbSpacing = -3f;
+        /// <summary>原版 `Scrollbar.m_Size = **0.9273075**`（`!u!114 &114535744792750200` 现读；= Handle 占滑区高的比例）。</summary>
+        public const float SbHandleSize = 0.9273075f;
+        /// <summary>原版 `Scrollbar.m_Direction = **2**`(BottomToTop) ⇒ 值 0 时 Handle 贴底（我们 y 向下 ⇒ 贴 `y2`）。</summary>
+        public const int SbDirection = 2;
+        /// <summary>原版 `Scrollbar.m_NumberOfSteps = **0**`（连续，不按步进）。</summary>
+        public const int SbSteps = 0;
+        /// <summary>原版 `ScrollRect.m_MovementType = **2**`(Clamped) ⇒ `MenuScroll.Elastic = false`（缺省即它）。</summary>
+        public const int MovementType = 2;
+        /// <summary>原版 `ScrollRect.m_ScrollSensitivity = **1.0**`（`OnScroll`：`position += delta × 它`；一格 = 1 设计 px）。
+        /// `MenuScroll.NotchPx` 同一单位 ⇒ 直接喂它（⛔ 别拿缺省的 48 顶替 —— 那是「未现读视图」的兜底）。</summary>
+        public const float ScrollSensitivity = 1f;
+
+        Transform _scrollbar, _slidingArea;
+        ImageQuad _handle;
+        MenuScroll _scroll;
+
+        /// <summary>自检读口：滚动区（原版 `Template` 上那颗 `ScrollRect` 的等价物 = `MenuScroll`）；列表没建过 ⇒ `null`。</summary>
+        public MenuScroll Scroll { get { return _scroll; } }
+        /// <summary>自检读口：`Template ▸ Scrollbar` 节点；没建过 ⇒ `null`。</summary>
+        public Transform ScrollbarRoot { get { return _scrollbar; } }
+        /// <summary>自检读口：`Scrollbar ▸ Sliding Area ▸ Handle`；图取不到 ⇒ `null`。</summary>
+        public Transform HandleRoot { get { return _handle != null ? _handle.transform : null; } }
+        /// <summary>滚动条这一刻显不显示 —— 原版 `m_VerticalScrollbarVisibility = 2` 的 AutoHide 结果。
+        /// 今天恒 `false`（`Content` 高 == `Viewport` 高 ⇒ `vScrollingNeeded == false`）。</summary>
+        public bool ScrollbarShown { get { return _scrollbar != null && _scrollbar.gameObject.activeSelf; } }
+        /// <summary>原版 `ScrollRect.verticalNormalizedPosition` 的等价物（一般 1 = 顶 · 0 = 底）。
+        /// 🔴 **内容装得下时是 0、不是 1** —— 原版那一支（`ScrollRect.cs:1039-1053`）走
+        /// `Mathf.Approximately(contentBounds.size.y, viewBounds.size.y)` 后**还要比**
+        /// `viewBounds.min.y > contentBounds.min.y`；我们这一档两者**逐位同高** ⇒ 比较为 false ⇒ 返回 **0**。
+        /// 今天恒 `0`（`Content` 高 == `Viewport` 高）；写口同原版 `SetNormalizedPosition`：无范围时夹回 0。</summary>
+        public float VerticalNormalizedPosition
+        {
+            get { return (_scroll == null || _scroll.MaxOffset <= 0f) ? 0f : 1f - _scroll.Offset / _scroll.MaxOffset; }
+            set
+            {
+                if (_scroll == null) return;
+                float max = _scroll.MaxOffset;
+                _scroll.SetOffset(max <= 0f ? 0f : (1f - value) * max);
+            }
+        }
+
+        /// <summary>建 `Template ▸ Scrollbar ▸ Sliding Area ▸ Handle`，并把 `MenuScroll` 接到 `Viewport` / `Content` 上
+        /// （= 原版 `Template` 上那颗 `ScrollRect`）。三个矩形全部由 `UguiRect.Child` 按原版序列化五元组算出，
+        /// **本方法不改任何既有几何**。✅ 已复刻（2026-11-05 · B143-W5 · 判据见本段头）</summary>
+        void BuildScrollbar(PxRect listR, PxRect vpR, PxRect contentR, ViewportClip vc, bool needBar, float contentH)
+        {
+            // ---- Scrollbar（原版 `aMin(1,0) aMax(1,1) pos(0,0) sd(20,0) pivot(1,1)` ⇒ 贴 `Template` 右沿、上下同高）----
+            var sbR = UguiRect.Child(listR, UguiRect.A10, UguiRect.A11, UguiRect.P11, Vector2.zero,
+                                     new Vector2(SbW, 0f));
+            _scrollbar = MenuDraw.Node(_list, "Scrollbar", sbR);
+            if (_scrollbar == null) { SocialPage.Say("[Social] 下拉滚动条节点建不出来 ⇒ 只能看前 " + MaxVisibleRows + " 项。"); return; }
+            // 原版那颗 `Image` 挂在 `Scrollbar` **自己**身上（内置 `Background`、`m_Type 1`(Sliced)、白 a=1）。
+            //   本工程不能给 `Node` 挂图 ⇒ 开一颗子件；节点名取 `scroll_bg`（⛔ 不叫 `bg` —— `Template` 下已经有一颗
+            //   `Bg`，同名会让 `FindChild` 的命中取决于遍历序）。替代口径与 `Shell/SettingsWindow.cs:3697` 同一先例。
+            var sbBg = _art("Background");
+            if (sbBg == null) SocialPage.Say("[Social] 下拉滚动条底图 `Background` 取不到 ⇒ 那颗件不画（原版是内置 `Background`）。");
+            else MenuDraw.Rect(_scrollbar, sbBg, sbR, "scroll_bg", QItemText, null, false);
+            // ---- Sliding Area（原版 `aMin(0,0) aMax(1,1) sd(−20,−20) pivot(.5,.5)` ⇒ 四边各缩 10、宽 20 − 20 = **0**）----
+            var slideR = UguiRect.Child(sbR, UguiRect.A00, UguiRect.A11, UguiRect.P50c, Vector2.zero,
+                                        new Vector2(-20f, -20f));
+            _slidingArea = MenuDraw.Node(_scrollbar, "Sliding Area", slideR);
+            // ---- Handle（原版 `aMin(0,0) aMax(1, 0.9273075) pos(0,0) sd(20,20) pivot(.5,.5)`）----
+            //   高 = 滑区高 × `m_Size` + 20；`m_Value 0` + `m_Direction 2`(BottomToTop) ⇒ 贴底。
+            var handleR = UguiRect.Child(slideR, UguiRect.A00, new Vector2(1f, SbHandleSize), UguiRect.P50c, Vector2.zero,
+                                         new Vector2(20f, 20f));
+            var handleTex = _art("40k_menu_scroll_bar_fill");   // 原版是内置 `UISprite`（本机没导入）⇒ 同 `SettingsWindow.cs:846` 的替代件
+            if (handleTex == null) SocialPage.Say("[Social] 下拉滚动条滑块 `40k_menu_scroll_bar_fill` 取不到 ⇒ 滑块不画。");
+            else if (_slidingArea != null) _handle = MenuDraw.Rect(_slidingArea, handleTex, handleR, "Handle", QItemText, null, false);
+            // ---- ScrollRect（等价物 = `MenuScroll`，字段逐条对原版 `!u!114 &114502290573962188`）----
+            // ✅ 2026-11-05（B143-W5 · W7 复核补）：**要滚动时**内容范围必须用**原版真实内容高**（全部 n 行）——
+            //   否则 `MenuScroll.MaxOffset`（只认已建的 `rows` 行 = 14）恒 0 ⇒ 与 `needBar` 相反 ⇒
+            //   `BindScrollbar → SyncScrollbar` 会在下面把刚显示出来的滚动条**又关掉**（n > 14 永不显示）。
+            //   **不滚动时**仍传 `contentR.H`（与改前**逐位相同**）⇒ 把「零变化」变成结构保证，而不是靠数值巧合。
+            _scroll = MenuScroll.TopAligned(vpR, needBar ? contentH : contentR.H, ScrollSensitivity);   // `m_Content` = `Content` · `m_Viewport` = `Viewport`
+            _scroll.Elastic = false;      // `m_MovementType 2`(Clamped)；`m_Elasticity 0.1` / `m_DecelerationRate 0.135` 是 `MenuScroll` 的常量（全库一致）
+            _scroll.Inertia = true;       // `m_Inertia 1`（`MenuScroll` 缺省即 true，这里显式写出来免得被当默认值兜底）
+            _scroll.Owner = _list.gameObject;   // 原版 `ScrollRect` 挂在 `Template` 那份上：列表一关（`SetActive(false)`）⇒ 指针层 `HitScroll` 跳过它
+            _scroll.ClipNode = vc;              // 原版 `m_Viewport`（裁切 = 那颗 `Mask`，我们的等价物是 `ViewportClip`）
+            SocialPage.RegisterScroll(_scroll); // 滚轮才落得到这一格（`PointerLayer.HitScroll` 的唯一入口）
+            // ---- 可见性（原版 `m_VerticalScrollbarVisibility = 2`：不需要滚就整根关掉）----
+            // ⚠️ `needBar` 由 `BuildList` 算**一次**传进来（它同时决定 Viewport/Item 宽 —— 两处写同一条规则迟早不一致）。
+            _scrollbar.gameObject.SetActive(needBar);
+            // ✅ 已复刻（2026-11-05 · B143-W7 · 判据 = `MenuScroll.ScrollbarBinding` 段头：原版 `Social Submenu Variant.prefab`
+            //   的 6 份 `Scrollbar` 逐字段相同 —— ColorTint 四态 + `m_ColorMultiplier 1` + `m_FadeDuration 0.1`
+            //   + `m_TargetGraphic` = **Handle 自己的 Image**；外加 `Handle` 可拖）。未绑 ⇒ `MenuScroll` 一切照旧。
+            if (_handle != null && _scroll != null)
+                _scroll.BindScrollbar(new MenuScroll.ScrollbarBinding
+                {
+                    Root = _scrollbar, Handle = _handle.transform, HandleQuad = _handle,
+                    HandleRect = handleR, Track = slideR, Size = SbHandleSize, PadY = 20f,
+                });
+        }
     }
 
     /// <summary>🆕 **2026-10-30（`B101_W3`）**：`Avatar Item Small` 三层的**视觉矩形** —— 原版

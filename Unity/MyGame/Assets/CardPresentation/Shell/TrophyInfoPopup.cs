@@ -141,7 +141,7 @@ namespace CardPresentation
         //   重取命令：`python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "Alliance Trophy Info Popup" --depth 12 --md`
         //   ⚠️ **`Next Tier` 的父是 `Progress`（原始 `m_Children` 实读），不是 `Controls`**（订正见上「队列档」那节）。
         static readonly PxRect ShadeR    = new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f);  // 全库统一那个压暗矩形
-        static readonly Color  ShadeCol  = new Color(0f, 0f, 0f, 0.773f);                       // Simple (0,0,0,0.773)
+        static readonly Color  ShadeCol  = new Color(0f, 0f, 0f, 0.7725490f);                       // Simple (0,0,0,0.77254903 = 197/255)（✅ 2026-11-05 B144-D 订正：原注释写 0.773 = 取整）
         static readonly PxRect WinR      = new PxRect(395.72f, 188.35f, 1524.28f, 851.65f);     // `window`
         static readonly PxRect WinBgR    = new PxRect(395.70f, 178.35f, 1547.30f, 895.80f);     // `Generic Window Red Background Big`
         static readonly PxRect BadgeR    = new PxRect(435.87f, 267.52f, 944.13f, 744.48f);      // `BadgeDrawer`（= `Frame`/`Badge` 同矩形）

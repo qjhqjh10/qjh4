@@ -1670,7 +1670,7 @@ namespace RuleEngine
         {
             return delegate (string id)
             {
-                if (ctx == null || ctx.CardPool == null || string.IsNullOrEmpty(id)) return null;
+                if (string.IsNullOrEmpty(id)) return null; var _tv = CardDatabase.TutorialVariantLookup()(id); if (_tv != null) return _tv; if (ctx == null || ctx.CardPool == null) return null;   // 🆕 2026-11-05（B143-W6）：教程变体卡不在可玩池 ⇒ 先查变体表（起始部队 / 回合末附魔的 `ourId` 现在就是变体 id）
                 for (int i = 0; i < ctx.CardPool.Count; i++)
                 {
                     var c = ctx.CardPool[i];
@@ -2043,16 +2043,16 @@ namespace RuleEngine
         //  `availableUnits[i].rawCardData.cardName(+0x38)` 与 `chosenMinion.cardName(+0x38)`（**字符串**），
         //  不是 id、不是 uniqueId；认不出 / `chosenMinion == null` ⇒ `iVar4 = 0` ⇒ **返回 `list[0]`**。
         //  我们的脚本数据 `TutorialUnitRef` 同时带 `name`（原版卡名，逐字）+ `ourId`（生成器解出的我方 id，
-        //  `matchTier` 记着是逐字命中还是靠 ocrName 裁定）⇒ **先比卡名、再退回 id**：
-        //  · 逐字命中档（`matchTier == "exact"`）走卡名 —— 与原版同一把尺；
-        //  · ocrName 裁定档 / 没解出名字的，退回 id（⛔ 不是原版的口径，但它是我们唯一能指向那张卡的键）。
-        //  ⛔ 别只留 id：那会让「同一张卡在我们表里改过 id」与「原版按名取」分叉（铁律 18·0 的「照原版」）。
+        //  `matchTier` 记着逐字 / 变体 / ocrName 哪一档）⇒ **只比卡名**（🔴 2026-11-05 `B143-W6` 删掉了旧的
+        //  「再退回 id」第二跳：教程变体卡已按原版 SO 落成独立表，41 个牌组槽 + 42 条动作引用的名字逐字对得上）；
+        //  ⛔ `ourId` 仍有用但**不是匹配键**：它是「这一格是哪张卡」的身份口，只给 `PoolLookup` 那两条路用 ——
+        //  别把它拿回匹配里（那会重新盖掉原版「认不出就退 list[0]」的行为，`GetChosenCard.c:20-40`）。
 
-        /// <summary>脚本那一格有没有可比的键（卡名或 id 至少一个）。
-        /// <para>都空 ⇒ 原版 `chosenMinion == null` ⇒ `GetChosenCard` 直接送 `list[0]`（`.c:38`）。</para></summary>
+        /// <summary>脚本那一格有没有**卡名**（匹配键只认它；`ourId` 单独存在不算 —— 原版就是 `chosenMinion == null`）。
+        /// <para>没有 ⇒ 原版 `chosenMinion == null` ⇒ `GetChosenCard` 直接送 `list[0]`（`.c:38`）。</para></summary>
         static bool HasScriptedKey(TutorialUnitRef r)
         {
-            return r != null && (!string.IsNullOrEmpty(r.name) || !string.IsNullOrEmpty(r.ourId));
+            return r != null && !string.IsNullOrEmpty(r.name);
         }
 
         /// <summary>脚本那一格的键的**可读文本**（日志用；卡名优先，与原版匹配口径一致）。</summary>
@@ -2063,7 +2063,7 @@ namespace RuleEngine
             return r.ourId ?? "<空>";
         }
 
-        /// <summary>场上那张单位是不是脚本指的那一张 —— **先比卡名（原版 `cardName`）、再退回我方 id**。</summary>
+        /// <summary>场上那张单位是不是脚本指的那一张 —— **只比卡名**（原版 `GetChosenCard.c:20-40` 的 `cardName`）。</summary>
         static bool ScriptedUnitMatches(UnitState u, TutorialUnitRef r)
         {
             if (u == null || u.Card == null || r == null) return false;
@@ -2074,8 +2074,8 @@ namespace RuleEngine
         static bool ScriptedCardMatches(CardDef c, TutorialUnitRef r)
         {
             if (c == null || r == null) return false;
-            if (!string.IsNullOrEmpty(r.name) && c.Name == r.name) return true;
-            return !string.IsNullOrEmpty(r.ourId) && c.Id == r.ourId;
+            return !string.IsNullOrEmpty(r.name) && c.Name == r.name;   // ✅ 已复刻（2026-11-05 · B143-W6 · `decomp_full/AiScripted__GetChosenCard.c:20-40`）：**只比 `cardName`**；旧第二跳「再比 `c.Id == r.ourId`」已删（变体表落地后按名字就匹得上，留它 = 原版「认不出 ⇒ 退 `list[0]`」永远走不到）
+            // 扫描依据 → `报告/B143_W6_存档数据.md` §七（现读「只有 id 没 name」的引用 = 0）
         }
 
         // ==================================================================

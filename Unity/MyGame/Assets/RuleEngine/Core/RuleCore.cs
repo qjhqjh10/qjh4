@@ -153,7 +153,7 @@ namespace RuleEngine
                                               GameplayVariables vars = null,
                                               int firstSeat = 0,
                                               TutorialScript tutorial = null,
-                                              int botSeat = -1, MatchType matchType = MatchType.Undefined)
+                                              int botSeat = -1, MatchType matchType = MatchType.Undefined, bool drawFirstSeat = false)
         {
             // 🔴 **2026-10-23（引擎线 `新账-89` ③）**：`EffectResolver` 的静态旁表
             //    `_keywordsPact`（键 = `UnitState`）**只在本局内有意义**；不清的话，长会话里
@@ -198,7 +198,7 @@ namespace RuleEngine
                 ctx.Log($"教程局：第 {st.stage} 关（`{st.so}`）· 先手 = {(firstSeat == 0 ? "玩家" : "AI")}"
                       + $"（关卡 `playerStarts = {st.playerStarts}`）· 不换牌");
             }
-            ctx.FirstSeat = firstSeat == 1 ? 1 : 0;
+            if (drawFirstSeat) ctx.DrawFirstSeatRandomInt(); ctx.FirstSeat = (firstSeat >= 0 ? firstSeat : (ctx.FirstSeatRandomInt == 0 ? 0 : 1)) == 1 ? 1 : 0;   // 🔴 2026-11-05（B143 · B141-COIN-FLIP）：原版 `SearchOpponentManager__StartBattle.c:20-21` 开局**无条件**掷 `GetRandomInt(0,2)` 存 `MatchData+0xe8`，是整局**第 0 格**；平局支 `SupportMethods.cs:3216-3228` 读它（`==0` ⇒ 座位 0 先手）。`firstSeat >= 0` = 调用方**显式指定**（联机/录像/教程/自检钉子）⇒ 值照旧覆盖、但**格子照吃**（原版同形）；`-1` = 没指定 ⇒ 用掷出来的。⛔ 缺省 `drawFirstSeat = false` ⇒ 探针路径流不动
 
             // 🔴 🆕 **2026-10-19（`A1070`）：本局哪个座位是电脑 —— 必须在建人之前落位**
             //   （防御卡就是在这下面发的：换牌不开 ⇒ 当场发；换牌开着 ⇒ `EndMulligan` 发）。
@@ -1041,9 +1041,9 @@ namespace RuleEngine
             // 🔴 **2026-10-25（`K8`）：`setCost(95)` 走原版那条【不含 base】的出口。**
             //   `CostMod.SetTo >= 0` = 一条 `setCost` 记录（目标绝对值 N）。⚠️ 2026-11-02（`B120-Q`）订正：原版 getter 其实是**先写赢**
             //   （`get_CurrentCost.c:52-79`）；但 `AddEffect` 的 `case setCost` **先 `RemoveActiveEffects(95)` 删光全部匹配项** ⇒ 列表至多一条、先/后写不可观测。我们取最后一条 = 等价；然后
-            //   `clamp0(N + Σ 全部 changeCost)` —— **不读 `c.Cost`**，也因此**不带**那两条静态修正
-            //   （`CostIfControls` / `CostPerEnemyHandCard` 是我们自己的建模、原版 `get_CurrentCost` 里没有它们；
-            //    宁可照原版算式整项丢掉，也不发明一个原版没有的加法）。
+            //   `clamp0(N + Σ 全部 changeCost)` —— **不读 base `c.Cost`**，但**要带**那三项静态降费
+            //   （`CostIfControls` / `CostPerEnemyHandCard` / `CostPerKeywords` 就是原版那条 240 `changeCost` 的等价物，
+            //    `get_CurrentCost.c:76-78` 的 setCost 支会重扫并累加它们）⇒ 见下面 `(v - c.Cost)`。
             int setTo = -1;
             int sum = 0;
             for (int i = 0; i < ctx.CostMods.Count; i++)
@@ -1053,7 +1053,7 @@ namespace RuleEngine
                 if (m.SetTo >= 0) { setTo = m.SetTo; continue; }
                 sum += m.Delta;
             }
-            return System.Math.Max(0, (setTo >= 0 ? setTo : v) + sum);
+            return System.Math.Max(0, (setTo >= 0 ? setTo + (v - c.Cost) : v) + sum);   // ✅ 已复刻（2026-11-05 · B143_R3 · 判据 `decomp_full/EntityScript__get_CurrentCost.c:52-82`：原版 setCost 支 = `clamp0(setTo + Σ 全部 buffType==2 的 changeCost)`，**不读 base** 但**要带**那三项静态降费 —— 改前把它们整项丢了 ⇒ `GSC37` 被 `GSC39` 回手降为 1 费时恒 1，而原版是 `clamp0(1 − 敌方手牌数)`。`v - c.Cost` = 三项之和（`v` 在 `:1022-1036` 算好，`c.Cost` 是 base））
         }
 
         /// <summary>
@@ -2126,7 +2126,7 @@ namespace RuleEngine
             {
                 var u = p.Board[s];
                 if (u == null) continue;
-                u.RefreshForNewTurn();
+                u.RefreshForNewTurn(); u.Prayed = false;   // ✅ 已复刻（2026-11-05 · B144-W3 · 物理审计 B8：原版 `CardScript__OnTurnStart.c:100` 的 `+0x67 = 0` **紧跟在 `:99 ActivateMinion` 之后、`:102-109` 开舱之前**、按卡逐个清；我们原来把「清 `Prayed`」放在整圈循环**之后**（= 每张卡的**开舱 Landing 触发**都还读到「自己在祈祷」）⇒ 2026-11-05 按原版搬进这一圈（主动方**逐卡**在这里清；对手方那半仍由下面那一圈补，见那段注释）
                 // ---- 🆕 2026-10-21（`A1354`）：**回合开始【自动开舱】**（`dropPod`）----
                 //  判据 = `CardScript__OnTurnStart.c:102-108`（**本会话 VA 逐条核过**）：
                 //    `:102 bVar3 = false;` → `:103 HasCurrentTrait(param_1, 0xe6 /*dropPod*/)`
@@ -2208,9 +2208,9 @@ namespace RuleEngine
             //    顺序反了的话，`If any friendly unit is Praying, …`（`Sororitas Rhino`）/
             //    `Each friendly unit that is Praying heals 3`（`Devout Serenity`）读到的
             //    就是**清之前**的值（多治一次）。
-            //  ⚠️ **与上面那圈逐卡循环的差别（如实标着）**：原版是**逐卡**「解疲劳 → 清 `+0x67` → 开舱…」，
-            //    我们拆成「逐卡（只己方）」＋「整段清 `Prayed`（双方）」两步 ⇒ 那一刻**没人读** `Prayed`
-            //    （`OpenDropPod` / stealth 到期 / 晕瞎闸门都不读它），今天不可观测。
+            //  ⚠️ **与上面那圈逐卡循环的差别（2026-11-05 `B144-W3` 就地订正）**：原版是**逐卡**「解疲劳 → 清 `+0x67` → 开舱…」，现在我们**主动方**已逐卡同序（清 `Prayed` 搬进了上面那一圈、紧跟 `RefreshForNewTurn`）；**对手方**那半仍由下面这一圈整段清。
+            //    残余差别 = 主动方某张卡的**开舱 Landing 触发**去读「对手某张卡是否在祈祷」时，原版若那张对手卡排在 `CardsInPlay` 更前就已清过、我们这里还没清 ⇒ 池内今天没有这种 Landing 触发，**零可观测**。
+            //    ⛔ 别据此把对手那半也塞进上面那圈：那圈的 `RefreshForNewTurn` / 开舱 / stealth 到期 / 晕瞎闸门都是**按当前行动方**跑的，塞进去会改行为。
             for (int side = 0; side < ctx.Players.Length; side++)
             {
                 var sideBoard = ctx.Players[side].Board;
@@ -12926,14 +12926,14 @@ namespace RuleEngine
                 if (sd != null) GrantSkipCardDraw(ctx, owner, ownerCard, sd);
             }
 
-            ctx.EffectChain++;
+            ctx.EffectChain++; bool _prevExt = ctx.ResolvingExtrinsic; if (string.Equals(keyword, "whileinplay", System.StringComparison.OrdinalIgnoreCase) || string.Equals(keyword, "whileinplayvariable", System.StringComparison.OrdinalIgnoreCase)) ctx.ResolvingExtrinsic = true;   // 🔴 2026-11-05（B143-W1 · B141-DOGIVE-PRODUCER）：**while-in-play 那一段结算整体算 extrinsic**（原版 `CardEffect.extrinsic(+0x30)`，判据 `AbilityLogic__PlayAbility.c:1197-1200`；`UpdateWhileInPlay` 每次「先摘再重加」的正是这批记录）⇒ 在这一层包住按关键词触发的 `ResolveOps` / `ResolveEffect`，让 `RecordGrant` / `AddStatMod` / `AddTempBuff` 拿到的 `extrinsic` 位与原版一致（既有唯一写点 = `RuleCore.ResolveHandBuffOps`）。⚠️ 只对 `whileinplay` / `whileinplayvariable` 两族置真，比较用 `OrdinalIgnoreCase`（`keyword` 由 `FireTriggerAt` 透传、大小写不保证）。⚠️ 今天**零可观测**（`_triggerOps` 没有这两族键 + 两条映射还没有生产点）⇒ `play check` 指纹必须逐字节不变。⛔ **别顺带建 `_triggerOps["whileinplay"]` 供给** —— 池内 49 卡 / 53 行 logic 里 **45 行是纯 `buff`**，再造一份会与 Aura 层**双倍加成且零报错**（反证 → `判据/B143_奖励背包与待裁四项.md` §裁定 2）。保存必须在 `EffectChain++` **之后立刻**做（嵌套时基线才是外层的值）
             try
             {
                 if (ops != null) ResolveOps(ctx, owner, u, RandomAbilityChoiceOps(ctx, u, ops, only, keyword, ignoreRandomTrigger), keyword.ToUpperInvariant(),
                                              chosen: chosen);
                 else if (spec != null) ResolveEffect(ctx, owner, u, spec, chosen);
             }
-            finally { ctx.EffectChain--; }
+            finally { ctx.ResolvingExtrinsic = _prevExt; ctx.EffectChain--; }   // 与上一处 `_prevExt` 的保存**成对**（`keyword` 不是那两族时，这里写回的就是原值 ⇒ 零行为变化；⛔ 别另起第二个 try/finally）
 
             // 🆕 **「关键词被触发」事件**（2026-09-13 候选 E）——
             //    卡面：`When a friendly unit triggers Mob, …` / `… uses Ferocity, …` /

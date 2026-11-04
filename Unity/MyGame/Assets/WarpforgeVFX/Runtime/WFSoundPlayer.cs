@@ -199,7 +199,7 @@ namespace WarpforgeVFX
 
         /// <summary>原版 `AudioCue__CanPlay.c` 逐行等价：还在窗口内**且之前真的播过** ⇒ 不许播（不写戳）；
         /// 否则**先写戳**再放行（原版 `ConfigAudioSource.c:31` 的次序 —— 后面挑不出 clip 也算播过）。</summary>
-        internal static bool CanPlayByCooldown(WFSoundCue cue)
+        public static bool CanPlayByCooldown(WFSoundCue cue)   // ✅ 2026-11-05（B144-B2 · B131 C6）：`internal` → **`public`** —— 这是**全项目唯一那张冷却表**（原版 `lastTimePlayed` 只住在 cue 资产上）；`WindowSounds` / `RemnantSfx` / `BattleSfx` 全部转调它，Editor 自检也要能直接调它验「同名 cue 跨路径共享同一个窗口」
         {
             return CanPlayByCooldown(_lastAt, cue, cue.timeToPlayAgain);
         }

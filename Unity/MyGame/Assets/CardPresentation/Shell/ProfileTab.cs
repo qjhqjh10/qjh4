@@ -951,7 +951,7 @@ namespace CardPresentation
             var ft = Node(ct, "footer", new PxRect(ftL, ftT + dy, ftR, ftB + dy));
             // `Highest Faction Rating`（出厂 F · 无字段引用 —— §A.1）⇒ 关
             var hf = Node(ft, "Highest Faction Rating",
-                          new PxRect(ftL - 177.72f, ftT + 160.10f + dy, ftR - 232.28f, ftT + 199.90f + dy));
+                          new PxRect(ftL - 177.72f, ftT + 160.10f + dy, ftR - 232.28f, ftT + 199.90f + dy)); if (hf != null) BuildHighestFactionRatingValue(hf, new PxRect(ftL - 177.72f, ftT + 160.10f + dy, ftR - 232.28f, ftT + 199.90f + dy));   // ✅ 已复刻（2026-11-05 · B143-W9 · 判据 `判据/B90_N2_小屏字号实例.tsv`：`Ranking/{Current,Highest} Rank/Content/footer/Highest Faction Rating/Rating Text/Individual rating value` = 45.0/0）
             hf.gameObject.SetActive(false);
             // `MainRating`（逐卡 T/F）> `Mission Milestones Progress` / `Global Rating`
             // 🔴 **2026-10-24（U2 · 父链归真）**：`Global Rating` 原版挂在 **`MainRating` 下面**
@@ -2019,6 +2019,27 @@ namespace CardPresentation
             }
             else
                 Debug.LogWarning("[Profile] `Campaign Profile Container/Level` 节点不在 ⇒ 「当前战役」的等级没画（⛔ 不静默）。");
+        }
+
+        // ============================================================ 类尾追加（B143-W9 · 2026-11-05）
+        /// <summary>`Ranking/{Current,Highest} Rank/Content/footer/Highest Faction Rating ▸ Rating Text` 下面那颗
+        /// `Individual rating value` —— 以前**整颗没建**（父件只建了空壳）。
+        /// ✅ 已复刻（2026-11-05 · B143-W9 · 判据 `判据/B90_N2_小屏字号实例.tsv` = **45.0/0**）。
+        /// <para>几何（`Player Profile Window.prefab` 现读，`menu_dump … --depth 12`）：父件 `Highest Faction Rating`
+        /// = `179.3,617.8 → 534.8,657.6`；`Rating Text` 左沿 = 父左沿 **+177.7** · 上沿 = 父上沿 **−9.7** · 高 **59.17**；
+        /// 值节点左沿 = 父左沿 **+297.7**。⚠️ `Rating Text` 的序列化宽是 **0**（内层 TMP 由自适应撑开）
+        /// ⇒ 我们取**右边缘 = 父件右边缘**（宽 57.7；这一档是我们推的，原版静态读不到宽）。</para>
+        /// <para>⚠️ 父件出厂 INACT（`RankingDisplay.displayRating` 那一族运行期才点亮）⇒ 这一颗永远不可见；
+        /// 占位串照同页兄弟用 <see cref="Dash6"/>。</para></summary>
+        void BuildHighestFactionRatingValue(Transform hf, PxRect hfR)
+        {
+            var rtR = new PxRect(hfR.x1 + 177.70f, hfR.y1 - 9.70f, hfR.x2, hfR.y1 - 9.70f + 59.17f);
+            var rt = Node(hf, "Rating Text", rtR);
+            var valR = new PxRect(hfR.x1 + 297.70f, rtR.y1, hfR.x2, rtR.y2);
+            var lb = Text(rt, Dash6, valR, Color.white, "Individual rating value",
+                          40f, L_Text, autoFit: true, autoMinPx: 18f, alignLeft: true, wrap: true,
+                          autoMaxPx: 40f, basePx: 31.3799991607666f, face: TmpFont.Face.LatinCardBody);
+            if (lb != null) lb.SetSmallScreenFontSizes(45f, 0f);   // 小屏两格 = 45.0/0（TSV 现读）
         }
     }
 }

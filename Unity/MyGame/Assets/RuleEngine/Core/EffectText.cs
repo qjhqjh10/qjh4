@@ -1675,7 +1675,7 @@ namespace RuleEngine
             //   （原版 `RawCardScript.cardTargetCriteria`，唯一消费者 `RawCardScript__IsValidTarget.c:8-44`）
             //   —— 只对 `targeted == 1` 的卡生效；它挂在**卡**上、没有 ability 下标
             //   ⇒ 与上面那趟「逐 ability 归位」分开，且**只补没归位的 op**（不许覆盖）。
-            AssignCardTargetFallback(ops, card);
+            AssignCardTargetFallback(ops, card); AssignChooseCardRowIndices(ops, card);   // 🆕 2026-11-05（`B143-W3` · 账 `B141-CHOOSECARD-ROW` 的解析层根治）：`choosecard`（候选域 = 墓地）的 `(ab,lg)` 归位 —— 判据/闸门见类尾那个方法
             // 🆕 2026-10-19（`A1960`）：原版 `choicesDefinition` 要求选牌、而**正文没写 choose** 的卡
             //   —— 补一条 `choosecard`（候选域 = `specific`）。判据与闸门见那个函数。
             //   ⚠️ **必须在上面那几轮回填之后插**：`repeat` / `paidmod` 的 `BaseOps` 已按原 op 排好，
@@ -10942,6 +10942,86 @@ namespace RuleEngine
                 op.ChooseSpecificIds = new List<string>(ids);
             }
             return hasChoose;
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-05（执行写手 `B143-W3` · 账 `B141-CHOOSECARD-ROW` 的**解析层根治**）
+        //  **`choosecard`（候选域 = 墓地）的 `(ab, lg)` 归位**
+        // ==================================================================
+        //  **病灶（现读，2026-11-05 逐卡实测；推翻了 `B143-W1` 报告 §四 的成因判断）**：
+        //   `Choose … died …` 那三张（`GSC44` / `SAU39` / `UM61`）解出来的 `choosecard` op 是
+        //   `AbilityIndex = -1` —— **不是**「片段路写了合成坐标 `(0, n++)`」，而是
+        //   `AssignAbilityIndices` 在「一条 `role=target` 行都没有、也没有 `mult`/`count`/`multi`/`acting`
+        //   行」时**整支提前 return**（这些卡的 `unitConditions` 只有 `role=choice`/`avail` 这类卡级行，
+        //   `ab = -3`）⇒ 下标**从来没被写过**（实测：`AbilityMap` 为空 = 没走过任何赋值分支）。
+        //   对照：`EC39` / `SOR42` 走的是**整条 desc 的块路**（`AbilityMap = "block"`），
+        //   `choosecard` 拿到 `(0,0)` ⇒ 本来就读得到，**不依赖任何回落**。
+        //   消费端（`EffectResolver.ResolveCemeteryTargets` 的
+        //   `AbilityTargetCriteriaAt(op.AbilityIndex, op.LogicIndex)`）因此读不到行，
+        //   `B143-W1` 只能在结算侧加一条「全卡唯一 `ta=60` 行」的回落。
+        //  ⇒ 本方法把那个回落**前移到解析层**：坐标来自**数据**，消费端直接读得到（回落可以退役）。
+        //
+        //  **闸门（任一不过 ⇒ 什么都不做；消费端照旧按目标短语推 + 出声，⛔ 不猜）**：
+        //   ① 卡表 v25+（`AbilityTargetCriteriaVersioned`）；
+        //   ② 目标 op = `choosecard` 且 `ChooseSrc == "dead"`（候选域就是墓地）。
+        //      ⛔ 不扩到 `pool`/`hand`/`deck`/`specific`：那些域在池内还有 **40+ 条** op 没有坐标，
+        //      而「哪一行是它所属的」没有本方法这条判据（`specific` 那批更是
+        //      `InjectChoicesDefinitionOp` 注入的、正文里没有出处）⇒ 一律不碰。
+        //   ③ 该 op 的 `AbilityIndex < 0`（已归位的不覆盖 —— `EC39`/`SOR42` 今天就是对的）；
+        //   ④ 全卡 `abilityTargetCriteria` 里 `targetsAffected == 60`（原版 `inCemeteryFiltered`）
+        //      **恰好一条**（0 条 / 多条 ⇒ 歧义 ⇒ 不猜；与消费端回落同一判据）。
+        //
+        //  ⚠️ **为什么不把「贴过 criteria 的坐标」一律抄进 `AbilityIndex`**（看似更省）：
+        //     全池现读有 **503 条** op 是「`TargetCriteriaAbility >= 0` 但 `AbilityIndex < 0`」
+        //     （`give`/`deal`/`refill`/… 各族都有）—— 抄了会同时改 `SelectFromChooseResolution` /
+        //     `TraitsFilter` 两格在**所有**那些卡上的读数 ⇒ 那是另一条账、另一批指纹，⛔ 不在本笔。
+        //     （其中 `choosecard` 的 = **0 条**：本方法只治「根本没下标」这一族。）
+        //  📊 **现池命中 = 3 条 op / 3 张卡**（`GSC44` · `SAU39` · `UM61`），逐卡读数见报告。
+        static void AssignChooseCardRowIndices(List<EffectOp> ops, CardDef card)
+        {
+            if (ops == null || ops.Count == 0 || card == null) return;
+            if (!card.AbilityTargetCriteriaVersioned) return;
+
+            bool any = false;
+            for (int i = 0; i < ops.Count; i++)
+            {
+                var o = ops[i];
+                if (o != null && o.Verb == "choosecard" && o.ChooseSrc == "dead" && o.AbilityIndex < 0)
+                { any = true; break; }
+            }
+            if (!any) return;
+
+            // 全卡扫「恰好一条 `targetsAffected = 60`（`inCemeteryFiltered`）」的行。
+            //   ⛔ 不按位置猜：卡面文字序 ≠ `abilityLogic` 序（反例 `Exemplary Warrior` /
+            //   `SOR65`，见 `AssignAbilityIndices` 的注释）；这里只认**数据**。
+            const int InCemeteryFiltered = 60;
+            int ab = -1, lg = -1, hits = 0;
+            CardDef.CountSetSpec hit = null;
+            for (int a = 0; a < 16; a++)
+                for (int l = 0; l < 16; l++)
+                {
+                    var row = card.AbilityTargetCriteriaAt(a, l);
+                    if (row == null || row.TargetsAffected != InCemeteryFiltered) continue;
+                    ab = a; lg = l; hit = row; hits++;
+                }
+            if (hits != 1) return;         // 0 / ≥2 ⇒ 歧义 ⇒ 留 `-1`（消费端照旧出声）
+
+            for (int i = 0; i < ops.Count; i++)
+            {
+                var o = ops[i];
+                if (o == null || o.Verb != "choosecard" || o.ChooseSrc != "dead" || o.AbilityIndex >= 0) continue;
+                o.AbilityIndex = ab;
+                o.LogicIndex = lg;
+                o.AbilityMap = "choosecard-dead-row";
+                o.TargetCriteriaAbility = ab;
+                o.TargetCriteriaLogic = lg;
+                // 与 `AttachTargetCriteria` 的产物**同形**（坐标 + 那一行 + 不留假 gap）：
+                //   `logic-gate` 是「第 j 条 op = 第 j 条 logic 说不清」时记的，而这一条 op 的行
+                //   已经从**数据**定下来了 ⇒ 那原因码对它不再成立（不清的话日志会自相矛盾：
+                //   「挂不上 criteria」而 `TargetCriteriaSet` 又不是 null）。
+                if (o.TargetCriteriaSet == null) o.TargetCriteriaSet = hit;
+                if (o.TargetCriteriaGap == "logic-gate") o.TargetCriteriaGap = "";
+            }
         }
     }
 

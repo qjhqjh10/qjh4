@@ -139,7 +139,7 @@ namespace CardPresentation
         // ============================================================ 真值（§A23 二 那张逐节点表）
 
         static readonly PxRect DarkR = new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f);
-        static readonly Color DarkTint = new Color(0f, 0f, 0f, 0.773f);      // `Menu Dark Background` 的色
+        static readonly Color DarkTint = new Color(0f, 0f, 0f, 0.7725490f);      // `Menu Dark Background` 的色
         static readonly PxRect WindowR = new PxRect(535f, 245f, 1385f, 675f);   // **850 × 430**
 
         const string ArtPopup = "40k_popup";                 // 359×336 · 九宫 (169,160,169,160)

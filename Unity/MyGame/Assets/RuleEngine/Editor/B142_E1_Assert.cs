@@ -141,21 +141,24 @@ public static class B142_E1_Assert
 
         CheckTrue(ash81 != null, "B0a 前提：`ASH81` 在池里");
         CheckTrue(gsc14 != null, "B0b 前提：`GSC14` 在池里");
+        // 🆕 2026-11-05（执行写手 `B143-W3` · 静默跳过普查 🔴）：B3/B4/B5 原来是 `if (sw9 != null) Check(...)` ——
+        //   池里少那张卡时**既不红也不跑**（同方法只给 `ash81`/`gsc14` 加了 B0a/B0b）。按 B0a/B0b 的形状补前提：
+        //   前提不成立当场红；结论**无条件跑**（`ListenerBodyYieldsToFollowUp(null, …)` 返 false，见 B6，不会抛）。
+        CheckTrue(sw9 != null, "B0c 前提：`SW9` 在池里（B3 的全部门；缺卡时 B3 不再静默跳过）");
+        CheckTrue(bl8 != null, "B0d 前提：`BL8` 在池里（B4 的全部门；缺卡时 B4 不再静默跳过）");
+        CheckTrue(bl20 != null, "B0e 前提：`BL20` 在池里（B5 的全部门；缺卡时 B5 不再静默跳过）");
         if (ash81 != null)
             Check(RuleCore.ListenerBodyYieldsToFollowUp(ash81, WhenEventKind.SpiritAbility, false), true,
                   "B1 ★★ `ASH81` + `When you trigger a Spirit Stone ability`(455) ⇒ **让路**（正文改走 410）");
         if (gsc14 != null)
             Check(RuleCore.ListenerBodyYieldsToFollowUp(gsc14, WhenEventKind.Play, false), true,
                   "B2 ★★ `GSC14` + `When your opponent plays a Stratagem`(10) ⇒ **让路**");
-        if (sw9 != null)
-            Check(RuleCore.ListenerBodyYieldsToFollowUp(sw9, WhenEventKind.Attack, false), false,
-                  "B3 ★★ `SW9` ⇒ **不让路**（它的 410 里有 `ca 238`，安全闸挡住；且它走主动能力路）");
-        if (bl8 != null)
-            Check(RuleCore.ListenerBodyYieldsToFollowUp(bl8, WhenEventKind.Damaged, false), false,
-                  "B4 ★★ `BL8`（60 = ca 40，无 320）⇒ **不让路**（让路 = 与正文双发）");
-        if (bl20 != null)
-            Check(RuleCore.ListenerBodyYieldsToFollowUp(bl20, WhenEventKind.Damaged, false), false,
-                  "B5 ★★ `BL20`（60 = ca 40，无 320）⇒ **不让路**");
+        Check(RuleCore.ListenerBodyYieldsToFollowUp(sw9, WhenEventKind.Attack, false), false,
+              "B3 ★★ `SW9` ⇒ **不让路**（它的 410 里有 `ca 238`，安全闸挡住；且它走主动能力路）");
+        Check(RuleCore.ListenerBodyYieldsToFollowUp(bl8, WhenEventKind.Damaged, false), false,
+              "B4 ★★ `BL8`（60 = ca 40，无 320）⇒ **不让路**（让路 = 与正文双发）");
+        Check(RuleCore.ListenerBodyYieldsToFollowUp(bl20, WhenEventKind.Damaged, false), false,
+              "B5 ★★ `BL20`（60 = ca 40，无 320）⇒ **不让路**");
         Check(RuleCore.ListenerBodyYieldsToFollowUp(null, WhenEventKind.Play, false), false, "B6 `null` 卡 ⇒ false（不抛）");
         Check(RuleCore.ListenerBodyYieldsToFollowUp(gsc14, "不存在的 kind", false), false,
               "B7 认不出的 kind ⇒ false（⛔ 不猜）");

@@ -892,7 +892,7 @@ namespace CardPresentation
         /// <summary>建盟表（原版 `CreateAllianceMenu`，**act F**）。⚠️ **五项操作全要服务器**：
         /// 名字/描述（要打字）、语言/隐私（两个 `TMP_Dropdown`）、`Continue`（花 1000 水晶建盟）
         /// ⇒ 我们把**看得见的版面照建**，点下去一律出声。
-        /// 两个下拉的 `Template` 是 **Unity 内置模板**（`Item Label = 'Option A'`）⇒ **不建**（§B·13）。</summary>
+        /// 两个下拉的 `Template` 是原版 prefab **真有的子树**（不是 Unity 内置模板）⇒ 已建（开合/几何见 `AllianceDropdownBox`；2026-10-28 `B90-N5` 订正，⛔ 别按旧口径再说「不建」）。</summary>
         void BuildCreateView()
         {
             _createView = Node(Root, "Create Alliance View", CreateViewR);

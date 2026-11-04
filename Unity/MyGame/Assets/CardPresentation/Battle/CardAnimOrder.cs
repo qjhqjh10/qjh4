@@ -20,7 +20,7 @@
 //   （那些是 `ThisCardPlayed`/`Slay`/`TurnEnd`/… = **别的时机**，归 `EvtKind.Trigger`/`Play`）。
 //   逐卡复核 **897/897 精确相等**（与真值源 `cards_1195_2022时代.json` 的
 //   `activeAbility.activeAbilityLogic[].cardAnimations[].m_AssetGUID` 逐 GUID 比）。
-//   ⇒ 全量件 1112 条 ability 行里只有 **109 条是 `activeAbility`** ⇒ 本表 **93 张卡 / 158 拍**（✅ 已复刻 2026-11-03 · `B128` · 判据 = `Resources/card_anim_order.json` 现读 `stats.cards = 93` / `stats.steps = 158`；⛔ 原记的 62/99 已过期）
+//   ⇒ 全量件 1112 条 ability 行里只有 **109 条是 `activeAbility`** ⇒ 本表 **93 张卡 / 158 拍**（✅ 已复刻 2026-11-03 · `B128` · 判据 = `Resources/card_anim_order.json` 现读 `stats.cards = 93` / `stats.steps = 158`；⛔ 原记的 62/99 已过期）。⚠️ 本表**源仍是 2022 快照**（`cards_1195_2022时代.json`）—— 2026-11-05 换源只换了 `cardAbilities` 那半 ⇒ **SO 直读 160 拍 vs 本表 158 是既有口径差**（不是这次引入的），⛔ 别拿 SO 数对本表数
 //     （🆕 2026-10-19 W：生成器改为**按卡池过滤** + 卡名取 `cards_engine.json` 那一份 —— 原先 63/100，
 //      少的那 1 张是不在卡池的源卡 `66486b3f…`；它还会挡住池内同名的 `AM68`）。
 //   ⚠️ 拿全表展开会把**出场/触发时机的动画播在「发动技能」那一拍上** —— **错误演示且完全静默**，比少播更坏。
@@ -180,6 +180,13 @@ namespace CardPresentation
         /// ⇒ 我们（一拍只播一次）**退化成** `= waitAnimToApplyEffect`。
         /// ⛔ 别再写成「只有最后一拍才等」（那句是把 `param_4`=targets 误当成 `cardAnimations`=steps）。</summary>
         public bool Waits { get { return w != 0; } }
+
+        /// <summary>🆕 2026-11-05（`B143`）：这一拍属于原版 `cardAbilities[ai]` 的**第几条触发/出牌行**
+        /// （= `CardAnimTriggerAbility.ai`）。只有在 `Resources/card_anim_order_trigger.json` 里才有意义；
+        /// 主动能力那张表（`card_anim_order.json`）缺这个键 ⇒ 读出 `0`（也正好等于它唯一的那一行）。
+        /// <para>⚠️ 与 <see cref="li"/> 一起才唯一确定一行：同一张卡可以有多条同 `trigger` 的行
+        /// （`SAU46` 有 3 条 `ThisCardPlayed`），而 `ca` 可能在多行之间重复 ⇒ ⛔ 不能靠 `ca` 反查。</para></summary>
+        public int ai;
     }
 
     [Serializable]
@@ -198,6 +205,118 @@ namespace CardPresentation
         public string source;
         public string note;
         public CardAnimOrderCard[] cards = new CardAnimOrderCard[0];
+    }
+
+    // ── 🆕 2026-11-05（`B143`）：**触发 / 出牌能力**那一族（`Resources/card_anim_order_trigger.json`）──
+    //   判据：原版 `BattleManager.TriggerAbilities` 遍历**所有命中 trigger 的 `cardAbilities` 行** →
+    //   `AbilityLogic.PlayAbility` → `PlayAnim`（每行各播自己那份 `cardAnimations[]`）。
+    //   ⛔ 与上面的 `CardAnimOrderCard`（只装 `activeAbility`）**两张表、两条路**，别互相顶替。
+
+    /// <summary>触发演出表里的一行 = 原版 `cardAbilities[ai]`。
+    /// 同一张卡可以有多条同 `trigger` 的行（`SAU46` 3 条 `ThisCardPlayed`）⇒ 消费端靠 `(ai,li)` 区分。</summary>
+    [Serializable]
+    public class CardAnimTriggerAbility
+    {
+        public int trigger;
+        public string triggerName;
+        /// <summary>= 原版 `cardAbilities[ai]` 的下标（`-1` = 不知道）。</summary>
+        public int ai;
+        /// <summary>= 原版 `abilityLogic[li]` 的下标（`-1` = 不知道）。</summary>
+        public int li;
+        public int chosenAbility;
+        public string chosenAbilityName;
+        public CardAnimBeat[] steps = new CardAnimBeat[0];
+    }
+
+    [Serializable]
+    public class CardAnimTriggerCard
+    {
+        public string id;
+        public string name;
+        public CardAnimTriggerAbility[] abilities = new CardAnimTriggerAbility[0];
+    }
+
+    /// <summary>生成期统计（与生成器 `stats` 逐字对应；自检用它钉总数）。</summary>
+    [Serializable]
+    public class CardAnimTriggerStats
+    {
+        public int cards;
+        public int rows;
+        public int steps_raw;
+        public int steps;
+        public int blank_guid;
+        public int unresolved_guid;
+        public int pure_wait;
+        public int movers;
+        public int offset_beats;
+        public int this_card_played_rows;
+        public int cards_no_rows;
+        public int not_in_pool;
+    }
+
+    [Serializable]
+    public class CardAnimTriggerFile
+    {
+        public int schema;
+        public string source;
+        public string filter;
+        public string note;
+        public CardAnimTriggerStats stats;
+        public CardAnimTriggerCard[] cards = new CardAnimTriggerCard[0];
+    }
+
+    // ── 🆕 2026-11-05（`B143` · 执行写手 `W1`）：**出牌（`ThisCardPlayed` / `trigger 0`）**那一族的表 ──
+    //   判据 = `AbilityLogic__PlayAnim.c:45-60`（枚举的是**这一条** `AbilityLogic.cardAnimations`）+
+    //          `PlayAbility.c:273`（每条 ability 各播一次）⇒ 打出这张卡时播的 = 它 `trigger == 0` 那些行的拍。
+    //   ⛔ 与 `CardAnimTriggerCard`（全部 trigger）**同源不同表**：那张按 trigger 索引、这张只装 trigger 0
+    //      且**不带 trigger 字段**（`Play` 事件不带 ability 下标 ⇒ 查表只要「这张卡的全部 ThisCardPlayed 行」）。
+    //   表由 `工具/gen_card_anim_order_play.py` 生成（现读 475 卡 / 579 行 / 697 拍可播、raw 703）。
+
+    [Serializable]
+    public class CardAnimPlayRow
+    {
+        public int ai = -1;
+        public int li = -1;
+        public int chosenAbility;
+        public string chosenAbilityName;
+        public CardAnimBeat[] steps = new CardAnimBeat[0];
+    }
+
+    [Serializable]
+    public class CardAnimPlayCard
+    {
+        public string id;
+        public string name;
+        public CardAnimPlayRow[] rows = new CardAnimPlayRow[0];
+    }
+
+    /// <summary>生成期统计（与 `gen_card_anim_order_play.py` 的 `stats` 逐字对应；自检用它钉总数）。</summary>
+    [Serializable]
+    public class CardAnimPlayStats
+    {
+        public int cards;
+        public int rows;
+        public int steps_raw;
+        public int steps;
+        public int blank_guid;
+        public int unresolved_guid;
+        public int pure_wait;
+        public int movers;
+        public int offset_beats;
+        public int cards_with_trigger0;
+        public int cards_no_rows;
+        public int not_in_pool;
+    }
+
+    [Serializable]
+    public class CardAnimPlayFile
+    {
+        public int schema;
+        public string source;
+        public string filter;
+        public string note;
+        public CardAnimPlayStats stats;
+        public CardAnimPlayCard[] cards = new CardAnimPlayCard[0];
     }
 
     /// <summary>「逐卡逐技能有序演出步骤」表的运行期入口。**判据链见文件头**。</summary>
@@ -420,6 +539,273 @@ namespace CardPresentation
                 }
             }
             return a[a.Length - 3];                            // 末键的 `value`（末键布局 t,v,in,out ⇒ out 在最后一格）
+        }
+
+        // ── 🆕 2026-11-05（`B143`）：**触发 / 出牌能力**的逐卡有序演出（`Resources/card_anim_order_trigger.json`）──
+        //   判据：原版 `BattleManager.TriggerAbilities` 遍历所有命中 trigger 的 `cardAbilities` 行 →
+        //   `AbilityLogic.PlayAbility` → `PlayAnim`（`B143-R2`；每行各播自己那份 `cardAnimations[]`）。
+        //   ⛔ 与上面的 `TryGetBeats`（只装 `activeAbility`）**两张表、两条路**，别互相顶替。
+        //   表由 `工具/gen_card_anim_order_trigger.py` 生成（2026-11-05 换源后现读 **807 卡 / 1,024 行 / 1,319 raw 拍 / 1,309 可播拍**）。
+        //   ⚠️ **行数口径**：`1,024` = 「(abilityIndex, logicIndex) 组数」（本表 `abilities[]` 的粒度）；
+        //   **ability 级行数是 928**（`cardAbilities[]` 条数）—— 两个数都对，只是粒度不同，⛔ 别当成谁写错了。
+
+        public const string TriggerResourcePath = "card_anim_order_trigger";
+
+        static CardAnimTriggerCard[] _trigAll;
+        static Dictionary<string, CardAnimTriggerCard> _trigById, _trigByName;
+        static bool _trigTried;
+        static readonly HashSet<string> _trigWarned = new HashSet<string>();
+
+        /// <summary>触发表载入失败的原因（载入成功 = null）。</summary>
+        public static string TriggerLastError { get; private set; }
+        /// <summary>触发表「没命中」次数与最近一次是谁（诊断；自检盯它）。</summary>
+        public static int TriggerFallbackHits { get; private set; }
+        /// <summary>最近一次没命中的键（`卡#trigger`）。</summary>
+        public static string TriggerLastFallback { get; private set; }
+
+        /// <summary>触发演出表载进来了没有。</summary>
+        public static bool TriggerLoaded { get { EnsureTriggerLoaded(); return _trigAll != null && _trigAll.Length > 0; } }
+        /// <summary>表里几张卡（现读 726）。</summary>
+        public static int TriggerCount { get { EnsureTriggerLoaded(); return _trigAll != null ? _trigAll.Length : 0; } }
+        /// <summary>表里全部条目（自检对账用）。</summary>
+        public static IEnumerable<CardAnimTriggerCard> TriggerItems { get { EnsureTriggerLoaded(); return _trigAll; } }
+
+        static void EnsureTriggerLoaded()
+        {
+            if (_trigTried) return;
+            _trigTried = true;
+            var ta = Resources.Load<TextAsset>(TriggerResourcePath);
+            if (ta == null)
+            {
+                TriggerLastError = "`Resources/" + TriggerResourcePath + ".json` 载不到 —— 跑一次 "
+                                 + "`python -I -X utf8 工具/gen_card_anim_order_trigger.py --write`";
+                _trigAll = new CardAnimTriggerCard[0];
+                _trigById = new Dictionary<string, CardAnimTriggerCard>();
+                _trigByName = new Dictionary<string, CardAnimTriggerCard>();
+                return;
+            }
+            CardAnimTriggerFile f = null;
+            try { f = JsonUtility.FromJson<CardAnimTriggerFile>(ta.text); }
+            catch (Exception e) { TriggerLastError = "`" + TriggerResourcePath + ".json` 解析失败：" + e.Message; }
+            var items = f != null && f.cards != null ? f.cards : new CardAnimTriggerCard[0];
+            _trigAll = items;
+            _trigById = new Dictionary<string, CardAnimTriggerCard>(items.Length);
+            _trigByName = new Dictionary<string, CardAnimTriggerCard>(items.Length);
+            foreach (var it in items)
+            {
+                if (it == null) continue;
+                // 重名 / 重 id 取先到的那个（同 `TryGetBeats` 的口径）
+                if (!string.IsNullOrEmpty(it.id) && !_trigById.ContainsKey(it.id)) _trigById[it.id] = it;
+                if (!string.IsNullOrEmpty(it.name) && !_trigByName.ContainsKey(it.name)) _trigByName[it.name] = it;
+            }
+            if (TriggerLastError == null && items.Length == 0)
+                TriggerLastError = "`" + TriggerResourcePath + ".json` 里一条都没有";
+        }
+
+        static CardAnimTriggerCard FindTriggerCard(string cardIdOrName)
+        {
+            if (string.IsNullOrEmpty(cardIdOrName)) return null;
+            CardAnimTriggerCard c = null;
+            if (_trigById.TryGetValue(cardIdOrName, out c) && c != null) return c;
+            if (_trigByName.TryGetValue(cardIdOrName, out c)) return c;
+            return null;
+        }
+
+        /// <summary>按「卡 id 或卡名 + trigger」取**该 trigger 下所有行**的有序拍，追加进 <paramref name="into"/>；
+        /// 返回追加条数（`0` = 没有这一行 / 这一行每一拍都是空引用）。
+        /// <para>⚠️ 两个键都收（`BattleEvent.CardId` 装的是英文卡名，同 <see cref="TryGetBeats"/>）。</para></summary>
+        public static int TryGetTriggerBeats(string cardIdOrName, int trigger, List<CardAnimBeat> into)
+        {
+            return TryGetTriggerBeats(cardIdOrName, trigger, -1, into);
+        }
+
+        /// <summary>同上，但只取 `cardAbilities[abilityIndex]` 那一行（`abilityIndex &lt; 0` = 不筛）。
+        /// <para>⚠️ `abilityIndex` 只到「ability 行」；**同一条 ability 下仍可能有多条 `logic` 行**
+        /// （`AM76` 的 `ai=1` 自己就有 `li=0/1/2` 三行，各 1 拍）⇒ 要唯一定位一行必须再用
+        /// <see cref="TryGetTriggerBeats(string,int,int,int,List{CardAnimBeat})"/> 的 `logicIndex`；
+        /// ⛔ 不能靠拍上的 `ca` 反查（跨行会重复）。</para></summary>
+        public static int TryGetTriggerBeats(string cardIdOrName, int trigger, int abilityIndex, List<CardAnimBeat> into)
+        {
+            return TryGetTriggerBeats(cardIdOrName, trigger, abilityIndex, -1, into);
+        }
+
+        /// <summary>同上，但用 `(abilityIndex, logicIndex)` **唯一确定一行**（各自 `&lt; 0` = 该维不筛）。
+        /// <para>⚠️ 为什么必须有这一档：`ai` 是 `cardAbilities[]` 的下标，它**不含** `abilityLogic[]` 的层
+        /// —— 同一条 ability 可以有多条 logic 行（`AM76`：`ai=1` 的 `li=0/1/2` 各 1 拍）⇒ 只传 `ai`
+        /// 会把它们一起返回（那是对的用法，但**定位不到某一行**）。</para></summary>
+        public static int TryGetTriggerBeats(string cardIdOrName, int trigger, int abilityIndex, int logicIndex, List<CardAnimBeat> into)
+        {
+            EnsureTriggerLoaded();
+            if (into == null) return 0;
+            var c = FindTriggerCard(cardIdOrName);
+            int n = 0, rowsMatched = 0;
+            if (c != null && c.abilities != null)
+            {
+                for (int i = 0; i < c.abilities.Length; i++)
+                {
+                    var ab = c.abilities[i];
+                    if (ab == null || ab.trigger != trigger) continue;
+                    if (abilityIndex >= 0 && ab.ai != abilityIndex) continue;
+                    if (logicIndex >= 0 && ab.li != logicIndex) continue;
+                    rowsMatched++;
+                    if (ab.steps != null) { into.AddRange(ab.steps); n += ab.steps.Length; }
+                }
+            }
+            if (rowsMatched > 0) return n;      // 行在、但每拍都是空引用 ⇒ 返回 0 且**不报「没这张卡」**
+            TriggerFallbackHits++;
+            TriggerLastFallback = (cardIdOrName ?? "?") + "#" + trigger;
+            if (TriggerLoaded && _trigWarned.Count < WarnCap && _trigWarned.Add(TriggerLastFallback))
+                Debug.Log("[Battle] 触发演出表里没有 `" + cardIdOrName + "` 的 trigger " + trigger
+                        + " ⇒ 这一条走**原样（不扩拍）**（⛔ 不硬扩；三种正常原因：① 这张卡没有触发/出牌能力 "
+                        + "② 有这一行但每拍的 CardAnim 都是空串 ③ 它不在表里）");
+            return 0;
+        }
+
+        /// <summary>这张卡在触发表里有几条该 `trigger` 的行（`0` = 没有）。自检/诊断用。</summary>
+        public static int TriggerRowCount(string cardIdOrName, int trigger)
+        {
+            EnsureTriggerLoaded();
+            var c = FindTriggerCard(cardIdOrName);
+            if (c == null || c.abilities == null) return 0;
+            int n = 0;
+            for (int i = 0; i < c.abilities.Length; i++)
+                if (c.abilities[i] != null && c.abilities[i].trigger == trigger) n++;
+            return n;
+        }
+
+        /// <summary>表里有没有这个键（卡 id 或卡名）。</summary>
+        public static bool TriggerHas(string cardIdOrName)
+        {
+            EnsureTriggerLoaded();
+            return FindTriggerCard(cardIdOrName) != null;
+        }
+
+        /// <summary>自检/诊断：清零触发表的计数器（不动已载的表）。</summary>
+        public static void ResetTriggerCounters()
+        {
+            TriggerFallbackHits = 0; TriggerLastFallback = null; _trigWarned.Clear();
+        }
+
+        // ── 🆕 2026-11-05（`B143` · 执行写手 `W1`）：**出牌（`ThisCardPlayed`）**那一拍的运行期读取口 ──
+        //   `Resources/card_anim_order_play.json`（`工具/gen_card_anim_order_play.py` 产出）。
+        //   判据 / 表形状 / 与另两张表的边界 → 上面 `CardAnimPlayCard` 那一段的注释。
+        //   ⛔ **只读新表**：既有 `TryGetBeats`（activeAbility 那张）与 `TryGetTriggerBeats`（全部 trigger 那张）
+        //      一个字都不动 —— 三张表、三条路，行集各不相同（94 卡只在 activeAbility 表、61 卡在旧 `play` 桶
+        //      但不在全量件里 …现读差异见 `判据/B143_Play时长三类卡.md` 与生成器 `--diff-old`）。
+
+        public const string PlayResourcePath = "card_anim_order_play";
+
+        static CardAnimPlayCard[] _playAll;
+        static Dictionary<string, CardAnimPlayCard> _playById, _playByName;
+        static bool _playTried;
+        static readonly HashSet<string> _playWarned = new HashSet<string>();
+
+        /// <summary>出牌表载入失败的原因（载入成功 = null）。</summary>
+        public static string PlayLastError { get; private set; }
+        /// <summary>出牌表「没命中」次数与最近一次是谁（诊断；自检盯它）。</summary>
+        public static int PlayFallbackHits { get; private set; }
+        /// <summary>最近一次没命中的卡键。</summary>
+        public static string PlayLastFallback { get; private set; }
+
+        /// <summary>出牌表载进来了没有。</summary>
+        public static bool PlayLoaded { get { EnsurePlayLoaded(); return _playAll != null && _playAll.Length > 0; } }
+        /// <summary>表里几张卡（现读 475）。</summary>
+        public static int PlayCount { get { EnsurePlayLoaded(); return _playAll != null ? _playAll.Length : 0; } }
+        /// <summary>表里全部条目（自检对账用）。</summary>
+        public static IEnumerable<CardAnimPlayCard> PlayItems { get { EnsurePlayLoaded(); return _playAll; } }
+        /// <summary>表头统计（`stats` 那一块；自检拿它钉总数与生成器对账）。载不到 ⇒ `null`。</summary>
+        public static CardAnimPlayStats PlayStats { get; private set; }
+
+        static void EnsurePlayLoaded()
+        {
+            if (_playTried) return;
+            _playTried = true;
+            var ta = Resources.Load<TextAsset>(PlayResourcePath);
+            if (ta == null)
+            {
+                PlayLastError = "`Resources/" + PlayResourcePath + ".json` 载不到 —— 跑一次 "
+                              + "`python -I -X utf8 工具/gen_card_anim_order_play.py --write`";
+                _playAll = new CardAnimPlayCard[0];
+                _playById = new Dictionary<string, CardAnimPlayCard>();
+                _playByName = new Dictionary<string, CardAnimPlayCard>();
+                return;
+            }
+            CardAnimPlayFile f = null;
+            try { f = JsonUtility.FromJson<CardAnimPlayFile>(ta.text); }
+            catch (Exception e) { PlayLastError = "`" + PlayResourcePath + ".json` 解析失败：" + e.Message; }
+            var items = f != null && f.cards != null ? f.cards : new CardAnimPlayCard[0];
+            PlayStats = f != null ? f.stats : null;
+            _playAll = items;
+            _playById = new Dictionary<string, CardAnimPlayCard>(items.Length);
+            _playByName = new Dictionary<string, CardAnimPlayCard>(items.Length);
+            foreach (var it in items)
+            {
+                if (it == null) continue;
+                if (!string.IsNullOrEmpty(it.id) && !_playById.ContainsKey(it.id)) _playById[it.id] = it;
+                if (!string.IsNullOrEmpty(it.name) && !_playByName.ContainsKey(it.name)) _playByName[it.name] = it;
+            }
+            if (PlayLastError == null && items.Length == 0)
+                PlayLastError = "`" + PlayResourcePath + ".json` 里一条都没有";
+        }
+
+        static CardAnimPlayCard FindPlayCard(string cardIdOrName)
+        {
+            if (string.IsNullOrEmpty(cardIdOrName)) return null;
+            CardAnimPlayCard c = null;
+            if (_playById.TryGetValue(cardIdOrName, out c) && c != null) return c;
+            if (_playByName.TryGetValue(cardIdOrName, out c)) return c;
+            return null;
+        }
+
+        /// <summary>按「卡 id 或卡名」取**这张卡全部 `ThisCardPlayed` 行的有序拍**，追加进 <paramref name="into"/>；
+        /// 返回追加条数（`0` = 表里没有这张卡 / 它没有 trigger-0 行 / 每一拍都是空引用）。
+        ///
+        /// <para>⚠️ **行序 = `(ai, li)` 升序**（= 原版遍历 `cardAbilities` / `abilityLogic` 的次序，生成器已排好）；
+        /// 同一条 ability 下多条 logic 行**都会返回**（⛔ 不要按 `ca` 去重 —— 跨行 `ca` 会重复，见
+        /// `TryGetTriggerBeats` 的 doc）。</para>
+        /// <para>⚠️ **返回 0 不等于「这张卡没有出牌动画」**：三种正常原因（不在表里 / 没有 trigger-0 行 /
+        /// 每拍 `ca` 都是空串）都在 fallback 日志里，且**只出声一次**（`WarnCap` 上限）。</para></summary>
+        public static int TryGetPlayBeats(string cardIdOrName, List<CardAnimBeat> into)
+        {
+            EnsurePlayLoaded();
+            if (into == null) return 0;
+            var c = FindPlayCard(cardIdOrName);
+            int n = 0, rowsMatched = 0;
+            if (c != null && c.rows != null)
+            {
+                for (int i = 0; i < c.rows.Length; i++)
+                {
+                    var r = c.rows[i];
+                    if (r == null) continue;
+                    rowsMatched++;
+                    if (r.steps != null) { into.AddRange(r.steps); n += r.steps.Length; }
+                }
+            }
+            if (rowsMatched > 0) return n;      // 行在、但每拍都是空引用 ⇒ 返回 0 且**不报「没这张卡」**
+            PlayFallbackHits++;
+            PlayLastFallback = cardIdOrName ?? "?";
+            if (PlayLoaded && _playWarned.Count < WarnCap && _playWarned.Add(PlayLastFallback))
+                Debug.Log("[Battle] 出牌演出表里没有 `" + cardIdOrName + "` 的 ThisCardPlayed 行"
+                        + " ⇒ 这一条走**原样（不扩拍）**（⛔ 不硬扩；三种正常原因：① 这张卡没有 trigger-0 行 "
+                        + "② 有行但每拍的 CardAnim 都是空串 ③ 它不在表里）");
+            return 0;
+        }
+
+        /// <summary>这张卡在出牌表里有几行（`0` = 没有）。自检/诊断用。</summary>
+        public static int PlayRowCount(string cardIdOrName)
+        {
+            EnsurePlayLoaded();
+            var c = FindPlayCard(cardIdOrName);
+            if (c == null || c.rows == null) return 0;
+            int n = 0;
+            for (int i = 0; i < c.rows.Length; i++) if (c.rows[i] != null) n++;
+            return n;
+        }
+
+        /// <summary>自检复位（⛔ 引擎里别调）。</summary>
+        public static void ResetPlayForTest()
+        {
+            PlayFallbackHits = 0; PlayLastFallback = null; _playWarned.Clear();
         }
     }
 }

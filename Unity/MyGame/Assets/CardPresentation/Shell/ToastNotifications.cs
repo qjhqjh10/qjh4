@@ -451,7 +451,7 @@ namespace CardPresentation
             var lb = Tmp(root, textRect, "Deal 500 damage to enemy units", Color.white, "Text", 40f, QText,
                          wrap: true, autoMin: 0f, autoMax: 0f, autoBase: 0f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(lb, textRect);
-            MenuDraw.SetVAlign(lb, Label.VAlign.Middle, textRect);
+            MenuDraw.SetVAlign(lb, Label.VAlign.Middle, textRect); MenuDraw.SetParagraphSpacing(lb, 20f);   // ✅ 已复刻（2026-11-05 · B144-C · 原版 `Mission Toast Notification.prefab ▸ Text` 的 `m_paragraphSpacing = 20`；排在 AlignLeft 之后）
 
             // `Rewards`（RT 346）：a(0,0.5)-(0,0.5) p(0,0.5) ap(6.10352e-05,0.00100708) sd(107.75,139.71)
             var rewardsRect = UguiRect.Child(rootRect, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
@@ -656,7 +656,7 @@ namespace CardPresentation
             var lb = Tmp(root, textRect, "Congratulations!\nYou've earned an achievement. ",
                          Color.white, "Text", 40f, QText, wrap: true, autoMin: 0f, autoMax: 0f, autoBase: 0f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(lb, textRect);
-            MenuDraw.SetVAlign(lb, Label.VAlign.Middle, textRect);
+            MenuDraw.SetVAlign(lb, Label.VAlign.Middle, textRect); MenuDraw.SetParagraphSpacing(lb, 20f);   // ✅ 已复刻（2026-11-05 · B144-C · 原版 `Toast.prefab ▸ Text` 的 `m_paragraphSpacing = 20`；排在 AlignLeft 之后）
 
             MenuDraw.Hit(root, "Hit", rootRect, QHit, null);
             root.gameObject.SetActive(false);

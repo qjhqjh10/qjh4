@@ -484,7 +484,7 @@ namespace CardPresentation
             //   同一份序列化实例的**另一个槽**（`Quest UI Trigger`，guid `2223a4d2…`）——
             //   ⛔ 别和上面 `Quest UI Gain` 合并（两件不同的 prefab，方向语义相反）。
             //   判据全文 → `QuestSpent` 常量那段 + `EvtKind.QuestSpent` 的 doc。
-            { QuestSpent,   "Quest UI Trigger" },
+            { QuestSpent,   "Quest UI Trigger" },   // ✅ 已复刻（2026-11-05 · B143-W2 · 原版有该映射；`SetQuestPoints` 全游戏仅 3 个调用点 `PlayerManager.cs:717/729/1192`，两跳都产生不了非静默下降 ⇒ 本条休眠，⛔ 别删）
             // 🔴 **2026-10-22（`W64` §B4）：`return` 这一行【已删】—— 原版回手链【0 粒子】。**
             //   判据（第一权威）= `BattleManager._ResolveRecallToHand_d__542__MoveNext.c` 逐句读：
             //   **0 处 `Instantiate` / 粒子**；`BattleCardUI__PlayBackToHandAnimation.c` 只 `Animation.Play`

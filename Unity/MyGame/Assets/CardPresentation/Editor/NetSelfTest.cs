@@ -557,7 +557,7 @@ public static class NetSelfTest
         Eq(hostLost, 1, "G④ 主机侧 `OnPeerLost` 叫了一次");
         Ok(host.State != NetState.Closed, "G⑤ 🔴 **没有判负** —— 停在等待重连（用户 2026-09-26 要的就是这个）");
 
-        // ---- 客机自己也会发现，然后按退避重连（间隔 2 秒）----
+        // ---- 客机自己也会发现，然后按退避重连（间隔 3 秒 = `NetSession.ReconnectEveryMs`；判据 `_AttemptReconnect_d__320__MoveNext.c:110-125`）----
         Ok(PumpUntil(host, cli, () => resumed > 0, 15000),
            $"H① 客机重连成功、并收到了主机补的进度（实际 {cli.State}）");
         Eq(resumed, 1, "H② `OnResumed` 叫了一次");

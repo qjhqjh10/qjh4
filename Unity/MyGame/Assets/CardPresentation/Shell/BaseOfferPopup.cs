@@ -202,7 +202,7 @@ namespace CardPresentation
         const float GlowTexW = 128f, GlowTexH = 128f;
 
         // 颜色（**逐颗实读 `Image.m_Color`**）
-        static readonly Color DarkTint = new Color(0f, 0f, 0f, 0.773f);          // `Menu Dark Background`
+        static readonly Color DarkTint = new Color(0f, 0f, 0f, 0.7725490f);          // `Menu Dark Background`
         static readonly Color BadgeTint = new Color(0.651f, 0f, 0f, 1f);         // `Offer Badge`
         static readonly Color PriceTint = new Color(0.902f, 0.637f, 0.18f, 1f);  // 价签的 `40K_button`
         static readonly Color WebTint = new Color(0.333f, 0.878f, 0.336f, 1f);   // `WebShop Button Image`

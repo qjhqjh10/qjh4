@@ -56,7 +56,7 @@ namespace CardPresentation
         /// **不开**领奖窗（`ContainerOfferData.ShowRewardOnPurchase` 反编译出来是**常量 false**）⇒ 那四件
         /// **故意留 `null`**（填了没有任何消费点 = 死数据）。`null` 的另一个来源 = **越界下标**。</para>
         /// <para>读它的**唯一**入口 = `ShopData.GrantsOf`（⛔ 别在这儿用 cref 交叉引用 —— `Grants` 在 `ShopOffer` 里、那个口在 `ShopData` 上，跨类的 cref 解不出来、只会多一条 CS1574）；**开窗不在这一层**（在 `Shell/ShopWindow.DoBuy`）。</para></summary>
-        public CampaignData.RewardSpec[] Grants;
+        public CampaignData.RewardSpec[] Grants;   public string ContainerId;   // 🆕 2026-11-05（B143-R4）：这一格卖的**容器**的 `uniqueId`（`null` = 本地没有对应容器 SO）。🔶 自己设计（非原版）：见 `_cards` 数组上方那段标；判据 → `资料/完全复刻/判据/B143_奖励背包与待裁四项.md` §6·9
 
         public ShopOffer(string name, string type, string art, string price, int owned,
                          int avail, int availMax, bool timed, string newDiscount, int rarity = 0)
@@ -64,7 +64,7 @@ namespace CardPresentation
             Name = name; Type = type; Art = art; Price = price; Owned = owned;
             Available = avail; AvailableMax = availMax; Timed = timed; NewDiscount = newDiscount;
             Rarity = rarity; Grants = null;      // struct 的 ctor 必须把**每个**字段都赋上
-            StrikeThrough = false; Free = false;
+            StrikeThrough = false; Free = false; ContainerId = null;
         }
 
         /// <summary>🆕 **2026-10-25（`C` 商店域）**：价格文本要不要打**删除线**
@@ -158,7 +158,7 @@ namespace CardPresentation
         //   ⚠️ 那个 store 属于 `PremiumCampaignStore`（战役高级轨），**与我们这三个页无关**；
         //      其余 15 个 LiveOps SO 全是**过期活动** ⇒ **我们三个页的商品只能自己编**。
         //
-        // 🔶 自己设计（非原版）：商店商品表（名字 / 类型 / 价格 / 拥有数 / 限购数） · 原版商品数据在服务端，本地唯一 store 属战役高级轨 · TODO(谁定的)｜原注：⇒ 下面这些名字 / 类型 / 价格 / 拥有数 / 限购数**都是我们挑的**，只为「把界面点通」。
+        // 🔶 自己设计（非原版）：商店商品表（名字 / 类型 / 价格 / 拥有数 / 限购数） · 原版商品数据在服务端，本地唯一 store 属战役高级轨 · TODO(谁定的)｜原注：⇒ 下面这些名字 / 类型 / 价格 / 拥有数 / 限购数**都是我们挑的**，只为「把界面点通」。｜🆕 2026-11-05（B143-R4）：**卡包报价 → 容器 `uniqueId` 的映射（`ShopOffer.ContainerId` 列）同样是自设计** —— 原版商店目录来自 PlayFab Title Data（本地 `ShopConfig`/`ShopStoreData`/`Shops` 只有类名、零实例；4 份 `ShopOfferDataV2` 全是 Premium、无卡包报价）⇒ 关服后判据在远端；UM/SW 两格取同名容器 SO，Sautekh/Leviathan/VIP **本地没有容器 SO ⇒ null 并出声**（⛔ 不编 id）。调度台 2026-11-05 裁定；判据 → `资料/完全复刻/判据/B143_奖励背包与待裁四项.md` §6·9。
 
         static ShopOffer[] _cards =
         {
@@ -172,13 +172,13 @@ namespace CardPresentation
             //    原版这两个槽的**真值在运行期由服务端给**（prefab 里 `background` 的 `m_Sprite` 是 0）
             //    ⇒ 这里用的是**同族里查得到的那张**（`bundle_boosterpacks_assets_all/Sprite/40K_shop_offer_booster_*`）。
             new ShopOffer("Ultramarines Booster",  "Booster Pack", "40K_shop_offer_booster_UM",
-                          "1 800", 3, 1, 5, false, "-30%"),
+                          "1 800", 3, 1, 5, false, "-30%") { ContainerId = "Booster Pack Ultramarines" },
             new ShopOffer("Sautekh Booster",       "Booster Pack", "40K_shop_offer_booster_Sautekh",
-                          "2 000", 0, 2, 5, true,  null),
+                          "2 000", 0, 2, 5, true,  null) { ContainerId = null },   // Sautekh：本地没有这一族的容器 SO（booster_tables 只有 UM / Goff / SpaceWolves / EmperorsChildren）
             new ShopOffer("Space Wolves Booster",  "Booster Pack", "40K_shop_offer_booster_Space_Wolves",
-                          "2 000", 1, 0, 0, false, null, 4),
+                          "2 000", 1, 0, 0, false, null, 4) { ContainerId = "Booster Pack Space Wolves" },
             new ShopOffer("Leviathan Booster",     "Booster Pack", "40K_shop_offer_booster_leviathan",
-                          "2 200", 0, 0, 0, false, null),
+                          "2 200", 0, 0, 0, false, null) { ContainerId = null },   // Leviathan：本地没有这一族的容器 SO
         };
 
         // ============================================================ 🔴 奖励表（`Grants` · 2026-10-12 · A439）
@@ -577,7 +577,7 @@ namespace CardPresentation
         static ShopOffer[] _vip =
         {
             new ShopOffer("VIP Booster Cache", "Booster Pack", "40K_shop_offer_booster_generic",
-                          "2 400", 0, 1, 3, true, null),
+                          "2 400", 0, 1, 3, true, null) { ContainerId = null },    // VIP：本地没有对应容器 SO
             new ShopOffer("VIP Wildcard Bundle", "Wildcard", null, "1 600", 0, 0, 0, false, null)
             { Grants = new[] { new CampaignData.RewardSpec("WildcardUltramarines2", 2, CampaignData.TierBasic) } },
         };

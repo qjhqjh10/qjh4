@@ -561,7 +561,7 @@ namespace RuleEngine
             {
                 var target = foeBoard[ts];
                 if (target == null || !target.IsAlive) continue;
-                if (RuleCore.IsValidTarget(ctx, t.Side, slot, foe, ts, false) != RuleCodes.OK) continue;
+                if (RuleCore.IsValidTarget(ctx, t.Side, slot, foe, ts, false) != RuleCodes.OK) continue;   // ⚠️ `RuleCore.IsValidTarget` **就是**原版 `BattleManager.IsValidAttackTarget`（见它的 doc；能力目标口是 `CanUseAbilityTarget`）⇒ B134「用错闸」那条前提不成立，⛔ 别再改名/换口
 
                 float s = SimpleAI.ScoreDamaging(target, atk, ignoreDroppod: true);
 

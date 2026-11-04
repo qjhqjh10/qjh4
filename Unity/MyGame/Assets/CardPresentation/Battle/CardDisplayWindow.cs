@@ -692,7 +692,7 @@ namespace CardPresentation
             _voiceAudio = gameObject.AddComponent<AudioSource>();
             _voiceAudio.playOnAwake = false;
             _voiceAudio.spatialBlend = 0f;          // 2D —— 原版这个 source 也挂在 UI 上
-            _voiceAudio.volume = 0.85f;             // ⚠️ 这个系数是**我们自己定的**（原版逐 source 的音量没查到）
+            _voiceAudio.volume = 1f;                // ✅ 已复刻（2026-11-05 · B144-B2 · 判据 = `CardDisplayWindow.__c__DisplayClass62_0___SetCardVoiceOver_b__0.c:63` 调 `SoundManager.Play2D(…, 2)`，由 `SoundManager__Play.c` 的 `set_volume(1.0)` 定；原文 0.85 自陈「我们自己定的」，`报告/B131_审计_音频参数.md` D6）
             // 🆕 2026-09-19：挂到 `Voices` 通道 ⇒ 受设置面板那根「语音」滑块控制
             _voiceAudio.outputAudioMixerGroup = WarpforgeAudio.VoicesGroup;
 
@@ -1208,12 +1208,12 @@ namespace CardPresentation
                 return false;
             }
             string file, text;
-            // `rng` 传 null = 取第一条（定死、可复现）；这个按钮是「听一下」，不需要随机
+            // ✅ 已复刻（2026-11-05 · B144-B2 · 原版 = `ListExtensions.RandomElement(GetAvailableSounds())` **均匀随机**；原文写「rng 传 null = 取第一条 / 不需要随机」是错的 —— `报告/B131_审计_音频参数.md` D6）
             // ⚠️ 用 `ForVoiceOver`（**随便哪条都行**）—— 借 `ForDeploy` 会挂空：有的卡只有 attack/death
-            if (!VoiceLines.TryPick(key, VoiceLines.ForVoiceOver, null, out file, out text)) return false;
+            if (!TryPickRandomVoice(key, out file, out text)) return false;
             var clip = VoiceLines.Clip(file);
             if (clip == null || _voiceAudio == null) return false;
-            _voiceAudio.PlayOneShot(clip);
+            _voiceAudio.volume = 1f; _voiceAudio.PlayOneShot(clip);   // ✅ 已复刻（2026-11-05 · B144-B2 · 原版 `SoundManager__Play.c` 在**播的时候** `set_volume(1.0)`，不是只在建源时设一次）
             LastVoiceFile = file;
             return true;
         }
@@ -2730,6 +2730,43 @@ namespace CardPresentation
                 if (undamaged) cd.health += _warlordLifeChange;
             }
             else cd.health += _warlordLifeChange;
+        }
+
+        // ============================================================ 语音按钮的随机挑法（2026-11-05 · B144-B2 · 追加在类尾）
+        //  🔴 **为什么要随机**：原版 `CardDisplayWindow.SetCardVoiceOver` 的 lambda 里是
+        //  `ListExtensions.RandomElement(cardScript.GetAvailableSounds())` —— `GetAvailableSounds` = 卡上
+        //  **14 个语音字段的并集**、**均匀取一条**（判据 = `CardDisplayWindow.__c__DisplayClass62_0___SetCardVoiceOver_b__0.c:63`
+        //  + `RawCardScript__GetAvailableSounds.c`）。我们原来是「按 `ForVoiceOver` 顺序取第一条」⇒
+        //  **同一个按钮永远只响同一句**（`报告/B131_审计_音频参数.md` D6）。
+        //  ⚠️ **随机源必须是本地独立的 `System.Random`** —— ⛔ 不许用 `UnityEngine.Random`、更⛔ 不许碰
+        //  `RuleEngine` 的 `ctx.Rng`：本仓红线是「对局必须可复现」，而这是纯表现层（不改局面），
+        //  用一条独立的流既满足「每次不同」、又不污染战斗随机流。
+        static System.Random _voicePickRng;
+        static System.Random VoicePickRng { get { return _voicePickRng ?? (_voicePickRng = new System.Random(System.Environment.TickCount)); } }
+
+        /// <summary>按原版口径挑一条语音：**在「这张卡真有的后缀」里均匀随机**，再交给 <see cref="VoiceLines.TryPick"/>
+        /// 处理「同一后缀有多条台词池」那一档（那边按 `rng` 挑、并优先卡 SO 指名的那条）。
+        /// <para>🔶 自己设计（非原版）：原版均匀取的是**clip**，我们均匀取的是**后缀** —— `VoiceLines` 没有
+        /// 「某后缀下有几条」的公开口，取不到真实权重。差别只在「某个后缀有 4~7 条台词池」时略微偏，
+        /// 比「恒取第一条」接近原版得多。判据：`RawCardScript__GetAvailableSounds.c`。2026-11-05 `B144-B2` 定。</para>
+        /// <para>⚠️ **公开**是为了让自检直接调它（`Editor/B144_B2_Assert.cs` 的 B 组要靠「多次调用结果会变」来证伪
+        /// 「恒取第一条」）—— 生产调用点只有 <see cref="CardDisplayWindow"/> 自己那一处。</para></summary>
+        public static bool TryPickRandomVoice(string cardId, out string file, out string text)
+        {
+            file = null; text = null;
+            var pool = new System.Collections.Generic.List<string>(8);
+            foreach (var ev in VoiceLines.ForVoiceOver)
+            {
+                string f, t;
+                // ⚠️ 用 `TryPick(单元素 order)` 当「这张卡有没有这个后缀」的探针，**⛔ 不是 `TryPickExact`**
+                //    —— 后者读的是另一张「精确表」（只有 deploy/attack/death 三档），拿它探 greet/intro 会恒 false。
+                if (VoiceLines.TryPick(cardId, new[] { ev }, null, out f, out t)) pool.Add(ev);
+            }
+            if (pool.Count == 0) return false;
+            if (pool.Count == 1) return VoiceLines.TryPick(cardId, new[] { pool[0] }, null, out file, out text);
+            var rng = VoicePickRng;
+            var pick = pool[rng.Next(pool.Count)];
+            return VoiceLines.TryPick(cardId, new[] { pick }, rng, out file, out text);
         }
     }
 }

@@ -322,7 +322,7 @@ namespace CardPresentation
         /// 四条遍历一起跳过：`PointerLayer` 的 `SelectFirst` / `FindInDirection` / `ButtonCountForTest`
         /// 与 `Select`（按在它身上 = 原版 `DeselectIfSelectionChanged` 把选中清成 null）。</para>
         ///
-        /// <para>由 `MenuDraw.Absorb` 建出来时置位 —— ⛔ **别在别处用它**。</para></summary>
+        /// <para>🔴 **合法使用点（白名单，2026-11-05 起 · 调度台裁定）**：① `MenuDraw.Absorb` 建出来的吸收层（= 原版「窗内面板那颗 `Graphic`」，`m_RaycastTarget = 1` 且父链上没有点击处理器）；② `DailyRewardPopup.BuildShadow`（= 原版抽屉的 `Shadow` 节点，`m_RaycastTarget = 1`，`B143-W7`）。**判据只有一条** = 「原版那颗是**非 `Selectable` 的射线靶 `Graphic`**」；⛔ 其余一律别用（拿不准先问调度台，别自己判）。</para></summary>
         public bool absorbOnly;
 
         // ============================================================ 🆕 2026-10-03 A17：悬停 / 按下【换图】

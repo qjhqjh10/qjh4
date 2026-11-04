@@ -435,7 +435,7 @@ namespace CardPresentation
                 return;
             }
             // 本地等价：把「新可领的那几档」记下来 + 推进 collectedRewards + 落盘
-            var newly = new List<string>();
+            var newly = new List<string>(); FastModeCollectPopup.Show();   // ✅ 2026-11-05（B143-W5 · B143-CHK05-TRYCOLLECT-POPUP）：原版在打云脚本**之前** `ShowPopUp("Missions/CollectingRewards", localizeTexts:true, closeOnEsc:false)`（真体 `out_cpp2il_dev_ilspy/FastModeBaseEvent.cs:1876`）—— 本地没有云调用，这一跳放在「真正开始收」的前一刻（同一物理行追加 = 零行数变化）
             int seen = 0;
             for (int i = 0; i < rewards.Count; i++)
             {
@@ -454,7 +454,7 @@ namespace CardPresentation
             };
             Debug.Log("[FastMode] TryCollect：'" + GetID() + "' 可领 " + newly.Count + " 件（档数 " + pending
                     + "；原版打 CollectFastModeRewards 云脚本 + 有重试，本地直接落地）");
-            if (OnRewardsCollected != null) OnRewardsCollected(collect);
+            FastModeCollectPopup.Hide(); if (OnRewardsCollected != null) OnRewardsCollected(collect); FastModeCollectPopup.MarkRewarded();   // ✅ 2026-11-05（B143-W5）：原版成功支**第一句**是 `WindowsManager.HidePopUp` → 再 `RewardService.Collect`（lambda `…g__OnCollectSuccess_2`）⇒ **先关窗、后发奖**，⛔ 别对调（自检 `B143_W5_TryCollect_Assert` A3 钉着顺序）
             if (onComplete != null) onComplete();
         }
 

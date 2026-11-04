@@ -1741,7 +1741,7 @@ namespace CardPresentation
                 }
                 if (currencyType == GameCurrency.energy)
                 {
-                    if (EnergyOf != null) return EnergyOf();
+                    if (EnergyOf != null) return EnergyOf(); var _ec = LiveOpsSharedDataManager.TryGetContext<EnergyContext>(); if (_ec != null) return _ec.GetCurrentEnergy();   // ✅ 已复刻（2026-11-05 · B143-W7 · 原版 `GetContext<EnergyContext>().GetCurrentEnergy()`）
                     return NoSource("energy（原版读 `EnergyContext.GetCurrentEnergy()`）");
                 }
                 ICurrency c = ToCurrency(currencyType);
@@ -1781,7 +1781,7 @@ namespace CardPresentation
                 }
                 if (currency.Type == GameCurrency.energy)
                 {
-                    if (SpendEnergyOf != null) { SpendEnergyOf(amount); return; }
+                    if (SpendEnergyOf != null) { SpendEnergyOf(amount); return; } var _ec = LiveOpsSharedDataManager.TryGetContext<EnergyContext>(); if (_ec != null) { _ec.SpendEnergy(amount); return; }   // ✅ 已复刻（2026-11-05 · B143-W7 · 原版 `EnergyContext.SpendEnergy`）
                     NoSource("energy 的 `SpendEnergy`（`AddCurrency` 那一支）");
                     return;
                 }
@@ -1966,7 +1966,7 @@ namespace CardPresentation
             }
             if (currency.Type == GameCurrency.energy)
             {
-                if (GrantEnergyOf != null) { GrantEnergyOf(quantity); return; }
+                if (GrantEnergyOf != null) { GrantEnergyOf(quantity); return; } var _ec = LiveOpsSharedDataManager.TryGetContext<EnergyContext>(); if (_ec != null) { _ec.GrantEnergy(quantity); return; }   // ✅ 已复刻（2026-11-05 · B143-W7 · 原版 `CollectCurrencyReward` 第 ① 跳）
                 // 原版：energy 但 GetContext<EnergyContext>()==null ⇒ 落到下面 InventoryManager.Add 兜底（照抄）
             }
             if (InventoryManager.GetInventory<ICurrency>() == null)

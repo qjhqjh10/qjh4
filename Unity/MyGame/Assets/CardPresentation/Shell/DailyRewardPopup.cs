@@ -30,8 +30,8 @@
 //
 // ---- ⚠️ 我们挑的（原版查不到 / 单机没有的）----
 //   · **数据全是我们自建**（`DailyData`，逐条标明）—— 原版走 PlayFab 云脚本 #910；
-//   · **`Shadow` 不建**：它出厂 `INACT`，而且原版靠 `SetState` 在 Collected 时开 —— 我们没有那张影子图
-//     （`日常_原版规格.md` §九 的导入清单里没有它）⇒ **如实不画**，不拿别的图顶替；
+//   · ✅ **`Shadow` 已建（2026-11-05 `B143-W7`）**：图 = `UI_Deck_Information_submenu_Back_opaque`（与 `BG` 同一张）·
+//     色 `(0.1415,0.1415,0.1415,0.502)` · 九宫 18/18/18/18 · 出厂 `INACT`、`Collected` 才开（见 `BuildShadow`）；
 //   · **`Army Selector`（阵营选择条）不建**：它是 `ScrollRect` + 运行时按 `FeatureConfig.GetValidArmies()` 填的
 //     一排阵营图标，单机没有那套资源清单 ⇒ 本层先跳过（Header 的阵营名/图标照画）。
 using UnityEngine;
@@ -44,7 +44,7 @@ namespace CardPresentation
     /// <summary>`Daily Reward Popup` —— `MainMenuMission` 的 `Popup(12)` 槽指过来的那个窗。
     /// ⚠️ 单机口径：原版由 LiveOps 事件流程自弹（`MainMenuMission.TrySchedulePopup` → `MenuActions` 排队 →
     /// 只在当前窗口**恰好是 `MainMenuWindow`** 时才开火）—— 我们**由主菜单进场时按「本地有没有可领」决定**。</summary>
-    public class DailyRewardPopup : GameWindow
+    public partial class DailyRewardPopup : GameWindow
     {
         // ---------------- 窗口根（正本 §四 表 #1~#3）
         public const float ShadeW = 4574.6f, ShadeH = 2572.36f;
@@ -277,31 +277,31 @@ namespace CardPresentation
         public void CloseCollecting()
         {
             // ⛔ 别在这里另写一份发奖（同一条路 = 同一份守卫 / 记账 / 开窗 —— 见 `CollectReward`）
-            DailyData.DailyRewardAutoCollect();
+            DailyData.DailyRewardAutoCollect(); _closeOrder.Add("collect");   // 顺序 token（自检读口 `CloseOrderForTest`）
             Close();
         }
 
         /// <summary>ESC 打在本窗上 = 原版 `GameWindow.ESCPressed()` 两道门槛过 ⇒ 虚表 `Close()`
-        /// （= **带 `TryCollect` 的那一份**，与返回钮**同一跳**）⇒ 关这一下也要收。
+        /// （= **带 `TryCollect` 的那一份**，与返回钮**同一跳**）⇒ **收完再关**。
         /// <para>🔴 **两道门槛照旧由基类判**（`PointerLayer.InputEnabled` / `closeOnEsc`）——
-        /// ⛔ 这里**不另抄一份门槛**（「两处写同一条规则 = 迟早不一致」）：先把基类那一跳走完，
-        /// 它**真把窗关掉了**才补上那一下收（门槛不过时基类自己出声 + 回 `false` ⇒ 那时**不许收**）。
-        /// ⚠️ `CurrentState == Closed` 那道复核是**必须的**：`Close()` 头一句是
-        /// 「物体不活 ⇒ 直接 return」（A217①），而 `ESCPressed()` 照旧回 `true`
-        /// ⇒ 少了它，一扇**已经灰掉**的窗按 ESC 会**白发一份奖**。</para>
-        /// <para>🔴 **如实标注一处次序差（铁律 3）**：原版次序是「**收完再关**」
-        /// （`TryCollect(action)` 的续作才是 `base.Close()`），我们这一跳是**关完再收** ——
-        /// 因为两条生产路径共用 `Close()` 这一个**程序性口**，把「收」挂进它就会连
-        /// `CloseAllWindows()` 一起收（见上面那段）。**可观测差异**只在「那扇领奖窗在底窗回位之后才弹」
-        /// 这一拍，终局（窗关掉 + 收进 `Wallet` + 领奖窗在最上面）逐条相同。</para>
-        /// <para>**改坏法**：① 删掉本覆写 ⇒ ESC 关窗**不再收**（`Editor/RewardsScene.cs` 的
-        /// A495「ESC ⇒ 真收到了」那几条红）；② 把那道 `CurrentState == Closed` 复核删掉 ⇒
-        /// 「一扇已经灰掉的窗按 ESC 不许发奖」那条红。</para></summary>
+        /// ⛔ 这里**不另抄一份门槛**：`base.ESCPressed()` 照常走它那两道、过了才调虚表 `Close()`；
+        /// 本类在 `Close()` 覆写里补「收」，**只对 ESC 这一发生效**（`_escCollectOnClose`）。</para>
+        /// <para>⚠️ 一扇**已经灰掉**的窗按 ESC 不会收：`Close()` 头一句「物体不活 ⇒ return」早退 ⇒
+        /// 标志在 `finally` 里被复位（`base.ESCPressed()` 仍回 `true`，那是基类原有语义，没改）。</para>
+        /// <para>✅ 2026-11-05（`B143-W5`）就地订正（铁律 5）：本段原来写「原版收完再关、我们是**关完再收**，
+        /// 因为把「收」挂进 `Close()` 会连 `CloseAllWindows()` 一起收」—— **该取舍已被调度台否掉（18·0 照原版）**。
+        /// 现在用**一个只在 ESC 那一发置真的标志**把两件事分开：用户主动关（ESC / 返回钮）⇒ **先收再关**
+        /// （= 原版 `LiveOp.TryCollect(() => base.Close())`）；程序性关（`CloseAllWindows()` / 父窗 / `Hide()`）
+        /// ⇒ 标志为假 ⇒ **一个字都不收**（正是原来担心的那条回归，现在有 `CloseOrderForTest` 钉着）。</para>
+        /// <para>**改坏法**：① 删掉 `Close()` 覆写里那段 ⇒ ESC 关窗**不再收**（`Editor/RewardsScene.cs` A495 红）；
+        /// （②③ 见下）—— 这三条都由 `Editor/B143_W5_DailyRewardOrder_Assert.cs` 钉着：
+        /// ② 把「收」挪到 `base.Close()` **之后** ⇒ `CloseOrderForTest` 变 `close,collect` ⇒ 新断言红；
+        /// ③ 把 `_escCollectOnClose` 改成恒真 ⇒ 程序性关窗也会收 ⇒ 新断言红。</para></summary>
         public override bool ESCPressed()
         {
-            bool closed = base.ESCPressed();                 // 门槛 + 关窗都在基类（唯一一份门槛）
-            if (closed && CurrentState == WindowState.Closed) DailyData.DailyRewardAutoCollect();
-            return closed;
+            _escCollectOnClose = true;                        // 只对这一发生效；`base` 门槛不过 ⇒ 根本走不到 `Close()`
+            try { return base.ESCPressed(); }
+            finally { _escCollectOnClose = false; }
         }
 
         // ============================================================ 建
@@ -533,7 +533,7 @@ namespace CardPresentation
             //   ⚠️ 兄弟序：原版在奖励名 `EverguildTextMeshPro` **之后**、`Premium Indicator` **之前**
             //   （`menu_rect.py … "Daily Reward Popup Entry"` 的子件表）：它会被后画的 `Gacha Reward Claimed` 压住，
             //   所以我们**也建在这个位置**（⛔ 别挪到方法末尾）。
-            BuildExtraRewardIndicator(node, R(D_Extra), day, prem);
+            BuildExtraRewardIndicator(node, R(D_Extra), day, prem); BuildShadow(node, R(D_Bg));   // ✅ 已复刻（2026-11-05 · B143-W7 · prefab 根 `m_Children` 兄弟序：`Shadow` 在 `Extra Reward Indicator` 之后、`Premium Indicator` 之前）
             // `Premium Indicator`（角旗 + 锁）—— **只有 PremiumLocked 开**
             var pi = MenuDraw.Node(node, "Premium Indicator", R(D_PremBanner));
             MenuDraw.Rect(pi, Art(ArtPremBanner), R(D_PremBanner), "Banner", QContent);
@@ -543,7 +543,7 @@ namespace CardPresentation
 
             // `Gacha Reward Claimed`（`WF_Special offer_Value` + 'Claimed'）—— **只有 Collected 开**
             var gc = MenuDraw.Node(node, "Gacha Reward Claimed", R(D_Claimed));
-            MenuDraw.Rect(gc, Art(ArtClaimed), R(D_Claimed), "Claimed", QContent, ClaimedTint);
+            MenuDraw.Rect(gc, Art(ArtClaimed), R(D_Claimed), "Claimed", QShadowAbove, ClaimedTint);   // ✅ 2026-11-05 B143-W7：兄弟序在 `Shadow` 之后 ⇒ 抬到 `QShadow + 1`（否则被压暗层吃掉亮度）
             // 🔴 **2026-10-13（A493 #7）**：`Claimed Tex` 补**显式左对齐**。
             //   判据 = 原版 `Daily Reward Popup/…/Daily Reward Popup Entry/NormalReward/Gacha Reward Claimed/Claimed Tex`：
             //   **`对齐=Left/Midline`** —— `python 工具/menu_dump.py bundle_menus_assets_all "Daily Reward Popup"
@@ -555,11 +555,11 @@ namespace CardPresentation
             //   `m_fontSizeMin = **15**` · `m_fontSizeMax = **200**` · `m_fontSizeBase = **36**` · 折行 = 1。
             //   🔴 同上一颗：这一组带 `localScale = 0.8` ⇒ 四格一起 × 0.8 → **12 / 160 / 28.8**
             //   （判据 = `Shell/MissionsTab.cs` 的 `FS()`：「自适应上下限也要一起乘」）。
-            var claimedTx = MenuDraw.Text(gc, R(D_ClaimedTex), DailyData.RewardClaimedText(), Color.white, "Claimed Tex", 41.95f * 0.8f, QText,
+            var claimedTx = MenuDraw.Text(gc, R(D_ClaimedTex), DailyData.RewardClaimedText(), Color.white, "Claimed Tex", 41.95f * 0.8f, QShadowAbove,
                                           R(D_ClaimedTex).W, 15f * 0.8f, 200f * 0.8f, 36f * 0.8f, face: TmpFont.Face.LatinCardBody);
             MenuDraw.AlignLeft(claimedTx, R(D_ClaimedTex));
             MenuDraw.SetVAlign(claimedTx, Label.VAlign.Midline, R(D_ClaimedTex)); if (claimedTx != null) claimedTx.BindText(DailyData.RewardClaimedText, () => { MenuDraw.AlignLeft(claimedTx, R(D_ClaimedTex)); MenuDraw.SetVAlign(claimedTx, Label.VAlign.Midline, R(D_ClaimedTex)); });   // A712 阶段 2：原版 `Left/Midline` 的纵向那一半｜B106_W11（AUD03 #94）：绑 `Rewards Menu/Claimed`（`reapply` 重放 `AlignLeft`+`Midline` 两刀：`SetText` 会按新宽度重新居中）
-            // Collected 才开（原版同一句还开 `Shadow` —— 我们没有那张影子图，见文件头「我们挑的」）——
+            // Collected 才开（原版同一句还开 `Shadow` —— ✅ 2026-11-05 `B143-W7` 已补建，见 `BuildShadow`）——
             // 由 `Drawer.SetState` 统一开。
 
             // `colider`（**真的点击区**：同 BG 的图、α=0.00 + 按钮）—— **只有 Unlocked 开且可点**
@@ -897,12 +897,12 @@ namespace CardPresentation
                 _colider = colider; _hit = hit; _previewHit = previewHit;
             }
 
-            /// <summary>= 原版 `SetState(State)`。**五件里我们只建了四件**（`Shadow` 那张图我们没有，
-            /// 见文件头「我们挑的」那条）：
+            /// <summary>= 原版 `SetState(State)`。**五件已建满**（`Shadow` 于 2026-11-05
+            /// `B143-W7` 补建，见 `BuildShadow`）：
             /// <list type="bullet">
             ///   <item>`premiumLockIndicator`（`+0x30`）= `Premium Indicator` ⇔ `PremiumLocked`；</item>
             ///   <item>`claimedIndicator`（`+0x38`）= `Gacha Reward Claimed` ⇔ `Collected`；</item>
-            ///   <item>`shadow`（`+0x48`）⇔ `Collected` —— **本工程没有这一件**（无图）；</item>
+            ///   <item>`shadow`（`+0x48`）= `Shadow` ⇔ `Collected`（由 `BuildShadow` 建、按 `_colider` 的父件查名取）；</item>
             ///   <item>`highlight`（`+0x50`）= `Highlight` ⇔ `Unlocked`；</item>
             ///   <item>`claimButton`（`+0x58`）= `colider`：`SetActive` + `interactable` 都 ⇔ `Unlocked`
             ///         （原版两句都吃同一个 `state == 1`）。</item>
@@ -913,10 +913,10 @@ namespace CardPresentation
             public void SetState(RewardState state)
             {
                 if (_premiumIndicator != null) _premiumIndicator.SetActive(state == RewardState.PremiumLocked);
-                if (_claimed != null) _claimed.SetActive(state == RewardState.Collected);
+                if (_claimed != null) _claimed.SetActive(state == RewardState.Collected); if (_colider != null && _colider.parent != null) { var _sh = _colider.parent.Find("Shadow"); if (_sh != null) _sh.gameObject.SetActive(state == RewardState.Collected); }   // ✅ 已复刻（2026-11-05 · B143-W7 · `DailyRewardDrawerController__SetState.c` 第 3 句：`shadow` ⇔ `Collected`）
                 if (_highlight != null) _highlight.gameObject.SetActive(state == RewardState.Unlocked);
                 if (_colider != null) _colider.gameObject.SetActive(state == RewardState.Unlocked);
-                if (_hit != null) _hit.Interactable = state == RewardState.Unlocked; if (_previewHit != null) _previewHit.Interactable = state != RewardState.Unlocked && state != RewardState.Collected;   // 🔶 自己设计（非原版）：Shadow 缺图 ⇒ 用命中闸复刻遮挡语义（原版 `Unlocked` 被 `colider` 吞、`Collected` 被 `Shadow` 吞）· 判据 = Shadow 的 `m_RaycastTarget = 1` 与 `DailyRewardDrawerController__SetState.c` · 调度台 2026-10-31 裁定
+                if (_hit != null) _hit.Interactable = state == RewardState.Unlocked; if (_previewHit != null) _previewHit.Interactable = state != RewardState.Unlocked;   // ✅ 已复刻（2026-11-05 · B143-W7 · `DailyRewardDrawerController__SetState.c`）：`Unlocked` 由 `colider` 吞、`Collected` 由 `Shadow`（`m_RaycastTarget = 1`，命中件见 `BuildShadow`）吞 —— 两条现在都是结构性的
                 State = state;
             }
 
@@ -1413,6 +1413,94 @@ namespace CardPresentation
             vc.softness = new Vector2Int(ArmyViewportSoftX, ArmyViewportSoftY);
             vc.CaptureNow();
             return vc;
+        }
+
+        // ============================================================ 🆕 2026-11-05（`B143-W5`）· ESC 的「收完再关」
+        // 本节**追加在类尾**（铁律 18·b）：上面最后一条账落点在 `:1111` 之前，类尾追加不会让它漂。
+        /// <summary>🔴 `Close()` 覆写**只为 ESC 那一发补「收」**（见 `ESCPressed` 的 doc）。
+        /// <para>原版 `Close()` = `LiveOp.TryCollect(() => base.Close())`（**收完才 `base.Close()`**）——
+        /// 我们照这个次序：**先 `DailyRewardAutoCollect()`、再 `base.Close()`**。
+        /// ⚠️ 程序性关窗（`CloseAllWindows()` / 父窗 / `Hide()`）**不经过 `ESCPressed`** ⇒ 标志为假 ⇒ **不收**。</para></summary>
+        public override void Close()
+        {
+            if (_escCollectOnClose)
+            {
+                _escCollectOnClose = false;                   // 先复位 ⇒ 收的过程中再关一次也不会二次收
+                DailyData.DailyRewardAutoCollect();
+                _closeOrder.Add("collect");
+            }
+            base.Close();
+            if (CurrentState == WindowState.Closed) _closeOrder.Add("close");
+        }
+
+        /// <summary>ESC 那一发正在走「基类已过门槛 ⇒ 虚表 `Close()`」这条路时置真（唯一写点 = `ESCPressed`）。</summary>
+        bool _escCollectOnClose;
+
+        /// <summary>自检读口：`collect` / `close` 的**发生顺序**。
+        /// 期望：ESC 那一发 = **`collect,close`**；返回钮 = `collect,close`；**程序性关窗 = 只有 `close`**。
+        /// ⛔ 不参与渲染（同 `FastModeCollectPopup.SequenceForTest` 那条口径）。</summary>
+        static readonly System.Collections.Generic.List<string> _closeOrder = new System.Collections.Generic.List<string>();
+        public static string CloseOrderForTest { get { return string.Join(",", _closeOrder.ToArray()); } }
+        public static void ResetCloseOrderForTest() { _closeOrder.Clear(); }
+    }
+
+    // ============================================================ B143-W7（续）· 抽屉的 `Shadow`（收走点击的压暗层）
+    /// ✅ 已复刻（2026-11-05 · B143-W7 · `assetripper_out/ExportedProject/Assets/Daily Reward Popup Item Drawer.prefab`）
+    /// <para>原版节点 `Daily Reward Popup Item Drawer ▸ Shadow`（GameObject `1336590748365959`）实读：
+    /// `RectTransform` 锚 `(0.05,0.05)–(0.95,0.95)` · `m_SizeDelta = (0,0)` · `m_Pivot = (0.5,0.5)`
+    /// （= **与 `BG` / `colider` 逐字段相同**，三件在屏上是同一个矩形）；
+    /// `Image` 的 `m_Sprite = 1d5092fd09f4bdd489061f50a0697106` = **`UI_Deck_Information_submenu_Back_opaque`**
+    /// （与本抽屉 `BG` 同一张）· `m_Color = (0.14150941, 0.14150941, 0.14150941, 0.5019608)` ·
+    /// `m_Type = 1(Sliced)` · 九宫 `18/18/18/18` · `m_PixelsPerUnitMultiplier = 1` · `m_RaycastTarget = 1` ·
+    /// 出厂 `m_IsActive = 0`。`Sprite` 资产的 `m_Border` 也是 `18/18/18/18`（`Sprite/UI_Deck_Information_submenu_Back_opaque.asset`）。</para>
+    /// <para>显隐 = 原版 `DailyRewardDrawerController.SetState` 第 3 句 `shadow` ⇔ `Collected`
+    /// （`decomp_full/DailyRewardDrawerController__SetState.c`）—— 由 `Drawer.SetState` 开。</para>
+    /// <para>⚠️ 本仓 `BG` 一侧画的是**平铺 `MenuDraw.Rect`**（不是九宫）⇒ `Shadow` 也照 `BG` 用平铺，
+    /// 两件**逐像素同形**；若日后把 `BG` 改成九宫，这里必须同步改（否则同一张图两件渲染会分家）。</para>
+    public partial class DailyRewardPopup
+    {
+        /// <summary>原版 `Shadow` 的渲染档：**严格高于**奖励名 `QText`(3011) 与图标 `QContent`(3010)
+        /// （否则压暗层被压在奖励图下面 = 画面看不到），**严格低于** `QOverlay`(3014) 的 `colider`。
+        /// <para>兄弟序判据 = `Daily Reward Popup Item Drawer.prefab` 根 `m_Children`：
+        /// `BG` → `Highlight` → `Reward Holder` → `Name`(EverguildTextMeshPro) → `Extra Reward Indicator`
+        /// → **`Shadow`** → `Premium Indicator` → `Gacha Reward Claimed` → `colider`。</para>
+        /// <para>⚠️ `Premium Indicator`（`QContent` 3010）与 `Gacha Reward Claimed`（`QContent` 3010 / 文字 `QText` 3011）
+        /// 在原版兄弟序里**都在 `Shadow` 之后** ⇒ 它们的档已一起抬到 <see cref="QShadowAbove"/>（否则会被压暗层吃掉亮度）。
+        /// ② `Premium Indicator` 只在 `PremiumLocked` 开、`Shadow` 只在 `Collected` 开 ⇒ 两者互斥，抬档对画面无影响。</para></summary>
+        public const int QShadow = QText + 1;          // 3012
+        /// <summary>见 <see cref="QShadow"/>：兄弟序在 `Shadow` 之后的 `Gacha Reward Claimed` 用这一档（3013）。</summary>
+        public const int QShadowAbove = QShadow + 1;   // 3013
+        /// <summary>原版 `Shadow ▸ Image.m_Color` = `(0.14150941, 0.14150941, 0.14150941, 0.5019608)`（prefab 实读，⛔ 不是 `menu_dump` 的派生列）。</summary>
+        public static readonly Color ShadowTint = new Color(0.14150941f, 0.14150941f, 0.14150941f, 0.5019608f);
+
+        /// <summary>建一颗 `Shadow`（= 原版 `DailyRewardDrawerController` 的 `shadow`，`+0x48`）。
+        /// <para>🔴 **`m_RaycastTarget = 1` 的等价物**：原版它是一颗**纯 `Image`**（不是 `Selectable`）⇒
+        /// 指针落在它身上**被吃掉、什么都不做**（这就是「已领奖那一格点不开物品详情」的机制）。
+        /// 本仓「图形当射线靶」只有一条路 —— `PointerLayer.CollectHits` 只认 `WindowButton` 子树里的 `ImageQuad`
+        /// ⇒ 这里给同一个 `ImageQuad` 挂一颗 `WindowButton`：不 `Bind`（原版这颗**没有**色偏/换图）·
+        /// `tintOnHover = false`（同上）· `absorbOnly = true`（= 原版「不是 `Selectable` ⇒ 不进键盘导航、不被选中」，
+        /// 与 `MenuDraw.Absorb` 建出来的吸收层同一语义）。</para>
+        /// <para>⚠️ 出厂 `m_IsActive = 0`；只有 `Drawer.SetState(Collected)` 开它。</para></summary>
+        void BuildShadow(Transform node, PxRect rect)
+        {
+            if (node == null) return;
+            var sh = MenuDraw.Rect(node, Art(ArtBackOpaque), rect, "Shadow", QShadow, ShadowTint);
+            if (sh == null) return;      // `Art()` 取不到时已登记进 `MissingArt`（红线：不许静默失败）
+            var wb = sh.gameObject.AddComponent<WindowButton>();
+            wb.tintOnHover = false;
+            wb.absorbOnly = true;   // ✅ 已复刻（2026-11-05 · B143-W7 · 原版 Shadow 拦点击）· 复用 WindowButton.absorbOnly（本仓图形非射线靶 ⇒ 必须显式遮挡）
+            sh.gameObject.SetActive(false);
+        }
+
+        /// <summary>自检用：取某天某条轨的 `Shadow` 节点（`null` = 没建/那一格没铺）。
+        /// 与 <see cref="ExtraRewardIndicatorForTest"/> 同族（⛔ 只读引用，别在自检里改节点）。</summary>
+        public Transform ShadowForTest(int day, bool premium)
+        {
+            if (entries == null || entries.Count == 0) return null;
+            var e = entries[Mathf.Clamp(day, 0, entries.Count - 1)];
+            if (e == null) return null;
+            var d = e.Find(premium ? "Premium Reward" : "NormalReward");
+            return d != null ? d.Find("Shadow") : null;
         }
     }
 }

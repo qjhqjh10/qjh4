@@ -114,7 +114,7 @@ namespace CardPresentation
         // ============================================================ 几何（dump 现读 · 1920×1080 画布 px）
         /// <summary>`Menu Dark Background`（4574.60×2572.36，**以屏幕中心为中心**）。</summary>
         public const float ShadeL = -1327.3f, ShadeT = -746.2f, ShadeR = 3247.3f, ShadeB = 1826.2f;
-        public static readonly Color ShadeTint = new Color(0f, 0f, 0f, 0.773f);   // Image.m_Color 实读
+        public static readonly Color ShadeTint = new Color(0f, 0f, 0f, 0.7725490f);   // Image.m_Color 实读
 
         /// <summary>`Title`：0,55 → 1920,165.349（fs80/基准80 · Center/**Midline** · 折行）。</summary>
         public const float TitleT = 55f, TitleB = 165.349f;
@@ -472,8 +472,8 @@ namespace CardPresentation
         /// <summary>= 原版 `RefreshContinueButton()`：`continueButton` 亮起来 + `selectedFactionIcon` 换成
         /// 该阵营的徽记（原版 `ArmyUtilities.GetArmyIcon(army)`）。
         /// <para>⚠️ 原版那两段动画（`continueGroup` 0.5 s 淡入、`selectedFactionIconShine` 闪烁）本仓没有 tween
-        /// ⇒ **直接落终值**（如实记）。原版还会播督军 `GetChatSound`（Jingles 组）—— 我们没有那条
-        /// 「卡 → 语音」链（`RawCardScript.GetChatSound` 在远端音频表），⛔ 不编一声顶上。</para></summary>
+        /// ⇒ **直接落终值**（如实记）。✅ 那句督军 `GetChatSound`（**Jingles** 组）**已接** → 见类尾 `PlayWarlordChatSound`
+        /// （2026-11-05 `B144-B2`；原文「我们没有那条链 / 判据在远端」**已过期**，理由见类尾那一段）。</para></summary>
         void RefreshContinueButton()
         {
             if (_selected == null) return;
@@ -482,7 +482,7 @@ namespace CardPresentation
                 _continueButton.gameObject.SetActive(true);   // 原版 `continueButton.gameObject.SetActive(true)`
                 _continueShown = true;
             }
-            var view = _selected.View;
+            var view = _selected.View; PlayWarlordChatSound(view.HeroCardId);
             if (_selectedFactionNode != null)
             {
                 _selectedFactionNode.gameObject.SetActive(true);   // 原版 `image.enabled = true`
@@ -743,6 +743,58 @@ namespace CardPresentation
                  + " selected=" + (_selected != null ? _selected.View.DeckId : "-")
                  + " continue=" + (_continueShown ? "on" : "off")
                  + " missingArt=" + MissingArt.Count;
+        }
+
+        // ============================================================ 督军聊天语音（2026-11-05 · B144-B2 · 追加在类尾）
+        //  ✅ 已复刻（判据 = `decomp_full/FTUESelectDeckWindow__RefreshContinueButton.c:65-66`：
+        //    `RawCardScript__GetChatSound(card, **0**)` → `SoundManager__Play2D(clip, **3**)`；
+        //    `GetChatSound` 的 `case 0` 读 `+0x190` = **`introChatSound`**（`d2/tools/il2cpp_out/dump.cs:23301`），
+        //    `MixerType.cs` = `FX 0 / Music 1 / Voices 2 / **Jingles 3**`）。
+        //  ⚠️ 本文件头旧注释写「我们没有那条『卡 → 语音』链、`RawCardScript.GetChatSound` 在**远端**音频表
+        //    ⇒ ⛔ 不编一声顶上」—— **那条理由已过期**（铁律 5 就地订正）：本地 `Resources/voice_lines.json`
+        //    现读 **642 卡 / 1,897 条**，`so` 列里就有 `introChatSound`（56 卡）⇒ 判据在本地。
+        //  ⚠️ 组 = **Jingles**（不是 FX）—— 与本窗的 `openSound` 是**两声**：后者走 `GameWindow.TryOpen`
+        //    指令流 = FX（见文件头 `:14`），两者不矛盾，⛔ 别「二选一」。
+        static AudioSource _warlordChatSrc;
+        static string _lastWarlordChatFile;
+
+        /// <summary>自检读口：上一次播的督军聊天语音文件名（没播过 / 这张卡没有 = null）。</summary>
+        public static string LastWarlordChatForTest { get { return _lastWarlordChatFile; } }
+        /// <summary>自检读口：累计真的播了几次（只在 clip 取到时 +1）。</summary>
+        public static int WarlordChatCountForTest { get; private set; }
+
+        /// <summary>播这一副卡组督军的**聊天语音**（原版 `GetChatSound(ChatMessage 0)` = `introChatSound`）。
+        /// <para>⚠️ 原版 `case 0` **没有兜底**：这张卡没有 `introChatSound` ⇒ `GetChatSound` 返回 null ⇒ 不响。
+        /// 所以这里用**单元素** order `{"intro"}`，⛔ 别用 `ForIntro`（那是 `{"intro","default"}`，会多响一句）。</para></summary>
+        void PlayWarlordChatSound(string heroCardId)
+        {
+            if (string.IsNullOrEmpty(heroCardId)) return;
+            string file, text;
+            if (!VoiceLines.TryPick(heroCardId, new[] { "intro" }, null, out file, out text)) return;   // 没有就没有，**不静默顶一声**
+            var clip = VoiceLines.Clip(file);
+            if (clip == null) return;
+            var src = WarlordChatSource();
+            if (src == null) return;
+            src.outputAudioMixerGroup = WarpforgeAudio.JinglesGroup;   // 原版 `Play2D(..., 3)` = Jingles
+            src.pitch = 1f;
+            src.PlayOneShot(clip, 1f);    // 原版 `SoundManager__Play.c` 的 `set_volume(1.0)`
+            _lastWarlordChatFile = file;
+            WarlordChatCountForTest++;
+        }
+
+        /// <summary>那条「全局、跨窗存活」的聊天语音源（窗口关掉后这一声不该被截断 ⇒ 挂在 `DontDestroyOnLoad` 的独立对象上）。
+        /// <para>⚠️ 与 `WarpforgeAudio._jingle` **不是同一台** —— 那台的入口 <see cref="WarpforgeAudio.PlayJingle"/>
+        /// 只吃 `WFSoundCue` 资产，而语音是原始 `.ogg`（不走 cue 表）。⛔ 别为了「共用一台」去改 `WarpforgeAudio` 的私有字段。</para></summary>
+        static AudioSource WarlordChatSource()
+        {
+            if (_warlordChatSrc != null) return _warlordChatSrc;
+            var go = new GameObject("WFWarlordChatPlayer");
+            go.hideFlags = HideFlags.DontSave;                     // 批处理自检里的运行时对象别存进场景（同 `WFSoundPlayer.Rent` 的 A1534 规矩）
+            if (Application.isPlaying) UnityEngine.Object.DontDestroyOnLoad(go);
+            _warlordChatSrc = go.AddComponent<AudioSource>();
+            _warlordChatSrc.playOnAwake = false;
+            _warlordChatSrc.spatialBlend = 0f;                     // 原版 `Play2D`
+            return _warlordChatSrc;
         }
     }
 }

@@ -151,7 +151,7 @@ namespace CardPresentation
         public const int QDsHit = 3127;     // ✅ 留 `public`：`Editor/MainMenuScene.cs` 引用（2 处）
 
         // ---- 几何（A1 §3 逐条；2026-09-24 从根节点复核过，见文件头）----
-        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
+        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.7725490f);
         /// <summary>压暗层 `Menu Dark Background` 的**原版矩形**（= **超画幅** 4574.60 × 2572.36，不是 1920×1080）。
         /// <para>判据 = `menu_dump.py bundle_menus_assets_all "Deck Selection Popup with Tabs" --depth 8`
         /// 的 `Menu Dark Background` 行（`-1327.3,-746.2 → 3247.3,1826.2` · 色 (0,0,0,.773)）。</para>

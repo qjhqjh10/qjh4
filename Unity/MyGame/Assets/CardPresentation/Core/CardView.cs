@@ -9526,7 +9526,7 @@ namespace CardPresentation
         /// <para>⚠️ 取 `Physics2D.DefaultRaycastLayers`（= 除 `Ignore Raycast` 外全部）而**不是**写死
         /// `(1 &lt;&lt; 0) | (1 &lt;&lt; 8)`：卡的层是**运行时**改的，写死一个掩码在换层那一帧就会
         /// **漏掉自己**（静默）。目标碰撞体由 `HitByCollider` **逐颗比对**（必须是本卡那颗），
-        /// 别的层上的 collider 不会造成误判。</para></summary>
+        /// 别的层上的 collider 不会造成误判。🔶 自己设计（非原版）：**迁移的必然等价物** —— 原版是层 5 的 `BoxCollider2D` + `EverguildPhysics2DRaycaster m_EventMask = 32`；我们因 🔶 #13 卡落 0/8 两层。⛔ 不许单独改成 `1 &lt;&lt; 5`：`B132 #65/#66` 与 `#80` 是**一条任务**（先挂射线器）。判据 → `报告/B144_A_物理层.md` §6·6。</para></summary>
         public static int CardHitLayerMask { get { return Physics2D.DefaultRaycastLayers; } }
 
         /// <summary>本卡的**真 `BoxCollider2D`**（挂在 `_tiltRoot` = 原版 `2DCard` 那一级）。

@@ -31,7 +31,7 @@ namespace CardPresentation
     /// <summary>原版 `RewardInfo : ItemInfo&lt;ObtainableItem&gt;` 的本地等价物（一条奖励）。
     /// <para>⚠️ 它是**数据 + 一个谓词**，不含发放逻辑 —— 发放走 <see cref="RewardService"/>（`Shell/Inventory.cs`）。</para></summary>
     [Serializable]
-    public class RewardInfo
+    public partial class RewardInfo
     {
         /// <summary>原版 `Item`（`LoadableReference&lt;ObtainableItem&gt;` ⇒ 落到 `item.targetId`）。
         /// 本工程 = 背包里的物品 id（货币 code / 卡 id / …）。</summary>
@@ -77,7 +77,7 @@ namespace CardPresentation
 
         /// <summary>原版 `bool CanCollect()`（`RewardInfo__CanCollect.c` = **一句** `return Item.CanBeCollected();`）。
         /// <para>本工程物品侧的等价判据：**是货币且已经顶到 `MaxAmount`** ⇒ 不能领（`ICurrency.MaxAmount`，
-        /// 见 `Shell/Inventory.cs:1663`）；其余物品（卡 / 异画 / 卡组…）本机没有「上限」这一档 ⇒ 可领。</para>
+        /// 见 `Shell/Inventory.cs:1663`）；其余物品（卡 / 异画 / 卡组…）本机没有「上限」这一档 ⇒ 可领。🆕 战役点数那一档（`CampaignPoints`）单独走 <see cref="CampaignPointsCanCollect"/>（上限在远端，见那段 doc）。</para>
         /// <para>⚠️ 与账 675-680 同一条口径：**本方法今天零生产调用点**（领取链 `RewardService.Collect`
         /// 还没接线）⇒ 它只服务将来「按条判可领」的那种 UI，⛔ 别拿它当已接线。</para></summary>
         public bool CanCollect()
@@ -87,6 +87,7 @@ namespace CardPresentation
                 Debug.LogWarning("[RewardInfo] CanCollect：Id 为空 ⇒ 领不了（原版这一档 `Item` 为 null 会 NRE）");
                 return false;
             }
+            if (IsCampaignPointsId(Id)) return CampaignPointsCanCollect();   // ✅ 已复刻（2026-11-05 · B143-W7 · 判据见 `CampaignPointsCanCollect`）
             var currencies = InventoryManager.GetInventory<ICurrency>();
             if (currencies != null)
             {
@@ -140,5 +141,51 @@ namespace CardPresentation
         {
             return (Id ?? "<null>") + " ×" + Quantity + "（tier " + Tier + (IsExtra ? " · extra" : "") + "）";
         }
+    }
+
+    // ============================================================ B143-W7（续）· `CanCollect` 的战役点数那一档
+    /// ✅ 已复刻（2026-11-05 · B143-W7 · 账 `日常_奖励:669`）
+    /// <para>判据链：`decomp_full/RewardInfo__CanCollect.c` 只有一句 `return Item.CanBeCollected();`
+    /// → `decomp_full/CampaignPoints__get_CanBeCollected.c` **转发**到 `Currency__get_CanBeCollected.c`，
+    /// 后者体 = **「无上限 ⇒ true；有上限 ⇒ `owned &lt; MaxAmount`」**（`MaxAmount` = 物品 SO 的 `+0x58`）。</para>
+    /// <para>⚠️ **上限判据本地拿不到**：那件物品 SO 在本机不存在（`CampaignPoints` 的具体子类也没有建，
+    /// 见 `Shell/Points.cs` 文件头「不建的东西」）⇒ 按**原版「无上限」那一支**恒可领，
+    /// 并**出声一次**说明「上限在远端」—— ⛔ 不编一个上限值（铁律 18·0）。
+    /// 持有量口径 = <see cref="CampaignData.AvailablePoints"/>（本仓「可花战役点」的唯一读口）。</para>
+    /// <para>⚠️ 这一支今天**零生产调用点**（同 `CanCollect` 整体，见它的 doc）。</para>
+    public partial class RewardInfo
+    {
+        /// <summary>战役点数奖励的 id 形态：原版 `Points&lt;T&gt;.get_Id`（VA `0x18112CF60`）
+        /// = `typeof(T).Name.Replace("Handler","") + " Points " + cardArmy` ⇒ `T = CampaignHandler` 时为
+        /// **`"Campaign Points "`**（尾部那个空串是原版拼出来的，⛔ 不是笔误）。
+        /// <para>⚠️ 本仓 `Points&lt;T&gt;.Id`（`Shell/Points.cs`）逐字照抄了这条拼法 ⇒ 按**前缀**认即可
+        /// （`Army` 非空时后面还会跟阵营名）。</para></summary>
+        public const string CampaignPointsIdPrefix = "Campaign Points";
+
+        static bool _warnedNoCampaignPointsCap;
+
+        /// <summary>这条 id 是不是「战役点数」（见 <see cref="CampaignPointsIdPrefix"/>）。</summary>
+        public static bool IsCampaignPointsId(string id)
+        {
+            return !string.IsNullOrEmpty(id)
+                && id.StartsWith(CampaignPointsIdPrefix, StringComparison.Ordinal);
+        }
+
+        /// <summary>原版 `CampaignPoints.CanBeCollected()` 的等价判定（见本段 doc）。</summary>
+        public static bool CampaignPointsCanCollect()
+        {
+            if (!_warnedNoCampaignPointsCap)
+            {
+                _warnedNoCampaignPointsCap = true;
+                Debug.Log("[RewardInfo] CanCollect：这一条是**战役点数**（`CampaignPoints`）。原版 `CanBeCollected` = "
+                        + "「无上限 ⇒ true；有上限 ⇒ 持有 < `MaxAmount`」，而**上限在物品 SO（`+0x58`）里、本机没有那份资产** "
+                        + "⇒ 按原版「无上限」那一支**恒可领**（⛔ 不编一个上限值）。当前持有量口径 = `CampaignData.AvailablePoints` = "
+                        + CampaignData.AvailablePoints + "。");
+            }
+            return true;
+        }
+
+        /// <summary>自检收尾：把「已出声」闩复位（⛔ 生产不调）。</summary>
+        public static void ResetCampaignPointsCapWarnForTest() { _warnedNoCampaignPointsCap = false; }
     }
 }

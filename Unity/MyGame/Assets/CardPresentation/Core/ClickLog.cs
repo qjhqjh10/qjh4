@@ -110,8 +110,8 @@ namespace CardPresentation
             lock (_lock) _captured.Clear();
             _hits.Clear();
             _scene = scene; _source = source; _t0 = Time.realtimeSinceStartup;
-            var m = UnityEngine.InputSystem.Mouse.current;
-            _screen = m != null ? Fmt(m.position.ReadValue()) : "?（批处理/无鼠标）";
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager：`Mouse.current` 非空 ≡ `Input.mousePresent`，`position.ReadValue()` ≡ `Input.mousePosition`，1:1）
+            _screen = Input.mousePresent ? Fmt(Input.mousePosition) : "?（批处理/无鼠标）";
             _canvas = canvasPx.HasValue ? Fmt(canvasPx.Value) : "?（这条派发链没给）";
         }
 

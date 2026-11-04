@@ -841,7 +841,7 @@ namespace CardPresentation
             //     「渲出来的宽 ≤ 155」与文案）⇒ 今天**没有断言咬得住**（如实登记，别为它发明判据）。
             if (txt != null)
             {
-                txt.SetCharSpacing(-3.5f);                 // 原版 `m_characterSpacing = −3.5`
+                txt.SetCharSpacing(-3.5f); txt.SetOverflow(TMPro.TextOverflowModes.Truncate);                 // 原版 `m_characterSpacing = −3.5` · ✅ 已复刻（2026-11-05 · B144-C · 四份 `TabButtonLabel` prefab 的 `m_overflowMode = 3`：Collection / Rewards / Shop / Social 变体逐份现读）
                 MenuDraw.SetVAlign(txt, Label.VAlign.Midline,
                                    new PxRect(cx - labW * 0.5f, lb - labH, cx + labW * 0.5f, lb));
             }

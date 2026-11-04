@@ -138,18 +138,18 @@ namespace CardPresentation
         /// <para>本 build 里 6 条 cue ↔ `(阵营, 时机)` **一一对应**（派生的区间视图 `_props` 就按这个分行）
         /// ⇒ 用这个**值类型**当键：零字符串、零分配、不会因为改名/拼错而静默分叉（改前是字符串键）。</para>
         /// <para>🆕 2026-11-03（`B121-WA` · `B120-F21`）：6 条 cue 已由 `B120-W17` 收进**第三张表**
-        /// `Resources/remnant_sounds.json`（键 = cue 资产名）⇒ 冷却键已切到类尾 `_lastAtCue`（`Dictionary&lt;WFSoundCue, float&gt;`），
+        /// `Resources/remnant_sounds.json`（键 = cue 资产名）⇒ 冷却键 = 原版 cue 实例，⚠️ 2026-11-05（`B144-B2` · `B131` C6）那张表已并进 `WFSoundPlayer` 的**共享表**（本类自己的 `_lastAtCue` 已删），
         /// 这个下标只在**表缺失**时兜底。⚠️ 若将来两条 cue 共用同一个 `(阵营, 时机)`，只有兜底那一档会分叉。</para></summary>
         static int CueIndex(Moment m, bool aeldari) { return (int)m * 2 + (aeldari ? 0 : 1); }
 
         /// <summary>各档上一次播的时刻 —— **兜底表**（键 = `(阵营, 时机)` 下标，见 `CueIndex`）：只在 `Resources/remnant_sounds.json` 缺失、
-        /// 拿不到原版 cue 实例时才用。🆕 2026-11-03 `B121-WA`（`B120-F21`）：正常路径走类尾的 `_lastAtCue`（键 = 原版 cue 资产实例）。</summary>
+        /// 拿不到原版 cue 实例时才用。🆕 2026-11-05（`B144-B2` · `B131` C6）：正常路径走 `WFSoundPlayer` 的**共享表**（`CanPlayByCooldown(cue)`），本类不再自持 cue 表。</summary>
         static readonly System.Collections.Generic.Dictionary<int, float> _lastAt =
             new System.Collections.Generic.Dictionary<int, float>();
         /// <summary>自检用：因为 `timeToPlayAgain` 被挡掉了几次。</summary>
         public static int Throttled { get; private set; }
         /// <summary>自检用：把节流记录清掉（每段之前调）。</summary>
-        public static void ResetThrottle() { _lastAt.Clear(); _lastAtCue.Clear(); Throttled = 0; }
+        public static void ResetThrottle() { _lastAt.Clear(); WarpforgeVFX.WFSoundPlayer.ResetThrottle(); Throttled = 0; }   // ✅ 2026-11-05（B144-B2 · B131 C6）：cue 那一档已并进 `WFSoundPlayer` 的共享表 ⇒ 清它那本就等于清 cue 那一档（`_lastAtCue` 已删）
 
 
         static GameObject _host;
@@ -203,7 +203,7 @@ namespace CardPresentation
             //   `last != 0` 那半句也在那里（0 = 从没播过，漏掉它会把 `Time.time` 还小时的第一次也拦掉）。
             //   ⚠️ cue 表取不到 / `timeToPlayAgain == 0` ⇒ 传 0 ⇒ 天然永远放行（与原版一致）。
             float ttpa = cue != null ? cue.timeToPlayAgain : 0f;
-            if (!(cue != null ? WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(_lastAtCue, cue, ttpa) : WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(_lastAt, CueIndex(m, aeldari), ttpa)))
+            if (!(cue != null ? WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(cue) : WarpforgeVFX.WFSoundPlayer.CanPlayByCooldown(_lastAt, CueIndex(m, aeldari), ttpa)))   // ✅ 已复刻（2026-11-05 · B144-B2 · `B131` C6：**冷却表合并成一张** —— 原版 `lastTimePlayed` 只住在 cue 资产上、全项目一张表；cue 那一支改走 `WFSoundPlayer` 的**共享表**，⛔ 别再用本类自己那本（`_lastAtCue` 已删）。⚠️ `_lastAt`（下标键）是「cue 表缺失」的兜底档，不参与合并
             {
                 Throttled++;
                 return false;
@@ -295,8 +295,8 @@ namespace CardPresentation
         //  ⚠️ 旧 `(阵营, 时机)` 下标表（`_lastAt`）**保留为兜底**：那份 json 缺失时仍要能节流。
         //  ✅ 2026-11-03 `B123-C4`（`B121-AUD-01`）：旧 `remnant_cue_props.json` 已**不再被读** —— `PropsOf`/`PropsLoaded` 改成
         //     cue 表的派生视图，`B120_W17_Assert` A3 与 `B117_WCOOL3_Assert` A 组同批切到 cue 表（旧文件仍由生成器产出）。
-        static readonly System.Collections.Generic.Dictionary<WarpforgeVFX.WFSoundCue, float> _lastAtCue =
-            new System.Collections.Generic.Dictionary<WarpforgeVFX.WFSoundCue, float>();
+        // 🔴 2026-11-05（`B144-B2` · `B131` C6）：本类原来那张 `_lastAtCue` 已【删除】—— 冷却表合并成一张（原版形状：`lastTimePlayed` 只住在 cue 资产上、全项目一处）⇒ cue 那一支直接调 `WFSoundPlayer.CanPlayByCooldown(cue)`。
+        //    与 `BattleSfx` / `WindowSounds` 共用同一本表（同名 cue 经不同路径播时**共享**同一个 0.1 s 窗口），⛔ 别建回来。
 
         /// <summary>这一档对应的原版 **cue 资产名**（⚠️ 与 clip 名**不同**：灵族「收集」cue = `Aeldari Waystone Collect`、
         /// clip = `Aeldari To Waystone Death`；死灵「收集」cue = `NecronsCardReanimate`、clip = `CardReanimate`）。

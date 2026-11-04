@@ -333,7 +333,7 @@ namespace CardPresentation
             float v = Mathf.Clamp(o, ClampLo, ClampHi);
             if (Mathf.Abs(v - Offset) < 0.01f) return;
             Offset = v;
-            if (OnChanged != null) OnChanged();
+            if (OnChanged != null) OnChanged(); if (Scrollbar != null) SyncScrollbar();   // 🆕 2026-11-05（B143-W7）：绑了滚动条才同步；未绑 ⇒ 不进这一句（既有路径逐像素不变）
         }
 
         /// <summary>滚轮一格（`Mouse.current.scroll.ReadValue().y` —— **本机实测一格 ±1**，见 `ScrollUnitsPerNotch`）。
@@ -607,7 +607,7 @@ namespace CardPresentation
             _scrolling = false;                                    // UGUI 在 LateUpdate 末尾清（:899）
 
             bool moved = Mathf.Abs(Offset - before) > 0.001f;
-            if (moved && OnChanged != null) OnChanged();
+            if (moved && OnChanged != null) OnChanged(); if (Scrollbar != null && moved) SyncScrollbar();   // 🆕 2026-11-05（B143-W7）：惯性/滚轮/锁档那几条写 `Offset` 的路都汇到这一帧；未绑 ⇒ 不进
             return moved;
         }
 
@@ -700,6 +700,187 @@ namespace CardPresentation
             onScreen = new PxRect(cx1, contentRect.y1, cx2, contentRect.y2);
             uv = new Rect((cx1 - x1) / w, 0f, (cx2 - cx1) / w, 1f);
             return true;
+        }
+
+        // ============================================================ 🆕 2026-11-05（B143-W7）· 滚动条绑定（原版 `Scrollbar`）
+        //
+        // ✅ 已复刻（2026-11-05 · B143-W7 · 判据 = `D:/2/tools/assetripper_out/ExportedProject/Assets/Social Submenu Variant.prefab`）
+        //   那具 prefab 里 **6 份** `Scrollbar`（`m_Script` fileID `-2061169968`、guid `d3e719b59ab71ba3f6b398058c866280`）**逐字段相同**：
+        //     `m_Transition: 1`(ColorTint) · `m_ColorMultiplier: 1` · `m_FadeDuration: 0.1`
+        //     `m_NormalColor      = (1, 1, 1, 1)`
+        //     `m_HighlightedColor = (0.9607843, 0.9607843, 0.9607843, 1)`
+        //     `m_PressedColor     = (0.78431374, 0.78431374, 0.78431374, 1)`
+        //     `m_SelectedColor    = (0.9607843, 0.9607843, 0.9607843, 1)`
+        //     `m_Direction: 2`(BottomToTop) · `m_Size: 0.9273075` · `m_NumberOfSteps: 0`
+        //     🔴 `m_TargetGraphic` 指的是 **`Handle` 自己的 `Image`**（例：`!u!114 &114235180746187507`，
+        //        与 `m_HandleRect` `!u!224 &224893598567297033` **同一个** GameObject `1408345039935966`）
+        //        ⇒ 色偏**乘在滑块上**，⛔ 不是槽底 `scroll_bg`。
+        //     `Handle ▸ Image`：`m_Color (1,1,1,1)` · sprite `{fileID: 10905}`（内置 `UISprite`）· `m_Type 1`(Sliced) ·
+        //        `m_PixelsPerUnitMultiplier 1` · `m_RaycastTarget 1`（= 可拖，见下）。
+        //
+        // 🔴 **本仓的等价物**：给 `Handle` 那颗 `ImageQuad` 挂 `WindowButton` 并开 `tintOnHover`
+        //    —— `WindowButton` 的四态常量**与上面四个值同源同值**（`HighlightK 0.9607843` · `PressedK 0.7843137`
+        //    · `SelectedK 0.9607843` · `FadeSeconds 0.1`）⇒ ⛔ **不在这里另写一套色偏**，只把值暴露出来给断言读。
+        //    拖拽 = `PointerLayer.RegisterDrag`（本仓唯一的「按件拖」入口，`CollectionWindow` 同款）。
+        //
+        // ⚠️ **不绑定 ⇒ 一切照旧**：`Scrollbar == null` 时本段所有代码都不进，既有滚动路径逐像素不变
+        //    （`SetOffset` / `DragTo` / `Wheel` / `Tick` 里那几处只是多一次 `if (Scrollbar != null)`）。
+
+        /// <summary>滚动条的四态色偏表 + 两个标量（= 原版 `Scrollbar.m_Colors` / `m_ColorMultiplier` / `m_FadeDuration`）。
+        /// <para>🔴 四个值**全部从 `WindowButton` 的常量转引**（那里已经是全库唯一一份），⛔ 别在这里另写数字；
+        /// `Normal` 是原版 `m_NormalColor` 纯白（`WindowButton` 的 `NormalKey` 默认也是白）。</para>
+        /// <para>⚠️ `Disabled` 那一档不走这里：`WindowButton.DisabledKeyNow` 是按颗读 prefab 的（α 有两种），
+        /// 而滚动条**没有禁用路径**（`m_Interactable 1`、我们也不关它）⇒ 不参与。</para></summary>
+        public static class ScrollbarTint
+        {
+            public static readonly Color Normal = new Color(1f, 1f, 1f, 1f);
+            public static readonly Color Highlighted = new Color(WindowButton.HighlightK, WindowButton.HighlightK, WindowButton.HighlightK, 1f);
+            public static readonly Color Pressed = new Color(WindowButton.PressedK, WindowButton.PressedK, WindowButton.PressedK, 1f);
+            public static readonly Color Selected = new Color(WindowButton.SelectedK, WindowButton.SelectedK, WindowButton.SelectedK, 1f);
+            /// <summary>原版 `m_ColorMultiplier = 1`。</summary>
+            public const float ColorMultiplier = 1f;
+            /// <summary>原版 `m_FadeDuration = 0.1`（转引 `WindowButton.FadeSeconds`，同值）。</summary>
+            public const float FadeDuration = WindowButton.FadeSeconds;
+
+            /// <summary>状态 → 要乘的颜色（映射照 UGUI `Selectable.DoStateTransition` 的 `ColorTint` 支）。</summary>
+            public static Color Of(WindowButton.BtnState st)
+            {
+                switch (st)
+                {
+                    case WindowButton.BtnState.Pressed: return Pressed;
+                    case WindowButton.BtnState.Selected: return Selected;
+                    case WindowButton.BtnState.Highlighted: return Highlighted;
+                    default: return Normal;
+                }
+            }
+        }
+
+        /// <summary>原版 `Scrollbar` 组件 + `Handle` 的本地等价物（由宿主在建完节点后交给 <see cref="BindScrollbar"/>）。</summary>
+        public sealed class ScrollbarBinding
+        {
+            /// <summary>`Scrollbar` 节点（只用来开关 = 原版 `m_VerticalScrollbarVisibility = 2` 的 AutoHide）。</summary>
+            public Transform Root;
+            /// <summary>`Handle` 节点（每次同步按 `Offset` 重新摆位）。</summary>
+            public Transform Handle;
+            /// <summary>`Handle` 的图 —— 色偏目标（= 原版 `m_TargetGraphic`）。</summary>
+            public ImageQuad HandleQuad;
+            /// <summary>建出来的 `Handle` 矩形（**只用它的 x1/x2**：款是 `slidingArea.W + sizeDelta.x`，不等于轨道宽）。</summary>
+            public PxRect HandleRect;
+            /// <summary>`Sliding Area` 矩形 = 原版 `m_HandleRect` 的父件（锚点参照系）。</summary>
+            public PxRect Track;
+            /// <summary>原版 `m_Size = 0.9273075`（滑块占轨道的比例）。</summary>
+            public float Size = 0.9273075f;
+            /// <summary>`m_HandleRect.sizeDelta.y` = **20**（⇒ 滑块上下各溢出 10；建 `Handle` 时传的就是 `new Vector2(20,20)`）。</summary>
+            public float PadY = 20f;
+            /// <summary>指针帧 px ÷ 设计 px 的纵向比例（绑定时按 `MenuDraw.PointerFramePxFromDesign` 现算一次并缓存）。</summary>
+            internal float PtrPerDesign = 1f;
+            internal WindowButton Button;
+        }
+
+        /// <summary>本滚动区绑定的滚动条；`null` = 没绑（**默认**，既有行为逐像素不变）。</summary>
+        public ScrollbarBinding Scrollbar { get; private set; }
+        public bool ScrollbarBound { get { return Scrollbar != null; } }
+
+        /// <summary>把一棵「原版 `Scrollbar ▸ Sliding Area ▸ Handle`」接到本滚动区上：
+        /// ① 四态色偏（`WindowButton` 的 ColorTint，值见 <see cref="ScrollbarTint"/>）；
+        /// ② `Handle` 可拖（`PointerLayer.RegisterDrag` → `SetOffset`）；
+        /// ③ 显隐 = 原版 `m_VerticalScrollbarVisibility = 2`（只有 `MaxOffset > 0` 才开）。
+        /// <para>⚠️ 幂等：重复绑同一个句柄 ⇒ 覆盖（`RegisterDrag` 本身就是覆盖语义）。</para></summary>
+        public void BindScrollbar(ScrollbarBinding b)
+        {
+            if (b == null) return;
+            Scrollbar = b;
+            b.PtrPerDesign = MeasurePtrPerDesign(b);
+            if (b.HandleQuad != null)
+            {
+                var wb = b.HandleQuad.GetComponent<WindowButton>();
+                if (wb == null) wb = b.HandleQuad.gameObject.AddComponent<WindowButton>();
+                wb.target = b.HandleQuad;     // 原版 `m_TargetGraphic` = Handle 的 Image
+                wb.tintOnHover = true;        // 原版 `m_Transition = 1`(ColorTint) —— `Bind()` 会把它关掉，所以这里直写两个字段
+                b.Button = wb;
+                PointerLayer.RegisterDrag(wb, pos => ScrollbarDragTo(pos.y), pos => ScrollbarDragEnd());
+            }
+            else
+            {
+                Debug.LogWarning("[MenuScroll] BindScrollbar：`HandleQuad` 是 null ⇒ **色偏与拖拽都不会发生**（只做显隐同步）");
+            }
+            SyncScrollbar();
+        }
+
+        /// <summary>按当前 `Offset` 摆 `Handle` + 开关整根（= 原版 `Scrollbar.UpdateVisuals` + `ScrollRect.UpdateScrollbars`）。
+        /// 🔴 `MaxOffset <= 0`（内容装得下）⇒ **整根关掉并且不动 `Handle`** —— 这就是今天的状态，
+        ///    所以绑不绑、同步几次，画面都逐像素不变。</summary>
+        public void SyncScrollbar()
+        {
+            var b = Scrollbar;
+            if (b == null) return;
+            bool show = MaxOffset > 0f;
+            if (b.Root != null && b.Root.gameObject.activeSelf != show) b.Root.gameObject.SetActive(show);
+            if (!show || b.Handle == null || b.Track.H <= 0.01f) return;
+            float size = Mathf.Clamp01(b.Size);
+            float norm = Mathf.Clamp01(Offset / MaxOffset);          // 0 = 顶（本仓 TopAligned 的偏移 0）
+            float span = size * b.Track.H;
+            float h = span + b.PadY;                                  // UGUI：anchor 跨度 + `sizeDelta.y`
+            float y1 = b.Track.y1 + norm * (b.Track.H - span) - b.PadY * 0.5f;   // pivot .5 ⇒ 上沿多出 pad/2
+            var r = new PxRect(b.HandleRect.x1, y1, b.HandleRect.x2, y1 + h);
+            MenuDraw.ApplyPxRect(b.Handle, b.Handle.parent, r);
+        }
+
+        bool _sbDragging;
+        float _sbStartY, _sbStartNorm;
+
+        /// <summary>`Handle` 拖拽（`PointerLayer.RegisterDrag` 的 `onDrag`，参数 = **指针帧 px**）。
+        /// <para>位移 → 归一化值 → `SetOffset`：指针**向下** ⇒ 值变大 ⇒ 内容下移（与 `ScrollRect` 的
+        /// 「拖滑块 = 拖内容位置」同向）。</para></summary>
+        void ScrollbarDragTo(float pageY)
+        {
+            var b = Scrollbar;
+            if (b == null || b.Track.H <= 0.01f) return;
+            float span = Mathf.Clamp01(b.Size) * b.Track.H;
+            float travel = b.Track.H - span;
+            if (travel <= 0.01f) return;
+            if (!_sbDragging) { _sbDragging = true; _sbStartY = pageY; _sbStartNorm = MaxOffset <= 0f ? 0f : Mathf.Clamp01(Offset / MaxOffset); }
+            float dyDesign = (pageY - _sbStartY) / (Mathf.Abs(b.PtrPerDesign) < 1e-4f ? 1f : b.PtrPerDesign);
+            SetOffset(Mathf.Clamp01(_sbStartNorm + dyDesign / travel) * MaxOffset);
+            SyncScrollbar();
+        }
+
+        void ScrollbarDragEnd() { _sbDragging = false; }
+
+        /// <summary>指针帧 px ÷ 设计 px（纵向）—— 取轨道中心上下各 1 px 的两个设计点，按
+        /// `MenuDraw.PointerFramePxFromDesign`（恒等式 `pointer = C + (design − C)·k`）量出 `k`。⛔ 别在别处再推一遍缩放。</summary>
+        static float MeasurePtrPerDesign(ScrollbarBinding b)
+        {
+            var t = b.Handle != null ? b.Handle : b.Root;
+            if (t == null) return 1f;
+            var c = new Vector2(b.Track.CX, b.Track.CY);
+            float p0 = MenuDraw.PointerFramePxFromDesign(c, t).y;
+            float p1 = MenuDraw.PointerFramePxFromDesign(new Vector2(c.x, c.y + 1f), t).y;
+            float k = p1 - p0;
+            return Mathf.Abs(k) < 1e-4f ? 1f : k;
+        }
+
+        /// <summary>自检：本仓滚动条色偏表**逐值**等于原版 prefab 那 6 份 `Scrollbar`（见本段段头）。
+        /// 返回**失败项**列表（空 = 全对）。🔴 判据只此一份，断言别在别处抄第二份数字。</summary>
+        public static System.Collections.Generic.List<string> ScrollbarSelfCheck()
+        {
+            var bad = new System.Collections.Generic.List<string>();
+            Tint("Normal", ScrollbarTint.Normal, 1f, 1f, 1f, 1f, bad);
+            Tint("Highlighted", ScrollbarTint.Highlighted, 0.9607843f, 0.9607843f, 0.9607843f, 1f, bad);
+            Tint("Pressed", ScrollbarTint.Pressed, 0.78431374f, 0.78431374f, 0.78431374f, 1f, bad);
+            Tint("Selected", ScrollbarTint.Selected, 0.9607843f, 0.9607843f, 0.9607843f, 1f, bad);
+            if (Mathf.Abs(ScrollbarTint.ColorMultiplier - 1f) > 1e-6f) bad.Add("ColorMultiplier = " + ScrollbarTint.ColorMultiplier + "，原版 1");
+            if (Mathf.Abs(ScrollbarTint.FadeDuration - 0.1f) > 1e-6f) bad.Add("FadeDuration = " + ScrollbarTint.FadeDuration + "，原版 0.1");
+            return bad;
+        }
+
+        static void Tint(string name, Color got, float r, float g, float bl, float a,
+                         System.Collections.Generic.List<string> bad)
+        {
+            if (Mathf.Abs(got.r - r) > 1e-6f || Mathf.Abs(got.g - g) > 1e-6f
+                || Mathf.Abs(got.b - bl) > 1e-6f || Mathf.Abs(got.a - a) > 1e-6f)
+                bad.Add(name + " = (" + got.r + ", " + got.g + ", " + got.b + ", " + got.a
+                        + ")，原版 (" + r + ", " + g + ", " + bl + ", " + a + ")");
         }
     }
 }

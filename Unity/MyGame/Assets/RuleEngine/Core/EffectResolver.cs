@@ -347,7 +347,7 @@ namespace RuleEngine
                                      //   两个都非空才启用 —— 只由战术 / 防御卡的正文体传（见 `PlayTacticBodyDeferred`）。
                                      //   判据 / 三态 / 为什么只在这一条路 → `RuleCore.AbilityFamilyTargetAllows` 的 doc。
                                      CardDef abilityFamilyCard = null,
-                                     string abilityFamilyTrigger = null)
+                                     string abilityFamilyTrigger = null, System.Collections.Generic.IReadOnlyList<BattleEvent> groupSinks = null, int[] groupOfOp = null)
         {
             unresolved = new List<string>();
             if (ops == null) return 0;
@@ -548,10 +548,10 @@ namespace RuleEngine
             if (paidOut != null)
                 for (int i = 0; i < paidOut.Length && i < paidOk.Length; i++) paidOut[i] = paidOk[i];
 
-            int done = 0;
+            int done = 0; var _gsPrevSink = ctx.TriggerTargetSink; var _gsPrevDone = ctx.TriggerTargetSinkDone;   // 🔴 2026-11-05（B143-W1 · B141-SAN04-TACTIC）：逐付费组的「先算后贴」目标槽（判据见下面循环体第 2 行那句 + 类尾 `SplitPaidGroupsWithMap`）
             for (int i = 0; i < ops.Count; i++)
             {
-                if (skip[i] || !paidOk[i]) continue;
+                if (skip[i] || !paidOk[i]) continue; if (groupSinks != null && groupOfOp != null && i < groupOfOp.Length) { var _gsScr = ScratchAt(groupSinks, groupOfOp[i]); if (_gsScr != null) { ctx.TriggerTargetSink = _gsScr; ctx.TriggerTargetSinkDone = _gsScr.TargetPlayer >= 0; } }   // 🔴 2026-11-05（B143-W1 · B141-SAN04-TACTIC）：结算**这一条 op** 时把目标记进**它所属付费组**的 scratch（原版每条 ability 用自己的 `targetCriteria` 算目标：`AbilityLogic__PlayAbility.c:262 → GetTargets → :273 PlayAnim`）。⚠️ `Done` 由 scratch **自己**是否已填过来判（`TargetPlayer >= 0`）—— 组内**第一条**落地的目标就锁住，后面的 op 不许覆盖；`groupSinks == null`（全部既有调用点）⇒ 这一句**完全不执行**，行为逐字节不变
                 var op = ops[i];
                 // 🔴 **2026-10-27（批次 9 · 执行代理 `B9_W43DA42` · 判据件 §三 A7）：附魔族的触发条件句不在「打出当刻」结算。**
                 //   `DA42` 卡面那句 `When played, gain 3 Quest Points` 是**承载卡被打出时**才生效的
@@ -661,7 +661,7 @@ namespace RuleEngine
             }
             // 摧毁/伤害可能把督军打死 —— 结算完统一判一次胜负
             // （`Hurt` 自己不判，和攻击那条路一致：由调用方在结算完之后判）
-            if (!ctx.IsOver) CheckWinner(ctx);
+            if (!ctx.IsOver) CheckWinner(ctx); ctx.TriggerTargetSink = _gsPrevSink; ctx.TriggerTargetSinkDone = _gsPrevDone;   // 🔴 2026-11-05（B143-W1 · B141-SAN04-TACTIC）：逐组目标槽用完还原（`groupSinks == null` 时这是把**原值原样写回**，无行为变化）
             // 🆕 2026-10-24（引擎线 `A1` 第 1 件）：出牌 / 战术卡这条路的「上一条能力的目标」。
             NotePreviousAbilityTargets(ctx);
             return done;
@@ -2827,12 +2827,12 @@ namespace RuleEngine
             //    而且 `PlayTactic` 之后马上还会跑巧技/典籍这些**不属于这次出牌**的段。
             var prevPlaySource = ctx.CardPlaySource;
             ctx.CardPlaySource = card;
-            var tacticScratch = new BattleEvent(); try   // 🔴 2026-11-04（B141 · W9b · SAN-04 残余②）：整条正文结算时接住第一个目标，供下面 600/605 两拍「先算后贴」；⚠️ 与 `try` 同一行 = 本文件零行数变化（账落点密）｜✅ 已复刻（2026-11-04 · B141 · TriggerAbilities.c:59/207/231）
+            var tacticScratch = new BattleEvent(); List<BattleEvent> _tacGroupScratches = new List<BattleEvent>(); int[] _tacGroupOfOp = null; { var _tacGs = SplitPaidGroupsWithMap(ops, out _tacGroupOfOp); for (int _gi = 0; _gi < _tacGs.Count; _gi++) _tacGroupScratches.Add(new BattleEvent()); } try   // 🔴 2026-11-04（B141 · W9b · SAN-04 残余②）：整条正文结算时接住第一个目标，供下面 600/605 两拍「先算后贴」；⚠️ 与 `try` 同一行 = 本文件零行数变化（账落点密）｜✅ 已复刻（2026-11-04 · B141 · TriggerAbilities.c:59/207/231）　🔴 2026-11-05（B143-W1 · B141-SAN04-TACTIC）：**再加一组「按付费组」的 scratch** —— 组边界只认 `SplitPaidGroups`（同一份判据），`_tacGroupOfOp[i]` = 第 i 条 op 属于第几组
             {
                 ResolveWithTriggerTargetSink(ctx, tacticScratch, () => ResolveOps(ctx, p, null, ops, chosen, out unresolved, sourceCard: card, paidOut: paidFlags,
                            // 🆕 v29（`X6` · 口径乙）：战术 / 防御卡的正文 = 原版 `TriggerAbilities(0, …)`
                            // 那一跳（`RawCardScript__OnCardPlayedWithTarget.c:40`）⇒ `trigger 0` = `ThisCardPlayed`。
-                           abilityFamilyCard: card, abilityFamilyTrigger: "ThisCardPlayed"));
+                           abilityFamilyCard: card, abilityFamilyTrigger: "ThisCardPlayed", groupSinks: _tacGroupScratches, groupOfOp: _tacGroupOfOp));   // 🔴 2026-11-05（B143-W1 · B141-SAN04-TACTIC）：把「哪条 op 属于哪一组」交给 `ResolveOps` —— 它逐 op 把目标记进**那一组**的 scratch（⛔ 没有把正文切开重算：那样会清 6 个代词/计数槽 + 破 `InsteadSkips` 跨组配对，见报告 §一）
 
                 // 🆕 2026-10-24（引擎线 `J2` · 战斗线 `W64` `B-30`）：**效果 470（`showCardsWindow`）**。
                 //   原版那一条 `abilityLogic` 排在「正文（这批卡回到牌库 / 降费）」**之后**
@@ -2867,7 +2867,7 @@ namespace RuleEngine
             // 原版 `RawCardScript__OnCardPlayedWithTarget.c:59-84` 在**打出的那张牌自己**身上发；
             // 闸 = 那张卡真有对应动画行（`EmitCardTrigger` → `HasAnimTrigger`），
             // 「能力激活了没有」= 付费组收到钱（`paidOut`）或 `spendspirit` 真花了石头（ASH52）。
-            EmitTacticAbilityUseTriggers(ctx, p, card, ops, paidFlags, spiritBefore, tacticScratch);
+            EmitTacticAbilityUseTriggers(ctx, p, card, ops, paidFlags, spiritBefore, tacticScratch, _tacGroupScratches, _tacGroupOfOp);
 
             // 进弃牌堆（原版战术卡结算完就进弃牌堆）
             ps.Discard.Add(inst);      // 第 7 行第 2 步：进弃牌堆的是**那一份实例**（不是模板）
@@ -4833,8 +4833,8 @@ namespace RuleEngine
                 case "enemyhand": source = foe.Hand.ConvertAll(h => h.Card); srcName = "对手手牌";   break;
                 case "dead":
                     source = DeadCandidates(ctx, owner, op.ChooseDeadScope, op);
-                    srcName = op.ChooseDeadScope == "since_last_turn"
-                            ? "自你上个回合起阵亡的部队" : "本局阵亡的部队";
+                    // 🔴 2026-11-05（B143-W1 · B142-CEMLOG-NAME）：源名与**实际候选池**对齐 —— 候选 = 整座墓地（`since_last_turn` 的死亡回合窗口原版不存在，见 `DeadCandidates` 的 doc）｜✅ 已复刻（2026-11-05 · B143-W1 · BattleManager__GetCardsInCemetery.c 无死亡回合维）
+                    srcName = "墓地（本局阵亡的部队）";
                     break;
                 // 🆕 2026-10-17（B19）：`… you played this game`（`Suppressor` 的 `Oath 1:`）——
                 //   候选域 = **本局你打出过的牌**（记账表 = `BattleContext.PlayedCards`）。
@@ -6930,7 +6930,7 @@ namespace RuleEngine
         /// 🔴 **2026-11-04（`B141_W65` · 铁律 5 就地订正）**：原句「原版那道闸我们**没有对应物** /
         /// 将来若有卡面写 … 要回来补这一维」**已过期** —— `B89_E2` 补了 `DeadUnit.IsRemnant` 的两处灌值、
         /// `B98_K4` 又把消费端换到墓地那一口 ⇒ 闸已落地。
-        /// ✅ 已复刻（2026-11-04 · B142-E75 · `BattleManager__GetCardsInCemetery.c` 无死亡回合维）：`since_last_turn` 窗口已收掉 ⇒ 取整座墓地（判别行见下方 `:6957`）；断言 → `RuleEngine/Editor/B141_W65_Assert.cs` A 组（残骸闸）＋ `RuleEngine/Editor/B142_E56_Assert.cs` B 组（与 `DeadCandidates` 同集合）。</para>
+        /// ✅ 已复刻（2026-11-04 · B142-E75 · `BattleManager__GetCardsInCemetery.c` 无死亡回合维）：`since_last_turn` 窗口已收掉 ⇒ 取整座墓地（判别行见下方 `:6958`，2026-11-05 `B143-W1` 起那条判别已从代码改成注释「取整座墓地」）；断言 → `RuleEngine/Editor/B141_W65_Assert.cs` A 组（残骸闸）＋ `RuleEngine/Editor/B142_E56_Assert.cs` B 组（与 `DeadCandidates` 同集合）。</para>
         ///
         /// <returns>真的搬走的张数（0 = 墓地里没有符合的，调用方记一条 `miss`）。</returns>
         static int ReturnFromCemetery(BattleContext ctx, int owner, string by, EffectOp op,
@@ -6955,7 +6955,7 @@ namespace RuleEngine
                 if (d.Owner != sideOwner) continue;
                 if (!d.Card.IsUnit) continue;                     // 原版只收「在场过的单位」
                 // 🔴 2026-11-04（`B142-E75` · 已裁定照原版）：`since_last_turn` 的死亡回合窗口**已收掉** —— 原版 `BattleManager__GetCardsInCemetery.c` 全文**没有**死亡回合这一维（`AbilityLogic__GetTargets.c:949-960` 那一支只把 `GetCardsInCemetery` 的五个 `incl*` 开关传进去），窗口只存在于卡面文字 ⇒ **取整座墓地**（与 `DeadCandidates` 的 2026-11-04 `B142-E56` 同口径）。`deadScope` / `mark` 在这一档今天**不参与筛选**；`mark` 的声明保留、只为零行数变化（本文件有账按行号引用）。⛔ 别把窗口加回来。
-                if (deadScope == "this_turn" && d.DeathTurn != ctx.Turn) continue;
+                // 🔴 2026-11-05（B143-W1 · B142-DEADCEM-THISTURN）：`this_turn` 的死亡回合窗口**已收掉** —— 原版 `BattleManager__GetCardsInCemetery.c` 全文没有死亡回合这一维（`AbilityLogic__GetTargets.c:949-960` 只把五个 `incl*` 开关传进去）⇒ 取整座墓地（与 `B142-E56` / `B142-E75` 同口径）｜✅ 已复刻（2026-11-05 · B143-W1 · BattleManager__GetCardsInCemetery.c）
                 if (crit != null && !crit.Matches(d.Card)) continue;
                 picks.Add(d);
             }
@@ -8612,13 +8612,13 @@ namespace RuleEngine
         /// （`tactic` / `defence` 在原版都是 `cardType 20`）⇒ 不再额外判一次类型。</para>
         /// </summary>
         static void EmitTacticAbilityUseTriggers(BattleContext ctx, int owner, CardDef card,
-                                                 IReadOnlyList<EffectOp> ops, bool[] paid, int spiritBefore, BattleEvent tacticScratch = null)   // 🔴 2026-11-04（B141 · W9b · SAN-04 残余②）：正文结算时接到的目标，发事件后抄回去
+                                                 IReadOnlyList<EffectOp> ops, bool[] paid, int spiritBefore, BattleEvent tacticScratch = null, IReadOnlyList<BattleEvent> groupScratches = null, int[] groupOfOp = null)   // 🔴 2026-11-04（B141 · W9b · SAN-04 残余②）：正文结算时接到的目标，发事件后抄回去　🔴 2026-11-05（B143-W1 · B141-SAN04-TACTIC）：`groupScratches` / `groupOfOp` = **按付费组**的 scratch 与「op→组」对照表（`null` ⇒ 退回整条正文那一条，= 改前行为）
         {
             if (ctx == null || card == null || ops == null || paid == null) return;
             // 🆕 2026-10-20（`FACTION-DOUBLE605`）：信仰那一边改成**收组**（原版每条 605 能力各发一次）。
             //   组首 = `Cost > 0 && !CostShared` 且 `paidOut` 说它收到钱；门槛 = `op.Cost`。
             var faithGroups = new List<EffectOp>();
-            bool spirit = false;
+            bool spirit = false; EffectOp spiritOp = null;
             for (int i = 0; i < ops.Count; i++)
             {
                 var op = ops[i];
@@ -8626,15 +8626,15 @@ namespace RuleEngine
                 if (i >= paid.Length || !paid[i]) continue;                  // 付费组没收到钱 ⇒ 这条没激活
                 string kind = EffectText.CostKindOf(op.CostKind);
                 if (kind == "faith") faithGroups.Add(op);
-                else if (kind == "spirit") spirit = true;
+                else if (kind == "spirit") { spirit = true; if (spiritOp == null) spiritOp = op; }
             }
             if (!spirit && spiritBefore > 0)
                 for (int i = 0; i < ops.Count; i++)
-                    if (ops[i] != null && ops[i].Verb == "spendspirit") { spirit = true; break; }
+                    if (ops[i] != null && ops[i].Verb == "spendspirit") { spirit = true; spiritOp = ops[i]; break; }
 
             // 原版次序：600 在前、605 在后（`OnCardPlayedWithTarget.c:66` → `:73`）。
-            if (spirit) CopySinkTarget(tacticScratch, EmitAbilityUseTrigger(ctx, card, owner, null, TN_UseSpiritStone, 600));
-            if (faithGroups.Count > 0) EmitFaithAbilityUseTriggers(ctx, card, owner, null, faithGroups, tacticScratch != null ? new List<BattleEvent> { tacticScratch } : null);   // ⚠️ 战术卡的信仰 op 与正文一次性结算 ⇒ 各组共用整条正文解析出的第一个目标（逐组独立目标见报告 §边界）
+            if (spirit) CopySinkTarget(GroupScratchOf(ops, spiritOp, groupScratches, groupOfOp, tacticScratch), EmitAbilityUseTrigger(ctx, card, owner, null, TN_UseSpiritStone, 600));
+            if (faithGroups.Count > 0) EmitFaithAbilityUseTriggers(ctx, card, owner, null, faithGroups, FaithScratchesFor(ops, faithGroups, groupScratches, groupOfOp, tacticScratch));   // 🔴 2026-11-05（B143-W1 · B141-SAN04-TACTIC）：**逐个信仰组用自己那一组的 scratch**（原版每条 605 ability 各算各的目标）；`groupScratches == null` 时 `GroupScratchOf` 逐项回落到整条正文那一条 ⇒ 与改前逐字节相同
         }
 
         /// <summary>🆕 **2026-10-20（第五十七会话 `FACTION-DOUBLE605`）：`UseFaith(605)` 这一拍的唯一发射口**
@@ -10262,7 +10262,7 @@ namespace RuleEngine
             //   那一族是**非单位卡**的 `HandTrapWhens`（两边互斥，见 `BroadcastHandWhen` 的注释）。
             //   原版次序 = `:43-52`（当前回合方手牌）→ `:53-70`（另一方手牌），本函数按这个顺序遍历。
             if (!boardAndPersistentOnly)
-                BroadcastHandWhen(ctx, kind, who, card, subject, actor, target, targetWho, kind == WhenEventKind.Draw, DrawnNow(ctx, kind), actingCard); if (!boardAndPersistentOnly && kind == WhenEventKind.Attack) BroadcastUnitAttackedHandHops(ctx, target, subject); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedHandHops(ctx, subject, actingCard, damageType); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Triggers(KeywordTable.Regiment)) BroadcastUnitRegimentHandHops(ctx, subject); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedExtraAttacker(ctx, subject, actingCard, damageType);   // 🔴 2026-10-30（`B100_F17` · `报告/B100_X5.md` G 组 #64/#65）：**这三句原来被本行那条 `//` 注释吞掉了**（B98_G2/B97_ER 那两笔把它们追加在既有行尾注释**之后** ⇒ 整句进了注释 = 死代码）⇒ `BroadcastUnitDamaged` 的手牌两跳（185／187／60）与 `BroadcastUnitRegiment`(646) 一次都没跑过。现已挪到 `//` **之前**（零行数变化）。⚠️ 以后往本行追加代码，⛔ 别加在 `//` 后面。🔴 2026-11-04（B142-E56）复核：**本行第一个 `//` 之后还有 3 条 `BroadcastUnit*HandHops(...)`，那是死代码**（活的同款三条已在注释之前）—— 改注释里那份**不生效**，⛔ 别拿它当判据。 // 🔴 2026-10-29（B98_G2 · 账 645）：原版 `BattleManagerSupport__BroadcastUnitAttacked.c:64-88` 的 ④⑤ **手牌两跳**（`GetCardsInHandRef(IsPlayerTurn())` → `GetCardsInHandRef(!IsPlayerTurn())`，逐张 `ResolveUnitAttacked(card, actingCard, targetCard, attackType)`）。实参 = **被打者 `target` / 攻击者 `subject`**（原版那五跳的 `param_3` = targetCard、`param_2` = actingCard；`RuleCore` 那个调用点传的是 `subject: attacker` / `target: target`）。⚠️ `boardAndPersistentOnly` 时关掉：原版 `BroadcastEarnedSkull` 那一族只有棋盘一跳（见本参数 doc）。  // 🔴 2026-10-29（`B97_ER` · #54）：同上（`actingCard` 透传给第一道闸） if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedHandHops(ctx, subject, actingCard, damageType); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Triggers(KeywordTable.Regiment)) BroadcastUnitRegimentHandHops(ctx, subject); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedExtraAttacker(ctx, subject, actingCard, damageType);   // 🔴 2026-10-29（B94_Z2 · 账 B94_Z2）：原版两条广播器的 ②③ 手牌两跳 —— `BroadcastUnitDamaged.c:62-86`（`ResolveDamageDealt` ⇒ 60/185/187/720）与 `BroadcastUnitRegiment.c:41-64`（`TriggerOtherCardRegiment` ⇒ 646）。⚠️ `damageType` 这一格本调用点拿不到（`EmitHit` 只传 `absorbed`）⇒ 传 `-1`（**只发 60**，⛔ 不拿 `0 Normal` 顶）；补齐要 `RuleCore.EmitHit` 把 `DamageKind` 带进来（见 `报告/B94_Z2.md` §施工单）
+                BroadcastHandWhen(ctx, kind, who, card, subject, actor, target, targetWho, kind == WhenEventKind.Draw, DrawnNow(ctx, kind), actingCard); if (!boardAndPersistentOnly && kind == WhenEventKind.Attack) BroadcastUnitAttackedHandHops(ctx, target, subject, atkType); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedHandHops(ctx, subject, actingCard, damageType); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Triggers(KeywordTable.Regiment)) BroadcastUnitRegimentHandHops(ctx, subject); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedExtraAttacker(ctx, subject, actingCard, damageType);   // 🔴 2026-10-30（`B100_F17` · `报告/B100_X5.md` G 组 #64/#65）：**这三句原来被本行那条 `//` 注释吞掉了**（B98_G2/B97_ER 那两笔把它们追加在既有行尾注释**之后** ⇒ 整句进了注释 = 死代码）⇒ `BroadcastUnitDamaged` 的手牌两跳（185／187／60）与 `BroadcastUnitRegiment`(646) 一次都没跑过。现已挪到 `//` **之前**（零行数变化）。⚠️ 以后往本行追加代码，⛔ 别加在 `//` 后面。🔴 2026-11-04（B142-E56）复核：**本行第一个 `//` 之后还有 3 条 `BroadcastUnit*HandHops(...)`，那是死代码**（活的同款三条已在注释之前）—— 改注释里那份**不生效**，⛔ 别拿它当判据。 // 🔴 2026-10-29（B98_G2 · 账 645）：原版 `BattleManagerSupport__BroadcastUnitAttacked.c:64-88` 的 ④⑤ **手牌两跳**（`GetCardsInHandRef(IsPlayerTurn())` → `GetCardsInHandRef(!IsPlayerTurn())`，逐张 `ResolveUnitAttacked(card, actingCard, targetCard, attackType)`）。实参 = **被打者 `target` / 攻击者 `subject`**（原版那五跳的 `param_3` = targetCard、`param_2` = actingCard；`RuleCore` 那个调用点传的是 `subject: attacker` / `target: target`）。⚠️ `boardAndPersistentOnly` 时关掉：原版 `BroadcastEarnedSkull` 那一族只有棋盘一跳（见本参数 doc）。  // 🔴 2026-10-29（`B97_ER` · #54）：同上（`actingCard` 透传给第一道闸） if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedHandHops(ctx, subject, actingCard, damageType); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Triggers(KeywordTable.Regiment)) BroadcastUnitRegimentHandHops(ctx, subject); if (!boardAndPersistentOnly && subject != null && kind == WhenEventKind.Damaged) BroadcastUnitDamagedExtraAttacker(ctx, subject, actingCard, damageType);   // 🔴 2026-10-29（B94_Z2 · 账 B94_Z2）：原版两条广播器的 ②③ 手牌两跳 —— `BroadcastUnitDamaged.c:62-86`（`ResolveDamageDealt` ⇒ 60/185/187/720）与 `BroadcastUnitRegiment.c:41-64`（`TriggerOtherCardRegiment` ⇒ 646）。⚠️ `damageType` 这一格本调用点拿不到（`EmitHit` 只传 `absorbed`）⇒ 传 `-1`（**只发 60**，⛔ 不拿 `0 Normal` 顶）；补齐要 `RuleCore.EmitHit` 把 `DamageKind` 带进来（见 `报告/B94_Z2.md` §施工单）
         }
 
         /// <summary>
@@ -13526,7 +13526,7 @@ namespace RuleEngine
             }
 
             // 原版先 `ManaManager.SetQuestPoints(满值, 阈值)`（`:97`）再减（`:101-104`）——
-            // 那一步是给 HUD 播「涨满」的延迟动画。我们没有那段动画 ⇒ 直接落到余数这一档（结果相同）。
+            // 那一步是给 HUD 播「涨满」的延迟动画。✅ 已复刻（2026-11-05 · 发出口 `:13150/:13165` · 消费口 `BattleDriver:19558-19567`；原注「我们没有那段动画」已过期 —— `QuestPointsAfterAdd`（`BattleEvent.cs:999`，B142_E62）的发出/消费链已通）｜🔴 2026-11-05（B143-W1 · 调度台补充）就地订正，零行数变化
             int full = ps.QuestPoints;
             ps.QuestPoints -= step;
             ps.QuestMilestone++;
@@ -20077,10 +20077,10 @@ namespace RuleEngine
         /// </summary>
         /// <param name="attackedUnit">原版 `targetCard`（被打者）—— 接收端第一句的 `targetCard=param_3`。</param>
         /// <param name="actingCard">原版 `actingCard`（攻击者）—— 同一个调用里的 `actingCard=param_2`。</param>
-        public static int BroadcastUnitAttackedHandHops(BattleContext ctx, UnitState attackedUnit, UnitState actingCard)
+        public static int BroadcastUnitAttackedHandHops(BattleContext ctx, UnitState attackedUnit, UnitState actingCard, int attackType = -1)
         {
             if (ctx == null || ctx.IsOver || attackedUnit == null) return 0;
-            return HandHops(ctx, "UnitAttack", "attacked:50", attackedUnit, actingCard);
+            var n = HandHops(ctx, "UnitAttack", "attacked:50", attackedUnit, actingCard); if (attackType == 1 || attackType == 2) n += UnitAttackedMobRegimentHandHops(ctx, actingCard, attackType); return n;   // 🔴 2026-11-05（B143-W1 · B141-ABILITY-HAND-COVERAGE P1）：补上接收端后半段的 **300 Mob / 301 Regiment** 手牌跳（原版 `CardScript__ResolveUnitAttacked.c:126-146`，与 50 同一批接收者、同一道「同侧」闸）｜✅ 已复刻（2026-11-05 · B143-W1 · CardScript__ResolveUnitAttacked.c:126-146 + BattleManagerSupport__BroadcastUnitAttacked.c:64-88）
         }
 
         // ------------------------------------------------------------------------------------------
@@ -20152,7 +20152,7 @@ namespace RuleEngine
             const int K = CardDef.CountSetSpec.Unknown;
             var card = ctx.ActingUnit != null ? ctx.ActingUnit.Card : ctx.CreationSource;
             var set = (op != null && card != null && op.AbilityIndex >= 0)
-                    ? card.AbilityTargetCriteriaAt(op.AbilityIndex, op.LogicIndex) : null;
+                    ? card.AbilityTargetCriteriaAt(op.AbilityIndex, op.LogicIndex) : null; if (set == null && card != null) set = UniqueCemeteryCriteriaRow(card);   // 🔴 2026-11-05（B143-W1 · B141-CHOOSECARD-ROW）：坐标读不到（这类卡的 `choosecard` op 走**片段路径**，`EffectText.cs:1915-1916` 写的是**合成**的 `(0, n++)`（`AbilityMap = "fragment-single"`）—— 不是真实 `abilityLogic` 下标）⇒ 回落「全卡**唯一**那条 `targetsAffected = 60` 行」；0 条 / 多于 1 条 ⇒ 仍是 null（照旧按目标短语推 + 出声，⛔ 不猜）｜✅ 已复刻（2026-11-05 · B143-W1 · AbilityLogic__GetTargets.c:949-960 + BattleManager__GetCardsInCemetery.c）
 
             bool incMinions, incSpells, incWhispers, selfSide, foeSide;
             if (set != null && set.IncludeMinions != K && set.IncludeSpells != K && set.IncludeWhispers != K
@@ -22329,6 +22329,219 @@ namespace RuleEngine
         public static bool HandListenerContextAllowsForTest(CardDef card, string kind)
         {
             return HandListenerContextAllows(card, kind);
+        }
+    }
+}
+
+// ====================================================================================================
+//  🔴🆕 2026-11-05（批次 `B143` · 执行写手 `W1` · 引擎域五条）：**一律追加在文件【最末】的新 partial 块**
+//  （本文件有 515 处账落点按 `文件:行号` 引用、最深 `:21876` ⇒ 往既有成员之间插行 = 整片漂移，铁律 18·b）
+// ====================================================================================================
+namespace RuleEngine
+{
+    public static partial class RuleCore
+    {
+        // ------------------------------------------------------------------------------------------
+        //  一、`B141-SAN04-TACTIC`：战术卡 605/600 的**逐付费组目标**
+        //  判据（🥇 `decomp_full/`）：
+        //    · `RawCardScript__TriggerAbilities.c:59` 逐条遍历 `cardAbilities`、`:207` 每条过
+        //      `CanTriggerAbility`、`:231` 通过就 `TriggerAbility`；
+        //    · `AbilityLogic__PlayAbility.c:262` 那一条 ability **自己的** `targetCriteria` → `GetTargets`，
+        //      `:273` `PlayAnim` 按这批目标逐张播 ⇒ **每条 ability 各算各的目标**。
+        //  ⛔ 为什么不「把正文按组切开各跑一遍 `ResolveOps`」（那是最直觉的做法，但**是错的**）：
+        //     `ResolveOps` 入口会清 6 个窗口槽（`LastTargets` / `AbilityTargetsSaved` / `LastChosenCard` /
+        //     `LastCreated` / `DrawnThisResolve` / `LastHandTarget(s)`，见那个方法顶部那一大段）⇒ 切开后
+        //     第二组起就看不到第一组留下的 `them` 代词（实卡：`SOR56 Beacon of Faith` 的
+        //     `7 ☀: Give them +1 [Attack] and +1 [Ranged] as well`），而且 `InsteadSkips` 的跨组配对、
+        //     付费组的「一次收钱」次序都会被改 ⇒ **改的是结算，不只是目标**。
+        //  ✅ 本件的做法 = **结算一点不改**，只把「哪条 op 属于哪一组」交给结算循环，
+        //     由它逐 op 把目标记进**那一组**的 scratch（原版「选目标与播放同一次调用」的等价物）。
+        // ------------------------------------------------------------------------------------------
+
+        /// <summary>按付费组切片，并给出「第 i 条 op 属于第几组」的对照表。
+        /// 组边界**只此一份** = <see cref="SplitPaidGroups"/>（⛔ 别在这里另写一遍判据）。</summary>
+        static List<List<EffectOp>> SplitPaidGroupsWithMap(IReadOnlyList<EffectOp> ops, out int[] groupOfOp)
+        {
+            var groups = SplitPaidGroups(ops);
+            groupOfOp = new int[ops != null ? ops.Count : 0];
+            int used = 0;
+            for (int k = 0; k < groups.Count; k++)
+                for (int j = 0; j < groups[k].Count && used < groupOfOp.Length; j++)
+                    groupOfOp[used++] = k;
+            return groups;
+        }
+
+        /// <summary>这条 op 所属付费组的 scratch；查不到（未归组 / 表为空 / 越界）⇒ <paramref name="fallback"/>。</summary>
+        static BattleEvent GroupScratchOf(IReadOnlyList<EffectOp> ops, EffectOp op,
+                                          IReadOnlyList<BattleEvent> scratches, int[] groupOfOp,
+                                          BattleEvent fallback)
+        {
+            if (ops == null || op == null || scratches == null || groupOfOp == null) return fallback;
+            for (int i = 0; i < ops.Count && i < groupOfOp.Length; i++)
+                if (ReferenceEquals(ops[i], op))
+                {
+                    var s = ScratchAt(scratches, groupOfOp[i]);
+                    return s != null ? s : fallback;
+                }
+            return fallback;
+        }
+
+        /// <summary>逐个信仰付费组取**它自己那一组**的 scratch（与 <paramref name="faithGroups"/> 一一对齐）。</summary>
+        static List<BattleEvent> FaithScratchesFor(IReadOnlyList<EffectOp> ops, IReadOnlyList<EffectOp> faithGroups,
+                                                   IReadOnlyList<BattleEvent> scratches, int[] groupOfOp,
+                                                   BattleEvent fallback)
+        {
+            var outp = new List<BattleEvent>();
+            if (faithGroups == null) return outp;
+            for (int i = 0; i < faithGroups.Count; i++)
+                outp.Add(GroupScratchOf(ops, faithGroups[i], scratches, groupOfOp, fallback));
+            return outp;
+        }
+
+        /// <summary>自检门：<see cref="SplitPaidGroupsWithMap"/>（只读）。⛔ 生产侧别调。</summary>
+        public static List<List<EffectOp>> SplitPaidGroupsWithMapForTest(IReadOnlyList<EffectOp> ops, out int[] groupOfOp)
+        {
+            return SplitPaidGroupsWithMap(ops, out groupOfOp);
+        }
+
+        /// <summary>自检门：<see cref="GroupScratchOf"/>（只读）。⛔ 生产侧别调。
+        /// <paramref name="opIndex"/> = 第几条 op（越界 / 表空 ⇒ 回 <paramref name="fallback"/>）。</summary>
+        public static BattleEvent GroupScratchOfForTest(IReadOnlyList<EffectOp> ops, int opIndex,
+                                                       IReadOnlyList<BattleEvent> scratches, int[] groupOfOp,
+                                                       BattleEvent fallback)
+        {
+            var op = (ops != null && opIndex >= 0 && opIndex < ops.Count) ? ops[opIndex] : null;
+            return GroupScratchOf(ops, op, scratches, groupOfOp, fallback);
+        }
+
+        // ------------------------------------------------------------------------------------------
+        //  二、`B141-CHOOSECARD-ROW`：墓地目标（`ta = 60`）那条 `abilityTargetCriteria` 行的**唯一性回落**
+        //  判据：`AbilityLogic__GetTargets.c:949-960`（`targetsAffected == 0x3c` 那一支只把五个 `incl*`
+        //        开关传给 `BattleManager.GetCardsInCemetery`）+ `BattleManager__GetCardsInCemetery.c`（全文）。
+        //  病（判据 → `判据/B142_对账_W128引擎A.md:27/82`，⛔ 不是我猜的）：这些卡的 `choosecard` op 走
+        //      **片段解析路**，`EffectText.cs:1915-1916` 给它写的是**合成**坐标 `(0, n++)`
+        //      （`AbilityMap = "fragment-single"`）—— 那是「第几条 op」、**不是**真实 `abilityLogic` 下标
+        //      ⇒ `AbilityTargetCriteriaAt(合成ab, 合成lg)` 要么 null、要么指到**别的** logic 行。
+        //      实测 5 张 `EC39 / GSC44 / SAU39 / SOR42 / UM61`（`cards_engine.json`：每张的 `abilityTargetCriteria`
+        //      里恰好一条 `targetsAffected = 60` 的 `(ab=0, lg=0)`）⇒ 卡种/侧别退回「按目标短语推」+ `Debug.LogWarning`。
+        //  回落规则（**保守、数据驱动**）：全卡**恰好一条** `TargetsAffected == 60` 的 `(ab,lg)` 行 ⇒ 用它；
+        //      0 条 / 多于 1 条 ⇒ `null`（照旧出声、⛔ 不猜）。⚠️ 代价：每次回落最多 256 次字典查（16×16 网格），
+        //      只在「坐标读不到」这一条罕见路上走。
+        //  ⛔ **根治仍在解析层**（把 op 归到真实 ability 行）—— 那要改 `EffectText.cs`，不在本写手白名单内，
+        //      建议补丁见报告 §四。本件只把**消费端**从「按短语推」升级成「按数据那条唯一行」。
+        // ------------------------------------------------------------------------------------------
+
+        /// <summary>全卡**唯一**那条 `targetsAffected = 60`（inCemeteryFiltered）的 criteria 行；找不到或多于一条 ⇒ `null`。</summary>
+        static CardDef.CountSetSpec UniqueCemeteryCriteriaRow(CardDef card)
+        {
+            if (card == null || !card.AbilityTargetCriteriaVersioned) return null;
+            CardDef.CountSetSpec hit = null;
+            for (int ab = 0; ab < 16; ab++)
+                for (int lg = 0; lg < 16; lg++)
+                {
+                    var s = card.AbilityTargetCriteriaAt(ab, lg);
+                    if (s == null || s.TargetsAffected != 60) continue;
+                    if (hit != null) return null;          // 多于一条 = 歧义 ⇒ 不猜（照旧按目标短语推 + 出声）
+                    hit = s;
+                }
+            return hit;
+        }
+
+        /// <summary>自检门：<see cref="UniqueCemeteryCriteriaRow"/>（只读）。⛔ 生产侧别调。</summary>
+        public static CardDef.CountSetSpec UniqueCemeteryCriteriaRowForTest(CardDef card)
+        {
+            return UniqueCemeteryCriteriaRow(card);
+        }
+
+        // ------------------------------------------------------------------------------------------
+        //  三、`B141-ABILITY-HAND-COVERAGE` P1：`UnitAttacked` 接收端后半段的 **300 Mob / 301 Regiment 手牌跳**
+        //  判据（🥇 `decomp_full/CardScript__ResolveUnitAttacked.c:126-146`）：
+        //    每个接收者先跑 `OnTrigger(50 UnitAttack)`（`:28`）；然后**只有当它不是攻击者本人**
+        //    （`:31` 那一支 return 掉了攻击者）**且** `actingCard.isPlayer == this.isPlayer`（同侧）时，
+        //    按 `attackType` 二选一：`== 1 Melee` ⇒ `OnTrigger(300 Mob)`、`== 2 Ranged` ⇒ `OnTrigger(301)`。
+        //    广播器 `BattleManagerSupport__BroadcastUnitAttacked.c:64-88` 的 ④⑤ 两跳把**同一批手牌卡**
+        //    也交给这个接收端 ⇒ 手牌侧同样要吃 300/301。
+        //  ⚠️ **今天零可观测（如实标）**：池内 `abilityTriggers` 含 300 的 16 张、含 301 的 13 张，
+        //    `abilityContext` 分别是「缺行 ⇒ Play(0)」与 `40/50` ⇒ 手牌区域闸（`HandListenerContextAllows`
+        //    ⇒ `IsRightContext` 的 `Hand(10)`）会把它们全拒掉 —— **原版也拒**（手牌不在场）。
+        //    代码补的是结构（数据一出现就自动生效），⛔ 不是「造行为」。
+        // ------------------------------------------------------------------------------------------
+
+        /// <summary>`UnitAttacked` 接收端后半段：**同侧手牌**里的卡各跑 `300 Mob` / `301 Regiment` 那一拍。
+        /// <paramref name="actingCard"/> = 攻击者（原版 `actingCard`，`isPlayer` 就是它的侧别）。</summary>
+        static int UnitAttackedMobRegimentHandHops(BattleContext ctx, UnitState actingCard, int attackType)
+        {
+            if (ctx == null || ctx.IsOver) return 0;
+            if (attackType != 1 && attackType != 2) return 0;                 // None / Spell / Active ⇒ 原版不跑
+            int side = actingCard != null ? SeatOf(ctx, actingCard) : -1;     // 原版 `actingCard.isPlayer`
+            if (side < 0) return 0;
+            string tn = attackType == 1 ? "Mob" : "Regiment";                 // 300 / 301（`CardDef` 的 trigger 名表）
+            string by = attackType == 1 ? "attacked:300" : "attacked:301";
+            var ps = ctx.Players[side];
+            if (ps == null || ps.Hand == null) return 0;
+            int n = 0;
+            for (int i = 0; i < ps.Hand.Count; i++)
+            {
+                var inst = ps.Hand[i];
+                if (inst == null || inst.Card == null) continue;
+                // 区域闸 / presence 闸 / 正文闸都在 `FireHandAbilityTrigger` 里（唯一一份判据，⛔ 别在这里再抄一遍）
+                if (FireHandAbilityTrigger(ctx, side, inst, tn, by: by)) n++;
+            }
+            return n;
+        }
+
+        // ------------------------------------------------------------------------------------------
+        //  四、`B141-ABILITY-HAND-COVERAGE` P1：`BroadcastWhileInPlay` 的**双方手牌两趟**
+        //  判据（🥇 `decomp_full/BattleManagerSupport__BroadcastWhileInPlay.c`）：棋盘那一趟之后是
+        //    `:54-70` `GetCardsInHandRef(IsPlayerTurn())` 整手逐张 `if (HasWhileInPlayAbility(card)) UpdateWhileInPlay(card)`；
+        //    `:71-…` 另一侧同样（那一趟多了两个 `op_Inequality(param_3/param_4)` 的排除项）。
+        //  接收端（`CardScript__UpdateWhileInPlay` → `RawCardScript__UpdateWhileInPlay.c:14/17`）**全文只有两句**
+        //    `TriggerAbilities(0x14 = 20)` 与 `TriggerAbilities(0xF0 = 240)` ⇒ 「摘重挂」**不在这一层** ——
+        //    它在每条 ability **自己的 logic** 里（我们这边由 `ResolveOps` / 行级派发照常跑）。
+        //    ⇒ 手牌侧要补的**效果面**就是这两拍；⛔ 但本件**只接 20**（240 的裁定见方法 doc：那 4 张的降费
+        //      我们已用 `RuleCore.CostOf` 的纯函数实现覆盖，再跑一遍 = 双计）。
+        //  ⚠️ **区域闸照旧**：`FireHandAbilityTrigger` ② 要求 `abilityContext == Hand(10)`（原版 `IsRightContext`），
+        //    WhileInPlay 那批全是 `0 Play` / `40 InPlayOrDying` ⇒ **手牌里照样一条都不执行**（与原版同）。
+        //    ⇒ 今天零行为变化；补的是「原版有这两趟、我们没有」这个结构缺口。
+        // ------------------------------------------------------------------------------------------
+
+        /// <summary>`BroadcastWhileInPlay` 的手牌两趟（判据见上面那段）：双侧手牌逐张 `WhileInPlay(20)`。
+        /// <para>🔴🆕 **240（`WhileInPlayVariable`）故意【不】在这里发**（2026-11-05 `B143-W1` 现读裁定，⛔ 别顺手补上）：
+        /// 现池带 `abilityContext = Hand(10)` 的 20/240 ability 只有 **4 张、且全部是 240**
+        /// （`ASH85` / `BL52` / `GSC37` / `SW58` —— 卡面都是「这张卡便宜 N 费」那一族）。
+        /// 原版那半的载体 = `UpdateWhileInPlay` → `TriggerAbilities(240)` → 行级 buff（`ca 30/40`）
+        /// ⇒ 实际是「**在手牌里挂一条改费**」；而**我们这一侧早就用等价机制实现了**：
+        /// `RuleCore.CostOf` 每次现算（`Core/CardDefCostPerKeyword.cs` 文件头就写着「账 669 的**手牌半** …
+        /// 原版等价物 = `BroadcastWhileInPlay` 的手牌扫描 → `UpdateWhileInPlay` → `AddHandEffect`」，
+        /// 加上 `CostIfControls` / `CostPerEnemyHandCard` 两格覆盖 `ASH85` / `GSC37`）
+        /// ⇒ 再让这 4 张的 240 ability 从手牌真跑一遍 = **同一笔降费计两次**（静默、且只在这 4 张上）。
+        /// ⇒ 裁定 = **只补 20**，240 的手牌半记在 `CardDefCostPerKeyword` 那条等价位上（行为已覆盖，不是缺口）。
+        /// ⚠️ 若将来出现「`abilityContext = Hand` 的 **20** ability」，本趟会自动接上（区域闸放行后照常执行）。</para>
+        /// <para>⚠️ **不自带动作作用域**（理由逐字同 <see cref="BroadcastTurnStartHandHops"/>）：生产调用方是
+        /// `ActionPump` 每次顶层动作收尾那一行（紧挨 `PumpActionQueues` **之前** —— 它可能入队，必须有人排空）。</para></summary>
+        internal static void EmitWhileInPlayHandPass(BattleContext ctx)
+        {            if (ctx == null || ctx.IsOver) return;
+            int active = ctx.Active;
+            if (active < 0 || active >= ctx.Players.Length) return;
+            for (int k = 0; k < 2; k++)                    // ② 当前行动方手牌 → ③ 对手手牌（原版 `:54` → `:71`）
+            {
+                int owner = k == 0 ? active : 1 - active;
+                if (owner < 0 || owner >= ctx.Players.Length) continue;
+                var ps = ctx.Players[owner];
+                if (ps == null || ps.Hand == null) continue;
+                for (int i = 0; i < ps.Hand.Count; i++)
+                {
+                    var inst = ps.Hand[i];
+                    if (inst == null || inst.Card == null) continue;
+                    FireHandAbilityTrigger(ctx, owner, inst, "WhileInPlay", by: "whileinplay:20");
+                }
+            }
+        }
+
+        /// <summary>自检门：<see cref="EmitWhileInPlayHandPass"/>（只读/直调）。⛔ 生产侧别调 —— 生产唯一调用点是 `ActionPump.cs:143`。</summary>
+        public static void EmitWhileInPlayHandPassForTest(BattleContext ctx)
+        {
+            EmitWhileInPlayHandPass(ctx);
         }
     }
 }

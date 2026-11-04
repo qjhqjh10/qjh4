@@ -115,7 +115,7 @@ namespace CardPresentation
         // ============================================================ 真值（§五·二·一 那张表）
 
         static readonly PxRect DarkR = new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f);
-        static readonly Color DarkTint = new Color(0f, 0f, 0f, 0.773f);   // `Menu Dark Background` 的色
+        static readonly Color DarkTint = new Color(0f, 0f, 0f, 0.7725490f);   // `Menu Dark Background` 的色
 
         static readonly PxRect BgR = new PxRect(395.72f, 178.35f, 1547.28f, 895.80f);
         static readonly Vector4 BgBorder = new Vector4(42f, 363f, 655f, 81f);   // 九宫 42,363,655,81

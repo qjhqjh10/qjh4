@@ -50,6 +50,9 @@ sys.stdout.reconfigure(encoding="utf-8")
 
 D = "d:/4/Unity/数据/游戏数据"
 POOL = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/cards_engine.json"
+# 🆕 2026-11-05（`B143-W6`）：教程专用变体表（`工具/gen_tutorial_variants.py` 生成）—— 与本脚本的
+#   `match()` / `hero_check()` 的 **id 短路**配套；缺这张表 = 教程牌会被并成同名池卡（口径与生产产物分叉）。
+VARIANT_TABLE = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/tutorial_variants.json"
 OUT_TSV = "d:/4/_tmp_view/prebuilt_decks_check.tsv"
 # 🔴 2026-10-18（A874）：**原来指 `资料/原版预组牌_核对.md`** —— 那是「生成物 · 别手改」的文件，
 #    却被人手加了四节 ⇒ 每次重跑整篇覆盖、把那四节抹掉（B6 那轮真抹过一次）。
@@ -130,6 +133,18 @@ def main():
     rarity = {}
     for c in pool:
         rarity[(c["faction"], c["name"])] = c["rarity"]
+    # 🆕 2026-11-05（`B143-W6` · 账 `B142-AGGRESSOR-VARIANT`）：**教程专用变体**（`X (tutorial)`）——
+    #   与 `gen_prebuilt_decks.py` 的 `build_matcher.match()` **同一条 id 短路**（两边规则必须一致）。
+    #   以前这里按名归一化并成同名池卡（`norm()` 删括号）⇒ 口径与生产产物分叉。
+    variants = {}
+    if os.path.exists(VARIANT_TABLE):
+        for c in (load(VARIANT_TABLE).get("cards") or []):
+            cid, vn = (c or {}).get("id"), (c or {}).get("name")
+            if cid and vn:
+                variants[cid] = c
+                rarity[("variant", vn)] = c.get("rarity") or "common"
+    else:
+        print("⚠️ 找不到教程变体表 %s —— 教程牌会**按旧口径并成同名池卡**（与生产产物分叉）。" % VARIANT_TABLE)
     by_id = {c["id"]: c for c in pool}   # 🔴 t0 档：原版卡号 -> 池里那张卡（与生产脚本同一条口径）
     claimed = set(mapping.values())   # 已被某个 id 认领的卡名（t4/t5 弱档靠它排除「误配到另一张卡」）
 
@@ -138,6 +153,12 @@ def main():
         key = (cid, faction)
         if key in cache:
             return cache[key]
+        # 🆕 2026-11-05（`B143-W6`）：教程专用变体**原样保留自己的 id**（与生产脚本同一条短路）
+        if cid in variants:
+            v = variants[cid]
+            res = ("variant", ("variant", v["name"]), v["name"])
+            cache[key] = res
+            return res
         nm = mapping.get(cid)
         # 🔴 t0：先按原版卡号直查 —— **必须先翻成池 id**（`poolTrueIds`）；不在表里的真 id
         #    （= 我们池里没有那张卡）**不做直查**，交给名字阶梯，避免撞上旧的同号卡。
@@ -197,6 +218,9 @@ def main():
         #    池里是 `Erika Luminas` …，且 `TL74` 早就记过 `TL_Neurogaunt`）⇒ 拿它当第一判据是**倒着的**。
         #    ⚠️ 实测这条**不改任何计数**（现读：没有「按 id 命中池里督军、却不在 warlord_ids.json 里」的
         #       heroId —— 那 6 个不在表里的都是池里也没有的 32 位 GUID），只把 `hero` 那一列的**说明**改准。
+        # 🆕 2026-11-05（`B143-W6`）：教程督军可能是 `(tutorial)` 变体（不在池里）—— 与生产脚本同一条短路
+        if hid in variants:
+            return "查得到", "教程变体（`(tutorial)` SO）"
         c = by_id.get(hid)
         if c is not None and c["type"] == "hero":
             # 🔴 id 命中也照样把「名字表怎么说」印出来 —— ⛔ 别让「按 id 凑上了」把数据缺陷盖掉。
@@ -207,7 +231,10 @@ def main():
             if s and (s == hn or s in hn or hn in s):
                 return "查得到", "id命中"
             return "查得到", "id命中(名字表作 %s)" % v
-        v = warlords.get(hid)
+        # 🆕 2026-11-05（`B143-W6`）：与 `gen_prebuilt_decks.hero_match()` 对齐 —— `warlord_ids.json` 没有这条 id 时
+        #   用 `card_ids.json` 的 `mapping`（原版 id → 卡名）兜底（那 6 副 `*_BOT_FTUE_EASY` 的 heroId 是 GUID；
+        #   生产脚本 2026-10-26 就补了这一跳，这里一直没跟上 ⇒ 两边口径分叉）。
+        v = warlords.get(hid) or mapping.get(hid)
         if v is None:
             return "查不到", ""
         short = warlord_name_of_table(v)
@@ -269,6 +296,7 @@ def main():
                          hero=h_ok, hero_note=h_note, n=n, need=need, hit=n_hit,
                          t0=tier_n["t0"],
                          t1=tier_n["t1"], t2=tier_n["t2"], t3=tier_n["t3"], t4=tier_n["t4"], t5=tier_n["t5"],
+                         variant=tier_n["variant"],
                          miss=len(miss), miss_occ=n_miss_occ, miss_ids=";".join(sorted(set(miss))),
                          size_ok="OK" if size_ok else f"不符({n}/{need})",
                          limit_ok="OK" if not bad else ";".join(bad),
@@ -290,7 +318,7 @@ def main():
     # ---- 原始 TSV ----------------------------------------------------------
     os.makedirs(os.path.dirname(OUT_TSV), exist_ok=True)
     cols = ["faction", "deckId", "name", "mode", "heroId", "hero", "hero_note", "n", "need",
-            "hit", "t0", "t1", "t2", "t3", "t4", "t5", "miss", "miss_occ", "miss_ids", "size_ok",
+            "hit", "t0", "t1", "t2", "t3", "t4", "t5", "variant", "miss", "miss_occ", "miss_ids", "size_ok",
             "limit_ok", "over2", "full", "ab_same"]
     with open(OUT_TSV, "w", encoding="utf-8", newline="\n") as f:
         f.write("\t".join(cols) + "\n")

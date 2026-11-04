@@ -216,6 +216,31 @@ FORMAT = 2
 TUT_SO_DIR = "d:/2/新解包资源/assets_full/bundle_prebuiltdecks_assets_all/MonoBehaviour"
 TUT_OUT = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/tutorial_decks.json"
 
+# 🆕 2026-11-05（`B143-W6` · 账 `B142-AGGRESSOR-VARIANT`）：**教程专用变体卡表**（`工具/gen_tutorial_variants.py` 生成）。
+#   原版教程牌 SO 的 `cardLibraryIds` 里写的是**变体自己的 32 位 GUID**（`X (tutorial)` 那些），
+#   而它们不在可玩池里 ⇒ 以前被 `norm()` 抹掉括号后 **并成了同名池卡**（数值就跟着池走了）。
+#   现在：`match()` / `hero_match()` **先认这张表**，命中就把那个 id 原样留下（运行时有同名表可解析）。
+#   ⚠️ 表不存在 ⇒ 出声并退回旧行为（⛔ 不静默）。
+TUT_VARIANTS = "d:/4/Unity/MyGame/Assets/RuleEngine/Resources/tutorial_variants.json"
+
+
+def _load_tutorial_variants():
+    if not os.path.exists(TUT_VARIANTS):
+        print("⚠️ 找不到教程变体表 %s —— 教程牌会**退回同名池卡**（数值与原版不同）。"
+              "先跑 `python -I -X utf8 工具/gen_tutorial_variants.py --write`。" % TUT_VARIANTS)
+        return set(), {}
+    doc = json.load(open(TUT_VARIANTS, encoding="utf-8"))
+    ids, names = set(), {}
+    for c in doc.get("cards") or []:
+        cid = (c or {}).get("id")
+        if cid:
+            ids.add(cid)
+            names[cid] = c.get("name") or cid
+    return ids, names
+
+
+TUTORIAL_VARIANT_IDS, TUTORIAL_VARIANT_NAMES = _load_tutorial_variants()
+
 # 🔴 **哪副是玩家、哪副是敌方** —— 判据是**关卡 SO 自己那两个 PPtr**，不是猜的。
 #    `bundle_tutorialso_assets_all/MonoBehaviour/Warpforge_TutorialStage{1..6}.json` 里
 #    `playerDeck` / `aiDeck` 两个引用都写着 `{m_FileID: 2, m_PathID: <pid>}`（`m_FileID: 2` = 该 SO 自己
@@ -368,6 +393,11 @@ def build_matcher(pool, mapping, true_to_pool=None):
         key = (cid, faction)
         if key in cache:
             return cache[key]
+        # 🆕 2026-11-05（`B143-W6`）：教程专用变体（`X (tutorial)`）**原样保留自己的 id**，
+        #   ⛔ 不再被下面的 `norm()`（它会删掉括号）并成同名池卡。判据 → `报告/B143_W6_存档数据.md` §8·1。
+        if cid in TUTORIAL_VARIANT_IDS:
+            cache[key] = ("variant", cid)
+            return cache[key]
         nm = mapping.get(cid)
         c = id_direct(by_id, cid, true_to_pool=true_to_pool)
         if c is not None:
@@ -427,6 +457,9 @@ def build_matcher(pool, mapping, true_to_pool=None):
            有一批名字明显不同（`SW3` 表写 `SW_Fenrir`、池里是 `Ragnar Blackmane`；`SOR1` 表写 `SOR_Arco Flagellant`、
            池里是 `Erika Luminas`；`ASH76` 表写 `ASH_Jain Zar`、池里是 `Lhykhis` …）
            ⇒ 名字表只能当**第二判据**，别倒过来。"""
+        # 🆕 2026-11-05（`B143-W6`）：教程督军也可能是变体（`Uriel Ventris (tutorial)` / `Marneus Calgar (tutorial)` 等）
+        if hid in TUTORIAL_VARIANT_IDS:
+            return hid, "教程变体（`(tutorial)` SO）"
         hit = id_direct(by_id, hid, want_type="hero", true_to_pool=true_to_pool)
         if hit is not None:
             # 🔴 id 命中也**照样出声**：`warlord_ids.json` 那个名字若与池里这张对不上，就写进 note
@@ -590,13 +623,13 @@ def make_entry(d, ctx, kind):
         need = 12 if d.get("gameMode") == 13 else 30
         if len(our_ids) != need:
             problems.append("size:%d/%d" % (len(our_ids), need))
-    over2 = ["%s x%d" % (cid, k) for cid, k in Counter(our_ids).items() if k > 2]
+    over2 = ["%s x%d" % (TUTORIAL_VARIANT_NAMES.get(cid, cid), k) for cid, k in Counter(our_ids).items() if k > 2]
     if over2:
         problems.append("over2:" + ";".join(over2))
     # 口径差（**不是缺陷**）：我们标成传说、但原版预组放了 2 张 —— 记着，别拿来拦牌
     over_legendary = ["%s x%d (%s)" % (cid, k, by_id[cid]["name"])
                       for cid, k in Counter(our_ids).items()
-                      if k > 1 and by_id[cid]["rarity"] == "legendary"]
+                      if k > 1 and by_id.get(cid, {}).get("rarity") == "legendary"]   # 🆕 B143-W6：变体 id 不在池 `by_id` 里 ⇒ 先判存在再取（原来裸下标会 KeyError）
     if kind == "practice":
         complete = not missing and hero_id is not None and not problems
         def_id = ctx["defpick"][fac]["id"]
@@ -691,7 +724,7 @@ def build_tutorial(ctx, decks):
                     "TUT_HERO_BY_SO[%s] 指的 %s（%s）对不上 SO 尾段 %r"
                     % (so_name, fix_id, c["name"], want_hero))
                 e["heroId"], e["heroNote"] = fix_id, "SO尾段裁定（%s）" % why
-            got = ctx["by_id"].get(e["heroId"], {}).get("name", "")
+            got = ctx["by_id"].get(e["heroId"], {}).get("name", "") or TUTORIAL_VARIANT_NAMES.get(e["heroId"], "")   # 🆕 B143-W6：教程督军可能是变体（不在池里）
             if norm(want_hero) not in norm(got or ""):
                 hero_mismatch.append(
                     "stage%d %s：SO `%s` 尾段「%s」，但解出的督军是「%s」"
@@ -727,14 +760,15 @@ def build_tutorial(ctx, decks):
              "`TutorialStage.playerDeck/aiDeck` 直引。",
         roleSource="关卡 SO 的 `playerDeck`/`aiDeck` 两个 PPtr 解出来的（判据与 pid 抄在 "
                    "gen_prebuilt_decks.py 的 TUT_ROLE 注释里）—— **不是按名字猜的**。",
-        incomplete="⚠️ `complete=false` 的副**不是本脚本的锅**：它们引用了一批**教程专用的 32 位 GUID 卡号**"
-                   "（本地 `card_ids.json` 里**多半有名字、且带 `(tutorial)` 后缀**，但**池里没有这个卡号**；"
-                   "个别连名字都没有）⇒ 如实标 `missing`，**不补牌、不猜名**。"
+        incomplete="✅ **2026-11-05（`B143-W6` · 账 `B142-AGGRESSOR-VARIANT`）起 12 副全部 `complete=true`**："
+                   "教程牌组 SO 的 `cardLibraryIds` 里那批**教程专用的 32 位 GUID 卡号**（`X (tutorial)`）"
+                   "本来就不在可玩池，以前只能并成同名池卡（数值跟着池走）；现在它们由**独立的变体表**"
+                   "`Resources/tutorial_variants.json`（`工具/gen_tutorial_variants.py` 生成）承接 ⇒ 按 id 原样保留。"
+                   "⚠️ 本字段只在**真出现缺牌**时才有内容（`missing` 非空）；现读 0 副缺牌、0 张缺卡。"
                    "🔴 **2026-10-16（A13）就地更正**：这里原来举的是 `UM6/UM8/UM15/UM19/UM20/UM21/UM25/UM26/"
                    "UM33/UM36/UM38…` 那批「**连续编号里的洞**」——**那句不成立**：现读这些 UM 号**池里全都有**"
                    "（`UM6` = Primaris Intercessor、`UM26` = Epistolary Librarian …，见 `cards_engine.json`），"
-                   "它们从来不是教程缺卡的原因（错因大概是抄了 `资料/原版预组牌_核对.md` 里另一批副的结论）。"
-                   "现读仍缺的只有 GUID 卡，逐条见各副的 `missing` 字段。",
+                   "它们从来不是教程缺卡的原因（错因大概是抄了 `资料/原版预组牌_核对.md` 里另一批副的结论）。",
         heroMismatch="⚠️ 逐关对账：SO 资产名 `{Army}_Deck0_Tutorial{N}_{督军}` 的**尾段**与本副解出的督军卡名"
                      "对不上 —— 这是**数据缺陷**（在 `card_ids.json` / `decklists.json` 那一层），"
                      "本脚本**只对账、不改**（不替它挑一个「看着像」的督军）。空数组 = 12 副全对得上。",

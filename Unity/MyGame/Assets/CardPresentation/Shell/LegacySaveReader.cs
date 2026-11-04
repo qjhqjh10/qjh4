@@ -277,7 +277,7 @@ namespace CardPresentation
                 catch (Exception e) { Fail(sb, label, legacyPath, SaveKeys.AchievementsData, "成就字段解不出来：" + e.Message); }
                 if (ach != null)
                 {
-                    string ap = BuildAchievementsPayload(ach.achIds, ach.achValues);
+                    string ap = BuildAchievementsPayload(ach.achIds, ach.achValues, ach.achHighest);
                     if (!SaveCenter.SetRaw(SaveKeys.AchievementsData, ap))
                         Fail(sb, label, legacyPath, SaveKeys.AchievementsData, "写中央存档失败（原因见上一条 `[SaveCenter]` 日志）");
                     else
@@ -633,9 +633,9 @@ namespace CardPresentation
     //  ⚠️ 三处「我们只能填默认值」的地方（如实记着，⛔ 不是原版读出来的）：
     //    ① `collectedRewards` / `premiumCollectedRewards`：原版记「已领了几档」；我们的档位是
     //       从进度值**现推**的（`ProfileData.AchievementTierOf`），没有领取记录 ⇒ 恒 0。
-    //    ② `highestValue`：原版是「历史最高」，我们是「当前值」—— 我们的写点基本只涨不落，
-    //       两者**在正常玩法下相等**；但 `SetAchievementValue` 显式调低时原版会保留最高值、我们不能
-    //       ⇒ 已知偏离（要补就得在中央档多存一列，属后续项）。
+    //    ② `highestValue`：✅ **已补**（2026-11-05 · `B143-W6` · 账 `B142-ACHDATA-PROJ`）—— 调用方把
+    //       `achHighest` 传进来就按 `max(highest, current, 0)` 写（旧档没有这一列 ⇒ 退回 current，即旧的
+    //       「两者相等」行为）。判据 = `AchievementsManager__GetHighestValue.c`（`Math.Max(0x3c,0x38,0)`）。
     //    ③ `customData` 恒空（原版 `[JsonIgnoreIfEmpty]` ⇒ 空的时候本来就不写进 JSON）。
     // ════════════════════════════════════════════════════════════════════════════════════════
 
@@ -647,16 +647,23 @@ namespace CardPresentation
     /// （路径形如 `"Ach_1"."value"`）。</para>
     /// <para>⚠️ **顺序 = 序数序**（`SortedDictionary`）：原版是 `Dictionary` 的插入序；我们排序是为了
     /// 「同一份数据每次写出来逐字节一样」（可 diff / 可复现）。键顺序不影响语义。</para>
-    /// <para>⚠️ 长度不齐时按**短的那边**配对；空 id 跳过；负数按 0 收（与 `ProfileData` 的 `Mathf.Max(0,…)` 同义）。</para></summary>
-        public static string BuildAchievementsPayload(string[] ids, int[] values)
+    /// <para>⚠️ 长度不齐时按**短的那边**配对；空 id 跳过；负数按 0 收（与 `ProfileData` 的 `Mathf.Max(0,…)` 同义）。</para>
+    /// <para>✅ 已复刻（2026-11-05 · B143-W6 · `AchievementsManager__GetHighestValue.c` + `Everguild/LiveOps/AchievementPersistence.cs:10`）
+    /// —— 补上原版 `AchievementPersistence.highestValue` 那一格：
+    /// <paramref name="highest"/> 缺省（或比 `ids` 短）⇒ **退回当前值**（= 旧档没有 `achHighest` 时的行为）；
+    /// 给了就取 `max(highest, current, 0)`（与 `AchievementsManager__GetHighestValue.c` 的 `Math.Max` 同口径）。
+    /// ⛔ 别把 highest 写成 current：原版两格语义不同（`value` = 当前、`highestValue` = 历史最高、只涨不落）。</para></summary>
+        public static string BuildAchievementsPayload(string[] ids, int[] values, int[] highest = null)
         {
-            var map = new SortedDictionary<string, int>(StringComparer.Ordinal);
+            var map = new SortedDictionary<string, KeyValuePair<int, int>>(StringComparer.Ordinal);
             if (ids != null && values != null)
             {
                 for (int i = 0; i < ids.Length && i < values.Length; i++)
                 {
                     if (string.IsNullOrEmpty(ids[i])) continue;
-                    map[ids[i]] = values[i] < 0 ? 0 : values[i];   // 同一个 id 出现两次 ⇒ 后写赢（同 `Dictionary` 赋值）
+                    int cur = values[i] < 0 ? 0 : values[i];                                                                // 同一个 id 出现两次 ⇒ 后写赢（同 `Dictionary` 赋值）
+                    int hi = (highest != null && i < highest.Length) ? highest[i] : cur;                                    // 旧档没有 `achHighest` ⇒ 用 current 初始化（⛔ 不清零）
+                    map[ids[i]] = new KeyValuePair<int, int>(cur, hi < cur ? cur : hi);                                     // 只涨不落：highest 永远不低于 current（原版读口自己也做 `Math.Max`）
                 }
             }
             if (map.Count == 0) return "{}";
@@ -664,16 +671,17 @@ namespace CardPresentation
             StringBuilder sb = new StringBuilder();
             sb.Append('{');
             bool first = true;
-            foreach (KeyValuePair<string, int> kv in map)
+            foreach (KeyValuePair<string, KeyValuePair<int, int>> kv in map)
             {
                 if (!first) sb.Append(',');
                 first = false;
                 string q = SaveJsonDiff.Quote(kv.Key);
-                string v = kv.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                string v = kv.Value.Key.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                string h = kv.Value.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 sb.Append(q).Append(":{")
                   .Append("\"collectedRewards\":0,\"premiumCollectedRewards\":0,")
                   .Append("\"id\":").Append(q)
-                  .Append(",\"highestValue\":").Append(v)
+                  .Append(",\"highestValue\":").Append(h)
                   .Append(",\"value\":").Append(v)
                   .Append(",\"enabled\":true}");
             }
@@ -784,7 +792,7 @@ namespace CardPresentation
     class LegacyProfileAchievements
     {
         public string[] achIds;
-        public int[] achValues;
+        public int[] achValues; public int[] achHighest;   // 🆕 2026-11-05（B143-W6 · 账 B142-ACHDATA-PROJ）：旧档新列（B142_E66 起 `profile.json` 带 `achHighest`）；旧档没有 ⇒ null ⇒ 投影退回 current
     }
 #pragma warning restore 0649
 }

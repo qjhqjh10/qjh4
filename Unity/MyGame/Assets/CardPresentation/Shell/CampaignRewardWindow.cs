@@ -105,7 +105,7 @@ namespace CardPresentation
         /// <summary>`Menu Dark Background` —— 比屏幕大得多的压暗层（4574.6 × 2572.36）。
         /// 与 `DailyRewardPopup` 是**同一个矩形**（两窗都从 prefab 原文读出来，值一样）。</summary>
         public static readonly PxRect Shade = new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f);
-        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);   // m_Color 原文 (0,0,0,0.773)
+        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.7725490f);   // m_Color 原文 (0,0,0,0.77254903) = 197/255（✅ 2026-11-05 B144-D 订正：原注释写 (0,0,0,0.773) 是把 197/255 取整了）
 
         /// <summary>`Menu Vignette` —— 铺满整屏的暗角（`m_Color = (0,0,0,0.58)`，sprite 为空 ⇒ 纯色块）。</summary>
         public static readonly Color VignetteColor = new Color(0f, 0f, 0f, 0.58f);

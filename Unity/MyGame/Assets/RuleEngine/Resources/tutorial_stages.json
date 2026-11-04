@@ -96,7 +96,7 @@
  ],
  "ocrNameFixNote": "🔴 **这 2 条是【裁定映射】**：判据 = 教程 SO 用的那个名字（= 原版卡 SO 的 `cardName`）与 `数据/游戏数据/card_stats.json` 的 **`ocrName`** 列（当年从 **PnP 成品卡图**上 OCR 出来的名字）**逐字吻合**、且在我们卡池里**位置唯一**。产物里 **SO 原名原样保留**（`name` 字段），只在 `ourId` 写我们的 id、`matchTier` 写 `ocrName`（⛔ 别当 exact/norm 用）。裁定：调度台 2026-10-17。🔴 **2026-11-04 就地订正（铁律 5 · `B142-TUT-HAND3`）**：本段原文写着「原版那份卡 SO（`allcards_assets_all.bundle`）本地没有 ⇒ 钉不死它俩与映射到的那两张是同一张卡」—— **那句已不成立**：2026 build 的 allcards 工程内导出（`资料/普查产出_1018/allcards_1350/cards_raw.json`）里 `pathID=7386907376838221809` 的 `cardName` 就是 `Gauss Warrior`（→ `SAU4`），与该裁定**同卡同证**（那是 2026 build 的名称，⛔ 别据此把 `(tutorial)` 那张的数值当成同一个版本）。",
  "refNote": "`pid` 是原版 SO 里 `RawCardScript` 的 PPtr（64 位有符号，当**坐标**用）；`name` 来自原版 SO 自己的 `actionType` 字符串（**一个字都不改**，见 gen_tutorial_stages.py 的 parse_action_arg）；⚠️ `PID_NAME_EXTRA` 那 5 个 pid 例外（SO 字符串给不出名字）⇒ `name` 取自 2026 build allcards 的 `cardName`，同样**一字不改**（含 `Aggressor Sergeant (tutorial)` 的 `(tutorial)` 尾巴）；`ourId` 是 `cards_engine.json` 里的卡 id，`matchTier` = exact / norm / ocrName / **allcardsId**（**不做模糊匹配**，宁可认不出；`ocrName` = 走了裁定映射，见 `ocrNameFixes`；`allcardsId` = `*StartingTroops*` 那 4 张表专用的 2026 allcards 回退档，`pid ↔ uniqueId` 逐字取，见 gen_tutorial_stages.py 的 `load_allcards_pid_index`）；`note` 只在解不出时给候选线索（⛔ 候选不当结果用）",
- "matchTierHistogram": "exact=244 · norm=42 · null-ref=638 · 起始单位:allcardsId=3 · 起始单位:exact=24 · 起始单位:norm=3",
+ "matchTierHistogram": "exact=244 · null-ref=638 · variant=42 · 起始单位:allcardsId=3 · 起始单位:exact=24 · 起始单位:variant=3",
  "knownIssues": [
   "`actionOnPlayerResign` 6 关**全是空动作**（`actionType` 空串）⇒ 与 `preventPlayerResign` 全 0 自洽（原版原文如此，⛔ 别当缺失去补）",
   "🔴 有 0 个 pid 拿不到卡名（`unresolvedNoName`）：它们只出现在 `scriptedActionData` 里、**只当目标或只被摆进起手**，而 SO 的 `actionType` 字符串**只写「发起单位」** ⇒ 天然没名字。🔴 **2026-11-04 就地订正（铁律 5 · `B142-TUT-HAND3`）**：本行原文写着「它们是住在 `allcards_assets_all.bundle` 里的卡 SO，那个包在 catalog 里有、本地 84 个 bundle 里没有 ⇒ 解不出名字」—— **这半句已不成立**：2026 build 的 allcards 导出就在本地（`资料/普查产出_1018/allcards_1350/cards_raw.json`），那 3 张起手卡正是靠它解出来的（`matchTier=allcardsId`）。🔴 **2026-11-04 补（`B142-E42` · 账 `B142-PID-GLOBAL-5`）**：原来那 **5 个** pid（Makari the Grot / Veteran Guardian / Gauss Warrior / Unhallowed Gifts / Aggressor Sergeant (tutorial)）已由 `PID_NAME_EXTRA`（判据 = 2026 build allcards 的 `pathID ↔ cardName/uniqueId`）补上名字 ⇒ 本数归 0（`matchTier` 的 `no-name` 也从 14 归 0）。其中 Aggressor 那条原版 `cardName` 带 `(tutorial)`、与池内 `Aggressor Sergeant` **字符串不等** ⇒ 它**显式钉死 `ourId=UM19`**（运行时 `ScriptedCardMatches` 第一跳比 name 必然对不上、靠第二跳比 id 命中）。⚠️ `allcardsId` 那一档仍只用在 `*StartingTroops*`",
@@ -2104,8 +2104,8 @@
           "unitTypeName": "None",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -2155,8 +2155,8 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -2206,8 +2206,8 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -2257,8 +2257,8 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -2581,8 +2581,8 @@
           "unitTypeName": "None",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -2794,8 +2794,8 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -3313,8 +3313,8 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "3125297114274469715",
           "name": "Primaris Reiver (tutorial)",
-          "ourId": "UM5",
-          "matchTier": "norm",
+          "ourId": "d0ac7c259308ab540aabb5123d0c1633",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -3364,8 +3364,8 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "6343641872617711132",
           "name": "Primaris Reiver (tutorial1)",
-          "ourId": "UM5",
-          "matchTier": "norm",
+          "ourId": "9be8bfe7063f14345966de388c7ba3ec",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -3730,8 +3730,8 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -3892,8 +3892,8 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "8206932990222692476",
           "name": "Devastator Centurion (tutorial)",
-          "ourId": "UM25",
-          "matchTier": "norm",
+          "ourId": "711ec03391d6f46a3a07de5ffb409d6b",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -3943,8 +3943,8 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8206932990222692476",
           "name": "Devastator Centurion (tutorial)",
-          "ourId": "UM25",
-          "matchTier": "norm",
+          "ourId": "711ec03391d6f46a3a07de5ffb409d6b",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -4096,8 +4096,8 @@
           "unitTypeName": "PlayerMinion",
           "pid": "6343641872617711132",
           "name": "Primaris Reiver (tutorial1)",
-          "ourId": "UM5",
-          "matchTier": "norm",
+          "ourId": "9be8bfe7063f14345966de388c7ba3ec",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -4207,8 +4207,8 @@
           "unitTypeName": "PlayerMinion",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -4216,9 +4216,9 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8223774895360888806",
           "name": "Aggressor Sergeant (tutorial)",
-          "ourId": "UM19",
-          "matchTier": "norm",
-          "note": "🔴 `ourId` 由 `PID_NAME_EXTRA`（2026 build allcards 的 `pathID ↔ uniqueId`）**显式钉死** = UM19：原版 `cardName` 是 'Aggressor Sergeant (tutorial)'、池里那张叫别的名字 ⇒ 运行时 `ScriptedCardMatches` **第一跳比 name 对不上**、靠第二跳 `c.Id == ourId` 命中。⛔ 别只填 name 不填 ourId（那样「有键但永不命中」= 仍退回 list[0]）"
+          "ourId": "8d04a976efd628e43ad37d67e57140a0",
+          "matchTier": "variant",
+          "note": "🔴 `ourId` 由 `PID_NAME_EXTRA`（2026 build allcards 的 `pathID ↔ uniqueId`）**显式钉死** = 8d04a976efd628e43ad37d67e57140a0：原版 `cardName` 是 'Aggressor Sergeant (tutorial)' —— 那是**独立的变体卡**（`Resources/tutorial_variants.json`，不在可玩池）⇒ `ourId` 必须指向变体自己。运行时的名字匹配走原版口径（只比 `cardName`）；`ourId` 只给 `TutorialRules.PoolLookup` 那两条路当卡身份"
          }
         }
        ]
@@ -4420,8 +4420,8 @@
           "unitTypeName": "PlayerMinion",
           "pid": "8206932990222692476",
           "name": "Devastator Centurion (tutorial)",
-          "ourId": "UM25",
-          "matchTier": "norm",
+          "ourId": "711ec03391d6f46a3a07de5ffb409d6b",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -5258,8 +5258,8 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-5258643873645347188",
           "name": "Firstborn (tutorial)",
-          "ourId": "UM3",
-          "matchTier": "norm",
+          "ourId": "0fca8843c85ec1148b3bb77cc834a010",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -5888,8 +5888,8 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-5258643873645347188",
           "name": "Firstborn (tutorial)",
-          "ourId": "UM3",
-          "matchTier": "norm",
+          "ourId": "0fca8843c85ec1148b3bb77cc834a010",
+          "matchTier": "variant",
           "note": ""
          }
         }
@@ -5990,8 +5990,8 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -6995,8 +6995,8 @@
           "unitTypeName": "None",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -7046,8 +7046,8 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -7106,8 +7106,8 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          }
         }
@@ -7148,8 +7148,8 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-2997010191300117993",
           "name": "Primaris Intercessor (tutorial)",
-          "ourId": "UM6",
-          "matchTier": "norm",
+          "ourId": "eb815e1e93912d24394c7fca6d3558f4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -8003,8 +8003,8 @@
     {
      "pid": "1289725038268339793",
      "name": "Gauss Warrior (tutorial)",
-     "ourId": "SAU4",
-     "matchTier": "norm",
+     "ourId": "847acecf682cb0748bc4445b52125cb4",
+     "matchTier": "variant",
      "note": ""
     },
     {
@@ -9519,8 +9519,8 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU4",
-          "matchTier": "norm",
+          "ourId": "847acecf682cb0748bc4445b52125cb4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -9732,8 +9732,8 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU4",
-          "matchTier": "norm",
+          "ourId": "847acecf682cb0748bc4445b52125cb4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -10107,8 +10107,8 @@
           "unitTypeName": "PlayerMinion",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU4",
-          "matchTier": "norm",
+          "ourId": "847acecf682cb0748bc4445b52125cb4",
+          "matchTier": "variant",
           "note": ""
          }
         }
@@ -10515,8 +10515,8 @@
           "unitTypeName": "PlayerMinion",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU4",
-          "matchTier": "norm",
+          "ourId": "847acecf682cb0748bc4445b52125cb4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -10992,8 +10992,8 @@
           "unitTypeName": "PlayerMinion",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU4",
-          "matchTier": "norm",
+          "ourId": "847acecf682cb0748bc4445b52125cb4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -11043,8 +11043,8 @@
           "unitTypeName": "PlayerMinion",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU4",
-          "matchTier": "norm",
+          "ourId": "847acecf682cb0748bc4445b52125cb4",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -11759,8 +11759,8 @@
     {
      "pid": "-3837662757098088507",
      "name": "Hellblaster (tutorial)",
-     "ourId": "UM10",
-     "matchTier": "norm",
+     "ourId": "8204f59a011f94d5c9ea1bed18ae9c57",
+     "matchTier": "variant",
      "note": ""
     },
     {
@@ -13567,8 +13567,8 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "-3837662757098088507",
           "name": "Hellblaster (tutorial)",
-          "ourId": "UM10",
-          "matchTier": "norm",
+          "ourId": "8204f59a011f94d5c9ea1bed18ae9c57",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -13729,8 +13729,8 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-950630935443773410",
           "name": "Infernal Gaze (tutorial)",
-          "ourId": "453b0e8f88e094a17866a6979f389ef5",
-          "matchTier": "norm",
+          "ourId": "319bfeba880818c4690067f2596cd6f9",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -13789,8 +13789,8 @@
           "unitTypeName": "EnemyMinion",
           "pid": "-3837662757098088507",
           "name": "Hellblaster (tutorial)",
-          "ourId": "UM10",
-          "matchTier": "norm",
+          "ourId": "8204f59a011f94d5c9ea1bed18ae9c57",
+          "matchTier": "variant",
           "note": ""
          }
         }
@@ -14776,8 +14776,8 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "4373096480433422743",
           "name": "Lieutenant Calsius (tutorial)",
-          "ourId": "UM24",
-          "matchTier": "norm",
+          "ourId": "f8ba395632901b84397bd14282472c35",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -14989,8 +14989,8 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-5392198408603717641",
           "name": "Abaddon's Chosen (tutortial)",
-          "ourId": "BL37",
-          "matchTier": "norm",
+          "ourId": "7ae784e51720db24985842a91f91ad6d",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -15151,8 +15151,8 @@
           "unitTypeName": "EnemyMinion",
           "pid": "4373096480433422743",
           "name": "Lieutenant Calsius (tutorial)",
-          "ourId": "UM24",
-          "matchTier": "norm",
+          "ourId": "f8ba395632901b84397bd14282472c35",
+          "matchTier": "variant",
           "note": ""
          }
         }
@@ -15193,8 +15193,8 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "-950630935443773410",
           "name": "Infernal Gaze (tutorial)",
-          "ourId": "453b0e8f88e094a17866a6979f389ef5",
-          "matchTier": "norm",
+          "ourId": "319bfeba880818c4690067f2596cd6f9",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -15457,8 +15457,8 @@
           "unitTypeName": "EnemyCardInHand",
           "pid": "227436827453207767",
           "name": "Primaris Impulsor (tutorial)",
-          "ourId": "UM17",
-          "matchTier": "norm",
+          "ourId": "d2b16a347052dc541a07c40cd9b40b78",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -15781,8 +15781,8 @@
           "unitTypeName": "EnemyMinion",
           "pid": "227436827453207767",
           "name": "Primaris Impulsor (tutorial)",
-          "ourId": "UM17",
-          "matchTier": "norm",
+          "ourId": "d2b16a347052dc541a07c40cd9b40b78",
+          "matchTier": "variant",
           "note": ""
          }
         }
@@ -15832,8 +15832,8 @@
           "unitTypeName": "EnemyMinion",
           "pid": "227436827453207767",
           "name": "Primaris Impulsor (tutorial)",
-          "ourId": "UM17",
-          "matchTier": "norm",
+          "ourId": "d2b16a347052dc541a07c40cd9b40b78",
+          "matchTier": "variant",
           "note": ""
          }
         }
@@ -16413,8 +16413,8 @@
     {
      "pid": "1289725038268339793",
      "name": "Gauss Warrior (tutorial)",
-     "ourId": "SAU4",
-     "matchTier": "norm",
+     "ourId": "847acecf682cb0748bc4445b52125cb4",
+     "matchTier": "variant",
      "note": ""
     }
    ],
@@ -17153,8 +17153,8 @@
           "unitTypeName": "EnemyMinion",
           "pid": "1289725038268339793",
           "name": "Gauss Warrior (tutorial)",
-          "ourId": "SAU4",
-          "matchTier": "norm",
+          "ourId": "847acecf682cb0748bc4445b52125cb4",
+          "matchTier": "variant",
           "note": ""
          }
         }
@@ -19868,8 +19868,8 @@
           "unitTypeName": "PlayerCardInHand",
           "pid": "6865006080032400107",
           "name": "Swooping Hawk (tutorial)",
-          "ourId": "ASH12",
-          "matchTier": "norm",
+          "ourId": "b888bfd3849c4da48973f8217e41129c",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {
@@ -20141,8 +20141,8 @@
           "unitTypeName": "PlayerMinion",
           "pid": "6865006080032400107",
           "name": "Swooping Hawk (tutorial)",
-          "ourId": "ASH12",
-          "matchTier": "norm",
+          "ourId": "b888bfd3849c4da48973f8217e41129c",
+          "matchTier": "variant",
           "note": ""
          }
         }
@@ -20498,8 +20498,8 @@
           "unitTypeName": "PlayerMinion",
           "pid": "6865006080032400107",
           "name": "Swooping Hawk (tutorial)",
-          "ourId": "ASH12",
-          "matchTier": "norm",
+          "ourId": "b888bfd3849c4da48973f8217e41129c",
+          "matchTier": "variant",
           "note": ""
          },
          "target": {

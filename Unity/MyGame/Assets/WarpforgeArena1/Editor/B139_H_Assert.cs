@@ -118,7 +118,7 @@ public static class B139_H_Assert
             string t = File.ReadAllText(p);
             Check(FieldIs(t, "_SrcBlend", 5) && FieldIs(t, "_DstBlend", 1)
                   && FieldIs(t, "_SrcBlendAlpha", 5) && FieldIs(t, "_DstBlendAlpha", 1),
-                  $"{rel}：加性混合 5/1（彩 & alpha 两侧）");
+                  $"{rel}：加性混合必须四格 5/1/5/1（原版 `Mobile/Particles/Additive` = 单条 `Blend SrcAlpha One` ⇒ 彩/alpha 同因子；实现 = `ArenaOriginalMaterial.SetBlend:498`）。✗ 多见根因 = 该 `.mat` 是 2026-11-04 前的旧产物 ⇒ 重跑 `ArenaBuilder.BuildAll` 重生成，⛔ 别放宽断言");
         }
     }
 

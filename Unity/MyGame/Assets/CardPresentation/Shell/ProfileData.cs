@@ -1140,7 +1140,7 @@ namespace CardPresentation
             //    —— 那样「用户回滚旧客户端玩过一轮」时读到的还是最新的（旧档里有 achIds/achValues）。
             if (SaveCenter.StoreOn)
             {
-                string ap = LegacySaveReader.BuildAchievementsPayload(ids.ToArray(), vals.ToArray());
+                string ap = LegacySaveReader.BuildAchievementsPayload(ids.ToArray(), vals.ToArray(), hivals.ToArray());   // ✅ 2026-11-05（B143-W6 · 账 B142-ACHDATA-PROJ）：第三参 = 历史最高（`hivals` 上面 :1102-1104 已算好，与 `_save.achHighest` 同源）⇒ 投影的 `highestValue` 不再等于 current
                 if (!SaveCenter.SetRaw(SaveKeys.AchievementsData, ap))
                     Debug.LogError("[Profile] 成就投影写盘失败（`" + SaveKeys.AchievementsData + "`）："
                                  + SaveCenter.LastWriteError + " ⇒ 中央档里成就进度是旧的"

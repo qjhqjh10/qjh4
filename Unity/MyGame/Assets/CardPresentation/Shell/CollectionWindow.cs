@@ -6426,10 +6426,10 @@ namespace CardPresentation
         static bool PointerHeldForHover()
         {
             if (!Application.isPlaying) return false;
-            var m = UnityEngine.InputSystem.Mouse.current;
-            if (m != null && m.leftButton.isPressed) return true;
-            var ts = UnityEngine.InputSystem.Touchscreen.current;
-            return ts != null && ts.primaryTouch.press.isPressed;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：左键「按着」（电平）。
+            //    原来那支 `Touchscreen.primaryTouch.press.isPressed` 与它是同一个量 —— 移动端由
+            //    `Input.simulateMouseWithTouches`（默认开）把首指映射成左键（同族注释见 `CardInteraction.PointerHeldNow`）。
+            return Input.GetMouseButton(0);
         }
 
         // ============================================================ 账 `收藏:348`：`WildcardDisplay` 的 Shiny 扫光

@@ -57,7 +57,7 @@ using UnityEngine;
 namespace CardPresentation
 {
     /// <summary>悬停信息层。全局一个，按需建。</summary>
-    public class Tooltip : MonoBehaviour
+    public partial class Tooltip : MonoBehaviour
     {
         static Tooltip _inst;
         /// <summary>当前显示的那条（自检用）。没显示时是 null。</summary>
@@ -670,7 +670,7 @@ namespace CardPresentation
         /// <summary>按原版两栏版式排一次 trait tooltip。`sh` = `TipText.Trait` 拆出来的三个部件。</summary>
         void LayoutTrait(TipText.TraitShape sh)
         {
-            if (_body == null) return;
+            if (_body == null) return; ApplyTraitScale(true);   // ✅ 已复刻（2026-11-05 · B143-W5 · 原版 `Trait Tooltip.prefab` 根挂 `TransformScalerBySmallScreenUI.menuScale 1.25`；⚠️ 同一物理行内追加 = 零行数变化，`账/Tooltip.cs` 的落点不漂）
             LayoutCount++;
             if (!_traitMode)
             {
@@ -769,7 +769,7 @@ namespace CardPresentation
             if (_title != null) { DestroySafe(_title.gameObject); _title = null; }
             if (_desc != null) { DestroySafe(_desc.gameObject); _desc = null; }
             if (_icon != null) { DestroySafe(_icon.gameObject); _icon = null; }
-            _traitMode = false;
+            _traitMode = false; ApplyTraitScale(false);   // ✅ 已复刻（2026-11-05 · B143-W5 · 回基础档 ⇒ 根回 (1,1,1)：原版 `BasicToolTip` 上**没有**这颗缩放器）
             if (_body != null) _body.gameObject.SetActive(true);
         }
 

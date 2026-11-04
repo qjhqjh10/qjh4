@@ -118,7 +118,7 @@
 //   ⚠️ 母版**出厂就是关着的**；实例由 `RebuildRewards()` 按里程碑逐档建（无里程碑 ⇒ 0 张，见上「就地订正」）。
 // · **`Points` 的 `icon`**：prefab 里 `Image` 组件是**禁用**的（`m_Enabled = 0`），运行时由
 //   `EventProgressBarController.ScoreObject` 的 `ItemDrawer` 灌物品图 ⇒ 只建节点、不出图。
-// · **`RewardTransform`**：`RaidRewardDrawerController`（`ItemDrawer`）运行时逐件实例化奖励 ⇒ 只建空容器。
+// · **`RewardTransform`**：`RaidRewardDrawerController`（`ItemDrawer`）在 ⑥ 里**只画 `First()`**（✅ 2026-11-05 B143-W7 已接，见 `BuildRewardIcon`）。
 // · **`Credit`（领取）**：原版 `RaidProgressClaimButtonController.CollectionClick` → `RaidEvent.OnRewardCollected`
 //   （服务器）⇒ 本地走**等价模拟**（`PurchaseMilestone` 的解锁判据照抄 + 进程内「已领」+ 出声），⛔ 不假装领到真货。
 using System;
@@ -132,7 +132,7 @@ namespace CardPresentation
     /// <para>✅ **2026-10-23 起有生产入口了**：左竖导航第 6 颗 `Event Navigation Button` →
     /// `WindowsManager.OpenEventHub(...)`；本窗左栏的「事件钮」（<see cref="ParentEventWindow.SetupEventTabs"/>
     /// 建的）也走同一个口。直接调用 = `WindowsManager.OpenRaidEvent()`。</para></summary>
-    public class RaidEventWindow : GameWindow
+    public partial class RaidEventWindow : GameWindow
     {
         // ============================================================ 渲染队列档（3660–3689 · 全工程现读空档）
         // 相邻带：`GachaEventWindow` 3630–3659 · 下一档 3935（`EnergySinglePlayerOnlyEventWindow`）。
@@ -859,10 +859,10 @@ namespace CardPresentation
             card.Highlight.gameObject.SetActive(false);
 
             // `RewardTransform`（`UITransformTweenController` + `RaidRewardDrawerController`）
-            // —— 奖励物品由 `ItemDrawer` 运行时逐件实例化 ⇒ 只建空容器。
+            // —— 奖励物品由 `ItemDrawer` 在 ⑥ 里画（✅ 2026-11-05 B143-W7：**只画第一条**，见 `BuildRewardIcon`）。
             card.RewardTransform = MenuDraw.Node(root, "RewardTransform", RewardTransformR);
-            Note("`RewardTransform`：原版 `RaidRewardDrawerController`（`ItemDrawer`）按 `RewardInfo` 逐件实例化"
-                 + " —— 本地没有里程碑奖励数据 ⇒ 只建空容器");
+            Note("`RewardTransform`：原版 `RaidRewardDrawerController`（`ItemDrawer`）画 `rewards.First()`"
+                 + " —— 容器照建；图标在 `ApplyCardState` 的 ⑥ 里灌（`BuildRewardIcon`）");
 
             BuildCommunityProgression(root, card);
             BuildPersonalProgression(root, card);
@@ -1291,7 +1291,7 @@ namespace CardPresentation
         /// ⑥ drawer.ChangeState(state) / 逐件画奖励
         /// ⑦ highlightReward.SetActive(false)
         /// </code>
-        /// <para>⚠️ 本地没有 `ItemDrawer`（奖励物品图）⇒ ⑥ 只做 `RewardTransform` 上的**空容器** + 出声（缺口已记账）。</para></summary>
+        /// <para>✅ 2026-11-05（B143-W7）：⑥ 已落地 —— 本地有 `ItemDrawer`（见 `BuildRewardIcon`），按原版只画 `CurrentRewards[0]`。</para></summary>
         void ApplyCardState(RewardCard card, RaidRewardSelectorLogic.RaidEventMilestoneInfo info, bool isLastMilestone)
         {
             if (card == null || info == null) return;
@@ -1299,13 +1299,12 @@ namespace CardPresentation
             card.Applied = state;
 
             // ---- ① 个人进度条：按档改位置/尺寸（原版 `BaseProgressBarScaleAndPositionController.Initialize`）
-            //      ⚠️ 我们不做「按档位移」（本地无数据、也不改版面 —— 见 `RaidBarPlacementLogic` 的说明）；
-            //      仍按原版的**真值**把规则算出来写进口志，免得将来接数据时再猜一次。
+            //      ✅ 就地订正（2026-11-05 · B143-W7 · 铁律 5）：原文写「我们不做「按档位移」（本地无数据…）」——**已过期**：
+            //      位移那一跳早在 `ApplyPersonalBarShift` 落地（`B93` 那批），下面 `RaidBarPlacementLogic.Moves` 就是它的闸。
             bool applyPrev, applyCur; RaidBarPlacementLogic.PlanSteps(info.Level, out applyPrev, out applyCur);
-            if (RaidBarPlacementLogic.Moves(state))
-                ApplyPersonalBarShift(card, info.Level, state, applyPrev, applyCur);
+            if (RaidBarPlacementLogic.Moves(state)) { ApplyPersonalBarShift(card, info.Level, state, applyPrev, applyCur);
                 Note("奖励格 " + info.Level + "：状态 " + state + " ⇒ 个人进度条按档位偏移**已落地**（level>0=" + applyCur
-                     + "；prefab 偏移表 current(-74.34 / -72.31) · previous(0 / -72.31)）");
+                     + "；prefab 偏移表 current(-74.34 / -72.31) · previous(0 / -72.31)）"); }
 
             // ---- ② 个人进度条 + 分数牌（**U04 的** `EventProgressBarController.Initialize`）
             //      它自己三跳：`Root.SetActive(Next != 0)` → `ScoreObject.Initialize` → `SetBarFill(p)`
@@ -1342,13 +1341,14 @@ namespace CardPresentation
                         + "（裁切走 `ViewportClip`，建树即裁）⇒ `EventProgressBarController.ToggleRectMask` 是空操作（已记账）。");
             }
 
-            // ---- ⑥ 奖励（原版 `RaidRewardDrawerController` / `ItemDrawer` 逐件实例化）—— 本地只出声一次
-            if (info.CurrentRewards != null && info.CurrentRewards.Count > 0 && !_noRewardArtWarned)
-            {
-                _noRewardArtWarned = true;
-                Debug.LogWarning("[Raid] 奖励物品（" + info.CurrentRewards.Count + " 件）：原版 `RaidRewardDrawerController` 用 "
-                               + "`ItemDrawer` 逐件实例化图标；我们**没有物品图标运行时** ⇒ `RewardTransform` 是空容器（缺口已记账）。");
-            }
+            // ---- ⑥ 奖励（原版 `BaseEventProgressRewardDrawerController.Initialize` —— **只画 `First()`**）
+            //   ✅ 已复刻（2026-11-05 · B143-W7 · `decomp_generic_trial/out/BaseEventProgressRewardDrawerController_Int32Enum___Initialize__13c0010.c`）：
+            //   `rewards.First()` → `ItemDrawer.Draw(transform, item, quantity, 0)` → `TogglePremiumHighlight(isPremium)` → `ChangeState()`（空体）。
+            //   调用点 = `RaidEventRewardItemContainer__Initialize.c:166-169`（`isPremium` 实参 **0/false**；`ChangeState` 实参 = `GetState` 的结果）。
+            //   🔴 `RaidRewardDrawerController.ChangeState` 原版**体是空的**（ILSpy / il2csharp 双源都是 `{ }`）⇒ 这一跳无操作。
+            //   ⚠️ 原版只画**第一条**（`Enumerable.First`），⛔ 不是「逐件画全部」—— `rewards` 其余条目原版同样不画。
+            if (card.RewardTransform != null && info.CurrentRewards != null && info.CurrentRewards.Count > 0)
+                BuildRewardIcon(card.RewardTransform, info.CurrentRewards[0]);
 
             // ---- ⑦ 高亮框出厂关着
             if (card.Highlight != null) card.Highlight.gameObject.SetActive(false);
@@ -1612,6 +1612,57 @@ namespace CardPresentation
                 r = RaidProgressBarScaleAndPositionControllerLogic.SetPositionAndScale(
                         r, state, RaidBarPlacementLogic.PositionOffsetCurrent, RaidBarPlacementLogic.ScaleOffsetCurrent);
             MenuDraw.ApplyPxRect(card.PersonalBarRoot, card.PersonalBarRoot.parent, r);
+        }
+    }
+
+    // ============================================================ B143-W7（续）· ⑥ 奖励图标（原版 `ItemDrawer.Draw`）
+    /// ✅ 已复刻（2026-11-05 · B143-W7 · `decomp_generic_trial/out/BaseEventProgressRewardDrawerController_Int32Enum___Initialize__13c0010.c`）
+    /// <para>原版 `Initialize` 的**完整四步**（`decomp_full` 那份 `.c` 逐句，行号为那份文件）：
+    /// ① `this.rewards = rewards`（`+0x28`）；② `rewards.First()`（`System_Linq_Enumerable__First&lt;object&gt;`）；
+    /// ③ `itemDrawer = ItemDrawer.Draw(transform, item, quantity, 0, 0)`（`+0x20` 存句柄）；
+    /// ④ `itemDrawer.&lt;虚表 +0x1B8&gt;(isPremium)`（= `TogglePremiumHighlight`）然后 `ChangeState(currentState)`。
+    /// 空表 ⇒ 原版 `First()` 抛 `InvalidOperationException`（`FUN_1803f47a0` 那道）；我们按全工程口径出声 + 不画。</para>
+    /// <para>⚠️ 与原版的**三处结构差异**（同 `Shell/BaseEventProgressRewardDrawerController.cs` 文件头 ①②③ 那三条）：
+    /// ① 原版是 MonoBehaviour，我们一扇窗一个类；② 原版 `ItemDrawer.Draw` 的几何在 prefab 里，
+    /// 我们的 `ItemDrawer.Draw` 多要 `PxRect box` + `ItemDrawerStyle`（这里给 `RewardTransformR` + `Default`）；
+    /// ③ 原版 `ChangeState` 由子类实现 —— `RaidRewardDrawerController.ChangeState` 的体**是空的**（ILSpy / il2csharp
+    /// 双源逐字 `{ }`）⇒ 这里**什么都不做**（⛔ 别自己编一个「按状态改外观」）。</para>
+    /// <para>⚠️ `isPremium` 的实参：`RaidEventRewardItemContainer__Initialize.c:166-169` 传的是 **`0`(false)**
+    /// ⇒ `TogglePremiumHighlight(false)`；对应我们这一侧的 `ItemDrawer.SetPremium`（只有 `true` 才调，
+    /// 见 `Shell/RewardWindow.cs:1440`）⇒ 这里**不调**。</para>
+    public partial class RaidEventWindow
+    {
+        /// <summary>把里程碑的**第一条**奖励画进 `RewardTransform`（原版 `rewards.First()`，⛔ 不是全部）。</summary>
+        void BuildRewardIcon(Transform parent, CampaignData.RewardSpec reward)
+        {
+            if (parent == null) return;
+            if (string.IsNullOrEmpty(reward.Id))
+            {
+                if (!_noRewardArtWarned)
+                {
+                    _noRewardArtWarned = true;
+                    Debug.LogWarning("[Raid] ⑥ 奖励：里程碑的 `rewards[0].id` 是空串（原版 `First().item` 为 null ⇒ 那一跳不画）⇒ 这一格图标空着");
+                }
+                return;
+            }
+            var item = ItemDrawer.Spec(reward.Id, CampaignData.ItemIcon(reward.Id), CampaignData.ItemShortName(reward.Id));
+            // 队列：底板 / 图 / 文字三档沿用本窗奖励容器那一组（`QCardArt` 3665 · `QCardArt1` 3666 · `QCardText` 3667）。
+            var st = ItemDrawerStyle.Default(QCardArt, QCardArt1, QCardText);
+            st.NodeName = "Item_" + CampaignData.ItemShortName(reward.Id);   // 自检按 `Item_` 前缀数格子（同 `CampaignRewardWindow`）
+            int qty = reward.Quantity > 0 ? reward.Quantity : 1;             // 原版 `quantity` 缺省 1（`ItemDrawer.Draw(..., quantity = 1)`）
+            var res = ItemDrawer.Draw(parent, RewardTransformR, item, qty, DrawerOverride.Default, st);
+            if (res.Node == null && !_noRewardArtWarned)
+            {
+                _noRewardArtWarned = true;
+                Debug.LogWarning("[Raid] ⑥ 奖励：`ItemDrawer.Draw` 没建出抽屉（原版 `PickDrawer` 返回 null 那一支）⇒ id=" + reward.Id);
+            }
+        }
+
+        /// <summary>自检用：某张奖励卡里 ⑥ 画出来的抽屉节点（`null` = 没画）。⛔ 只读引用。</summary>
+        public Transform RewardIconForTest(RewardCard card)
+        {
+            if (card == null || card.RewardTransform == null) return null;
+            return card.RewardTransform.childCount > 0 ? card.RewardTransform.GetChild(0) : null;
         }
     }
 }

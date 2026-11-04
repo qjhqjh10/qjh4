@@ -850,10 +850,10 @@ namespace CardPresentation
     /// </code>
     /// ⚠️ 原版 `missionTypes` 是 `List&lt;TypeReference&gt;`（TypeReferences 插件，本仓没有）⇒ 收窄成
     /// `List&lt;Type&gt;`（原版那一跳就是 `TypeReference.op_Implicit(mission.GetType())` 再 `Contains`，语义相同）。</summary>
-    public class MissionComplete : MissionChallenge
+    public partial class MissionComplete : MissionChallenge
     {
         /// <summary>原版 `+0x58`：`true` = 任何模式都算（跳过白名单那一支）。</summary>
-        public bool anyMissionType;
+        public bool anyMissionType = true;   // ✅ 已复刻（2026-11-05 · B143-W7 · `cpp2il/out_il2csharp/Assembly-CSharp/MissionComplete.cs` 的 ctor `RVA 0x6A0B90`：`this.anyMissionType = true;`）—— 原版**默认任何模式都算**；本仓原来用 CLR 默认值 `false` ⇒ 一进来就走白名单分支，而 `missionTypes` 也是 null ⇒ `OnMissionComplete` 永远推进不了（见 §⑦ 说明）
 
         /// <summary>原版 `+0x60`：认哪些 `IMission` 实现（`anyMissionType == false` 时才看它）。</summary>
         public List<Type> missionTypes;
@@ -865,7 +865,7 @@ namespace CardPresentation
         /// 🔴 **这一跳就是「谁会调 `OnMissionComplete`」的答案** —— 初始化时把处理函数挂到战斗信号上。
         /// 我们的信号总线 = `LiveOpsSignal`（`Shell/LiveOpsFilter.cs`，与 `Scaffold.Core.Events.Signal` 同角色）。
         /// ⚠️ 本仓**还没有人 `Raise` 过 `MissionCompleteSignal`**（战斗侧未接）⇒ 订阅上也不会被调（如实记）。
-        /// ⚠️ 原版另有 `OnReset` 也注册一个（`MissionComplete__OnReset.c`，另一个信号表），本批只落 `OnInitialize`。</summary>
+        /// ✅ 已复刻（2026-11-05 · B143-W7 · `cpp2il/out_il2csharp/Assembly-CSharp/MissionComplete.cs:20-24`）：原版 `OnReset` = 对**同一个** `MissionCompleteSignal` 的 `Unregister`（`decomp_full/MissionComplete__OnReset.c` 印成 `Signal__Register` 是 Register/Unregister 同址 `0xDA0A00` 的老坑）⇒ 落在文末 partial 块。</summary>
         protected override void OnInitialize()
         {
             LiveOpsSignal.Register<MissionCompleteSignal>(OnMissionComplete);
@@ -1186,5 +1186,23 @@ namespace CardPresentation
         /// ⇒ 按 `CLAUDE.md` 18·0「⛔ 不许打标记」第②类（实现风格），**不挂 `🔶`**。
         /// ⚠️ 只给自检用来把「前两段教程已完成」摆成确定态；⛔ 产品代码不许改它。</summary>
         public static Func<bool> FirstTwoTutorialCompleted = MenuTutorialFlow.FirstTwoTutorialCompleted;
+    }
+
+    // ============================================================ B143-W7 · MissionComplete 的 OnReset（摘订阅）
+    /// ✅ 已复刻（2026-11-05 · B143-W7 · `cpp2il/out_il2csharp/Assembly-CSharp/MissionComplete.cs:20-24`）
+    /// <para>原版 `protected override void OnReset()`（`RVA 0x6A0B10`，Slot 8）**全文两句**：
+    /// `Signal.Unregister&lt;MissionCompleteSignal&gt;(new Action&lt;MissionCompleteSignal&gt;(this.OnMissionComplete));`</para>
+    /// <para>🔴 **`decomp_full/MissionComplete__OnReset.c` 把它印成 `Signal__Register`** —— 那是
+    /// Register / Unregister **同址 `0xDA0A00`** 的老坑（见账 `未分类_其他.tsv` 的 `B93_U1b` 留痕）；
+    /// 以 `out_il2csharp` 的逐句产物为准（那一份明确写 `Unregister`）。</para>
+    /// <para>⚠️ 槽号口径：`dump.cs` 里 Slot 8 是 `OnReset`、Slot 9 是 `OnInitialize`
+    /// （`MissionInfoDisplays.cs` 类注释 §「槽号口径」已订正过 `B93_Q2` 的旧判）。</para>
+    /// <para>调用链：`MissionChallenge.DisableChallenge()`（`Shell/MissionInfoDisplays.cs:497`）第二句调 `OnReset()`。</para>
+    public partial class MissionComplete
+    {
+        protected override void OnReset()
+        {
+            LiveOpsSignal.Unregister<MissionCompleteSignal>(OnMissionComplete);
+        }
     }
 }

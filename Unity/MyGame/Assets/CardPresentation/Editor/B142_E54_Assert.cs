@@ -14,8 +14,8 @@
 //  C 装饰：战役奖励里那条 avatar 类 ⇒ **认得出**（`RewardKindOf == Cosmetic`）且三份库存**零变化**（净零，不是「发出去了」）。
 //  D 端到端 + 重复领取：从根一路领到一个**基础档含货币**的节点 ⇒ 水晶 +该条数量；
 //            **再领一次同一节点 ⇒ 返回 false 且水晶一分不动**（`Claimable` 闸，重复领取不重复写）。
-//  E 反例：`UM_SK_Starter`（预组，`UM` 前缀诱饵）· `Booster Pack Ultramarines`（容器）· `DT Ultramarines R3`（本地没 SO）
-//           ⇒ **都不许**被当成货币/万能卡/装饰；`R3` 必须落 `Unknown`（⛔ 不按前缀推广）。
+//  E 反例：`UM_SK_Starter`（预组，`UM` 前缀诱饵）· `Booster Pack Ultramarines`（容器）· `DT Ultramarines R3`（**有** SO）
+//           ⇒ 前两个不许被当成货币/万能卡/装饰；`R3` 现读落 `DropTable`（🔴 2026-11-05 B143-R4 订正，原写「必须落 Unknown」）。
 //  F 回归：C9 那条卡支仍然 +1（我这一行追加没把它挤掉）。
 //
 // ============================ 🔴 灭自证（每条怎么才能红）============================
@@ -28,7 +28,7 @@
 //  本件开头就调 `CardProgress.ResetForTest()`（**清内存态 + 永久关掉落盘**）—— 理由：D 组沿路领到的战役奖励里
 //  有万能卡，真落盘会写开发机的玩家档。⇒ **本件必须排在宿主的【最后】**（与 `B111_S2_Assert` 同一条纪律）。
 //  Wallet / CardProgress / CampaignData 的改动：`CampaignData` 在 finally 里 `ResetForTest` + `ResetPointsForTest`；
-//  Wallet 只是内存账（`Wallet.Gold` 字典），不落盘、无需还原；卡背包 / 万能卡在自检进程里本来就是夹具态。
+//  ⚠️ 2026-11-05 `B143-W8` 订正：原写「Wallet 只是内存账（`Wallet.Gold` 字典），不落盘、无需还原」；实际自 `B142-E73` 起 `Wallet` **已落盘**（`Shell/DailyData.cs:3189` `SaveKey = "_ours_Wallet"` · `:3211 Save()`），落盘门 = `SaveCenter.StoreOn`（`SaveCenter.cs:92-95`：设了 `OverrideRoot` 或真在一局里才写）⇒ 本件不还原仍然成立，但原因是「批处理自检要么门关着、要么写 `OverrideRoot` 的临时档」，⛔ 不是「本来就不落盘」；卡背包 / 万能卡在自检进程里本来就是夹具态。
 using UnityEngine;
 using CardPresentation;
 
@@ -207,7 +207,7 @@ public static class B142_E54_Assert
     // ============================================================ E · 反例：认不出的 / 别的类型都不许混进这三支
     static void SectionE_Negative()
     {
-        MenuCheck.Section(_sink, "E 反例：预组诱饵 · 容器 · 本地没 SO 的掉落表 ⇒ 都不进货币/万能卡/装饰；`DT … R3` 必须落 `Unknown`");
+        MenuCheck.Section(_sink, "E 反例：预组诱饵 · 容器 · 掉落表分类（`DT … R3` 现读落 `DropTable`；🔴 2026-11-05 B143-R4 订正）");
 
         C(RewardService.RewardKindOf(""), RewardService.RewardKind.Unknown, "E1 空 id ⇒ `Unknown`");
         C(RewardService.RewardKindOf(null), RewardService.RewardKind.Unknown, "E2 null ⇒ `Unknown`");
@@ -228,12 +228,14 @@ public static class B142_E54_Assert
         C(TypeInIdTypes("DT Ultramarines All"), "DropTableItem",
            "E5b **前提**：`ItemDrawer.IdTypes` 里 `DT Ultramarines All` 的类型实读仍是 `DropTableItem`");
         Tr(TypeInIdTypes("DT Ultramarines R3") == null,
-           "E6b **前提**：`DT Ultramarines R3` 在 `ItemDrawer.IdTypes` 里**没有条目**（本地没有它的 SO）"
-         + "｜🧨 有人往那张表里按前缀补了 R3/R4 ⇒ 这条红（回头核 SO 在不在）");
+           "E6b **前提**：`DT Ultramarines R3` 在 `ItemDrawer.IdTypes` 里**没有条目**（那张表只收了 4 条手维护实据）"
+         + "｜🔴 2026-11-05 就地订正（B143-R4）：本条后半句原来写「本地没有它的 SO」——**错**，SO 在 `assets_full`（23 张候选）");
 
-        C(RewardService.RewardKindOf("DT Ultramarines R3"), RewardService.RewardKind.Unknown,
-           "E6 ★ `DT Ultramarines R3` ⇒ **`Unknown`**（本地没有它的 SO；⛔ 别因为「长得像 `DT Ultramarines All`」就推广）"
-         + "｜🧨 改成 `StartsWith(\"DT \")` ⇒ 红");
+        C(RewardService.RewardKindOf("DT Ultramarines R3"), RewardService.RewardKind.DropTable,
+           "E6 ★ `DT Ultramarines R3` ⇒ **`DropTable`**（🔴 2026-11-05 B143-R4 订正：原期望 `Unknown`，理由是「本地没有它的 SO」；"
+         + "实际 SO 在 `assets_full`，分类改由 `booster_tables.json` 判）");
+        C(RewardService.RewardKindOf("DT Ultramarines R9"), RewardService.RewardKind.Unknown,
+           "E6c ★ 不存在的 `DT Ultramarines R9` ⇒ **`Unknown`**（⛔ 按 `DT ` 前缀推广）｜🧨 放宽成 `StartsWith(\"DT \")` ⇒ 红");
 
         // 这三个类型本工程没有背包 ⇒ 领了也不许动这三份库存
         string key = CrystalWalletKey();

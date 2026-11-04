@@ -636,17 +636,17 @@ namespace CardPresentation
         public void HandleManualControl(float dt)
         {
             int pointerId = -1;
-            if (Application.isMobilePlatform &&
-                UnityEngine.InputSystem.Touchscreen.current != null &&
-                UnityEngine.InputSystem.Touchscreen.current.touches.Count > 1)
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：这一段**现在就是原版那句**（判据见下面两行注释）
+            if (Application.isMobilePlatform && Input.touchCount > 1)
             {
                 // 原版：`if (Application.isMobilePlatform && Input.touchCount > 1)`
                 //        `{ Touch t = Input.GetTouch(0); if (t.phase == TouchPhase.Began) pointerId = Input.GetTouch(0).fingerId; }`
-                // 新输入系统里 TouchPhase.Began ≈ `touch.phase == TouchPhase.Began`（枚举值 0，与 legacy 同）；
-                // 我们桌面这一档走不到这里 —— 照原版写出来，但**没验过**（文件头 C）。
-                var t0 = UnityEngine.InputSystem.Touchscreen.current.touches[0];
-                if (t0.phase.ReadValue() == UnityEngine.InputSystem.TouchPhase.Began)
-                    pointerId = t0.touchId.ReadValue();
+                // 旧输入下这两句逐字可用 ⇒ 直译（`Touchscreen.current.touches.Count` → `Input.touchCount`、
+                // `t.phase.ReadValue()` → `Touch.phase`、`t.touchId.ReadValue()` → `Touch.fingerId`，三种全 1:1）。
+                // ⚠️ 桌面这一档仍走不到 —— 照原版写出来，但**没验过**（文件头 C）。
+                var t0 = Input.GetTouch(0);
+                if (t0.phase == UnityEngine.TouchPhase.Began)
+                    pointerId = t0.fingerId;
             }
 
             if (!PointerOverUiObject(pointerId)) return;
@@ -730,8 +730,8 @@ namespace CardPresentation
             if (targetCamera == null) return Vector2.zero;
             if (PointerViewportOverride.HasValue)
                 return GetWorldPositionViewportSpace(PointerViewportOverride.Value);
-            var m = UnityEngine.InputSystem.Mouse.current;
-            Vector3 mp = m != null ? (Vector3)m.position.ReadValue() : Vector3.zero;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager：`Mouse.current` 非空 ≡ `Input.mousePresent`，`position.ReadValue()` ≡ `Input.mousePosition`，1:1）
+            Vector3 mp = Input.mousePresent ? (Vector3)Input.mousePosition : Vector3.zero;
             return GetWorldPositionViewportSpace(targetCamera.ScreenToViewportPoint(mp));
         }
 

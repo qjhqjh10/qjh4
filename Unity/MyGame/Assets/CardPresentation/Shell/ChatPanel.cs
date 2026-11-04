@@ -1078,8 +1078,8 @@ namespace CardPresentation
         /// 所以**这一条留在账上，下一轮再做**（⛔ 不是「不做」）。</para></summary>
         public static void SubmitByEnter(ChatPanel win)
         {
-            var kb = UnityEngine.InputSystem.Keyboard.current;
-            if (kb != null && (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed))
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager：`leftShiftKey/rightShiftKey.isPressed` → `Input.GetKey(KeyCode.LeftShift/RightShift)`，1:1）
+            if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
             {
                 Debug.Log("[Chat] Enter + Shift ⇒ **不发**（原版 `ChatPanel.Update` 里 Shift 按住时跳过发送，只退出编辑）。");
                 return;

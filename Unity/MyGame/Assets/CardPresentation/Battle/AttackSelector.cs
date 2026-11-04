@@ -543,11 +543,11 @@ namespace CardPresentation
             }
             if (Hovered != _hoverWas)
             {
-                // 换到另一格（或离开整条）⇒ 原版那条 `OnPointerExit` → `DisableTemporary(其它钮)` 的等价物：
-                // 重开安全窗 + 把「已经发过」清掉（所以「离开再回来」会**再发一次**，与原版一致）。
-                _hoverWas = Hovered;
-                _hoverSent = AttackKind.None;
-                _safeLeft = SafeTouchSeconds;
+                // 换格 / 离开整条 / 重进同一颗 三档：✅ 已复刻（2026-11-05 · B144-W3 · B129 一·#15；判据 = 原版 `…OnPointerExit.c:12-37` —— 只对**兄弟钮** `DisableTemporary`，被离开那颗自己的 `+0x90` 保持 1）
+                var prev = _hoverWas; _hoverWas = Hovered; _hoverSent = AttackKind.None;
+                if (Hovered == AttackKind.None) { if (prev != AttackKind.None) _hoverLastNonNone = prev; }
+                else if (ShouldRearmSafeWindow(prev, Hovered, _hoverLastNonNone)) _safeLeft = SafeTouchSeconds;
+                // （`prev == None ∧ Hovered == _hoverLastNonNone` = 离开整条后**重进同一颗** ⇒ 立即可发，不重开）
             }
         }
 
@@ -2107,6 +2107,23 @@ namespace CardPresentation
             var d = _captions[i].transform.localPosition - _icons[i].transform.localPosition;
             float s = _frame != null ? 1f : PxPerUnit;
             return new Vector2(d.x * s, d.y * s);
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-11-05（执行写手 `B144-W3` · B129 一·#15）：**离开整条后重进同一颗 ⇒ 立即可发**
+        //  判据（原版 `CardDisplayAttackTypeButton` 的三格）：`OnPointerExit` 只对**兄弟钮**走
+        //  `DisableTemporary`（`…OnPointerExit.c:12-37`）—— 被离开那一颗**自己的** `+0x90` 保持 1、
+        //  只有 `+0x91`（已发）清 0 ⇒ 离开整条再回来**不重开 0.1 s 安全窗**；换到别的格才由兄弟钮那一跳重开。
+        //  ⛔ 别把 `ShouldRearmSafeWindow` 并回 `TickHover` —— 本文件 300 处账按行号引用，判据留在类尾可测。
+        // ==========================================================================================
+        AttackKind _hoverLastNonNone = AttackKind.None;
+
+        /// <summary>自检/生产共用：这一帧的悬停变化要不要**重开安全窗**（纯函数，判据只此一处）。</summary>
+        public static bool ShouldRearmSafeWindow(AttackKind prev, AttackKind now, AttackKind lastNonNone)
+        {
+            if (now == AttackKind.None) return false;                        // 离开整条：自己那颗不重开（+0x90 保持 1）
+            if (prev == AttackKind.None && now == lastNonNone) return false; // 重进同一颗：立即可发
+            return true;                                                     // 换格（含从 None 进别的格）
         }
     }
 }

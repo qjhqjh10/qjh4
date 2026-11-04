@@ -1100,13 +1100,13 @@ namespace CardPresentation
                     foreach (var r in rewards) { if (f != null ? f(idx, r) : (typeOf == null || ShowOnRewardScreen(typeOf(r)))) first.Add(r); idx++; }
 
                     // ---- ② `SpliceWhere(谓词②)`：**命中的从 `first` 里摘走** ⇒ 两组不重复 ----
-                    var second = new List<CampaignData.RewardSpec>();
-                    for (int i = 0; i < first.Count; i++)
-                    {
-                        if (!IsCurrencyOf(typeOf, first[i])) continue;
-                        second.Add(first[i]);
-                        first.RemoveAt(i--);
-                    }
+                    // ✅ 已复刻（2026-11-05 · B143-W7 · `cpp2il/out_cpp2il_dev_ilspy/ListExtensions.cs:2362-2467`）
+                    //    原版体 = `Where(pred)` → （`count > 0` 才 `Take(count)`）→ `ToList` → 逐条 `IList<T>.Remove(x)` → 返回挑出的表。
+                    //    ⚠️ 原来的内联版是「下标 `RemoveAt(i--)` 摘当前那一处」且**没有 `count` 上限** —— 两条都与原版不同；
+                    //      换成真身后：**值相等摘第一处**（列表里有重复元素时结果不同）、`count` 语义可用（这里用默认 0 = 整表）。
+                    //    谓词②仍 = 原版的 `IsCurrencyOf`（判据见本段头，未变）。
+                    //    调用点判据 = 账 `未分类_其他:396`（原版 4 个调用点，本仓**只有这一处**有对应件）。
+                    var second = ListExtensions.SpliceWhere(first, r => IsCurrencyOf(typeOf, r));
                     CurrencyGroupCount = second.Count;
 
                     // ---- ③ **先第二组、后第一组**（原版就是两个 foreach，顺序如此）----

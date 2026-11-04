@@ -20084,6 +20084,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         2.828427,
         2.828427,
@@ -20673,6 +20676,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         2.828427,
         2.828427,
@@ -21180,6 +21186,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         2.828427,
         2.828427,
@@ -21727,6 +21736,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -22329,6 +22341,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         2.828427,
         2.828427,
@@ -22910,6 +22925,9 @@
       "normalDirection": 1.0,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         47.937256,
         29.113726,
@@ -23536,6 +23554,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -24287,6 +24308,9 @@
       "normalDirection": 1.0,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -24932,6 +24956,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -25560,6 +25587,9 @@
       "normalDirection": 1.0,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         2.828427,
         2.828427,
@@ -26075,6 +26105,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         2.828427,
         2.828427,
@@ -26622,6 +26655,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -27169,6 +27205,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 1,
       "matColor": [
         1.188797,
         0.766774,
@@ -27665,6 +27704,9 @@
       "normalDirection": 1.0,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -28259,6 +28301,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         2.828427,
         2.828427,
@@ -28905,6 +28950,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -29571,6 +29619,9 @@
       "normalDirection": 0.5,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         0.603774,
         0.603774,
@@ -30171,6 +30222,9 @@
       "normalDirection": 0.5,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         0.603774,
         0.603774,
@@ -30771,6 +30825,9 @@
       "normalDirection": 0.5,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         0.603774,
         0.603774,
@@ -31252,6 +31309,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -31799,6 +31859,9 @@
       "normalDirection": 0.5,
       "sortMode": 2,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -32401,6 +32464,9 @@
       "normalDirection": 0.5,
       "sortMode": 2,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -32992,6 +33058,9 @@
       "normalDirection": 0.5,
       "sortMode": 2,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -33558,6 +33627,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -34091,6 +34163,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         2.828427,
         2.828427,
@@ -34635,6 +34710,9 @@
       "normalDirection": 1.0,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -35212,6 +35290,9 @@
       "normalDirection": 1.0,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         47.937256,
         29.113726,
@@ -35752,6 +35833,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 1,
       "matColor": [
         1.188797,
         0.766774,
@@ -36365,6 +36449,9 @@
       "normalDirection": 1.0,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 1,
+      "sortingOrder": 0,
       "matColor": [
         2.828427,
         2.828427,
@@ -36979,6 +37066,9 @@
       "normalDirection": 0.5,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         0.603774,
         0.603774,
@@ -37579,6 +37669,9 @@
       "normalDirection": 0.5,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         0.603774,
         0.603774,
@@ -38179,6 +38272,9 @@
       "normalDirection": 0.5,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         0.603774,
         0.603774,
@@ -38712,6 +38808,9 @@
       "normalDirection": 1.0,
       "sortMode": 0,
       "maskInteraction": 0,
+      "renderingLayerMask": 1,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         1.0,
         1.0,
@@ -39331,6 +39430,9 @@
       "normalDirection": 0.5,
       "sortMode": 1,
       "maskInteraction": 0,
+      "renderingLayerMask": 4294967295,
+      "lightProbeUsage": 0,
+      "sortingOrder": 0,
       "matColor": [
         0.603774,
         0.603774,

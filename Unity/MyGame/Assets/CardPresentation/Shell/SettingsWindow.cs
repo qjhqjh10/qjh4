@@ -3053,7 +3053,7 @@ namespace CardPresentation
             // ⑦ `Email Text`（PC 档亮；`ContactText` 那条键与 mobile 那颗**共用**）
             var emailText = SpText(page, "Email Text", lkSupContactTxt,
                                    "You can also contact us at support@everguild.com\nWe'll do our best to help you!",
-                                   SpEmailTextL, SpEmailTextT, SpEmailTextR, SpEmailTextB, 1, 18f, 35f, 36f, 45f, 10f);   // B106_W15：小屏档 45/10（§3·11 `Email Text`）
+                                   SpEmailTextL, SpEmailTextT, SpEmailTextR, SpEmailTextB, 1, 18f, 35f, 36f, 45f, 10f, 0f, 25f, true);   // B106_W15：小屏档 45/10（§3·11 `Email Text`）· ✅ 已复刻（2026-11-05 · B144-C · `m_paragraphSpacing 25` + `V=Top(256)`，判据 B131 UI 六#10）
 
             // ⑧ `bottom links`（HLG 排的两棵；**三档平台组都是 1** ⇒ 恒亮）
             //    ⚠️ 本工程不实现 LayoutGroup ⇒ 照布局跑之后的设计绝对值摆（= 原版的设计意图），
@@ -3146,7 +3146,7 @@ namespace CardPresentation
         /// ⚠️ 传的是**原版字段值**（0/1），不是像素 —— 换算成漏斗的 `wrapPx` 那一步在函数体里。</param>
         Label SpText(Transform p, string n, string key, string en, float l, float t, float r, float b,
                      int wrapOn, float minPx, float maxPx, float basePx, float ssMaxPx = 0f, float ssMinPx = 0f,
-                     float lineSpacingPx = 0f)
+                     float lineSpacingPx = 0f, float paragraphSpacingPx = 0f, bool vTop = false)
         {
             float wrap = wrapOn != 0 ? r - l : 0f;
             var lb = Text(p, n, Term(key, en), l, r, t, b, SpFontPx, Color.white, QText,
@@ -3157,7 +3157,7 @@ namespace CardPresentation
             //   `Faq Text Mobile` 是 **15**（单位 = 字体单位，与 `m_fontSize` 同档 ⇒ 原版值直接传）。
             //   ⚠️ 必须排在 `AlignLeft` 之后（`SetLineSpacing` 内部 `ForceRelayout` 重排 mesh）。
             //   ✅ 已复刻（2026-11-04 · B141 · 判据 `B141_W129_对账_UI动画.md` §4 `4-13` + prefab `m_lineSpacing = 15`）
-            if (lb != null && lineSpacingPx > 0f) MenuDraw.SetLineSpacing(lb, lineSpacingPx);
+            if (lb != null && lineSpacingPx > 0f) MenuDraw.SetLineSpacing(lb, lineSpacingPx); if (lb != null && paragraphSpacingPx > 0f) MenuDraw.SetParagraphSpacing(lb, paragraphSpacingPx); if (lb != null && vTop) MenuDraw.SetVAlign(lb, Label.VAlign.Top, new PxRect(l, t, r, b));   // ✅ 已复刻（2026-11-05 · B144-C · 原版 `Support Tab/Email Text` 的 `m_paragraphSpacing = 25` + `m_VerticalAlignment = 256 (Top)`；`Faq Text` 只走 lineSpacing 15）
             OnLangText(lb, () => Term(key, en));
             return lb;
         }
@@ -3428,7 +3428,7 @@ namespace CardPresentation
             float tx1 = x1 + GenBtnTxtL, tx2 = tx1 + GenBtnTxtW;
             float ty1 = GenBtnT + GenBtnTxtT, ty2 = ty1 + GenBtnTxtH;
             var lb = Text(n, "Button Text", Loc.T(key), tx1, tx2, ty1, ty2, fs, Color.white, QText,
-                          null, 0f, 12f, fs, 12f, 44f, 12f);   // B106_W15：小屏档 44/12（§3·11 `Button Text`）
+                          null, 0f, 12f, fs, 12f, 44f, 12f); if (lb != null) lb.SetMarginPx(0f, 0.00775f, 0f, -0.8828f);   // B106_W15：小屏档 44/12（§3·11 `Button Text`）· ✅ 已复刻（2026-11-05 · B144-C · 原版 `Bottom Buttons/*/Button Text` 的 TMP `m_margin = (0, 0.00775, 0, −0.8828)`，本窗 uGUI 档 1 单位 = 1 设计 px）
             if (lb != null) _genLabels.Add(new Keyed(lb, key));
             // 悬停换图与联机页那几颗同一条路（`40K_button` → `40K_button_hover`，`WindowButton` 的表里有）
             var hitNode = Hit(n, "Hit", x1, GenBtnT, x2, y2, QOverlay, () => { Debug.Log($"[Settings] 点了 `{Loc.T(key)}`"); onClick(); },
@@ -5155,9 +5155,9 @@ namespace CardPresentation
         /// ⚠️ 批处理里 `Mouse.current` 是 null ⇒ 自检走 `SetFpsFromCanvasX`，不走这里。</summary>
         void FpsClickAtPointer()
         {
-            var m = Mouse.current;
-            if (m == null) return;
-            SetFpsFromPointer(LayoutSpace.ScreenToWorld(m.position.ReadValue(), LayoutSpace.Cam));
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：`Mouse.current`/`position` → `Input.mousePresent`/`Input.mousePosition`，1:1
+            if (!Input.mousePresent) return;
+            SetFpsFromPointer(LayoutSpace.ScreenToWorld(Input.mousePosition, LayoutSpace.Cam));
         }
 
         /// <summary>按住拖动（= 原版 `Slider.OnDrag` → `UpdateDrag`）。⚠️ 批处理没有帧循环 ⇒ 自检直调。
@@ -5170,10 +5170,10 @@ namespace CardPresentation
         {
             if (_fpsSliderRoot == null || !_fpsSliderRoot.gameObject.activeInHierarchy)
             { _fpsDragging = false; return; }
-            var m = Mouse.current;
-            if (m == null) { _fpsDragging = false; return; }
-            UpdateFpsDragAt(LayoutSpace.ScreenToWorld(m.position.ReadValue(), LayoutSpace.Cam),
-                            m.leftButton.wasPressedThisFrame, m.leftButton.isPressed);
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：指针位置 + 左键两态（按下沿/按着）→ 旧输入同名量，1:1
+            if (!Input.mousePresent) { _fpsDragging = false; return; }
+            UpdateFpsDragAt(LayoutSpace.ScreenToWorld(Input.mousePosition, LayoutSpace.Cam),
+                            Input.GetMouseButtonDown(0), Input.GetMouseButton(0));
         }
 
         /// <summary>拖动那一路的核 —— 吃**世界坐标**与**左键的两个态**（后两个由 `Mouse.current` 取，见调用点
@@ -5723,9 +5723,9 @@ namespace CardPresentation
         {
             var s = _audioSliders != null && i >= 0 && i < _audioSliders.Length ? _audioSliders[i] : null;
             if (s == null) return;
-            var m = Mouse.current;
-            if (m == null) return;
-            Vector3 world = LayoutSpace.ScreenToWorld(m.position.ReadValue(), LayoutSpace.Cam);
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：`Mouse.current`/`position` → `Input.mousePresent`/`Input.mousePosition`，1:1
+            if (!Input.mousePresent) return;
+            Vector3 world = LayoutSpace.ScreenToWorld(Input.mousePosition, LayoutSpace.Cam);
             if (AudioSliderHoverAt(i, world)) s.SetFromPointer(world);
         }
 
@@ -5769,10 +5769,10 @@ namespace CardPresentation
         void UpdateAudioSliders()
         {
             if (_audioSliders == null || !gameObject.activeInHierarchy) return;
-            var m = Mouse.current;
-            if (m == null) return;
-            AudioSliderPointerAt(LayoutSpace.ScreenToWorld(m.position.ReadValue(), LayoutSpace.Cam),
-                                 m.leftButton.wasPressedThisFrame, m.leftButton.isPressed);
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager）：指针位置 + 左键两态 → 旧输入同名量，1:1
+            if (!Input.mousePresent) return;
+            AudioSliderPointerAt(LayoutSpace.ScreenToWorld(Input.mousePosition, LayoutSpace.Cam),
+                                 Input.GetMouseButtonDown(0), Input.GetMouseButton(0));
         }
 
 

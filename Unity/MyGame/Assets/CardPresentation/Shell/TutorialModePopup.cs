@@ -106,7 +106,7 @@ namespace CardPresentation
         // ① 压暗层：`Menu Dark Background`（原版 4574.60×2572.36 —— 比屏幕大，四周都溢出）
         const float ShadeL = -1327.30f, ShadeT = -746.18f, ShadeR = 3247.30f, ShadeB = 1826.18f;
         /// <summary>压暗的色 —— 原版 `Image.m_Color = (0,0,0,**0.773**)`（同族窗逐值相同）。</summary>
-        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
+        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.7725490f);
 
         // ② 窗底红板：`Generic Window Red Background Big`（sprite `UI_Deck_Information_Back` 1100×701 ·
         //    九宫 **(42,363,655,81)** · `Sliced` · `m_PixelsPerUnitMultiplier 0.62`）

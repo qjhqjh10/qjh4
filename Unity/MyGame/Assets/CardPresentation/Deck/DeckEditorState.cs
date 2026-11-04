@@ -795,7 +795,7 @@ namespace CardPresentation
         /// 逐支照 `DeckEditingWindow___GetCardCollection_b__32_1.c:24-40` 现读：
         /// <list type="number">
         /// <item>`*（card + 0x4c) != 5` ⇒ **`return 1`（保留）** —— 连卡型都不看；</item>
-        /// <item>`inv == 5` 且 `cardType(+0x90) != 0xD2`（不是防御卡）⇒ **`return 0`（剔除）**；</item>
+        /// <item>`inv == 5` 且 `spellType(+0x90) != 0xD2(210)`（不是防御卡）⇒ **`return 0`（剔除）**（🔴 2026-11-05 `B144-C` 订正：原写 `cardType` —— 现读 `dump.cs:23260` = `SpellType`、`cardType` 在 `+0x94`；行为等价，见 `B131` §7·2）；</item>
         /// <item>`inv == 5` 且**是**防御卡 ⇒ **`return assignDefensiveCardsInEditMode`**
         ///   （= <see cref="AssignDefensiveCardsInEditMode"/>，**唯一读点**）。</item>
         /// </list>

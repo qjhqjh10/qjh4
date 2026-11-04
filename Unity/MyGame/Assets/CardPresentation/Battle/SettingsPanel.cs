@@ -2023,8 +2023,8 @@ namespace CardPresentation
         static bool EscDown()
         {
             if (EscapePressedForTest.HasValue) return EscapePressedForTest.Value;
-            var kb = UnityEngine.InputSystem.Keyboard.current;
-            return kb != null && kb.escapeKey.wasPressedThisFrame;
+            // ✅ 已复刻（2026-11-05 · B144-A · 迁旧 Input Manager：`escapeKey.wasPressedThisFrame` → `Input.GetKeyDown(KeyCode.Escape)`，1:1）
+            return Input.GetKeyDown(KeyCode.Escape);
         }
 
         /// <summary>语言行的**四档**：常态 / 悬停（`m_SpriteState.m_HighlightedSprite` = `_hover`）/ 按下（`m_PressedSprite` = `_press`）

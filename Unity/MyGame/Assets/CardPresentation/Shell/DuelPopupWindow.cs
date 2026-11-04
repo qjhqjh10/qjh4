@@ -61,7 +61,7 @@ namespace CardPresentation
         //   重取命令：`python d:/4/Unity/工具/menu_dump.py bundle_menus_assets_all "MessagePopupWindowDuel" --depth 12 --md`
         //   （⚠️ 旧值 610.00… 是 W1/W2 那两版的输出，**已作废**）。
         static readonly PxRect DarkBgR = new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f);
-        static readonly Color DarkBgTint = new Color(0f, 0f, 0f, 0.773f);
+        static readonly Color DarkBgTint = new Color(0f, 0f, 0f, 0.7725490f);
         static readonly PxRect WindowR = new PxRect(535f, 245f, 1385f, 675f);
         static readonly PxRect MaskR = new PxRect(545.40f, 254.44f, 1375.13f, 665.20f);
         static readonly PxRect MsgR = new PxRect(575.00f, 363.08f, 1345.00f, 489.81f);

@@ -2704,7 +2704,7 @@ namespace CardPresentation
                 return false;
             }
             string file, text;
-            if (!VoiceLines.TryPick(key, VoiceLines.ForVoiceOver, null, out file, out text)) return false;
+            if (!CardDisplayWindow.TryPickRandomVoice(key, out file, out text)) return false;   // ✅ 已复刻（2026-11-05 · B144-B2 · 原版 `ListExtensions.RandomElement(GetAvailableSounds())` 均匀随机 —— 原来传 null = 恒取第一条，与战斗那扇 `CardDisplayWindow.SetCardVoiceOver` 是同一处缺陷 `B131` D6）。⚠️ **共用那一条**（判据只此一处），⛔ 别在壳侧再复制一份
             var clip = VoiceLines.Clip(file);
             if (clip == null) return false;
             WarpforgeVFX.WFSoundPlayer.Play(clip, true, 1f, 1f);

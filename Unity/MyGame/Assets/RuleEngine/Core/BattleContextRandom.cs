@@ -68,5 +68,26 @@ namespace RuleEngine
             RandomNumbersIndex++;
             return minValueIncl + v % (maxValueExcl - minValueIncl);
         }
+
+        // ── 🆕 2026-11-05（`B143` · `B141-COIN-FLIP`）：**开局掷硬币吃预烧表第 0 格** ──
+        //   原版 `SearchOpponentManager.StartBattle`（`d:/2/tools/decomp_full/SearchOpponentManager__StartBattle.c:20-21`）：
+        //     `uVar5 = MatchData.GetRandomInt(lVar2, 0, 2);`  ← **无条件掷、吃 1 格**
+        //     `*(undefined4 *)(lVar2 + 0xe8) = uVar5;`        ← `MatchData.playerGoesFirstRandomInt`
+        //   平局支在 `SupportMethods.GetPlayerGoesFirstWithInitiative` 读 `+0xe8`（`SupportMethods.cs:3216-3228`）：
+        //     `playerGoesFirstRandomInt == 0` ⇒ 玩家（座位 0）先手；非 0 ⇒ 对手先手。
+        //   ⚠️ 它是**开局第一笔消耗**（`StartBattle` 先掷，之后才建牌库/洗牌）⇒ 这里由
+        //     `RuleCore.NewBattle` 在 `BuildPlayer`（洗牌）**之前**调，才是逐格对齐的位置。
+
+        /// <summary>原版 `MatchData.playerGoesFirstRandomInt`（`+0xe8`）—— 开局那一次 `GetRandomInt(0,2)` 的结果。
+        /// `0` = 玩家（座位 0）先手；非 0 = 对手先手。`0` 也是「还没掷」的哨兵（`DrawFirstSeatRandomInt` 唯一写点）。</summary>
+        public int FirstSeatRandomInt;
+
+        /// <summary>开局掷硬币：**消耗预烧表当前格（开局 = 第 0 格）**，把结果写进 <see cref="FirstSeatRandomInt"/> 并返回。
+        /// ⛔ 只许在开局调一次（`RuleCore.NewBattle` 的 `drawFirstSeat` 那一支）；回放端按录像的游标恢复，不靠它。</summary>
+        public int DrawFirstSeatRandomInt()
+        {
+            FirstSeatRandomInt = GetRandomInt(0, 2);
+            return FirstSeatRandomInt;
+        }
     }
 }
