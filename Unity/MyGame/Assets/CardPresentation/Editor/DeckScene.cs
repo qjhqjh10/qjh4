@@ -836,8 +836,8 @@ public static class DeckScene
                 //   那正是本节要验的**新不变式**（原版 `SelectDecksTab__CreateDeck.c:17,26,28` =
                 //   `CardDeck.GetEmptyDeck()` → 打模式 → 直接开 `DeckEditingWindow`，**全链无入库调用**）。
                 //   ⛔ 别在这之前预建卡组：预建了，「空库时不写盘」那几条就没有鉴别力了。
-                //   夹具在 `TestLibraryWiring()`（断空库那一拍）**之后**才建，见 `TestLibraryAfterDone()`。
-                state = Build(DeckLibrary.Load(), out _root); B99W1Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B99W5_Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B102AUD01_Assert.Run(); _sink.Pass += B102AUD01_Assert.Pass; Check(B102AUD01_Assert.Fail, 0, "★ AUD02#1 `Done Highlight` 空心框（17 条：8 块拼接 / 中心无覆盖 / 角块 19px·uv 19/128）失败 0｜🧨 把 `FootHlFillCenter` 改回 true 或换回 `Img()` ⇒ 这里 >0"); B102AUD02_Assert.RunDeck(_root); Check(B102AUD02_Assert.Fail, 0, "★ AUD02#2 筛选小标题 `FontStyles.UpperCase`（卡组编辑窗 5 颗 = 4 卡牌筛选 + 1 卡背筛选）失败 0｜🧨 去掉 `FilterPanelModel.ApplyTitleFontStyle` ⇒ 这里 >0"); B102DECK_Assert.Run(); _sink.Pass += B102DECK_Assert.Pass; Check(B102DECK_Assert.Fail, 0, "★ 账 `其他_基础设施:780` 存档双写两条验收（切前/切后 payload 逐字段相等 · 中央档坏 ⇒ 回落旧档且不判 Failed）失败 0｜🧨 把 `WriteDecksThroughHooks` 改回 `DeckStore.SaveAll` ⇒ 红"); B102HOVER_Assert.Run(_rt, _rt != null ? _rt.Root : _root); _sink.Pass += B102HOVER_Assert.Pass; Check(B102HOVER_Assert.Fail, 0, "★ B102_HOVER 卡组编辑窗悬停**只归一条派发链**（前提 4 / 逐颗「本类认得出 + 指针层不碰 + 同时亮着的 ≤1」/ 灭自证「撤让位能命中、复原后不命中」）失败 0｜🧨 删掉 `PointerLayer.YieldToHost(wb)` 那句 ⇒ 红"); B103R1_Assert.Run(); _sink.Pass += B103R1_Assert.Pass; Check(B103R1_Assert.Fail, 0, "★ B103R1 AUD03 #5/#7/#8/#14（DeckRuntime 复用/生命周期：Build 复位六格 · 保护槽按数据行重算 · 库存信号要播 · 卡背格表不增长）失败 0｜🧨 删掉 Build 尾任一句复位 / 删掉 `RefreshDeckList` 里那句重算 ⇒ 这里 >0"); B103F1_Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B103A03_Assert.Run(); B103A03_Assert.RunDeck(_rt); _sink.Pass += B103A03_Assert.Pass; _sink.Fail += B103A03_Assert.Fail; Check(B103A03_Assert.Fail, 0, "★ AUD03 #21/#77/#94（`UiCosmCellCount` 恰好 == `CosmoRows×CosmoCols` · 真滚两行后保护槽 == 数据行 − firstRow · `SolidTexFor` 按 aspect 分桶且一张不销毁 · `Loc`↔`Label` 语言变更重取而不是重建窗）失败 0｜🧨 把 `SolidTexFor` 改回单值缓存 / 把 5 窗的 `RelocalizeUnder` 改回 `{ Open(); }` ⇒ 这里 >0"); B108A3Aud02Deck_Assert.Run(_rt); _sink.Pass += B108A3Aud02Deck_Assert.Pass; _sink.Fail += B108A3Aud02Deck_Assert.Fail; Check(B108A3Aud02Deck_Assert.Fail, 0, "★ AUD02 卡组编辑 85 条 ❌（垂直对齐 / 费用曲线九宫 / 空槽占位 / 禁卡叉 / Sliced·PA / 字号·折行·边距）失败 0｜🧨 删掉 ApplyRowStyles / 换回 Img() / 注释掉 BuildRowExtras ⇒ 这里 >0");
+                //   夹具分两件、别混：① **编辑器里那副牌**（`PendingNewDeck` 塞的满编 30 张）在下面 `Build` 之前就位、**不入库不写盘**；② **库里那套**（`Library.Insert`）仍然在 `TestLibraryWiring()`（断空库那一拍）**之后**才建，见 `TestLibraryAfterDone()`（🔴 2026-11-05 B148·W12 补前半句）。
+                { var demoSeed = NewState(); CardPresentation.CollectionData.PendingNewDeck = DeckRuntime.PlayerDeckForDemo(demoSeed); CardPresentation.CollectionData.PendingEditDeck = -1; } state = Build(DeckLibrary.Load(), out _root); B99W1Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); /* 🔴 2026-11-05（B148·W12）**夹具在这里**：`Build` 之前先塞一副「**尚未入库**」的合法满编（走生产既有的 `PendingNewDeck` 交接口 = 原版 `GetEmptyDeck` 那个位置：**不入库、不写盘**）。为什么必须有：2026-11-04（`B141`）照原版删了「生产入口替你建演示卡组」⇒ 空库那一拍 `State.Deck` 成了真·空卡组（0 张 / 无督军），而 `TestLibraryWiring` 要「尚未入库的载体」是**合法满编 30 张**、`TestLibraryAfterDone` 还要它过 `DeckRules.Validate`（否则 `Done` 被 `NoWarlord` 挡 ⇒ 库里 0 套 ⇒ 后面整条夹具链断）。⛔ 这一步**不建库、不落盘**（`Library.Count` 仍是 0，「打开编辑器不写盘」那几条的鉴别力一点没丢）。实测这副牌 = 督军 `ASH1` + 30 张同阵营单位（费用 1..6 都有、17 张不同卡 ⇒ 后面「份数 > 1 的行」「费用 ≠ 份数」那些前提也一并成立）。 */ B99W5_Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B102AUD01_Assert.Run(); _sink.Pass += B102AUD01_Assert.Pass; Check(B102AUD01_Assert.Fail, 0, "★ AUD02#1 `Done Highlight` 空心框（17 条：8 块拼接 / 中心无覆盖 / 角块 19px·uv 19/128）失败 0｜🧨 把 `FootHlFillCenter` 改回 true 或换回 `Img()` ⇒ 这里 >0"); B102AUD02_Assert.RunDeck(_root); Check(B102AUD02_Assert.Fail, 0, "★ AUD02#2 筛选小标题 `FontStyles.UpperCase`（卡组编辑窗 5 颗 = 4 卡牌筛选 + 1 卡背筛选）失败 0｜🧨 去掉 `FilterPanelModel.ApplyTitleFontStyle` ⇒ 这里 >0"); B102DECK_Assert.Run(); _sink.Pass += B102DECK_Assert.Pass; Check(B102DECK_Assert.Fail, 0, "★ 账 `其他_基础设施:780` 存档双写两条验收（切前/切后 payload 逐字段相等 · 中央档坏 ⇒ 回落旧档且不判 Failed）失败 0｜🧨 把 `WriteDecksThroughHooks` 改回 `DeckStore.SaveAll` ⇒ 红"); B102HOVER_Assert.Run(_rt, _rt != null ? _rt.Root : _root); _sink.Pass += B102HOVER_Assert.Pass; Check(B102HOVER_Assert.Fail, 0, "★ B102_HOVER 卡组编辑窗悬停**只归一条派发链**（前提 4 / 逐颗「本类认得出 + 指针层不碰 + 同时亮着的 ≤1」/ 灭自证「撤让位能命中、复原后不命中」）失败 0｜🧨 删掉 `PointerLayer.YieldToHost(wb)` 那句 ⇒ 红"); B103R1_Assert.Run(); _sink.Pass += B103R1_Assert.Pass; Check(B103R1_Assert.Fail, 0, "★ B103R1 AUD03 #5/#7/#8/#14（DeckRuntime 复用/生命周期：Build 复位六格 · 保护槽按数据行重算 · 库存信号要播 · 卡背格表不增长）失败 0｜🧨 删掉 Build 尾任一句复位 / 删掉 `RefreshDeckList` 里那句重算 ⇒ 这里 >0"); B103F1_Assert.Run((tag, ok, detail) => CheckTrue(ok, tag + " —— " + detail)); B103A03_Assert.Run(); B103A03_Assert.RunDeck(_rt); _sink.Pass += B103A03_Assert.Pass; _sink.Fail += B103A03_Assert.Fail; Check(B103A03_Assert.Fail, 0, "★ AUD03 #21/#77/#94（`UiCosmCellCount` 恰好 == `CosmoRows×CosmoCols` · 真滚两行后保护槽 == 数据行 − firstRow · `SolidTexFor` 按 aspect 分桶且一张不销毁 · `Loc`↔`Label` 语言变更重取而不是重建窗）失败 0｜🧨 把 `SolidTexFor` 改回单值缓存 / 把 5 窗的 `RelocalizeUnder` 改回 `{ Open(); }` ⇒ 这里 >0"); B108A3Aud02Deck_Assert.Run(_rt); _sink.Pass += B108A3Aud02Deck_Assert.Pass; _sink.Fail += B108A3Aud02Deck_Assert.Fail; Check(B108A3Aud02Deck_Assert.Fail, 0, "★ AUD02 卡组编辑 85 条 ❌（垂直对齐 / 费用曲线九宫 / 空槽占位 / 禁卡叉 / Sliced·PA / 字号·折行·边距）失败 0｜🧨 删掉 ApplyRowStyles / 换回 Img() / 注释掉 BuildRowExtras ⇒ 这里 >0");
                 // 🔴 2026-09-20：**根上必须挂着 `DeckRuntime`** —— 场景存盘后按 Play 就是靠它的
                 //    `Start()` 建界面；忘了挂组件 = Play 出来一片黑，而这条断言能挡住。
                 //    （铁律 10 第 5 条：`Build` 直调与 Play 的 `Start()` 是两个入口，**各配一条断言**。）
@@ -970,7 +970,8 @@ public static class DeckScene
                     Check(libN.Count, beforeN,
                           "★ A1697：`CollectionData.CreateDeck` **不入库**（库里套数不变）"
                         + " —— 改坏法：改回 `Lib.Create(...)` ⇒ 这条红");
-                    CheckTrue(!string.IsNullOrEmpty(nmN), $"……而且照旧回一个名字（「{nmN}」）");
+                    CheckTrue(string.IsNullOrEmpty(nmN), $"……原版 `CardDeck.GetEmptyDeck` 的新卡组名 = **空串**（实得「{nmN}」）"
+                        + "｜🔴 2026-11-05（B148·W13）就地订正期望值：2026-11-04 `B141-W32`（条目 3-13）按 `CardDeck__GetEmptyDeck.c:10-27` 把 `deckName(+0x10)` 清成空串（名字由第一次 `Done` 的 `DeckUtility__ValidateDeck.c:70-76` 用督军本地化卡名补）⇒ 旧期望「照旧回一个名字」已过期｜🧨 名字又变回「新卡组」⇒ 红");
                     CheckTrue(CardPresentation.CollectionData.PendingNewDeck != null,
                               "★ A1697：交接的是**那份未入库的新卡组**（`PendingNewDeck`）"
                             + " —— 改坏法：只回名字、不写这个对象 ⇒ 红");
@@ -1019,8 +1020,9 @@ public static class DeckScene
                         nrt.UiPressDone();
                         Check(libN.Count, beforeN + 1,
                               "★ A1697：**合法（有督军 + 满编）⇒ `Done` 把它入库**（原版 `__TrySaveDeck.c:100 UploadDeck`）");
-                        Check(libN.Count > 0 ? libN.Decks[libN.Count - 1].Name : "(null)", nmN,
-                              "★ ……而且入库的就是这一副（名字对得上）");
+                        var savedDeck = libN.Count > 0 ? libN.Decks[libN.Count - 1] : null; CheckTrue(savedDeck != null && savedDeck.WarlordId == legalN.WarlordId && savedDeck.CardIds.Count == legalN.CardIds.Count && savedDeck.Name == nrt.State.Deck.Name && !string.IsNullOrEmpty(savedDeck.Name),
+                              "★ ……而且入库的就是这一副（督军 / 张数 / 名字都对得上；名字 = `Done` 时按原版 `DeckUtility__ValidateDeck.c:70-76` 用**督军本地化卡名**补的「" + (savedDeck != null ? savedDeck.Name : "(null)") + "」而非空串）"
+                            + "｜🔴 2026-11-05（B148·W13）就地订正期望值：原来比的是 `nmN`（新卡组名），而 3-13 起它是空串、`Done` 时会被督军名补上 ⇒ 旧写法恒红；改成按**身份**（督军 + 张数 + 名字三点）断，且钉住「名字已被补上」");
                         CheckTrue(!nrt.DeckDirty, "★ ……且落盘成功 ⇒ 脏标记清了");
                         // ⛔ 别省这一步：`_newDeck` 不翻篇 ⇒ 第二次 `Done` **又插一遍**（库里两套同名、静默）
                         nrt.UiPressDone();
@@ -2939,15 +2941,15 @@ public static class DeckScene
             _rt.UiPressDone();
             // 🔴 2026-11-05（`B148`）：2026-11-04（`B141`）照原版删了「生产入口替你建演示卡组」⇒ 空库开真·空卡组，
             //   `Done` 被 `NoWarlord` 挡 ⇒ 库里仍 0 套，后面 `stale.Current` NRE 把 `RunCore` 打断（实测两次）。
-            //   夹具改为**显式**造满编靶子 —— `PlayerDeckForDemo` 本体保留着，正是为 Editor 夹具留的。
-            if (_rt.Library.Count == 0)
+            //   **真修复**在夹具那一侧：`RunCore` 里 `Build` 之前用 `PendingNewDeck` 塞了 `PlayerDeckForDemo` 的满编 30 张（下方兜底只防「Done 这条路自己坏了」）。
+            int libAfterDone = _rt.Library.Count; Check(libAfterDone, 1, "★ W62：按 `Done` ⇒ **这时才**入库（`Library.Insert` = 原版 `UploadUnsyncedDeck`）");   // 🔴 2026-11-05（B148·W12）：断言**先跑**、兜底**后跑** —— 原来兜底在前，`Done` 坏了也照样插一条把这条验成绿的
+            if (libAfterDone == 0)
             {
                 _rt.Library.Insert(DeckRuntime.PlayerDeckForDemo(_rt.State));
                 _rt.Library.Save();
-                Debug.Log("[DeckScene] 夹具兜底：`Done` 没入库（NoWarlord）⇒ 显式插入 `PlayerDeckForDemo` 并落盘");
+                Debug.LogWarning("[DeckScene] 兜底：`Done` 没入库（上一条断言已红）⇒ 显式插入 `PlayerDeckForDemo` 并落盘，让后续各节仍有夹具可跑（⛔ 这不是修复，修复在夹具那一侧）");
             }
-            Check(_rt.Library.Count, 1,
-                  "★ W62：按 `Done` ⇒ **这时才**入库（`Library.Insert` = 原版 `UploadUnsyncedDeck`）");
+            // ⛔ 别再把这句 `Check` 挪到上面兜底之后：那会让「`Done` 这条路坏了」被「兜底插了一条」蒙过去（2026-11-05 B148·W12）—— 现在断言在兜底【之前】跑，兜底只负责让后续各节仍有夹具可跑。
             CheckTrue(File.Exists(path), "★ W62：……而且**这时才**出现 `WarpforgeDecks.json`");
             var disk = DeckLibrary.Load();
             Check(disk.Count, 1, "★ ……重读存档：库里恰好那 1 套（落盘往返）");
@@ -4210,6 +4212,18 @@ public static class DeckScene
                 //   高出的 **35.9px 全压在 `Header` 上**（V1 §一 说的那处越界）。
                 //   ⚠️ 挑哪一格**不写死下标**（阵营数变了照样挑得中）：扫一遍 Army 各族，取**上沿压在带口上**
                 //     的那一格；而**期望值全是原版字面量**（`156` / `1080.1`）。
+                //   🔴🔴 **2026-11-05（B148·W13）就地修夹具前提**：夹具那副满编卡组**有督军**，而原版
+                //     `CardArmyFilter.SetFilterToDeck.c:16-26` 在「有督军 / 有牌」时走锁那支、由
+                //     `FilterToArmy.c` **末句 `SetActive(gameObject, false)` 把 Army 整行关掉**（我们照抄，见
+                //     `FilterPanelModel.ArmyRowVisible`）⇒ 那 13 格的 `flt_cell` 全部 `activeSelf = false`，
+                //     而本节量的正是「压在带口上的那一格」。⇒ 本节在**临时清空卡组**（= 无督军 + 无牌 = 原版
+                //     `SetActive(true)` 那一支）的形态下跑，量完**原样还原**（督军 / 防御卡 / 卡表逐项还回去）。
+                //     ⚠️ 只是临时态：`Deck.DeckArmy` 字段一个字不动；两次 `UiToggleFilters()` = 关→开 ⇒ 强制重建抽屉。
+                string wlSv2 = state.Deck.WarlordId, dfSv2 = state.Deck.DefensiveId;
+                var cardsSv2 = new List<string>(state.Deck.CardIds);
+                state.Deck.WarlordId = null; state.Deck.DefensiveId = null; state.Deck.CardIds.Clear();
+                _rt.UiToggleFilters(); _rt.UiToggleFilters();
+                _rt.UiScrollFilters(1e6f);              // 重建会把滚动位归零 ⇒ 重新滚到底
                 const float BandX1 = 2.2f, BandTop = 156f, BandW = 331.7f, BandBottom = 156f + 924.1f;
                 string crossKey = null; float modelTop = 0f;
                 foreach (var fk in state.Factions())
@@ -4254,6 +4268,10 @@ public static class DeckScene
                 Check(outN, 0,
                       "★ ②′ 滚到底时**一格都没画出带口**（实测 " + outN + " 格越界"
                       + (outWho.Length == 0 ? "）" : $"；例：{outWho}）"));
+                // 🔴 2026-11-05（B148·W13）：临时清空态用完 ⇒ **原样还原**并重建回「有督军」那一形态
+                //   （三样逐项还回去；`Deck.DeckArmy` 字段本来就没动）
+                state.Deck.WarlordId = wlSv2; state.Deck.DefensiveId = dfSv2; state.Deck.CardIds.AddRange(cardsSv2);
+                _rt.UiToggleFilters(); _rt.UiToggleFilters();
                 // 收尾：滚回顶 —— **下面的断言都在滚动位 0 上读抽屉**（同 A62 那一段的收尾写法）
                 Check(_rt.UiScrollFilters(-1e6f), 0f, "（收尾）滚回 0（不把滚动位留给后面的断言）");
             }
@@ -4353,7 +4371,8 @@ public static class DeckScene
             //    ⛔ 不从 `DeckRuntime` / `FilterPanelModel` 读常量。
             // 🔴 两条断言的靶子**不同**（不重叠）：
             //   · ① 盯「压在带口上的那一行**真被裁住了**」—— 判据用**相对量**（拿同一屏里**没被裁**的
-            //     `Energy Cost` 那一行推出「框顶 → 字形顶」的偏置）⇒ ⛔ 不靠估字体度量、也不抄现成结论；
+            //     `Rarity` 那一行推出「框顶 → 字形顶」的偏置；🔴 2026-11-05 B148·W13：原来用 `Energy Cost`，
+            //     而 Army 行可见 ⇔ 无督军 ⇔ 原版把 `Energy Cost` 整行隐藏，两者不可能同屏 ⇒ 换成 `Rarity`）；
             //   · ②′ 逐行普查「**没有一行**画出带口」—— 改坏法：只裁某一行 ⇒ 别的行会被报出来。
             //   改坏法（①）：把 `RefreshFilterTitles` 末句 `MenuDraw.ClipTextNow(lb, band, Vector2.zero)` 删掉
             //     ⇒ ① 的字顶读成「未裁的那个值」⇒ 红；把 `ForceRelayout()` 那一句删掉（在**已被夹过的**
@@ -4362,30 +4381,63 @@ public static class DeckScene
                 CheckTrue(_rt.FiltersOpen, "（前提）抽屉开着（小标题与格子同住那一个滚动内容里）");
                 Check(_rt.UiScrollFilters(220f), 220f, "（前提）滚到中间位置 `_fltScroll = 220`");
                 const float BandX1 = 2.2f, BandTop = 156f, BandW = 331.7f, BandBottom = 156f + 924.1f;
-                var lbArmy = FilterTitleLabel("Army");
-                var lbCost = FilterTitleLabel("Energy Cost");
-                // ③ 整块在带外的那一行（`Type`）：滚到 220 时框 = `[1180.02, 1230.02]` ⇒ 整块在带口**下沿**外
+                var lbArmyN = FilterTitleLabel("Army");          // 存在性（`Hidden` 只 `SetActive(false)`，节点还在）
+                var lbRefN = FilterTitleLabel("Rarity");
                 var lbType = FilterTitleLabel("Type");
-                CheckTrue(lbArmy != null && lbCost != null && lbType != null,
-                          "（前提）三行小标题都在树里（`Army` / `Energy Cost` / `Type` —— 按名字找得到）");
-                if (lbArmy != null && lbCost != null && lbType != null)
+                CheckTrue(lbArmyN != null && lbRefN != null && lbType != null,
+                          "（前提）三行小标题都在树里（`Army` / `Rarity` / `Type` —— 按名字找得到）");
+                // ③ 整块在带口**下沿外**的那一行（`Type`：框 `[1180.02, 1230.02]` —— 整块在带外）：
+                //    它的字形**全部**落在带外 ⇒ 夹完之后是**零高**（退化 ⇒ 看不见）。
+                //    ⚠️ 这里**不是**「把节点关掉」那种写法 —— 见 `RefreshFilterTitles` 里那段
+                //    「为什么小标题**不**走格子那条 `只关不删`」（复用件 + `SetOn` 会在收起途中
+                //    重新点亮 ⇒ 会带着旧网格重新出现）；改坏法：删掉 `ClipTextNow` 那一句 ⇒ 红。
+                //    🔴 2026-11-05（B148·W13）：这一条要在**有督军的正常态**下量 —— 原版 `CardTypeFilter`
+                //       在「无督军」时整行 `SetActive(false)`（`costRowNeedsWarlord` 那一档），清空态下它不可见。
+                if (lbType != null && TextMeshRectPx(lbType, out _, out float tyY1, out _, out float tyY2))
+                {
+                    CheckTrue(tyY2 <= BandBottom + 0.6f,
+                              $"★ A289 ③ 整块在带外的那一行（`Type`）也被夹在带口内（渲出来 y = "
+                            + $"[{tyY1:F1}, {tyY2:F1}] ≤ 带口下沿 {BandBottom:F1}）");
+                    CheckNear(tyY2 - tyY1, 0f, 0.6f,
+                              "★ …而且是**零高**（四个角全被夹到带口下沿 ⇒ 退化、本来就看不见）");
+                }
+                else Check(true, false, "`Type` 那一行的渲染网格量不出来");
+                // 🔴🔴 **2026-11-05（B148·W13）就地修夹具前提**（① 与 ②′ 两段）：夹具那副满编卡组**有督军**，
+                //   而原版 `CardArmyFilter.SetFilterToDeck.c:16-26` 在「有督军 / 有牌」时走锁那支、由
+                //   `FilterToArmy.c` **末句 `SetActive(gameObject, false)` 把 Army 整行关掉**（我们照抄，见
+                //   `FilterPanelModel.ArmyRowVisible`）⇒ Army 那一行的小标题**不会被摆位**、恒停在行顶 360.02
+                //   （实测），而本节量的正是「压在带口上的那一行」。⇒ 本节在**临时清空卡组**（= 无督军 + 无牌
+                //   = 原版 `SetActive(true)` 那一支）的形态下跑，量完**原样还原**。
+                //   ⚠️ 参考行同时由 `Energy Cost` 换成 **`Rarity`** —— 清空态下 `Energy Cost` 按原版被隐藏
+                //   （`CardCostFilter__SetFilterToDeck.c:21`：`SetActive(deckHero != null)`），而 `Rarity`
+                //   在同一屏里整块在带口内（框 ≈ `[690.02, 740.02]`）、没被裁 ⇒ 「框顶 → 字形顶」的偏置照样现推。
+                string wlSv9 = state.Deck.WarlordId, dfSv9 = state.Deck.DefensiveId;
+                var cardsSv9 = new List<string>(state.Deck.CardIds);
+                state.Deck.WarlordId = null; state.Deck.DefensiveId = null; state.Deck.CardIds.Clear();
+                _rt.UiToggleFilters(); _rt.UiToggleFilters();     // 关→开 = 强制重建抽屉（Army 行可见）
+                _rt.UiScrollFilters(-1e6f);                       // 🔴 2026-11-05（`B148`）：重建**不保证**把滚动位归零，而 `UiScrollFilters` 是**增量** ⇒ 原来直接从 220 再加 220 = 440（实测），后面两条位置断言也跟着差 440。先归零再滚。
+                Check(_rt.UiScrollFilters(220f), 220f, "（前提·清空态）重建后重新滚到中间位置 `_fltScroll = 220`");
+                var lbArmy = FilterTitleLabel("Army");
+                var lbRef = FilterTitleLabel("Rarity");
+                CheckTrue(lbArmy != null && lbRef != null, "（前提·清空态）`Army` / `Rarity` 两行小标题都取得到");
+                if (lbArmy != null && lbRef != null)
                 {
                     // 行的**框**由**节点位置**反推（中心 = 节点世界 y；框 = 中心 ± 25 = `TitleH/2`）
                     float armyCY = DeckRuntime.PxOfWorld(lbArmy.transform.position).y;
-                    float costCY = DeckRuntime.PxOfWorld(lbCost.transform.position).y;
+                    float refCY = DeckRuntime.PxOfWorld(lbRef.transform.position).y;
                     float armyTop = armyCY - 25f, armyBot = armyCY + 25f;
                     CheckNear(armyCY, 156f + 179.02f + 25f - 220f, 0.6f,
                               "（前提）`Army` 那一行摆在原版算出来的位置上（中心 y = `156 + 179.02 + 25 − 220` = 140.02）");
                     CheckTrue(armyTop < BandTop && armyBot > BandTop,
                               $"（前提）它的**框** y = [{armyTop:F1}, {armyBot:F1}] 真的**压在带口上沿 {BandTop:F1}** 上"
                             + "（不压 ⇒ 下面那条没有鉴别力）");
-                    CheckTrue(lbCost.gameObject.activeInHierarchy,
-                              "（前提）参考行 `Energy Cost`（框 `[960.02, 1010.02]`）**整块在带口内** ⇒ 它没被裁");
-                    if (TextMeshRectPx(lbCost, out _, out float costY1, out _, out _)
+                    CheckTrue(lbRef.gameObject.activeInHierarchy,
+                              "（前提）参考行 `Rarity`（框 ≈ `[690.02, 740.02]`）**整块在带口内** ⇒ 它没被裁");
+                    if (TextMeshRectPx(lbRef, out _, out float refY1, out _, out _)
                         && TextMeshRectPx(lbArmy, out _, out float armyY1, out _, out _))
                     {
                         // ---- 相对判据：拿**没被裁**的参考行推出「框顶 → 字形顶」的偏置 ----
-                        float glyphInset = costY1 - (costCY - 25f);
+                        float glyphInset = refY1 - (refCY - 25f);
                         CheckTrue(glyphInset > -5f && glyphInset < 25f,
                                   $"（前提）参考行的字形顶比框顶低 **{glyphInset:F1}px**（这个数由同屏另一行现推，"
                                 + "⛔ 不是估的字体度量）");
@@ -4416,22 +4468,10 @@ public static class DeckScene
                     Check(outN, 0,
                           "★ A289 ②′ 滚到 220 时**没有一行小标题画出带口**（实测 " + outN + " 行越界"
                           + (outWho.Length == 0 ? "）" : $"；例：{outWho}）"));
-
-                    // ③ 整块在带口**下沿外**的那一行（`Type`：框 `[1180.02, 1230.02]` —— 整块在带外）：
-                    //    它的字形**全部**落在带外 ⇒ 夹完之后是**零高**（退化 ⇒ 看不见）。
-                    //    ⚠️ 这里**不是**「把节点关掉」那种写法 —— 见 `RefreshFilterTitles` 里那段
-                    //    「为什么小标题**不**走格子那条 `只关不删`」（复用件 + `SetOn` 会在收起途中
-                    //    重新点亮 ⇒ 会带着旧网格重新出现）；改坏法：删掉 `ClipTextNow` 那一句 ⇒ 红。
-                    if (TextMeshRectPx(lbType, out _, out float tyY1, out _, out float tyY2))
-                    {
-                        CheckTrue(tyY2 <= BandBottom + 0.6f,
-                                  $"★ A289 ③ 整块在带外的那一行（`Type`）也被夹在带口内（渲出来 y = "
-                                + $"[{tyY1:F1}, {tyY2:F1}] ≤ 带口下沿 {BandBottom:F1}）");
-                        CheckNear(tyY2 - tyY1, 0f, 0.6f,
-                                  "★ …而且是**零高**（四个角全被夹到带口下沿 ⇒ 退化、本来就看不见）");
-                    }
-                    else Check(true, false, "`Type` 那一行的渲染网格量不出来");
                 }
+                // 临时清空态用完 ⇒ 原样还原（督军 / 防御卡 / 卡表逐项还回去；`Deck.DeckArmy` 字段本来就没动）
+                state.Deck.WarlordId = wlSv9; state.Deck.DefensiveId = dfSv9; state.Deck.CardIds.AddRange(cardsSv9);
+                _rt.UiToggleFilters(); _rt.UiToggleFilters();
                 Check(_rt.UiScrollFilters(-1e6f), 0f, "（收尾）滚回 0 —— 不把滚动位留给后面的断言");
             }
             // 搜索框三件：`Input Field` 281.28×40 **居中** + `Text Area` + 尾图标 `40k_icon_search` 35×30
@@ -5294,11 +5334,11 @@ public static class DeckScene
                     CheckTrue(x0.AutoSizing,
                               "…**`m_enableAutoSizing` 开着**（原版 Card Info 族是 **1**；"
                             + "🧨 旧的「固定 32 无自适应」实现这一格**恒红**）");
-                    CheckNear(Label.FontSizeToPx(x0.FontSizeMin), 2f, 0.2f,
+                    CheckNear(x0.FontSizeToPxNow(x0.FontSizeMin, x0.ActualFace), 2f, 0.2f,
                               "…自适应**下界** = **2px**（原版 `m_fontSizeMin = 2.0` 按同一套比例折出来）");
-                    CheckNear(Label.FontSizeToPx(x0.FontSizeMax), 32f, 0.2f,
+                    CheckNear(x0.FontSizeToPxNow(x0.FontSizeMax, x0.ActualFace), 32f, 0.2f,
                               "…自适应**上界** = **32px**（原版 `m_fontSizeMax = 32.0`）");
-                    CheckNear(Label.FontSizeToPx(x0.FontSizeBase), 36f, 0.2f,
+                    CheckNear(x0.FontSizeToPxNow(x0.FontSizeBase, x0.ActualFace), 36f, 0.2f,
                               "…自适应**基准** = **36px**（原版 `m_fontSizeBase = 36.0`）"
                             + "｜🧨 只开自适应、不给 base（缺省 = 标称 32）⇒ 本条红");
                 }
@@ -6899,15 +6939,15 @@ public static class DeckScene
             //   ⛔ 只验正向的话，一个「不管合不合法都拿督军名去补」的实现照样绿 —— 那会把玩家
             //      特意清空的名字又填回来，与原版不符。
             {
-                string back0 = state.Deck.CardIds[0];
-                state.Deck.CardIds.RemoveAt(0);                        // 30 → 29 ⇒ 不合法
+                string back0 = state.Deck.CardIds.Count > 0 ? state.Deck.CardIds[0] : null; CheckTrue(back0 != null, "（前提）A365 反向那一块要「摘一张再补回」⇒ 卡组里得有牌（夹具 = `PlayerDeckForDemo` 的满编 30 张）");   // 🔴 2026-11-05（B148·W12）：原来裸 `CardIds[0]` —— 空表时 `ArgumentOutOfRangeException` 把整个 `RunCore` 打断（栈顶就是这一行，实测 2026-11-05 那次）
+                if (back0 != null) state.Deck.CardIds.RemoveAt(0);                        // 30 → 29 ⇒ 不合法
                 _rt.UiCommitName("   ");                               // 清空名字
                 Check(_rt.State.Validate(), DeckError.TooFewCards,
                       $"（前提）摘掉一张 ⇒ 不合法（{_rt.State.DeckCount}/{_rt.State.MaxDeckCount}）");
                 CheckTrue(string.IsNullOrEmpty(state.Deck.Name),
                           "★ A365：**不合法时不补** —— 名字就空着（谁把补名写成无条件 ⇒ 这条红）");
                 // 收尾：卡组与名字都还回去（下面几节接着用这副牌）
-                state.Deck.CardIds.Insert(0, back0);
+                if (back0 != null) state.Deck.CardIds.Insert(0, back0);
                 state.Deck.Name = "自检·改的名";
                 Check(_rt.State.Validate(), DeckError.None, "（收尾）补回那张 ⇒ 又合法");
             }
@@ -7025,33 +7065,32 @@ public static class DeckScene
                           "★ G9：`None` ⇒ **空串**（原版 `ToRawLocalizationString` 的 `err==0` 那一支）");
                     CheckTrue(Loc.HasAnyTerm(kFew),
                           $"★ G9：`{kFew}` **在 `Loc` 表里** —— 键不在 ⇒ 界面上印的是键名（不是中文、也不是英文）");
-                    // 🔴 **2026-10-17（`T08`）就地订正（铁律 5）**：`Describe` 那族今天 = **12 条枚举具名键
-                    //   + 1 条 catch-all `MenuDeck/Error/InvalidDeck`**（共 13 条；现读 `Core/Loc.cs` 的
-                    //   `MenuDeck/Error/*` 段）—— `EffectOnlyCard` **原版没有这个键**，`A1868` 已从表里删掉，
-                    //   `Describe` 那一档归 catch-all ⇒ 下面第二个 `HasEntry` 命中的是 `InvalidDeck`，
-                    //   **不是** `EffectOnlyCard`。原文「13 条键抽查三条（`WrongFaction` / `EffectOnlyCard` 各一）」已过期。
+                    // 🔴 **2026-11-05（`B148·W13`）就地订正（铁律 5）**：`Describe` 那族今天 = **11 条枚举具名键
+                    //   + 2 条原版具名映射**（`EffectOnlyCard ⇒ InvalidCard`、`LegendaryTotalExceeded ⇒ MaxLegendayCopiesReached`）
+                    //   —— `EffectOnlyCard` **原版没有这条键**（`A1868` 已从表里删掉），2026-11-04 `B141` 对账 3-18
+                    //   按 `CardDeck__CanAddCard.c:40-47` 把它从 catch-all 改判成原版具名键 `InvalidCard`
+                    //   ⇒ 下面第二个 `HasAnyTerm` 命中的是 `InvalidCard`（原文「归 catch-all `InvalidDeck`」已过期）。
                     CheckTrue(Loc.HasAnyTerm(DeckRules.Describe(DeckError.WrongFaction))
                               && Loc.HasAnyTerm(DeckRules.Describe(DeckError.EffectOnlyCard)),
-                          "★ G9：`Describe` 那族 = **12 条枚举具名键 + 1 条 catch-all `InvalidDeck`**（共 13 条）都在表里"
-                        + "（抽查 `TooFewCards` / `WrongFaction` 走自己的键；`EffectOnlyCard` **无原版键**、归 catch-all）"
-                        + "｜🔴 2026-10-17（`A1868`/`A1872`）订正：`EffectOnlyCard` 那条键**已删**，"
-                        + "这里 `Describe(EffectOnlyCard)` 返回的是 `MenuDeck/Error/InvalidDeck`");
+                          "★ G9：`Describe` 那族在 `Loc` 表里都有条目"
+                        + "（抽查 `TooFewCards` / `WrongFaction` 走自己的键；`EffectOnlyCard` **无原版键**、走原版具名键 `InvalidCard`）"
+                        + "｜🔴 2026-11-05（`B148·W13`）订正：2026-10-17 那条「`EffectOnlyCard` 归 catch-all `InvalidDeck`」已过期，"
+                        + "现在返回的是 `MenuDeck/Error/InvalidCard`（原版 `CanAddCard.c:40` 那一支）");
 
-                    // 🔴🔴 **2026-10-17（`T08`）新增两条【灭自证】**：上面那条只证明「`Describe(EffectOnlyCard)`
-                    //   的返回值在表里」—— **两态都绿**（自造键还在表里时绿、归 catch-all 时也绿）
-                    //   ⇒ 它测不出「自造键删干净了没有」。下面两条各钉住一半，合起来**不可能一起退化成旧写法**：
+                    // 🔴🔴 **2026-10-17（`T08`）新增两条【灭自证】**（🔴 2026-11-05 `B148·W13` 改口径：② 的期望值
+                    //   从 catch-all `InvalidDeck` 换成原版具名键 `InvalidCard`，判据 = `CardDeck__CanAddCard.c:40-47`）：
                     //     ① 表里**确实没有** `MenuDeck/Error/EffectOnlyCard`（`A1868` 删掉了）；
-                    //     ② `Describe(EffectOnlyCard)` **逐字等于** catch-all 键（⛔ 不是 `TermPrefix + e`）。
+                    //     ② `Describe(EffectOnlyCard)` **逐字等于**原版那条具名键（⛔ 不是 `TermPrefix + e`）。
                     //   🧨 **改坏法**：把 `Describe` 改回 `TermPrefix + e` ⇒ ② 红（① 仍绿 ⇒ 必须两条并存）；
                     //      把 `MenuDeck/Error/EffectOnlyCard` 加回 `Loc`（假装「原版有这个键」）⇒ ① 红。
                     CheckTrue(!Loc.HasEntry("MenuDeck/Error/EffectOnlyCard"),
                           "★ 灭自证①：`MenuDeck/Error/EffectOnlyCard` **不在** `Loc` 表里 ——"
                         + " 原版没有这个键（官方 `MenuDeck/Error/*` 只有 9 条具名键），我们那条自造键已删"
                         + "｜🧨 把它加回表里 ⇒ 红");
-                    Check(DeckRules.Describe(DeckError.EffectOnlyCard), "MenuDeck/Error/InvalidDeck",
-                          "★ 灭自证②：`Describe(EffectOnlyCard)` = **catch-all** `MenuDeck/Error/InvalidDeck`"
-                        + "（⛔ 不再拼 `TermPrefix + e` —— 那样会印出**键名本身**）"
-                        + "｜🧨 把它改回 `TermPrefix + e` ⇒ 红");
+                    Check(DeckRules.Describe(DeckError.EffectOnlyCard), "MenuDeck/Error/InvalidCard",
+                          "★ 灭自证②：`Describe(EffectOnlyCard)` = **原版具名键 `MenuDeck/Error/InvalidCard`**"
+                        + "（🔴 2026-11-05（B148·W13）就地订正期望值：2026-11-04 `B141` 对账 3-18 已按 `CardDeck__CanAddCard.c:40-47` 把它从 catch-all 改成原版那条具名键 —— `.c:40` 的 `inventoryOptions` 闸给的就是 `DAT_1842cf4f0 = InvalidCard`；原来的 `InvalidDeck` 是「不印键名」的兜底，⛔ 不是原版那一支）"
+                        + "｜🧨 改回 `TermPrefix + e`（会印出我们自造的键名）或退回 catch-all ⇒ 红");
 
                     Loc.RestoreForTest(AvailableLanguages.Chinese);
                     string zhMsg = DeckRuntime.DeckErrorText(DeckError.TooFewCards);
@@ -7312,9 +7351,8 @@ public static class DeckScene
                     CheckNear(pop.extraScaleSmallScreen, 1f, 1e-6f, "★ `extraScaleSmallScreen = 1.0`（原版 MB 实读）");
                     Check(pop.transform.parent != null ? pop.transform.parent.name : "(空)",
                           "3 - PopUp Holder", "★ 挂在 **Popup(15)** 那档锚点下（原版同一个 Holder）");
-                    Check(pop.MessageKey, "MenuDeck/Error/InvalidDeck",
-                          "★ 正文键 = **兜底键** `MenuDeck/Error/InvalidDeck`（`TooFewCards` 的原版号是 **5**，"
-                        + "但数字键 `MenuDeck/Error/5` **不在** `Loc` 表里 ⇒ `MenuDeckErrorKey` 落兜底键；见 ① ③-a）");
+                    Check(pop.MessageKey, "MenuDeck/Error/IncompleteDeck",
+                          "★ 正文键 = **原版具名族** `MenuDeck/Error/IncompleteDeck`（🔴 2026-11-05（B148·W13）就地订正期望值：2026-11-04 `B141·W29·3-19` 把本窗的弹窗从数字族 `MenuDeck/Error/{2,4,5}` 改成与横幅同源的 `DeckRules.ErrorTextKey`；原版 `DeckUtility.ToRawLocalizationString` 的 `{0}` 装的是**枚举名**，`TooFewCards` 属 `IncompleteDeck=5` ⇒ 上屏键就是它）");
                     // 🔴 **2026-10-19（A1012）就地改口径（铁律 5）**：下面这几条原来断的是
                     //   「**画出来的就是那个键**」—— `Term()` 转 `Loc` 之后**已经不对了**（印的是**词条**）。
                     //   现在按本文件既有写法（先例 = A891 那一节的 `Loc.HasEntry(键)` + `Loc.T(键)` 一对）拆成：
@@ -7323,9 +7361,8 @@ public static class DeckScene
                     //     ③ **灭自证**：印的**不是键名本身** —— 这正是本缺陷要防的那一半
                     //        （把 `Term()` 末句改回 `return key ?? ""` ⇒ ③ 红）。
                     //   ⚠️ 只有 ① 会「两边一起退化成键名」而假绿（键不在表里时）⇒ ①③ 缺一不可。
-                    //   🔴 **2026-10-17（`T08`）**：期望值的键跟着上一条换成**兜底键**
-                    //     `MenuDeck/Error/InvalidDeck`（它**在**表里 ⇒ ①②③ 三条都仍有鉴别力）。
-                    string wantMsg = Loc.T("MenuDeck/Error/InvalidDeck");
+                    //   🔴 **2026-11-05（`B148·W13`）**：期望值的键跟着上一条改成**原版具名键** `MenuDeck/Error/IncompleteDeck`（3-19 改口径后本窗弹窗走 `DeckRules.ErrorTextKey`；它**在**表里 ⇒ ①②③ 三条都仍有鉴别力）。
+                    string wantMsg = Loc.T("MenuDeck/Error/IncompleteDeck");
                     Check(pop.MessageShown, wantMsg,
                           $"★ ……而且**画出来的是那条键的词条**（`A1012` 起 `Term()` 先查 `Terms`、再转 `Loc`；"
                         + $"当前语档下 =「{wantMsg}」）");

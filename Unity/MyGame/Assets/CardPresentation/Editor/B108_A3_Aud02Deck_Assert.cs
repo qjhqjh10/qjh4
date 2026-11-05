@@ -431,7 +431,11 @@ public static class B108A3Aud02Deck_Assert
             var titleTmp = title != null ? title.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
             T(titleTmp != null, "G0（前提）卡背 `Army` 标题 `cosmoflt_title` 找得到");
             if (titleTmp != null)
-                N(titleTmp.margin.x, 22.7f, 0.05f, "G9 ★ 卡背 `Army Filter/Title` 的 `m_margin` 左边距 = 原版 **22.7**（TSV 行 462）");
+                // 🔴 2026-11-05（B148·W13）就地订正**读数口**：原来读 `titleTmp.margin.x` —— 那是 **TMP 局部单位（世界单位）**，
+                //   而我们按 `SetMarginPx(22.7,…)` 写进去 ⇒ 读回 22.7/108 = **0.21**（实测），拿它比 22.7 恒红。
+                //   正确口 = `Label.MarginPx`（= `_margin × PxPerUnit`，画布 px）—— 同一条判据在 `Editor/B141_W26_Assert.cs`
+                //   §4-12 已经这么断且是绿的（原版 `m_margin = (22.7,0,0,0)`，TSV 行 462）。
+                N(title != null ? title.MarginPx.x : -1f, 22.7f, 0.05f, "G9 ★ 卡背 `Army Filter/Title` 的 `m_margin` 左边距 = 原版 **22.7**（TSV 行 462；读口 = `Label.MarginPx`，⛔ 不是 `TMP.margin` 那个世界单位）");
         }
     }
 

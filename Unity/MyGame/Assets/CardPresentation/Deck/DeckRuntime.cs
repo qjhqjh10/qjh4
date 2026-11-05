@@ -2691,7 +2691,7 @@ namespace CardPresentation
             if (d == null || d.Node == null) return;
             if (d.Slide == d.SlideTarget) { DrawerTw(d).Done = true; return; }      // 已到位 ⇒ 一根手指都不动
             var tw = DrawerTw(d);                                                   // ✅ 3-12：OutQuad（DOTween 默认 6）· ✅ 3-29：目标一变就**杀旧补间**、从当前位置重起 0.3 秒
-            if (!tw.Done || tw.Target != d.SlideTarget) { tw.From = d.Slide; tw.T = 0f; tw.Target = d.SlideTarget; tw.Done = false; }
+            if (tw.Done || tw.Target != d.SlideTarget) { tw.From = d.Slide; tw.T = 0f; tw.Target = d.SlideTarget; tw.Done = false; }   // 🔴 2026-11-05（B148·W13）就地修一个真缺陷：原来是 `!tw.Done` ⇒ **每一帧都重置**（`From = 当前位`、`T = 0`）⇒ 每帧只走剩余距离的 10.8%（60fps 下），0.3 秒的滑行变成 ~2.5 秒的指数逼近、且 `Slide` 永远不**恰好**等于 `SlideTarget`（早退那一句永不触发）。判据 = `DeckScene` 的两步 tick 断言：一步 0.15s 读出 0.75（OutQuad 半程，正确），再一步 0.15s 应到 1.0，原先读成 `Lerp(0.75,1,0.75) = 0.9375`（这正是「每帧重置」的指纹）｜✅ 已复刻（2026-11-05 · B148·W13 · 判据 = 原版 `CollectionFilterController.Toggle` 的 `DOAnchorPosX(rect, x, 0.3)` 单段补间）
             tw.T += dt; float k = Mathf.Clamp01(tw.T / Mathf.Max(0.0001f, FltAnimTime));   // 原版 `animationTime` = 0.3
             ApplyDrawerSlide(d, Mathf.Lerp(tw.From, tw.Target, 1f - (1f - k) * (1f - k)));   // OutQuad（`1−(1−t)²`）
         }

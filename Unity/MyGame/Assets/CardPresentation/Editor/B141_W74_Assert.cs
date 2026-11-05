@@ -178,7 +178,14 @@ public static class B141_W74_Assert
         Check(FilterPanelModel.ArmyRowVisible(e, true), "E2b ……Army 行重新露出来（`SetActive(true)` 那一支）");
 
         // 之后重新加一张 B 的牌 ⇒ `deckArmy` 派生为 B ⇒ 必须锁成 **B**（不是旧 A）
-        e.Deck.CardIds.Add("W74_UB");
+        // 🔴 2026-11-05（B148·W13）就地订正**夹具**：原来直接 `Deck.CardIds.Add("W74_UB")` —— 那**绕过了写点**，
+        //   `Deck.DeckArmy` 还停在 `ClearCards()` 写下的 `Neutral` ⇒ `DeckRules.DeckArmy` 第 ② 支「字段已定值 ⇒ 字段说了算」
+        //   返回 null ⇒ `ArmyLatchFaction` = null（实测）。原版 `CardDeck.AddCard` 在「加之前 `CardCount(hero:1)==0`」时
+        //   **必写** `deckArmy = card.cardArmy`（`DeckEditorState.TryAdd` 第 481 行就是那条），原版到不了「有牌 + deckArmy=Neutral」
+        //   ⇒ 夹具改走玩家那条路（`TryAdd`），断言一个字不动。
+        string addWhy; bool added = e.TryAdd("W74_UB", out addWhy);
+        Check(added, "E3（前提）夹具把 B 的牌加进去了（走玩家那条 `TryAdd`；否则 deckArmy 停在 Neutral）"
+              + (added ? "" : "｜原因：" + addWhy));
         var eVis2 = e.VisibleCards();
         Check(e.ArmyLatchFaction == FacB && HasId(eVis2, "W74_HB") && !HasId(eVis2, "W74_HA"),
               "E3 ★★ 清空后重新加 B 的牌 ⇒ 锁成 **B**（闩里实得 " + (e.ArmyLatchFaction ?? "null")

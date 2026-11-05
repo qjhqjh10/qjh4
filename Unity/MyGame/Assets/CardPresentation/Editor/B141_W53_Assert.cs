@@ -386,8 +386,8 @@ public static class B141_W53_Assert
                                     "W64Control", 30f, MenuDraw.QText);
             T(ctl != null, "G7（前提）对照标签建出来了");
             if (ctl != null)
-                C(ctl.Face, TmpFont.Face.Cjk,
-                  "G8 ★ 对照标签仍是**出厂面 `Cjk`** ⇒ `MenuDraw.Text` 的缺省面一个字没改（🧨 把缺省改成拉丁面 ⇒ 本行红）");
+                C(ctl.Face, TmpFont.Face.LatinCardBody,
+                  "G8 ★ 对照标签走**缺省面 `LatinCardBody`**（2026-11-05 `B148-W3` 起 `MenuDraw.Text` 缺省由 `Cjk` 改为拉丁面；⛔ 改回 Cjk ⇒ 本行红）");
         }
         finally
         {
