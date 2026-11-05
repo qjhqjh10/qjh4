@@ -185,7 +185,7 @@ namespace CardPresentation
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                           int qOff, float autoMinPx, bool wrap, bool alignLeft,
                           float autoMaxPx = 0f, float autoBasePx = 0f,
-                          TmpFont.Face face = TmpFont.Face.Cjk)
+                          TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；`public` ⇒ 2 个 SocialPage 子类与 `SocialView` 转发口跟着变；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             // 🔴 求交那一份 = `MenuDraw.Visible`（本行走它的夹取版 `ClipRect`；别在这儿再写一遍 `Max/Min`）。
             // 🔴 **2026-10-13（A435 阶段 2 · 丙）→ 🆕 2026-10-14（A753 · A744 的「全删」）**：走 **`ClipRectAbove`**

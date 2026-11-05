@@ -521,7 +521,7 @@ namespace CardPresentation
             EvtKind.Deploy, EvtKind.Attack, EvtKind.Hit, EvtKind.Death, EvtKind.Ability,
             EvtKind.Trigger, EvtKind.Draw, EvtKind.Heal, EvtKind.Retaliation,
             // 🆕 2026-10-25（`AU1`）：回手/洗回牌库（原版 `yield return` 两段协程，见 `ReturnHoldOf`）
-            EvtKind.Return, EvtKind.DiscardReveal, EvtKind.StealReveal, EvtKind.SabotageCreated,   // 🔴 2026-10-30（`B103_R5` · 账 `战斗逻辑驱动:506`/`:1383`）**`SabotageCreated` 从 `ZeroDurationKinds` 搬来** —— 原版 `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-107` 对造进手牌的破坏卡 `yield return StartCoroutine(DisplayEnemyCardInCenter(0.3f, 0.3f, changeVisibility: true))`（`.c:25-119` 四段 state）⇒ 真阻塞 `0.1 + 0.3×0.66 + 0.3×2.6` = **1.078 s**，时长只此一处 = `CardFeel.CardCenterBlockingSeconds`。⛔ 别写回 0（那会让牌在展示中途就进手、且玩家能在展示期间出牌）｜🆕 2026-10-30（执行代理 `B100_F11`）：弃牌/偷牌的「揭示」那一拍**各占自己的 `stepTime`**（0.2 / 0.4，判据 = `CardFeel.DiscardRevealStepTime` / `StealRevealStepTime` 的 doc：`.rdata` 实读 + 生产调用点 `_ResolveDiscardFromHand_d__544:95` / `_ResolveStealFromDeck_d__547:243`）。改前这两档**没登记** ⇒ `DurationOf` 落 `default: 0`、`IsSourced` 回 false（`BattleScene` 的 `unsourced == 2` 变 4、`A2·J2③` 报「未登记 2 档」）。⚠️ 写在同一物理行 = **刻意零行数变化**（本文件 `:1014` 有账落点，铁律 18·b）
+            EvtKind.Return, EvtKind.DiscardReveal, EvtKind.StealReveal, EvtKind.SabotageCreated, EvtKind.CardCreatedIntoDeck,   // 🔴 2026-10-30（`B103_R5` · 账 `战斗逻辑驱动:506`/`:1383`）**`SabotageCreated` 从 `ZeroDurationKinds` 搬来** —— 原版 `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-107` 对造进手牌的破坏卡 `yield return StartCoroutine(DisplayEnemyCardInCenter(0.3f, 0.3f, changeVisibility: true))`（`.c:25-119` 四段 state）⇒ 真阻塞 `0.1 + 0.3×0.66 + 0.3×2.6` = **1.078 s**，时长只此一处 = `CardFeel.CardCenterBlockingSeconds`。⛔ 别写回 0（那会让牌在展示中途就进手、且玩家能在展示期间出牌）｜🆕 2026-10-30（执行代理 `B100_F11`）：弃牌/偷牌的「揭示」那一拍**各占自己的 `stepTime`**（0.2 / 0.4，判据 = `CardFeel.DiscardRevealStepTime` / `StealRevealStepTime` 的 doc：`.rdata` 实读 + 生产调用点 `_ResolveDiscardFromHand_d__544:95` / `_ResolveStealFromDeck_d__547:243`）。改前这两档**没登记** ⇒ `DurationOf` 落 `default: 0`、`IsSourced` 回 false（`BattleScene` 的 `unsourced == 2` 变 4、`A2·J2③` 报「未登记 2 档」）。⚠️ 写在同一物理行 = **刻意零行数变化**（本文件 `:1014` 有账落点，铁律 18·b）
         };
 
         /// <summary>自检用：`DurationOf` 里登记成「零时长」的那一档吗（不触发未登记告警）。</summary>
@@ -707,7 +707,7 @@ namespace CardPresentation
                 //   远程打法守方才 `ResolveAttackRangedAnim`；近战那一支 `:1132-1150` 守方什么都不播 ⇒ 0）。
                 //   本重载**拿不到 `Ranged` / 卡** ⇒ 回「远程档的兜底」（前摇 + `RangedVfxFallback`），
                 //   ⛔ 别把它当成生产值：生产走 `DurationOf(BattleEvent)` → `RetaliationHoldOf`。
-                case EvtKind.Retaliation: return SkipScaled(AttackStepRanged) + RangedVfxFallback; case EvtKind.DiscardReveal: return CardFeel.DiscardRevealStepTime; case EvtKind.StealReveal: return CardFeel.StealRevealStepTime; case EvtKind.SabotageCreated: return CardFeel.CardCenterBlockingSeconds(CardFeel.CardCenterSabotageStepTime);   // 🔴 2026-10-30（`B103_R5` · 账 `战斗逻辑驱动:1383`）**破坏卡中央展示是【真阻塞】**：原版 `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-107` = `yield return StartCoroutine(...)`；`CardScript._DisplayEnemyCardInCenter_d__263__MoveNext.c:25-119` 的三处 `WaitForSeconds` 之和 = `0.1`（`DAT_1834b2dc4`）+ `stepTime×0.66`（`_DAT_1834b3184`）+ `stepTime×2.6`（`_DAT_1834b3190`），本调用点 `stepTime = 0.3f`（`DAT_1834b2dc8`）⇒ **1.078 s**（`DOMove` 的 0.15 是并行补间、不计）。⛔ 别在这里另写常量（只此一处 = `CardFeel`）｜🆕 2026-10-30（`B100_F11`）**揭示那一拍按 `CardFeel.ShowCardBeingDrawn` 的 `stepTime` 排**（弃牌 0.2 / 偷牌 0.4，两档**不同值、⛔ 别统一**）—— 消费口 `BattleDriver.PlayCardBeingDrawn:37859` 用的就是同一对常量；⛔ 别退回 0（那会让下一拍在揭示动画中途就开场）。挤在同一物理行 = **刻意零行数变化**（本文件 `:1014` 有账落点，铁律 18·b）
+                case EvtKind.Retaliation: return SkipScaled(AttackStepRanged) + RangedVfxFallback; case EvtKind.DiscardReveal: return CardFeel.DiscardRevealStepTime; case EvtKind.StealReveal: return CardFeel.StealRevealStepTime; case EvtKind.SabotageCreated: return CardFeel.CardCenterBlockingSeconds(CardFeel.CardCenterSabotageStepTime); case EvtKind.CardCreatedIntoDeck: return CardFeel.CreateDeckCardFlySeconds + CardFeel.CreateDeckCardToPileSeconds;   // 🔴 2026-10-30（`B103_R5` · 账 `战斗逻辑驱动:1383`）**破坏卡中央展示是【真阻塞】**：原版 `BattleManager._ResolveCreateHandCard_d__512__MoveNext.c:100-107` = `yield return StartCoroutine(...)`；`CardScript._DisplayEnemyCardInCenter_d__263__MoveNext.c:25-119` 的三处 `WaitForSeconds` 之和 = `0.1`（`DAT_1834b2dc4`）+ `stepTime×0.66`（`_DAT_1834b3184`）+ `stepTime×2.6`（`_DAT_1834b3190`），本调用点 `stepTime = 0.3f`（`DAT_1834b2dc8`）⇒ **1.078 s**（`DOMove` 的 0.15 是并行补间、不计）。⛔ 别在这里另写常量（只此一处 = `CardFeel`）｜🆕 2026-10-30（`B100_F11`）**揭示那一拍按 `CardFeel.ShowCardBeingDrawn` 的 `stepTime` 排**（弃牌 0.2 / 偷牌 0.4，两档**不同值、⛔ 别统一**）—— 消费口 `BattleDriver.PlayCardBeingDrawn:37859` 用的就是同一对常量；⛔ 别退回 0（那会让下一拍在揭示动画中途就开场）。挤在同一物理行 = **刻意零行数变化**（本文件 `:1014` 有账落点，铁律 18·b）
 
                 // 🆕 2026-10-24（`A2` · `J2` 顺手发现 3）：**不再一把兜住** —— 只有登记成
                 // 「零时长」的那一档才静默回 0；没登记的**出声 + 计数**（见 `ZeroDurationKinds` 上面那段）。
@@ -1273,6 +1273,20 @@ namespace CardPresentation
                 case EvtKind.WarlordTransform: return "**占 0**（🔶 自己设计：原版没有这段演出 ⇒ 没有「占多久」的原版判据；"
                                                   + "我们这条按自己的 0.9 s 时间轴走，`TransformPresentation.Total` 是唯一出处）"
                                                   + "—— ⛔ 别改成「有时间」档：那会把下一条事件凭空推后 0.9 s";
+                // 🆕 2026-11-05（执行写手 `B148_W8` · 账 `B146-S3-MOVETOPOS-145` + `B146-S3-CREATEATPOS-18`）：
+                //   **造牌进牌库**那一趟是**真阻塞**（原版 `AddAutoActionToQueue` 压的动作号 `0x30`），两段各等一次：
+                //   ① 飞到 `moveToPos` = `timeToDrawPlayerCard(0.3) × 3.0` = **0.9 s**
+                //      （`_ResolveCreateDeckCard_d__513:79` 的 duration 实参 + `_CreateCardInGame_d__250:84` 的 `WaitForSeconds`）；
+                //   ② 飞进牌堆 = `MoveToDeck(card, 0, 0)` 的默认档 **0.3 s**（`CardScript__MoveToDeck.c:40-47`）。
+                //   ⛔ 别登记成零时长：那会让下一拍在卡还在半空时就开场。数值只此一处 = `CardFeel.CreateDeckCard*Seconds`。
+                case EvtKind.CardCreatedIntoDeck: return "**造牌进牌库**（原版能力 270 `createCardInDeck`）："
+                                                       + "① 飞到 `moveToPos` = `timeToDrawPlayerCard(0.3) × 3.0` = **0.9 s**"
+                                                       + "（`BattleManager._ResolveCreateDeckCard_d__513__MoveNext.c:79` 的 duration 实参 + "
+                                                       + "`CardScript._CreateCardInGame_d__250__MoveNext.c:84` 的 `WaitForSeconds`）；"
+                                                       + "② 飞进牌堆 = `MoveToDeck(card, 0, 0)` 默认档 **0.3 s**"
+                                                       + "（`CardScript__MoveToDeck.c:40-47`；造出来的卡 state 刚置 12 ⇒ 不走 `cardback/armedTrap` 的 0 档）；"
+                                                       + "两段都是 OutQuart（`.c:59-73` 的 `SetEase(0xc)`）。"
+                                                       + "⚠️ `+0xa8 = timeToDrawPlayerCard` 这一层字段名沿用 `Core/EventTiming.cs:282` 的既有判据，本轮未回原文再核";
                 // 🆕 2026-10-24（`A2`）：登记成零时长的那一档照旧回「（无）」；**未登记**的出声 + 明写。
                 // 🔴 2026-10-24（执行代理 `E2`）：与 `DurationOf` 同一条口径 —— 「登记了但没 `case`」
                 //   走 `ReportMissingCase`（⛔ 别把它也说成「没在登记表里」，那是两件事）。

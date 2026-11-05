@@ -919,7 +919,7 @@ namespace CardPresentation
         // ============================================================ 小工具
         Label Text(Transform parent, PxRect r, string s, Color color, string name, float fontPx, int q,
                    float minPx, float maxPx, float basePx, int align,
-                   TmpFont.Face face = TmpFont.Face.Cjk)
+                   TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             // 🔴 **2026-10-17（A1024③）**：可选字体面 —— 默认 `Cjk` ⇒ 旧调用点零行为变化。
             var lb = MenuDraw.Text(parent, r, s, color, name, fontPx, q, r.W, minPx, maxPx, basePx, face: face);

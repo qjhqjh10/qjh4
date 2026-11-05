@@ -1574,7 +1574,7 @@ namespace CardPresentation
                 // 钮文案 `MainMenu/General/OK`（见 `Core/Loc.cs` 里那一条的留痕块，⚠️ 是 `OK` 不是 `Ok`）。
                 if (Manager != null) Manager.ShowPopUp(Loc.T("MenuDeck/Error/CantStartNoWarlord"), Loc.T("MainMenu/General/OK"), null);
                 return;
-            }
+            } if (TryDefensiveCardGate()) return;   // ✅ 已复刻（2026-11-05 · B148-W7 · 原版 `StartMatch` 第二跳「防御卡两钮」；判据 `decomp_b91/PlayEvent_object__object_.StartMatch__1127df0.c:43-114`；本句**同一物理行追加**以保 0 行漂移）
             // 🆕 2026-09-26（N3）：**联机已连上 ⇒ 走 P2P**，不跑那 12 秒 bot 链
             //    （判据 → `资料/联机P2P_设计与交接.md` §六 N3）。没接管时照旧，单机行为一字不改。
             {
@@ -2562,6 +2562,79 @@ namespace CardPresentation
         {
             if (_headerGameModeIcon == null) return null;
             return new IWindowHeaderUIDrawer[] { new LiveopUIDrawer_GameModeIcon(_headerGameModeIcon) };
+        }
+
+        // ================================================================================================
+        //  ✅ 已复刻（2026-11-05 · B148-W7 · 判据 `decomp_b91/PlayEvent_object__object_.StartMatch__1127df0.c:43-114`）
+        //
+        //  原版 `PlayEvent<,>.StartMatch` 是**三跳**（`.c` 逐句现读）：
+        //    ① `ValidateEventDeck(GetEventDeck(), true)` 假 ⇒ `ShowPopUp("MenuDeck/Error/InvalidDeck")`；
+        //    ② `DeckUtility.HasDefensiveCards(deck) == HaveItInInventory` ⇒ **两钮**弹窗
+        //       `"MenuDeck/Error/HasNotAssignedDefensiveCard"`（OK = `StartMatchNoCheck(deck)`；Cancel = `CloseWindow(CurrentWindow)`）；
+        //    ③ `StartMatchNoCheck(deck)`。
+        //  而三扇活动窗的 `Battle!` 在生产上走的是**本类**的 `StartMatch`（原版 `RankedEventWindowV2.BattleButtonClick`
+        //  → `liveOps.StartMatch()`；`SkirmishEventWindow.StartBattle` 同族）⇒ ①②③ 都该落在这里。
+        //  ①（模式 / 督军两道闸）与 ③（联机 → 12 s → bot）早有等价；**只有 ② 一整支原来在生产上永远跑不到**
+        //  —— 因为 `PlayEvent<,>.StartMatch` 全仓 **0 个生产调用点**（`B146-PLAYEVENT-ENTRY`）。
+        //
+        //  ⚠️ **为什么不把 `StartMatch` 余下那一段抽成 `StartMatchNoCheck()`**：本文件被账按 `文件:行号` 引用
+        //     **86 处**，抽方法要吞掉中段几十行 ⇒ 整表漂移。⇒ 改成「一次性确认位 + 再进一次 `StartMatch`」，
+        //     行为等价（前面那两道闸都是纯判定、可重跑）。⛔ 别把它当成「多造了一条原版没有的路」——
+        //     原版那条路的可观测行为就是「点 OK ⇒ 照打（不带防御卡）」「点 Cancel ⇒ 关窗」。
+        // ================================================================================================
+
+        /// <summary>上一拍在两钮弹窗里点了 OK ⇒ 下一次进 <see cref="StartMatch"/> 时放行一次（见上面那段口径）。
+        /// <para>⚠️ 追加在**类尾**（⛔ 别插中段 —— 本文件被账按行号钉着 86 处）。</para></summary>
+        bool _defensiveCardGateConfirmed;
+
+        /// <summary>原版 `StartMatch` 的**第二跳**：防御卡闸。
+        /// <para>返回 <c>true</c> ⇒ **已拦下**（弹窗已开 / 已出声），调用方直接 `return`。</para>
+        /// <para>判据：`HasDefensiveCards(deck) == HaveItInInventory` 才拦 —— 原版**只判这一档**；
+        /// `HaveItAssigned`（卡组里已带防御卡）与 `DontHave`（库存里也没有）都直接放行。</para>
+        /// <para>文案与两钮逐条照 `<see cref="PlayEvent{TSave,TData}.StartMatch"/>`（键与两个 lambda 都一样）；
+        /// ⛔ 别改成「自动分配防御卡」（用户 2026-11-05 裁定按原版两钮）。</para></summary>
+        bool TryDefensiveCardGate()
+        {
+            if (_defensiveCardGateConfirmed) { _defensiveCardGateConfirmed = false; return false; }   // 上一拍点了 OK ⇒ 放行一次
+            if (DefensiveCardStateForStart() != DefensiveCardInventoryCheck.HaveItInInventory) return false;
+            if (Manager == null)
+            {
+                // 原版这一跳必有窗口层（`ShowPopUp` 是 `WindowsManager` 的实例方法）⇒ 我们没窗口层时**出声放行**，⛔ 不静默吞掉开战。
+                Debug.LogWarning("[Event] 需要弹「没带防御卡，还开打吗」两钮提示，但**没有 `WindowsManager`** ⇒ 放行并出声（原版这一跳必有窗口层）");
+                return false;
+            }
+            Manager.ShowPopUp(Loc.T("MenuDeck/Error/HasNotAssignedDefensiveCard"),
+                              Loc.T("MainMenu/General/OK"),
+                              () => { _defensiveCardGateConfirmed = true; StartMatch(); },   // = 原版 `_StartMatch_b__0` = `StartMatchNoCheck(deck)`
+                              Loc.T("MainMenu/General/Cancel"),
+                              Close);                                                        // = 原版 `_StartMatch_b__13_1` = `CloseWindow(CurrentWindow)`
+            Debug.Log("[Event] 这套卡组**没带防御卡**、库存里却有 ⇒ 按原版弹两钮提示"
+                    + "（`MenuDeck/Error/HasNotAssignedDefensiveCard`），玩家点 OK 才开打");
+            return true;
+        }
+
+        /// <summary>这套「马上要拿去打」的卡组落在 <see cref="DefensiveCardInventoryCheck"/> 的哪一档
+        /// （= 原版 `DeckUtility.HasDefensiveCards(deck)`，落点 = `PlayEvent{TSave,TData}.HasDefensiveCards`
+        /// → <see cref="PlayEventDefensiveCards.Check"/>）。
+        /// <para>⚠️ 两条通道分开取：**预组**走 <see cref="PickedPrebuilt"/>（原版预组也是 `CardDeck`；我们这层是另一条通道、
+        /// `CollectionData` 库里查不到）；**自有卡组**走 `CollectionData` 的 id —— 与 `PlayEventDeckSource.IdAt` **同一个 id 口径**
+        /// （先 `DeckIdAt`、没有就 `EnsureDeckId` 现发并落盘），⛔ 别改传卡组名（同名会选错）。</para>
+        /// <para>🔶 自己设计（非原版）：**预组那一支**原版不存在（原版预组牌的 `defensiveCard` 是 `null`、`PrebuiltDeck` 也没这一格）——
+        /// 我们的预组数据里有 `defensiveId`（用户 2026-09-26 拍板「人机对战应该有防御卡」，见 `PrebuiltDecks.Deck.defensiveId` 的 doc）
+        /// ⇒ 按**同一张判据表**补这一支（已带 = `HaveItAssigned`；否则看库存）。调度台 2026-11-05 B148-W7 裁定。</para></summary>
+        DefensiveCardInventoryCheck DefensiveCardStateForStart()
+        {
+            if (PickedPrebuilt != null)
+            {
+                if (!string.IsNullOrEmpty(PickedPrebuilt.defensiveId)) return DefensiveCardInventoryCheck.HaveItAssigned;
+                return PlayEventDefensiveCards.OwnsAnyDefensiveCard(PickedPrebuilt.faction)
+                     ? DefensiveCardInventoryCheck.HaveItInInventory
+                     : DefensiveCardInventoryCheck.DontHave;
+            }
+            if (DeckIndex < 0) return DefensiveCardInventoryCheck.DontHave;
+            var id = CollectionData.DeckIdAt(DeckIndex);
+            if (string.IsNullOrEmpty(id)) id = CollectionData.EnsureDeckId(DeckIndex);
+            return PlayEventDefensiveCards.Check(id);
         }
     }
 }

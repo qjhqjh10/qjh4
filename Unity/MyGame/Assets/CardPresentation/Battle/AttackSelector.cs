@@ -75,8 +75,8 @@
 //       `PointerEnter / PointerExit`（= 原版 `IPointerEnter/ExitHandler` 的等价送达）⇒ 驱动 `Hovered`；
 //     · `UpdatePointer` 在 uGUI 档**不再做手搓圆判定**（否则两条路抢同一个 `Hovered` = 半迁移），
 //       只保留 `Tick()`（入场动画 / 安全窗）+ 返回 `Hovered`；**世界档逐位不变**（`_frame == null` 走原式）。
-//     · `ContainsBar`（「点槽外取消」）**原版没有等价物**（`A462` §四·3 已记）⇒ 本波不动它 ——
-//       它仍在 `BattleDriver` 那条链上，归 `T09` A4 与手搓沿一起收。
+//     · `ContainsBar`（「点槽外取消」）**原版没有等价物**（`A462` §四·3 已记）⇒ **B148（2026-11-05）已删**
+//       （`BattleDriver` 那条自造支的墓碑在 `:15032`）；「悬停」与「槽外取消」两档只剩 `KindAtPoint` 一个口。
 //   ⚠️ **悬停区与今天不同（如实记，⛔ 不是回归）**：今天 = 以图标中心为圆心、直径 118.8 px 的**圆**；
 //     本波起 = `Highlight` 的 **176.2 × 176.2 矩形**（含圆外四角、相邻两格会重叠 —— 原版同样重叠）。
 //     `HoverPickReady` / 安全窗 / `_hoverSent` 的语义**一个字没动**（`TickHover` 仍是唯一判据）。
@@ -1795,30 +1795,6 @@ namespace CardPresentation
             // `anchor: 27` = **下中**（`Tooltip.Show` 那张锚点表）；再往下压 `TooltipDropPx`。
             Tooltip.Show(text, at.Value, 27, new Vector3(0f, -U(TooltipDropPx), 0f));
             _tooltipShown = true;
-        }
-
-        /// <summary>指针是不是在整条槽的范围里（点在槽外 = 取消）。
-        /// ⚠️ **两档都不用改**：这里比的全是**世界量**（喂进来的点在世界上、`hw/hh` 由 px 常量折成世界单位）
-        /// ⇒ 与「渲染层在哪一档」无关。
-        /// 🔴 **2026-10-23（`W64` `B-22` 收口 · 铁律 5 就地订正）**：本段原来写着「这个盒子以**世界原点（屏心）**
-        /// 为中心…留给主对话裁」—— **已修**。判据：整条 2026-09-29 起就挂在**被拖那个单位**的位置上
-        /// （`_anchorAt` = `Show(..., atWorld)` 传进来的世界锚，由 `BattleDriver` 喂
-        /// `playerBoard.DropTargetWorld(slot)`）⇒ 「点槽外取消」的判定域**必须跟着条子走**，
-        /// 否则单位不在屏心时判定域与画面脱节（画在左、点右边才取消）。
-        /// ⇒ 现在把喂进来的点**先减掉 `_anchorAt`** 再比（盒子的形状/尺寸一个字没变）。</summary>
-        /// <summary>这个点算不算「在选择器里面」（**只给「点槽外取消」那一条用**）。
-        /// <para>🔴 **2026-10-25（`X8` · ③）：改成转发 `KindAtPoint`** —— 原来这里是一份**手搓的大矩形**
-        /// `BarW × (BarH + BgH/2)`，还带一段非对称的下沿（`rel.y >= −hh*2`）；它和悬停实际用的
-        /// 「钮矩形 ∪ 已选那格的圈」不是同一个区域 ⇒ **底板边缘那一点：悬停档说「不在」、取消档说「在」**
-        /// （玩家看到的是「点一下底板边，指挥被取消」，而原版那块 `Select Attack Background` 是
-        /// `m_RaycastTarget = 1` 的纯色射线靶、**点了什么也不发生**）。</para>
-        /// <para>⚠️ **行为变化（如实记）**：现在「点在选择器**底板**上但不在任何一颗钮上」会走取消
-        /// （旧实现不会）。这是「与悬停同源」的必然结果 —— 原版那一带本来就没有动作，
-        /// 我们这条取消本来就是**自造的**（`A462` §四·3）；判据只有一条：不要让两条路给出不同答案。</para></summary>
-        public bool ContainsBar(Vector3 world)
-        {
-            if (!Visible) return false;
-            return KindAtPoint(world) != AttackKind.None;
         }
 
         /// <summary>诊断用：这一次给了哪些选项</summary>

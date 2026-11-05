@@ -282,7 +282,7 @@ class Program
     //   的**后半句**原来被静默吃掉）。判据 → `资料/任务线/引擎线/任务总表.md` `T02` 行 ＋ 卡面中文
     //   「如果目标死亡或为友方单位」＋ `cards_1195_2022时代.json` 的 `targetCriteria(friendlyUnits=1/enemyUnits=1)`。
     //   ⇒ 按「先修好解析器，再跑 `scan` 定为新基线」重生成，⛔ 不是把红抹平。
-    public const string PinnedBaselineMd5 = "fb68e05e272b3137044a8408e881a7ee";  // 🔴 2026-11-03（B123 收口 · 调度台）**三颗一起钉**：基线重生成到 **1134 张**（+13 张 `TRANSFORM_*`，解析差异 0 行 / 消失 0）；备份 `基线/_bak_20261103_s123/`。 ｜ 🔴 2026-11-02（收口代理 `B117-WREPIN` · 第一百一十七会话收口）重钉（**三颗一起看** · 账 `B-267`）：唯一差异 = `UM64|Angels of Death`（`B117-10` 的 `Count=1 → 0`，见 `判据/B117-WGB_三条落地.md` §三），旧基线 `_bak_20261102_pre_repin_parse.txt` ↔ 新基线 = **恰好 1 张**（1121 行不变、逐字段核过）；`PinnedParseMd5` 同刻钉为 `f937e54d…`；`PinnedPoolMd5` **原样不动**（卡池 md5 `64309acd…` 与钉住的一致）。上一版 = b6b412f5… ｜ 🔴 2026-11-01 重钉（第一百一十四会话 · 账 `B-267` · **三颗一起钉**）：基线由 `B114_W29` 在**4 行解析差异逐行归因为预期内之后**重生成（`AM41`/`TAU73`/`UM13` 的 `SubtypeFilter` + `Grisly Feast` 2op→4op，⛔ 不是把红抹平）。⚠️ 上一版 `ed2edeab…` 早就与盘上不同，只因卡池 md5 也不同 ⇒ `[基线指纹]` 走「此时不判」才一直没红；**只重钉池 md5 会让第 ⑤ 段立刻红** —— 这就是 `B-267`。上一版 = ed2edeab… ｜ 🔴 2026-10-28 重钉（第八十八会话 · F5 重同步点）：**有意重生成基线** —— 本波三项有意改动（`EC42` 超额伤害接上 · `EC47`/`UM118` 的 `equal to …` 正则），由调度台逐项归因；旧基线（_bak_1028/out_baseline.txt）↔ 新基线 `diff` = **恰好 3 张**（`EC42`/`EC47`/`UM118`，ID 列完全一致、行数 1121 不变）。上一版 = ce3faf91… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：**有意重生成基线** —— 解析器真改对了（`EffectText` 新增「名词在前」加法型反向正则，`BL47` 的目标短语不再吞掉 `, and an additional armour 1`）。旧（_bak_1026/out_baseline.txt）↔ 新基线 `diff` = **恰好 1 张卡 `BL47`**（逐字节核对过）。上一版 = 5fb45aec… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：基线重生成（Ethereal Supreme 的 `warlord`→`unit`） ｜ 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
+    public const string PinnedBaselineMd5 = "c1a507a93376b98eafdd376048efc9cd";  // 🔴 2026-11-05（第一百三十三会话 · `B148` · 调度台）重钉：上一版 = fb68e05e…。差异面 = 基线**恰好 1 行** = `SAU55|Immortal Pride`（逐行 diff 核过，新增/消失 0）；来源 = `B148-W2` 的 `SAU55` 解析修复（剥 `For the rest of this battle, ` 从句 ⇒ 第二句 `your Warlords' Talent costs 1 less` 现在解成 `lowercost 1`，旧基线只编进第一句 `armour 1`）。归因单一、无 .cs 写手、重生成后复跑一致。上一版 = fb68e05e… ｜ 🔴 2026-11-03（B123 收口 · 调度台）**三颗一起钉**：基线重生成到 **1134 张**（+13 张 `TRANSFORM_*`，解析差异 0 行 / 消失 0）；备份 `基线/_bak_20261103_s123/`。 ｜ 🔴 2026-11-02（收口代理 `B117-WREPIN` · 第一百一十七会话收口）重钉（**三颗一起看** · 账 `B-267`）：唯一差异 = `UM64|Angels of Death`（`B117-10` 的 `Count=1 → 0`，见 `判据/B117-WGB_三条落地.md` §三），旧基线 `_bak_20261102_pre_repin_parse.txt` ↔ 新基线 = **恰好 1 张**（1121 行不变、逐字段核过）；`PinnedParseMd5` 同刻钉为 `f937e54d…`；`PinnedPoolMd5` **原样不动**（卡池 md5 `64309acd…` 与钉住的一致）。上一版 = b6b412f5… ｜ 🔴 2026-11-01 重钉（第一百一十四会话 · 账 `B-267` · **三颗一起钉**）：基线由 `B114_W29` 在**4 行解析差异逐行归因为预期内之后**重生成（`AM41`/`TAU73`/`UM13` 的 `SubtypeFilter` + `Grisly Feast` 2op→4op，⛔ 不是把红抹平）。⚠️ 上一版 `ed2edeab…` 早就与盘上不同，只因卡池 md5 也不同 ⇒ `[基线指纹]` 走「此时不判」才一直没红；**只重钉池 md5 会让第 ⑤ 段立刻红** —— 这就是 `B-267`。上一版 = ed2edeab… ｜ 🔴 2026-10-28 重钉（第八十八会话 · F5 重同步点）：**有意重生成基线** —— 本波三项有意改动（`EC42` 超额伤害接上 · `EC47`/`UM118` 的 `equal to …` 正则），由调度台逐项归因；旧基线（_bak_1028/out_baseline.txt）↔ 新基线 `diff` = **恰好 3 张**（`EC42`/`EC47`/`UM118`，ID 列完全一致、行数 1121 不变）。上一版 = ce3faf91… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：**有意重生成基线** —— 解析器真改对了（`EffectText` 新增「名词在前」加法型反向正则，`BL47` 的目标短语不再吞掉 `, and an additional armour 1`）。旧（_bak_1026/out_baseline.txt）↔ 新基线 `diff` = **恰好 1 张卡 `BL47`**（逐字节核对过）。上一版 = 5fb45aec… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：基线重生成（Ethereal Supreme 的 `warlord`→`unit`） ｜ 2026-10-24 重钉（Z71 · G10）：GSC75 一行解析变化后重生成基线
 
     /// <summary>🆕 **解析输出指纹**（`A1382` **一般情形**的堵法，2026-10-12 第二十一会话 · 写手 `E5`）
     /// —— 「`check` 的判据是『与**基线文件**比』，而**基线文件同一个工具就能重写**」这条洞的机器级补丁。
@@ -347,7 +347,7 @@ class Program
     //   🔴 **2026-10-21（第五十九会话 · 引擎线 `T02`）重钉** —— 唯一变化 = `SOR31|Dogmata` 的条件种类
     //   （`targetdies` → `targetdiesorfriendly`）。行为侧另有三条新断言（友方活着 +1 / 敌方活着 +0 /
     //   敌方被打死 +1）钉住它，见 `Assets/RuleEngine/Editor/RuleEngineTest_T02.cs`。
-    public const string PinnedParseMd5 = "77a3c2bcf7e50b47e21ee8f1d1e7c701";  // 🔴 2026-11-03（B123 收口 · 调度台）**三颗一起钉**：解析输出随基线扩到 **1134 张**（+13 `TRANSFORM_*`）；同一趟 `check` 印「解析差异 0 行 · 新增 13 · 消失 0」⇒ ⛔ 不是把红抹平。 ｜ 🔴 2026-11-02（收口代理 `B117-WREPIN` · 第一百一十七会话收口）重钉：**先判后钉**（解析差异 1 行 = `UM64|Angels of Death`，⛔ 不是把红抹平）—— `B117-10` 在 `EffectText.cs:10382` 给 `(!NameFilter 为空 && Side == "own")` 追加 `Count = 0`；逐字段 diff 旧/新基线 = **只有 op2 目标块 `Count=1 → 0`**（`B117-WGB_三条落地.md` §一/§三）。串行两跑现算一致（`f937e54d…` ×2）· 无写手。上一版 = ebdac779… ｜ 🔴 2026-11-01 重钉（第一百一十四会话 · 写手 `W-29` · 账 `B-264`）：**先判后钉**（解析差异 4 行逐行归因为「预期内」，⛔ 不是把红抹平）—— ① `AM41`/`TAU73`/`UM13`：`Kind=troop` 那条 op 的 `SubtypeFilter: - → Infantry`（病灶 = `<兵种词> troops` 的兵种词被 `troops` 吃掉，`B-203` 修好；判据 = 原版卡数据 `abilityTargetCriteria[].criteria.keywordFilter = 5`，三张逐条核过）；② `b3735ef3… Grisly Feast`：2 op → 4 op（`B-112` 的 `your` 并列分配让 Side `any→own` ＋ `B-203` 兵种筛 ＋ 载荷里的 `this turn` 只修饰前半 ⇒ `+1 attack` 限时 / `+1 health` 永久，与原版 4 条 logic 逐条对齐）。归因提交 = `246eba25`（第一百一十一会话，时长拆分）＋ `b7075d6d`（第一百一十二会话，`B-189`/`B-203`）；逐行「改前→改后」与判据 → `资料/完全复刻/报告/B114_W29_check解析差异归因.md`。上一版 = 136cbb67… ｜ 🔴 2026-10-28 重钉（第八十八会话 · F5 重同步点）：解析输出随基线同步 —— 唯一差异 = `EC42`/`EC47`/`UM118` 三张（调度台已逐项归因：超额伤害接上 · 两条 `equal to …` 正则）。上一版 = c9a64798… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：唯一解析差异 = `BL47 Disgustingly Resilient`（`EffectText` 新增「名词在前」加法型反向正则 ⇒ 不再被误判成「重复型」）⇒ 上一版 = 18439d96… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：解析输出随基线同步 ｜ 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
+    public const string PinnedParseMd5 = "e34127cf57eaedaf7238a0fb4d30dddb";  // 🔴 2026-11-05（第一百三十三会话 · `B148` · 调度台）重钉：同一趟 `check` 印「解析差异 1 行 = SAU55|Immortal Pride」，逐行核过 = `B148-W2` 的有意修复（剥 `For the rest of this battle, ` 从句 ⇒ 第二句解成 `lowercost 1`）；⛔ 不是把红抹平。上一版 = 77a3c2bc… ｜ 🔴 2026-11-03（B123 收口 · 调度台）**三颗一起钉**：解析输出随基线扩到 **1134 张**（+13 `TRANSFORM_*`）；同一趟 `check` 印「解析差异 0 行 · 新增 13 · 消失 0」⇒ ⛔ 不是把红抹平。 ｜ 🔴 2026-11-02（收口代理 `B117-WREPIN` · 第一百一十七会话收口）重钉：**先判后钉**（解析差异 1 行 = `UM64|Angels of Death`，⛔ 不是把红抹平）—— `B117-10` 在 `EffectText.cs:10382` 给 `(!NameFilter 为空 && Side == "own")` 追加 `Count = 0`；逐字段 diff 旧/新基线 = **只有 op2 目标块 `Count=1 → 0`**（`B117-WGB_三条落地.md` §一/§三）。串行两跑现算一致（`f937e54d…` ×2）· 无写手。上一版 = ebdac779… ｜ 🔴 2026-11-01 重钉（第一百一十四会话 · 写手 `W-29` · 账 `B-264`）：**先判后钉**（解析差异 4 行逐行归因为「预期内」，⛔ 不是把红抹平）—— ① `AM41`/`TAU73`/`UM13`：`Kind=troop` 那条 op 的 `SubtypeFilter: - → Infantry`（病灶 = `<兵种词> troops` 的兵种词被 `troops` 吃掉，`B-203` 修好；判据 = 原版卡数据 `abilityTargetCriteria[].criteria.keywordFilter = 5`，三张逐条核过）；② `b3735ef3… Grisly Feast`：2 op → 4 op（`B-112` 的 `your` 并列分配让 Side `any→own` ＋ `B-203` 兵种筛 ＋ 载荷里的 `this turn` 只修饰前半 ⇒ `+1 attack` 限时 / `+1 health` 永久，与原版 4 条 logic 逐条对齐）。归因提交 = `246eba25`（第一百一十一会话，时长拆分）＋ `b7075d6d`（第一百一十二会话，`B-189`/`B-203`）；逐行「改前→改后」与判据 → `资料/完全复刻/报告/B114_W29_check解析差异归因.md`。上一版 = 136cbb67… ｜ 🔴 2026-10-28 重钉（第八十八会话 · F5 重同步点）：解析输出随基线同步 —— 唯一差异 = `EC42`/`EC47`/`UM118` 三张（调度台已逐项归因：超额伤害接上 · 两条 `equal to …` 正则）。上一版 = c9a64798… ｜ 🔴 2026-10-26 重钉（第八十四会话同步点）：唯一解析差异 = `BL47 Disgustingly Resilient`（`EffectText` 新增「名词在前」加法型反向正则 ⇒ 不再被误判成「重复型」）⇒ 上一版 = 18439d96… ｜ 🔴 2026-10-26 重钉（第八十二会话同步点）：解析输出随基线同步 ｜ 2026-10-24 重钉（Z71 · G10）：`in your hand` 计数从句（全池只 GSC75 一张）；归因 → 资料/普查产出_1024/G10_GSC75解析缺陷.md
 
     /// <summary>一个文件的 md5（按字节；读不到返回 `null` —— ⛔ 不静默当成空串）。</summary>
     public static string Md5File(string path)
@@ -493,6 +493,16 @@ class Program
         {
             Environment.Exit(TriggerOpsProbe.Run(args.Length > 1 ? args[1] : "",
                                                 args.Length > 2 ? args[2] : ""));
+        }
+        // 🆕 **`enchant [selftest]`**（`B148_W5`，2026-11-05 · 账 `B124-TA10COVER` 的 ruleprobe 半）：
+        //   附魔「打出即挂」反查表（`CardDatabase._enchantGrants`）的**只读**读数口 + 三条反例自检
+        //   （自检 = 内存里把表「改坏」再走一遍引擎的读口/挂载口，⛔ 不写盘、不写回卡表）。
+        //   ⛔ 不碰基线、不碰三个指纹、不改 `check`/`play`/`ai` 的任何输出（与 `ai` / `death` / `triggerops` 同一族）。
+        //   📌 判据 → `判据/B148_战斗表现施工单.md` §5。
+        if (args[0] == "enchant")
+        {
+            LoadPool();
+            Environment.Exit(EnchantProbe.Run(PoolList, args.Length > 1 && args[1] == "selftest"));
         }
         if (args[0] == "check" && !File.Exists(PoolPath)) { Console.Error.WriteLine("!! 找不到卡池：" + PoolPath); Environment.Exit(2); }
         int i = 0;
@@ -661,7 +671,15 @@ class Program
                               + " ⇒ 下面的读数**只能**当「拿这份输入量出来的数」，⛔ 不能当「工程现状」，"
                               + "⛔ 更不能拿它去重钉任何常量。");
         }
-        var doc = JsonDocument.Parse(File.ReadAllText(PoolPath));
+        var poolJsonText = File.ReadAllText(PoolPath);
+        var doc = JsonDocument.Parse(poolJsonText);
+        // 🆕 B148（`B124-TA10COVER` 的 ruleprobe 半 · 2026-11-05 · 写手 `W5`）：附魔「打出即挂」反查表。
+        //   探针走 `System.Text.Json` 手读卡表、**不过 `CardDatabase.Load()`** ⇒ 不补这一句 `_enchantGrants`
+        //   恒 null、`Enchantments.EnchantmentGrantsOf` 恒返 null（= `play` 对 29 张卡的挂载目标永久失明）。
+        //   ⚠️ 只建表，不改任何判据；`GrantedEnchantmentsProvider` **不用注册**（`Data/CardDatabase.cs:3662`
+        //   的静态构造里已注入，本 csproj 编了这个文件 ⇒ 触碰任何静态成员就会先跑它）。
+        //   📌 判据/反例 → `判据/B148_战斗表现施工单.md` §5；读数口 = `bash 工具/ruleprobe.sh enchant`。
+        CardDatabase.EnsureEnchantmentGrantsFrom(poolJsonText);
         var list = new List<CardDef>();
         var rawKw = new List<List<string>>();      // 🆕 与 list **同序**的 `keywords` 原文（见 PoolRawKeywords）
         // 🔴 🆕 **2026-10-14（`A1911`）：卡表后加的那三列也要传进 `CardDef`** ——

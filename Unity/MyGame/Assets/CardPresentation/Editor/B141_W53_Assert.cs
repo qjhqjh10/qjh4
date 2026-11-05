@@ -22,11 +22,11 @@
 //  F 收藏窗（`Run(CollectionWindow)`）：`Title Header` 按名钉 + 整窗计数（≥6 且占多数）。
 //
 // ============================ 接线（两窗）= 【2026-11-04 已落地】============================
-//  · `Deck/DeckRuntime.cs`：`Txt` / `TxtPx` 加 `TmpFont.Face face = TmpFont.Face.Cjk`（缺省仍是 Cjk），
+//  · `Deck/DeckRuntime.cs`：`Txt` / `TxtPx` 加 `TmpFont.Face face = TmpFont.Face.Cjk`（缺省已于 2026-11-05 `B148-W6` 改为 Pragati），
 //    **27 个调用点**逐一传 `face: TmpFont.Face.LatinCardBody`（本窗原版 `Deck Editing Menu.prefab` **64/64 = Pragati**）。
 //  · `Shell/CollectionWindow.cs`：**19 个 `Text(` 站点**传同一面（原版 `Collection Menu Variant.prefab` **57/57 = Pragati**），
 //    另 2 个站点（`Title Header` / `Event Title`）**本来就传了**同一面。
-//  · ⛔ **缺省面一个字没改**（`MenuDraw.Text` / `Label` / `TmpFont.NewText` 全是 `Cjk`）；汉字仍由 `Label.ActualFace` 回 CJK。
+//  · ⚠️ **2026-11-05 订正（B148-W3/W6）**：缺省面已改 —— `MenuDraw.Text` / `TmpFont.NewText` = Pragati，`Label` 出厂仍是 `Cjk`；汉字仍由 `Label.ActualFace` 回 CJK。
 //
 // ============================ 怎么接线（宿主）============================
 //  宿主在白名单外（`Editor/DeckScene.cs` / `Editor/CollectionScene.cs`），本批没接。宿主里加两行即可：

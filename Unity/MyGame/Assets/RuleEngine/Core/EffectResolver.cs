@@ -4258,7 +4258,7 @@ namespace RuleEngine
                     //   ⇒ 原版是**随机下标 Insert**（开局预烧随机表）；卡面那句 `at the top` 代码根本没实现 = **原版 bug** ⇒ 按铁律 18·0 照抄，⛔ 别「修好」成置顶。
                     //   ⚠️ 只改**这一支**：另外三处 `decktop`（选牌动作 / 回手回牌库 / 墓地取出）对应的是原版 `RecallToDeck`，
                     //   那边 `toTop` 位是**非零**（`_ResolveRecallToDeck_d__543__MoveNext.c:328`）⇒ **确定性置顶本来是对的**，⛔ 别一起改。
-                    foreach (var m in made) InsertIntoDeckRandom(ctx, owner, m);   // 判据见上：原版 `AddCardInPlayToDeck(card, toTop:0)` = 随机下标 Insert（每张各抽一次）
+                    foreach (var m in made) { InsertIntoDeckRandom(ctx, owner, m); EmitCardCreatedIntoDeck(ctx, owner, m, (ctx.ActingUnit != null ? ctx.ActingUnit.Card : null) ?? ctx.PlayingCard); }   // 判据见上：原版 `AddCardInPlayToDeck(card, toTop:0)` = 随机下标 Insert（每张各抽一次）
                     ctx.Log($"{by}：「{op.Source}」造了 {n} 张**随机**插进自己牌库（原版就这样：`create` 没有「放牌库顶」这条路）"
                           + $"：{names}" + (pool.Detail != null ? $"（{pool.Detail}）" : ""));
                     return true;
@@ -5131,7 +5131,7 @@ namespace RuleEngine
                     //   ⚠️ 本版 `todeck` 只有 DA44 一张（全池按 `to your deck` 且不含 `return` 扫过）。
                     //   ⛔ `return`（`return it to your deck`）**仍走下面的 B11 洗回牌库** —— 两类分开。
                     var moved = RemoveFromSource(ctx, owner, op.ChooseSrc, pick) ?? pickedInst;
-                    InsertIntoDeckRandom(ctx, owner, moved);
+                    InsertIntoDeckRandom(ctx, owner, moved); EmitCardCreatedIntoDeck(ctx, owner, moved, ctx.PlayingCard);   // 🆕 B148_W8：造牌进牌库的演出信号（施放者 = 播放中的那张战术卡；DA44 的 ab0 lg0 行 = cap 6 / mv 6）
                     ctx.Log($"{by}：「{op.Source}」把「{pick.Name}」随机插入自己牌库（{what}）");
                     // 原版 `_ResolveCreateDeckCard…:113-119` 读的是**造出来那张的 `spellType`**。
                     // 与 `QuestPointThreshold` 同一份判据（`CreatePool.MatchesKind`），只是那边造的一定是隐秘。
@@ -13600,7 +13600,7 @@ namespace RuleEngine
 
             // 入牌库 = **随机下标 Insert**，**不洗整副** —— 判据与算法只在 `InsertIntoDeckRandom` 一处
             // （原版 `BattleManager__AddCardInPlayToDeck.c:36-37` + `:63-64`）。
-            InsertIntoDeckRandom(ctx, owner, inst);
+            InsertIntoDeckRandom(ctx, owner, inst); EmitCardCreatedIntoDeck(ctx, owner, inst, ps.Warlord != null ? ps.Warlord.Card : null);   // 🆕 B148_W8：任务点阈值造隐秘进牌库的演出信号（施放者 = 督军；DA1/2/3/75 的 ab0 lg0 行 = cap 140 / mv 145）
 
             // 原版 `_ResolveCreateDeckCard…:113-119`：读 `spellType == 0x96(150)` ⇒ `BroadcastSecretCreated`。
             // ⛔ 漏了这一跳 = `DA15`（`When you create a Secret, …`）/ `DA66` 注册的是**永远不响的监听器**（静默）。
@@ -15663,6 +15663,42 @@ namespace RuleEngine
                 {
                     foreach (var c in pool) { keys.Add(c.Card.Id); shown.Add(c.Card.Name); cardRefs.Add(c.Card); pins.Add(c); }
                     detail = where + "里的所有牌";
+                }
+                // 🔴 `warlords' talent`（池内唯一 = `SAU55` 的第二句）。✅ 已复刻（2026-11-05 · `B148-W2` ·
+                //   `B123-CA50SIX`/`SAU55` · 判据 `decomp_full/FilterMethods__CheckIfMeetsCriteria.c:126-157`）：
+                //   原版这一句**不是**「按卡名找一张卡」，而是 `ta=235 warlordsTalent` = `GetHero(施放者侧)`
+                //   → `GetTalentCard` → **拿那张天赋卡比卡名** ⇒ 对象是「本方那位战将的天赋卡」**这一张**。
+                //   ⛔ 不是「所有 `subtype == Talent` 的卡」，更不是字面卡名（池内没有叫 `Warlords' Talent` 的卡）。
+                //   数据路已按同一判据落：`SAU55` 的 `abilityBuffs` 有一行 `at=handBuff ∧ buffType 2 ∧ ta=235`
+                //   ⇒ `RuleCore.ApplyWarlordTalentHandBuffOnPlay`（调用点 `RuleCore.cs:4045`）在战术卡结算成功后挂上。
+                //   ⇒ 本支**只认不重复登记**（同一句登记两次会把天赋的费降 2）；不带那条数据行的卡才由本支自己落一条。
+                else if (t == "warlords' talent" || t == "warlord's talent" || t == "warlords talent" || t == "warlord talent")
+                {
+                    bool coveredByData = false;
+                    var buffRows = CardDatabase.AbilityBuffsOf(ctx.PlayingCard);
+                    if (buffRows != null)
+                        for (int ri = 0; ri < buffRows.Count; ri++)
+                        {
+                            var bro = buffRows[ri];
+                            if (bro != null && bro.IsHandBuff && bro.Criteria != null && bro.Criteria.TargetsAffected == 235) { coveredByData = true; break; }
+                        }
+                    if (coveredByData)
+                    {
+                        ctx.Log($"{by}：「{op.Source}」由数据路（`abilityBuffs` 的 `handBuff ∧ ta=235 warlordsTalent` → "
+                              + "`ApplyWarlordTalentHandBuffOnPlay`）负责 ⇒ **本次不重复登记降费**");
+                        return true;
+                    }
+                    var talent = ResolveWarlordTalentCard(ctx, owner);
+                    if (talent == null)
+                    {
+                        ctx.Log($"{by}：「{op.Source}」要降「本方战将的天赋」的费，但认不出这位战将的天赋卡 —— **这条没生效**");
+                        unresolved.Add(op.Source + "（`warlords' talent` 认不出天赋卡）");
+                        return false;
+                    }
+                    CardInstance talentPin = null;
+                    foreach (var h in pool) if (ReferenceEquals(h.Card, talent)) { talentPin = h; break; }
+                    keys.Add(talent.Id); shown.Add(talent.Name); cardRefs.Add(talent); pins.Add(talentPin);
+                    detail = "本方战将的天赋「" + talent.Name + "」";
                 }
                 else
                 {
@@ -22695,6 +22731,49 @@ namespace RuleEngine
                 ctx.Log($"（按原版 `choicesDefinition` 36 格筛**选牌候选**：{before} → {pool.Count}；"
                       + $"`ta={ta}`，原版 `AbilityLogic__GetTargets.c:1086-1095`）");
             return pool;
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-11-05（执行写手 `B148_W8` · 账 `B146-S3-MOVETOPOS-145` + `B146-S3-CREATEATPOS-18`）
+        //  **造牌进牌库的演出信号**（判据 → `判据/B148_战斗表现施工单.md` §1·2）
+        //  ⚠️ 追加在类尾（`EffectResolver.cs` 账落点最深 `:21876`，本段在其后 ⇒ 零漂移）
+        // ==========================================================================================
+
+        /// <summary>`EvtKind.CardCreatedIntoDeck` 的**唯一发出口**（三个「造牌进牌库」落点共用）。
+        /// <para>**判据（逐跳）**：`AbilityLogic__PlayAbility.c:2557-2607`（能力 270 `createCardInDeck` 那支 ——
+        /// `:2573` 读 `SummonCriteria.createAtPos(+0x20)`、`:2588` 读 `moveToPos(+0x24)`，各自经 `GetPos` 解成坐标）
+        /// → `BattleManager__AddNewCardToDeck.c:71/94/98/112`（建卡视图 + 摆到起点 + 压动作号 `0x30`）
+        /// → `BattleManager._ResolveCreateDeckCard_d__513__MoveNext.c:50/79/96/111`（显形 → `CreateCardInGame` → `MoveToDeck` → 入牌库）
+        /// → `CardScript._CreateCardInGame_d__250__MoveNext.c:39-84`（三条同长补间，`SetEase(0xc)` = OutQuart）。</para>
+        /// <para>`caster` 取自**施放者**的 `abilitySummon` 行（原版那一支读的 `*(longlong*)(abilityData + 0x58)` = `SummonCriteria`，
+        /// 而 `abilityData.thisCard` 就是施放者）。三个落点的施放者**各不相同**（施放单位 / 播放中的战术卡 / 督军），
+        /// 取错会算出 `cap/mv = -1` ⇒ 表现层静默不播（⛔ 不是「原版没有」）。</para>
+        /// <para>⚠️ 取不到 `spec` ⇒ 两档都发 `-1`，**表现层自己决定不播**（原版 `GetPos` 返回 null 时
+        /// `PlayAbility.c:2581/2589` 直接收尾）。⛔ 别在这里猜档号。</para>
+        /// <para>🔴 走 `ctx.Signals.Add`、**不进 `ctx.Events`** ⇒ 不动 `NetProtocol.Fingerprint`
+        /// （同族先例 = `EvtKind.QuestSpent` / `WarlordTransform`，见那两档的 doc）。</para></summary>
+        static void EmitCardCreatedIntoDeck(BattleContext ctx, int owner, CardInstance made, CardDef caster)
+        {
+            if (ctx == null || made == null) return;
+            var spec = caster != null ? caster.AbilitySummonAt(0, 0) : null;
+            // 施放者格号：只给 `cap/mv ∈ {0 self, 1 cardTarget, 2 abilityTarget}` 那几档解析要用。
+            // ⚠️ `UnitState` **没有 `Slot` 字段** ⇒ 只能按引用在棋盘上找一次（本轮现核）。
+            int actorSlot = -1;
+            if (ctx.ActingUnit != null && owner >= 0 && owner < ctx.Players.Length)
+                for (int s = 0; s < BoardSpec.Size; s++)
+                    if (ReferenceEquals(ctx.Players[owner].Board[s], ctx.ActingUnit)) { actorSlot = s; break; }
+            ctx.Signals.Add(new BattleEvent
+            {
+                Kind = EvtKind.CardCreatedIntoDeck,
+                Player = owner,
+                Slot = -1,                                   // 造出来的牌**不在棋盘任何格**上（同 `QuestSpent` 的 `-1` 口径）
+                CardId = made.Card != null ? made.Card.Name : null,
+                InstanceId = made.Id,
+                TargetSlot = actorSlot,                      // = **施放者**的格号（-1 = 没有施放者：任务点阈值那条路）
+                CreateAtPos = spec != null ? spec.CreateAtPos : -1,
+                MoveToPos = spec != null ? spec.MoveToPos : -1,
+                Turn = ctx.Turn,
+            });
         }
     }
 }

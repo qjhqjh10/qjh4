@@ -449,7 +449,7 @@ namespace CardPresentation
         /// ⚠️ 还原必须排在 `FitWindow` **之后**（`SetAutoFitBox` 内部还会再 `SetWrapWidth` 一次）。</para></summary>
         Label Txt(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                   float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f, bool wrapOff = false,
-                  TmpFont.Face face = TmpFont.Face.Cjk)
+                  TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；本页 `name` 那三颗 Asar 站点本就显式传 `LatinUi`；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             var f = R(r);
             var lb = _win.TextBox(parent, f, text, color, name, FS(fontPx), FS(autoMinPx), face: face);
@@ -530,7 +530,7 @@ namespace CardPresentation
         /// 同 `A1208` 的口径 —— 先查实那一站是不是标称抄错）。今天 `本文件 counter text` 就是这一档。</para></summary>
         Label Txt1(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                    float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                   TmpFont.Face face = TmpFont.Face.Cjk)
+                   TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             var f = R(r);
             // 折行开关（`wrapPx`）与自适应开关（`autoMinPx`）在这里拆开 —— 见上面那两段说明。

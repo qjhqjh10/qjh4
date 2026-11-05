@@ -62,7 +62,7 @@ namespace CardPresentation
         public Label Text(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                              int qOff, float autoMinPx, bool wrap, bool alignLeft,
                              float autoMaxPx = 0f, float autoBasePx = 0f,
-                             TmpFont.Face face = TmpFont.Face.Cjk)   // 🆕 2026-10-17（A1024③）：可选的字体面
+                             TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；转发给 `SocialPage.Text`，3 个 SocialView 子类跟着变）｜🆕 2026-10-17（A1024③）：可选的字体面
         { return Page.Text(parent, r, text, color, name, fontPx, QOff + qOff, autoMinPx, wrap, alignLeft,
                            autoMaxPx, autoBasePx, face); }
 

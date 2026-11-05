@@ -1268,7 +1268,7 @@ namespace CardPresentation
         /// 默认值 = 改本段之前的行为 ⇒ 既有 7 个调用点**零变化**。</para></remarks>
         Label Txt(Transform parent, PxRect parentR, PxRect r, string text, Color col, string name,
                   float px, Label.VAlign v, float autoMaxPx = AutoMaxPx,
-                  TmpFont.Face face = TmpFont.Face.Cjk, bool wrap = false,
+                  TmpFont.Face face = TmpFont.Face.LatinUi, bool wrap = false,   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Asar（本扇原版 `Alliance Panel` 的 `Title Text`/`Alliance Label`/`Alliance Name`/`NotInaAllianceText` 逐颗 `m_fontAsset` = Asar ⇒ 标题族；判据 `B144` §1·1；本文件 8 个调用点本就全显式传面 ⇒ 改缺省本周零渲染变化）
                   float autoBasePx = AutoBasePx)
         {
             Label lb;

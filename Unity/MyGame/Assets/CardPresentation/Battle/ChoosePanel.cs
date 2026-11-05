@@ -172,7 +172,7 @@ namespace CardPresentation
             var p = go.AddComponent<ChoosePanel>();
             p.Build(new Layout
             {
-                TitleCx = 967f, TitleCy = 106.5f, TitleW = 1344f, TitleH = 79.44f, TitlePx = 55f,
+                TitleCx = 967f, TitleCy = 106.5f, TitleW = 1307.064f, TitleH = 79.44f, TitlePx = 55f,   // ✅ 已复刻（2026-11-05 · B148-W3 · `B146-CHOOSETEXT-WIDTH`）：原版 TMP 挂在**子件** `/ChooseText/Text`（RT sd = −36.94,0 · rect **1307.06**×79.44 · 父 1344×79.44，`panel_0914b/p4_choose_tree.tsv`）⇒ 真实折行宽 = **1307.064**（⛔ 不是父件 1344）；同值先例 = `MulliganPanel.PromptBoxW` / `TurnW`
                 BarCx = 1588.80f, BarCy = 980.75f,
                 PlayCx = 1763.91f, PlayCy = 978.39f,
                 EyeCx = 143.40f, EyeCy = 946.83f,

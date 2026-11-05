@@ -118,9 +118,9 @@ public static class B141_W71_Assert
             Check(false, "B 组抛异常（后面的断言**没跑到**，⛔ 别读成通过）：" + e.GetType().Name + ": " + e.Message
                        + "\n" + e.StackTrace);
         }
-        finally { UnityEngine.Object.DestroyImmediate(root); }
+        // 🔴 2026-11-05（`B148`）：原来在 `finally` 里就 `DestroyImmediate(root)`，而紧跟的 `D_GreyFamilyUnchanged(root.transform)` 要读它 ⇒ MissingReferenceException，`RunCore` 在 `ShellScene.cs:11301` 中断（其后断言一条没跑）。销毁挪到 D 组之后。
         C_SourceGuards();
-        D_GreyFamilyUnchanged(root.transform);
+        D_GreyFamilyUnchanged(root.transform); UnityEngine.Object.DestroyImmediate(root);
         Debug.Log(Tag + " 合计：✓ " + _pass + " · ✗ " + _fail + "（共 " + (_pass + _fail) + " 条）");
     }
 

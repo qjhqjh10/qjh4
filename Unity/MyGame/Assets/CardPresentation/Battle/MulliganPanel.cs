@@ -135,7 +135,7 @@ namespace CardPresentation
             // 🔴 **2026-10-18（W6）**：字号跟着**这一串**的语种走 —— 倒计时那几秒写的是**数字**
             //    （拉丁 ⇒ `SetCapHeight(0.72em)`），而默认那串在中文档是汉字（⇒ `SetGlyphHeight(1em)`）。
             //    写死一种的话，另一档不是小 28% 就是大 39%（本工程记过的那条：`Loc.HasCjk` 是唯一一份判据）。
-            SetScriptFont(_doneText, s, DoneFsBase);
+            SetScriptFont(_doneText, s, DoneFsBase); if (_doneText.AutoSizing) Label.ApplyAutoFitEm(_doneText, DoneBoxW, DoneBoxH, DoneFsMin, DoneFsMax, DoneFsBase);   // ✅ 2026-11-05（B148-W3）：换文案可能翻字体面（中文「继续」⇄ 倒计时秒数）⇒ **按新面重放三档**（`ReplayFitForFace` 用的是旧面记下的 px，差 0.853 倍）。`AutoSizing` 闸 = 建件那一趟还没设过框（`:946` 之后才设），别抢跑
         }
 
         /// <summary>自检用：那颗钮上现在写的是什么。
@@ -178,7 +178,7 @@ namespace CardPresentation
             // 🔴 **字号按【这一串字】的语种选** —— 汉字 ≈ 1 em、拉丁大写 ≈ 0.72 em
             //    （判据 = `Battle/Label.SetCapHeight`/`SetGlyphHeight` 的 doc，`Loc.HasCjk` 是那条判据的**唯一一份**）。
             //    原来这里写死 `SetGlyphHeight`：中文档对，但英文档（`You go second`）会**大 39%**。
-            SetScriptFont(_turnText, t, TurnPx);
+            SetScriptFont(_turnText, t, TurnPx); if (_turnText.AutoSizing) Label.ApplyAutoFitEm(_turnText, TurnW, TurnH, 18f, 55f, TurnFsBase);   // ✅ 2026-11-05（B148-W3）：同 `SetDoneText` —— 换语种后按新面重放三档（原版那一行也是 auto 18~55）
         }
 
         /// <summary>提示行那条的词条键 —— **只此一份**（`Build()` 与自检都取它）。
@@ -879,7 +879,7 @@ namespace CardPresentation
             //     （`Label.SetAutoFitBox` 内部拿它写 TMP 的 `sizeDelta`、并用 `NominalPx()`（按档取）折算字号
             //      ⇒ 喂世界单位会让框变成 1/108、字号收敛到一个荒谬的小值，**不报错**）。
             if (p._prompt != null)
-                p._prompt.SetAutoFitBox(PromptBoxW, PromptBoxH, PromptFsMin, PromptFsMax, PromptFsBase);
+                Label.ApplyAutoFitEm(p._prompt, PromptBoxW, PromptBoxH, PromptFsMin, PromptFsMax, PromptFsBase);   // ✅ 已复刻（2026-11-05 · B148-W3 · `B146-MULLIGAN-AUTOFIT`）：原版三档是 **fontSize 单位**，喂 `SetAutoFitBox` 前必须经 `ApplyAutoFitEm` 折成 px 口径（CJK 面 = 0.853 em；直传会让中文 max 变 65/0.853 = 76.2）
 
             // 🆕 2026-09-26：**开局谁先手那一行** —— 判据（唯一）→ `资料/加时与冲突模式_原版规格.md` §2.8：
             //   原版在 `MulliganManager.ActivateMulligan` 里把这一行的词条**按先手/后手二选一**
@@ -912,7 +912,7 @@ namespace CardPresentation
             //      **原版字段 36**（`TurnFsBase`）—— 同一次现读的 `MonoBehaviour_3856.json` 里
             //      `m_fontSizeBase = 36`。`m_fontSize = 55` 那一档仍由 `SetScriptFont(…, TurnPx)` 提供。
             if (p._turnText != null)
-                p._turnText.SetAutoFitBox(TurnW, TurnH, 18f, 55f, TurnFsBase);   // 🔴 框 = **设计 px**（去掉 `U()`，同 `_prompt`）
+                Label.ApplyAutoFitEm(p._turnText, TurnW, TurnH, 18f, 55f, TurnFsBase);   // 🔴 框 = **设计 px**（去掉 `U()`，同 `_prompt`）；✅ 2026-11-05（B148-W3）：三档改经 `ApplyAutoFitEm` 折 px（同病，见 `_prompt` 那行）
                                                                                  // 🔴 base = **原版 `m_fontSizeBase` = 36**（见 `TurnFsBase`；原来喂的是 `TurnPx` 55）
 
             // 完成按钮：底图 `40k_bt_underbutton`（原版 577.5×63.8）+ 圆形播放钮 `40k_UI_bt_play`
@@ -943,7 +943,7 @@ namespace CardPresentation
             //   ⚠️ **放在 `SetDoneText` 之后**：那一句会按语种重设字号（它只提供起点），
             //     框一旦设上，最终大小由 TMP 在 `[18,45]` 里自己收敛。
             if (p._doneText != null)
-                p._doneText.SetAutoFitBox(DoneBoxW, DoneBoxH, DoneFsMin, DoneFsMax, DoneFsBase);   // 🔴 框 = 设计 px
+                Label.ApplyAutoFitEm(p._doneText, DoneBoxW, DoneBoxH, DoneFsMin, DoneFsMax, DoneFsBase);   // 🔴 框 = 设计 px · ✅ 2026-11-05（B148-W3 · `B146-MULLIGAN-AUTOFIT`）：三档 = 原版 `m_fontSizeMin/Max/Base`(18/45/36) **fontSize 单位** ⇒ 经 `ApplyAutoFitEm` 折 px；直传会让中文「继续」的 max 变 52.7、垂直闸放行到 48.1（溢出 62.242 高的框）
 
             // 眼睛（原版 `HideMulliganButton`，图 `40k_ui_bt_eye`）—— 暂时收起卡片上的按钮
             p._eye = Img(frame, CardArt.Ui("40k_UI_bt_eye"), "MulliganHideButton", EyeCx, EyeCy, EyeH, Z);
@@ -1284,7 +1284,7 @@ namespace CardPresentation
             return fx != null ? fx.TextureNameForTest : null;
         }
 
-        void ClearCardButtons()
+        void ClearCardButtons(bool restorePoses = true)   // 🆕 2026-11-05（B148_W8）：`restorePoses: false` = 换牌收尾演出期间的「半收」（只收可点件，⛔ 不把正飞回牌堆的那几张拉回原位）—— 见 `BeginSettleHold`
         {
             for (int i = 0; i < _cardBtns.Count; i++) if (_cardBtns[i] != null) Kill(_cardBtns[i].gameObject);
             for (int i = 0; i < _cardTexts.Count; i++) if (_cardTexts[i] != null) Kill(_cardTexts[i].gameObject);
@@ -1307,7 +1307,7 @@ namespace CardPresentation
             //   `HandLayout.Place` 在实机上走的是 `animateRelayout` 补间（只写 `transform.localScale`、
             //   **不写 `_baseScale`**）⇒ 之后玩家一悬停（`SetHighlight(Hover)` → `ApplyScale`）那张牌会
             //   **弹到换牌区尺度 × 1.05**（比手牌大 77%）。批处理里 `animateRelayout=false` ⇒ 结构上测不出来。
-            for (int i = 0; i < _cards.Count && i < _savedPos.Count; i++)
+            for (int i = 0; restorePoses && i < _cards.Count && i < _savedPos.Count; i++)   // 🆕 B148_W8：`BeginSettleHold` 传 false ⇒ 这一整段跳过（位姿归飞回补间，⛔ 别在这里抢）
             {
                 if (_cards[i] == null) continue;
                 _cards[i].SetPose(_savedPos[i], i < _savedRotZ.Count ? _savedRotZ[i] : 0f,
@@ -1362,7 +1362,7 @@ namespace CardPresentation
         /// 收成一条判据之后，换牌期的行为**零变化**（z 相同 ⇒ 仍取扫到的第一张 = 原来的下标序结果）。</para></summary>
         public CardView CardAt(Vector3 world)
         {
-            return CardInteraction.Frontmost(_cards, world);
+            return (BattlePointerRouter.Available && BattlePointerRouter.HoverCard != null && _cards.Contains(BattlePointerRouter.HoverCard)) ? BattlePointerRouter.HoverCard : CardInteraction.Frontmost(_cards, world);   // 🆕 2026-11-05（B148_W8 · 战-T09 S3）：uGUI 送达优先；⚠️ 只认换牌区自己那几张（⛔ 别把棋盘上的卡当换牌卡）
         }
 
         /// <summary>指针在「完成换牌」上吗。
@@ -2001,6 +2001,25 @@ namespace CardPresentation
         static void PlayButtonCue(string node)
         {
             WindowSounds.PlayFx(WindowSounds.DefaultButtonCue, "换牌面板 `" + node + "`");
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-05（执行写手 `B148_W8` · 账 `PlayerHand.FinishMulligan` 定档 C 的理由②）
+        //  **面板收掉的时机** —— 判据 → `判据/B148_账级核_L1战斗逻辑.md` §5
+        //  ⚠️ 追加在类尾（账里 `MulliganPanel.cs` 落点最深 `:2001`）
+        // ==================================================================
+
+        /// <summary>换牌收尾演出期间的「**半收**」：收掉可点件（防二次提交）、清 `_cards`（防被摆回换牌区），
+        /// **但既不还位姿、也不关遮罩** —— 那几张正飞回牌堆，位姿归补间。
+        /// <para>**为什么不是直接 `Close()`**：原版 `PlayerHand._FinishMulligan_d__52__MoveNext.c` 的次序是
+        /// 「逐张 `ReturnToDeckAnim` → 补一张 → … → 全部换完再等 `TimeToDraw×2.0` → 之后才
+        /// `CompleteMulliganPhase`（面板收掉）」。我们原来在**开始飞回之前**就 `Close()` ⇒ 玩家看到的顺序是
+        /// 「面板先没 → 牌才飞」，与原版相反（`B148` 账级核把这一条列为降 C 的第二个理由）。</para>
+        /// <para>⚠️ 别把这里改成 `Close()`：`Close()` 会 `ClearCardButtons()`（默认 `restorePoses: true`）
+        /// 把这几张**拉回换牌区原位**，与飞回补间抢同一批 `SetPose` ⇒ 牌会「抖一下再飞」。</para></summary>
+        public void BeginSettleHold()
+        {
+            ClearCardButtons(restorePoses: false);
         }
     }
 }

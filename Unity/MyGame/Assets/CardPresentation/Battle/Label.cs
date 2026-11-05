@@ -662,8 +662,8 @@ namespace CardPresentation
         /// ⚠️ 与 `Shell/PointerLayer.cs:47` · `Shell/WindowButton.cs` 的 `WindowButton` 类注（⚠️ 2026-10-19 订正：原写 `Shell/PromptPopup.cs`）· `资料/已知的坑.md:704`
         /// 那三条**不矛盾**：它们说的是「**建的时候就是活的**那些脚本，编辑模式下 `OnEnable` 不会再触发」——
         /// `OnEnable` 只在**激活那一刻**跑。
-        /// ⚠️ 拿不到字体资产（点阵后端）时 `_tmp == null` ⇒ 待办恒空。</para></summary>
-        void OnEnable() { TryApplyPendingWrap(); ForceMeshUpdateOnce(); }
+        /// ⚠️ 拿不到字体资产（点阵后端）时 `_tmp == null` ⇒ 待办恒空。🔴 **2026-11-05（`B148-W3` · `B123-ARMYTITLE`）补**：激活时**还要兑现 `_pendAlignX`**（见 <see cref="TryApplyPendingAlignOnEnable"/>）—— 原来唯一兑现口是 <see cref="RefreshBounds"/> 尾句，而本函数只调 `TryApplyPendingWrap`、后者对**没设过折行宽**的标签首句就 return ⇒ 「未激活时 `AlignLeftOn` 欠下的对齐」永远不会兑现（`Txt()` 建的那一族 = 恒不设折行宽）。</para></summary>
+        void OnEnable() { TryApplyPendingWrap(); ForceMeshUpdateOnce(); TryApplyPendingAlignOnEnable(); }
 
         /// <summary>有待办就兑现：**生成**一整个版面 + **重新量一次**（新版面要落回 `_tmpW/_tmpH`，
         /// 否则 `WorldW` 还停在旧值）。⛔ 只做这两件 —— **不回写**模式 / 宽度（理由见 `SetWrapWidth`）。
@@ -2957,5 +2957,61 @@ namespace CardPresentation
         public static void ResetSmallScreenSetCountForTest() { SmallScreenSetCount = 0; }
 
         int _ssSetCount;
+
+        // ==================================================================
+        //  ✅ 已复刻（2026-11-05 · B148-W3 · 判据 `判据/B147_对账_R3界面外壳.md` 的 `B123-ARMYTITLE` 行 +
+        //    `判据/B146_字体CJK与确认键判据.md` §五）
+        //  ⚠️ 一律追加在**类尾**（本文件被账按 `文件:行号` 引用多处；插在中段会让下游落点整体漂移）。
+        // ==================================================================
+
+        /// <summary>🔴 **2026-11-05（`B148-W3` · `B123-ARMYTITLE` 的离线半）**：`OnEnable` 里兑现一次
+        /// <see cref="_pendAlignX"/>。
+        /// <para>**为什么需要**：`_pendAlignX` 的唯一兑现口是 <see cref="RefreshBounds"/> 尾句
+        /// （<see cref="TryApplyPendingAlign"/>），而 `OnEnable` 只调 <see cref="TryApplyPendingWrap"/> ——
+        /// 后者的**首句**是 `if (_pendWrapW &lt; 0f …) return;`，对**从没设过折行宽**的标签（`Txt()` 建的那一族、
+        /// `Deck/DeckRuntime.cs` 的「军队」抬头就是）**恒早退** ⇒ 未激活时 `AlignLeftOn`/`AlignRightOn` 欠下的
+        /// 对齐**永远不会兑现**（字块停在框心 = 用户实拍那条「军队」跑出抽屉右沿的真机 bug）。</para>
+        /// <para>⚠️ **空文案不兑现**：空串的 `textBounds` 宽 ≈ 0（`RefreshBounds` 会把它当成一次「真测量」并
+        /// 把待办一次性烧掉）⇒ 留着等 `SetText` 那一拍（`SetTextTmp` 尾句的 `RefreshBounds`）再兑。</para>
+        /// <para>⚠️ **与折行那件事分开**：⛔ 别去删 `TryApplyPendingWrap` 的首句早退（它挡的是「未激活时生成
+        /// = 半成品网格」那条老坑），两件事各走各的。</para></summary>
+        void TryApplyPendingAlignOnEnable()
+        {
+            if (float.IsNaN(_pendAlignX) || _tmp == null) return;
+            if (string.IsNullOrEmpty(_text)) return;
+            ForceMeshUpdateOnce();   // 幂等：`OnEnable` 那一路刚跑过；`Start` 那一路补一次（那时 TMP 的 `Awake` 一定已跑过）
+            RefreshBounds();         // 真测量落定的那一拍，尾句 `TryApplyPendingAlign` 兑现
+        }
+
+        /// <summary>帧循环下的**第二道保险**（同 <see cref="TryApplyPendingAlignOnEnable"/>）：`OnEnable` 那一刻
+        /// TMP 子件的 `Awake` 可能还没跑过（`AddComponent` 建它时父节点若是关着的）⇒ 量不出宽、待办留着；
+        /// `Start` 在激活后的第一帧跑，那时一定量得准。**批处理没有帧循环** ⇒ 那一档只能靠 `OnEnable` 那一发。
+        /// ⚠️ 幂等：没有待办时是一句 `return`。</summary>
+        void Start() { TryApplyPendingAlignOnEnable(); }
+
+        /// <summary>✅ **2026-11-05（`B148-W3`）**：把**原版 TMP 的 `m_fontSizeMin/Max/Base`**（fontSize 单位 = 拉丁面的 em）
+        /// 换成 <see cref="SetAutoFitBox"/> 收的 **px 口径**，再开自适应 —— 本工程唯一那条 px 口径**按字体面分两支**：
+        /// 拉丁面 = em（`EmPerFontSize = 0.1` × `UguiFontScale 10` ⇒ 1:1）、`Face.Cjk` = **汉字墨高**
+        /// （`WorldGlyphPerFontSize ≈ 0.0853` ⇒ **0.853 em**）。把原版那个 45 直接填进去，中文标签的
+        /// `fontSizeMax` 会变成 `45 / 0.853 = 52.7`（+17.2%）⇒ 垂直闸放行到 48.1，溢出原版框。
+        /// <para>判据 → `判据/B146_字体CJK与确认键判据.md` §一/§三/§四（原版 `ContinueText` = `45/base36/auto1/[18,45]`、
+        /// 框 372.857×43.622；`Battle Arena 1.unity:225355-225360`）。同族实现先例 = `CardChoicePanel.ApplyAutoFit`
+        /// （⚠️ 那份是同一算式的第二份拷贝，收口到本方法的活留给下一批 —— `CardChoicePanel.cs` 不在本波白名单）。</para>
+        /// <para>⚠️ **换文案可能翻字体面**（CJK ⇄ 拉丁）⇒ 调用方在**每次改文案之后**要再调一次本方法，
+        /// 不能只靠 `Label.ReplayFitForFace`（它按**旧面**记下的 px 复算，差 0.853 倍）。</para></summary>
+        public static void ApplyAutoFitEm(Label lb, float boxW, float boxH, float minEm, float maxEm, float baseEm)
+        {
+            if (lb == null) return;                 // 拿不到字体资产（点阵后端）⇒ `SetAutoFitBox` 自己会出声，这里不重复
+            var f = lb.ActualFace;
+            lb.SetAutoFitBox(boxW, boxH,
+                             lb.FontSizeToPxNow(minEm, f),
+                             lb.FontSizeToPxNow(maxEm, f),
+                             lb.FontSizeToPxNow(baseEm, f));
+        }
+
+        /// <summary>自检读口：**当前折行宽**（本标签所在空间的单位 —— uGUI 档 = 设计 px / 世界档 = 世界单位）。
+        /// 来源 = TMP 子件的 `rectTransform.sizeDelta.x`（<see cref="TmpFont.SetWrapWidthRect"/> 写的就是它，
+        /// 之后 `SetAutoFitBox` 只改 `.y`）。点阵后端（`_tmp == null`）⇒ **0**（如实报「那个后端没有折行这回事」）。</summary>
+        public float WrapWidthForTest { get { return _tmp != null ? _tmp.rectTransform.sizeDelta.x : 0f; } }
     }
 }

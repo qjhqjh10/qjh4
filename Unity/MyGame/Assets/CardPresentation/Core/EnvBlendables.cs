@@ -154,7 +154,7 @@ namespace CardPresentation
             if (ta == null)
             {
                 Debug.LogError("[EnvBlend] 找不到 `Resources/EnvBlendables.json` ⇒ 环境混合组件挂不上。"
-                             + "跑一次 `python 工具/gen_env_blendables.py` 生成。");
+                             + "跑一次 `python 工具/gen_env_blendables.py --write` 生成。");
                 return;
             }
             var f = JsonUtility.FromJson<File>(ta.text);

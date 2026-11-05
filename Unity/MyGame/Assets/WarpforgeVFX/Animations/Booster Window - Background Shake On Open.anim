@@ -28,8 +28,8 @@ AnimationClip:
         outSlope: 0
         tangentMode: 0
         weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
+        inWeight: 0.3333333
+        outWeight: 0.3333333
       - serializedVersion: 3
         time: 0.5833333
         value: 0.2
@@ -37,8 +37,8 @@ AnimationClip:
         outSlope: 0.8727274
         tangentMode: 0
         weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
+        inWeight: 0.3333333
+        outWeight: 0.3333333
       - serializedVersion: 3
         time: 0.9166667
         value: 0.4
@@ -46,15 +46,15 @@ AnimationClip:
         outSlope: 0
         tangentMode: 0
         weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
+        inWeight: 0.3333333
+        outWeight: 0.3333333
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: floatProperty1.value
     path: 
     classID: 114
-    script: {fileID: -1887485317901086766, guid: 00000000000000000000000000000000, type: 0}
+    script: {fileID: 11500000, guid: c69dab8c0b494019bb4e17a0d92b9e79, type: 3}
     flags: 16
   - serializedVersion: 2
     curve:
@@ -67,17 +67,17 @@ AnimationClip:
         outSlope: 0
         tangentMode: 0
         weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
+        inWeight: 0.3333333
+        outWeight: 0.3333333
       - serializedVersion: 3
-        time: 0.21666667
+        time: 0.2166667
         value: 0.35
         inSlope: 0
         outSlope: 0
         tangentMode: 0
         weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
+        inWeight: 0.3333333
+        outWeight: 0.3333333
       - serializedVersion: 3
         time: 0.5833333
         value: 0.35
@@ -85,8 +85,8 @@ AnimationClip:
         outSlope: 0
         tangentMode: 0
         weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
+        inWeight: 0.3333333
+        outWeight: 0.3333333
       - serializedVersion: 3
         time: 0.9166667
         value: 0
@@ -94,15 +94,15 @@ AnimationClip:
         outSlope: 0
         tangentMode: 0
         weightedMode: 0
-        inWeight: 0.33333334
-        outWeight: 0.33333334
+        inWeight: 0.3333333
+        outWeight: 0.3333333
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
     attribute: floatProperty2.value
     path: 
     classID: 114
-    script: {fileID: -1887485317901086766, guid: 00000000000000000000000000000000, type: 0}
+    script: {fileID: 11500000, guid: c69dab8c0b494019bb4e17a0d92b9e79, type: 3}
     flags: 16
   m_PPtrCurves: []
   m_SampleRate: 60
@@ -137,4 +137,5 @@ AnimationClip:
   m_EulerEditorCurves: []
   m_HasGenericRootTransform: 0
   m_HasMotionFloatCurves: 0
-  m_Events: []
+  m_Events:
+  []

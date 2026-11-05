@@ -486,7 +486,7 @@ namespace CardPresentation
                 {
                     Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的旁挂里**没有 `preventDestroy`** "
                                    + "—— 这一条不建（拿默认值顶数据 = 静默错，本仓红线）。出声，不静默。"
-                                   + "跑一次 `python 工具/gen_env_blendables.py` 重生成旁挂");
+                                   + "跑一次 `python 工具/gen_env_blendables.py --write` 重生成旁挂");
                     return null;
                 }
 
@@ -553,7 +553,7 @@ namespace CardPresentation
             //   ⇒ 不点名就查不出是旁挂的目标种类变了还是抄错了。
             Debug.LogWarning($"[EnvBlend] `MakeAnimFx`：`{it.cls}`(owner=`{it.owner}`) 的 `targets[]` 里"
                            + "**一条 `kind == \"animfx\"` 的目标都没有** ⇒ 这一条 `AnimFXController` 不建"
-                           + "（出声，不静默）。判据 = 旁挂（跑 `python 工具/gen_env_blendables.py` 重生成）"
+                           + "（出声，不静默）。判据 = 旁挂（跑 `python 工具/gen_env_blendables.py --write` 重生成）"
                            + "；若原版这类本来就不带 `AnimFXController` ⇒ 那是数据、不是缺口，但仍要说出来");
             return null;
         }
@@ -607,7 +607,7 @@ namespace CardPresentation
             {
                 Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的旁挂里**没有 `{arr}.count`** —— "
                                + $"这一层（原版 `{arr}`）没接上，这个实例这一层是空的。跑一次 "
-                               + "`python 工具/gen_env_blendables.py` 重生成旁挂（出声，不静默）");
+                               + "`python 工具/gen_env_blendables.py --write` 重生成旁挂（出声，不静默）");
                 return new PlaySoundOnTime[0];
             }
             int n = (int)nf;
@@ -696,7 +696,7 @@ namespace CardPresentation
             {
                 Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的旁挂里**没有 `modules.count`** —— "
                                + "这一层（原版 `modules`）没接上，这个实例这一层是空的。跑一次 "
-                               + "`python 工具/gen_env_blendables.py` 重生成旁挂（出声，不静默）");
+                               + "`python 工具/gen_env_blendables.py --write` 重生成旁挂（出声，不静默）");
                 return outp;
             }
             int n = (int)nf;
@@ -895,7 +895,7 @@ namespace CardPresentation
             if (ta == null)
             {
                 NoteSceneStanFail("资源取不到", "`Resources/EnvBlendables.json` 取不到",
-                                  "跑一次 `python 工具/gen_env_blendables.py`");
+                                  "跑一次 `python 工具/gen_env_blendables.py --write`");
                 return;                               // ⛔ **不置 `_sceneStanTried`** ⇒ 下一次会再读
             }
             var f = JsonUtility.FromJson<SceneStandaloneFile>(ta.text);
@@ -905,7 +905,7 @@ namespace CardPresentation
                 _sceneStan = null; _sceneStanBuild = null;
                 NoteSceneStanFail("JSON 解析失败", "`EnvBlendables.json` 解析不出 `SceneStandaloneFile`"
                                   + "（文件坏了 / 只写了一半？）",
-                                  "重跑 `python 工具/gen_env_blendables.py`");
+                                  "重跑 `python 工具/gen_env_blendables.py --write`");
                 return;                               // ⛔ 不置
             }
             _sceneStan = f.sceneStandalone;
@@ -915,7 +915,7 @@ namespace CardPresentation
                 NoteSceneStanFail("缺 sceneStandalone 一节", "场景侧那些常驻 `AnimFXController` 这一趟"
                                   + "**都建不出来**（其中 `battlearena2` 的 `RocketTrail` 那颗一销毁要连带"
                                   + " 6 个子件粒子）",
-                                  "重跑 `python 工具/gen_env_blendables.py`");
+                                  "重跑 `python 工具/gen_env_blendables.py --write`");
                 return;                               // ⛔ 不置
             }
             if (_sceneStanBuild == null)
@@ -923,7 +923,7 @@ namespace CardPresentation
                 NoteSceneStanFail("缺 sceneStandaloneBuild 一节", "消费方（`BuildSceneAnimFx`）那道守卫"
                                   + "（`_sceneStan == null || _sceneStanBuild == null`）会让它**整场都不建**"
                                   + "（连节点与改挂一起跳过）",
-                                  "重跑 `python 工具/gen_env_blendables.py`");
+                                  "重跑 `python 工具/gen_env_blendables.py --write`");
                 return;                               // ⛔ 不置
             }
             _sceneStanTried = true;                   // ✅ **只有走到这里才算「读过」**（A553 的全部改动就是这一句的位置）
@@ -1124,7 +1124,7 @@ namespace CardPresentation
                 //      不是「当场能恢复」；要恢复得重进一次编辑器 / 重跑一次批处理。
                 Debug.LogWarning($"[EnvBlend] 场景侧 `AnimFXController`（`{arenaKey}`）**一条都没建**："
                                + "旁挂**没读到**（`_sceneStan` / `_sceneStanBuild` 有一个是 null）"
-                               + " —— 跑 `python 工具/gen_env_blendables.py` 重生成 `Resources/EnvBlendables.json`"
+                               + " —— 跑 `python 工具/gen_env_blendables.py --write` 重生成 `Resources/EnvBlendables.json`"
                                + "（出声，不静默）。⚠️ 这一趟**不记** `_sceneAnimFxRoot`：记了会让同一个实例"
                                + "再进来时谎报「已经建过」");
                 return 0;
@@ -1144,7 +1144,7 @@ namespace CardPresentation
                 Debug.Log($"[EnvBlend] 场景侧 `AnimFXController`（`{arenaKey}`）：旁挂 `sceneStandalone` 里"
                         + "**这一场没有条目** ⇒ 一条都不建（正常 —— 原版 7 个实例只在 `battlearena2` /"
                         + " `battlearena3` / `battlearenatauviorla` 三场）。若这一场本该有 ⇒ 旁挂旧了，"
-                        + "跑 `python 工具/gen_env_blendables.py` 重生成（出声，不静默）");
+                        + "跑 `python 工具/gen_env_blendables.py --write` 重生成（出声，不静默）");
                 _sceneAnimFxRoot = arenaRoot;
                 return 0;
             }
@@ -1191,7 +1191,7 @@ namespace CardPresentation
                                                   : $"；⚠️ 但它的 `localPosition` 与旁挂**不一致**"
                                                   + $"（树里 {exist.localPosition} vs 旁挂 "
                                                   + $"{Vec3(n.localPos, Vector3.zero)}）—— 这一档**不改写它**，"
-                                                  + "要一致就重跑 `python 工具/gen_env_blendables.py` / 重烘 arena prefab"));
+                                                  + "要一致就重跑 `python 工具/gen_env_blendables.py --write` / 重烘 arena prefab"));
                         continue;
                     }
                     var go = new GameObject(nodeName);
@@ -1223,7 +1223,7 @@ namespace CardPresentation
                              + "（原版这 5 个里有 3 个根本不跑 ⇒ 不记下来就不该建）");
                     Debug.LogWarning($"[EnvBlend] `AnimFXController`(`{t.leaf}`) 的旁挂里**没有 `enabled` / "
                                    + "`goActive`** —— 这一条不建（拿默认值顶数据 = 静默错）。"
-                                   + "跑一次 `python 工具/gen_env_blendables.py` 重生成旁挂（出声，不静默）");
+                                   + "跑一次 `python 工具/gen_env_blendables.py --write` 重生成旁挂（出声，不静默）");
                     continue;
                 }
                 bool goActive = goAct != 0f;

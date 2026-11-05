@@ -641,6 +641,16 @@ public static class MainMenuScene
         //   · ⛔ **`orthographic / fieldOfView / cullingMask(32)` 三格不照抄**：前两者是架构账 `A2098`（全线正交、
         //     按「可见高 10 世界单位」布局，改透视整体缩 0.687×）；后者要求 UI 在层 5，而我们 UI 在层 0 ⇒ 写 32 = 界面全消失。
         //     三者与 `#13` / `B143-UI-LAYER5` 同族，⛔ 别在这里单独改。
+        var rootGo = new GameObject("MainMenu");
+        var rt = rootGo.AddComponent<MainMenuRuntime>();
+        rt.Build();
+        root = rootGo.transform;
+
+        // 🔴 2026-11-05（`B148`）**就地订正（铁律 5）**：这六格原先写在 `rt.Build()` **之前**，而
+        //   `MainMenuRuntime.Build()` 内部（`Shell/MainMenuRuntime.cs:456`）会**再跑一次** `LayoutSpace.Apply(cam)`，
+        //   把 near/far 打回 `0.01 / 200`。实测：`MainMenuScene.BuildAndSaveScene` 跑完，盘上 `MainMenu.unity`
+        //   仍是 `near clip plane: 0.01` / `far clip plane: 200`（六格里只有 Occlusion 生效）。
+        //   ⇒ 挪到 `rt.Build()` **之后**；⛔ 别再挪回去。
         cam.depth = -1f;              // 原版 `m_Depth: -1`（原版主菜单那台先画；我们的壳相机会在切场景前被关掉，不会双渲）
         cam.nearClipPlane = 0.3f;     // 原版 `near clip plane: 0.3`
         cam.farClipPlane = 1000f;     // 原版 `far clip plane: 1000`
@@ -648,10 +658,6 @@ public static class MainMenuScene
         cam.allowMSAA = false;        // 原版 `m_AllowMSAA: 0`
         cam.useOcclusionCulling = false; // 原版 `m_OcclusionCulling: 0`
 
-        var rootGo = new GameObject("MainMenu");
-        var rt = rootGo.AddComponent<MainMenuRuntime>();
-        rt.Build();
-        root = rootGo.transform;
         return rt;
     }
 

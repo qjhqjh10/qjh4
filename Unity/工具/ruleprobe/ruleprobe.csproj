@@ -144,6 +144,12 @@
          ⚠️ 它**不需要**新增别的编译项：`CardDatabase.cs`（上面已列）＋ `Core/*.cs` 就够
          （走 `CardDatabase.Parse` 真实装载链 ⇒ 量得到 `AttachTriggerOpsByNumber` 挂的那张表）。 -->
     <Compile Include="TriggerOpsProbe.cs" />
+    <!-- 🆕 `enchant`（`B148_W5`，2026-11-05 · 账 `B124-TA10COVER` 的 ruleprobe 半）：
+         「打出即挂附魔」反查表（`CardDatabase._enchantGrants`）的**只读**读数口 + 三条反例自检。
+         判据 → `判据/B148_战斗表现施工单.md` §5。
+         ⚠️ 本 csproj 关了 `EnableDefaultCompileItems` ⇒ 漏了这行是构建期 `CS0103 名称"EnchantProbe"`。
+         ⚠️ 它**不需要**新增别的编译项：`CardDatabase.cs`（上面已列）＋ `Core/*.cs` 就够。 -->
+    <Compile Include="EnchantProbe.cs" />
     <!-- 被测对象：相对路径（原来写死 D:/4/... 绝对路径 ⇒ 换机器/换盘就编不过）。
          🔴 从 工具/ruleprobe/ 上去两级才是 Unity/ ⇒ ../../MyGame/... -->
     <Compile Include="../../MyGame/Assets/RuleEngine/Core/*.cs" />

@@ -457,7 +457,7 @@ namespace CardPresentation
         public Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
                           Color color, string name, float fontPx = 0f,
                           float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                          TmpFont.Face face = TmpFont.Face.Cjk)
+                          TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；本层被 `CollectionWindow`/`ShopWindow`/`CampaignTab` 一族共用；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             // **裁切**：① 「**整块**在视口外 ⇒ 不建」—— 收口到 `MenuDraw.Visible`（🔴 **2026-10-10 订正（A184）**：
             //   原写「A25④ 那四处内联的唯一实现」，那四处内联早已收口 ⇒ **现在它是全壳唯一一份求交**）；
@@ -514,7 +514,7 @@ namespace CardPresentation
         /// ⚠️ `SetAutoFitBox` 内部按**比例**算 min/max（单位同 `fontSize`，不是世界单位 —— 直接填 px/108 会把字号压到 0.3px）。</summary>
         public Label TextBox(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                              float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                             TmpFont.Face face = TmpFont.Face.Cjk)
+                             TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             // 🔴 **2026-09-24**：实现挪到 `MenuDraw.TextBox`（活动窗那几扇也要用），这里**转调**；
             //    只有本层有 `Clip`，所以那道「整块在视口外就不建」的判断留在这儿。

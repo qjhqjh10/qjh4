@@ -219,8 +219,8 @@ namespace CardPresentation
         //   本表把「原版那颗 TMP 用哪份资产」固化成**一处可机检的映射**，⛔ **不新增任何渲染逻辑**。
         //
         // 🔴 **口径三条（⛔ 别推翻）**：
-        //   ① **缺省面仍是 `Face.Cjk`** —— 本表**不改任何缺省值**（`MenuDraw.Text` / `NewText` / `Label` 的默认逐位不变），
-        //      只给**显式接线**的站点提供「该传哪一面」的唯一出处。
+        //   ① **本表本身不写缺省值**；缺省面自 2026-11-05（`B148-W3`）起已由 `Face.Cjk` 改成 **`Face.LatinCardBody`**
+        //      （`MenuDraw.Text` / `TextCore` / `TextBox` / `TmpFont.NewText` 五参重载；判据 = `判据/B144_字体主面施工单.md` §1·1/§1·2）。
         //   ② **中文仍由 `Label.ActualFace` 按文本兜底回 CJK**（三份拉丁资产没有汉字字形）—— 本表不碰那条链。
         //   ③ 表里每一行的「原版资产」都是**原版 prefab 的 `m_fontAsset` 实读**，⛔ 不是按名字猜的；
         //      查不到的站点**不进表**（未知键由 `FaceForSite` 回 `Cjk`，调用方维持今天的行为）。
@@ -521,11 +521,11 @@ namespace CardPresentation
         /// </summary>
         public static TextMeshPro NewText(Transform parent, string name, string text, float fontSize, Color color)
         {
-            return NewText(parent, name, text, fontSize, color, Face.Cjk);
+            return NewText(parent, name, text, fontSize, color, Face.LatinCardBody);   // ✅ 已复刻（2026-11-05 · B148-W3 · 原版 prefab `m_fontAsset` 现数 Pragati 4431 / Asar 548 / **Noto 0** ⇒ 缺省主面 = Pragati；判据 `判据/B144_字体主面施工单.md` §1·1。⚠️ 本条返回**裸 TMP**（不经 `Label.ActualFace`）⇒ 汉字靠 `EnsureCjkFallback()` 那条运行期 fallback 链兜）
         }
 
         /// <summary>同上，但**指定字体面**（🆕 2026-10-14 · `A1024` ③）。
-        /// ⚠️ 旧的那个五参重载**原样保留并转发 `Face.Cjk`** ⇒ 既有调用点**零行为变化**。</summary>
+        /// ⚠️ 五参重载**原样保留**；2026-11-05（`B148-W3`）起它转发 **`Face.LatinCardBody`**（改前是 `Face.Cjk`）。</summary>
         public static TextMeshPro NewText(Transform parent, string name, string text, float fontSize,
                                           Color color, Face face)
         {

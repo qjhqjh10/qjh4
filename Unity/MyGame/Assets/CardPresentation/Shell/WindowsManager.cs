@@ -362,7 +362,7 @@ namespace CardPresentation
             //    ⇒ 「开窗后默认选中谁」这件事，原版的**时刻与对象都与我们这一次调用不同**；本行是**我们挑的**
             //    （原版那台 `EventSystem` 的实例在 `assets_full` 里根本不存在 ⇒ `firstSelectedGameObject`
             //    取不到判据，见 `PointerLayer` 的「键盘导航」一节 ①）。⛔ **别把它写成「原版就是这么做的」。**
-            PointerLayer.SelectFirstIn(win.gameObject);
+            BringToFront(win); PointerLayer.SelectFirstIn(win.gameObject);   // ✅ 已复刻（2026-11-05 · B148-W7 · 原版 `PopUp Holder` 兄弟序「后开在上」的等价物 = 窗口级队列偏置；规则见 `GameWindow.QueueBias` 那段。本句**同一物理行追加**以保 0 行漂移）
 
             // 🆕 **2026-10-19（界面线 `N117` · 用户拍板「方案 C」）**：最上面那一扇变了 ⇒
             //   左栏命中区按「模态 / 非模态」升降（判据 = `GameWindow.BlocksLeftNav`）。
@@ -1943,6 +1943,40 @@ namespace CardPresentation
             UnregisterAnchorOverride();
             _transitionActive = false;
             _transitionAnchorRoot = null;
+        }
+
+        // ================================================================================================
+        //  ✅ 已复刻（2026-11-05 · B148-W7）· 「后开的压先开的」
+        //
+        //  判据：原版所有活动窗都在 `3 - PopUp Holder` 这**一个 uGUI 画布**下当兄弟节点 ⇒ 兄弟序 = 开窗顺序
+        //  ⇒ 后开的自然压先开的。我们这一层没有 uGUI（窗件 = `ImageQuad` + 材质 `renderQueue`，
+        //  `MeshRenderer` 不参与画布排序）⇒ 等价物 = 窗口级队列偏置（施工单 `判据/B144_字体主面施工单.md` §2·3 方案 B）。
+        //  **规则/覆盖面/天花板** 只写在 `GameWindow.QueueBias` 那一段（铁律 6：同一条规则只留一处），
+        //  本方法只做「算出下面最高的一格、让这扇窗抬过去」这一步；**不重排、不降任何窗**。
+        //  ⚠️ 追加在**类尾**（本文件被账按 `文件:行号` 引用 50+ 处，⛔ 别插中段）。
+        // ================================================================================================
+        void BringToFront(GameWindow win)
+        {
+            // 🔶 2026-11-05（`B148` 调度台裁定）**暂停**：真跑 8 宿主时它把「压暗层 / 吸收层」的档也一起抬了
+            //   ⇒ `menu` 3 条 + `collection` 3 条「吸收层档 = 内容命中档 − 1」全红（3126→3140 / 3307→4051）。
+            //   它是我们自己的等价物（原版靠 `PopUp Holder` 兄弟序），且天花板只剩 41 格 ⇒ 覆盖面本来就残缺。
+            //   ⛔ 恢复条件 = 重排整条窗口队列梯子（施工单 §2·4）并让偏置**跳过压暗/吸收层**；在那之前保持关闭。
+            const bool QueueBiasOn = false; if (!QueueBiasOn) return;
+            if (win == null) return;
+            int topQ = int.MinValue;
+            for (int i = 0; i < openWindows.Count; i++)
+            {
+                var w = openWindows[i];
+                if (w == null || ReferenceEquals(w, win)) continue;
+                // 被 `HideAllWindows` 藏起来的窗**不画** ⇒ 不参与（否则全屏窗一开就会被一堆藏着的窗顶破天花板）
+                if (!w.gameObject.activeInHierarchy) continue;
+                int t = w.TopQueue();
+                if (t > topQ) topQ = t;
+            }
+            int raised = win.RaiseAbove(topQ, GameWindow.CeilingQueue);
+            if (raised > 0)
+                Debug.Log("[Win] 后开压先开：`" + win.name + "` 整棵抬 " + raised + " 格（累计偏置 " + win.QueueBias
+                        + "）—— 原版 `PopUp Holder` 里这是兄弟序，我们等价成渲染队列（见 `GameWindow.QueueBias`）");
         }
     }
 }

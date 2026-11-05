@@ -339,7 +339,7 @@ namespace CardPresentation
             {
                 Debug.LogError("[Env] 取不到 `Resources/EnvBlendables.json` ⇒ 环境 prefab 里那批"
                              + "**常驻生成器**（`ParticleSystemAreaSpawner` / `…Controller`）一颗都建不出来。"
-                             + "跑一次 `python 工具/gen_env_blendables.py`。");
+                             + "跑一次 `python 工具/gen_env_blendables.py --write`。");
                 return null;
             }
             var f = JsonUtility.FromJson<StandaloneFile>(ta.text);
@@ -347,7 +347,7 @@ namespace CardPresentation
             if (_standalone == null)
                 Debug.LogError("[Env] `EnvBlendables.json` 里**没有 `standalone` 一节** —— 环境 prefab 里那批"
                              + "常驻生成器会全部**静默消失**（43 件里很多件本来就有随机粒子）。"
-                             + "重跑 `python 工具/gen_env_blendables.py`。");
+                             + "重跑 `python 工具/gen_env_blendables.py --write`。");
             return _standalone;
         }
 
@@ -449,7 +449,7 @@ namespace CardPresentation
             if (items.Length == 0)
             {
                 Debug.LogWarning($"[Env] 场景侧没有 blendable 旁挂（场 `{ResolveArenaKey()}`）—— "
-                               + "「放进攻卡把战场自己那批粒子关掉」这一半不会发生。跑 `python 工具/gen_env_blendables.py`。");
+                               + "「放进攻卡把战场自己那批粒子关掉」这一半不会发生。跑 `python 工具/gen_env_blendables.py --write`。");
                 return;
             }
             var root = ArenaRoot();

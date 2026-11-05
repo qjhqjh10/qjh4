@@ -1693,7 +1693,7 @@ namespace CardPresentation
         /// 🔴 判据本体 = <see cref="Frontmost"/>（与换牌区共用，`A1668`）。</summary>
         int HitTest(Vector3 world)
         {
-            var c = Frontmost(_cards, world);
+            var c = RoutedHover() ?? Frontmost(_cards, world);   // 🆕 2026-11-05（B148_W8 · 战-T09 S3）：uGUI 送达优先，否则照旧 `Frontmost`（`Available` = 唯一共存开关）
             return c == null ? -1 : _cards.IndexOf(c);
         }
 
@@ -2861,5 +2861,23 @@ namespace CardPresentation
         /// <summary>作废「上一次松手点」—— 自检那条**不经 `Release`** 的落位口（`SimulateCardDroppedForTest`）必须先调它，
         /// 否则会拿着**上一手真实拖拽**留下的点去解目标（静默打错目标）。</summary>
         public void ClearLastDropWorld() { HasLastDropWorld = false; }
+
+        // ==========================================================================================
+        //  🆕 2026-11-05（执行写手 `B148_W8` · 账 `战-T09` S3/S4）：**uGUI 送达口**
+        //  判据 → `判据/B148_战斗表现施工单.md` §2·1（原版 `CardCollider.cs:7` 的 8 个指针接口 + 两台相机各一颗射线器）
+        //  ⚠️ 追加在类尾：账里 `CardInteraction.cs` 落点最深 `:2742`（铁律 18·b）
+        // ==========================================================================================
+
+        /// <summary>uGUI 说「指针压在这张卡上」时返回它，否则 `null`（⇒ 调用方退回 `Frontmost` 的世界坐标轮询）。
+        /// <para>🔴 只认**本方手牌里那几张**（`_cards`）：`BattlePointerRouter.HoverCard` 也可能是棋盘上的卡 ⇒
+        /// ⛔ 别把场上单位当手牌返回（那会让「点场上卡」被解成「点手牌第 N 张」）。</para>
+        /// <para>⚠️ `Frontmost` **保留**：它是自检对照物 + 兜底档（`B144_W3_B129_Assert` / `A1668` 那一族还在用它）。</para></summary>
+        CardView RoutedHover()
+        {
+            if (!BattlePointerRouter.Available) return null;
+            var h = BattlePointerRouter.HoverCard;
+            if (h == null) return null;
+            return _cards.IndexOf(h) >= 0 ? h : null;
+        }
     }
 }

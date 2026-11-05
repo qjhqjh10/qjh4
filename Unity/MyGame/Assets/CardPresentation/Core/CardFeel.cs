@@ -4506,5 +4506,45 @@ namespace CardPresentation
         /// ⛔ 别写 `Ease.Linear`：那是 2026-11-03 之前的值（`B135` 动画 #86 抓到的差异）。
         /// ⚠️ 视觉影响很小 —— `DOShakePosition` 自身的振动曲线主导；但这仍是原版值，照抄。</summary>
         public const Ease UnitShakeEase = Ease.OutQuad;
+
+        // ==================================================================
+        //  🆕 2026-11-05（执行写手 `B148_W8` · 账 `B146-S3-MOVETOPOS-145` + `B146-S3-CREATEATPOS-18`）
+        //  **造牌进牌库**那一趟的两段时长 + 第一段补间（判据 → `判据/B148_战斗表现施工单.md` §1·2⑥）
+        //  ⚠️ 新成员一律追加在**类尾**（账按 `文件:行号` 引用，本文件最深 `:4480`）。
+        // ==================================================================
+
+        /// <summary>造牌飞向 `moveToPos` 的时长 = `VarsGlobal.timeToDrawPlayerCard`（0.3）× `DAT_1834b2e8c`（3.0）**= 0.9 s**。
+        /// <para>判据 = `BattleManager._ResolveCreateDeckCard_d__513__MoveNext.c:79`（`CreateCardInGame` 的 duration 实参）
+        /// + `CardScript._CreateCardInGame_d__250__MoveNext.c:59-84`（三条补间同长、随后 `WaitForSeconds(duration)`）。</para>
+        /// <para>⚠️ 3.0 的读数出处 = `read_literal.py` 4B 实读 + 本文件 `:1880` 的独立记法；0.3 的字段名
+        /// （`globalVars + 0xa8` = `timeToDrawPlayerCard`）沿用本仓既有判据 `Core/EventTiming.cs:282`，
+        /// **本轮未回原文再核 `+0xa8` 的字段名** —— 引用请连带这句限定。</para></summary>
+        public const float CreateDeckCardFlySeconds = 0.9f;
+
+        /// <summary>造牌飞进牌堆的时长 = `CardScript.MoveToDeck(card, 0, 0)` 的默认档 `DAT_1834b2dc8 = 0.3`。
+        /// <para>判据 = `CardScript__MoveToDeck.c:40-47`：`time` 实参 0 ⇒ 落默认 0.3（`read_literal.py` 实读）；
+        /// **例外档** = `ShouldShowCardback(state) || armedTrap(+0x54)` ⇒ 0，而造出来的卡 state 刚被置 12
+        /// （`_CreateCardInGame_d__250:39`）⇒ **走正常档 0.3**。</para></summary>
+        public const float CreateDeckCardToPileSeconds = 0.3f;
+
+        /// <summary>造牌第一段：从卡当前位姿飞到 <paramref name="toPos"/>，<paramref name="duration"/> 秒、缓动 **OutQuart**。
+        /// <para>判据 = `CardScript._CreateCardInGame_d__250__MoveNext.c:59-73`：`DOMove` / `DORotate` / `DOScale`
+        /// 三条**同长**、每条 `SetEase(0xc)`（DOTween `Ease`：0=Unset、1=Linear ⇒ **12 = OutQuart**）。</para>
+        /// <para>⚠️ **如实记的偏离**：原版第三条 `DORotate` 的目标是 `globalVars` 里那张卡的固定姿态四元数，
+        /// 而本趟这张临时卡是 **hand 形态、根姿态恒 identity** ⇒ 只补 `DOMove` + `DOScale` 两条，
+        /// 旋转保持现状（不是「原版没有」，是「我们这张临时卡没有可转的对象」）。</para>
+        /// <para>⚠️ 不用 `DOMove` 直写 `transform.position` 之外的字段（缩放走 `DOScale` 但终点 = 当前值
+        /// ⇒ 与 `CardTween` 文件头「别用裸 Transform 补位姿」那条不冲突：本条**不跨 `SetPose`**，卡是一次性的）。</para></summary>
+        public static Tween CreateDeckCardFly(CardView card, Vector3 toPos, float duration)
+        {
+            if (card == null) return null;
+            var tr = card.transform;
+            if (tr == null) return null;
+            float dur = Mathf.Max(duration, 1e-4f);
+            var seq = DOTween.Sequence();
+            seq.Append(tr.DOMove(toPos, dur).SetEase(Ease.OutQuart));
+            seq.Join(tr.DOScale(tr.localScale, dur).SetEase(Ease.OutQuart));
+            return CardTween.Use(seq, Ease.Linear, tr);
+        }
     }
 }

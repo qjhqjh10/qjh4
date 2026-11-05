@@ -144,7 +144,7 @@ namespace CardPresentation
         Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
                    Color color, string name, float fontPx = 0f, int queue = QText,
                    float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                   TmpFont.Face face = TmpFont.Face.Cjk)
+                   TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；本文件 12/15 个调用点本就显式传 `LatinCardBody`；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             var lb = Label.Create(parent, text, Center(x1, x2, y1, y2), scale, color,
                                   new Vector2(0.5f, 0.5f), name);

@@ -3330,7 +3330,7 @@ namespace CardPresentation
                   PxRect? clip = null, Vector2 clipSoftness = default(Vector2),
                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
                   Label.VAlign? vAlign = null, float boxW = 0f, float boxH = 0f,
-                  TmpFont.Face face = TmpFont.Face.Cjk)
+                  TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             var lb = Label.Create(parent, text ?? "", Local3(parent, x1, y1, x2, y2), 5, Color.white,
                                   new Vector2(0.5f, 0.5f), name);

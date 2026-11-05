@@ -63335,5 +63335,415 @@
       "useTargetAnchor": 0,
       "anchor": null
     }
+  ],
+  "animators": [
+    {
+      "go": "Battle Arena 2",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2",
+      "pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "active": true,
+      "enabled": true,
+      "controllerGuid": "e2df0361947e12c4f981bca4fb05fb4f",
+      "controllerFile": "AnimatorController/Battle Arena 2.controller",
+      "controllerLocal": false,
+      "cullingMode": 0,
+      "updateMode": 0,
+      "applyRootMotion": false,
+      "linearVelocityBlending": false,
+      "stabilizeFeet": false,
+      "animatePhysics": false,
+      "hasTransformHierarchy": true,
+      "keepAnimatorStateOnDisable": false,
+      "writeDefaultValuesOnDisable": false
+    },
+    {
+      "go": "Battle Arena 2 Skulls",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Battle Arena 2 Skulls",
+      "pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "active": true,
+      "enabled": true,
+      "controllerGuid": "e24ebf6983a5c0149ae850e564ecaa55",
+      "controllerFile": "AnimatorController/Dynamic Skulls.controller",
+      "controllerLocal": false,
+      "cullingMode": 0,
+      "updateMode": 0,
+      "applyRootMotion": false,
+      "linearVelocityBlending": false,
+      "stabilizeFeet": false,
+      "animatePhysics": false,
+      "hasTransformHierarchy": true,
+      "keepAnimatorStateOnDisable": false,
+      "writeDefaultValuesOnDisable": false
+    },
+    {
+      "go": "Toxic Pump",
+      "path": "Scenario/Scenario Battle Arena 2 Baked/Toxic Pump",
+      "pos": [
+        10.55,
+        1.55,
+        -2.91
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        0.90277,
+        0.90277,
+        0.90277
+      ],
+      "active": true,
+      "enabled": true,
+      "controllerGuid": "cc7c8c74587419f4f8b54c70f3f14c92",
+      "controllerFile": "AnimatorController/Pump 1.controller",
+      "controllerLocal": false,
+      "cullingMode": 0,
+      "updateMode": 0,
+      "applyRootMotion": false,
+      "linearVelocityBlending": false,
+      "stabilizeFeet": false,
+      "animatePhysics": false,
+      "hasTransformHierarchy": true,
+      "keepAnimatorStateOnDisable": false,
+      "writeDefaultValuesOnDisable": false
+    }
+  ],
+  "animations": [],
+  "lineRenderers": [
+    {
+      "go": "Wataer dump",
+      "path": "Scenario/Battle Arena 2 Particles/Wataer dump",
+      "pos": [
+        122.729,
+        2.148,
+        27.788998
+      ],
+      "rot": [
+        0.0,
+        0.999728,
+        -0.023342,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "active": true,
+      "enabled": true,
+      "useWorldSpace": false,
+      "loop": false,
+      "applyActiveColorSpace": true,
+      "alignment": 1,
+      "textureMode": 0,
+      "numCornerVertices": 0,
+      "numCapVertices": 0,
+      "widthMultiplier": 0.25,
+      "shadowBias": 0.5,
+      "textureScale": [
+        4.58,
+        1.0
+      ],
+      "gradientMode": 0,
+      "sortingOrder": 0,
+      "rendererPriority": 0,
+      "castShadows": 1,
+      "receiveShadows": 1,
+      "motionVectors": 0,
+      "lightProbeUsage": 0,
+      "reflectionProbeUsage": 0,
+      "maskInteraction": 0,
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        {
+          "x": 0.0,
+          "y": -0.12,
+          "z": 0.24
+        },
+        {
+          "x": 0.0,
+          "y": -2.39,
+          "z": 0.5
+        }
+      ],
+      "widthKeys": [
+        {
+          "t": 0.0,
+          "v": 1.0
+        }
+      ],
+      "colorKeys": [
+        {
+          "t": 0.0,
+          "r": 1.0,
+          "g": 1.0,
+          "b": 1.0,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "r": 1.0,
+          "g": 1.0,
+          "b": 1.0,
+          "a": 1.0
+        }
+      ],
+      "alphaKeys": [
+        {
+          "t": 0.0,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "a": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "guid": "5b77c17553c4f3f458c4b78cfb645d8c",
+          "name": "Water Flow",
+          "file": "Material/Water Flow.mat",
+          "local": true
+        }
+      ]
+    },
+    {
+      "go": "Wataer dump (1)",
+      "path": "Scenario/Battle Arena 2 Particles/Wataer dump (1)",
+      "pos": [
+        120.708,
+        2.049,
+        28.2
+      ],
+      "rot": [
+        0.0,
+        0.999728,
+        -0.023342,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "active": true,
+      "enabled": true,
+      "useWorldSpace": false,
+      "loop": false,
+      "applyActiveColorSpace": true,
+      "alignment": 1,
+      "textureMode": 0,
+      "numCornerVertices": 0,
+      "numCapVertices": 0,
+      "widthMultiplier": 0.25,
+      "shadowBias": 0.5,
+      "textureScale": [
+        4.58,
+        1.0
+      ],
+      "gradientMode": 0,
+      "sortingOrder": 0,
+      "rendererPriority": 0,
+      "castShadows": 1,
+      "receiveShadows": 1,
+      "motionVectors": 0,
+      "lightProbeUsage": 0,
+      "reflectionProbeUsage": 0,
+      "maskInteraction": 0,
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        {
+          "x": 0.0,
+          "y": -0.12,
+          "z": 0.24
+        },
+        {
+          "x": 0.0,
+          "y": -2.39,
+          "z": 0.5
+        }
+      ],
+      "widthKeys": [
+        {
+          "t": 0.0,
+          "v": 1.0
+        }
+      ],
+      "colorKeys": [
+        {
+          "t": 0.0,
+          "r": 1.0,
+          "g": 1.0,
+          "b": 1.0,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "r": 1.0,
+          "g": 1.0,
+          "b": 1.0,
+          "a": 1.0
+        }
+      ],
+      "alphaKeys": [
+        {
+          "t": 0.0,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "a": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "guid": "5b77c17553c4f3f458c4b78cfb645d8c",
+          "name": "Water Flow",
+          "file": "Material/Water Flow.mat",
+          "local": true
+        }
+      ]
+    },
+    {
+      "go": "Wataer dump (2)",
+      "path": "Scenario/Battle Arena 2 Particles/Wataer dump (2)",
+      "pos": [
+        125.543,
+        1.577,
+        27.649998
+      ],
+      "rot": [
+        0.0,
+        0.999728,
+        -0.023342,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "active": true,
+      "enabled": true,
+      "useWorldSpace": false,
+      "loop": false,
+      "applyActiveColorSpace": true,
+      "alignment": 1,
+      "textureMode": 0,
+      "numCornerVertices": 0,
+      "numCapVertices": 0,
+      "widthMultiplier": 0.25,
+      "shadowBias": 0.5,
+      "textureScale": [
+        4.58,
+        1.0
+      ],
+      "gradientMode": 0,
+      "sortingOrder": 0,
+      "rendererPriority": 0,
+      "castShadows": 1,
+      "receiveShadows": 1,
+      "motionVectors": 0,
+      "lightProbeUsage": 0,
+      "reflectionProbeUsage": 0,
+      "maskInteraction": 0,
+      "points": [
+        {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        {
+          "x": 0.0,
+          "y": -0.12,
+          "z": 0.24
+        },
+        {
+          "x": 0.0,
+          "y": -2.39,
+          "z": 0.5
+        }
+      ],
+      "widthKeys": [
+        {
+          "t": 0.0,
+          "v": 1.0
+        }
+      ],
+      "colorKeys": [
+        {
+          "t": 0.0,
+          "r": 1.0,
+          "g": 1.0,
+          "b": 1.0,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "r": 1.0,
+          "g": 1.0,
+          "b": 1.0,
+          "a": 1.0
+        }
+      ],
+      "alphaKeys": [
+        {
+          "t": 0.0,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "a": 1.0
+        }
+      ],
+      "materials": [
+        {
+          "guid": "5b77c17553c4f3f458c4b78cfb645d8c",
+          "name": "Water Flow",
+          "file": "Material/Water Flow.mat",
+          "local": true
+        }
+      ]
+    }
   ]
 }

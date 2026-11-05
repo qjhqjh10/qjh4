@@ -149,7 +149,7 @@ namespace CardPresentation
         protected Label Text(Transform parent, string text, PxRect r, Color color, string name, float fontPx,
                              int qOff, bool autoFit, float autoMinPx, bool wrap, bool alignLeft,
                              float autoMaxPx = 0f, float basePx = 0f,
-                             TmpFont.Face face = TmpFont.Face.Cjk)
+                             TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；`protected` ⇒ 7 个 ProfilePage 子类的 `Text(` 站点跟着变；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             // 裁切：① 整块在视口外 ⇒ 不建（收口到 `MenuDraw.Visible` —— 🔴 **2026-10-10 订正（A184）**：
             //   它**现在是全壳唯一一份求交**，不再是「A25④ 那四处内联的唯一实现」）；

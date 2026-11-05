@@ -1707,7 +1707,7 @@ namespace CardPresentation
         /// 🔴 **顺序**：先 `SetAutoFitBox` 再对齐（对齐按**当前**文字宽算 —— 本工程踩过）。</summary>
         static Label LabelFit(Transform parent, PxRect r, string text, Color color, string name,
                               float fontPx, float minPx, int q, bool left = true, bool wrap = false,
-                              float maxPx = 0f, float basePx = 0f, TmpFont.Face face = TmpFont.Face.Cjk)
+                              float maxPx = 0f, float basePx = 0f, TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；6 个调用点本就全显式传面；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             if (string.IsNullOrEmpty(text)) return null;
             var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, q, wrap ? r.W : 0f, face: face);

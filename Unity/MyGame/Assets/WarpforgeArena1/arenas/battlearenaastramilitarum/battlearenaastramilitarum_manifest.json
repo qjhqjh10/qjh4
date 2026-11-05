@@ -67151,5 +67151,1587 @@
       "useTargetAnchor": 0,
       "anchor": null
     }
+  ],
+  "animators": [],
+  "animations": [
+    {
+      "go": "Battle Arena Astra Militarum Baked",
+      "path": "Scenario/Battle Arena Astra Militarum Baked",
+      "pos": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "active": true,
+      "enabled": true,
+      "clipGuid": "1235f5e8af0437046a6c9ebb535c917e",
+      "clipFile": "Animations/Astra Militarum Scene Animations.anim",
+      "clipLocal": true,
+      "clipCount": 1,
+      "wrapMode": 0,
+      "playAutomatically": true,
+      "animatePhysics": false,
+      "updateMode": 0,
+      "cullingType": 0
+    }
+  ],
+  "lineRenderers": [
+    {
+      "go": "Smoke Column Left 1",
+      "path": "Scenario/Smoke Column Left 1",
+      "pos": [
+        70.13796,
+        335.905,
+        1571.35265
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        5.0,
+        5.0,
+        5.0
+      ],
+      "active": true,
+      "enabled": true,
+      "useWorldSpace": false,
+      "loop": false,
+      "applyActiveColorSpace": false,
+      "alignment": 1,
+      "textureMode": 1,
+      "numCornerVertices": 0,
+      "numCapVertices": 0,
+      "widthMultiplier": 8.0,
+      "shadowBias": 1.0,
+      "textureScale": [
+        1.0,
+        1.0
+      ],
+      "gradientMode": 0,
+      "sortingOrder": 0,
+      "rendererPriority": 0,
+      "castShadows": 0,
+      "receiveShadows": 1,
+      "motionVectors": 0,
+      "lightProbeUsage": 0,
+      "reflectionProbeUsage": 0,
+      "maskInteraction": 0,
+      "points": [
+        {
+          "x": 0.051135,
+          "y": -0.387012,
+          "z": 0.0
+        },
+        {
+          "x": 0.888877,
+          "y": 0.000388,
+          "z": 0.0
+        },
+        {
+          "x": 3.571752,
+          "y": 0.926104,
+          "z": 0.0
+        },
+        {
+          "x": 6.214002,
+          "y": 1.61993,
+          "z": 0.0
+        },
+        {
+          "x": 8.984547,
+          "y": 1.657121,
+          "z": 0.0
+        },
+        {
+          "x": 11.850922,
+          "y": 3.452392,
+          "z": 0.0
+        },
+        {
+          "x": 14.535027,
+          "y": 3.515835,
+          "z": 0.0
+        },
+        {
+          "x": 17.048416,
+          "y": 3.259673,
+          "z": 0.0
+        },
+        {
+          "x": 25.788023,
+          "y": 3.69594,
+          "z": 0.0
+        },
+        {
+          "x": 36.240692,
+          "y": 5.286705,
+          "z": 0.0
+        }
+      ],
+      "widthKeys": [
+        {
+          "t": 0.0,
+          "v": 0.322246
+        },
+        {
+          "t": 0.13745,
+          "v": 0.658604
+        },
+        {
+          "t": 0.192719,
+          "v": 0.878248
+        },
+        {
+          "t": 0.304718,
+          "v": 0.847046
+        },
+        {
+          "t": 0.377067,
+          "v": 1.0
+        },
+        {
+          "t": 1.0,
+          "v": 1.0
+        }
+      ],
+      "colorKeys": [
+        {
+          "t": 0.0,
+          "r": 0.396226,
+          "g": 0.353552,
+          "b": 0.322713,
+          "a": 0.0
+        },
+        {
+          "t": 0.398062,
+          "r": 0.515723,
+          "g": 0.44555,
+          "b": 0.39409,
+          "a": 1.0
+        },
+        {
+          "t": 0.666026,
+          "r": 0.63522,
+          "g": 0.58756,
+          "b": 0.481409,
+          "a": 0.792157
+        }
+      ],
+      "alphaKeys": [
+        {
+          "t": 0.0,
+          "a": 0.0
+        },
+        {
+          "t": 0.046601,
+          "a": 1.0
+        },
+        {
+          "t": 0.233005,
+          "a": 0.792157
+        },
+        {
+          "t": 0.559228,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "a": 0.0
+        }
+      ],
+      "materials": [
+        {
+          "guid": "9c4ae63ae4b688b44b6e3fcda463d62e",
+          "name": "Battle Arena 1 Smoke Clouds Dark",
+          "file": "Material/Battle Arena 1 Smoke Clouds Dark.mat",
+          "local": true
+        }
+      ]
+    },
+    {
+      "go": "Smoke Column Left 2",
+      "path": "Scenario/Smoke Column Left 2",
+      "pos": [
+        45.91796,
+        305.345,
+        1555.95265
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        5.0,
+        5.0,
+        5.0
+      ],
+      "active": true,
+      "enabled": true,
+      "useWorldSpace": false,
+      "loop": false,
+      "applyActiveColorSpace": false,
+      "alignment": 1,
+      "textureMode": 1,
+      "numCornerVertices": 0,
+      "numCapVertices": 0,
+      "widthMultiplier": 8.0,
+      "shadowBias": 1.0,
+      "textureScale": [
+        1.0,
+        1.0
+      ],
+      "gradientMode": 0,
+      "sortingOrder": 0,
+      "rendererPriority": 0,
+      "castShadows": 0,
+      "receiveShadows": 1,
+      "motionVectors": 0,
+      "lightProbeUsage": 0,
+      "reflectionProbeUsage": 0,
+      "maskInteraction": 0,
+      "points": [
+        {
+          "x": 0.051135,
+          "y": -0.387012,
+          "z": 0.0
+        },
+        {
+          "x": 0.888877,
+          "y": 0.000388,
+          "z": 0.0
+        },
+        {
+          "x": 3.571752,
+          "y": 0.926104,
+          "z": 0.0
+        },
+        {
+          "x": 6.214002,
+          "y": 1.61993,
+          "z": 0.0
+        },
+        {
+          "x": 8.984547,
+          "y": 1.657121,
+          "z": 0.0
+        },
+        {
+          "x": 12.151964,
+          "y": 1.742608,
+          "z": 0.0
+        },
+        {
+          "x": 15.481938,
+          "y": 1.6092,
+          "z": 0.0
+        },
+        {
+          "x": 19.8937,
+          "y": 2.320409,
+          "z": 0.0
+        },
+        {
+          "x": 25.788023,
+          "y": 3.69594,
+          "z": 0.0
+        },
+        {
+          "x": 36.240692,
+          "y": 5.286705,
+          "z": 0.0
+        }
+      ],
+      "widthKeys": [
+        {
+          "t": 0.0,
+          "v": 0.322246
+        },
+        {
+          "t": 0.13745,
+          "v": 0.658604
+        },
+        {
+          "t": 0.192719,
+          "v": 0.878248
+        },
+        {
+          "t": 0.304718,
+          "v": 0.847046
+        },
+        {
+          "t": 0.439136,
+          "v": 0.88
+        },
+        {
+          "t": 0.937927,
+          "v": 1.0
+        }
+      ],
+      "colorKeys": [
+        {
+          "t": 0.0,
+          "r": 0.396226,
+          "g": 0.353552,
+          "b": 0.322713,
+          "a": 0.0
+        },
+        {
+          "t": 0.398062,
+          "r": 0.553459,
+          "g": 0.482168,
+          "b": 0.429888,
+          "a": 1.0
+        },
+        {
+          "t": 0.666026,
+          "r": 0.63522,
+          "g": 0.58756,
+          "b": 0.481409,
+          "a": 0.792157
+        }
+      ],
+      "alphaKeys": [
+        {
+          "t": 0.0,
+          "a": 0.0
+        },
+        {
+          "t": 0.046601,
+          "a": 1.0
+        },
+        {
+          "t": 0.233005,
+          "a": 0.792157
+        },
+        {
+          "t": 0.559228,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "a": 0.0
+        }
+      ],
+      "materials": [
+        {
+          "guid": "9c4ae63ae4b688b44b6e3fcda463d62e",
+          "name": "Battle Arena 1 Smoke Clouds Dark",
+          "file": "Material/Battle Arena 1 Smoke Clouds Dark.mat",
+          "local": true
+        }
+      ]
+    },
+    {
+      "go": "Smoke Column Left 3",
+      "path": "Scenario/Smoke Column Left 3",
+      "pos": [
+        4.27796,
+        283.685,
+        1534.65265
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        5.0,
+        5.0,
+        5.0
+      ],
+      "active": true,
+      "enabled": true,
+      "useWorldSpace": false,
+      "loop": false,
+      "applyActiveColorSpace": false,
+      "alignment": 1,
+      "textureMode": 1,
+      "numCornerVertices": 0,
+      "numCapVertices": 0,
+      "widthMultiplier": 8.0,
+      "shadowBias": 1.0,
+      "textureScale": [
+        1.0,
+        1.0
+      ],
+      "gradientMode": 0,
+      "sortingOrder": 0,
+      "rendererPriority": 0,
+      "castShadows": 0,
+      "receiveShadows": 1,
+      "motionVectors": 0,
+      "lightProbeUsage": 0,
+      "reflectionProbeUsage": 0,
+      "maskInteraction": 0,
+      "points": [
+        {
+          "x": 0.051135,
+          "y": -0.387012,
+          "z": 0.0
+        },
+        {
+          "x": 0.888877,
+          "y": 0.000388,
+          "z": 0.0
+        },
+        {
+          "x": 3.571752,
+          "y": 0.926104,
+          "z": 0.0
+        },
+        {
+          "x": 6.214002,
+          "y": 1.61993,
+          "z": 0.0
+        },
+        {
+          "x": 8.984547,
+          "y": 1.657121,
+          "z": 0.0
+        },
+        {
+          "x": 12.151964,
+          "y": 1.742608,
+          "z": 0.0
+        },
+        {
+          "x": 15.481938,
+          "y": 1.6092,
+          "z": 0.0
+        },
+        {
+          "x": 19.8937,
+          "y": 0.92282,
+          "z": 0.0
+        },
+        {
+          "x": 25.788023,
+          "y": 1.079521,
+          "z": 0.0
+        }
+      ],
+      "widthKeys": [
+        {
+          "t": 0.0,
+          "v": 0.322246
+        },
+        {
+          "t": 0.13745,
+          "v": 0.658604
+        },
+        {
+          "t": 0.192719,
+          "v": 0.878248
+        },
+        {
+          "t": 0.304718,
+          "v": 0.847046
+        },
+        {
+          "t": 0.439136,
+          "v": 0.88
+        },
+        {
+          "t": 0.937927,
+          "v": 1.0
+        }
+      ],
+      "colorKeys": [
+        {
+          "t": 0.0,
+          "r": 0.396226,
+          "g": 0.353552,
+          "b": 0.322713,
+          "a": 0.0
+        },
+        {
+          "t": 0.398062,
+          "r": 0.553459,
+          "g": 0.482168,
+          "b": 0.429888,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "r": 0.63522,
+          "g": 0.58756,
+          "b": 0.481409,
+          "a": 0.792157
+        }
+      ],
+      "alphaKeys": [
+        {
+          "t": 0.0,
+          "a": 0.0
+        },
+        {
+          "t": 0.046601,
+          "a": 1.0
+        },
+        {
+          "t": 0.233005,
+          "a": 0.792157
+        },
+        {
+          "t": 1.0,
+          "a": 0.0
+        }
+      ],
+      "materials": [
+        {
+          "guid": "9c4ae63ae4b688b44b6e3fcda463d62e",
+          "name": "Battle Arena 1 Smoke Clouds Dark",
+          "file": "Material/Battle Arena 1 Smoke Clouds Dark.mat",
+          "local": true
+        }
+      ]
+    },
+    {
+      "go": "Smoke Column Left 4",
+      "path": "Scenario/Smoke Column Left 4",
+      "pos": [
+        -40.56204,
+        372.105,
+        1539.76265
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        5.0,
+        5.0,
+        5.0
+      ],
+      "active": true,
+      "enabled": true,
+      "useWorldSpace": false,
+      "loop": false,
+      "applyActiveColorSpace": false,
+      "alignment": 1,
+      "textureMode": 1,
+      "numCornerVertices": 0,
+      "numCapVertices": 0,
+      "widthMultiplier": 8.0,
+      "shadowBias": 1.0,
+      "textureScale": [
+        1.0,
+        1.0
+      ],
+      "gradientMode": 0,
+      "sortingOrder": 0,
+      "rendererPriority": 0,
+      "castShadows": 0,
+      "receiveShadows": 1,
+      "motionVectors": 0,
+      "lightProbeUsage": 0,
+      "reflectionProbeUsage": 0,
+      "maskInteraction": 0,
+      "points": [
+        {
+          "x": 0.266837,
+          "y": -0.728235,
+          "z": 0.0
+        },
+        {
+          "x": 1.544544,
+          "y": 0.140824,
+          "z": 0.0
+        },
+        {
+          "x": 3.571752,
+          "y": 0.926104,
+          "z": 0.0
+        },
+        {
+          "x": 6.214002,
+          "y": 1.61993,
+          "z": 0.0
+        },
+        {
+          "x": 8.984547,
+          "y": 1.657121,
+          "z": 0.0
+        },
+        {
+          "x": 12.151964,
+          "y": 1.742608,
+          "z": 0.0
+        },
+        {
+          "x": 15.481938,
+          "y": 1.6092,
+          "z": 0.0
+        },
+        {
+          "x": 19.8937,
+          "y": 0.92282,
+          "z": 0.0
+        },
+        {
+          "x": 25.788023,
+          "y": 1.079521,
+          "z": 0.0
+        }
+      ],
+      "widthKeys": [
+        {
+          "t": 0.0,
+          "v": 0.554248
+        },
+        {
+          "t": 0.130553,
+          "v": 0.754604
+        },
+        {
+          "t": 0.192719,
+          "v": 0.878248
+        },
+        {
+          "t": 0.304718,
+          "v": 0.847046
+        },
+        {
+          "t": 0.439136,
+          "v": 0.88
+        },
+        {
+          "t": 0.937927,
+          "v": 1.0
+        }
+      ],
+      "colorKeys": [
+        {
+          "t": 0.0,
+          "r": 0.396226,
+          "g": 0.353552,
+          "b": 0.322713,
+          "a": 0.0
+        },
+        {
+          "t": 0.398062,
+          "r": 0.553459,
+          "g": 0.482168,
+          "b": 0.429888,
+          "a": 0.576471
+        },
+        {
+          "t": 1.0,
+          "r": 0.63522,
+          "g": 0.58756,
+          "b": 0.481409,
+          "a": 0.792157
+        }
+      ],
+      "alphaKeys": [
+        {
+          "t": 0.0,
+          "a": 0.0
+        },
+        {
+          "t": 0.099031,
+          "a": 0.576471
+        },
+        {
+          "t": 0.233005,
+          "a": 0.792157
+        },
+        {
+          "t": 1.0,
+          "a": 0.0
+        }
+      ],
+      "materials": [
+        {
+          "guid": "9c4ae63ae4b688b44b6e3fcda463d62e",
+          "name": "Battle Arena 1 Smoke Clouds Dark",
+          "file": "Material/Battle Arena 1 Smoke Clouds Dark.mat",
+          "local": true
+        }
+      ]
+    },
+    {
+      "go": "Smoke Column Right 1",
+      "path": "Scenario/Smoke Column Right 1",
+      "pos": [
+        372.03796,
+        422.605,
+        1445.05265
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        10.0,
+        10.0,
+        10.0
+      ],
+      "active": true,
+      "enabled": true,
+      "useWorldSpace": false,
+      "loop": false,
+      "applyActiveColorSpace": false,
+      "alignment": 1,
+      "textureMode": 1,
+      "numCornerVertices": 0,
+      "numCapVertices": 0,
+      "widthMultiplier": 12.0,
+      "shadowBias": 1.0,
+      "textureScale": [
+        1.0,
+        1.0
+      ],
+      "gradientMode": 0,
+      "sortingOrder": 0,
+      "rendererPriority": 0,
+      "castShadows": 0,
+      "receiveShadows": 1,
+      "motionVectors": 0,
+      "lightProbeUsage": 0,
+      "reflectionProbeUsage": 0,
+      "maskInteraction": 0,
+      "points": [
+        {
+          "x": -0.113452,
+          "y": -0.573053,
+          "z": 0.0
+        },
+        {
+          "x": 1.577561,
+          "y": 0.72424,
+          "z": 0.0
+        },
+        {
+          "x": 2.835924,
+          "y": 1.172015,
+          "z": 0.0
+        },
+        {
+          "x": 4.834106,
+          "y": 1.859285,
+          "z": 0.0
+        },
+        {
+          "x": 8.340477,
+          "y": 2.636778,
+          "z": 0.0
+        },
+        {
+          "x": 11.850922,
+          "y": 2.73814,
+          "z": 0.0
+        },
+        {
+          "x": 14.535027,
+          "y": 3.515835,
+          "z": 0.0
+        },
+        {
+          "x": 17.048416,
+          "y": 4.23513,
+          "z": 0.0
+        },
+        {
+          "x": 21.965477,
+          "y": 4.836357,
+          "z": 0.0
+        },
+        {
+          "x": 36.240692,
+          "y": 5.286705,
+          "z": 0.0
+        },
+        {
+          "x": 60.85434,
+          "y": 5.049951,
+          "z": 3.437927
+        }
+      ],
+      "widthKeys": [
+        {
+          "t": 0.0,
+          "v": 0.474247
+        },
+        {
+          "t": 0.106416,
+          "v": 0.674601
+        },
+        {
+          "t": 0.184028,
+          "v": 0.751043
+        },
+        {
+          "t": 0.372947,
+          "v": 0.982722
+        },
+        {
+          "t": 0.56616,
+          "v": 0.882353
+        },
+        {
+          "t": 1.0,
+          "v": 1.0
+        }
+      ],
+      "colorKeys": [
+        {
+          "t": 0.0,
+          "r": 0.317647,
+          "g": 0.262745,
+          "b": 0.25098,
+          "a": 1.0
+        },
+        {
+          "t": 0.398062,
+          "r": 0.435294,
+          "g": 0.376471,
+          "b": 0.333333,
+          "a": 0.933333
+        },
+        {
+          "t": 0.844663,
+          "r": 0.63522,
+          "g": 0.58756,
+          "b": 0.481409,
+          "a": 1.0
+        }
+      ],
+      "alphaKeys": [
+        {
+          "t": 0.0,
+          "a": 1.0
+        },
+        {
+          "t": 0.157275,
+          "a": 0.933333
+        },
+        {
+          "t": 0.320394,
+          "a": 1.0
+        },
+        {
+          "t": 0.679606,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "a": 0.0
+        }
+      ],
+      "materials": [
+        {
+          "guid": "9c4ae63ae4b688b44b6e3fcda463d62e",
+          "name": "Battle Arena 1 Smoke Clouds Dark",
+          "file": "Material/Battle Arena 1 Smoke Clouds Dark.mat",
+          "local": true
+        }
+      ]
+    },
+    {
+      "go": "Smoke Column Right 2",
+      "path": "Scenario/Smoke Column Right 2",
+      "pos": [
+        684.73796,
+        370.805,
+        1454.05265
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        10.0,
+        10.0,
+        10.0
+      ],
+      "active": true,
+      "enabled": true,
+      "useWorldSpace": false,
+      "loop": false,
+      "applyActiveColorSpace": false,
+      "alignment": 1,
+      "textureMode": 1,
+      "numCornerVertices": 0,
+      "numCapVertices": 0,
+      "widthMultiplier": 8.0,
+      "shadowBias": 1.0,
+      "textureScale": [
+        1.0,
+        1.0
+      ],
+      "gradientMode": 0,
+      "sortingOrder": 0,
+      "rendererPriority": 0,
+      "castShadows": 0,
+      "receiveShadows": 1,
+      "motionVectors": 0,
+      "lightProbeUsage": 0,
+      "reflectionProbeUsage": 0,
+      "maskInteraction": 0,
+      "points": [
+        {
+          "x": -0.066888,
+          "y": -0.421097,
+          "z": 0.0
+        },
+        {
+          "x": 0.929399,
+          "y": 1.598682,
+          "z": 0.0
+        },
+        {
+          "x": 2.835924,
+          "y": 2.702719,
+          "z": 0.0
+        },
+        {
+          "x": 4.834106,
+          "y": 2.524135,
+          "z": 0.0
+        },
+        {
+          "x": 8.340477,
+          "y": 3.583754,
+          "z": 0.0
+        },
+        {
+          "x": 11.850922,
+          "y": 3.823055,
+          "z": 0.0
+        },
+        {
+          "x": 14.535027,
+          "y": 3.515835,
+          "z": 0.0
+        },
+        {
+          "x": 17.048416,
+          "y": 4.23513,
+          "z": 0.0
+        },
+        {
+          "x": 21.965477,
+          "y": 4.836357,
+          "z": 0.0
+        },
+        {
+          "x": 36.240692,
+          "y": 5.286705,
+          "z": 0.0
+        }
+      ],
+      "widthKeys": [
+        {
+          "t": 0.0,
+          "v": 0.434245
+        },
+        {
+          "t": 0.089175,
+          "v": 0.586601
+        },
+        {
+          "t": 0.159889,
+          "v": 0.71104
+        },
+        {
+          "t": 0.240998,
+          "v": 0.85425
+        },
+        {
+          "t": 0.377067,
+          "v": 1.0
+        },
+        {
+          "t": 0.884656,
+          "v": 1.0
+        }
+      ],
+      "colorKeys": [
+        {
+          "t": 0.0,
+          "r": 0.317647,
+          "g": 0.262745,
+          "b": 0.25098,
+          "a": 1.0
+        },
+        {
+          "t": 0.398062,
+          "r": 0.435294,
+          "g": 0.376471,
+          "b": 0.333333,
+          "a": 0.792157
+        },
+        {
+          "t": 0.666026,
+          "r": 0.63522,
+          "g": 0.58756,
+          "b": 0.481409,
+          "a": 1.0
+        }
+      ],
+      "alphaKeys": [
+        {
+          "t": 0.0,
+          "a": 1.0
+        },
+        {
+          "t": 0.233005,
+          "a": 0.792157
+        },
+        {
+          "t": 0.559228,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "a": 0.0
+        }
+      ],
+      "materials": [
+        {
+          "guid": "9c4ae63ae4b688b44b6e3fcda463d62e",
+          "name": "Battle Arena 1 Smoke Clouds Dark",
+          "file": "Material/Battle Arena 1 Smoke Clouds Dark.mat",
+          "local": true
+        }
+      ]
+    },
+    {
+      "go": "Smoke Column Right 3",
+      "path": "Scenario/Smoke Column Right 3",
+      "pos": [
+        737.63796,
+        303.705,
+        1445.05265
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        5.0,
+        5.0,
+        5.0
+      ],
+      "active": true,
+      "enabled": true,
+      "useWorldSpace": false,
+      "loop": false,
+      "applyActiveColorSpace": false,
+      "alignment": 1,
+      "textureMode": 1,
+      "numCornerVertices": 0,
+      "numCapVertices": 0,
+      "widthMultiplier": 8.0,
+      "shadowBias": 1.0,
+      "textureScale": [
+        1.0,
+        1.0
+      ],
+      "gradientMode": 0,
+      "sortingOrder": 0,
+      "rendererPriority": 0,
+      "castShadows": 0,
+      "receiveShadows": 1,
+      "motionVectors": 0,
+      "lightProbeUsage": 0,
+      "reflectionProbeUsage": 0,
+      "maskInteraction": 0,
+      "points": [
+        {
+          "x": 0.051135,
+          "y": -0.387012,
+          "z": 0.0
+        },
+        {
+          "x": 0.888877,
+          "y": 0.000388,
+          "z": 0.0
+        },
+        {
+          "x": 3.571752,
+          "y": 1.90365,
+          "z": 0.0
+        },
+        {
+          "x": 5.569935,
+          "y": 2.599587,
+          "z": 0.0
+        },
+        {
+          "x": 8.340477,
+          "y": 2.636778,
+          "z": 0.0
+        },
+        {
+          "x": 11.850922,
+          "y": 3.452392,
+          "z": 0.0
+        },
+        {
+          "x": 14.535027,
+          "y": 3.515835,
+          "z": 0.0
+        },
+        {
+          "x": 17.048416,
+          "y": 4.23513,
+          "z": 0.0
+        },
+        {
+          "x": 25.788023,
+          "y": 6.345342,
+          "z": 0.0
+        },
+        {
+          "x": 36.240692,
+          "y": 5.286705,
+          "z": 0.0
+        }
+      ],
+      "widthKeys": [
+        {
+          "t": 0.0,
+          "v": 0.586246
+        },
+        {
+          "t": 0.13745,
+          "v": 0.658604
+        },
+        {
+          "t": 0.192719,
+          "v": 0.878248
+        },
+        {
+          "t": 0.304718,
+          "v": 0.847046
+        },
+        {
+          "t": 0.377067,
+          "v": 1.0
+        },
+        {
+          "t": 1.0,
+          "v": 1.0
+        }
+      ],
+      "colorKeys": [
+        {
+          "t": 0.0,
+          "r": 0.317647,
+          "g": 0.262745,
+          "b": 0.25098,
+          "a": 1.0
+        },
+        {
+          "t": 0.398062,
+          "r": 0.435294,
+          "g": 0.376471,
+          "b": 0.333333,
+          "a": 0.792157
+        },
+        {
+          "t": 0.666026,
+          "r": 0.63522,
+          "g": 0.58756,
+          "b": 0.481409,
+          "a": 1.0
+        }
+      ],
+      "alphaKeys": [
+        {
+          "t": 0.0,
+          "a": 1.0
+        },
+        {
+          "t": 0.233005,
+          "a": 0.792157
+        },
+        {
+          "t": 0.559228,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "a": 0.0
+        }
+      ],
+      "materials": [
+        {
+          "guid": "9c4ae63ae4b688b44b6e3fcda463d62e",
+          "name": "Battle Arena 1 Smoke Clouds Dark",
+          "file": "Material/Battle Arena 1 Smoke Clouds Dark.mat",
+          "local": true
+        }
+      ]
+    },
+    {
+      "go": "Smoke Column Right 4",
+      "path": "Scenario/Smoke Column Right 4",
+      "pos": [
+        752.13796,
+        290.905,
+        1445.05265
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        5.0,
+        5.0,
+        5.0
+      ],
+      "active": true,
+      "enabled": true,
+      "useWorldSpace": false,
+      "loop": false,
+      "applyActiveColorSpace": false,
+      "alignment": 1,
+      "textureMode": 1,
+      "numCornerVertices": 0,
+      "numCapVertices": 0,
+      "widthMultiplier": 8.0,
+      "shadowBias": 1.0,
+      "textureScale": [
+        1.0,
+        1.0
+      ],
+      "gradientMode": 0,
+      "sortingOrder": 0,
+      "rendererPriority": 0,
+      "castShadows": 0,
+      "receiveShadows": 1,
+      "motionVectors": 0,
+      "lightProbeUsage": 0,
+      "reflectionProbeUsage": 0,
+      "maskInteraction": 0,
+      "points": [
+        {
+          "x": 0.051135,
+          "y": -0.387012,
+          "z": 0.0
+        },
+        {
+          "x": 0.888877,
+          "y": 0.000388,
+          "z": 0.0
+        },
+        {
+          "x": 3.571752,
+          "y": 0.926104,
+          "z": 0.0
+        },
+        {
+          "x": 6.214002,
+          "y": 1.61993,
+          "z": 0.0
+        },
+        {
+          "x": 8.984547,
+          "y": 1.657121,
+          "z": 0.0
+        },
+        {
+          "x": 11.850922,
+          "y": 3.452392,
+          "z": 0.0
+        },
+        {
+          "x": 14.535027,
+          "y": 3.515835,
+          "z": 0.0
+        },
+        {
+          "x": 17.048416,
+          "y": 3.259673,
+          "z": 0.0
+        },
+        {
+          "x": 25.788023,
+          "y": 3.69594,
+          "z": 0.0
+        },
+        {
+          "x": 36.240692,
+          "y": 5.286705,
+          "z": 0.0
+        }
+      ],
+      "widthKeys": [
+        {
+          "t": 0.0,
+          "v": 0.322246
+        },
+        {
+          "t": 0.13745,
+          "v": 0.658604
+        },
+        {
+          "t": 0.192719,
+          "v": 0.878248
+        },
+        {
+          "t": 0.304718,
+          "v": 0.847046
+        },
+        {
+          "t": 0.377067,
+          "v": 1.0
+        },
+        {
+          "t": 1.0,
+          "v": 1.0
+        }
+      ],
+      "colorKeys": [
+        {
+          "t": 0.0,
+          "r": 0.317647,
+          "g": 0.262745,
+          "b": 0.25098,
+          "a": 1.0
+        },
+        {
+          "t": 0.398062,
+          "r": 0.435294,
+          "g": 0.376471,
+          "b": 0.333333,
+          "a": 0.792157
+        },
+        {
+          "t": 0.666026,
+          "r": 0.63522,
+          "g": 0.58756,
+          "b": 0.481409,
+          "a": 1.0
+        }
+      ],
+      "alphaKeys": [
+        {
+          "t": 0.0,
+          "a": 1.0
+        },
+        {
+          "t": 0.233005,
+          "a": 0.792157
+        },
+        {
+          "t": 0.559228,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "a": 0.0
+        }
+      ],
+      "materials": [
+        {
+          "guid": "9c4ae63ae4b688b44b6e3fcda463d62e",
+          "name": "Battle Arena 1 Smoke Clouds Dark",
+          "file": "Material/Battle Arena 1 Smoke Clouds Dark.mat",
+          "local": true
+        }
+      ]
+    },
+    {
+      "go": "Smoke Column Right 5",
+      "path": "Scenario/Smoke Column Right 5",
+      "pos": [
+        569.36796,
+        327.645,
+        1435.52265
+      ],
+      "rot": [
+        0.0,
+        0.0,
+        0.095113,
+        0.995467
+      ],
+      "scale": [
+        5.0,
+        5.0,
+        5.0
+      ],
+      "active": true,
+      "enabled": true,
+      "useWorldSpace": false,
+      "loop": false,
+      "applyActiveColorSpace": false,
+      "alignment": 1,
+      "textureMode": 1,
+      "numCornerVertices": 0,
+      "numCapVertices": 0,
+      "widthMultiplier": 8.0,
+      "shadowBias": 1.0,
+      "textureScale": [
+        1.0,
+        1.0
+      ],
+      "gradientMode": 0,
+      "sortingOrder": 0,
+      "rendererPriority": 0,
+      "castShadows": 0,
+      "receiveShadows": 1,
+      "motionVectors": 0,
+      "lightProbeUsage": 0,
+      "reflectionProbeUsage": 0,
+      "maskInteraction": 0,
+      "points": [
+        {
+          "x": 0.051135,
+          "y": -0.387012,
+          "z": 0.0
+        },
+        {
+          "x": 0.816689,
+          "y": 0.855326,
+          "z": 0.0
+        },
+        {
+          "x": 2.609164,
+          "y": 3.408081,
+          "z": 0.0
+        },
+        {
+          "x": 6.104734,
+          "y": 6.404962,
+          "z": 0.0
+        },
+        {
+          "x": 9.98813,
+          "y": 7.971765,
+          "z": 0.0
+        },
+        {
+          "x": 12.744843,
+          "y": 8.087641,
+          "z": 0.0
+        },
+        {
+          "x": 15.382385,
+          "y": 7.909632,
+          "z": 0.0
+        },
+        {
+          "x": 17.994135,
+          "y": 8.163494,
+          "z": 0.0
+        },
+        {
+          "x": 26.673082,
+          "y": 8.285213,
+          "z": 0.0
+        },
+        {
+          "x": 36.76445,
+          "y": 8.002531,
+          "z": 0.0
+        }
+      ],
+      "widthKeys": [
+        {
+          "t": 0.0,
+          "v": 0.322246
+        },
+        {
+          "t": 0.13745,
+          "v": 0.658604
+        },
+        {
+          "t": 0.192719,
+          "v": 0.878248
+        },
+        {
+          "t": 0.304718,
+          "v": 0.847046
+        },
+        {
+          "t": 0.377067,
+          "v": 1.0
+        },
+        {
+          "t": 1.0,
+          "v": 1.0
+        }
+      ],
+      "colorKeys": [
+        {
+          "t": 0.0,
+          "r": 0.317647,
+          "g": 0.262745,
+          "b": 0.25098,
+          "a": 1.0
+        },
+        {
+          "t": 0.398062,
+          "r": 0.435294,
+          "g": 0.376471,
+          "b": 0.333333,
+          "a": 0.792157
+        },
+        {
+          "t": 0.666026,
+          "r": 0.63522,
+          "g": 0.58756,
+          "b": 0.481409,
+          "a": 1.0
+        }
+      ],
+      "alphaKeys": [
+        {
+          "t": 0.0,
+          "a": 1.0
+        },
+        {
+          "t": 0.233005,
+          "a": 0.792157
+        },
+        {
+          "t": 0.559228,
+          "a": 1.0
+        },
+        {
+          "t": 1.0,
+          "a": 0.0
+        }
+      ],
+      "materials": [
+        {
+          "guid": "9c4ae63ae4b688b44b6e3fcda463d62e",
+          "name": "Battle Arena 1 Smoke Clouds Dark",
+          "file": "Material/Battle Arena 1 Smoke Clouds Dark.mat",
+          "local": true
+        }
+      ]
+    }
   ]
 }

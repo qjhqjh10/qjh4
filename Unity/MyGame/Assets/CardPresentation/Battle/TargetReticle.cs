@@ -481,7 +481,7 @@ namespace CardPresentation
         //   ③ 对**两个平面**各做一次 `Plane.Raycast`，**取近的那个**（打不中记 `float.MaxValue`，
         //      哨兵 `DAT_1834b2d94` 实读 = `3.4028e38`）
         //   ④ 命中点写回 `desiredWorldPosition`，再 `CrosshairLineEffect.SetPoints(anchor, 那一点)`
-        //  🔴 **我们的口径 = 同一台相机往返（`hc` → `hc`），⛔ 不照抄上面那一对**：我们的弧线画在 **HUD 帧**（判据 → `资料/完全复刻/判据/B113_G4_准星空间与目标判定.md` §五·C）；照抄 hud→board 会先把 HUD 点拿**透视的 `boardCam` 投屏**、再由**正交的 `hc` 出射** ⇒ 跨帧 + 双投，点被搬走。`hc` 正交且朝向恒 `(0,0,1)`（`Core/LayoutSpace.cs:75-82`）⇒ `hc.WorldToScreenPoint` + `hc.ScreenPointToRay` 在 x/y 上**恒等**、与弧线同一帧 ⇒ 这才是等价实现。（2026-11-01 `B-162` 改）
+        //  🔴 **2026-11-05（`B148-W7`）就地订正（铁律 5）**：本行原来写「我们的口径 = 同一台相机往返（`hc` → `hc`），⛔ 不照抄上面那一对」—— **那是错的，已删**：它与 `.c` 正面冲突（`.c:58` 读 `+0xa0`、`.c:70` 读 `+0xa8`），后果是 `hc` 正交、射线方向恒 `(0,0,1)` 与地板法线 `(0,1,0)` 垂直 ⇒ `floor.Raycast` **恒假**、落点 z 恒 = 敌方行（指针指哪都落在敌兵那条带）。原「跨帧双投」的担心不成立：`screen` 只由 `hudCamera` 投**一次**（`.c:58`），`boardCam` 只用来**出射**（`.c:70`）—— 这正是原版形状，已按 `.c` 改回（见 `ResolveAim` 的 `Ray ray` 那一行）。
         //  🔴 **两个平面是什么、从哪来**（`TargetReticleController__Initialize.c:78/105/128`，
         //     全工程唯一的写入点；`Plane(inNormal, inPoint)` 两参构造 ⇒ `distance = −Dot(normal, inPoint)`）：
         //   · `floorPlane`      = `new Plane(Vector3.up,    floorReference.position)`
@@ -495,9 +495,9 @@ namespace CardPresentation
         //  🔴 **2026-10-28（`B91`）**：本支的判据是 `TargetReticleController.UpdateTrail`（两条 `Plane__Raycast`，`:89/:117`），⛔ **不是** `BattleManager.GetTargetInPos` —— 后者的 2D 支传 `Physics2D.GetRayIntersectionNonAlloc(..., -1f)` ⇒ **恒 0 命中**（负距离 = 原版怪值，照抄、⛔ 别改成 `Mathf.Infinity`），真生效的是它自己的 3D 回退支（见 `CardInteraction.Frontmost` 的注）。
         // ==================================================================
 
-        /// <summary>原版 `boardCamera`（透视/正交的**战场**相机）—— 我们**只**用它当「有没有 3D 战场」那道闸（见 `ResolveAim`）</summary>
+        /// <summary>原版 `boardCamera`(+0xA8)（透视的**战场**相机）—— `ScreenPointToRay` **出射**用它（`.c:70`）；另外兼「有没有 3D 战场」那道闸（空 ⇒ 2D 兜底布局不求交，见 `ResolveAim`）。✅ 已复刻（2026-11-05 · B148-W7 · 原注释写「只当闸」是错的）</summary>
         public Camera boardCam;
-        /// <summary>原版 `hudCamera`（UHD 那一台）—— `WorldToScreenPoint` **与** `ScreenPointToRay` 都用它（同一台往返，见 `ResolveAim`）。空则退回 <see cref="LayoutSpace.Cam"/>（HUD 相机；✅ 已复刻（2026-11-04 · B139-D4 · 原版 `TargetReticleController` 的 `hudCamera` = UI 相机，⛔ 不是 `Camera.main` —— 后者现在是 3D BoardCamera））</summary>
+        /// <summary>原版 `hudCamera`(+0xA0)（UHD 那一台）—— **只**用它 `WorldToScreenPoint` 投屏（`.c:58`）；`ScreenPointToRay` 走 <see cref="boardCam"/>。空则退回 <see cref="LayoutSpace.Cam"/>（HUD 相机；✅ 已复刻（2026-11-04 · B139-D4 · 原版 `TargetReticleController` 的 `hudCamera` = UI 相机，⛔ 不是 `Camera.main` —— 后者现在是 3D BoardCamera））</summary>
         public Camera hudCam;
         /// <summary>`floorPlane` 的高度（原版 = `floorReference.position.y`）；我们地面在 y=0</summary>
         public float floorY = 0f;
@@ -515,18 +515,18 @@ namespace CardPresentation
             //    （3D 战场由 `BattleScene` 建出来并把 `boardCam` 交给 `BattleDriver`。）
             if (boardCam == null) { LastAim = reticleWorld; LastAimOnPlane = false; return reticleWorld; }   // 🔶 自己设计（非原版）：2D 兜底布局没有战场相机 ⇒ 不做平面求交（原版此处会 NRE）；调度台 2026-10-29 B94_X2
 
-            // 🔴 2026-11-01（`B-162`）：**不再取 `boardCam` 参与求交** —— 投屏与出射都用 `hc`（同一台往返，见文件头那段「我们的口径」）
+            // ✅ 已复刻（2026-11-05 · B148-W7）：投屏 = `hc`(hudCamera, `.c:58`) → 出射 = `boardCam`(`.c:70`)。原「投屏与出射都用 `hc`」（2026-11-01 `B-162`）已被 `.c` 推翻，见文件头那条订正。
             var hc = hudCam != null ? hudCam : LayoutSpace.Cam;   // ✅ 已复刻（2026-11-04 · B139-D4 · HUD 档：原版 `hudCamera` = 场景里的 `UI Camera`；⛔ 别退回 `Camera.main`，那台现在是 3D BoardCamera）
             if (hc == null) { AimMisses++; LastAim = reticleWorld; LastAimOnPlane = false; Debug.LogWarning("[Reticle] 取不到 HUD 相机（`hudCam` 与 `LayoutSpace.Cam` 都为空）⇒ 准星不做双平面求交（原版这一支会 NRE；我们出声 + 计数）"); return reticleWorld; }
 
-            Vector3 screen = hc.WorldToScreenPoint(reticleWorld);   // 原版 `.c:58` = `hudCamera`(+0xA0)；旧实现误用 `boardCam`（两台对调）
+            Vector3 screen = hc.WorldToScreenPoint(reticleWorld);   // 原版 `.c:58` = `hudCamera`(+0xA0) —— 投屏这一跳**就是** `hc`，本行本来就对；错的是下一跳的出射相机（2026-11-05 `B148-W7` 复核）
             if (screen.z < 0f)
             {
                 AimMisses++; LastAim = reticleWorld; LastAimOnPlane = false;   // 在相机背后
                 return reticleWorld;
             }
 
-            Ray ray = hc.ScreenPointToRay(screen);
+            Ray ray = boardCam.ScreenPointToRay(screen);   // 原版 `.c:70` = `boardCamera`(+0xA8)；⚠️ 2026-11-05（`B148-W7`）就地订正：原来误用 `hc` ⇒ 正交相机射线方向恒 `(0,0,1)`、与地板法线 `(0,1,0)` 垂直 ⇒ `floor.Raycast` **恒假**、落点 z 恒 = 敌方行。（`boardCam` 非空由上面 `boardCam == null` 那道闸兜住）
             var floor = new Plane(Vector3.up, new Vector3(0f, floorY, 0f));                 // normal (0,1,0)
             var enemy = new Plane(Vector3.back, new Vector3(0f, 0f, enemyRowZ));            // normal (0,0,-1)
 

@@ -515,7 +515,7 @@ public static class ArenaBuilder
         // 🆕 2026-10-25（Tap 族）：点地面反馈（原版 `TapHitMaterialDefinition` 逐个实例）。
         //    判据正本 = `资料/完全复刻/判据/Tap族_地面点击反馈.md` §2/§4/§5.1；
         //    产出方 = `工具/scripts快照/gen_unity_arena_manifest.py` 的 `read_tap_hits()`。
-        public TapHitEntry[] tapHits;
+        public TapHitEntry[] tapHits; public AnimatorEntry[] animators; public AnimationEntry[] animations; public LineRendererEntry[] lineRenderers;
     }
 
     // ---------- Tap 族（点地面反馈）----------
@@ -621,7 +621,7 @@ public static class ArenaBuilder
         VerifyPrefabColorSpace();
         // 🆕 2026-10-25（Tap 族）：逐场核 `TapHitMaterialDefinition` / `TapParticleController` 进没进 prefab。
         foreach (var s in AllArenas) if (File.Exists(ArenaPrefabPath(s))) VerifyPrefabTapHits(s);
-        MeshPostProcess();   // ✅ 已复刻（2026-11-04 · B141/W18 · 网格后处理：prefab 引用同一批网格资产）
+        MeshPostProcess(); /* ✅ 已复刻（2026-11-05 · B148-W11 · 断言宿主接线）：`B148_W10_Assert.Run()` = 战场粒子四道闸的**产物自检**（逐场 `!u!198` 数 / 清单下标集合 / `m_RenderMode: 5` 颗数 / tau 两处动画落点）—— 它读的是 `Resources/ArenaPrefabs/<场>.prefab` 的**盘上文本** ⇒ 只能接在**建完 prefab 之后**，故落 `BuildArenaPrefabs()` 尾，⛔ 不接 `BuildAll()`（后者只建场景、不建 prefab）。零前提（只读 manifest + prefab 文本），无 `Pass`/`Fail` 读口 ⇒ 结论看它自己打印的 `B148_W10` 合计行。同一物理行追加 ⇒ 行数零变化。 */ B148_W10_Assert.Run();   // ✅ 已复刻（2026-11-04 · B141/W18 · 网格后处理：prefab 引用同一批网格资产）
     }
 
     /// <summary>🆕 2026-10-11（第二十会话）：**只建 `WF_ARENA` 那一场的 prefab**。
@@ -657,7 +657,7 @@ public static class ArenaBuilder
     ///    + `m_VertexStreams: 00010304`）⇒ 直接数文件里出现几次 `m_UseCustomVertexStreams: 1`，
     ///    与**建场时真设过的颗数**（`_nCustomStreamsTotal`）比。**两者必须相等**。
     ///    ⚠️ **不能拿清单里的 179 当期望**：清单 578 颗里有一部分**根本没建**
-    ///      （无贴图 / 原版关着 / `renderMode=None`）⇒ 13 件 prefab 一共只有 **469** 个 PSR。
+    ///      （无贴图且不在白名单 / 画质档）⇒ 13 件 prefab 的 PSR 总数**现读**（🆕 2026-11-05 `B148-W10` 重建后 = **576**；⛔ 别写死）。
     ///
     /// ⚠️ 这是**唯一不依赖 Unity 运行**就能复算的读数（主对话跑完 `BuildArenaPrefabs` 直接读日志即可；
     ///    也可以自己 `grep -c "m_UseCustomVertexStreams: 1" Resources/ArenaPrefabs/<场>.prefab`）。</summary>
@@ -679,7 +679,7 @@ public static class ArenaBuilder
         }
         // 期望值 = **建场时真调了 `SetActiveVertexStreams` 的颗数**（`BuildContent` 逐场累加），
         // ⚠️ 不是清单里 `useCustomVertexStreams=true` 的 179 —— 清单 578 颗里有一部分没建
-        //   （无贴图 / 原版关着 / renderMode=None）⇒ 我们的 13 件 prefab 一共只有 469 个 PSR。
+        //   （无贴图且不在白名单 / 画质档）⇒ 13 件 prefab 的 PSR 总数**现读**（🆕 2026-11-05 `B148-W10` 重建后 = 576）。
         Debug.Log($"[Arena] 顶点流自检（读 {files} 件 prefab 的产物文本）：建场时设过 `SetActiveVertexStreams` "
                 + $"**{_nCustomStreamsTotal}** 颗 vs prefab 里 `m_UseCustomVertexStreams: 1` **{got}** 处 —— "
                 + (got == _nCustomStreamsTotal ? "**相等 ✅**" : "**不等 🔴**：设了但没落进 prefab，"
@@ -692,7 +692,7 @@ public static class ArenaBuilder
     ///
     /// 🔴 与顶点流那条**同一个理由**：`rend.applyActiveColorSpace = ...` 只证明「赋过值」，
     ///    证明不了它落盘了。原版 `m_ApplyActiveColorSpace` 是**普通序列化字段**，Unity 6 照旧写它
-    ///    （实读我们已有的 13 件 `.prefab`：`m_ApplyActiveColorSpace: 1` **469/469**）
+    ///    （实读我们已有的 13 件 `.prefab`：`m_ApplyActiveColorSpace: 1` **469/469** —— 2026-11-01 口径；🆕 2026-11-05 `B148-W10` 重建后总数变 **576**）
     ///    ⇒ 数产物文本里的 `: 0` / `: 1`，与建场时真设过的颗数（`_nColorSpaceFalseTotal`）比。
     ///
     /// ⚠️ **两个期望值（都可复算）**：
@@ -736,7 +736,7 @@ public static class ArenaBuilder
                 + $"**{_nColorSpaceFalseTotal}** 颗 vs prefab 里 `m_ApplyActiveColorSpace: 0` **{zero}** 处 —— "
                 + (zero == _nColorSpaceFalseTotal ? "**相等 ✅**" : "**不等 🔴**：设了但没落进 prefab，"
                                                    + "这一条**没做完**，别当它生效了")
-                + $"；另 `: 1` **{one}** 处（两者合计应 = 13 件 prefab 的 PSR 总数 **469**）"
+                + $"；另 `: 1` **{one}** 处（两者合计应 = 13 件 prefab 的 PSR 总数；🆕 2026-11-05 `B148-W10` 重建后 = **576**）"
                 + $"\n[Arena] 色彩空间自检 逐场（`: 0` 的处数；预期见 `VerifyPrefabColorSpace` 头注）：{perArena}");
     }
 
@@ -2284,14 +2284,15 @@ public static class ArenaBuilder
             mf.defaultEnv != null ? mf.defaultEnv.ambientBlend : 0f;
         if (parent != null) root.transform.SetParent(parent, false);
         int nMesh = 0, nMeshSkip = 0, nPs = 0, nPsNoTex = 0, nPsNoTexMeshOk = 0, nPsInactive = 0, nPsNone = 0, nSol = 0, nColLife = 0,
-            nMeshQuality = 0, nPsQuality = 0;
+            nMeshQuality = 0, nPsQuality = 0; int nPsNoTexOrig = 0;   // 🆕 2026-11-05（`B148-W10`）：无贴图但命中 `UseOriginal` 白名单、照建出来的颗数
         int nMeshKw = 0;      // 🆕 2026-09-30：挂上「原版关键字」组件的网格数（旁挂 `_meshkeywords.json`）
         int nMeshBuiltin = 0; // 🆕 2026-10-08：走 Unity 内置网格（`Library/unity default resources`）的网格数
         // 🆕 2026-09-21 下半场：VFX 那几个模块建了多少个（自检要按它比）
         int nVel = 0, nClamp = 0, nNoise = 0, nRot = 0, nSubLinked = 0;
         _emissionDropped = 0;
-        _nCustomStreams = 0;   // 🆕 2026-10-11（A1557）：真正设上自定义顶点流的粒子数
+        _deferredParticles.Clear(); _nCustomStreams = 0;   // 🆕 2026-10-11（A1557）：真正设上自定义顶点流的粒子数；🆕 2026-11-05（`B148-W10`）：清「延后按原版路径挂回」的粒子表（定义见类尾）
         _nColorSpaceFalse = 0; // 🆕 2026-10-11（A1557·②）：真正被设成 applyActiveColorSpace=false 的粒子数
+
         // 子发射器引用的是**别的 ParticleSystem** ⇒ 全部建完才能连，先攒着
         var pendingSub = new System.Collections.Generic.List<(string go, SubEmitterData[] subs)>();
         var byName = new System.Collections.Generic.Dictionary<string, ParticleSystem>();
@@ -2567,7 +2568,7 @@ public static class ArenaBuilder
                 //    screen-grab / additive shader 出效果，**材质里本来就没有贴图**。
                 //    我们原来给它们建了 `URP/Particles/Unlit` + 空贴图 ⇒ **渲成一坨不透明白方块**
                 //    （blacklegion 那 4 条横白板就是这么来的，和原版真渲图一比就露）。
-                //    **宁可不建、也不画错的**（本项目的「不许静默失败」）—— 但**必须报出来**，见下面的汇总。
+                //    **宁可不建、也不画错的**（本项目的「不许静默失败」）—— 但**必须报出来**，见下面的汇总。🔴 2026-11-05（`B148-W10`）更正：命中 `UseOriginal` 白名单的那批**已改为照建**（下面 `noTexOrig`）。
                 //
                 // 🆕 2026-09-28 **给 `renderMode = 4 (Mesh)` 开一个豁免口**（判据见下）：
                 //    这道闸门比 Mesh 那条分支**早**，而 **Mesh 模式靠网格 + `matShader` 出效果、不靠贴图**
@@ -2576,37 +2577,36 @@ public static class ArenaBuilder
                 //    `Models/Sphere.obj` 也在），可场景里 `Close Monolith` 出现 **0 次** —— 一笔挂了很久的老账。
                 //    ⚠️ 豁免**只给「网格真的解析得到」的那些**（`ParticleMesh` 返回 null 照旧不建并出声）。
                 bool meshModeOk = NoTexMeshModeOk(p, mf.scene);
-                if (string.IsNullOrEmpty(p.texFile) && !meshModeOk)
-                {
-                    nPsNoTex++;
-                    continue;
-                }
-                if (string.IsNullOrEmpty(p.texFile) && meshModeOk) nPsNoTexMeshOk++;
-                // 🆕 2026-09-21：**原版关着的，不要建**（判据 = 生成器沿 `m_Father` 逐层与 `m_IsActive`）。
-                //    实测受害：arena3 的 `TorchEffectNecron/Fire/Light` ×2（淡绿 0.769/1.0/0.808、prewarm）
-                //    —— 原版 `activeInHierarchy=False`，我们开着 ⇒ 一开场两个绿球挂在火把上。
-                if (!p.active)
-                {
-                    nPsInactive++;
-                    continue;
-                }
+                // 🆕 2026-11-05（`B148-W10`）：**无贴图但 `matShader` 命中 `UseOriginal` 白名单 ⇒ 照建**。
+                //    判据 §4.2：`Everguild/FX/Particle Distortion Affect Transparents`（blacklegion 4 + tau 5）+
+                //    `Spine/Special/HiddenPass`（darkangels 2）—— 这两个 shader 10-19/10-22 起已在白名单里。
+                bool noTexOrig = NoTexWhitelistedOk(p, mf.scene);
+                if (string.IsNullOrEmpty(p.texFile) && !meshModeOk && !noTexOrig) { nPsNoTex++; continue; }
+                if (string.IsNullOrEmpty(p.texFile) && meshModeOk) nPsNoTexMeshOk++; if (noTexOrig) nPsNoTexOrig++;
+                // 🆕 2026-09-21 立的闸；🔴 **2026-11-05（`B148-W10`）就地改**：原版关着的**照建、照关**（不再 `continue`）。
+                //    当年只看到 arena3 那两颗绿球，没看到「原版关着」的绝大多数是**待触发的开火特效**：
+                //    `Railgun BIG.anim:10279-10280` 把 `Big Gun Effect` 的 `m_IsActive` 0→1（tau 47 颗在它子树下）·
+                //    `Dark Angels Void Combat animations.anim:489` 拉 `Turret 1 barrel/Lance Fire (5)`（10 颗）⇒ 不建 = 只播空气。
+                //    ⚠️ 挂载点必须回到**原版路径**（否则动画打开父节点时带不动它们），见类尾 `AttachDeferredParticles`。
+                //    ⚠️ 且「自己关着」与「被祖先关着」要分清（tau 46/67、darkangels 8/10 是**被祖先关着**、节点自己是开的）。
+                bool defInactive = !p.active;
+                if (defInactive) nPsInactive++;
                 // 🆕 2026-09-25：原版按画质档关着的（`ObjectTogglerByQuality`）—— 本档不建
                 if (inactiveByQuality.Contains(p.go))
                 {
                     nPsQuality++;
                     continue;
                 }
-                // 🆕 2026-09-21：`renderMode = 5 (None)` = **原版根本不画这个对象**
-                //    （实例：leviathan 的 `Smoke_trail_2`）。原来 `Mathf.Clamp(...,0,4)` 把它
-                //    变成 Billboard ⇒ 多画一个。
-                if (p.renderMode == 5)
-                {
-                    nPsNone++;
-                    continue;
-                }
+                // 🆕 2026-09-21 立的闸；🔴 **2026-11-05（`B148-W10`）就地改**：`renderMode = 5 (None)` **照建**（渲染模式保留 5）。
+                //    `None` 原版本来就不画（枚举双向核过：`dump.cs:1089456-1089466` + 本机 Unity 6 同序）⇒ 零像素差；
+                //    建出来是为了「严格复刻 = 节点/组件逐位一致」。⚠️ 同时必须把 `:2879` 的 `Mathf.Clamp(...,0,4)`
+                //    放到 **5** —— 否则 None 会被悄悄夹成 `Mesh(4)`（两处必须一起改）。
+                //    ⚠️ 建出来的是「组件在、原版也不画」：零像素差，例外只有 `ArenaParticleIndex` 计数多一颗。
+                bool defNone = p.renderMode == 5;
+                if (defNone) nPsNone++;
                 var go = new GameObject(string.IsNullOrEmpty(p.go) ? "PS" : p.go);
-                go.transform.SetParent(root.transform, false);
-                ApplyTransform(go.transform, p.pos, p.rot, p.scale);
+                bool deferAttach = defInactive || defNone || noTexOrig; if (deferAttach) _deferredParticles.Add(new DeferredParticle { index = pi, entry = p, go = go });
+                if (!deferAttach) { go.transform.SetParent(root.transform, false); ApplyTransform(go.transform, p.pos, p.rot, p.scale); }   // 🆕 2026-11-05（`B148-W10`）：这三类**先不挂树**，`ApplyGroupNodes` 之后按原版路径挂回（类尾 `AttachDeferredParticles`）
 
                 var ps = go.AddComponent<ParticleSystem>();
                 var main = ps.main;
@@ -2876,7 +2876,7 @@ public static class ArenaBuilder
                 //    实测规模 **19 颗 / 4 场**（tauviorla 10 · blacklegion 6 · arena3 2 · darkangels 1），
                 //    其中 tauviorla（1.033）与 blacklegion（1.076）都还在 >±5% 名单里。
                 //    ⚠️ 清单没给 `mesh` 时**照旧降级**（如实，不静默画错）。
-                int rm = Mathf.Clamp(p.renderMode, 0, 4);
+                int rm = Mathf.Clamp(p.renderMode, 0, 5);   // 🆕 2026-11-05（`B148-W10`）：上界 4→5，否则 `None(5)` 被夹成 `Mesh(4)`（与上面的闸④一起改）
                 var psMesh = ParticleMesh(p.mesh, mf.scene);
                 if (rm == 4 && psMesh != null)
                 {
@@ -3138,15 +3138,15 @@ public static class ArenaBuilder
         }
 
         if (nPsNoTex > 0)
-            Debug.LogWarning($"[Arena] 🔴 {mf.scene}：**{nPsNoTex} 个粒子没建** —— 它们的原版材质没有贴图"
-                           + "（扭曲/叠加辉光类，靠 screen-grab / additive shader 出效果）。"
-                           + "硬建会渲成不透明白方块 ⇒ 宁可不建。**这是已知缺口**，不是「做完了」："
-                           + "要还原得给它们接对应的原版 shader（见 `资料/普查产出_0920/场景光照与后处理_原版规格.md` §十一）。");
+            Debug.LogWarning($"[Arena] 🔴 {mf.scene}：**{nPsNoTex} 个粒子没建** —— 它们的原版材质没有贴图、"
+                           + "且 `matShader` **不在** `WarpforgeShaderMap.UseOriginal` 白名单里（硬建会渲成不透明白方块）。"
+                           + "🆕 2026-11-05（`B148-W10`）：白名单里的那批**已经照建**（见下一行）；剩下的只有「没 shader/不在白名单」这一种"
+                           + "（实例：tau 的 `Big Gun Effect`，`matShader` 为空）—— 判据 `B148_核_战场粒子缺口.md` §4.2。");
         // 🆕 2026-09-28：无贴图但**走 Mesh 模式**、因而被放行建出来的那批（`arena3` 的 `Close Monolith Rays` 一族）。
         //   这条**要出声**：它是「原版靠网格 + shader 出效果」的正当路径，不是缺口。
-        if (nPsNoTexMeshOk > 0)
-            Debug.Log($"[Arena] {mf.scene}：**{nPsNoTexMeshOk} 个粒子没有贴图但走 `renderMode = 4 (Mesh)`**"
-                    + "（网格抽得到）⇒ 按 Mesh 模式建出来（豁免口的判据写在「无贴图不建」那段注释里）。");
+        if (nPsNoTexMeshOk > 0 || nPsNoTexOrig > 0)
+            Debug.Log($"[Arena] {mf.scene}：**无贴图但照建** —— 走 `renderMode = 4 (Mesh)` 的 {nPsNoTexMeshOk} 个（网格抽得到）· "
+                    + $"走 `UseOriginal` 白名单 shader 的 {nPsNoTexOrig} 个（🆕 2026-11-05 `B148-W10`；原来这批被闸①吃掉）。");
 
         // 🆕 2026-09-30 晚：**原版顶点色**的落地情况（**一个都不许静默** —— 贴不上要报出来）
         if (vcStat.colored > 0 || vcStat.skipNoRead > 0 || vcStat.missVert > 0)
@@ -3186,7 +3186,7 @@ public static class ArenaBuilder
 
         Debug.Log($"[Arena] 内容：网格 {nMesh} 个（跳过 {nMeshSkip} · 按画质档不建 {nMeshQuality} · "
                 + $"挂原版关键字 {nMeshKw} 个 · 背景环自转 {nIconRot} 个）、粒子 {nPs} 个"
-                + $"（另跳过无贴图 {nPsNoTex} · 原版关着 {nPsInactive} · renderMode=None {nPsNone} 个）；"
+                + $"（跳过无贴图且不在白名单 {nPsNoTex} · **照建但照原版关着 {nPsInactive}** · **照建且保留 renderMode=None {nPsNone}** 个）；"   // 🆕 2026-11-05（`B148-W10`）：后两项原来也是「跳过」，现在建出来（见 `AttachDeferredParticles`）
                 + $"其中 sizeOverLifetime {nSol} · colorOverLifetime(RGBA) {nColLife} · "
                 + $"velocity {nVel} · clampVelocity {nClamp} · noise {nNoise} · rotation {nRot} · 子发射器 {nSubLinked}");
         // 🔴 自发光丢掉的那批**必须报出来**（原版有值、我们设不上去 —— 见 `_emissionDropped` 的说明）
@@ -3202,7 +3202,7 @@ public static class ArenaBuilder
         //    不等 ⇒ `SetActiveVertexStreams` 没生效，上面每颗都配了一句告警（不许静默）。
         Debug.Log($"[Arena] 顶点流：{mf.scene} 设上自定义顶点流的粒子 **{_nCustomStreams}** 颗"
                 + $"（期望 = 该场清单里 `useCustomVertexStreams=true` 且**真建出来了**的颗数；"
-                + "清单里没建的（无贴图 / 原版关着 / renderMode=None）不在此列）");
+                + "清单里没建的（无贴图且不在白名单 / 画质档）不在此列；原版关着与 renderMode=None 的**现在建了**，算在内）");
         _nCustomStreamsTotal += _nCustomStreams;   // 13 场的合计，给 `BuildArenaPrefabs` 的产物自检当期望值
         _nCustomStreams = 0;
         // 🆕 **2026-10-11（A1557·第②项）**：`applyActiveColorSpace` 的逐场读数 —— **这一行就是本条的判据**。
@@ -3261,11 +3261,11 @@ public static class ArenaBuilder
         ApplyLightAndAmbient(root.transform, mf);
         // 🆕 2026-10-11（A191）：**原版的【分组节点】+ 子树归属** —— 必须在「网格 / 粒子 / 灯」都建完之后，
         //    因为它要按「名字 + 最近位置」把**已经建出来的对象**改挂回去（见那个方法的头注）。
-        ApplyGroupNodes(mf, root); ApplyArenaTimelines(mf, root);   // 🆕 2026-11-03（T09·Timeline）：必须在改挂之后（绑定用的是原版树路径）；定义见类尾
+        ApplyGroupNodes(mf, root); AttachDeferredParticles(mf, root); ApplyArenaTimelines(mf, root);   // 🆕 2026-11-03（T09·Timeline）：必须在改挂之后（绑定用的是原版树路径）；🆕 2026-11-05（`B148-W10`）：`AttachDeferredParticles` 也必须在 `ApplyGroupNodes` 之后（原版父节点那时才在树里），定义见类尾
         // 🆕 2026-10-25（Tap 族）：点地面反馈 —— 碰撞体 + `TapHitMaterialDefinition` + 控制器。
         //    ⚠️ **必须排在 `ApplyGroupNodes` 之后**：那一步会按原版父链**改挂**已建对象（世界位姿不变），
         //    所以这里按「名字 + 世界坐标」在**整棵树**里找宿主，而不是记旧引用。
-        BuildTapHits(mf, root.transform);
+        BuildTapHits(mf, root.transform); BuildOriginalComponents(mf, root.transform);   // 🆕 2026-11-05（B148-W4）：原版 Animator / Animation / LineRenderer 三族（定义见类尾）
         ApplyPostFx(root.transform, mf);
         SetupSkybox();
         return root;
@@ -7007,6 +7007,538 @@ public static class ArenaBuilder
         if (prio != null) { prio.intValue = 2; so.ApplyModifiedPropertiesWithoutUndo(); }
         else Debug.LogWarning($"[Arena/OS] {r.name}：`MaterialChangerByQuality.priority` 这个序列化字段找不到 "
                             + "⇒ 保持类默认档（不影响画面，只影响初始化顺序；见 `InitializableBehaviour`）");
+    }
+
+    // ==================================================================
+    //  🆕 2026-11-05（`B148-W4`）· 原版组件三族：`Animator` / `Animation` / `LineRenderer`
+    //
+    //  【判据】`判据/B147_对账_R4资源战场.md` §一（`战场-T00A`）与 §一·`B146-B20`，本轮**现读复算**过：
+    //    · 原版 13 场里 **7 个 `Animator`(`!u!95`)**（arena1 2 · arena2 3 · leviathan 2）
+    //      · **10 个 `Animation`(`!u!111`)**（arena3 / astra / blacklegion / EC / genestealers 各 1
+    //      · darkangels 2 · tauviorla 3）
+    //      · **18 条 `LineRenderer`(`!u!120`)**（arena1 6 · arena2 3 · astra 9）。
+    //    · 另有 **13 条 `CrosshairLine 3D`**（每场 1 条）**不进清单** —— 运行时已经由
+    //      `CardPresentation/Battle/TargetReticle.cs:383` 建（`:377` 明写判据 = `LineRenderer_1609`），
+    //      再按 prefab 建一遍就是两条准星线叠在一起（排除写在生成器 `LINERENDERER_EXCLUDE` 里）。
+    //    · 数据源 = 生成器 `read_original_components()` 从
+    //      `ArenaOriginalPrefabs/<场>/<场>__Scenario.prefab` 逐字段抽出来的三段。
+    //
+    //  【改之前现读】13 件 `Resources/ArenaPrefabs/*.prefab`：
+    //    `!u!95` = **1**（只有 leviathan `Bunker_door`，`ApplyArenaTimelines` 建、`m_Controller: {fileID: 0}`）·
+    //    `!u!111` = **10**（组件都在，但 `m_Animation: {fileID: 0}` / `m_Animations: []` —— **一条 clip 都没挂**）·
+    //    `!u!120` = **0**。
+    //    ⇒ 这一段补的是：6 个 `Animator` 空壳 + 10 条 clip 绑定 + 18 条 `LineRenderer`。
+    //    ⚠️ 别照 `B147` 那句「`!u!111` 12/13 场 = 0」去改 —— 那句话只抽了 6 场；**13 件现数 = 10**。
+    //
+    //  ⚠️ **宿主怎么找**：清单给的是**世界 TRS**，与 `meshes[]` 同一套口径（本轮交叉验证：
+    //    `Cannon 1` 两边逐位相同 `[124.169998, 9.73856, 49.192694]`）⇒ 沿用 `FindBuiltByGo`
+    //    （名字 + 世界位置 ≤0.05 + 缩放 1%）在整棵树里找**已经建出来**的节点（`ApplyGroupNodes` 建了大部分）；
+    //    找不到才新建（原版 `active:false` 的照原版 `SetActive(false)`）。
+    //    ⚠️ **必须排在 `BuildTapHits` 之后**（那一步也会新建宿主），否则会建出两份同名节点。
+    //
+    //  ⚠️ **构建侧照实出声、不静默的三件事**：
+    //    ① 6 个 `AnimatorController` **本机不在工程里**（原版在
+    //       `ExportedProject/Assets/AnimatorController/*.controller`；`extract_arena_prefab_yaml.py`
+    //       默认不拷 `.controller`）⇒ 只建空壳，`runtimeAnimatorController` 留 null；
+    //    ② `LineRenderer` 的材质资产是**原版 `.mat`**（`ArenaOriginalPrefabs/<场>/Material/*.mat`）。
+    //       4 份里 3 份的 shader guid 已映射到我们的 `WFUnlitUVScroll.shader`（能用）；
+    //       `battlearena2/Material/Water Flow.mat` 那颗 guid 在本工程里**不存在** ⇒ 载入是
+    //       `Hidden/InternalErrorShader` ⇒ 退到 Unity 内置 `Default-Line.mat` 并**点名报警**。
+    //       ⛔ `ArenaOriginalMaterial.Rebuild()` **不认 `LineRenderer`**（只认 Mesh / Sprite / Particle
+    //       三种渲染器）⇒ 那条要真接原版 shader 得改那个文件（不在本批白名单，已记入报告）。
+    //    ③ 老清单没有这三个键（`JsonUtility` 缺键给 `null`）⇒ 一条警告点名「重跑生成器」。
+    // ==================================================================
+
+    [System.Serializable] public class AnimatorEntry
+    {
+        public string go, path;
+        public float[] pos, rot, scale;
+        public bool active = true, enabled = true;
+        public string controllerGuid, controllerFile;
+        public bool controllerLocal;
+        public int cullingMode, updateMode;
+        public bool applyRootMotion, linearVelocityBlending, stabilizeFeet, animatePhysics;
+        public bool hasTransformHierarchy, keepAnimatorStateOnDisable, writeDefaultValuesOnDisable;
+    }
+    [System.Serializable] public class AnimationEntry
+    {
+        public string go, path;
+        public float[] pos, rot, scale;
+        public bool active = true, enabled = true;
+        public string clipGuid, clipFile;
+        public bool clipLocal;
+        public int clipCount, wrapMode, updateMode, cullingType;
+        public bool playAutomatically, animatePhysics;
+    }
+    [System.Serializable] public class LineRendererEntry
+    {
+        public string go, path;
+        public float[] pos, rot, scale;
+        public bool active = true, enabled = true;
+        public bool useWorldSpace, loop, applyActiveColorSpace;
+        public int alignment, textureMode, numCornerVertices, numCapVertices;
+        public float widthMultiplier = 1f, shadowBias = 0.5f;
+        public float[] textureScale;
+        public int gradientMode, sortingOrder, rendererPriority, castShadows = 1, receiveShadows = 1,
+                   motionVectors, lightProbeUsage, reflectionProbeUsage, maskInteraction;
+        public LinePoint[] points;
+        public LrWidthKey[] widthKeys;
+        public LrColorKey[] colorKeys;
+        public LrAlphaKey[] alphaKeys;
+        public LrMaterial[] materials;
+    }
+    [System.Serializable] public class LinePoint { public float x, y, z; }
+    [System.Serializable] public class LrWidthKey { public float t, v; }
+    [System.Serializable] public class LrColorKey { public float t, r = 1f, g = 1f, b = 1f, a = 1f; }
+    [System.Serializable] public class LrAlphaKey { public float t, a = 1f; }
+    [System.Serializable] public class LrMaterial { public string guid, name, file; public bool local; }
+
+    /// <summary>原版 prefab 根（**不入 git**：`.gitignore:40-53`，2,202 文件 / 332 MB，见 `B125-ARENAGITIGNORE`）。</summary>
+    static string OrigPrefabDir(string scene) => "Assets/WarpforgeVFX/ArenaOriginalPrefabs/" + scene;
+
+    static void SetSerializedBool(SerializedObject so, string field, bool v)
+    {
+        var p = so.FindProperty(field);
+        if (p != null) p.boolValue = v;
+    }
+
+    /// <summary>在已建出来的树里按「名字 + 世界位置 + 缩放」找宿主；找不到就**照清单的世界 TRS 新建一颗**。
+    /// <para>⚠️ 必须排在 `ApplyGroupNodes` / `BuildTapHits` 之后 —— 那两步会把已有对象改挂/新建，
+    ///   先建的话会多出一颗同名空节点。</para></summary>
+    static Transform EnsureOriginalHost(Transform root, string go, float[] pos, float[] rot, float[] scale,
+                                       bool active, ref int created)
+    {
+        var all = root.GetComponentsInChildren<Transform>(true);
+        bool amb;
+        var t = FindBuiltByGo(all, go, pos, out amb, null, scale);
+        if (t != null) return t;
+        // 放宽一档：**同名的最近那一个**，只要距离在「位置量级的 1%」内（最少 0.05）。
+        //   为什么要这一档：`groups.json` 建的节点其 `lossyScale` 可能与我们算的世界缩放差 1% 以上
+        //   （父链上有负缩放/四级乘法），而 `FindBuiltByGo` 的缩放闸（1%）会把它对掉 ⇒ 那样会**多建一颗
+        //   同名节点**、组件挂在空节点上，而原节点还是不动（= 静默没生效）。组件的身份只取决于
+        //   「挂在哪个 GameObject 上」，与缩放无关；astra 那批坐标量级到了 1,500，所以容差按量级放大。
+        string want = CardPresentation.EnvironmentApplier.Norm(go);
+        float mag = (pos == null || pos.Length < 3) ? 0f
+                  : Mathf.Sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
+        float tol = Mathf.Max(0.05f, 0.01f * mag);
+        Transform best = null; float bd = float.MaxValue;
+        for (int i = 0; i < all.Length; i++)
+        {
+            var c = all[i];
+            if (c == null || CardPresentation.EnvironmentApplier.Norm(c.name) != want) continue;
+            float d = (pos == null || pos.Length < 3) ? 0f
+                    : Vector3.Distance(c.position, new Vector3(pos[0], pos[1], pos[2]));
+            if (d <= tol && d < bd) { bd = d; best = c; }
+        }
+        if (best != null) return best;
+        var neo = new GameObject(string.IsNullOrEmpty(go) ? "(unnamed)" : go);
+        neo.transform.SetParent(root, false);
+        ApplyTransform(neo.transform, pos, rot, scale);
+        if (!active) neo.SetActive(false);
+        created++;
+        return neo.transform;
+    }
+
+    static AnimationCurve LrWidthCurve(LrWidthKey[] keys)
+    {
+        if (keys == null || keys.Length == 0) return AnimationCurve.Linear(0f, 1f, 1f, 1f);
+        if (keys.Length == 1) return AnimationCurve.Constant(0f, 1f, keys[0].v);
+        var ks = new List<Keyframe>(keys.Length);
+        for (int i = 0; i < keys.Length; i++) ks.Add(new Keyframe(Mathf.Clamp01(keys[i].t), keys[i].v));
+        ks.Sort((a, b) => a.time.CompareTo(b.time));
+        return new AnimationCurve(ks.ToArray());
+    }
+
+    /// <summary>`Gradient.SetKeys` 只认 **时间升序、[0,1]** 的键；空表会让它抛 ⇒ 给一条白色兜底。</summary>
+    static Gradient LrGradient(LineRendererEntry e)
+    {
+        var g = new Gradient();
+        g.mode = (GradientMode)e.gradientMode;
+        var ck = new List<GradientColorKey>();
+        var ak = new List<GradientAlphaKey>();
+        if (e.colorKeys != null)
+            foreach (var c in e.colorKeys) ck.Add(new GradientColorKey(new Color(c.r, c.g, c.b, 1f), Mathf.Clamp01(c.t)));
+        if (e.alphaKeys != null)
+            foreach (var a in e.alphaKeys) ak.Add(new GradientAlphaKey(Mathf.Clamp01(a.a), Mathf.Clamp01(a.t)));
+        if (ck.Count == 0) ck.Add(new GradientColorKey(Color.white, 0f));
+        if (ak.Count == 0) ak.Add(new GradientAlphaKey(1f, 0f));
+        ck.Sort((a, b) => a.time.CompareTo(b.time));
+        ak.Sort((a, b) => a.time.CompareTo(b.time));
+        g.SetKeys(ck.ToArray(), ak.ToArray());
+        return g;
+    }
+
+    /// <summary>原版 `.mat` 能用就用；shader 没映射（`Hidden/InternalErrorShader`）或资产缺失 ⇒
+    /// 退到 Unity 内置 `Default-Line.mat`，并记进 `fallback` 让调用方**点名出声**。</summary>
+    static Material ResolveLineMaterial(LineRendererEntry e, string dir, List<string> fallback)
+    {
+        if (e.materials != null)
+            foreach (var m in e.materials)
+            {
+                if (m == null || string.IsNullOrEmpty(m.file)) continue;
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(dir + "/" + m.file);
+                if (mat != null && mat.shader != null && mat.shader.name != "Hidden/InternalErrorShader") return mat;
+                var why = mat == null ? "资产载不到" : "shader 未映射（" + mat.shader.name + "）";
+                var tag = (string.IsNullOrEmpty(m.name) ? m.file : m.name) + " —— " + why;
+                if (!fallback.Contains(tag)) fallback.Add(tag);
+            }
+        return AssetDatabase.GetBuiltinExtraResource<Material>("Default-Line.mat");
+    }
+
+    /// <summary>🆕 2026-11-05（`B148-W4`）：把清单的 `animators` / `animations` / `lineRenderers`
+    /// 三段建进产物。判据与已知缺口见本段头部注释。</summary>
+    public static void BuildOriginalComponents(Manifest mf, Transform root)
+    {
+        if (mf == null || root == null) return;
+        // `JsonUtility`：**缺键 → null**、**空数组 → 长度 0**（同文件 `ParticleEntry.vertexStreams` 那处的口径）
+        if (mf.animators == null || mf.animations == null || mf.lineRenderers == null)
+        {
+            Debug.LogWarning($"[Arena] {mf.scene}：清单里**没有** `animators` / `animations` / `lineRenderers` 三段"
+                           + "（老清单）⇒ 原版的 7 Animator / 10 Animation / 18 LineRenderer 这一场一个都不建。"
+                           + " 重跑 `python -I -X utf8 工具/scripts快照/gen_unity_arena_manifest.py --write --arena <场>`。");
+            return;
+        }
+
+        int nCreated = 0, nAnimator = 0, nAnimation = 0, nClipBound = 0, nLine = 0;
+        var ctrlMissing = new List<string>();
+        var clipMissing = new List<string>();
+        var matFallback = new List<string>();
+        string dir = OrigPrefabDir(mf.scene);
+
+        foreach (var e in mf.animators)
+        {
+            if (e == null || string.IsNullOrEmpty(e.go)) continue;
+            var t = EnsureOriginalHost(root, e.go, e.pos, e.rot, e.scale, e.active, ref nCreated);
+            var an = t.GetComponent<Animator>();
+            if (an == null) an = t.gameObject.AddComponent<Animator>();
+            an.enabled = e.enabled;
+            an.cullingMode = (AnimatorCullingMode)e.cullingMode;     // 原版 m_CullingMode（0 = AlwaysAnimate）
+            an.updateMode = (AnimatorUpdateMode)e.updateMode;
+            an.applyRootMotion = e.applyRootMotion;
+            an.linearVelocityBlending = e.linearVelocityBlending;
+            an.stabilizeFeet = e.stabilizeFeet;
+            an.keepAnimatorStateOnDisable = e.keepAnimatorStateOnDisable;
+            an.writeDefaultValuesOnDisable = e.writeDefaultValuesOnDisable;
+            // 这两个**没有公开 setter**（`Animator.animatePhysics` 在新版是过时属性）⇒ 走序列化字段
+            var so = new SerializedObject(an);
+            SetSerializedBool(so, "m_AnimatePhysics", e.animatePhysics);
+            SetSerializedBool(so, "m_HasTransformHierarchy", e.hasTransformHierarchy);
+            so.ApplyModifiedPropertiesWithoutUndo();
+            if (!string.IsNullOrEmpty(e.controllerFile))
+            {
+                var ctrl = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(dir + "/" + e.controllerFile);
+                if (ctrl != null) an.runtimeAnimatorController = ctrl;
+                else if (!ctrlMissing.Contains(e.controllerFile)) ctrlMissing.Add(e.controllerFile);
+            }
+            nAnimator++;
+        }
+
+        foreach (var e in mf.animations)
+        {
+            if (e == null || string.IsNullOrEmpty(e.go)) continue;
+            var t = EnsureOriginalHost(root, e.go, e.pos, e.rot, e.scale, e.active, ref nCreated);
+            var am = t.GetComponent<Animation>();
+            if (am == null) am = t.gameObject.AddComponent<Animation>();
+            am.enabled = e.enabled;
+            am.playAutomatically = e.playAutomatically;
+            am.wrapMode = (WrapMode)e.wrapMode;
+            am.cullingType = (AnimationCullingType)e.cullingType;
+            var so = new SerializedObject(am);
+            SetSerializedBool(so, "m_AnimatePhysics", e.animatePhysics);
+            var pu = so.FindProperty("m_UpdateMode");
+            if (pu != null) pu.intValue = e.updateMode;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            if (!string.IsNullOrEmpty(e.clipFile))
+            {
+                var clip = AssetDatabase.LoadAssetAtPath<AnimationClip>(dir + "/" + e.clipFile);
+                if (clip != null)
+                {
+                    am.clip = clip;
+                    if (am.GetClipCount() == 0) am.AddClip(clip, clip.name);
+                    nClipBound++;
+                }
+                else if (!clipMissing.Contains(e.clipFile)) clipMissing.Add(e.clipFile);
+            }
+            nAnimation++;
+        }
+
+        foreach (var e in mf.lineRenderers)
+        {
+            if (e == null || string.IsNullOrEmpty(e.go)) continue;
+            var t = EnsureOriginalHost(root, e.go, e.pos, e.rot, e.scale, e.active, ref nCreated);
+            var lr = t.GetComponent<LineRenderer>();
+            if (lr == null) lr = t.gameObject.AddComponent<LineRenderer>();
+            lr.enabled = e.enabled;
+            lr.useWorldSpace = e.useWorldSpace;
+            lr.loop = e.loop;
+            var pts = e.points ?? new LinePoint[0];
+            lr.positionCount = pts.Length;
+            for (int i = 0; i < pts.Length; i++)
+                lr.SetPosition(i, new Vector3(pts[i].x, pts[i].y, pts[i].z));
+            lr.widthMultiplier = e.widthMultiplier;
+            lr.widthCurve = LrWidthCurve(e.widthKeys);
+            lr.numCornerVertices = e.numCornerVertices;
+            lr.numCapVertices = e.numCapVertices;
+            lr.alignment = (LineAlignment)e.alignment;
+            lr.textureMode = (LineTextureMode)e.textureMode;
+            float tsx = (e.textureScale != null && e.textureScale.Length >= 2) ? e.textureScale[0] : 1f;
+            float tsy = (e.textureScale != null && e.textureScale.Length >= 2) ? e.textureScale[1] : 1f;
+            lr.textureScale = new Vector2(tsx, tsy);
+            lr.colorGradient = LrGradient(e);
+            lr.shadowBias = e.shadowBias;
+            lr.generateLightingData = false;
+            lr.shadowCastingMode = (ShadowCastingMode)e.castShadows;
+            lr.receiveShadows = e.receiveShadows != 0;
+            lr.motionVectorGenerationMode = (MotionVectorGenerationMode)e.motionVectors;
+            lr.lightProbeUsage = (LightProbeUsage)e.lightProbeUsage;
+            lr.reflectionProbeUsage = (ReflectionProbeUsage)e.reflectionProbeUsage;
+            lr.sortingOrder = e.sortingOrder;
+            lr.rendererPriority = e.rendererPriority;
+            lr.maskInteraction = (SpriteMaskInteraction)e.maskInteraction;
+            var so = new SerializedObject(lr);
+            SetSerializedBool(so, "m_ApplyActiveColorSpace", e.applyActiveColorSpace);
+            so.ApplyModifiedPropertiesWithoutUndo();
+            var mat = ResolveLineMaterial(e, dir, matFallback);
+            if (mat != null) lr.sharedMaterial = mat;
+            nLine++;
+        }
+
+        Debug.Log($"[Arena] 原版组件（{mf.scene}）：`Animator` {nAnimator} 个 · `Animation` {nAnimation} 个"
+                + $"（挂上 clip {nClipBound} 条）· `LineRenderer` {nLine} 条 · 新建宿主 {nCreated} 个"
+                + (ctrlMissing.Count > 0
+                   ? $"\n[Arena] 🔴 `AnimatorController` 本地缺 {ctrlMissing.Count} 份 ⇒ 这几个只建了空壳、"
+                     + $"运行时**不会动**：{string.Join(" / ", ctrlMissing.ToArray())}"
+                     + "（原版在 `ExportedProject/Assets/AnimatorController/`，"
+                     + "`extract_arena_prefab_yaml.py` 默认不拷 `.controller`）"
+                   : "")
+                + (clipMissing.Count > 0
+                   ? $"\n[Arena] 🔴 `AnimationClip` 本地缺 {clipMissing.Count} 份：{string.Join(" / ", clipMissing.ToArray())}"
+                   : "")
+                + (matFallback.Count > 0
+                   ? $"\n[Arena] 🔴 `LineRenderer` 材质退到 Unity 内置 `Default-Line.mat` {matFallback.Count} 条："
+                     + string.Join(" / ", matFallback.ToArray())
+                     + "（`ArenaOriginalMaterial.Rebuild()` 不认 `LineRenderer`，原版 shader 这一路接不上）"
+                   : ""));
+    }
+
+    // ==================================================================
+    //  🆕 2026-11-05（`B148-W10`）· 粒子四道闸门收口：**原版关着 / `renderMode=None` / 无贴图但白名单 ⇒ 照建**
+    //
+    //  【判据】`资料/完全复刻/判据/B148_核_战场粒子缺口.md`（R7 逐场逐颗取证，2026-11-05）：
+    //    · 差 **109** = 80（原版 `m_IsActive=0`）+ 20（`renderMode=None`）+ 8（原版材质无贴图）+ 1（画质档），
+    //      13 场逐场反推全等、无残差（原版 578 · 我方旧 prefab 469）。
+    //    · **闸② 是真缺口**：`Railgun BIG.anim:10279-10280` 把 `Big Gun Effect` 的 `m_IsActive` 0→1
+    //      （tau 47 颗在它子树下）· `Dark Angels Void Combat animations.anim:489` 拉
+    //      `Turret 1 barrel/Lance Fire (5)`（darkangels 10 颗）⇒ 不建 = **开炮时只播空气**。
+    //    · **闸① 的理由已过期**：那两个 shader 早在 `WarpforgeShaderMap.UseOriginal` 白名单里
+    //      （`Everguild/FX/Particle Distortion Affect Transparents` · `Spine/Special/HiddenPass`）。
+    //    · **闸④ 是对的**（`None=5` 原版本来就不画；枚举双向核过）⇒ 照建、保留 5 ⇒ 零像素差。
+    //    · **闸③（画质档）不动**（aeldari `Portal Low Quality` 本档确实不显示）。
+    //
+    //  🔴 **为什么必须「按原版路径挂回去」而不是平铺在根下**：这些粒子在原版里是**树干上的子件**，
+    //    动画 clip 的曲线路径是相对 `Animation` 组件所在 GameObject 的（判据：`ApplyGroupNodes` 头注那四条
+    //    `Dark Angels` 曲线路径）⇒ 挂错地方 = 动画打开父节点时**带不动**它们。
+    //    `groups.json` 的 `nodes[]` 已经把这些节点（连同 local TRS）建出来了，但它**不带 `m_IsActive`** ——
+    //    而「自己关着」与「被祖先关着」必须分清（tau 46/67、darkangels 8/10 是**被祖先关着**，节点自己是开的）
+    //    ⇒ 只能回**原版 prefab** 读 `activeSelf`。所以这三类粒子：
+    //      ① 建场时**先不挂树**，记进 `_deferredParticles`（`BuildContent` 的创建处）；
+    //      ② `ApplyGroupNodes` 之后由 `AttachDeferredParticles` 按「名字 + 最近世界位置（真世界坐标，含父级缩放）」
+    //         对上原版那颗 PS，拿它的**完整路径**在树里 `Find`，把粒子作为子件挂在**恒等 local TRS** 下
+    //         （路径节点自己的 local TRS 就是原版那颗的 ⇒ 合起来 = 原版 TRS）；
+    //      ③ 原版路径上**自己关着**的节点逐个 `SetActive(false)`（**只关不开**；动画起来时它自己会打开）。
+    //    ⚠️ 载不到原版 prefab / 找不到节点 ⇒ **出声**并退回旧行为（平铺在根下 + 按 `active` 关掉），⛔ 不静默。
+    // ==================================================================
+
+    /// <summary>无贴图、但原版 shader 在 `WarpforgeShaderMap.UseOriginal` 白名单里 ⇒ **可以照建**
+    /// （建场期材质仍走兜底，运行时由 `ArenaOriginalMaterial` 换成原版 shader 原件）。
+    /// ⚠️ 判据只此一处：`BuildContent` 的闸① 与 `B148_W10_Assert` 都调它（两处各写一份 = 迟早不一致）。</summary>
+    public static bool NoTexWhitelistedOk(ParticleEntry p, string scene)
+    {
+        if (p == null) return false;
+        if (!string.IsNullOrEmpty(p.texFile)) return false;          // 有贴图 ⇒ 不归这条闸管
+        if (NoTexMeshModeOk(p, scene)) return false;                 // Mesh 模式那条路优先级更高（见闸①的豁免口）
+        return p.matShader != null && WarpforgeVFX.WarpforgeShaderMap.UseOriginal.Contains(p.matShader);
+    }
+
+    /// <summary>`B148-W10`：延后到 `ApplyGroupNodes` 之后按原版路径挂回的粒子。</summary>
+    struct DeferredParticle
+    {
+        public int index;                 // 清单 `particles[]` 下标（= 挂在对象上的 `ArenaParticleIndex.index`）
+        public ParticleEntry entry;
+        public GameObject go;
+    }
+    static readonly List<DeferredParticle> _deferredParticles = new List<DeferredParticle>();
+
+    /// <summary>原版 prefab 里的一颗 `ParticleSystem`（只保留挂回要用的四样）。</summary>
+    class OrigPsNode
+    {
+        public string name;               // GameObject 名（用来与清单 `particles[].go` 对上）
+        public string path;               // 从 prefab 根起的完整路径（`Scenario/…`），用来在我们树里 `Find`
+        public Vector3 pos;               // **真世界位置**（含父链缩放）—— 与清单 `particles[].pos` 同一套
+        public bool selfActive;           // 这个 GameObject **自己**的 `m_IsActive`
+        public bool hierActive;           // 沿父链逐层与（= 清单 `active`，用来交叉验证匹配对不对）
+        public List<string> selfOffChain;// 从根到它自己：`activeSelf == false` 的那些节点的**完整路径**（浅→深；没有就是 null）
+    }
+
+    /// <summary>原版 prefab（**资产、未实例化**）里一个 Transform 的**真世界位置** —— 逐层乘父链的
+    /// `localRotation` / `localScale`。
+    /// <para>⚠️ 别用 `Transform.position`：prefab 资产不在场景里，语义没保证；这条式子与清单
+    ///   `particles[].pos` **逐位吻合**（2026-11-05 13 场实算：12 场 dmax = 0、tau ≤ 0.88（负缩放/四级乘法链））。</para>
+    /// <para>⚠️ 父链可能是 `RectTransform`（`!u!224`，如 leviathan 的根）—— `Transform` 基类一视同仁。</para></summary>
+    static Vector3 OrigWorldPos(Transform t)
+    {
+        var pos = t.localPosition;
+        for (var p = t.parent; p != null; p = p.parent)
+            pos = p.localPosition + p.localRotation * Vector3.Scale(pos, p.localScale);
+        return pos;
+    }
+
+    /// <summary>读原版 prefab 的 13 场 `<场>__Scenario.prefab`，列出全部 `ParticleSystem`。
+    /// 载不到 ⇒ 回 null（调用方出声 + 退回平铺）。</summary>
+    static List<OrigPsNode> LoadOriginalParticleNodes(string scene)
+    {
+        string path = OrigPrefabDir(scene) + "/" + scene + "__Scenario.prefab";
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        if (prefab == null)
+        {
+            Debug.LogWarning($"[Arena] B148：原版 prefab 载不到 `{path}` ⇒ 新放行的粒子只能**平铺**回根下"
+                           + "（动画打开父节点时带不动它们；先把 `ArenaOriginalPrefabs` 导进来再重建）");
+            return null;
+        }
+        var list = new List<OrigPsNode>();
+        var pss = prefab.GetComponentsInChildren<ParticleSystem>(true);
+        for (int i = 0; i < pss.Length; i++)
+        {
+            var ps = pss[i];
+            if (ps == null) continue;
+            var t = ps.transform;
+            var segs = new List<string>();
+            var acts = new List<bool>();
+            for (var c = t; c != null; c = c.parent) { segs.Add(c.name); acts.Add(c.gameObject.activeSelf); }
+            segs.Reverse(); acts.Reverse();
+            var offs = new List<string>();
+            string cur = null;
+            for (int s = 0; s < segs.Count; s++)
+            {
+                cur = (s == 0) ? segs[s] : cur + "/" + segs[s];
+                if (!acts[s]) offs.Add(cur);
+            }
+            list.Add(new OrigPsNode
+            {
+                name = ps.gameObject.name,
+                path = cur,
+                pos = OrigWorldPos(t),
+                selfActive = acts[acts.Count - 1],
+                hierActive = offs.Count == 0,
+                selfOffChain = offs.Count > 0 ? offs : null,
+            });
+        }
+        return list;
+    }
+
+    /// <summary>`B148-W10`：把「原版关着 / `renderMode=None` / 无贴图但白名单」这三类延后建的粒子
+    /// **按原版路径挂回**树里，并把原版路径上自己关着的节点照原版关掉。
+    /// <para>⚠️ 必须在 `ApplyGroupNodes` **之后**调用（那时 `groups.json` 的 `nodes[]` 才把原版父节点建出来）。</para>
+    /// <para>⚠️ 找不到就不能静默：退回平铺 + 逐个点名（`flatWhat`），并**仍按 `active` 关掉**（避免一开场多出一片特效）。</para></summary>
+    static void AttachDeferredParticles(Manifest mf, GameObject root)
+    {
+        if (mf == null || root == null || _deferredParticles.Count == 0) return;
+        var orig = LoadOriginalParticleNodes(mf.scene);
+        // 🆕 2026-11-05（`B148` 修补）：**父先子后** —— 这些节点按原版路径挂回时，父节点自己往往也是一颗
+        //   「被祖先关着」的延后粒子；按清单原序处理会让子件在父件还没挂回时找不到路径（实测 tau 剩 19 颗）。
+        //   按 `go` 的层数升序排一遍即可。
+        _deferredParticles.Sort((a, b) =>
+            (a.entry == null || a.entry.go == null ? 0 : a.entry.go.Split('/').Length)
+            .CompareTo(b.entry == null || b.entry.go == null ? 0 : b.entry.go.Split('/').Length));
+        int moved = 0, flat = 0, offNodes = 0, hierMismatch = 0;
+        var flatWhat = new List<string>();
+        for (int i = 0; i < _deferredParticles.Count; i++)
+        {
+            var d = _deferredParticles[i];
+            if (d.go == null || d.entry == null) continue;
+            var p = d.entry;
+            var pPos = ToVec3(p.pos, Vector3.zero);
+
+            OrigPsNode best = null; float bd = float.MaxValue;
+            if (orig != null)
+            {
+                string want = CardPresentation.EnvironmentApplier.Norm(p.go);
+                for (int k = 0; k < orig.Count; k++)
+                {
+                    var o = orig[k];
+                    if (CardPresentation.EnvironmentApplier.Norm(o.name) != want) continue;
+                    float dd = (o.pos - pPos).sqrMagnitude;
+                    if (dd < bd) { bd = dd; best = o; }
+                }
+            }
+            // 容差 = 位置量级的 1%（下限 0.05）—— 与 `EnsureOriginalHost` 同一套；tau 实测最大 0.88 / 量级 ~160。
+            float mag = pPos.magnitude;
+            float tol = Mathf.Max(0.05f, 0.01f * mag);
+            string why = null;
+            if (orig == null) why = "原版 prefab 载不到";
+            else if (best == null) why = "原版 prefab 里没有同名 ParticleSystem";
+            else if (bd > tol * tol) why = $"最近那颗同名 PS 差了 {Mathf.Sqrt(bd):F2}（容差 {tol:F2}）";
+            else if (best.hierActive != p.active)
+            {
+                // 这一条是**匹配自检**：`hierActive` 是我从原版 `m_IsActive` 现算的，清单 `active` 是生成器算的
+                // ⇒ 对不上多半是「名字 + 位置」配错了颗（13 场实测 0 例），出声别静默。
+                hierMismatch++;
+                why = $"激活态对不上（原版 hier={best.hierActive} / 清单 active={p.active}）";
+            }
+
+            var node = (why == null) ? FindByOriginalPath(root.transform, best.path) : null;
+            if (node == null)
+            {
+                if (why == null) why = $"原版路径 `{best.path}` 在树里找不到";
+                d.go.transform.SetParent(root.transform, false);
+                ApplyTransform(d.go.transform, p.pos, p.rot, p.scale);
+                if (!p.active) d.go.SetActive(false);
+                flat++; flatWhat.Add($"{p.go}（{why}）");
+                continue;
+            }
+            d.go.transform.SetParent(node, false);
+            d.go.transform.localPosition = Vector3.zero;
+            d.go.transform.localRotation = Quaternion.identity;
+            d.go.transform.localScale = Vector3.one;
+            if (best.selfOffChain != null)
+                for (int k = 0; k < best.selfOffChain.Count; k++)
+                {
+                    var t = root.transform.Find(best.selfOffChain[k]);
+                    if (t != null && t.gameObject.activeSelf) { t.gameObject.SetActive(false); offNodes++; }
+                }
+            moved++;
+        }
+        Debug.Log($"[Arena] B148 粒子闸门（{mf.scene}）：**按原版路径挂回 {moved} 颗** · "
+                + $"照原版关着的路径节点 {offNodes} 个 · 退回平铺 {flat} 颗"
+                + (flatWhat.Count > 0 ? "（🔴 **出声**：" + string.Join(" / ", flatWhat.ToArray()) + "）" : "")
+                + (hierMismatch > 0 ? $" · ⚠️ 激活态对不上 {hierMismatch} 颗" : ""));
+        _deferredParticles.Clear();
+    }
+
+    /// <summary>🆕 2026-11-05（`B148` 修补 · 供 `AttachDeferredParticles` 用）：按**原版完整路径**找树里的节点。
+    /// 原版路径的第一段是**原版场景根名**（如 `battlearenatauviorla__Scenario/…`），而我们 prefab 的根不叫这个
+    /// ⇒ `root.transform.Find(fullPath)` 必然失败（实测 101/101 全部「退回平铺」）。这里逐级去掉前缀再找，
+    /// 最后兜底「全树唯一同名叶」；多于一个同名叶 ⇒ 判不了，返回 null 让它如实退回平铺并出声。</summary>
+    static Transform FindByOriginalPath(Transform root, string path)
+    {
+        if (root == null || string.IsNullOrEmpty(path)) return null;
+        var direct = root.Find(path);
+        if (direct != null) return direct;
+        var parts = path.Split('/');
+        for (int skip = 1; skip < parts.Length; skip++)
+        {
+            var suffix = string.Join("/", parts, skip, parts.Length - skip);
+            var t = root.Find(suffix);
+            if (t != null) return t;
+        }
+        var leaf = parts[parts.Length - 1];
+        Transform hit = null; int n = 0;
+        foreach (var tr in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (tr == root || tr.name != leaf) continue;
+            hit = tr; if (++n > 1) return null;
+        }
+        return hit;
     }
 
 }

@@ -2882,7 +2882,7 @@ namespace CardPresentation
                   float fontPx, Align align, string name, int q,
                   float wrapPx = 0f, float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
                   float boxW = 0f, float boxH = 0f, Label.VAlign? vAlign = null,
-                  TmpFont.Face face = TmpFont.Face.Cjk)
+                  TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             // 🔴 **2026-10-09（A229）**：与同文件 `Nine`（上面那条）**同一条守卫、同一句话** ——
             //   本类「**位置按 `basis` 算、树父给 `parent`**」这一套里，`basis != parent` 就是**两套坐标系**

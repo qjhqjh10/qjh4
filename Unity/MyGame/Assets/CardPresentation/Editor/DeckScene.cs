@@ -3532,7 +3532,7 @@ public static class DeckScene
                 _rt.UiRowHoverAt(1700f, 500f);        // 指针移开（`_hoverRow` 归 -1）
                 // 滚到底：最后那一项必须**真的画出来**（旧写法里它算出来的 y 在视口内，只是**没槽**）
                 _rt.UiScrollDeck(9999f);
-                Check(_rt.UiDeckRowAt(_rt.DeckRowVisible - 1), entries4[entries4.Count - 1],
+                Check(_rt.UiDeckRowAt(_rt.DeckRowVisible - 1), entries4.Count > 0 ? entries4[entries4.Count - 1] : null,   // 🔴 2026-11-05（`B148`）：空卡组库时 `entries4.Count == 0` ⇒ 原来这里 `[-1]` 抛 ArgumentOutOfRange，`RunCore` 中断（其后 25 条一条没跑）。真修 = 夹具显式造满编卡组（见 `判据/B148_失败归类_其余宿主.md`）。
                       "★ 滚到底：**最后一个槽**装的是卡组**最后一项**（`A1727` 之前它一个槽都没有 —— "
                     + "`firstRow_max = Count−12`、槽 0..10 只覆盖到 `Count−2`）");
                 CheckTrue(_rt.UiQuadRect("row_g11", out q11x, out q11y, out q11w, out q11h),

@@ -144,7 +144,7 @@ namespace CardPresentation
         ///   （逐站判据见 `资料/普查产出_1012/F2_字号线收尾.md` §2·6 的 `ChatPanel` 表）。</para></summary>
         Label Text(Transform p, PxRect r, string s, Color c, string n, float px, int q, float autoMin,
                    bool alignLeft, float autoMax = 0f, float autoBase = 0f,
-                   TmpFont.Face face = TmpFont.Face.Cjk)
+                   TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             var lb = MenuDraw.TextBox(p, r, s, c, n, px, autoMin, q, autoMax, autoBase, face: face);
             if (lb != null && alignLeft) MenuDraw.AlignLeft(lb, r);
@@ -757,7 +757,7 @@ namespace CardPresentation
         /// ⚠️ 它**没有默认值**：漏传要**编不过**（照 `MenuDraw.Rect` 的 `uv0` 那条纪律），不是运行期静默。</summary>
         static Label Text(Transform p, PxRect r, string s, Color col, string n, float px, int q, PxRect? clip,
                           Vector2 clipSoft, bool alignLeft = false, bool alignRight = false,
-                          TmpFont.Face face = TmpFont.Face.Cjk)
+                          TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             // 🔴 **2026-10-13（A435 阶段 2 · 丙）**：改走 **`VisibleAbove`**（节点态那一版）——
             //   调用点（`ChatTab.Rebuild`）现在传的 `clip` 是 `null`（裁切状态在视口节点上）

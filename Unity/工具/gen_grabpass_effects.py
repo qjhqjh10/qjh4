@@ -695,8 +695,9 @@ def build_report(opts):
     A("3. A/B 两跑（主对话 · Unity 全局串行）：同屏两个扭曲件叠加的场景，分别用 `" + opts["env_switch"] + "=0/1`"
       " 各渲一次逐像素比。⛔ 别在批处理（sweep/自检）里开它 —— 没有帧循环时 `EnsureCameraSeesRelocated` 不跑，"
       " 效果会整块空掉（见 `GrabPassTransparentFeature.cs` 文件尾 ⑤）。")
-    A("4. 层号不是原版值：原版 `UniversalRendererData` 资产本地没解出来 ⇒ 目标层是我们挑的（`DefaultLayer`），"
-      " `" + opts["env_layer"] + "` 可覆盖。")
+    A("4. 层号 = **原版值**（2026-11-05 订正）：`DefaultLayer` 现读 `" + str(target_layer) + "`，出处 = 原版 "
+      "`GrabScreenFeatureU6.asset:20` 的 `settings.LayerMask.m_Bits = 64`（层名 `AfterTransparents`）；"
+      "原写「层号不是原版值、是我们挑的」已过期。`" + opts["env_layer"] + "` 可覆盖。")
     A("")
 
     # ---- 边界 ----
@@ -709,10 +710,10 @@ def build_report(opts):
       "表里「当前队列」用的是 prefab binder 的 `renderQueue`（运行期材质重建时按它覆盖）。")
     A("- 引用卡只按 `card_vfx_by_card.json`（运行期那份）；不含立绘/语音/卡背引用。")
     A("- 场景静态引用只认 guid（`*.unity` / `*.prefab`，>64 MB 跳过）；`.asset` / Addressables 容器未扫。")
-    A("- 🔴 **发现的文档不一致（只读记录，未改任何 .cs）**：`GrabPassTransparentFeature.cs` 文件尾"
-      "「2026-10-25 起有自动档」那段写着「层默认 **31**」，而同一个文件的常量 "
-      "`GrabScreen501.DefaultLayer = " + str(target_layer) + "`（`ParseLayer` 都读它）⇒ **以常量为准，"
-      "文件尾那句是过期的**。本表目标层按常量 " + str(target_layer) + "。")
+    A("- ✅ **2026-11-05 订正（铁律 5）**：本表原来记着「`GrabPassTransparentFeature.cs` 文件尾那段写着"
+      "「层默认 **31**」、而常量是 `GrabScreen501.DefaultLayer = 9`，以常量为准」——**现读两边已一致**："
+      "文件尾与常量都写 `DefaultLayer = " + str(target_layer) + "`（= 原版 `AfterTransparents`；"
+      "`ParseLayer` 都读它）。本表目标层按常量 " + str(target_layer) + "。")
     A("")
     return "\n".join(lines) + "\n"
 

@@ -489,7 +489,7 @@ namespace RuleEngine
         /// ⚠️ 纯表现信号：走 `ctx.Signals.Add`（与 <see cref="GainQuest"/> 同一条路）、**不进 `ctx.Events`**
         /// ⇒ **不动 `NetProtocol.Fingerprint`**、不进动作流、不影响本地录像 / 联机。</para>
         /// </summary>
-        QuestSpent, Fatigue, WarlordTransform,   // 🆕 2026-11-03（执行写手 `B121_E03F_VFX` · 账 `B121-E03F` · 用户 2026-11-03 裁定）：**督军变身成功** —— 🔶 **自己设计（非原版）**：原版那套 `BattleManager.CheckForHeroDeckTransform` 只换 `rawBattleData.deckWarlord` + 换对白池，**没有任何专属演出/特效/cue**（判据 → `RuleCorePartial_B96CB.cs` 文件末「§变身」那一大段）。本档是**表现层窄口**：`Player` = 变身那一方 · `Slot` = `BoardSpec.WarlordSlot`(4) · `CardId` = **新**督军卡名 · `Effect` = **旧**督军卡名（`null`/空 = 原来没有督军，那一段溶解不播）· `InstanceId` = 新督军那一份的实例号。**发出点只此一处** = `RuleCore.SwapWarlordCard` 的 `return true` 之前；**消费端** = `BattleDriver.PlayWarlordTransformFeel` → `TransformPresentation.Play`（0.9 s 三拍；全部参数与「查不到 ⇒ 自设计」的逐条记录在 `CardPresentation/Battle/TransformPresentation.cs` 文件头）。纯表现信号：**不改局面、不冻结输入、不进动作流**（`BattleEvent` 不进 `.json`）；登记在 `EventTiming.ZeroDurationKinds`（不占时间线）。｜🆕 2026-11-02（执行写手 `B118_W11` · 活状态表 `D118-41`）：**疲劳（牌库抽空）** —— 一方的牌库被抽空、督军吃了一次疲劳伤害。**字段**：`Player` = 牌库空那一方 · `Slot` = `BoardSpec.WarlordSlot`（恒 4）· `CardId` = 该方督军卡名 · `Amount` = **本次疲劳伤害**（= 自增后的 `PlayerState.Fatigue`，与紧随其后那条 `Hit` 同量）。**判据**（第一权威，逐句）= 原版 `BattleManager._ResolveFatigue_d__587__MoveNext.c`：`UIMessageController.ShowError(文案)` → `DealMultiDamage(量 = 疲劳值, 类型 = 2)` → `yield return new WaitForSeconds(0.5f)`；原版**没有**「疲劳事件」这种东西（那条协程天然知道），我们引擎同步、表现层只拿得到事件流 ⇒ 必须专开一条才不用猜。🔴 **发出点只此一处** = `RuleCore.MoveDeckTopToHand` 的牌库空分支、**排在 `EmitHit` 之前**（原版次序 = 横幅 → 伤害）。⚠️ 零时长（登记在 `EventTiming.ZeroDurationKinds`）：它与紧随的 `Hit` 同一拍，多占时长会拖长节奏。⚠️ **同一物理行追加 = 刻意零行数变化**（本文件 `:874` 有账落点，铁律 18·b）
+        QuestSpent, Fatigue, WarlordTransform, CardCreatedIntoDeck,   // 🆕 2026-11-03（执行写手 `B121_E03F_VFX` · 账 `B121-E03F` · 用户 2026-11-03 裁定）：**督军变身成功** —— 🔶 **自己设计（非原版）**：原版那套 `BattleManager.CheckForHeroDeckTransform` 只换 `rawBattleData.deckWarlord` + 换对白池，**没有任何专属演出/特效/cue**（判据 → `RuleCorePartial_B96CB.cs` 文件末「§变身」那一大段）。本档是**表现层窄口**：`Player` = 变身那一方 · `Slot` = `BoardSpec.WarlordSlot`(4) · `CardId` = **新**督军卡名 · `Effect` = **旧**督军卡名（`null`/空 = 原来没有督军，那一段溶解不播）· `InstanceId` = 新督军那一份的实例号。**发出点只此一处** = `RuleCore.SwapWarlordCard` 的 `return true` 之前；**消费端** = `BattleDriver.PlayWarlordTransformFeel` → `TransformPresentation.Play`（0.9 s 三拍；全部参数与「查不到 ⇒ 自设计」的逐条记录在 `CardPresentation/Battle/TransformPresentation.cs` 文件头）。纯表现信号：**不改局面、不冻结输入、不进动作流**（`BattleEvent` 不进 `.json`）；登记在 `EventTiming.ZeroDurationKinds`（不占时间线）。｜🆕 2026-11-02（执行写手 `B118_W11` · 活状态表 `D118-41`）：**疲劳（牌库抽空）** —— 一方的牌库被抽空、督军吃了一次疲劳伤害。**字段**：`Player` = 牌库空那一方 · `Slot` = `BoardSpec.WarlordSlot`（恒 4）· `CardId` = 该方督军卡名 · `Amount` = **本次疲劳伤害**（= 自增后的 `PlayerState.Fatigue`，与紧随其后那条 `Hit` 同量）。**判据**（第一权威，逐句）= 原版 `BattleManager._ResolveFatigue_d__587__MoveNext.c`：`UIMessageController.ShowError(文案)` → `DealMultiDamage(量 = 疲劳值, 类型 = 2)` → `yield return new WaitForSeconds(0.5f)`；原版**没有**「疲劳事件」这种东西（那条协程天然知道），我们引擎同步、表现层只拿得到事件流 ⇒ 必须专开一条才不用猜。🔴 **发出点只此一处** = `RuleCore.MoveDeckTopToHand` 的牌库空分支、**排在 `EmitHit` 之前**（原版次序 = 横幅 → 伤害）。⚠️ 零时长（登记在 `EventTiming.ZeroDurationKinds`）：它与紧随的 `Hit` 同一拍，多占时长会拖长节奏。⚠️ **同一物理行追加 = 刻意零行数变化**（本文件 `:874` 有账落点，铁律 18·b）｜🆕 2026-11-05（执行写手 `B148_W8` · 账 `B146-S3-MOVETOPOS-145` + `B146-S3-CREATEATPOS-18`）：**`CardCreatedIntoDeck` = 造牌进牌库的演出信号**（一张新造的牌在 `createAtPos` 锚出现 → 0.9 s 飞到 `moveToPos` 锚 → 0.3 s 飞进牌堆）。判据（逐跳）= `AbilityLogic__PlayAbility.c:2557-2607`（能力 270 `createCardInDeck`）→ `BattleManager__AddNewCardToDeck.c:71/94/98/112` → `_ResolveCreateDeckCard_d__513:50/79/96/111` → `CardScript._CreateCardInGame_d__250:39-84`。**字段**：`Player` = 造牌方 · `CardId` = 造出来的那张 · `InstanceId` = 它的实例号 · `TargetSlot` = **施放者**的格号（`-1` = 没有施放者：任务点阈值那条路）· `CreateAtPos` / `MoveToPos` = 两个 `PositionOption` 档号（`-1` = 数据里没有）。**走 `ctx.Signals`、⛔ 不进 `ctx.Events` ⇒ 不动 `NetProtocol.Fingerprint`**（同族 = `QuestSpent` / `WarlordTransform`）。⚠️ 它是**真阻塞**（原版 `AddAutoActionToQueue`）⇒ 登记在 `EventTiming.TimedKinds`，⛔ 别加进 `ZeroDurationKinds`
     }
 
     /// <summary>
@@ -676,6 +676,44 @@ namespace RuleEngine
         /// 那是两条事件之间的关系，不是单条事件的属性）。</para>
         /// </summary>
         public bool IsVulnerableSecondHit;
+
+        /// <summary>
+        /// ✅ 已复刻（2026-11-05 · B148-W2 · `B146-S1-G8-POPUP-AMOUNT`）：`Hit` 专用 —— **飘字该弹多少**。
+        ///
+        /// <para>判据 = 原版 `CardScript._ReceiveDamage_d__381__MoveNext.c:313`：
+        /// `if (+0x35 != 0) BattleCardUI__DamageReceived(DamageInfo.damageValue)` —— 弹的是 **`damageValue` 原值**
+        /// （`+0x35` 只在 `:185-187` 的 dodge/invulnerable/shield 那一支被清 0）。
+        /// ⇒ 空投舱 / 堡垒把伤害吃光时**仍弹原值**，而 <see cref="Amount"/> 必须是 0
+        /// （`BattleDriver.NotePendingHp` 拿它反推「扣血前血量」）—— 两者因此必须分开记。</para>
+        ///
+        /// <para>`-1` = **没写**（哨兵）⇒ 消费端回落 <see cref="Amount"/> ⇒ 既有调用点行为逐字不变。
+        /// ⛔ 别的种类不填（只有 `Hit` 有这一格）。</para>
+        /// </summary>
+        public int PopupAmount = -1;
+
+        /// <summary>
+        /// ✅ 已复刻（2026-11-05 · B148-W2 · `B146-S1-G6-SPECIAL-SIGNAL`）：`Attack` 专用 ——
+        /// 这一记命中了原版 `_ResolveAttack_d__438__MoveNext.c:869-895` 那条 else-if 链的**哪一支**
+        /// （`CounterAttack.CounterExempt`）。`None` = 普通攻击。
+        ///
+        /// <para>**为什么要这一位**：原版四支各自换掉普攻表现（sneak = 强制远程攻击动画 · terror = 状态框 + 音效 ·
+        /// sniper / longRange = 各自的从代码粒子）—— 表现层只拿「有没有 sniper 这个词」是分不出「这一记到底走了哪支」的
+        /// （else-if ⇒ **只有第一支生效**）。</para>
+        /// <para>✋ 别的种类不填（缺省 `None`）；引擎侧唯一写点 = `RuleCore.DeclareAttackExecute` 发 `EvtKind.Attack` 那一句。</para>
+        /// </summary>
+        public CounterAttack.CounterExempt CounterExempt;
+
+        /// <summary>
+        /// ✅ 已复刻（2026-11-05 · B148-W2 · `B146-S1-G6-SPECIAL-SIGNAL` 的配对项）：`Hit` 专用 ——
+        /// 这一下算**哪一类伤害**（= `RuleCore.DamageKind`，`EmitHit` 那个实参的透传）。
+        ///
+        /// <para>**为什么要有**：原版践踏那一下在 `:1093` 对**被打者**调
+        /// `ActivateTraitParticlesFromCode(攻方, 0x4d8, 被打者)` —— 那条粒子挂在**被践踏的单位**身上、
+        /// 时刻 = 践踏伤害落地。我们的 `Hit` 事件正是那一刻，但**没有类型**就分不出「这一下是践踏」。
+        /// ⛔ 别再拿 `EvtKind.Attack` 上「攻方带不带 stomp」顶替（那是**每一次**攻击都会播，原版不是）。</para>
+        /// <para>✋ 别的种类不填（缺省 `Unknown`）。</para>
+        /// </summary>
+        public DamageKind DamageKind;
 
         /// <summary>`Ability` / `Trigger` 专用：哪个关键词（`rally` / `slay` / `ability`…）</summary>
         public string Keyword;
@@ -986,6 +1024,23 @@ namespace RuleEngine
     // ==========================================================================================
     public partial class BattleEvent
     {
+        /// <summary>🆕 **2026-11-05（执行写手 `B148_W8` · 账 `B146-S3-CREATEATPOS-18`）**：
+        /// `EvtKind.CardCreatedIntoDeck` 的**起点档**（原版 `SummonCriteria.createAtPos(+0x20)` → `GetPos`）。
+        /// <para>**`-1` = 数据里没有**（⛔ 别用 `0`：`0` 是合法档号 = `self`）。消费端见到负数就**不播**，
+        /// 对应原版 `PlayAbility.c:2581/2589` 在 `GetPos` 返回 null 时直接 `goto` 收尾。</para>
+        /// <para>判据（逐跳）= `AbilityLogic__PlayAbility.c:2557/2573/2580/2583`（能力 270 `createCardInDeck`
+        /// 读 `+0x20` → `GetPos(…, createAtPos, …)` → `Transform.get_position` = 起点 Vector3）
+        /// → `BattleManager__AddNewCardToDeck.c:94`（`set_position(起点)`）。</para></summary>
+        public int CreateAtPos = -1;
+
+        /// <summary>🆕 **2026-11-05（执行写手 `B148_W8` · 账 `B146-S3-MOVETOPOS-145`）**：
+        /// `EvtKind.CardCreatedIntoDeck` 的**终点档**（原版 `SummonCriteria.moveToPos(+0x24)`）。
+        /// <para>`-1` = 数据里没有。判据 = `AbilityLogic__PlayAbility.c:2588-2592`
+        /// （读 `+0x24` → `GetPos` → `Transform.get_position` = 终点 Vector3）。</para>
+        /// <para>⚠️ 原版这一位**只供演出取坐标**（`PlayAbility.c:2590` 的注释在 `CardDef.MoveToPos` 也记了：
+        /// 盘面不读它）⇒ 我们同样只喂表现层，引擎结算不碰。</para></summary>
+        public int MoveToPos = -1;
+
         /// <summary>🆕 **`GainQuest` 专用：这次加完之后、扣阈值【之前】的累计任务点**（`-1` = 没写）。
         ///
         /// <para>**它装的是原版 HUD 在「加任务点那一拍」打印的**分子**。原版链路（逐句现读）：

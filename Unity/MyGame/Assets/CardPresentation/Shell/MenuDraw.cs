@@ -2014,7 +2014,7 @@ namespace CardPresentation
                                  float fontPx, int q, float wrapPx = 0f, float autoMinPx = 0f,
                                  float autoMaxPx = 0f, float autoBasePx = 0f,
                                  PxRect? clip = null, Vector2 clipSoftness = default(Vector2),
-                                 TmpFont.Face face = TmpFont.Face.Cjk)
+                                 TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W3 · 原版 1314 份 prefab 的 `m_fontAsset`：Pragati 4431 颗 = 菜单正文主面、Noto **0 颗**（只作 CJK fallback）⇒ 缺省面 Cjk→Pragati；判据 `判据/B144_字体主面施工单.md` §1·1，中文仍由 `Label.ActualFace` 自动翻回 CJK）
         {
             var _st = ViewportClip.Resolve(parent, clip, clipSoftness, default(Vector4));
             // 🔴 **2026-10-14（A798）：整块在框外 ⇒ 连节点一起不建**（同 `Rect` / `Nine` / `Tiled` / `Hit`
@@ -2047,7 +2047,7 @@ namespace CardPresentation
         /// ⚠️ 形参表 = `Text` 原来那十个（含 `wrapPx`），**行为逐字等于拆出来之前那一版** ——⛔ 别在这里加裁切。</summary>
         static Label TextCore(Transform parent, PxRect r, string text, Color color, string name,
                               float fontPx, int q, float wrapPx, float autoMinPx, float autoMaxPx, float autoBasePx,
-                              TmpFont.Face face = TmpFont.Face.Cjk)
+                              TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W3）：与 `Text`/`TextBox` 同一个缺省面（施工单 §1·2 **漏了这一处**，现读补齐）
         {
             var lb = Label.Create(parent, text, Local(parent, r.x1, r.y1, r.x2, r.y2), 5, color,
                                   new Vector2(0.5f, 0.5f), name);
@@ -2056,7 +2056,7 @@ namespace CardPresentation
             //   `SetFace` 换 `_tmp.font` 会连带换掉 `m_sharedMaterial`（每份字体资产自带 atlas 材质），
             //   而材质一换，原先写在上面的 `renderQueue` 就**静默冲回 3000** —— 实测模式卡行底
             //   期望 3302 实得 3000，聊天文字被行底盖住。全仓 424 个 `face:` 站点都受影响。
-            // 🔴 **2026-10-17（A1024③ 第 0 批）：可选字体面 —— 默认 `Cjk` ⇒ 旧调用点零行为变化。**
+            // 🔴 **2026-10-17（A1024③ 第 0 批）：可选字体面 —— 2026-11-05（B148-W3）起缺省 = `LatinCardBody`（Pragati）。⚠️ 旧口径「默认 Cjk ⇒ 旧调用点零行为变化」**已过期**（铁律 5）：原版 1314 份 prefab 里 Noto **0 颗**、Pragati 4431 颗 ⇒ Noto 只作 CJK fallback，不该再当缺省主面；中文文本仍由 `Label.ActualFace` 翻回 CJK。
             //    ⚠️ **次序不能反**：`SetFace` 必须在 `SetGlyphHeight` **之前** —— 字号是按
             //    `ActualFace` 的 em 换算的（`Label.TmpFontSize` 读 `ActualFace`），反了会按 CJK 的
             //    行盒算出一个偏小的字号（静默、不报错）。判据 → `Battle/Label.cs` 的 `SetFace` / `TmpFontSize`。
@@ -2092,7 +2092,7 @@ namespace CardPresentation
                                     float fontPx, float autoMinPx = 0f, int q = QText,
                                     float autoMaxPx = 0f, float autoBasePx = 0f,
                                     PxRect? clip = null, Vector2 clipSoftness = default(Vector2),
-                                    TmpFont.Face face = TmpFont.Face.Cjk)
+                                    TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W3）：缺省面 Cjk→Pragati（施工单 §1·2 **漏了这一处**，现读 176 个 `TextBox(` 站点跟着变；判据同 `Text`）
         {
             var _st = ViewportClip.Resolve(parent, clip, clipSoftness, default(Vector4));
             // 🔴 **2026-10-14（A798）：与 `Text` 逐字同一条闸**（判据 / 为什么用 `Visible` 而不是 `ClipRect` /

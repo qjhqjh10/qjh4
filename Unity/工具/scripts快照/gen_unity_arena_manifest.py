@@ -13,15 +13,16 @@ gen_unity_arena_manifest.py — 原版战场 → Unity Editor 清单 JSON（**13
 
 坐标: 一律 Unity 原始世界变换 (pos/rot/scale = world chain 结算), 不做任何手性/镜像转换。
 
-用法:
-  D:/2/Warpforge_tools/py312/python.exe gen_unity_arena_manifest.py
-  D:/2/Warpforge_tools/py312/python.exe gen_unity_arena_manifest.py --arena battlearenaspacewolves
-  D:/2/Warpforge_tools/py312/python.exe gen_unity_arena_manifest.py --list-arenas
-  D:/2/Warpforge_tools/py312/python.exe gen_unity_arena_manifest.py --no-copy
-  D:/2/Warpforge_tools/py312/python.exe gen_unity_arena_manifest.py --all-particles
+用法（⚠️ **必须给一个显式动作**；裸跑 = 打印用法 + `rc=2`，⚠️ 2026-11-05 起）:
+  python -I -X utf8 gen_unity_arena_manifest.py --check --all          # 只读自检（秒级，不写盘）
+  python -I -X utf8 gen_unity_arena_manifest.py --dry --arena <场>     # 算清单 + 打印报告，不写盘
+  python -I -X utf8 gen_unity_arena_manifest.py --write --arena <场>   # 真写清单 + 拷模型/贴图
+  python -I -X utf8 gen_unity_arena_manifest.py --list-arenas
+  python -I -X utf8 gen_unity_arena_manifest.py --write --no-copy      # 只写清单，不拷资产
 """
 import argparse
 import glob
+import io
 import json
 import math
 import os
@@ -1516,6 +1517,454 @@ def read_tap_hits(a, mesh_names, warn):
     return out
 
 
+# ------------------------------------------------------------------ 原版组件三族（Animator / Animation / LineRenderer）
+#
+# 🆕 2026-11-05（`B148-W4` · 账 `B147-ARENA-ANIMATOR-WIRE` + `B146-B20`）
+#
+# **为什么要有这一段**：清单原来只有 8 个键（`scene/camera/light/ambient/defaultEnv/postFx/
+#   meshes/particles/tapHits`），而原版 13 场里的 **7 个 `Animator`(`!u!95`) ·
+#   10 个 `Animation`(`!u!111`) · 18 条 `LineRenderer`(`!u!120`)** 一条都进不了运行时 ——
+#   `ArenaBuilder.BuildContent` 没有数据可依，建不出来。
+#   （现读校正：`!u!111` **不是 0** —— 13 件 `Resources/ArenaPrefabs/*.prefab` 里已经有 **10 个**
+#   `Animation` 组件，由 `_groups.json` 的 `animation != 0` 建出来，但 **`m_Animation: {fileID: 0}`、
+#   `m_Animations: []`（一条 clip 都没挂）**。`Animator` 只有 leviathan 的 1 个。`LineRenderer` 0 条。）
+#
+# **数据源**：`Assets/WarpforgeVFX/ArenaOriginalPrefabs/<场>/<场>__Scenario.prefab`
+#   —— 就是 `工具/extract_arena_prefab_yaml.py` 从原版场景抠出来的那棵子树（**全字段 YAML**）。
+#   ⛔ 不读 `d:/2` 的 JSON dump：那套是本生成器 `meshes/particles` 的来源，但它**没有**
+#   `Animator` / `Animation` / `LineRenderer` 三种组件的字段表。
+#   ⚠️ 这个目录**不入 git**（`.gitignore:40-53`，332 MB / 2,202 文件，见 `B125-ARENAGITIGNORE`）⇒
+#   新克隆 / 换机之后要先重建：
+#     `python -I -X utf8 d:/4/Unity/工具/extract_arena_prefab_yaml.py --arena <场> --root Scenario \
+#        --out-root d:/4/Unity/MyGame/Assets/WarpforgeVFX/ArenaOriginalPrefabs`
+#   文件不在时**出声**（`warn['orig_components']`），三族都输出空数组，⛔ 不静默当「原版没有」。
+#
+# 🔴 **排除项 `CrosshairLine 3D`**（原版每场 1 条 LineRenderer）**不进清单**：运行时那一条已经由
+#   `CardPresentation/Battle/TargetReticle.cs` 建（`_line = lineGo.AddComponent<LineRenderer>()`，
+#   `:377` 明写判据 = `LineRenderer_1609`）⇒ 再按 prefab 建一遍就是**两条准星线叠在一起**。
+#   （实测我们这 13 份 prefab 里**根本不含** `CrosshairLine 3D` —— 它在世界内容根之外；
+#    这道闸是**防将来**把根扩到全场景时又把它带进来。）
+ARENA_ORIG_ROOT     = 'd:/4/Unity/MyGame/Assets/WarpforgeVFX/ArenaOriginalPrefabs'
+ARENA_ORIG_EXPORTED = 'd:/2/tools/assetripper_out/ExportedProject/Assets'
+# 运行时已经有、⛔ 不许再按 prefab 建的（名字 = 原版 GameObject 名）
+LINERENDERER_EXCLUDE = {'CrosshairLine 3D'}
+
+# 原版逐场现读的条数（2026-11-05 由本函数自己数出来的；`--check` 用它当闸）。
+# 三个合计 = **7 / 10 / 18**（= `B147_对账_R4资源战场.md` §一·`B146-B20` 的「真缺口 18 条」）。
+ORIG_COMPONENT_EXPECT = {
+    'battlearena1':               {'animator': 2, 'animation': 0, 'lineRenderer': 6},
+    'battlearena2':               {'animator': 3, 'animation': 0, 'lineRenderer': 3},
+    'battlearena3':               {'animator': 0, 'animation': 1, 'lineRenderer': 0},
+    'battlearenaaeldari':         {'animator': 0, 'animation': 0, 'lineRenderer': 0},
+    'battlearenaastramilitarum':  {'animator': 0, 'animation': 1, 'lineRenderer': 9},
+    'battlearenablacklegion':     {'animator': 0, 'animation': 1, 'lineRenderer': 0},
+    'battlearenadarkangels':      {'animator': 0, 'animation': 2, 'lineRenderer': 0},
+    'battlearenaemperorschildren':{'animator': 0, 'animation': 1, 'lineRenderer': 0},
+    'battlearenagenestealers':    {'animator': 0, 'animation': 1, 'lineRenderer': 0},
+    'battlearenaleviathan':       {'animator': 2, 'animation': 0, 'lineRenderer': 0},
+    'battlearenasororitas':       {'animator': 0, 'animation': 0, 'lineRenderer': 0},
+    'battlearenaspacewolves':     {'animator': 0, 'animation': 0, 'lineRenderer': 0},
+    'battlearenatauviorla':       {'animator': 0, 'animation': 3, 'lineRenderer': 0},
+}
+
+_UY_DOC_RE = re.compile(r'^--- !u!(\d+) &(\d+)(.*)$')
+_GUID_INDEX = None              # guid -> 绝对路径（只扫 ArenaOriginalPrefabs，一次）
+
+
+def _uy_scalar(s):
+    """Unity YAML 的一个标量（含 `{a: 1, b: 2}` / `[1, 2]` 两种 flow 写法）。"""
+    s = s.strip()
+    if s == '':
+        return None
+    if s.startswith('{') and s.endswith('}'):
+        out = {}
+        for part in s[1:-1].split(','):
+            if ':' not in part:
+                continue
+            k, v = part.split(':', 1)
+            out[k.strip()] = _uy_scalar(v.strip())
+        return out
+    if s.startswith('[') and s.endswith(']'):
+        return [] if s == '[]' else [_uy_scalar(x) for x in s[1:-1].split(',')]
+    if s in ('~', 'null'):
+        return None
+    if re.match(r'^-?\d+$', s):
+        return int(s)
+    if re.match(r'^-?(\d+\.\d*|\d*\.\d+)(e[-+]?\d+)?$', s, re.I):
+        return float(s)
+    if len(s) >= 2 and s[0] == "'" and s[-1] == "'":
+        return s[1:-1]
+    return s
+
+
+def _uy_block(lines, i, indent):
+    """按缩进解析一块 Unity YAML（mapping 或 sequence）。返回 `(obj, next_i)`。
+
+    ⚠️ 两个 Unity 特色必须照顾到（⛔ 换成通用 YAML 库反而更麻烦 —— `!u!95` 这种 tag 要自己注册）：
+      · 块序列与**父键同缩进**（`m_Component:` 下一行直接 `- component: …`）；
+      · 序列项可以是「首键写在同一行」的 mapping。
+    """
+    while i < len(lines) and lines[i].strip() == '':
+        i += 1
+    if i >= len(lines):
+        return None, i
+    indent = len(lines[i]) - len(lines[i].lstrip(' '))
+    if lines[i].lstrip().startswith('- '):
+        seq = []
+        while i < len(lines):
+            if lines[i].strip() == '':
+                i += 1
+                continue
+            ind = len(lines[i]) - len(lines[i].lstrip(' '))
+            if ind != indent or not lines[i].lstrip().startswith('- '):
+                break
+            rest = lines[i].lstrip()[2:]
+            if ':' in rest and not rest.strip().startswith('{'):
+                sub = [rest]
+                i += 1
+                while i < len(lines):
+                    if lines[i].strip() == '':
+                        i += 1
+                        continue
+                    if (len(lines[i]) - len(lines[i].lstrip(' '))) < indent + 2:
+                        break
+                    sub.append(lines[i][indent + 2:])
+                    i += 1
+                obj, _ = _uy_block(sub, 0, 0)
+                seq.append(obj)
+            else:
+                seq.append(_uy_scalar(rest))
+                i += 1
+        return seq, i
+    mp = {}
+    while i < len(lines):
+        if lines[i].strip() == '':
+            i += 1
+            continue
+        ind = len(lines[i]) - len(lines[i].lstrip(' '))
+        if ind < indent:
+            break
+        if ind > indent:
+            i += 1
+            continue
+        line = lines[i][ind:]
+        if line.startswith('- ') or line.startswith('---'):
+            break
+        if ':' not in line:
+            i += 1
+            continue
+        k, v = line.split(':', 1)
+        k = k.strip()
+        i += 1
+        if v.strip() == '':
+            j = i
+            while j < len(lines) and lines[j].strip() == '':
+                j += 1
+            if j < len(lines) and lines[j].lstrip().startswith('- ') \
+                    and (len(lines[j]) - len(lines[j].lstrip(' '))) >= indent:
+                mp[k], i = _uy_block(lines, j, 0)
+            else:
+                mp[k], i = _uy_block(lines, i, indent + 1)
+        else:
+            mp[k] = _uy_scalar(v)
+    return mp, i
+
+
+def _uy_docs(path):
+    """Unity YAML 文件 → `[{cls, id, obj}]`（`obj` 已拆掉 `Animator:` 那层壳）。"""
+    text = io.open(path, encoding='utf-8', errors='replace').read()
+    docs, cur = [], None
+    for ln in text.split('\n'):
+        m = _UY_DOC_RE.match(ln.rstrip('\r'))
+        if m:
+            if cur is not None:
+                docs.append(cur)
+            cur = {'cls': int(m.group(1)), 'id': int(m.group(2)), 'lines': []}
+        elif cur is not None:
+            cur['lines'].append(ln.rstrip('\r'))
+    if cur is not None:
+        docs.append(cur)
+    for d in docs:
+        obj, _ = _uy_block(d.pop('lines'), 0, 0)
+        if isinstance(obj, dict) and len(obj) == 1:
+            _k, _v = list(obj.items())[0]
+            if isinstance(_v, dict):
+                obj = _v                       # 拆掉 `GameObject:` / `Animator:` 那层壳
+        d['obj'] = obj if isinstance(obj, dict) else {}
+    return docs
+
+
+def _meta_guid(path):
+    try:
+        t = io.open(path, encoding='utf-8', errors='replace').read()
+    except OSError:
+        return None
+    m = re.search(r'^guid:\s*([0-9a-f]+)', t, re.M)
+    return m.group(1) if m else None
+
+
+def _guid_index():
+    """`guid -> 绝对路径`（只扫 `ArenaOriginalPrefabs`，模块级缓存）。"""
+    global _GUID_INDEX
+    if _GUID_INDEX is None:
+        _GUID_INDEX = {}
+        for dirpath, _dirs, files in os.walk(ARENA_ORIG_ROOT):
+            for f in files:
+                if not f.endswith('.meta'):
+                    continue
+                p = os.path.join(dirpath, f)
+                g = _meta_guid(p)
+                if g:
+                    _GUID_INDEX.setdefault(g, p[:-len('.meta')])
+    return _GUID_INDEX
+
+
+def _exported_guid_index(subdir):
+    """`guid -> 文件名`（扫 ExportedProject 的某个子目录；只用来把 guid 认成**文件名**）。"""
+    out = {}
+    d = os.path.join(ARENA_ORIG_EXPORTED, subdir)
+    if not os.path.isdir(d):
+        return out
+    for f in os.listdir(d):
+        if not f.endswith('.meta'):
+            continue
+        g = _meta_guid(os.path.join(d, f))
+        if g:
+            out.setdefault(g, f[:-len('.meta')])
+    return out
+
+
+def _rel(p, start):
+    try:
+        return os.path.relpath(p, start).replace('\\', '/')
+    except ValueError:
+        return p
+
+
+def read_original_components(warn):
+    """原版 prefab → `(animators, animations, lineRenderers)` 三段清单。
+
+    ⚠️ 坐标一律**世界 TRS**，与 `meshes[]`/`tapHits[]` **同一套口径**
+      （已交叉验证：`Cannon 1` 在本函数算出来 `[124.17, 9.73856, 49.1927]`，
+       与 `battlearena1_manifest.json` 的 `meshes[]` 里那一条**逐位相同**）⇒ 构建侧可以
+       直接用「名字 + 世界位置」找回已经建出来的宿主。
+    """
+    animators, animations, line_renderers = [], [], []
+    stats = {'excluded': 0, 'missingPrefab': False}
+    warn['orig_stats'] = stats
+
+    path = os.path.join(ARENA_ORIG_ROOT, SCENE, SCENE + '__Scenario.prefab')
+    if not os.path.isfile(path):
+        stats['missingPrefab'] = True
+        warn['orig_components'].append({
+            'go': '(<整场>)',
+            'why': '原版 prefab 不存在：%s —— 跑 `工具/extract_arena_prefab_yaml.py --arena %s --root Scenario '
+                   '--out-root d:/4/Unity/MyGame/Assets/WarpforgeVFX/ArenaOriginalPrefabs` 重建'
+                   '（该目录不入 git，见 `.gitignore:40-53`）' % (path, SCENE)})
+        return animators, animations, line_renderers
+
+    docs = _uy_docs(path)
+    by_cls, by_id = {}, {}
+    for d in docs:
+        by_cls.setdefault(d['cls'], []).append(d)
+        by_id[d['id']] = d
+    go = {d['id']: d['obj'] for d in by_cls.get(1, [])}
+    tf = {}
+    for cid in (4, 224):
+        for d in by_cls.get(cid, []):
+            gid = (d['obj'].get('m_GameObject') or {}).get('fileID')
+            if gid:
+                tf[gid] = d['obj']
+
+    def local_of(gid):
+        o = tf.get(gid) or {}
+        lp, lr, ls = o.get('m_LocalPosition') or {}, o.get('m_LocalRotation') or {}, o.get('m_LocalScale') or {}
+        return ([_f(lp.get('x')), _f(lp.get('y')), _f(lp.get('z'))],
+                [_f(lr.get('x')), _f(lr.get('y')), _f(lr.get('z')), _f(lr.get('w'), 1.0)],
+                [_f(ls.get('x'), 1.0), _f(ls.get('y'), 1.0), _f(ls.get('z'), 1.0)])
+
+    def parent_gid(gid):
+        o = tf.get(gid) or {}
+        fid = (o.get('m_Father') or {}).get('fileID', 0)
+        if not fid:
+            return None
+        fdoc = by_id.get(fid)
+        return (fdoc['obj'].get('m_GameObject') or {}).get('fileID') if fdoc else None
+
+    def world(gid, depth=0):
+        """世界 TRS + 祖先链（名字）；与 `world_chain` / `world_scale` 同一套乘法。"""
+        P, R, S = local_of(gid)
+        pg = parent_gid(gid) if depth < 64 else None
+        if not pg:
+            return P, R, S, []
+        pP, pR, pS, chain = world(pg, depth + 1)
+        rp = q_rot_vec(pR, (P[0] * pS[0], P[1] * pS[1], P[2] * pS[2]))
+        return ([pP[i] + rp[i] for i in range(3)],
+                list(q_mul(pR, R)),
+                [pS[i] * S[i] for i in range(3)],
+                chain + [go.get(pg, {}).get('m_Name')])
+
+    def active(gid, depth=0):
+        g = go.get(gid)
+        if g is None or depth > 64:
+            return True
+        self_a = bool(g.get('m_IsActive', 1))
+        pg = parent_gid(gid)
+        return self_a and (active(pg, depth + 1) if pg else True)
+
+    def go_path(gid):
+        _p, _r, _s, chain = world(gid)
+        parts = [c for c in chain if c] + [go.get(gid, {}).get('m_Name')]
+        return '/'.join([str(x) for x in parts if x])
+
+    gidx = _guid_index()
+    ctrl_names = _exported_guid_index('AnimatorController')
+    arena_dir = os.path.join(ARENA_ORIG_ROOT, SCENE)
+
+    def entry(gid):
+        wp, wr, ws, _chain = world(gid)
+        return {
+            'go': go.get(gid, {}).get('m_Name') or '',
+            'path': go_path(gid),
+            'pos': [r6(v) for v in wp], 'rot': [r6(v) for v in wr], 'scale': [r6(v) for v in ws],
+            'active': active(gid),
+        }
+
+    # ---- Animator ----
+    for d in by_cls.get(95, []):
+        o = d['obj']
+        gid = (o.get('m_GameObject') or {}).get('fileID')
+        if not gid:
+            continue
+        e = entry(gid)
+        cref = o.get('m_Controller') or {}
+        guid = cref.get('guid')
+        local = gidx.get(guid) if guid else None
+        cname = ctrl_names.get(guid) if guid else None
+        if cname is None and local:
+            cname = os.path.basename(local)
+        e.update({
+            'enabled': bool(o.get('m_Enabled', 1)),
+            'controllerGuid': guid or '',
+            # `controllerFile` = 相对 `<场>/` 的路径（构建侧拼 `Assets/WarpforgeVFX/ArenaOriginalPrefabs/<场>/`）
+            'controllerFile': _rel(local, arena_dir) if local else (
+                ('AnimatorController/' + cname) if cname else ''),
+            # ⚠️ 本机现状：6 个 controller **一份都不在工程里**（原版在
+            #   `ExportedProject/Assets/AnimatorController/*.controller`，`extract_arena_prefab_yaml.py`
+            #   默认不拷 `.controller`）⇒ `controllerLocal = False` 时构建侧只建空壳 + **出声**。
+            'controllerLocal': bool(local),
+            'cullingMode': int(_f(o.get('m_CullingMode'), 0)),
+            'updateMode': int(_f(o.get('m_UpdateMode'), 0)),
+            'applyRootMotion': bool(o.get('m_ApplyRootMotion', 0)),
+            'linearVelocityBlending': bool(o.get('m_LinearVelocityBlending', 0)),
+            'stabilizeFeet': bool(o.get('m_StabilizeFeet', 0)),
+            'animatePhysics': bool(o.get('m_AnimatePhysics', 0)),
+            'hasTransformHierarchy': bool(o.get('m_HasTransformHierarchy', 1)),
+            'keepAnimatorStateOnDisable': bool(o.get('m_KeepAnimatorStateOnDisable', 0)),
+            'writeDefaultValuesOnDisable': bool(o.get('m_WriteDefaultValuesOnDisable', 0)),
+        })
+        animators.append(e)
+
+    # ---- Animation ----
+    for d in by_cls.get(111, []):
+        o = d['obj']
+        gid = (o.get('m_GameObject') or {}).get('fileID')
+        if not gid:
+            continue
+        e = entry(gid)
+        clips = [c for c in (o.get('m_Animations') or []) if isinstance(c, dict)]
+        first = o.get('m_Animation') if isinstance(o.get('m_Animation'), dict) else \
+            (clips[0] if clips else {})
+        guid = (first or {}).get('guid')
+        local = gidx.get(guid) if guid else None
+        e.update({
+            'enabled': bool(o.get('m_Enabled', 1)),
+            'clipGuid': guid or '',
+            'clipFile': _rel(local, arena_dir) if local else '',
+            'clipLocal': bool(local),
+            'clipCount': len(clips),
+            'wrapMode': int(_f(o.get('m_WrapMode'), 0)),
+            'playAutomatically': bool(o.get('m_PlayAutomatically', 1)),
+            'animatePhysics': bool(o.get('m_AnimatePhysics', 0)),
+            'updateMode': int(_f(o.get('m_UpdateMode'), 0)),
+            'cullingType': int(_f(o.get('m_CullingType'), 0)),
+        })
+        animations.append(e)
+
+    # ---- LineRenderer ----
+    for d in by_cls.get(120, []):
+        o = d['obj']
+        gid = (o.get('m_GameObject') or {}).get('fileID')
+        if not gid:
+            continue
+        gname = go.get(gid, {}).get('m_Name') or ''
+        if gname in LINERENDERER_EXCLUDE:
+            stats['excluded'] += 1
+            continue
+        e = entry(gid)
+        prm = o.get('m_Parameters') or {}
+        pts = []
+        for p in (o.get('m_Positions') or []):
+            if isinstance(p, dict):
+                pts.append({'x': r6(_f(p.get('x'))), 'y': r6(_f(p.get('y'))), 'z': r6(_f(p.get('z')))})
+        wkeys = []
+        for k in ((prm.get('widthCurve') or {}).get('m_Curve') or []):
+            if isinstance(k, dict):
+                wkeys.append({'t': r6(_f(k.get('time'))), 'v': r6(_f(k.get('value'), 1.0))})
+        grad = prm.get('colorGradient') or {}
+        ncol = int(_f(grad.get('m_NumColorKeys'), 2))
+        nalpha = int(_f(grad.get('m_NumAlphaKeys'), 2))
+        ckeys, akeys = [], []
+        for i in range(max(0, min(8, ncol))):
+            c = grad.get('key%d' % i) or {}
+            ckeys.append({'t': r6(_f(grad.get('ctime%d' % i)) / 65535.0),
+                          'r': r6(_f(c.get('r'), 1.0)), 'g': r6(_f(c.get('g'), 1.0)),
+                          'b': r6(_f(c.get('b'), 1.0)), 'a': r6(_f(c.get('a'), 1.0))})
+        for i in range(max(0, min(8, nalpha))):
+            akeys.append({'t': r6(_f(grad.get('atime%d' % i)) / 65535.0),
+                          'a': r6(_f((grad.get('key%d' % i) or {}).get('a'), 1.0))})
+        mats = []
+        for mref in (o.get('m_Materials') or []):
+            g = (mref or {}).get('guid') if isinstance(mref, dict) else None
+            lp = gidx.get(g) if g else None
+            mats.append({'guid': g or '',
+                         'name': os.path.splitext(os.path.basename(lp))[0] if lp else '',
+                         'file': _rel(lp, arena_dir) if lp else '',
+                         'local': bool(lp)})
+        ts = prm.get('textureScale') or {}
+        e.update({
+            'enabled': bool(o.get('m_Enabled', 1)),
+            'useWorldSpace': bool(o.get('m_UseWorldSpace', 0)),
+            'loop': bool(o.get('m_Loop', 0)),
+            'applyActiveColorSpace': bool(o.get('m_ApplyActiveColorSpace', 1)),
+            'alignment': int(_f(prm.get('alignment'), 0)),
+            'textureMode': int(_f(prm.get('textureMode'), 0)),
+            'numCornerVertices': int(_f(prm.get('numCornerVertices'), 0)),
+            'numCapVertices': int(_f(prm.get('numCapVertices'), 0)),
+            'widthMultiplier': r6(_f(prm.get('widthMultiplier'), 1.0)),
+            'shadowBias': r6(_f(prm.get('shadowBias'), 0.5)),
+            'textureScale': [r6(_f(ts.get('x'), 1.0)), r6(_f(ts.get('y'), 1.0))],
+            'gradientMode': int(_f(grad.get('m_Mode'), 0)),
+            'sortingOrder': int(_f(o.get('m_SortingOrder'), 0)),
+            'rendererPriority': int(_f(o.get('m_RendererPriority'), 0)),
+            'castShadows': int(_f(o.get('m_CastShadows'), 1)),
+            'receiveShadows': int(_f(o.get('m_ReceiveShadows'), 1)),
+            'motionVectors': int(_f(o.get('m_MotionVectors'), 0)),
+            'lightProbeUsage': int(_f(o.get('m_LightProbeUsage'), 0)),
+            'reflectionProbeUsage': int(_f(o.get('m_ReflectionProbeUsage'), 0)),
+            'maskInteraction': int(_f(o.get('m_MaskInteraction'), 0)),
+            'points': pts, 'widthKeys': wkeys,
+            'colorKeys': ckeys, 'alphaKeys': akeys,
+            'materials': mats,
+        })
+        line_renderers.append(e)
+
+    animators.sort(key=lambda e: (e['go'], e['pos']))
+    animations.sort(key=lambda e: (e['go'], e['pos']))
+    line_renderers.sort(key=lambda e: (e['go'], e['pos']))
+    return animators, animations, line_renderers
+
+
 # ------------------------------------------------------------------ 粒子材质的 shader 名（兜底那一路）
 #
 # 🔴 **2026-10-25（`N16` · 顺手修的既有缺口，不是 Tap 的一部分）**：
@@ -1577,8 +2026,9 @@ def _particle_shader_name(mats, scene, warn):
 
 
 # ------------------------------------------------------------------ 清单构建
-def build_manifest(a, include_all_particles=False):
-    warn = {'obj_missing': [], 'tex_missing': [], 'tex_fallback': [], 'ps_defaults': {},
+def _new_warn():
+    """`warn` 的**唯一**构造处（`build_manifest` 与 `--check` 共用 —— 两份字面量迟早不一致）。"""
+    return {'obj_missing': [], 'tex_missing': [], 'tex_fallback': [], 'ps_defaults': {},
             'burst_count_missing': [], 'default_env': [],
             # 🔴 2026-10-11（`A1555②`）：**「GameObject 本身没解析出来」**与「它没有网格」
             #   是两件事，原来都走同一个静默 `continue`（见下面 `mesh_name` 那一处）。
@@ -1592,8 +2042,15 @@ def build_manifest(a, include_all_particles=False):
             'builtin_mesh': [], 'inactive_mesh': [],
             # 🆕 2026-10-25（Tap 族）：`tapHits[]` 那一段的「解不出 / 与权威计数不等」都在这里出声。
             'tap_hits': [],
+            # 🆕 2026-11-05（`B148-W4`）：原版组件三族（`animators` / `animations` / `lineRenderers`）
+            #   那一段的「原版 prefab 不存在」在这里出声（见 `read_original_components`）。
+            'orig_components': [],
             # 🆕 2026-10-25（`N16`）：粒子 `matShader` 走了 `assets_full` 兜底（只填空值）的那些。
             'mat_shader_fallback': []}
+
+
+def build_manifest(a, include_all_particles=False):
+    warn = _new_warn()
 
     def note_default(field):
         warn['ps_defaults'][field] = warn['ps_defaults'].get(field, 0) + 1
@@ -2257,6 +2714,10 @@ def build_manifest(a, include_all_particles=False):
                                         '（判据 §2.2）—— 是 dump 变了还是解析漏了，必须先查清'
                                         % (len(tap_hits), _expect)})
 
+    # ---------------- 原版组件三族（Animator / Animation / LineRenderer）----------------
+    # 🆕 2026-11-05（`B148-W4`）：见 `read_original_components` 的头注。
+    animators, animations, line_renderers = read_original_components(warn)
+
     manifest = {
         'scene': SCENE,
         'camera': camera,
@@ -2267,6 +2728,11 @@ def build_manifest(a, include_all_particles=False):
         'meshes': meshes,
         'particles': particles,
         'tapHits': tap_hits,
+        # 🆕 2026-11-05（`B148-W4`）：原版的 7 `Animator` / 10 `Animation` / 18 `LineRenderer`。
+        #   消费方 = `ArenaBuilder.BuildOriginalComponents`（本文件末尾那两个键**没有**就是老清单）。
+        'animators': animators,
+        'animations': animations,
+        'lineRenderers': line_renderers,
     }
     return manifest, warn, skipped_ui, tex
 
@@ -2402,29 +2868,155 @@ def copy_assets(manifest, tex_resolver):
 
 
 # ------------------------------------------------------------------ 主流程
+_USAGE = '''用法（⚠️ **必须给一个显式动作**，裸跑只打印本段并 `rc=2`）:
+
+  --check        只读自检：只解析**原版组件三族**（`animators` / `animations` / `lineRenderers`），
+                 逐场比 `ORIG_COMPONENT_EXPECT`，**不读 d:/2 dump、不写盘**（秒级）。
+                 全绿 `rc=0`；条数不符或原版 prefab 缺失 `rc=1`。
+  --dry          算**整份清单**并打印控制台报告，**不写盘、不拷资产**（单场 ~6 分钟）。
+  --write        真写盘：重算整份清单 → `arenas/<场>/<场>_manifest.json` + 拷 `Models/` / `Textures/`。
+                 不加 `--write` 时**一个字节都不写**（2026-11-02 起写盘类脚本的纪律，见 CLAUDE.md）。
+
+  --arena <场>   选一场（默认 battlearena1）；--all 跑全 13 场（同一进程复用 bundle 缓存）
+  --list-arenas  列出 13 个战场名后退出
+  --no-copy      与 --write 合用：只写清单，不拷模型/贴图
+  --all-particles  连 2D UI 粒子一起输出
+
+例:
+  python -I -X utf8 工具/scripts快照/gen_unity_arena_manifest.py --check --all
+  python -I -X utf8 工具/scripts快照/gen_unity_arena_manifest.py --dry --arena battlearena1
+  python -I -X utf8 工具/scripts快照/gen_unity_arena_manifest.py --write --arena battlearena1 --no-copy
+'''
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--arena', default='battlearena1',
                     help='战场场景名（默认 battlearena1）；可用 --list-arenas 看全 13 个')
     ap.add_argument('--list-arenas', action='store_true', help='列出 13 个战场场景名后退出')
-    ap.add_argument('--no-copy', action='store_true', help='只写清单, 不拷贝模型/贴图')
+    ap.add_argument('--no-copy', action='store_true', help='与 --write 合用：只写清单, 不拷贝模型/贴图')
     ap.add_argument('--all-particles', action='store_true', help='连 2D UI 粒子一起输出')
     ap.add_argument('--all', action='store_true',
                     help='13 场全跑一遍 —— 🔴 2026-09-20 加：同一进程内 bundle 缓存跨场复用，'
                          '比逐场起进程快一个数量级（实测单场 ~6 分钟，绝大部分花在重复加载共享包）')
+    # 🆕 2026-11-05（`B148-W4`）：**三个显式动作**。写盘类脚本不带显式动作时必须什么都不做
+    #   （`CLAUDE.md` §三「会写盘的脚本：不带显式动作参数时必须什么都不做」，先例 = `merge_ledger_parts.py`
+    #   那次把 232 行手工修订冲掉；`gen_prebuilt_decks.py` 是同一套口径：裸跑 rc=2）。
+    act = ap.add_mutually_exclusive_group()
+    act.add_argument('--write', action='store_true',
+                     help='真写盘（重算整份清单 + 拷模型/贴图）—— **必须显式给**')
+    act.add_argument('--dry', action='store_true',
+                     help='算整份清单并打印报告，但**不写盘、不拷资产**')
+    act.add_argument('--check', action='store_true',
+                     help='只读自检：只解析原版组件三族，不读 d:/2 dump、不写盘')
     args = ap.parse_args()
 
     if args.list_arenas:
         for a in ARENAS:
             print(a)
         return 0
+
+    naked = len(sys.argv) <= 1
+    if naked:
+        print(_USAGE)
+        return 2
+
     targets = ARENAS if args.all else [args.arena]
     if not args.all and args.arena not in ARENAS:
         print('未知战场 %r；可选：%s' % (args.arena, ', '.join(ARENAS)))
         return 2
+
+    if args.check:
+        return check_components(targets)
+
+    if not (args.write or args.dry):
+        print(_USAGE)
+        return 2
+
     rc = 0
     for name in targets:
         rc = run_one(name, args) or rc
+    return rc
+
+
+def check_components(arenas):
+    """`--check`：**只读自检**（不读 `d:/2` dump、不写盘）。
+
+    ⚠️ 它**不是**「重算整份清单再和盘上比」—— 那要 ~6 分钟/场且依赖 `d:/2` 档案库。
+      这里只验「本波新增的那一段能不能从原版 prefab 正确抽出来」：
+        · 原版 prefab 在不在（不在 = 换机后没跑 `extract_arena_prefab_yaml.py`）；
+        · 三族条数 == `ORIG_COMPONENT_EXPECT`（原版逐场现读值，合计 7 / 10 / 18）；
+        · 每条必备字段齐全、数值有限（`nan/inf` 一律算失败）；
+        · `LineRenderer` 的点数 ≥ 2、材质能落到工程里的 `.mat`；
+        · `CrosshairLine 3D` 确实被排除掉了（`stats['excluded']`）。
+    rc: 0 = 全绿 · 1 = 有条目不合格 · 2 = 用法/参数错。
+    """
+    rc = 0
+    total = {'animator': 0, 'animation': 0, 'lineRenderer': 0}
+    for arena in arenas:
+        set_arena(arena)
+        warn = _new_warn()
+        animators, animations, line_renderers = read_original_components(warn)
+        got = {'animator': len(animators), 'animation': len(animations), 'lineRenderer': len(line_renderers)}
+        exp = ORIG_COMPONENT_EXPECT.get(arena, {})
+        bad = []
+
+        def _finite(seq, where):
+            for v in seq:
+                if isinstance(v, float) and (v != v or v in (float('inf'), float('-inf'))):
+                    bad.append('%s 有 nan/inf' % where)
+
+        for e in animators:
+            for k in ('go', 'path', 'pos', 'rot', 'scale', 'controllerGuid', 'controllerFile',
+                      'controllerLocal', 'cullingMode', 'updateMode', 'applyRootMotion'):
+                if k not in e:
+                    bad.append('animator `%s` 缺字段 %s' % (e.get('go'), k))
+            if len(e['pos']) != 3 or len(e['rot']) != 4 or len(e['scale']) != 3:
+                bad.append('animator `%s` 的 TRS 长度不对' % e['go'])
+            _finite(e['pos'] + e['rot'] + e['scale'], 'animator `%s`' % e['go'])
+        for e in animations:
+            if not e['go']:
+                bad.append('animation 有一条没有宿主名')
+            if not e['clipLocal'] and e['clipGuid']:
+                bad.append('animation `%s` 的 clip guid %s 在工程里找不到' % (e['go'], e['clipGuid']))
+            _finite(e['pos'] + e['rot'] + e['scale'], 'animation `%s`' % e['go'])
+        for e in line_renderers:
+            if len(e['points']) < 2:
+                bad.append('lineRenderer `%s` 只有 %d 个点（<2）' % (e['go'], len(e['points'])))
+            if not e['materials']:
+                bad.append('lineRenderer `%s` 没有材质槽' % e['go'])
+            for m in e['materials']:
+                if not m['local']:
+                    bad.append('lineRenderer `%s` 的材质 guid %s 在工程里找不到' % (e['go'], m['guid']))
+            if len(e['widthKeys']) < 1 or len(e['colorKeys']) < 1 or len(e['alphaKeys']) < 1:
+                bad.append('lineRenderer `%s` 的宽曲线/渐变为空' % e['go'])
+            _finite(e['pos'] + e['rot'] + e['scale'] + [p['x'] + p['y'] + p['z'] for p in e['points']],
+                    'lineRenderer `%s`' % e['go'])
+        for w in warn['orig_components']:
+            bad.append('原版 prefab：%s' % w['why'])
+
+        ok_count = all(got[k] == exp.get(k, 0) for k in total)
+        ok = ok_count and not bad
+        rc = rc or (0 if ok else 1)
+        for k in total:
+            total[k] += got[k]
+        print('[%s] %-30s animator=%-2d animation=%-2d lineRenderer=%-2d  %s'
+              % ('OK ' if ok else '🔴 ', arena, got['animator'], got['animation'], got['lineRenderer'],
+                 '（期望 %d/%d/%d%s）' % (exp.get('animator', 0), exp.get('animation', 0),
+                                          exp.get('lineRenderer', 0),
+                                          '，已排除 CrosshairLine 3D ×%d' % warn['orig_stats']['excluded']
+                                          if warn['orig_stats'].get('excluded') else '')))
+        for b in sorted(set(bad)):
+            print('        🔴 %s' % b)
+    print('合计：animator=%d · animation=%d · lineRenderer=%d（期望 7 / 10 / 18）'
+          % (total['animator'], total['animation'], total['lineRenderer']))
+    # ⚠️ 已知的**资产缺口**（不判失败，但必须看得见）：6 个 `AnimatorController` 一份都不在工程里。
+    if total['animator']:
+        print('⚠️  6 个 `AnimatorController` 本机**不在工程里**（原版在 '
+              '`ExportedProject/Assets/AnimatorController/*.controller`，`extract_arena_prefab_yaml.py` '
+              '默认不拷 `.controller`）⇒ 构建侧只建空壳 + 出声；要真播必须先把那 6 份导入 '
+              '`ArenaOriginalPrefabs/<场>/AnimatorController/`。')
+    print('rc=%d' % rc)
     return rc
 
 
@@ -2435,13 +3027,15 @@ def run_one(arena, args):
     a = Assembler(SCENE, 'd:/tmp/wf_manifest_tmp')
     manifest, warn, skipped_ui, tex = build_manifest(a, args.all_particles)
 
-    os.makedirs(ARENA_DIR, exist_ok=True)
-    with open(OUT_JSON, 'w', encoding='utf-8') as fp:
-        json.dump(manifest, fp, ensure_ascii=False, indent=2)
-        fp.write('\n')
+    # 🔴 只有 `--write` 才动盘（`--dry` / `--check` 一个字节都不写）。
+    if args.write:
+        os.makedirs(ARENA_DIR, exist_ok=True)
+        with open(OUT_JSON, 'w', encoding='utf-8') as fp:
+            json.dump(manifest, fp, ensure_ascii=False, indent=2)
+            fp.write('\n')
 
     n_obj = n_tex = 0
-    if not args.no_copy:
+    if args.write and not args.no_copy:
         n_obj, n_tex = copy_assets(manifest, tex)
 
     # ---------------- 控制台报告 ----------------
@@ -2466,6 +3060,22 @@ def run_one(arena, args):
         li.append('  🔴 [tapHits 解不出 / 计数不等] %d 条:' % len(warn['tap_hits']))
         for m in warn['tap_hits']:
             li.append('      %s —— %s' % (m['go'], m['why']))
+    # 🆕 2026-11-05（`B148-W4`）：原版组件三族（`Animator` / `Animation` / `LineRenderer`）的读数。
+    #   判据/期望值 → `ORIG_COMPONENT_EXPECT`（合计 7 / 10 / 18）。
+    _st = warn.get('orig_stats') or {}
+    li.append('  animators : %d · animations : %d · lineRenderers : %d%s'
+              % (len(manifest['animators']), len(manifest['animations']), len(manifest['lineRenderers']),
+                 '（另按判据排除 `CrosshairLine 3D` ×%d）' % _st['excluded'] if _st.get('excluded') else ''))
+    _nc = [e for e in manifest['animators'] if e.get('controllerGuid') and not e.get('controllerLocal')]
+    if _nc:
+        li.append('  🔴 animator 的 controller **本地缺 %d 份**（只建空壳、运行时不播）：%s'
+                  % (len(_nc), ', '.join('%s→%s' % (e['go'], e['controllerFile'] or e['controllerGuid'])
+                                         for e in _nc)))
+    _ncl = [e for e in manifest['animations'] if e.get('clipGuid') and not e.get('clipLocal')]
+    if _ncl:
+        li.append('  🔴 animation 的 clip **本地缺 %d 份**：%s' % (len(_ncl), ', '.join(e['go'] for e in _ncl)))
+    for w in warn.get('orig_components') or []:
+        li.append('  🔴 [原版组件] %s —— %s' % (w['go'], w['why']))
     if warn.get('mat_shader_fallback'):
         _ok = [m for m in warn['mat_shader_fallback'] if m['shader']]
         _bad = [m for m in warn['mat_shader_fallback'] if not m['shader']]
@@ -2496,7 +3106,9 @@ def run_one(arena, args):
             E['hostBundle'], E['pathId']))
     if warn['default_env']:
         li.append('  🔴 [默认环境条件读不到] %s' % ' / '.join(warn['default_env']))
-    if not args.no_copy:
+    if not args.write:
+        li.append('  拷贝      : **没写盘**（本次是只读动作，`--write` 才落盘）')
+    elif not args.no_copy:
         li.append('  拷贝      : Models/ %d 个 .obj, Textures/ %d 张 .png' % (n_obj, n_tex))
     if warn['obj_missing']:
         li.append('  [obj 对不上] %d 条:' % len(warn['obj_missing']))

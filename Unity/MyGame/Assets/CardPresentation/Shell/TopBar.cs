@@ -1001,7 +1001,7 @@ namespace CardPresentation
         /// （`MainMenuRuntime.Text` 的 doc 里有那次实测）。</summary>
         static Label Text(Transform parent, string text, float x1, float x2, float y1, float y2, int scale,
                           Color color, string name, float fontPx, int queue,
-                          TmpFont.Face face = TmpFont.Face.Cjk)
+                          TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；本方法 3 个调用点本就全显式传面——玩家名 `LatinUi`/等级与货币 `LatinCardBody` ⇒ 改缺省零渲染变化）
         {
             var lb = Label.Create(parent, text, Center(x1, x2, y1, y2), scale, color,
                                   new Vector2(0.5f, 0.5f), name);

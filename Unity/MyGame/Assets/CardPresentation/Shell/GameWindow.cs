@@ -936,5 +936,92 @@ namespace CardPresentation
             if (updateNavPanel) MainMenuRuntime.SetNavToggle(MainMenuRuntime.NavigationPanelToggleType.Main);
             return true;
         }
+
+        // ================================================================================================
+        //  ✅ 已复刻（2026-11-05 · B148-W7）· 窗口级**队列偏置** —— 原版 `3 - PopUp Holder` 画布内「后开在上」的等价物
+        //
+        //  判据：原版所有活动窗都是 `PopUp Holder` 这一个 uGUI 画布下的兄弟节点 ⇒ 兄弟序 = 开窗顺序 ⇒ 后开的自然压先开的。
+        //  我们这一层**没有 uGUI**：窗件全是 `ImageQuad` + 材质 `renderQueue`（`Canvas` 只出现在 PopUp Holder 本身、
+        //  且只管它那几个 `CanvasRenderer`；`MeshRenderer` **不参与**画布排序）⇒ 只能按队列做
+        //  （施工单 `判据/B144_字体主面施工单.md` §2·3「方案 B」；§2·1 ①「载体是哪个」已由 `B147` 查实）。
+        //
+        //  **规则**（由 `WindowsManager.BringToFront` 在开窗那一刻调）：
+        //    一扇窗被开到台前时，把**它自己这一棵**（含全部子孙）的队列整体上移到「压过此刻所有别的已开窗的最高队列」之上，
+        //    抬升量 = `topQ − 本窗最低队列 + 1`。
+        //   · **只抬不降**：已经在上面 ⇒ 一格都不动（零改动面最大）。
+        //   · **只动自己这一棵**：`Toast`(4072) / `Tooltip`(4077) / 教学指针(4041–4046) / 黑场(4090) **都不在任何
+        //     `GameWindow` 子树里** ⇒ 走 `GetComponentsInChildren` 天然碰不到它们（施工单 §2·1③ 的硬约束）。
+        //   · **天花板** = <see cref="CeilingQueue"/>（`ToastNotifications.QShade` 4072 的前一格）：抬完会越过它就**不抬并出声**
+        //     —— ⛔ 宁可不修，也不要把一扇窗顶到 toast 上面去。
+        //
+        //  ⚠️ **已知覆盖面（如实记，⛔ 别当成「已经全好了」）**：窗口带已经用到 `4030`（`AlliancePanelWindow.QText`），
+        //     `4031..4071` 只剩 **41 格**；本窗若**唯一队列值的跨度超过 41**（`SocialWindow` 401 格 · `TopBar` 132 格 ·
+        //     `AllianceMemberTab` 124 格 …）就抬不动 ⇒ 出声跳过。要根治得**重排整条窗口队列梯子 + 同时抬共享件**，
+        //     那是单独一批（施工单 §2·4 的结论，本轮不夹带）。
+        // ================================================================================================
+
+        /// <summary>窗口带的天花板 = 共享件的**最低**一档（`ToastNotifications.QShade` = 4072）的前一格。
+        /// <para>⚠️ 2026-11-05 现读：`Toast` 4072–4076 · 教学指针 4041–4046 · `Tooltip` 4077 · 黑场 `LoadingMenu.QPanel` 4090。
+        /// 教学指针（4041）比本值**低** —— 但它是**独立根节点**、不在任何窗里 ⇒ 我们的偏置碰不到它；
+        /// 窗抬到 4031..4071 会压过它 ⇒ 这是**已知的残余**（本轮不改它，见上面那段「已知覆盖面」）。</para></summary>
+        public const int CeilingQueue = 4071;
+
+        /// <summary>本窗累计被抬了多少格（`WindowsManager.BringToFront` 写；自检读口）。</summary>
+        public int QueueBias { get; internal set; }
+
+        /// <summary>本窗这一棵**当前最高**的渲染队列（没有任何可见件 ⇒ `int.MinValue`）。
+        /// <para>⚠️ uGUI 档的 `Label.RenderQueue` 恒 `-1`（`CanvasRenderer` 没有独立队列）⇒ 这里**跳过**，⛔ 别把它当真实队列。</para></summary>
+        public int TopQueue()
+        {
+            int top = int.MinValue;
+            var quads = GetComponentsInChildren<ImageQuad>(true);
+            for (int i = 0; i < quads.Length; i++)
+            { var q = quads[i]; if (q == null) continue; int v = q.RenderQueue; if (v > 0 && v > top) top = v; }
+            var labels = GetComponentsInChildren<Label>(true);
+            for (int i = 0; i < labels.Length; i++)
+            { var l = labels[i]; if (l == null) continue; int v = l.RenderQueue; if (v > 0 && v > top) top = v; }
+            return top;
+        }
+
+        /// <summary>把本窗整棵抬到「压过 <paramref name="topQ"/>」之上。返回实际抬升格数（`0` = 不用抬 / 抬不动）。
+        /// <para>⚠️ 抬不动（会顶破 <paramref name="ceiling"/>）时**出声**，⛔ 不静默少抬一截 —— 少抬会让「谁压谁」变成
+        /// 一个中间态，比原样更难查。</para></summary>
+        public int RaiseAbove(int topQ, int ceiling)
+        {
+            if (topQ == int.MinValue) return 0;                 // 别的窗一件可见件都没有 ⇒ 不用抬
+            int minQ = int.MaxValue, maxQ = int.MinValue;
+            var quads = GetComponentsInChildren<ImageQuad>(true);
+            for (int i = 0; i < quads.Length; i++)
+            {
+                var q = quads[i]; if (q == null) continue; int v = q.RenderQueue;
+                if (v <= 0) continue;                          // `<= 0` = 没有独立队列（uGUI 档 / 未建材质）⇒ 不参与
+                if (v < minQ) minQ = v; if (v > maxQ) maxQ = v;
+            }
+            var labels = GetComponentsInChildren<Label>(true);
+            for (int i = 0; i < labels.Length; i++)
+            {
+                var l = labels[i]; if (l == null) continue; int v = l.RenderQueue;
+                if (v <= 0) continue;
+                if (v < minQ) minQ = v; if (v > maxQ) maxQ = v;
+            }
+            if (minQ == int.MaxValue) return 0;                 // 本窗还没有可见件
+            if (minQ > topQ) return 0;                          // 已经在上面 ⇒ 一格都不动
+
+            int delta = topQ - minQ + 1;
+            if (maxQ + delta > ceiling)
+            {
+                Debug.LogWarning("[Win] `" + name + "` 要压过下面的 " + topQ + " 得整棵抬 " + delta + " 格（"
+                               + minQ + "→" + (minQ + delta) + "），会越过窗口带天花板 " + ceiling
+                               + "（= `Toast` 4072 的前一格）⇒ **不抬**：这一扇与下面那扇的先后仍按各自原队列号走。"
+                               + "根治要重排整条窗口队列梯子（施工单 §2·4），已记账。");
+                return 0;
+            }
+            for (int i = 0; i < quads.Length; i++)
+            { var q = quads[i]; if (q == null) continue; int v = q.RenderQueue; if (v > 0) q.SetRenderQueue(v + delta); }
+            for (int i = 0; i < labels.Length; i++)
+            { var l = labels[i]; if (l == null) continue; int v = l.RenderQueue; if (v > 0) l.SetRenderQueue(v + delta); }
+            QueueBias += delta;
+            return delta;
+        }
     }
 }

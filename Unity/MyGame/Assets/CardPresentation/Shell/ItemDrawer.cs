@@ -1422,7 +1422,7 @@ namespace CardPresentation
         static Label ClippedText(Transform node, PxRect r, string s, Color color, string name,
                                  float fontPx, int q, float wrapPx, ItemDrawerStyle st, int align = 0,
                                  float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                                 bool wrapOff = false, TmpFont.Face face = TmpFont.Face.Cjk)
+                                 bool wrapOff = false, TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             // 🔴 2026-10-13（A435）：`Visible` → **`VisibleAbove`**（纯矩形函数手上没有 `Transform`，
             //   解析不了节点 ⇒ 必须走带 `parent` 的那个重载，判据 → `MenuDraw.VisibleAbove` 的注释）。

@@ -8568,7 +8568,7 @@ namespace CardPresentation
         /// `true` 时 `x/y/w/h` 相对 `parent` 的局部原点（设计 px、y 向下），⛔ 不是屏幕绝对 px。
         /// 默认 `false` = 与改动前逐位相同 ⇒ 既有调用点零影响。🆕 **2026-11-04（`B141 · W129` · 账 `4-01`）**：加 `face`（默认 `Cjk` = 缺省面⛔ 没动）；本窗原版 prefab `Deck Editing Menu` **64/64 颗 TMP = Pragati** ⇒ 所有站点显式传 `LatinCardBody`。｜✅ 已复刻（2026-11-04 · B141 · 判据=`Deck Editing Menu.prefab` 64/64 TMP = `Pragati-Regular SDF`；断言 → `Editor/B141_W53_Assert.cs` E 段）</summary>
         Label Txt(string key, string s, float x, float y, float w, float h, int scale, Color c, int queue,
-                  Transform parent = null, bool relativeToParent = false, TmpFont.Face face = TmpFont.Face.Cjk)
+                  Transform parent = null, bool relativeToParent = false, TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144_字体主面施工单` §1·1；本窗原版 prefab `Deck Editing Menu` 64/64 TMP = Pragati；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             float cy = h > 0f ? y + h * 0.5f : y;
             var l = Label.Create(parent != null ? parent : Root, s,
@@ -8583,7 +8583,7 @@ namespace CardPresentation
         /// 用法先例：`MenuWindowBase.Text(..., fontPx)`（同一条换算 `LayoutSpace.Px`）。
         /// ⚠️ 验收这类数字**量渲染图**，别按 `textBounds`/几何中心 —— 原版 `VerticalAlignment = Capline`
         /// 会让数字相对几何中心略偏上（正本 `卡组编辑界面_查证_0920.md` §③ 末条）。🆕 2026-11-04（`B141 · W129` · 账 `4-01`）：`face` 与 `Txt` 同义，**在 `SetGlyphHeight` 之前**落到 `Label`（字号按 `ActualFace` 的 em 折算，次序反了会按旧面折）。</summary>
-        Label TxtPx(string key, string s, float x, float y, float w, float h, float fontPx, Color c, int queue, TmpFont.Face face = TmpFont.Face.Cjk)
+        Label TxtPx(string key, string s, float x, float y, float w, float h, float fontPx, Color c, int queue, TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             var l = Txt(key, s, x, y, w, h, 1, c, queue, face: face);
             if (l != null && fontPx > 0f) l.SetGlyphHeight(LayoutSpace.Px(fontPx));

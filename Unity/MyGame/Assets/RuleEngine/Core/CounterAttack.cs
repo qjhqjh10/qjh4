@@ -45,27 +45,10 @@ namespace RuleEngine
         {
             if (attacker == null || target == null) return false;
 
-            // ① sneakAttack(20)：**无条件**（原版连守方是什么都不看）
-            if (attacker.Has(KeywordTable.SneakAttack)) return true;
-
-            // ② terror(520)：守方必须是 **Minion**（`get_cardType == 0`；Hero/督军不算），
-            //    且守方的当前战斗攻击力 **严格小于** 攻方。
-            if (attacker.Has(KeywordTable.Terror) && !target.IsWarlord
-                && CurrentCombatAttack(ctx, targetOwner, target) < CurrentCombatAttack(ctx, attackerOwner, attacker))
-                return true;
-
-            if (!ranged) return false;      // 后两道只对**远程打法**说话
-
-            // ③ LongRange(1160)：远程 + 守方是单位（不要求击杀）
-            if (attacker.Has(KeywordTable.LongRange)) return true;
-
-            // ④ Sniper(990)：远程 + 这一记会摧毁守方 + 守方**没有** dodge/shield/invulnerable/dropPod/survivor
-            //    （原版 `IsProtectedFromDamageOrSurvivor`；我们收在 `ConditionEval` 的 120 那一格）
-            if (attacker.Has(KeywordTable.Sniper) && targetWillDie
-                && ConditionEval.MeetsUnit(ctx, target, 120) != true)
-                return true;
-
-            return false;
+            // ✅ 已复刻（2026-11-05 · B148-W2 · `B146-S1-G6-SPECIAL-SIGNAL`）：**四道通道的判据只此一处** ——
+            //   本条现在只是 <see cref="Classify"/>（次序照原版 `:869-895`：sneak → terror → **sniper → longRange**）
+            //   的 OR 结果。⛔ 别再在这里写第二份 `Has(Sniper) && targetWillDie …` —— 两处写同一条规则迟早不一致。
+            return Classify(ctx, attackerOwner, attacker, targetOwner, target, ranged, targetWillDie) != CounterExempt.None;
         }
 
         /// <summary>
@@ -216,5 +199,51 @@ namespace RuleEngine
         /// <summary>原版 `GameStaticData.dropPodMaxHealth`（`GameStaticData__.cctor.c:273` 的 `+0x1fc = 2`）——
         /// 空投舱独立血池的**满血值**（`currentDropPodHealth`；消费者 = `RuleCore` 的空投舱伤害支）。</summary>
         public const int DropPodMaxHealth = 2;
+
+        // ==========================================================================================
+        //  ✅ 已复刻（2026-11-05 · B148-W2 · `B146-S1-G6-SPECIAL-SIGNAL`）
+        //  判据（第一权威 · 现读）= `BattleManager._ResolveAttack_d__438__MoveNext.c:869-895`
+        //  —— `ResolveAttackDamage` **之后**是一条 **else-if 链**，次序 = `sneakAttack(0x14)`
+        //     → `ActivatesTerror` → `ActivatesNoReturnSniperAttack(0x3de)` → `ActivatesNoReturnLongRangeAttack(0x488)`；
+        //     每支都 `+0x138 = 0`（守方不反击），并**各自替换普攻表现**：
+        //       · sneak：`:958 ResolveRangedAttack(攻方, 守方)` 协程（**强制远程攻击动画**）+ 状态 `0x10 = 10`；
+        //       · terror：`:951 BattleCardUI__DisplayTriggerAnim(ui, 0x208, 1)` + `SoundManager__Play2D(ActivateTerror)`（状态 `0xc`）；
+        //       · sniper：`:937 ActivateTraitParticlesFromCode(攻方, 0x3de, 守方)`（状态 `0xf`）；
+        //       · longRange：`:923 ActivateTraitParticlesFromCode(攻方, 0x488, 守方)`（状态 `0x12`）；
+        //       · 都没有 ⇒ `:900/:913` 近战 `AttackMeleeAnim`（`0x16`）/ 远程 `ResolveAttackRangedAnim`（`0x15`）。
+        //  ⚠️ **`NoCounter` 是这四支的 OR**（行为不变）；本枚举只给**表现层**挑信号用。
+        //  🔴 **与 `NoCounter` 的唯一区别 = 次序**：`NoCounter` 里 LongRange 判在 Sniper 之前（历史写法），
+        //     原版是 Sniper 在前。两档同时成立时 `NoCounter` 都为真 ⇒ **改次序不改变反击结论**（零行为变化）。
+        // ==========================================================================================
+
+        /// <summary>见上：这一记命中的是哪一支（`None` = 四支都不命中 ⇒ 普通攻击）。</summary>
+        public enum CounterExempt { None = 0, SneakAttack = 1, Terror = 2, Sniper = 3, LongRange = 4 }
+
+        /// <summary>四支 else-if 的**分类**（次序照原版 `:869-895`）。判据逐条同 <see cref="NoCounter"/>。</summary>
+        public static CounterExempt Classify(BattleContext ctx, int attackerOwner, UnitState attacker,
+                                             int targetOwner, UnitState target, bool ranged, bool targetWillDie)
+        {
+            if (attacker == null || target == null) return CounterExempt.None;
+
+            // ① sneakAttack(20)：无条件
+            if (attacker.Has(KeywordTable.SneakAttack)) return CounterExempt.SneakAttack;
+
+            // ② terror(520)：守方必须是 Minion（`cardType == 0`）且当前战斗攻击力严格小于攻方
+            if (attacker.Has(KeywordTable.Terror) && !target.IsWarlord
+                && CurrentCombatAttack(ctx, targetOwner, target) < CurrentCombatAttack(ctx, attackerOwner, attacker))
+                return CounterExempt.Terror;
+
+            if (!ranged) return CounterExempt.None;      // 后两支只对远程打法说话
+
+            // ③ Sniper(990)：⚠️ **原版在 LongRange 之前**（与 `NoCounter` 的书写次序相反）
+            if (attacker.Has(KeywordTable.Sniper) && targetWillDie
+                && ConditionEval.MeetsUnit(ctx, target, 120) != true)
+                return CounterExempt.Sniper;
+
+            // ④ LongRange(1160)
+            if (attacker.Has(KeywordTable.LongRange)) return CounterExempt.LongRange;
+
+            return CounterExempt.None;
+        }
     }
 }

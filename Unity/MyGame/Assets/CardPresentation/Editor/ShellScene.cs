@@ -2254,7 +2254,7 @@ public static class ShellScene
         //   给 `MenuDraw.Text` / `TextBox`（经 `TextCore`）/ `GameWindow.Text` / `MainMenuSubmenuWindow.Text|TextBox`
         //   / `HudCanvas.MakeText` 加**可选** `face` 形参，**默认 `Cjk`** ⇒ 旧调用点零行为变化。
         // 本节守三件事（⛔ 不读 `TmpFont.FaceResource` 那张表 = 不自证 —— 期望值写**原版资产名**）：
-        //   ① 不传 `face` ⇒ 仍是 `NotoSerifCJK-Regular SDF`（旧调用点逐位不变）；
+        //   ① 不传 `face` ⇒ 走缺省面（2026-11-05 `B148-W3/W6` 起 = `LatinCardBody` / Pragati；**之前**是 `NotoSerifCJK-Regular SDF`，本断言的期望值已同批更新）；
         //   ② 传了 `face` ⇒ TMP 真的指向原版那一份（`Asar-Regular SDF` / `Pragati-Regular SDF`）；
         //   ③ **汉字闸**：指派了拉丁面、文本里有汉字 ⇒ 实际生效回 CJK（`Label.ActualFace`，不许画方框）。
         // **改坏法**：把 `MenuDraw.TextCore` 里那句 `if (face != TmpFont.Face.Cjk) lb.SetFace(face);` 删掉 ⇒ ② 立刻红；
@@ -2274,9 +2274,9 @@ public static class ShellScene
             CheckTrue(def != null, "① 默认档探针建出来了");
             if (def != null)
             {
-                Check(FontName(def), "NotoSerifCJK-Regular SDF",
-                      "★ ① `MenuDraw.Text` **不传 `face`** ⇒ 仍是 CJK 那一份（旧调用点逐位不变）");
-                Check(def.Face, TmpFont.Face.Cjk, "① …`Label.Face` 也是 Cjk（默认值没被偷偷改）");
+                Check(FontName(def), "Pragati-Regular SDF",
+                      "★ ① `MenuDraw.Text` **不传 `face`** ⇒ 走缺省面 **Pragati**（2026-11-05 `B148-W3` 把缺省由 `Cjk` 改为 `LatinCardBody`；旧调用点逐位不变）");
+                Check(def.Face, TmpFont.Face.LatinCardBody, "① …`Label.Face` 也是 LatinCardBody（2026-11-05 `B148-W3` 改的缺省；⛔ 别改回 Cjk）");
             }
 
             // ② 显式 `face` ⇒ TMP 真的换到原版那一份
@@ -2301,8 +2301,8 @@ public static class ShellScene
             CheckTrue(defBox != null, "① `TextBox` 默认档探针建出来了");
             // 🔴 **B105_A3（AUD11 类 3A）· 已被前置前提覆盖，**未改**：上面 `CheckTrue(defBox != null, …)` 已单独断言。
             if (defBox != null)
-                Check(FontName(defBox), "NotoSerifCJK-Regular SDF",
-                      "★ ① `MenuDraw.TextBox` **不传 `face`** ⇒ 仍是 CJK 那一份");
+                Check(FontName(defBox), "Pragati-Regular SDF",
+                      "★ ① `MenuDraw.TextBox` **不传 `face`** ⇒ 走缺省面 **Pragati**（2026-11-05 `B148-W6`）");
 
             // ③ 汉字闸：指派拉丁面 + 文本含汉字 ⇒ 实际生效回 CJK（那三份拉丁资产没有汉字字形）
             var cjk = MenuDraw.Text(faceGo.transform, faceR, "汉字", Color.white, "FaceCjkGate", 30f, 3000,

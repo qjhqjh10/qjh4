@@ -2226,7 +2226,7 @@ namespace CardPresentation
             if (useOverDraw.HasValue) v._useOverDraw = useOverDraw.Value;
             v.Build(d);
             if (axesGiven) Show(v._artFront, v.ArtFrontVisible);
-            if (clip.HasValue) v.SetClip(clip);
+            if (clip.HasValue) v.SetClip(clip); CardPointerRelay.Attach(v);   // 🆕 2026-11-05（B148_W8 · 战-T09 S3）：挂原版 `CardCollider` 的送达半（判据 → 判据/B148_战斗表现施工单.md §2·1）。⚠️ 同一物理行追加 = 零行数变化（本文件下游账落点最深 `:16185`）
             return v;
         }
 

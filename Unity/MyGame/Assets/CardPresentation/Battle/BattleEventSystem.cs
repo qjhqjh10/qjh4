@@ -6,9 +6,9 @@
 //   （全仓 `raycastTarget = true` = 0 处；判据 → `资料/普查产出_1019/W57_战斗线_T09迁移计划.md` §1·1 / §1·4）。
 //   本类只负责「层」：建一只 `EventSystem`，挂 **`InputSystemUIInputModule`**。
 //
-// 🔴 **模块必须选 `InputSystemUIInputModule`**：`ProjectSettings/ProjectSettings.asset:935` 的
-//   `activeInputHandler = 1`（New-only）⇒ `StandaloneInputModule`（旧 Input）**一个事件都收不到、
-//   而且不报错**（判据 → `T09` 迁移计划 §1·1 那张表最后一行）。本类建完会**自检模块类型**，不对就 `LogError`。
+// 🔴 **模块必须选 `InputSystemUIInputModule`**：`ProjectSettings/ProjectSettings.asset:936` 的
+//   `activeInputHandler = 2`（**Both**）—— ⚠️ 2026-11-05（`B148_W8` · 铁律 5）就地订正：原来写 `:935` 的 `1`（New-only），
+//   2026-11-04 `B144_A` 已把旧输入迁回 `Input`、新输入仍可用 ⇒ 现读 = `2`；**结论不变**（Both 下 uGUI 走哪套由 `EventSystem` 的模块决定，旧 `StandaloneInputModule` 不该与它并存；原判据 → `T09` 迁移计划 §1·1 那张表最后一行）。本类建完会**自检模块类型**，不对就 `LogError`。
 //   依据 = 本机 `Library/PackageCache/com.unity.inputsystem@7a4e1a2a8194/InputSystem/Runtime/Plugins/UI/
 //   InputSystemUIInputModule.cs:1639-1656` 的 `OnEnable`：没有绑定动作时自己 `AssignDefaultActions()`
 //   ⇒ 运行时 `AddComponent` 即可用，不需要预做 InputActionAsset。
@@ -351,6 +351,62 @@ namespace CardPresentation
             list.Insert(0, es);                          // `current` 读的是 `list[0]`
             Debug.Log("[BattleEventSystem] 编辑模式：激活那一刻没把本实例登记成 `EventSystem.current`"
                     + " ⇒ 已手工补登记（`m_EventSystems`，仅编辑模式）");
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-11-05（执行写手 `B148_W8` · 账 `战-T09` S3）：
+        //  两台相机各挂一颗 `Physics2DRaycaster`（判据 → `判据/B148_战斗表现施工单.md` §2·1）
+        //  ⚠️ 追加在类尾；本文件已有 `B124-W10` / `B140-WL` 两组断言按行号引用（最深 `:164`），⛔ 别插中间。
+        // ==========================================================================================
+
+        /// <summary>手牌卡所在的物理层（**我们 = 0**；原版 `2DCard` = 5 ⇒ 原版掩码 32，我们 = 1）。
+        /// <para>🔴 **如实记的偏离（⛔ 不是没查）**：原版 `CardCollider2D` 挂在 `2DCard`（层 5）上、掩码 `32`
+        /// （`assets_full/bundle_scenes_scenes_battlearena1/MonoBehaviour/MonoBehaviour_4133.json` 的 `m_EventMask: 32`）；
+        /// 我们 `CardView.SetLayer` 把手牌/卡池/换牌整棵树递归设成 **层 0**（`Core/CardView.cs:9515-9526`），
+        /// 理由 = 两台相机 cullingMask 按 0/8/10 分（`Editor/BattleScene.cs:47770/:47851`），改 5 要连带改
+        /// 两台相机掩码 + `BattleDriver` 那条不变量 + 一批断言。
+        /// ⇒ 本批**把卡留在层 0**、掩码取 `1 &lt;&lt; 0`（语义等价：**只在手牌卡那一层上打**）。
+        /// 想一比一回到「层 5 + 32」是**另一条任务**（要连 cullingMask 一起改）。</para></summary>
+        public const int HandCardPhysicsLayer = 0;
+
+        /// <summary>给两台相机各挂一颗 `Physics2DRaycaster`（幂等）。返回**调用之后真正可用**的颗数
+        /// （= 相机上有射线器**且**它已在 `RaycasterManager` 表里；已存在的也计 1 ⇒ 重复调用**不会**让调用方误判成「不可用」）。
+        /// <para>🔴 原版是 `EverguildPhysics2DRaycaster : Physics2DRaycaster`（子类，13/13 场）；我们**先用基类**
+        /// —— 子类那层现在没有任何已知差异（`m_MaxRayIntersections = 0` 基类默认就是 0）。</para>
+        /// <para>🔴 **实现细节（本轮现读 uGUI 源码）**：`PhysicsRaycaster.finalEventMask = eventCamera.cullingMask &amp; m_EventMask`
+        /// ⇒ 射线器的 mask 会跟相机 cullingMask 取交集。本仓两台相机现读：战场 = `(1&lt;&lt;ArenaLayer) | (1&lt;&lt;BoardCardLayer)`
+        /// （`Editor/BattleScene.cs:47770`）⇒ `&amp; 1024` 仍 = 1024 ✅；UI = 全场默认再摘掉 8 与 10（`:47851-47852`）⇒ 含 0 ✅。
+        /// ⚠️ 若将来把 UI 相机 cullingMask 收窄到「只画 UI 层」，这条会**静默失去手牌命中** ⇒ 届时要同时改 mask。</para>
+        /// <para>⚠️ 编辑模式下 `AddComponent` **不派 `OnEnable`** ⇒ `RaycasterManager` 那张表要自己补登记
+        /// （与 <see cref="SyncRaycasters"/> 同一族坑，见文件头）。⚠️ `boardCam` 可能是 null（2D 兜底档）
+        /// ⇒ 只建得成 UI 那一颗（手牌照旧能点），不报错。</para></summary>
+        public static int EnsurePhysicsRaycasters(Camera uiCam, Camera boardCam)
+        {
+            var list = RaycasterManager.GetRaycasters();
+            int added = AttachOne(uiCam, 1 << HandCardPhysicsLayer);
+            added += AttachOne(boardCam, 1 << ArenaSlots.BoardCardLayer);   // = 1024 = 原版**等值**
+            return added;
+
+            int AttachOne(Camera cam, int mask)
+            {
+                if (cam == null) return 0;
+                var rc = cam.GetComponent<Physics2DRaycaster>();
+                if (rc == null) rc = cam.gameObject.AddComponent<Physics2DRaycaster>();
+                if (rc == null)
+                {
+                    Debug.LogError($"[BattleEventSystem] `{cam.name}` 上挂 `Physics2DRaycaster` 失败 ⇒ 这一路的事件收不到（⛔ 不静默）");
+                    return 0;
+                }
+                rc.eventMask = mask;
+                if (list == null)
+                {
+                    Debug.LogError("[BattleEventSystem] `RaycasterManager.GetRaycasters()` 返回 null ⇒ 射线器无法登记"
+                                 + "（`EventSystem.RaycastAll` 将一条都不返回）");
+                    return 0;
+                }
+                if (!list.Contains(rc)) list.Add(rc);
+                return 1;
+            }
         }
     }
 }

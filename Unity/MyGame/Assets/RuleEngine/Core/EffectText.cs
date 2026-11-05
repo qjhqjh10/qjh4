@@ -8305,6 +8305,17 @@ namespace RuleEngine
                     if (dur.Length == 0) dur = pair[1];
                     break;
                 }
+            // ①·bis 时长**从句**写在主语**最前面**（`For the rest of this battle, your Warlords' Talent costs 1 less`）。
+            //    ✅ 2026-11-05（`B148-W2` · `B123-CA50SIX`/`SAU55`）实测：不剥的话整段从句会留在载荷里
+            //    （`payload = for the rest of this battle, your warlords' talent`）⇒ 下游 `CreatePool.IsKindWord`
+            //    与 `FindByName` 一律认不出 ⇒ 静默「这条没生效」。池内今天**只有 `SAU55`** 用这种写法（现扫 `desc`）。
+            foreach (var pair in CostDurationPrefixes)
+                if (s.StartsWith(pair[0], System.StringComparison.OrdinalIgnoreCase))
+                {
+                    s = s.Substring(pair[0].Length).Trim();
+                    if (dur.Length == 0) dur = pair[1];
+                    break;
+                }
             // ② 主语开头残留的 `the` / `your`（`The next Vehicle you play …`；
             //    `your` 大多数时候已被正则的 `(?:your\s+)?` 剥掉，这里兜个底）
             if (s.StartsWith("the ", System.StringComparison.OrdinalIgnoreCase)) s = s.Substring(4).Trim();
@@ -8333,6 +8344,16 @@ namespace RuleEngine
         {
             new[] { " this turn", "turn" },
             new[] { " for the rest of this battle", "" },
+        };
+
+        /// <summary>时长**从句**写在主语最前面时的前缀（`For the rest of this battle, your X costs N less`）。
+        /// ✅ 2026-11-05（`B148-W2`）：池内实测只有 `SAU55`（`… your Warlords' Talent costs 1 less`）用这种写法；
+        /// `match` 那条是同族写法（池内 0 条），一并收了免得将来静默失效。
+        /// ⚠️ 值 = 时长档（与 <see cref="CostDurationSuffixes"/> 同一套：`turn` = 本回合、`""` = 永久/本场）。</summary>
+        static readonly string[][] CostDurationPrefixes =
+        {
+            new[] { "for the rest of this battle, ", "" },
+            new[] { "for the rest of this match, ", "" },
         };
 
         /// <summary>

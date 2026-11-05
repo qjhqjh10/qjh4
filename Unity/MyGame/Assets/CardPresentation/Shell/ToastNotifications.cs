@@ -1427,7 +1427,7 @@ namespace CardPresentation
         /// `autoMin > 0` = 原版 `m_enableAutoSizing`（`autoMax <= 0` ⇒ 上限 = `fontPx`）。</summary>
         static Label Tmp(Transform parent, PxRect r, string text, Color color, string name, float fontPx,
                          int q, bool wrap, float autoMin, float autoMax, float autoBase,
-                         TmpFont.Face face = TmpFont.Face.Cjk)
+                         TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-05 · B148-W6）：缺省面 Cjk→Pragati（判据 `B144` §1·1；中文仍由 `Label.ActualFace` 翻回 CJK）
         {
             var lb = MenuDraw.Text(parent, r, text, color, name, fontPx, q, 0f, 0f, 0f, 0f, face: face);
             if (lb == null) return null;

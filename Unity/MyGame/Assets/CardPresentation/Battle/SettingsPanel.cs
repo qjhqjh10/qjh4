@@ -1605,7 +1605,7 @@ namespace CardPresentation
             l.SetScriptHeight(text, px, 1f);
         }
 
-        /// <summary>把原版那一颗的**自适应四格**接上（`A1213③` 补的那 4 组共用这一条）。
+        /// <summary>把原版那一颗的**自适应四格**接上（`A1213③` 补的那 4 组共用这一条）。✅ 2026-11-05（B148-W3）：三档经 `Label.ApplyAutoFitEm` 按**当前字体面**折成 px 口径再喂（原版那三档是 `m_fontSize*` = fontSize 单位；CJK 面的 px 口径是 0.853 em，直传会大 17.2%）。
         /// 🔴 **顺序**：必须排在 `ApplyLangFont` **之后** —— `SetAutoFitBox` 会重排 mesh，
         /// 先设框再定字号的话字号那一步会拿旧框量一遍（同 `SliderLabel` 的调用次序）。
         /// ⚠️ `SetAutoFitBox` 内部会调 `SetWrapWidth`，而那个**无条件**把折行设成 `Normal(1)`
@@ -1615,6 +1615,10 @@ namespace CardPresentation
                                  float minPx, float maxPx, float basePx, int wrapMode)
         {
             if (l == null) return;
+            // 🔴 2026-11-05（`B148` · 据 `判据/B148_失败归类_战斗.md` 就地订正）：**这里必须是 `SetAutoFitBox`（px 口径）**，
+            //   ⛔ 不能改成 W3 的 `ApplyAutoFitEm` —— 本方法收到的 `boxWPx/boxHPx/minPx/maxPx/basePx` 全是**画布 px**，
+            //   而 `ApplyAutoFitEm` 的三档与框都是 **em**。拉丁面因子 1.0 看不出来、CJK 面乘 0.853 ⇒ 实测 8.53/35.83/30.71
+            //   与期望 10/42/36 逐位吻合（21 条断言因此全红）。换牌面板那 8 条靠 `ApplyAutoFitEm` 的**别动**。
             l.SetAutoFitBox(U(boxWPx), U(boxHPx), minPx, maxPx, basePx);
             l.SetWrappingMode(wrapMode);
         }
