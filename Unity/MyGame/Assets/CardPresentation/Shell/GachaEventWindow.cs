@@ -1345,7 +1345,7 @@ namespace CardPresentation
         /// <item>`videoPlayer.started += (src) => crateOpenSound.Play2D()`</item>
         /// <item>`videoPlayer.targetCamera = Camera.main`</item>
         /// </list>
-        /// <para>⚠️ **clip 未导入 `Resources/`** ⇒ `clip == null`，`Play()` 什么都不会发生；出声一次（⛔ 不静默）。
+        /// <para>⚠️ 2026-11-05（`B145` 现读订正）：**clip 早已导入** —— `Resources/Art/videos/gacha_crate_opening.mp4`（5,141,522 B · md5 `fac0d416…`）；下面 `clip == null` 那条 warning 的提示「还没转过来」已成**死路径**，留住只为「将来资源被删」时出声一次（⛔ 不静默）。
         /// 🆕 2026-10-28（B93_S1 · 铁律 5 就地订正）：**音效 cue 名【已解出】= `Gacha vault open`** ——
         /// AssetRipper 导出工程里有这份 `AudioCue`（`Assets/Gacha vault open.asset`，`clipList` = `Vault Crate Open Full.ogg`），
         /// 不再是「那份 CAB 不在本机」；`started` 回调现在**真的播**（见 <see cref="OnCrateVideoStarted"/>）。</para></summary>

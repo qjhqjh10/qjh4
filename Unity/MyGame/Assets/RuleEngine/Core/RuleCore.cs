@@ -5773,8 +5773,8 @@ namespace RuleEngine
 
             // 🔴 **2026-10-29 调度台就地回退（`B97_W34` 的 `:325` 两条攻击闸）**：它把这两条闸落在**共用**的 `IsValidTarget` 里，
             //    实测 `play check` ①-b 由 **50 张 → 414 张**（这个判据同时服务**技能目标** ⇒ 攻击力 / 将死判定把技能目标也挡了）。
-            //    ⇒ 这里退回；`CanAttackNow`(`:5770`) 那一处**保留**。AI 攻击枚举需要的那份要**单独的「攻击目标」判据**（见账 `:325` 备注）。
-            return target.Has(KeywordTable.SummonRift) ? RuleCodes.ErrTarget : RuleCodes.OK;   // 🆕 2026-10-29（执行代理 `B98_N3`）：**攻击侧 `summonRift(730)` 裸闸** —— 判据 = `BattleManager__IsValidAttackTarget.c:211-213`（`HasCurrentTrait(param_3 /*目标*/, 0x2da) ⇒ return 0`，与主动能力 `IsValidActiveAbilityTarget.c:55-56` **同形的裸闸**、**不分侧**）。⚠️ 写成行内块（铁律 18·b；本文件 365+ 处账落点按行号引用）⇒ 行数零变化。⚠️ 同一处原版还有两条攻方闸（`:215-218` trait 100 `stun` · `:219-222` `0x3ca` `pindown` 且 `param_5 == 1` 只禁近战）—— 我们分别落在 `CanAttackNow` 的 `u.IsStunned` 与 `AttackActionPowerGate`（判据已在那边），⛔ 别在这里写第三份。⚠️ 池内 0 张（`cards_engine.json` 现扫）⇒ 零行为变化
+            //    ⇒ 这里退回；`CanAttackNow`(`:5770`) 那一处**保留**。AI 攻击枚举需要的那份要**单独的「攻击目标」判据**（见账 `:325` 备注）。🔴 2026-11-05（`B145-E2`）：**只把 `pindown` 这一半**按原版 `.c:219-222` 落回本函数（下一行），`CanAttackNow` 现只保留「攻击力 ≤ 0」那半 —— 这正是原版的分层（`CardScript.CanAttackNow` 全文 0 处 `0x3ca`，`IsValidAttackTarget` 有）；池内 pindown 0 张 ⇒ 上次那种 ①-b 回归（50→414）不会重现。
+            { if (target.Has(KeywordTable.SummonRift)) return RuleCodes.ErrTarget; if (attacker.IsStunned) return RuleCodes.ErrStunned; if (!ranged && attacker.Has("pindown")) return RuleCodes.ErrPindown; return RuleCodes.OK; }   // ✅ 已复刻（2026-11-05 · B145-E17 · 判据 = `BattleManager__IsValidAttackTarget.c:211-222`）：① `:211-213` summonRift(0x2da, **目标**) 裸闸、不分侧（原 `B98_N3` 件）；② 🆕 **`:215-218` `HasCurrentTrait(攻方,100)` = `stun` ⇒ `return 0`**（本笔补的，原写法这一档只存在于 `CanAttackNow`）；③ `:219-222` `0x3ca`(pindown, **攻方**) ∧ `param_5 == 1`(近战) ⇒ `return 0`（原 `B145-E2` 件）；④ `:223` 直接 `return 1`（合法）。⚠️ **②的闸在 `CanAttackNow` 里【保留】** —— 原版绿光那条链 `CardScript.ActivateMinion.c:23/:55` 把 `!HasCurrentTrait(100)` 算进 `canAct(+0x230)`，`CardScript__Stun.c` 施加时又立刻把 `+0x230`/`+0x23c` 双双清 0 ⇒ 原版**被晕单位绿光同样是灭的**；`BattleManager__CanAttackCard.c:31` 也独立查 trait 100 ⇒ 本笔只补 `IsValidTarget` 这一处，⛔ 别删 `CanAttackNow` 那一句（删了绿光会误亮）。⚠️ 池内 `pindown` 0 张；`stun` 可达 ⇒ 净行为变化见报告。⚠️ 行内块（铁律 18·b；本文件 365+ 处账落点按行号引用）⇒ 行数零变化
         }
 
         /// <summary>
@@ -5908,7 +5908,7 @@ namespace RuleEngine
             //        这一格是对齐原版的：原版也是先判 trait 再判 UI/exhausted）。
             if (AttackBannedByTraits(u)) return RuleCodes.ErrNoAttack;
             if (u.Exhausted) return RuleCodes.ErrExhausted;
-            if (u.IsStunned) return RuleCodes.ErrStunned;
+            if (u.IsStunned) return RuleCodes.ErrStunned;   // ✅ 已复刻（2026-11-05 · B145-E17 · 判据 = 绿光/行动闸那两条原版路，**不是** `IsValidAttackTarget.c:215-218`）：① `CardScript__ActivateMinion.c:23/:55` 把 `!HasCurrentTrait(100)` 算进 `canAct(+0x230)` 与 `canAttack(+0x23c)`，`:82-90` 再用 `CardScript__CanAttackNow()` 的返回值直接 `SetActive(canAttackAnim)` ⇒ **原版被晕单位绿光是灭的**；② `CardScript__Stun.c` 施加眩晕时**当场**把 `+0x230`/`+0x23c` 双双清 0（两段 `ObscuredBool__op_Implicit(...,0)`）⇒ 没有「缓存过期还亮着」那一档；③ `BattleManager__CanAttackCard.c:31` 独立再查一次 trait 100 ⇒ 「能不能打」也是拒的。⇒ 原版 `IsValidAttackTarget.c:215-218` 与这两条路**并存**，不是「闸放错位置」；`IsValidTarget` 那一处已在本笔补上（`:5777`）。⛔ 别把本句当重复删掉 —— 删了绿光会误亮（`CardScript__CanAttackNow.c` 字面「全文 0 处 100」不矛盾：trait 100 是经 `canAct` 字段进来的）
 
             // **攻击配额**：嗜血（Blood Thirst）每回合最多 2 次，其余 1 次。
             // 规则书 :172「你的回合可进行至多 2 次攻击」；我们自己的 `rule_core.gd:4205`（旁证、非权威）
@@ -5919,7 +5919,7 @@ namespace RuleEngine
             // 压制：**无法执行近战攻击**（规则书 :194；原版 `:4209`）。⚠️ 只禁近战，远程照常 ——
             // 顺序也在原版那个位置：挨在攻击配额之后、攻击力判定之前。
             // （失明不在这里提前 return，它在 `FieldAttack` 里把远程攻击力算成 0，见那边的注释）
-            { var _pg = AttackActionPowerGate(ctx, p, u, ranged); if (_pg != RuleCodes.OK) return _pg; }   // 🔴🆕 2026-10-29（`B97_W34` · 账 325）：**压制(pindown) ＋ 攻击力≤0 两道闸收成一处** —— 判据 = `BattleManager__GetAvailableAttackActions.c:128-140 / :154-166`（详见 `AttackActionPowerGate` 的 doc）。这一段原来在**本行与下面 `FieldAttack(...) <= 0` 那两行**各写一遍，而 AI 动作表那一侧一条都没有 ⇒ 收进共用函数后两个调用点共用同一份判据（⛔ 别再在这里写第三份）。⚠️ 顺序与返回码与改前**逐字一致**（先 `pindown`、后攻击力），`RuleEngineTest` 那一批盯返回码的断言不受影响。⚠️ 行内块（铁律 18·b），⛔ 别新增行
+            { if (FieldAttack(ctx, p, u, ranged) <= 0) return ranged ? RuleCodes.ErrNoRangedAttack : RuleCodes.ErrNoMeleeAttack; }   // ✅ 已复刻（2026-11-05 · B145-E2 · 判据 = `CardScript__CanAttackNow.c` 全文 **0 处 `0x3ca`** + `BattleManager__IsValidAttackTarget.c:219-222`）：本函数 = 原版 `CardScript.CanAttackNow`（**绿光判据**），原版它**不查 `pindown`**；原写法调 `AttackActionPowerGate` 把 `pindown` 也带进来了 ⇒ **被压制但能远程的单位绿光被误灭**（本笔收窄，池内 pindown 0 张 ⇒ 零可观测）。⚠️ **攻击力 ≤ 0 这一档必须留在本函数**：原版 `CardScript__CanAttackNow.c` 先判「近战 < 1 ∧ 远程 < 1」；本仓 `IsValidTarget` 里没有这条（2026-10-29 回退过）⇒ `DeclareAttackCore` 靠这一句挡 0 攻单位。⚠️ `pindown` 的两层落点 = ①「排近战动作」`AttackTargetGate` → `AttackActionPowerGate`（原样保留，`.c:138`）；②「近战打某目标」`IsValidTarget` 尾部（见那一行）。⚠️ 行内块（铁律 18·b），⛔ 别新增行
 
             // 🆕 2026-10-23（`B-31` 拆码）：原版 `IsValidAttackTarget.c:57-70`（近战 ≤ 0）/
             //   `:72-86`（远程 < 1）是**两支、各带各的词条**（`CantAttackWithZeroMeleeAttack` /
@@ -6824,6 +6824,14 @@ namespace RuleEngine
 
             // ---- 这一段的局部状态（要在批**外面**声明，批里批外都要用）----
             bool targetDied = false;
+            // ✅ 已复刻（2026-11-05 · B145-E22 · 判据 = `_ResolveAttack_d__438__MoveNext.c:719/731-736/823-824/863/1013-1014`）
+            //  原版在**哨戒把攻击者打死**时置 `<attackerKilledBySentry>(+0x13a)`（同时 `defenderReturnsDamage(+0x138)=0`
+            //  ⇒ **不反击**），随后四道闸全跳过：`RecordAttackPendingDamage` / `SetupAttack`（`:823-824`）、
+            //  `ResolveAttackDamage`＝主伤害＋反击（`:863`，与 `defenderKilledByShuriken(+0x139)` 同一条 `if`）、
+            //  相邻伤害传播（`:1013-1014`）。`BroadcastUnitAttacked(:988)` 与哨戒伤害本身**照发/照打**。
+            //  ⚠️ **判定是预判**：`:732 EnoughPendingDamageToDieWithDamageValues`（我们 = `WouldKillByEntries`），
+            //  ⛔ **不是** `!attacker.IsAlive`（我们死亡延后到批末，Hurt 之后读血量会双重扣减）。
+            bool attackerKilledBySentry = false; bool defenderKilledByShuriken = false;   // ✅ 已复刻（2026-11-05 · B145-E25 · 判据 = `_ResolveAttack_d__438__MoveNext.c:632`）：原版 `*(u16*)(+0x138) = 0x100` **一次写两个字节** ⇒ `+0x139`（守方被星镖杀）= 1 **且** `+0x138`（守方反击）= 0；`targetDied` 只表示「这一记打死了它」（主伤害杀也有），⛔ 不能拿它判免反击（`:862` 那道闸读的是 `+0x139`）
             int dealt = 0;
             int hpBefore = 0;                  // 践踏要算「溢出多少」，所以得记打之前那一下
             // 反击值**现在就取**：规则书 `:145` 那个例子里，被这一下打死的初生者**照样反击** 1 点，
@@ -6875,24 +6883,51 @@ namespace RuleEngine
             //     所以**目标一死，它的 Backlash 就比反击先放**。被攻击方的 Backlash 若把攻击者打死，
             //     反击整下被跳过 —— **每一局带 Backlash/Penitence 的攻击都算错。**
             //
-            //  ⚠️ **批里放哪几步，是按规则书的顺序挑的**：
-            //     · **哨戒**（`:205`）在批内 → 它可能**先打死攻击者**，而攻击「照常结算」
-            //     · **星镖**（`:207`）在批内 → 它**在主伤害之前**，可能直接打死目标、跳过主伤害
+            //  ⚠️ **批里放哪几步**：
+            //     · **星镖**（规则书 `:207`）在批内 → 它在**主伤害之前**，可能直接打死目标、跳过主伤害
+            //     · **哨戒**（规则书 `:205`）在批内 → 它可能**先打死攻击者**；🔴 2026-11-05（`B145-E22`）按原版
+            //       `_ResolveAttack…:731-736/863/1013-1014`：**打死了就跳过主伤害·反击·相邻传播**（不是「照常结算」）
             //     · **主攻击 + 反击**在批内 → 这就是 `:145` 那句「同时」
             //     · **践踏 / 爆裂**留**批外**（各自另开一个批）—— 它们是「攻击时**对相邻**」的衍生伤害，
-            //       规则书把攻击段列成 ①哨戒 ②星镖 ③攻击/反击 ④践踏 ⑤爆裂，是**逐步**的；
-            //       而且留批外能保住一条既有行为：目标还在场上时能吃到「主伤害 + 爆裂」两次
-            //       （`FieldAttack` 的模拟器给的就是这个口径）。**如实标着：这一条是照原版攻击段顺序排的，
-            //       规则书 :238 那句「同时」只点名了攻击与反击。**
+            //       🔴 2026-11-05（`B145-E13`）就地订正：原来写「规则书把攻击段列成 ①哨戒 ②星镖 ③攻击/反击…」——
+            //       **规则书并没给先后**（:205/:207 各说各的）。真判据 = 原版 `_ResolveAttack_d__438__MoveNext.c`：
+            //       **星镖 `:618` → 哨戒 `:721` → 触发族 `:988` → 主伤害 `:999`**（②③之间**先星镖**）。
+            //       留批外能保住一条既有行为：目标还在场上时能吃到「主伤害 + 爆裂」两次（`:238`「同时」只点名攻击与反击）。
             using (SimultaneousDamage(ctx))
             {
+                // ---- 星镖 X：**攻击伤害之前**先对目标追加 X 点（规则书 :207；原版 `:4285`）----
+                //      ✅ 2026-11-05（`B145-E13`）：原版次序 = **星镖(`:618`) → 哨戒(`:721`)** ⇒ 本段在哨戒之前；目标被这 X 点打死就**跳过攻击伤害**（原版那支 `target_died`）。
+                if (attacker.Has("shuriken"))
+                {
+                    int sh = attacker.KwValue("shuriken");
+                    int extra = Hurt(ctx, target, sh, attacker.Name + " 的 Shuriken", actingCard: attacker,
+                                     // 🔴 2026-10-24（`C1` §3）：星镖原版死因是 `ability(20)`
+                                     //   （`Slay` 那条 doc 里早已写明「星镖原版是 ability(20)」）。
+                                     deathType: UnitDeathType.Ability,
+                                     // 🆕 2026-10-25（`X2`）：星镖那一下单列一类（成就 `Ach_7` = `Shuriken Damage`）。
+                                     kind: DamageKind.Shuriken);
+                    ctx.Log($"Shuriken {sh}：{attacker.Name} 先对 {target.Name} 追加 {extra} 伤"
+                          + $"（剩 {target.Health}）");
+                    // ⚠️ 判据是「**血量**见底了」而不是「已经不在场上了」——
+                    //    死亡处理延后到批末，此刻它还站在棋盘上（见 `DeferDeaths`）。
+                    // ✅ 已复刻（2026-11-05 · B145-E25 · 判据 = `_ResolveAttack_d__438__MoveNext.c:632`）：原版这一句 `*(u16*)(+0x138) = 0x100` **同时**置 `+0x139`（守方被星镖杀）与 `+0x138 = 0`（守方反击关掉）—— 两个标志必须一起置，⛔ 别只置 `targetDied`（那只说明「死了」，主伤害杀也会置）
+                    if (!target.IsAlive) { targetDied = true; defenderKilledByShuriken = true; }
+                }
+
                 // ---- 哨戒 X：**攻击哨戒单位时攻击者先受 X 伤害**，「然后照常结算攻击」----
-                //      规则书 :205；我们自己的 `rule_core.gd:4280`（旁证、非权威）（在星镖**之前**，是攻击结算的第 0 步）。
-                //      ⚠️ 「照常结算」= 挨了哨戒**不打断攻击**，攻击者就算被打死也照样把这一下打完
-                //      —— 原版就是顺序执行、没有中断。别自作主张加「死了就取消攻击」。
+                //      ✅ 2026-11-05（`B145-E13`）：原版次序 = **星镖(`:618`) → 哨戒(`:721`)** ⇒ 本段排在星镖**之后**（判据 `_ResolveAttack_d__438__MoveNext.c:721` vs `:618`）。
+                //      ⚠️ 「照常结算」只对**没被打死**的攻击者成立；🔴 **2026-11-05（`B145-E22`）已按原版落地**：
+                //      `:731-736` 预判「哨戒会不会打死攻击者」⇒ 打死时置 `+0x13a`，`:823-824`/`:863`/`:1013-1014`
+                //      三道闸跳过主伤害·反击·相邻传播（见本函数 `attackerKilledBySentry` 那一行）。
                 if (target.Has("sentry"))
                 {
                     int se = target.KwValue("sentry");
+                    // ✅ 已复刻（2026-11-05 · B145-E22 · 判据 = `_ResolveAttack_d__438__MoveNext.c:731-736`）：
+                    //  **伤害之前**预判「这一记哨戒会不会打死攻击者」—— 原版 `:732
+                    //  EnoughPendingDamageToDieWithDamageValues(攻击者, [CurrentSentry], [0])`。
+                    //  ⚠️ 必须在 `Hurt` **之前**算（`WouldKillByEntries` 读的是**伤害前**血/护甲/盾/堡垒那一套）；
+                    //  `Hurt` 之后攻击者血量已经掉下来了，再判会重复扣一次。⛔ 别改成 `!attacker.IsAlive`。
+                    bool sentryWouldKillAttacker = WouldKillByEntries(attacker, new[] { se });
                     // 🔴 **2026-10-20（`W58-REVIEWFIX-B1` · P2-3）：哨戒那一下【带来源卡】。**
                     //  判据 = `BattleManager._ResolveAttack_d__438__MoveNext.c:1421`
                     //    `CardScript__ReceiveDamage(攻击者, 0x14 /* = ability(20) */, DamageInfo(…))`，
@@ -6911,24 +6946,12 @@ namespace RuleEngine
                                   kind: DamageKind.Sentry);
                     ctx.Log($"Sentry {se}：{target.Name} 反击了正在攻击它的 {attacker.Name} {sd} 伤"
                           + $"（剩 {attacker.Health}）");
-                }
-
-                // ---- 星镖 X：**攻击伤害之前**先对目标追加 X 点（规则书 :207；原版 `:4285`）----
-                //      目标被这 X 点打死就**跳过攻击伤害**（原版那支 `target_died`）
-                if (attacker.Has("shuriken"))
-                {
-                    int sh = attacker.KwValue("shuriken");
-                    int extra = Hurt(ctx, target, sh, attacker.Name + " 的 Shuriken", actingCard: attacker,
-                                     // 🔴 2026-10-24（`C1` §3）：星镖原版死因是 `ability(20)`
-                                     //   （`Slay` 那条 doc 里早已写明「星镖原版是 ability(20)」）。
-                                     deathType: UnitDeathType.Ability,
-                                     // 🆕 2026-10-25（`X2`）：星镖那一下单列一类（成就 `Ach_7` = `Shuriken Damage`）。
-                                     kind: DamageKind.Shuriken);
-                    ctx.Log($"Shuriken {sh}：{attacker.Name} 先对 {target.Name} 追加 {extra} 伤"
-                          + $"（剩 {target.Health}）");
-                    // ⚠️ 判据是「**血量**见底了」而不是「已经不在场上了」——
-                    //    死亡处理延后到批末，此刻它还站在棋盘上（见 `DeferDeaths`）。
-                    if (!target.IsAlive) targetDied = true;
+                    // ✅ 已复刻（2026-11-05 · B145-E22 · 判据 = `_ResolveAttack_d__438__MoveNext.c:736`）：
+                    //  原版在这里同时置 `defenderReturnsDamage(+0x138) = 0` ⇒ **守方不反击**（由下面那道闸落实）。
+                    attackerKilledBySentry = sentryWouldKillAttacker;
+                    if (attackerKilledBySentry)
+                        ctx.Log($"Sentry 把 {attacker.Name} 打死 ⇒ 跳过主伤害 / 反击 / 相邻传播"
+                              + "（原版 `+0x13a` 三道闸；`BroadcastUnitAttacked` 与哨戒伤害本身照旧）");
                 }
 
                 // ══════════════════════════════════════════════════════════════════
@@ -6964,7 +6987,7 @@ namespace RuleEngine
                 //  >= Health` —— 漏掉幸存者/堡垒/空投舱三档 ⇒ **静默少触发一次** Strike；现换 `WouldKillByEntries`。
                 bool targetWillDieFromThis = targetDied || WouldKillByEntries(target, new[] { atk });   // 🔴 2026-10-29（`B97_RC2` · 结构差 #30 的「守方那一半」）：原版这一格读的是 `EnoughPendingDamageToDie(守方)`（待结算量口径），改前用 `DamageAfterReduction >= Health` ⇒ 漏 幸存者/堡垒/空投舱 三档；现换同族判死口径 `WouldKillByEntries`（= `…WithDamageValues` 的等价物）
                 bool noCounterEarly = CounterAttack.NoCounter(ctx, p, attacker, tgtP, target, ranged, targetWillDieFromThis);
-                bool attackerDiesFromPending = !noCounterEarly && counterAtk > 0
+                bool attackerDiesFromPending = !defenderKilledByShuriken && !noCounterEarly && counterAtk > 0   // ✅ 已复刻（2026-11-05 · B145-E25 · 判据 = `_ResolveAttack_d__438__MoveNext.c:632 + :1114`）：星镖击杀 ⇒ `+0x138 = 0` ⇒ **反击根本不发生** ⇒ 待结算伤害里没有它，`EnoughPendingDamageToDie(攻击者)` 为假（Strike 照响）
                                                && WouldKillByEntries(attacker, new[] { counterAtk });
 
                 // ---- **「被这一下打到的那个」**（2026-09-14 A5 批 3）----
@@ -7167,7 +7190,10 @@ namespace RuleEngine
                               preCalled: attacker, preCalled2: target, attackType: ranged ? 2 : 1); FlipAmbushOnAttacked(ctx, target);   // 🆕 2026-10-28（B89-E26 · 独立审查 `RV` #2）：攻击类型**显式传**（原版 `BattleManagerSupport__BroadcastUnitAttacked(manager, actingCard, targetCard, **attackType**)` 第 4 个实参就是它；不传则 `BroadcastWhenCore` 现推 `actor.CurrentAttackType`，而本函数作用域的 `ranged` 才是「这一记是哪一型」的判据源 ⇒ 显式传，去掉现推这一处残余）。🔴 2026-10-27（B88-E1 · 账行 `CardScript.ResolveUnitAttacked` 缺口②）：原版第三条 `SetAmbush(false)` 出口 = 被打者那条 `ResolveUnitAttacked.c:104-115`（带 `ambush` ∧ cardState∈{2,15,3,17} ⇒ 翻开），**读伤害之前** ⇒ 0 伤害（盾挡/无敌）也翻；我们改前只在 `ApplyDamageCore` 真掉血那一支翻
 
                 hpBefore = target.Health;      // 践踏要算「溢出多少」，所以得记打之前那一下
-                if (!targetDied)
+                // ✅ 已复刻（2026-11-05 · B145-E22 · 判据 = `_ResolveAttack_d__438__MoveNext.c:863`）：
+                //  原版 `if (attackerKilledBySentry(+0x13a) == 0 && defenderKilledByShuriken(+0x139) == 0) ResolveAttackDamage…`
+                //  ⇒ 攻击者被哨戒打死时，**主伤害整段不发生**（守方血量不动、`dealt` 保持 0）。
+                if (!defenderKilledByShuriken && !attackerKilledBySentry)   // ✅ 已复刻（2026-11-05 · B145-E25 · 判据 = `_ResolveAttack_d__438__MoveNext.c:862`）：原版闸读 `+0x139`（守方被星镖杀），**不是**「守方死了没」—— 星镖杀时主伤害整段不发生；改前用 `targetDied` 在本刻恰好等价，但语义是错的（主伤害杀也置它）
                 {
                     // ⚠️ 主伤害里**不含**标记光 —— 标记光是主攻击**之后**单独的一段（见下面那个块）。
                     //    🔴 **2026-10-09（`A1107` 用户拍板）就地改的**：原来这里是 `dmg += ml`（并进来），
@@ -7220,7 +7246,11 @@ namespace RuleEngine
                 //     **会把督军放进相邻表**（目标在某行 index 0 ⇒ 靠督军那侧的邻居取的正是 `GetHero()`），
                 //     而主文件 `:1020-1045` 与 `ResolveTraitAdjacentDamage.c` 全程零督军判断 ⇒ **去掉过滤**。
                 //   ⚠️ 也不再看「还活着没有」（原版全程不移出场，见上面那段；`au == null` 仍要判防越界）。
-                if (attacker.Has("blast"))
+                // ✅ 已复刻（2026-11-05 · B145-E22 · 判据 = `_ResolveAttack_d__438__MoveNext.c:1013-1014`）：
+                //  原版 `if ((ShouldTriggerAdjacentDamage == 0) || (attackerKilledBySentry(+0x13a) != 0))` ⇒
+                //  **整段相邻伤害跳过**。⚠️ 只跳过 **Blast**：紧随其后的 Stomp 在原版**不在**这个 `if` 里
+                //  （它自己的闸 `ShouldTriggerStompDamage` 要求目标裸血 < 0，主伤害被跳过后自然不成立）。
+                if (attacker.Has("blast") && !attackerKilledBySentry)
                 {
                     int blast = attacker.KwValue("blast");
                     foreach (int adj in adjUnits)
@@ -7297,7 +7327,10 @@ namespace RuleEngine
                 //    但按铁律 11 补齐）。⛔ 别再在这里写 `ranged && Has(LongRange)` 那一份。
                 bool noCounter = CounterAttack.NoCounter(ctx, p, attacker, tgtP, target, ranged, targetDied);
                 bool sniperKill = ranged && attacker.Has(KeywordTable.Sniper) && targetDied;
-                if (!noCounter && !sniperKill && counterAtk > 0)
+                // ✅ 已复刻（2026-11-05 · B145-E22 · 判据 = `_ResolveAttack_d__438__MoveNext.c:736 + :1114`）：
+                //  攻击者被哨戒打死时原版置 `defenderReturnsDamage(+0x138) = 0`，`:1114 if (+0x138 != 0)` 才走反击
+                //  ⇒ 这里**一并跳过反击**（它和主伤害在原版是同一个 `:863` 大闸下的 `ResolveAttackDamage`）。
+                if (!attackerKilledBySentry && !defenderKilledByShuriken && !noCounter && !sniperKill && counterAtk > 0)   // ✅ 已复刻（2026-11-05 · B145-E25 · 判据 = `_ResolveAttack_d__438__MoveNext.c:632 + :1114`）：星镖击杀时原版把 `defenderReturnsDamage(+0x138)` 清 0，`:1114 if (+0x138 != 0)` 才进反击段 ⇒ **星镖杀 ⇒ 守方不反击**；而**主伤害杀 ⇒ 仍反击**（`:145` 那个初生者例子），两个标志别混
                 {
                     // 🆕 **2026-10-22（`W64` · 反击演出）**：**发一条独立的反击事件** —— 表现层要在
                     //   **守方锚点**播**守方自己的**逐卡远程件（守方 `ResolveAttackRangedAnim` 那一发）。
@@ -7332,7 +7365,12 @@ namespace RuleEngine
                     ctx.Log($"{target.Name} 反击 {attacker.Name}："
                           + $"{counterAtk} 攻 → 实际 {back} 伤（{attacker.Name} 剩 {attacker.Health}）");
                 }
-                else if (sniperKill)
+                else if (defenderKilledByShuriken)   // ✅ 已复刻（2026-11-05 · B145-E25 · 判据 = `_ResolveAttack_d__438__MoveNext.c:632`）：星镖杀这一档单独出声；⛔ 别让它落进下面 `sniperKill` 那一支（会被误报成 Sniper 的功劳）
+                {
+                    ctx.Log($"Shuriken 把 {target.Name} 打死 ⇒ {attacker.Name} **不承受反击**"
+                          + "（原版 `defenderReturnsDamage(+0x138) = 0`）");
+                }
+                else if (!attackerKilledBySentry && sniperKill)
                 {
                     ctx.Log($"{attacker.Name} 的 Sniper：远程击杀 {target.Name} —— **不承受反击**");
                 }
@@ -8680,7 +8718,7 @@ namespace RuleEngine
                 }
                 // 挡下也发事件（Amount = 0）：画面上「盾碎了 / 闪掉了」也要有反馈，
                 // 而「掉血了」是另一回事 —— 旧表现层靠对比血量，这两件事根本分不开
-                EmitHit(ctx, u, 0);
+                EmitHit(ctx, u, 0, fullyBlocked: true);   // ✅ 已复刻（2026-11-05 · B145-E17）：`fullyBlocked` = 原版 `_ReceiveDamage…:186` 的 `+0x35 = 0`（`dodge(0xf0)` ∨ `invulnerable(0x136)` ∨ `shield(0x50)` 命中 ⇒ **不弹伤害数字**；`:313` 只按 `+0x35` 决定弹不弹，`amount` 不参与）⇒ 表现层 `ShowHitDamagePop` 读这一位
                 return 0;
             }
 
@@ -8689,7 +8727,7 @@ namespace RuleEngine
             if (u.Has("invulnerable"))
             {
                 ctx.Log($"{u.Name} 有 Invulnerable —— {source} 的 {dmg} 点伤害被完全挡下");
-                EmitHit(ctx, u, 0);
+                EmitHit(ctx, u, 0, fullyBlocked: true);   // ✅ 已复刻（2026-11-05 · B145-E17）：`invulnerable(0x136)` 是原版 `_ReceiveDamage…:185-187` 那三条免伤 trait 之一 ⇒ `+0x35` 清 0、**不弹伤害数字**（同上一支）
                 return 0;
             }
 
@@ -9386,7 +9424,7 @@ namespace RuleEngine
         static int EmitUnit(BattleContext ctx, EvtKind kind, UnitState u, int amount, string effect = null,
                             // 🔴🆕 2026-10-25（执行代理 `E4` · `E4-3`）：这条 `Hit` 是不是易伤那第二拍。
                             //   只有 `EmitHit` 会传 true；别的种类/调用点一律缺省 false。
-                            bool vulnerableSecond = false)
+                            bool vulnerableSecond = false, bool fullyBlocked = false)
         {
             int owner, slot;
             FindUnit(ctx, u, out owner, out slot);
@@ -9401,7 +9439,7 @@ namespace RuleEngine
                 Amount = amount,
                 Effect = effect,
                 InstanceId = u != null ? u.InstanceId : 0,
-                IsVulnerableSecondHit = vulnerableSecond,
+                IsVulnerableSecondHit = vulnerableSecond, DamageFullyBlocked = fullyBlocked,   // 同一物理行（铁律 18·b）：`RuleCore.cs` 365+ 处账按行号引用 ⇒ 零行数变化。🆕 2026-11-05（`B145-E17`）：原版 `_ReceiveDamage…:186` 的 `+0x35 = 0`（dodge/invulnerable/shield 挡下 ⇒ 不弹数字）
             });
             return owner;
         }
@@ -9516,9 +9554,9 @@ namespace RuleEngine
         static void EmitHit(BattleContext ctx, UnitState u, int amount, bool absorbed = false,
                             // 🔴🆕 2026-10-25（执行代理 `E4` · `E4-3`）：`true` = **易伤那第二拍**
                             //   （`BattleEvent.IsVulnerableSecondHit` 的 doc 有完整判据）。
-                            bool vulnerableSecond = false, DamageKind kind = DamageKind.Unknown, UnitState attacker = null)   // 🔴 2026-10-29（执行代理 `B94_B13` · 账 `B94_B13`）：**行内追加**（零行数变化）—— `kind` = 这一下算哪一类伤害（`Hurt` → `ApplyDamage` → 这里那根轴）。只为把原版 `DamageInfo.damageType` 带进 `damaged` 广播的手牌两跳（`CardScript__ResolveDamageDealt.c:191` 按它发 185／187）；⚠️ 这是**我们的轴**，⛔ 别当原版 `DamageType` 用（转换只走 `DamageTypeOfKind`）｜🔴 2026-10-29（B95_WRE 批2 · 账 647）：`attacker` = 原版 `DamageInfo.actingCard`（**施害卡**），只喂 `BroadcastWhen(actingCard:)`，供「外加那一支」判 `actingCard == 这张`；缺省 `null` = 老调用点逐字不变
+                            bool vulnerableSecond = false, DamageKind kind = DamageKind.Unknown, UnitState attacker = null, bool fullyBlocked = false)   // 🔴 2026-10-29（执行代理 `B94_B13` · 账 `B94_B13`）：**行内追加**（零行数变化）—— `kind` = 这一下算哪一类伤害（`Hurt` → `ApplyDamage` → 这里那根轴）。只为把原版 `DamageInfo.damageType` 带进 `damaged` 广播的手牌两跳（`CardScript__ResolveDamageDealt.c:191` 按它发 185／187）；⚠️ 这是**我们的轴**，⛔ 别当原版 `DamageType` 用（转换只走 `DamageTypeOfKind`）｜🔴 2026-10-29（B95_WRE 批2 · 账 647）：`attacker` = 原版 `DamageInfo.actingCard`（**施害卡**），只喂 `BroadcastWhen(actingCard:)`，供「外加那一支」判 `actingCard == 这张`；缺省 `null` = 老调用点逐字不变｜🆕 2026-11-05（`B145-E17`）：`fullyBlocked` = 原版 `_ReceiveDamage…:186` 的 `+0x35 = 0`（dodge/invulnerable/shield 整份挡下 ⇒ 表现层**不弹**伤害数字）；只有那两条挡下口传 `true`，⛔ 空投舱/堡垒那两档不传（原版不变）
         {
-            int owner = EmitUnit(ctx, EvtKind.Hit, u, amount, vulnerableSecond: vulnerableSecond);
+            int owner = EmitUnit(ctx, EvtKind.Hit, u, amount, vulnerableSecond: vulnerableSecond, fullyBlocked: fullyBlocked);
             // ⚠️ 表现层**不受**下面那两条闸影响
 
             // 🆕 `When <单位> receives damage, …`（2026-09-13 第三十四轮）。
@@ -18068,7 +18106,7 @@ namespace RuleEngine
                         break;
 
                     case 5:      // lastAdded（`:1274-1313`）：表尾取 N
-                        pool.RemoveRange(0, pool.Count - max);
+                        pool.RemoveRange(0, pool.Count - max); pool.Reverse();   // ✅ 已复刻（2026-11-05 · B145-E2 · 判据 = `AbilityLogic__GetTargets.c:1274-1313`）：原版 `iVar15 = pool.Count-1` 起**递减**取到 `max(0, pool.Count-max)` 再加进新表 ⇒ 表尾 N 张**逆序**；只 `RemoveRange` 会保留原序。⚠️ 池内 `targetSelectMethod=5` = 0 行 ⇒ 零可观测，靠断言证明
                         break;
 
                     case 1:      // highestAttack（`:1172-1214`）：`OrderBy(isRemnant)` → `ThenByDescending(GetHighestAttackValue)`

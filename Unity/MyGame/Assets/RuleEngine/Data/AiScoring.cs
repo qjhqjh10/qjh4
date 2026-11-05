@@ -542,9 +542,9 @@ namespace RuleEngine
         {
             var u = t.Unit;
             if (u == null || !u.IsAlive) return 0f;
-            // 原版 `GetPotentialBuffedAttackActions` 的**第一道闸** = `MightAttackBuffedCard(card, buff)`（`.c:48`）；🔴 只对**带 buff 那一档**（`meleeDelta != 0`）套它（`meleeDelta == 0` 是「不带 buff」的对照分，原版不过本闸）。
+            // ✅ 已复刻（2026-11-05 · B145-E4 · 判据 = `AI__ScoreFromCriteria.c:181-204` + `AI__GetPotentialBuffedAttackActions.c:40` + `BattleManager__MightAttackBuffedCard.c:10-27`）：**两档都过本闸**。原版 case 5 对每个目标调**两次** `ScoreFromBestAttack`，第二次的 buff 实参是 `thunk_FUN_18042f4a0(…)` + `___ctor(…,0)` 现构的**空 buff 对象**（**不是 null**，`:197-199`）⇒ 它同样走进 `GetPotentialBuffedAttackActions` → `MightAttackBuffedCard(card, 空buff)` ⇒ 三闸按 Δ=0 判。⛔ 别再写成「对照档不过闸」（那句已在 2026-11-05 被 `.c` 推翻）。
             // 🔴 2026-11-04（`B140_WN` · 铁律 5 就地改）：这里原来还有一句 `if (u.Exhausted || u.IsStunned) return 0f;`（= 我们侧 `canAct` 的近似）—— **已删**。原版一道都不读 `Exhausted`/`canAct`（`BattleManager__MightAttackBuffedCard.c:10-27` 三闸 = mightAct ∧ 攻≥1 ∧ state==2；`CardScript__get_mightAct.c` 只读 attacksThisTurn/stun(100)/cantAttack(150)/nonCombatant(880)）⇒ 本回合已行动但未眩晕的单位**仍计入** option 5；眩晕由 case 5 外层的 `mightAct` 挡掉。
-            if (meleeDelta != 0 && !SimpleAI.MightAttackBuffedCard(ctx, t, meleeDelta, 0)) return 0f;
+            if (!SimpleAI.MightAttackBuffedCard(ctx, t, meleeDelta, 0)) return 0f;   // ✅ 已复刻（2026-11-05 · B145-E4）：两档（`meleeDelta != 0` 带 buff / `== 0` 不带 buff）**都**过闸 —— 原版对照档传的是空 buff 对象、照样进 `MightAttackBuffedCard`
             var board = ctx.Players[t.Side].Board;
             int slot = -1;
             for (int s = 0; s < BoardSpec.Size; s++)
@@ -862,7 +862,7 @@ namespace RuleEngine
         /// ⚠️ `mutation(780)` 我们引擎**没有建模**（`KeywordTable` 无此键）⇒ 按 `KwValue("mutation")` 取，
         ///    现有数据里恒 0；option 11 池内 0 条 ⇒ 今天无可观测影响。
         /// </summary>
-        static float TraitAiScore(UnitState t, int trait, int traitValue)
+        public static float TraitAiScore(UnitState t, int trait, int traitValue)
         {
             switch (trait)
             {

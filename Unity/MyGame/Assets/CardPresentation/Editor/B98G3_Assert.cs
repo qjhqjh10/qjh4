@@ -223,8 +223,8 @@ public static class B98G3_Assert
           "★ A4-a `CanAttackNow`：0 攻近战仍返 `ErrNoMeleeAttack`（与 `AttackActionPowerGate` 同一个码，改前改后逐字一致）");
         C(RuleCore.CanAttackNow(ctx, 0, 2, false), RuleCodes.OK,
           "★ A4-b `CanAttackNow`：近战 3 仍返 `OK`（灭自证：别把 A4-a 做成「一律拒」）");
-        C(RuleCore.CanAttackNow(ctx, 0, 5, false), RuleCodes.ErrPindown,
-          "★ A4-c `CanAttackNow`：近战 3 + pindown 仍返 `ErrPindown`（原版次序：先 trait 后攻击力）");
+        C(RuleCore.CanAttackNow(ctx, 0, 5, false), RuleCodes.OK,
+          "[B145_E2 2026-11-05 订正] ★ A4-c `CanAttackNow`：近战 3 + pindown 返 `OK`（原版 `CanAttackNow.c` 全文 0 处 `0x3ca`；闸在 `IsValidAttackTarget.c:219-222`）");
     }
 
     // ==================================================================

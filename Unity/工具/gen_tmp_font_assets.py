@@ -93,13 +93,37 @@ import sys
 # 保留控制台自己的编码、只把编不了的字符换成 `?` —— 中文照常显示。
 ## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
 import sys as _wf_help_sys
+# 🔴 2026-11-05（`B145-E27` · 调度台）：**动词参数改成必填**（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+#   改前：裸跑 = `_selftest()`（会补侧件）+ 重写三份 `.asset`（+`.meta`）。现在裸跑只打印用法 + rc 2。
+USAGE = ('用法：python 工具/gen_tmp_font_assets.py <--write|--check|--dry|--verify>\n'
+         '  说明：把原版那三份现成的 `TMP_FontAsset` 导进工程（`A1118①` + `A1300`）。\n'
+         '    --write    重新生成并写盘（三份 `.asset` + `.meta`；缺的图集/材质侧件也补上）\n'
+         '    --check    只比对、**不写盘**：重算产物与盘上逐字节比（一致 rc=0 / 不一致 rc=1）\n'
+         '    --dry      只做前置自检、打印读数，**零写盘**\n'
+         '    --verify   只查盘上产物（不写盘；缺侧件就停手）\n'
+         '  🔴 不带任何动词 = 只打印本用法并以**退出码 2** 退出')
 if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
     try:
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：python 工具/gen_tmp_font_assets.py [--verify]\n  说明：gen_tmp_font_assets.py —— 把**原版那三份现成的** `TMP_FontAsset` 导进工程（`A1118①` + `A1300`）。\n  选项：--verify（脚本内按字符串匹配；一个都不带 = 默认模式）')
+    print(USAGE)
     _wf_help_sys.exit(0)
+
+try:
+    sys.stdout.reconfigure(errors="replace")
+    sys.stderr.reconfigure(errors="replace")
+except Exception:
+    pass
+
+_MODE_FLAGS = [f for f in ("--write", "--check", "--dry", "--verify") if f in sys.argv[1:]]
+if len(_MODE_FLAGS) != 1:
+    if _MODE_FLAGS:
+        print("冲突的动作参数：%s（--write / --check / --dry / --verify 只能选一个）\n" % _MODE_FLAGS)
+    print(USAGE)
+    sys.exit(2)
+WRITE = _MODE_FLAGS[0] == "--write"
+CHECK = _MODE_FLAGS[0] == "--check"
 
 try:
     sys.stdout.reconfigure(errors="replace")
@@ -541,7 +565,15 @@ def _selftest(write=True):
     return tmpl
 
 
-def build_one(name, tex_rel, mat_rel, order):
+def _meta_text(name):
+    """产物 `.asset.meta` 的文本（`--write` 与 `--check` 共用，⛔ 别抄第二份）。"""
+    return ("fileFormatVersion: 2\nguid: %s\nNativeFormatImporter:\n"
+            "  externalObjects: {}\n  mainObjectFileID: 11400000\n"
+            "  userData: \n  assetBundleName: \n  assetBundleVariant: \n"
+            % font_guid(name))
+
+
+def build_one(name, tex_rel, mat_rel, order, write=True):
     src = json.load(io.open(os.path.join(FONTS_BUNDLE, "MonoBehaviour", name + ".json"),
                            encoding="utf-8"))
     src = _refs_to_Ref(src)
@@ -586,16 +618,14 @@ def build_one(name, tex_rel, mat_rel, order):
         _emit(k, values[k], 2, out)
     text = "\n".join(out) + "\n"
     dst = os.path.join(ASSETS, OUT_DIR, fam)
-    os.makedirs(os.path.dirname(dst), exist_ok=True)
-    with io.open(dst, "wb") as f:                       # ⛔ 二进制写：行尾恒为 LF（见 CLAUDE.md §二）
-        f.write(text.encode("utf-8"))
-    mp = dst + ".meta"
-    with io.open(mp, "wb") as f:
-        f.write(("fileFormatVersion: 2\nguid: %s\nNativeFormatImporter:\n"
-                 "  externalObjects: {}\n  mainObjectFileID: 11400000\n"
-                 "  userData: \n  assetBundleName: \n  assetBundleVariant: \n"
-                 % font_guid(name)).encode("utf-8"))
-    return dst, len(src["m_GlyphTable"]), len(src["m_CharacterTable"]), len(out)
+    if write:
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        with io.open(dst, "wb") as f:                   # ⛔ 二进制写：行尾恒为 LF（见 CLAUDE.md §二）
+            f.write(text.encode("utf-8"))
+        mp = dst + ".meta"
+        with io.open(mp, "wb") as f:
+            f.write(_meta_text(name).encode("utf-8"))
+    return dst, len(src["m_GlyphTable"]), len(src["m_CharacterTable"]), len(out), text
 
 
 def verify(order):
@@ -636,20 +666,36 @@ def verify(order):
 
 
 def main():
-    order = None
-    if "--verify" in sys.argv:
+    mode = _MODE_FLAGS[0]
+    if mode == "--verify":
         # verify 也要先用模板核对一遍字段集（⚠️ `write=False`：只查不写）
         order = _selftest(write=False)
         print("--- verify ---")
-        sys.exit(0 if verify(order) else 1)
-    order = _selftest()
+        return 0 if verify(order) else 1
+    if mode == "--dry":
+        # 🔴 `--dry`：前置自检也走 `write=False`（⛔ 不补侧件），只打印读数
+        _selftest(write=False)
+        print("[dry] 前置自检通过；未写盘。目标目录 = %s（%d 份 .asset）" % (OUT_DIR, len(FONTS)))
+        return 0
+    order = _selftest(write=WRITE)
     print()
+    rc = 0
     for name, tex_rel, mat_rel in FONTS:
-        dst, ng, nc, nln = build_one(name, tex_rel, mat_rel, order)
+        dst, ng, nc, nln, text = build_one(name, tex_rel, mat_rel, order, write=WRITE)
         print("✓ %-22s → %s（%d 行 · 字形 %d · 字符 %d）" % (name, os.path.relpath(dst, ASSETS), nln, ng, nc))
+        if CHECK:
+            mp = dst + ".meta"
+            old = io.open(dst, "rb").read() if os.path.isfile(dst) else b""
+            oldm = io.open(mp, "rb").read() if os.path.isfile(mp) else b""
+            same = old == text.encode("utf-8") and oldm == _meta_text(name).encode("utf-8")
+            print("[check] %s(.meta) 与盘上逐字节一致 = %s（%d 字节）"
+                  % (os.path.relpath(dst, ASSETS), same, len(text.encode("utf-8"))))
+            if not same:
+                rc = 1
     print()
     verify(order)
+    return rc
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

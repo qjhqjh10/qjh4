@@ -309,9 +309,10 @@ namespace WarpforgeVFX
             //    代码留在 `CameraSpacePlane()` 里备查；**要用得先搞清原版那套是怎么保住对齐的**。
             _refl.projectionMatrix    = cam.projectionMatrix;
             _refl.nonJitteredProjectionMatrix = cam.nonJitteredProjectionMatrix;
-            _refl.cullingMask         = cam.cullingMask;
-            _refl.clearFlags          = cam.clearFlags;
-            _refl.backgroundColor     = cam.backgroundColor;
+            // ✅ 已复刻（2026-11-05 · B145-E7 · 判据 = `kTools.Mirrors.Mirror__RenderReflection.c` 的全部 Camera 赋值只有 worldToCameraMatrix/projectionMatrix/allowHDR/allowMSAA/enabled/targetTexture ⇒ 下面三格取的是**场景序列化值**；8 场逐份现读 = 1024 / 2(SolidColor) / (0,0,0,0)）
+            _refl.cullingMask         = 1 << 10;                      // 原版 `m_CullingMask.m_Bits` 1024 = 层 10（`ArenaSlots.BoardCardLayer`，只有卡）—— ⛔ 别抄 base，那会把战场几何反射进来
+            _refl.clearFlags          = CameraClearFlags.SolidColor;   // 原版 `m_ClearFlags` = 2
+            _refl.backgroundColor     = new Color(0f, 0f, 0f, 0f);     // 原版 `m_BackGroundColor` = (0,0,0,0)
             _refl.nearClipPlane       = cam.nearClipPlane;
             _refl.farClipPlane        = cam.farClipPlane;
             _refl.allowHDR            = cam.allowHDR;

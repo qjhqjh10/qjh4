@@ -178,7 +178,15 @@ def read_edges(by_path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只比不写")
+    ap.add_argument("--write", action="store_true", help="显式落盘（唯一会写盘的档）")
     args = ap.parse_args()
+    # 🔴 2026-11-05（`B145-E27`）：动词参数改成必填（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+    if not (args.check or args.write):
+        print("用法：python 工具/gen_related_cards.py {--write | --check}\n"
+              "  --write  重新生成并写盘（数据件 + 运行期副本）\n"
+              "  --check  只比不写（与盘上两份产物逐字节比；不一致 ⇒ rc=1）\n"
+              "  🔴 不带任何动词 = 只打印本用法并以退出码 2 退出")
+        return 2
 
     pool = json.load(io.open(POOL, encoding="utf-8"))
     cards = pool["cards"]

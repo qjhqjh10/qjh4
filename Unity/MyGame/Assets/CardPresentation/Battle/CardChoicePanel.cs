@@ -489,9 +489,9 @@ namespace CardPresentation
             //   （`ChoosePanel : CardChoicePanel`，标题由基类 `Build()` 建；`ChoosePanel.cs` 只放数值）。
             _title = HudCanvas.MakeText(_panel, _titleText, tp.x, tp.y, 8, new Color(0.996f, 0.596f, 0.118f),
                                         new Vector2(0.5f, 0.5f), Z - 0.05f, "ChoiceTitle", face: TmpFont.Face.LatinCardBody);
-            // 中文用汉字高度，不是大写高度。⚠️ uGUI 档的单位**就是设计 px** ⇒ 直接喂 `TitlePx`
-            // （旧那套要 `U(...)` 折成世界单位；⛔ 别在这儿再除 108 —— 字会小 108 倍、不报错）。
-            if (_title != null) _title.SetGlyphHeight(lo.TitlePx);
+            // ✅ 已复刻（2026-11-05 · B145-E6 · 判据 = 原版 `ChooseText` TMP `m_fontSize 55` × 字体 `capLine 36 / pointSize 50` ⇒ 大写 **cap 39.6 px**，B129 二·★3）：改前 `SetGlyphHeight(55)` 把 55 当**汉字墨高** ⇒ cap = 55×0.8217 ≈ **45.2**（大 14%）
+            // ⚠️ 改走 `SetScriptHeight(text, 55, 1)` **不是修法** —— 它经 `CapOverGlyph` 折回**同一个值**（CJK 路 ≡ `SetGlyphHeight(55)`；拉丁路 `SetCapHeight(55×CapOverGlyph)` 算出的字号也是 55）⇒ 只有【按大写高定档】才真的落 39.6（uGUI 单位 = 设计 px，⛔ 别除 108）。
+            if (_title != null) _title.SetCapHeight(TitleCapPxFor(lo.TitlePx));
 
             // 确认：底条 + 圆形播放钮（两边同图同尺寸）
             // ⚠️ 底条**给的是框**（577.5×63.84 = 原版 `BG` 的 `m_SizeDelta`，`PA=0` 拉满），
@@ -502,9 +502,9 @@ namespace CardPresentation
             // 圆钮 / 眼睛 / 卡上那颗钮：**只给高、宽由贴图比例来**（= 旧 `ImageQuad.Create` 的口径）
             _play = ImgByHeight(_panel, CardArt.Ui("40k_UI_bt_play"), "ChoiceCircle",
                                 lo.PlayCx, lo.PlayCy, PlayH, Z);
-            var cp = HudCanvas.PosPx(lo.ConfirmCx, lo.ConfirmCy);
+            var cp = HudCanvas.PosPx(ConfirmRightEdgePx(lo.ConfirmCx), lo.ConfirmCy);   // ✅ 已复刻（2026-11-05 · B145-E6 · 判据 = 原版 `ContinueText` 的 `RectTransform_2741`：框 372.857×43.622、心 (1519,980.26) + TMP `m_HorizontalAlignment = 4 (Right)` ⇒ **字右沿 = 框右沿 1705.43**，B129 二·★4）；改前 pivot 居中、字心钉 1519 ⇒ 字右沿 ≈1574（左 120–130 px）
             _confirm = HudCanvas.MakeText(_panel, _confirmText, cp.x, cp.y, 6,
-                                          new Color(1f, 0.92f, 0.75f), new Vector2(0.5f, 0.5f),
+                                          new Color(1f, 0.92f, 0.75f), ConfirmTextAnchor,
                                           Z - 0.05f, "ChoiceConfirmText", face: TmpFont.Face.LatinCardBody);
             if (_confirm != null) _confirm.SetGlyphHeight(33.7f);    // ⚠️ 实况 fs=33.7（不是 §三 那个 45）
 
@@ -1132,7 +1132,7 @@ namespace CardPresentation
 
         /// <summary>🆕 2026-10-19（`T03`·`A1327`）自检用：原版 `BG` 底条的**框中心**世界坐标
         /// （`Layout.BarCx/BarCy` 那个设计 px 点，经**画布本体**换算 ⇒ 与 `HitDone` 同一帧）。
-        /// ⚠️ 与 `DoneWorldPos`（**确认文字**中心）不是同一个点（沿 x 差 69.8 px）—— 别互相顶替。</summary>
+        /// ⚠️ 与 `DoneWorldPos`（**确认字**的节点位置 —— 🔴 2026-11-05 `B145-E6` 起它是**右沿**（原版右对齐），不再是字心）不是同一个点（沿 x 差 **186.4 px**）—— 别互相顶替。</summary>
         public Vector3 BarWorldPos
         {
             get
@@ -1497,5 +1497,32 @@ namespace CardPresentation
             for (int i = 0; i < _cardTexts.Count; i++)
                 if (_cardTexts[i] != null) _cardTexts[i].gameObject.SetActive(show);
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  ✅ 已复刻（2026-11-05 · 执行写手 `B145-E6` · 判据 = B129 二·★3 / 二·★4，原文 → `报告/B144_W3_B129参数.md` §一）
+        //  ⚠️ 新成员一律追加在**类尾**（本文件非 partial、230 处账按【文件:行号】引用 ⇒ 插进中间会整片漂移）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>原版 `ChooseText` 那颗 TMP 的**大写高 ÷ fontSize** —— 字体 `faceInfo.capLine 36 / pointSize 50` = **0.72**
+        /// （em 口径、不含 SDF padding；判据 → `Battle/Label.cs` 的 `CapOverGlyph` doc 第 509 行同一条）。
+        /// 用它把「原版 `m_fontSize 55`」折成**大写高 39.6 px**：`SetCapHeight` 收的就是大写高，⛔ 别拿我们自己的
+        /// `CapOverGlyph`（0.8217，含 SDF padding）去折 —— 那是「汉字墨高÷em」，不是原版这个量。</summary>
+        public const float TitleCapPerFontSize = 0.72f;
+
+        /// <summary>标题的**大写高目标**（设计 px）= 原版 `m_fontSize`(55) × <see cref="TitleCapPerFontSize"/> = **39.6**。
+        /// 生产（`Build`）与断言走**同一个式子**（⛔ 别在断言里另写一份 55×0.72）。</summary>
+        public static float TitleCapPxFor(float titlePx) { return titlePx * TitleCapPerFontSize; }
+
+        /// <summary>「确认」那颗 TMP 的**原版框宽**（`RectTransform_2741` 的 `m_SizeDelta.x` = **372.857**；
+        /// 高 43.622、心 (1519,980.26) 由 `Layout.ConfirmCx/ConfirmCy` 给）。右对齐 ⇒ **字右沿 = 框右沿**。</summary>
+        public const float ConfirmBoxW = 372.857f;
+
+        /// <summary>「确认」字的**锚点**（= `Label.anchor`：右对齐 + 纵向居中）。原版 TMP 是 `m_HorizontalAlignment = 4 (Right)`、
+        /// `m_VerticalAlignment = 512 (Middle)` ⇒ **右沿对齐框右沿**。生产（`Build`）与断言读**同一个属性**。</summary>
+        public static Vector2 ConfirmTextAnchor { get { return new Vector2(1f, 0.5f); } }
+
+        /// <summary>「确认」字的**右沿**（设计 px、左上原点）= 原版框心 + 框宽/2 —— 选牌面板 = `1519 + 186.4285` = **1705.43**
+        /// （B129 二·★4 的实测值）。`Build()` 用它摆节点，断言也读它（同一份算式，⛔ 别在断言里另写一遍）。</summary>
+        public static float ConfirmRightEdgePx(float confirmCx) { return confirmCx + ConfirmBoxW * 0.5f; }
     }
 }

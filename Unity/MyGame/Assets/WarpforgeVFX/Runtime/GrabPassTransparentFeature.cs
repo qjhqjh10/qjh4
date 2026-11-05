@@ -95,13 +95,13 @@ namespace WarpforgeVFX
         // ------------------------------------------------------------------
         // 🆕 2026-10-24（B14 第二半）：原版 `GrabScreenFeature.RenderPass` = event 501 把抓屏那一层重画一遍
         // ------------------------------------------------------------------
-        [Tooltip("开着 = 追加原版那一步 501 重画（画 redrawLayerMask 那一层）。默认关 = 与今天逐字相同。\n" +
-                 "⛔ 直接打开会**画两遍**：必须先把扭曲物挪到 redrawLayerMask 这一层，并把 " +
-                 "PC_Renderer.asset 的 m_TransparentLayerMask 里那一位**关掉**（见文件尾 §开启前置）。")]
-        public bool redrawAt501 = false;
+        [Tooltip("开着 = 追加原版那一步 501 重画（画 redrawLayerMask 那一层）。原版**恒入队** ⇒ 默认 true。\n" +
+                 "⚠️ 前提：扭曲物已在 redrawLayerMask 那一层，且该层**不在** m_TransparentLayerMask 里，\n" +
+                 "否则同一帧画两遍（见文件尾 §开启前置）。")]
+        public bool redrawAt501 = true;   // ✅ 已复刻（2026-11-05 · B145-E7 · 原版 501 恒入队；现读 `Assets/Settings/PC_Renderer.asset:17` 已是 1）
 
         [Tooltip("501 重画哪一层（= 原版 `Settings.LayerMask`；`0` = 什么都不画）。")]
-        public LayerMask redrawLayerMask = 0;
+        public LayerMask redrawLayerMask = 1 << 6;   // ✅ 已复刻（2026-11-05 · B145-E7 · 判据 = 原版 `GrabScreenFeatureU6.asset:20` 的 `settings.LayerMask.m_Bits = 64` = 层 6 `AfterTransparents`）
 
         GrabPassPass _pass;
         GrabRedrawPass _redraw;
@@ -169,7 +169,7 @@ namespace WarpforgeVFX
         }
 
         // 开关：环境变量 `WF_GRAB_501` 优先（`0`/`false` = 关，其它值 = 开；便于 A/B 不需要改资产），
-        // 没设就用序列化 bool `redrawAt501`。**默认两者都是关** ⇒ 只 Enqueue 500，与今天逐字相同。
+        // 没设就用序列化 bool `redrawAt501`。**原版恒入队 ⇒ 默认开**（资产 `PC_Renderer.asset:17` 也是 1）；`WF_GRAB_501=0` 是唯一的 A/B 逃生口（仅调试）。
         // 🆕 2026-10-25（B14）：**总开关 `WF_GRAB501=1` 也开**（它连带把两个前置一起做掉，见 `GrabScreen501`）。
         static int _env501 = -1;       // -1 未读 / 0 关 / 1 开 / 2 未设
         bool RedrawEnabled()
@@ -401,7 +401,7 @@ namespace WarpforgeVFX
     /// <para>🔑 **开关**（`System.Environment`，本项目惯例）：</para>
     /// <list type="bullet">
     /// <item>`WF_GRAB501=1` → ①② + 501 重画**一起开**；不设 / `0` / `false` → **①②关**（③ 拷屏 ×0.25 恒开，不受它控制）。</item>
-    /// <item>`WF_GRAB501_LAYER=&lt;0..31 | 原始位掩码&gt;` → 用哪一层（默认 **9**）。旧名 `WF_GRAB_501_LAYER` 仍认。</item>
+    /// <item>`WF_GRAB501_LAYER=&lt;0..31 | 原始位掩码&gt;` → 用哪一层（默认 **6** = 原版的 `AfterTransparents`）。旧名 `WF_GRAB_501_LAYER` 仍认。</item>
     /// <item>`WF_GRAB501_RT_SCALE=&lt;float&gt;` → 拷屏 RT 缩放（**不设时恒 = 0.25 = 原版**；要全分辨率 A/B 传 `1`）。</item>
     /// </list>
     ///
@@ -432,13 +432,13 @@ namespace WarpforgeVFX
         const string EnvSwitchLegacy = "WF_GRAB_501";
         const string EnvLayerLegacy = "WF_GRAB_501_LAYER";
 
-        /// <summary>默认层。**为什么是 9**：① 全仓资产里只出现过 0/1/5/6/8/10/20 层
-        /// （`grep -rhoE '^  m_Layer: [0-9]+' --include=*.prefab --include=*.unity | sort | uniq -c`，2026-10-25 现读），
-        /// `TagManager.asset` 里 9 空着（和已经在用的 `ArenaLayer=8` 一样是未命名层，Unity 允许直接用）；
-        /// ② **不取 31**：`1 &lt;&lt; 31` 会把 `LayerMask` 变成负数（= `int.MinValue`），
-        ///    `Camera.cullingMask` 能用，但 `FilteringSettings.layerMask` / Inspector 对负值的处理
-        ///    在引擎侧看不到源码（`FilteringSettings` 不在 core 包里）⇒ 不冒这个险。</summary>
-        public const int DefaultLayer = 9;
+        /// <summary>默认层 = **6**（原版 `GrabScreenFeatureU6.asset:20` 的 `settings.LayerMask.m_Bits = 64`，原版层名 `AfterTransparents`）。
+        /// 🔴 2026-11-05（`B145-E7`）从自选的 **9** 收敛到原版 6，理由三条：
+        /// ① 501 现在**恒入队**且重画掩码 = 64（层 6）⇒ 层号必须与掩码**同源**，否则自动档（`WF_GRAB501=1`）会把层 6 的对象整块吞掉；
+        /// ② 我们的失真 prefab 本来就停在层 6（原版导出的 `m_Layer`）⇒ 收敛后 `FinalLayer` 对它们是**恒等映射**；
+        /// ③ 不取 31：`1 &lt;&lt; 31` 会让 `LayerMask` 变负数，`FilteringSettings.layerMask` 对负值的行为在引擎侧未证 ⇒ 不冒这个险。
+        /// ⚠️ 不设 `WF_GRAB501` 时这一格**不参与**行为 —— 501 的掩码取自资产的 `redrawLayerMask`（= 64）。</summary>
+        public const int DefaultLayer = 6;
 
         /// <summary>原版 `Settings.textureSizeMultiplier` 默认值 = `0x3e800000` = 0.25f
         /// （`GrabScreenFeatureRenderGraphAPI.Settings__.ctor.c:11` / `GrabScreenFeature.Settings__.ctor.c:11`）。</summary>
@@ -649,9 +649,9 @@ namespace WarpforgeVFX
 //  ✅ **2026-10-25 起有【自动档】（推荐 A/B 用）：`WF_GRAB501=1`**
 //     · 它把下面 ① 的开关、② 的 (a)(b) 两步、外加「拷屏 RT ×0.25」（原版 `textureSettingsMultiplier`
 //       = `0x3e800000` = 0.25f，见 `GrabPassPass` 里那段判据）**一起做掉**，层默认 = `GrabScreen501.DefaultLayer`
-//       （现读 **9**；目标层非原版值，见 `判据/B107_B14_失真效果挪层清单.md` §七）；`WF_GRAB501_LAYER` 可换，旧名 `WF_GRAB_501_LAYER` 仍认。
-//     · 不设 / `WF_GRAB501=0` ⇒ **①② 不执行**（③ 拷屏 ×0.25 自 2026-11-02 起**恒开**，不再受它控制），只 Enqueue 500 这一个 pass；
-//       除「拷屏 RT 已按原版 ×0.25」这一项外，其余与 2026-10-24 之前相同（逐条论证见 `GrabScreen501` 的 doc）。
+//       （现读 **6** = 原版 `AfterTransparents`，见 `DefaultLayer` 的 doc）；`WF_GRAB501_LAYER` 可换，旧名 `WF_GRAB_501_LAYER` 仍认。
+//     · 不设 / `WF_GRAB501=0` ⇒ **①② 不执行**（③ 拷屏 ×0.25 自 2026-11-02 起**恒开**，不再受它控制）；⛔ 旧文写「只 Enqueue 500」已过期（见下一行订正）。
+//       🔴 **订正（铁律 5）**：`redrawAt501` 自 2026-11-02 起在资产里就是 1 ⇒ 501 **照常入队**（掩码 64）；这一段只是说「①② 不做」。
 //     · 验收时看日志三行：`已把第 N 层从 K 份 RendererData 的 m_TransparentLayerMask 里清掉` ·
 //       `失真效果《…》搬到第 N 层` · `相机「…」的 cullingMask 补上第 N 层`。
 //
@@ -666,7 +666,7 @@ namespace WarpforgeVFX
 //       (a) 把**扭曲物**（用 `Everguild/FX/Particle Distortion Affect Transparents` 的那些 prefab
 //           实例，现读 **233 个效果 / 233 个 prefab**）挪到一个专用图层 N；
 //       (b) 把 `Assets/Settings/PC_Renderer.asset` 的 `m_TransparentLayerMask.m_Bits`
-//           **清掉第 N 位**（现在是 `4294967295` = 全开），并把 `redrawLayerMask` 设为 `1<<N`。
+//           **清掉第 N 位**（现读 `1207963447`，bit6 已清 = 与原版同值；2026-11-02 前才是 `4294967295`），并把 `redrawLayerMask` 设为 `1<<N`。
 //       ⚠️ **为什么必须是这两步**：501 只是「再画一遍」；它**不会**把物体从 URP 默认透明 pass 里拿走。
 //          不先做 (a)(b) ⇒ 同一帧画两遍（`Blend SrcAlpha OneMinusSrcAlpha` ⇒ 扭曲叠两遍、明显更重）。
 //       ⚠️ **顺序**：先 (b) 再开 `redrawAt501`。反过来会有一帧「两边都不画」的空窗（无害，但会让人以为坏了）。

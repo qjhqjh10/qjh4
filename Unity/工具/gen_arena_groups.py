@@ -738,9 +738,17 @@ def build(arena, blend, anims, manifest, sc=None):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--check', action='store_true', help='只扫不写')
+    ap.add_argument('--write', action='store_true', help='显式落盘（唯一会写盘的档）')
     ap.add_argument('--verbose', action='store_true', help='逐条打印 nodes/targets/adds（默认只打汇总 + 警告）')
     ap.add_argument('--only', default='', help='只跑这几场（逗号分隔；调试用）')
     args = ap.parse_args()
+    # 🔴 2026-11-05（`B145-E27`）：动词参数改成必填（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+    if not (args.check or args.write):
+        print("用法：python 工具/gen_arena_groups.py {--write | --check}\n"
+              "  --write  重新生成并写盘（13 场的 <场>_groups.json）\n"
+              "  --check  只扫不写：与盘上产物比对（有缺/过期 ⇒ rc=1）\n"
+              "  🔴 不带任何动词 = 只打印本用法并以退出码 2 退出")
+        return 2
 
     blend = json.load(io.open(BLEND, encoding='utf-8'))
     anims = anim_targets(blend)

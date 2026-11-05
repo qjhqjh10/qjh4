@@ -36,7 +36,8 @@ public static partial class RuleEngineTest
     /// <summary>
     /// **被哨戒打死的攻击者，自己的「攻击时」触发仍然要响**（`T03·d` · `P2-2` 副产物）。
     ///
-    /// 夹具共同形状：攻击者 2 血、目标带 `Sentry 5` ⇒ **哨戒先打死攻击者**；攻击照常结算。
+    /// 夹具共同形状：攻击者 2 血、目标带 `Sentry 5` ⇒ **哨戒先打死攻击者**；主攻击整套不结算
+    /// （🔴 2026-11-05 订正：原写「攻击照常结算」，那与 `_ResolveAttack…:863` 相反；见下面那次就地订正）。
     ///   ① `When this unit attacks an enemy with Hunt Mark, gain +1 Attack`（= `Long Fang` 文法）；
     ///   ② `Destroy any troop attacked by this unit`（= 6 张 `… attacked [by this unit]` 那一族）。
     /// 判据与两条闸的来历 → 本文件头。
@@ -64,8 +65,18 @@ public static partial class RuleEngineTest
                   "近战打那个带 `Sentry 5` 的目标");
         CheckTrue(!a.IsAlive,
                   "（前提）**哨戒把攻击者打死了**（2 血 − 5 点）" + LogTail(ctx));
-        Check(b.Health, 12 - 2,
-              "（前提）攻击**照常打下去**（目标挨了 2；哨戒不打断攻击）" + LogTail(ctx));
+        // 🔴 **2026-11-05 就地订正（铁律 5 · 执行代理 `B145-E22`）**：这一行原来写
+        //   `Check(b.Health, 12 - 2, "（前提）攻击**照常打下去**（目标挨了 2；哨戒不打断攻击）")` ——
+        //   **那是错的**。原版 `BattleManager._ResolveAttack_d__438__MoveNext.c:731-736` 在哨戒伤害**之前**预判
+        //   「攻击者会不会被哨戒打死」，是则置 `<attackerKilledBySentry>(+0x13a)=1` + `defenderReturnsDamage(+0x138)=0`；
+        //   `:823-824`（跳过 `RecordAttackPendingDamage`/`SetupAttack`）· `:863`（跳过 `ResolveAttackDamage` = 主伤害＋反击）
+        //   · `:1013-1014`（跳过相邻传播）**都读这个标志** ⇒ **主攻击整套不结算**（哨戒伤害本身照打、
+        //   `BroadcastUnitAttacked :988` 照发 —— 本文件测的「攻击时触发仍要响」正是后者，不受影响）。
+        //   判据由 `B145-E17` 读全链查清；本条已由 `B145-E22` 落地（`RuleCore.DeclareAttack` 的 `attackerKilledBySentry`）。
+        Check(b.Health, 12,
+              "（前提）**攻击者被哨戒打死 ⇒ 主伤害不发生**：目标仍是 12 血"
+            + "｜判据 = `_ResolveAttack_d__438__MoveNext.c:863`（`+0x13a` 跳过 `ResolveAttackDamage`）"
+            + "｜🧨 去掉 `RuleCore.cs` 主伤害那道 `&& !attackerKilledBySentry` ⇒ 实得 10" + LogTail(ctx));
 
         Check(WhenFired(ctx, "T03DAtk"), 1,
               "★★ T03·d：被哨戒打死的攻击者，**它自己的 `When this unit attacks` 仍然响 1 次**"

@@ -282,6 +282,15 @@ def build_lines():
 
 def main():
     check = "--check" in sys.argv[1:]
+    write = "--write" in sys.argv[1:]
+    # 🔴 2026-11-05（`B145-E27`）：动词参数改成必填（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+    if not (check or write):
+        sys.stderr.write(
+            "用法：python 工具/gen_arena_texture_import.py {--write | --check}\n"
+            "  --write  重新生成并写盘（数据/游戏数据/arena_texture_import.tsv）\n"
+            "  --check  只比不写（与源包真值逐字节比；不一致 ⇒ rc=1）\n"
+            "  🔴 不带任何动词 = 只打印本用法并以退出码 2 退出\n")
+        return 2
     lines, names, recs = build_lines()
     text = "\n".join(lines) + "\n"
 
@@ -310,4 +319,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

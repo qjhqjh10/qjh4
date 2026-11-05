@@ -21,6 +21,31 @@ import io
 import json
 import os
 import glob
+import sys
+
+# 🔴 2026-11-05（`B145-E27` · 调度台）：**动词参数改成必填**（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+#   改前：裸跑 = 直接重写 `Resources/UnitTweens.json`（没有 dry 口）。现在三档必须显式选一个，裸跑只打印用法 + rc 2。
+USAGE = ('用法：python -I -X utf8 d:/4/Unity/工具/gen_unit_tweens.py <--write|--check|--dry>\n'
+         '  说明：74 个 UnitTweenSO → 运行期 `Resources/UnitTweens.json`。\n'
+         '    --write   重新生成并写盘\n'
+         '    --check   只比对、**不写盘**：重算产物与盘上逐字节比（一致 rc=0 / 不一致 rc=1）\n'
+         '    --dry     只跑计算、打印读数，**零写盘**\n'
+         '  🔴 不带任何动词 = 只打印本用法并以**退出码 2** 退出')
+if any(sys.argv[_i] in ("-h", "--help") for _i in range(1, len(sys.argv))):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print(USAGE)
+    sys.exit(0)
+_MODE_FLAGS = [f for f in ("--write", "--check", "--dry") if f in sys.argv[1:]]
+if len(_MODE_FLAGS) != 1:
+    if _MODE_FLAGS:
+        print("冲突的动作参数：%s（--write / --check / --dry 只能选一个）\n" % _MODE_FLAGS)
+    print(USAGE)
+    sys.exit(2)
+WRITE = _MODE_FLAGS[0] == "--write"
+CHECK = _MODE_FLAGS[0] == "--check"
 
 SRC = "d:/4/Unity/数据/游戏数据/tween"
 DST = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/UnitTweens.json"
@@ -107,8 +132,19 @@ def main():
 
     src = {"items": items}
     txt = json.dumps(src, ensure_ascii=False, indent=1)
-    with io.open(DST, "wb") as fp:                      # ⚠️ 二进制写：别让 python 把行尾翻掉
-        fp.write(txt.replace("\n", "\r\n").encode("utf-8"))
+    new_bytes = txt.replace("\n", "\r\n").encode("utf-8")   # ⚠️ 二进制写：别让 python 把行尾翻掉
+    rc = 0
+    if WRITE:
+        with io.open(DST, "wb") as fp:
+            fp.write(new_bytes)
+        print("写出 →", DST, "%.1f KB" % (len(new_bytes) / 1024.0))
+    elif CHECK:
+        old = io.open(DST, "rb").read() if os.path.isfile(DST) else b""
+        same = old == new_bytes
+        print("[check] %s 与盘上逐字节一致 = %s（%d 字节）" % (DST, same, len(new_bytes)))
+        rc = 0 if same else 1
+    else:
+        print("[dry] 未写盘；目标 =", DST, "（%.1f KB）" % (len(new_bytes) / 1024.0))
 
     kinds = {}
     for it in items:
@@ -121,7 +157,7 @@ def main():
     print("waitAnimation=1 的 SO：%d/%d（原版那 6 个）" % (waits, len(items)))
     print("认不出的类：%d" % len(unknown), unknown[:5])
     print("非空 curve 关键帧：%d（应为 0）" % empty_curve)
-    print("写出 →", DST, "%.1f KB" % (len(txt.encode('utf-8')) / 1024.0))
+    return rc
 
 
-main()
+sys.exit(main())

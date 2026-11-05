@@ -153,7 +153,7 @@ namespace CardPresentation
         {
             // ① 整屏压暗（原版 `Menu Dark Background`，rect 比屏幕大）+ 点它关窗（`BackgroundCloseButton`）
             MenuDraw.Rect(root, CardArt.Solid(), new PxRect(ShadeL, ShadeT, ShadeR, ShadeB),
-                          "Menu Dark Background", QBg, new Color(0f, 0f, 0f, 0.773f));
+                          "Menu Dark Background", QBg, new Color(0f, 0f, 0f, 0.7725490f));   // ✅ 已复刻（2026-11-05 · B145-E7 · 判据 = 原版 `Menu Dark Background` 的 `m_Color.a: 0.77254903` = 197/255）
             // 🔴 **背板那一下必须比其他命中区低**（同队列时点 `Battle!` 会被判成点背景 ⇒ 直接关窗）
             // 🆕 **2026-10-04（A47 接线批）订正档号 + 收口公共件**：原来用 `QHitBackdrop`(3115)，
             //   那是「内容档再往上留一档」的写法；规矩是**压暗层的命中区落在压暗层自己那一档**

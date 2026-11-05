@@ -671,7 +671,7 @@ namespace CardPresentation
         //    `--relative` 那套，已与根矩形相加过一次，⛔ 别再减一次）。
         static readonly PxRect PrevRootR = new PxRect(0f, 151.46f, 1920f, 969.50f);
         /// <summary>`Menu Dark Background`：锚点 (0.5,0.5) · size 4574.6×2572.36 · apos (0,0)
-        /// ⇒ 以预览根中心 (960, 560.475) 为中心铺开；色 `(0,0,0,0.773)`（`m_Color` 实读同款）。</summary>
+        /// ⇒ 以预览根中心 (960, 560.475) 为中心铺开；色 `(0,0,0,0.77254903)`（`m_Color` 实读同款，= 197/255；原写 0.773 是取整）。</summary>
         static readonly PxRect PrevShadeR = new PxRect(-1327.30f, -725.68f, 3247.30f, 1846.63f);
         /// <summary>`Header Text`：锚点 (0.5,1) · pivot (0.5,1) · size 1192.37×63.20
         /// ⇒ x [363.82,1556.19] · 贴着预览根上沿。字号 38 / 基准 31.9 / 自动 18–38 / Center-Middle。
@@ -1187,8 +1187,8 @@ namespace CardPresentation
         void BuildBackdrop(Transform root)
         {
             var gen = MenuDraw.Node(root, "General Red Background", new PxRect(0f, 0f, 1920f, 1080f));
-            // ① `Menu Dark Background`（纯黑 0.773）+ 命中区（= 原版 `BackgroundCloseButton`，点它关窗）
-            MenuDraw.Rect(gen, CardArt.Solid(), ShadeR, "Menu Dark Background", QShade, new Color(0f, 0f, 0f, 0.773f));
+            // ① `Menu Dark Background`（纯黑 0.77254903 = 197/255）+ 命中区（= 原版 `BackgroundCloseButton`，点它关窗）
+            MenuDraw.Rect(gen, CardArt.Solid(), ShadeR, "Menu Dark Background", QShade, new Color(0f, 0f, 0f, 0.7725490f));   // ✅ 已复刻（2026-11-05 · B145-E7 · 判据 = 原版 `Menu Dark Background` 的 `m_Color.a: 0.77254903` = 197/255）
             MenuDraw.ShadeHit(gen, new PxRect(0f, 0f, 1920f, 1080f), QShade, QHitContentMin,
                               () => Close(), "BackdropHit");
             // ② `Reward Background Get Reward`（红底九宫）+ 吸收层（原版点红底什么都不做）
@@ -2001,9 +2001,9 @@ namespace CardPresentation
         Transform BuildPackPreview(Transform root)
         {
             var node = MenuDraw.Node(root, "Generic Multi Card Display", PrevRootR);
-            // 压暗整屏（原版 `Menu Dark Background`：纯粹一块吃射线的黑，`m_Color = (0,0,0,0.773)`）
+            // 压暗整屏（原版 `Menu Dark Background`：纯粹一块吃射线的黑，`m_Color = (0,0,0,0.77254903)` = 197/255）
             MenuDraw.Rect(node, CardArt.Solid(), PrevShadeR, "Menu Dark Background", QPreviewShade,
-                          new Color(0f, 0f, 0f, 0.773f));
+                          new Color(0f, 0f, 0f, 0.7725490f));   // ✅ 已复刻（2026-11-05 · B145-E7 · 判据 = 原版 `Menu Dark Background` 的 `m_Color.a: 0.77254903` = 197/255）
             MenuDraw.Absorb(node, "BackdropAbsorb", PrevShadeR, QPreviewShade, QPreviewHit);
             // `Header Text`：🔴 **默认关**（`PackPreview` 传 `headerTitle = null`，见 `PrevHeaderR` 的注释）
             _previewHeader = MenuDraw.Text(node, PrevHeaderR, "Header Text", Color.white, "Header Text",

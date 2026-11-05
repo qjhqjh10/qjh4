@@ -11,7 +11,7 @@
 // ============================ 口径（⛔ 别拿我们自己的常量证明我们自己的实现）============================
 //  · 「哪个 prefab 算失真件」= 生产判据本身 `GrabScreen501.UsesDistortion`（反射读到**同一个方法**，
 //    本文件不另写一份 shader 名单）。
-//  · 「期望层」= `GrabScreen501.LayerIndex`（现读 9，🔶 层号本身是我们挑的：原版那份
+//  · 「期望层」= `GrabScreen501.LayerIndex`（2026-11-05 `B145-E7` 起现读 6，原写 9；🔶 层号本身是我们挑的：原版那份
 //    `UniversalRendererData` 资产本地没解出来 —— 见 `GrabScreen501` 的 doc）。
 //  · 前提断言与结论断言**分开写**：⛔ 不用 `if (x != null) Check(...)`（前提不成立会静默跳过 —— 铁律）。
 //
@@ -140,7 +140,7 @@ public static class B110R17_Assert
                 MenuCheck.Check(_sink, posBack, GrabScreen501.LayerIndex,
                                 "开档：正样例 `RelocateGrabLayer` 返回 `LayerIndex`");
                 MenuCheck.Check(_sink, pos.layer, GrabScreen501.LayerIndex,
-                                "开档：正样例**根层** = `LayerIndex`（现读 9）");
+                                "开档：正样例**根层** = `LayerIndex`（2026-11-05 起现读 6）");
                 MenuCheck.Check(_sink, AllAt(pos, GrabScreen501.LayerIndex), true,
                                 $"开档：正样例**整棵子树**同层（{pos.transform.GetComponentsInChildren<Transform>(true).Length} 个节点）");
                 MenuCheck.Check(_sink, negBack, -1, "灭自证：负样例（非失真环境件）返回 -1");

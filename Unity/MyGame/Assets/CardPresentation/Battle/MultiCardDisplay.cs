@@ -148,8 +148,8 @@ namespace CardPresentation
         // ---- 版面（px @1920×1080，**逐条来自上面那张权威表**）----
         /// <summary>窗口带的上/下缘（绝对 px，左上原点）。原版 `y[131,949]`、高 818.04</summary>
         public const float BandTopPx = 131f, BandBottomPx = 949f;
-        /// <summary>标题：宽 1192.37、高 63.204（锚在窗口带**顶边**，`anchor(0.5,1) pivot(0.5,1)`）</summary>
-        const float HeaderW = 1192.37f, HeaderH = 63.204f;
+        /// <summary>标题：宽 1192.37、高 63.204（锚在窗口带**顶边**，`anchor(0.5,1) pivot(0.5,1)`）。⚠️ `public` 只为自检读（`B145_E6_Assert`）—— 这也是**标题命中框**那一整条的尺寸。</summary>
+        public const float HeaderW = 1192.37f, HeaderH = 63.204f;
         /// <summary>遮罩不透明度。原版 `Menu Dark Background` 的 `color.a`（和放大窗**同一个值**）</summary>
         public const float MaskAlpha = 0.7725f;
         /// <summary>标题与「继续」两个字的字号（px）。**两颗都是原版 TMP `m_fontSize = 38`**
@@ -524,10 +524,10 @@ namespace CardPresentation
             // 🆕 2026-10-20（A3-e2）：原版 `Header Text` 的 TMP `m_RaycastTarget = 1`（**零处理器**）
             //   ⇒ 它挡射线但**不响应**（点标题不关窗，点标题以外的暗底才关）。
             //   我们的 `Label` 出厂 `raycastTarget = false`（`TmpFont.NewText` 那条装修约定）⇒ 这里显式打开。
-            //   ⚠️ 如实记：原版那个节点的 rect 是 1192.37×63.204（整条），我们的 TMP 只占**文字自身**的
-            //   bbox（`Label.RefreshBounds` 写的是文字尺寸）⇒ 挡射线的那块比原版小；无处理器、无视觉差。
+            //   ⚠️ 原版那个节点的 rect 是 1192.37×63.204（整条），而我们的 TMP 只占**文字自身**的 bbox
+            //   （`Label.RefreshBounds` 写的是文字尺寸）—— ✅ 2026-11-05 `B145-E6` 起由 `BuildHeaderHitRect()` 补一条同尺寸的透明射线靶（见下一行）。
             var headerTmp = _header != null ? _header.GetComponentInChildren<TMP_Text>(true) : null;
-            if (headerTmp != null) headerTmp.raycastTarget = true;
+            if (headerTmp != null) { headerTmp.raycastTarget = true; BuildHeaderHitRect(); }   // ✅ 已复刻（2026-11-05 · B145-E6 · 判据 = 原版 `Header Text` 节点 rect **1192.37×63.204**，B129 二·#32）：TMP 只占**文字 bbox** ⇒ 另建一整条透明射线靶（`BuildHeaderHitRect`，类尾）；保持 TMP 那一下（原版 `m_RaycastTarget = 1`）在它后面当兜底
             else Debug.LogWarning("[多卡展示窗] 标题的 TMP 取不到 ⇒ 它不吃射线（原版 RT=1；无处理器、无视觉差）");
 
             // Continue：**贴图用原版那两张**（`40k_bt_underbutton` / `40k_UI_bt_play`），
@@ -688,7 +688,7 @@ namespace CardPresentation
             if (_circle != null) _circle.gameObject.SetActive(on);
             if (_barText != null) _barText.gameObject.SetActive(on);
             // 🔴 2026-10-22：`_hint`（自拟提示）已删。🔴 2026-11-02（`B117-G10-14`）：**标题为空就整颗关掉**（原版 `UIMultiCardDisplay__Initialize.c` 收尾 `headerText.gameObject.SetActive(!string.IsNullOrEmpty(header))` —— 空标题不留空 TMP：那颗 TMP `m_RaycastTarget = 1`，留着会在整条 1192×63 上白吃射线）。
-            if (_header != null) _header.gameObject.SetActive(on && !string.IsNullOrEmpty(HeaderShown));
+            if (_header != null) _header.gameObject.SetActive(on && !string.IsNullOrEmpty(HeaderShown)); if (_headerHit != null) _headerHit.gameObject.SetActive(on && !string.IsNullOrEmpty(HeaderShown));   // ✅ 已复刻（2026-11-05 · B145-E6 · B129 二·#32）：标题命中框（整条 1192.37×63.204）**必须跟着开关** —— 漏了它 = 窗关着时仍有一整条射线靶在挡背景（同 `_bgClose` 那条）
             // 🆕 2026-10-20（A3-e2）：背景关闭件**必须跟着开关** —— 漏了它 = 一块全屏射线靶
             //   在窗口关着时继续挡着整个屏幕（`SetActive(false)` 会把它移出 `GraphicRegistry`）。
             if (_bgClose != null) _bgClose.gameObject.SetActive(on);
@@ -1370,5 +1370,38 @@ namespace CardPresentation
 
         /// <summary>关窗判定（纯函数，判据只此一处）：拖拽抬手 ⇒ 不关；落在卡上 ⇒ 不关；其余 ⇒ 关。</summary>
         public static bool ShouldCloseOnPointer(bool overCard, bool dragged) { return !dragged && !overCard; }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  ✅ 已复刻（2026-11-05 · 执行写手 `B145-E6` · 判据 = B129 二·#32）
+        //  **标题命中框 = 原版那个节点的整条 rect（1192.37×63.204），不是 TMP 的文字 bbox。**
+        //  原版 `Header Text` 的 TMP `m_RaycastTarget = 1`（零处理器）⇒ 它在**整条 rect** 上吃射线、
+        //  点标题不关窗、点标题以外的暗底才关。我们的 `Label` 只把 TMP 排成文字大小（`RefreshBounds`
+        //  写的是**文字尺寸**）⇒ 只挡文字那一小块。修法 = 另建一条**同尺寸的透明 uGUI 件**当射线靶
+        //  （⛔ 别去改 TMP 自己的 rect：`RefreshBounds` 每次重排都会按文字重新摆它）。
+        //  ⚠️ 新成员一律追加在**类尾**（本件 158 处账按【文件:行号】引用 ⇒ 插进中间会整片漂移）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>标题命中框那颗透明射线靶（`null` = 没建起来）。</summary>
+        HudPiece _headerHit;
+
+        /// <summary>建标题的**整条命中框**（见本节头注）。位置与标题同一个中心，尺寸 = `HeaderW × HeaderH`、
+        /// z 与标题同档（同 z 后建 ⇒ 兄弟序更靠前 = 射线先命中）。颜色 `Clear` ⇒ **一个像素都不画**。
+        /// `_panel` 是 1920×818 的横带（中心 = 屏心）⇒ `HudCanvas.PosPx` 与 `MakeImageInParent` 在这条带上是同一套口径。</summary>
+        void BuildHeaderHitRect()
+        {
+            if (_panel == null) return;
+            var hp = HudCanvas.PosPx(960f, BandTopPx + HeaderH * 0.5f);   // 与 `_header` 的建件点逐位相同
+            _headerHit = HudCanvas.MakeImageInParent(_panel, CardDisplayWindow.SolidTexFor(1f),
+                                                     "mcd_header_hit", hp.x, -hp.y, HeaderW, HeaderH, ZContent, Color.clear);   // 纯色图只为承载射线（`preserveAspect = false` ⇒ 拉满这一条 rect）
+            if (_headerHit == null) { Debug.LogWarning("[多卡展示窗] 标题命中框（`mcd_header_hit`）没建起来 ⇒ 只有 TMP 文字 bbox 吃射线"); return; }
+            if (!_headerHit.SetRaycastTarget(true)) Debug.LogWarning("[多卡展示窗] 标题命中框设不上 `raycastTarget` ⇒ 它不吃射线");
+        }
+
+        /// <summary>自检：标题命中框在不在（`null` = 没建起来）。</summary>
+        public HudPiece HeaderHitPieceForTest { get { return _headerHit; } }
+        /// <summary>自检：标题命中框的**设计 px 尺寸** = 原版节点 rect（`HeaderW × HeaderH`）。</summary>
+        public static Vector2 HeaderHitSizePx { get { return new Vector2(HeaderW, HeaderH); } }
+        /// <summary>自检：标题命中框的**中心**（设计 px、左上原点）= 窗口带顶边往下半个框高。</summary>
+        public static Vector2 HeaderHitCenterPx { get { return new Vector2(960f, BandTopPx + HeaderH * 0.5f); } }
     }
 }

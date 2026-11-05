@@ -24,7 +24,7 @@ namespace CardPresentation
         public bool hasSun;                 // 原版 8 场有 `m_Sun`，5 场是空的（见 `SunIsNullFor`）
 
         // ---- 环境光 ----
-        public int ambientMode;             // 0=Flat 1=Trilight 2=Skybox 3=Custom
+        public int ambientMode;             // Unity `AmbientMode` 原值：Skybox=0 · Trilight=1 · Flat=3 · Custom=4（⚠️ 2026-11-05 B145-E9 订正：原注释「0=Flat 1=Trilight 2=Skybox 3=Custom」是错的；13 场清单存的都是 3 = Flat）
         public Color ambientSky;            // `defaultEnv.ambientColor`（**运行时真值**，不是场景里的 m_AmbientSkyColor）
         public float ambientIntensity;
         public float ambientBlend;          // `_AmbientColorBlend`（13 场全是 0 ⇒ 原版那层 tint 是恒等）

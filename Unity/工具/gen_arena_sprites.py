@@ -184,6 +184,14 @@ def shader_name(pid):
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     check = '--check' in sys.argv
+    write = '--write' in sys.argv
+    # 🔴 2026-11-05（`B145-E27`）：动词参数改成必填（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+    if not (check or write):
+        print('用法：python 工具/gen_arena_sprites.py {--write | --check} [<场> ...]\n'
+              '  --write  重新生成并写盘（13 场的 <场>_sprites.json + Sprites/*.png）\n'
+              '  --check  只扫不写：与盘上产物比对（有缺/过期 ⇒ rc=1）\n'
+              '  🔴 不带任何动词 = 只打印本用法并以退出码 2 退出')
+        return 2
     arenas = args or ARENAS
     try:
         import UnityPy

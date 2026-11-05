@@ -7,7 +7,7 @@
 //     · `yCurveScaling`(+0x38，出厂 100f) · `isForceUpdatingMesh`(+0x3c)。
 // 方法体（`d:/2/tools/decomp_full/`，逐句）：
 //   · `TMProWarpText__Awake.c`      —— `text` 空就 `GetComponent<TMP_Text>()` 回填
-//   · `TMProWarpText__OnEnable.c`   —— 先 `WarpText()` 一次，再订阅 `OnPreRenderText`
+//   · `TMProWarpText__OnEnable.c`   —— 先 `WarpText()` 一次，再 `TMPro_EventManager.TEXT_CHANGED_EVENT.Add(ReactToTextChanged)`
 //   · `TMProWarpText__OnDisable.c`  —— 先退订，再 `ForceMeshUpdate()`
 //   · `TMProWarpText__ReactToTextChanged.c` —— `obj` 不是 `TMP_Text` 就返回；是自己且 `isForceUpdatingMesh` 为假才重弯
 //   · `TMProWarpText__Reset.c`      —— 缓存 TMP + 建那条 3 键曲线 + 立刻弯一次
@@ -25,8 +25,8 @@
 //   `0x1834b2bc4` = **360f**（切向 y ≤ 0 时 `angle = 360 − angle`）
 //
 // ============================ 🔶 我们挑的 ============================
-//   ① `OnPreRenderText` 的订阅：TMP 版本差异下该事件可能不存在 ⇒ 用 **`Configure()` 显式接线 +
-//      `Update` 里「文本变了才重弯」的等价做法兜底**（见 `Tick()`）；订阅能编过就走订阅那条（与 `.c` 同序）。
+//   ① ⚠️ 2026-11-05 订正（B145-E1 · 铁律 5）：原来这两行写「订阅 `OnPreRenderText`、用 `Update` 里文本变了才重弯兜底（见 `Tick()`）」
+//      —— **全是错的**：原版订阅的是 **`TMPro_EventManager.TEXT_CHANGED_EVENT`**（`FastAction<UnityEngine.Object>`），本文件也照它订/退；本文件**没有** `Tick()` / `Update()`。
 //   ② 没有 `isForceUpdatingMesh` 的对外暴露（原版是 private）—— 我们留了只读口给自检。
 using System;
 using TMPro;
@@ -88,14 +88,14 @@ namespace CardPresentation
         void OnEnable()
         {
             if (text == null) text = GetComponent<TMP_Text>();
-            if (text == null) return;
-            WarpText();                                    // 原版：先弯一次
+            WarpText();                                                    // 原版：先弯一次（`text` 空时由它自己 return）
+            TMPro_EventManager.TEXT_CHANGED_EVENT.Add(ReactToTextChanged); // ✅ 已复刻（2026-11-05 · B145-E1 · decomp_full/TMProWarpText__OnEnable.c:15-24：先弯 → `TEXT_CHANGED_EVENT.Add`）
         }
 
         void OnDisable()
         {
-            if (text == null) return;
-            text.ForceMeshUpdate();                        // 原版：退订后强制重算（⇒ 网格回直）
+            TMPro_EventManager.TEXT_CHANGED_EVENT.Remove(ReactToTextChanged); // ✅ 已复刻（2026-11-05 · B145-E1 · decomp_full/TMProWarpText__OnDisable.c:19-23：先退订）
+            if (text != null) text.ForceMeshUpdate();      // 原版：退订后强制重算（⇒ 网格回直）；🔶 自己设计（非原版）：`text` 空就跳过 —— 原版这里直接调、会 NRE（调度台 2026-11-05 判）
         }
 
         /// <summary>原版 `ReactToTextChanged(UnityEngine.Object obj)`：不是 `TMP_Text` 就返回；
@@ -120,7 +120,7 @@ namespace CardPresentation
         /// <summary>原版 `WarpText()`（`decomp_full/TMProWarpText__WarpText.c` 全 364 行）。
         /// <para>逐句对应（行号见那份 `.c`）：</para>
         /// <para>① `text` 空 ⇒ return；置 `isForceUpdatingMesh = true`；`havePropertiesChanged = true`；`ForceMeshUpdate()`。</para>
-        /// <para>② `textInfo.characterCount == 0 || lineCount == 0` ⇒ return（照抄两个空判据）。</para>
+        /// <para>② `textInfo == null` / `characterCount == 0 || lineCount == 0` ⇒ return，且**不复位** `isForceUpdatingMesh`（原版 bug 照抄：`.c:120/123/126` 三条早退都不复位，只有走完循环才在 `.c:352` 置 0 ⇒ 空文本跑过一次后 `ReactToTextChanged` 的闸恒假、再也不重弯。⛔ 别修）。</para>
         /// <para>③ `minX = bounds.min.x` · `maxX = bounds.max.x`（`.c:139/145`：`center − extent` / `center + extent`）。</para>
         /// <para>④ 逐字符：`!isVisible` 跳过；`vi = vertexIndex` · `mi = materialReferenceIndex`；</para>
         /// <para>⑤ `mid = ((v[vi].x + v[vi+2].x) × 0.5, characterInfo.baseLine, 0)` —— 4 个顶点先**减去** `mid`；</para>
@@ -131,7 +131,7 @@ namespace CardPresentation
         /// <para>⑧ 矩阵：`axis == Y` ⇒ `TRS((0, y0, 0), Euler(0, 0, angle))`；
         ///         `axis == Z` ⇒ `TRS((0, 0, y0), Euler(−angle, 0, 0))`（`.c` 的 axis 分支逐句核过）；</para>
         /// <para>⑨ 4 个顶点过矩阵，再**加回** `mid`；每字符结束后 `UpdateVertexData(Vertices)`（原版就在循环里，照抄）。</para>
-        /// <para>⑩ 循环结束 `isForceUpdatingMesh = false`。</para></summary>
+        /// <para>⑩ 循环结束 `isForceUpdatingMesh = false`（**唯一复位点**，判据 `.c:352`）。</para></summary>
         public void WarpText()
         {
             var tmp = text;
@@ -141,8 +141,8 @@ namespace CardPresentation
             tmp.ForceMeshUpdate();
 
             var ti = tmp.textInfo;
-            if (ti == null) { _warping = false; return; }
-            if (ti.characterCount == 0 || ti.lineCount == 0) { _warping = false; return; }
+            if (ti == null) { return; }                                                      // 原版这里早退不复位 isForceUpdatingMesh ⇒ 空文本跑过一次后 ReactToTextChanged 的闸恒假、再也不重弯（原版 bug，照抄，⛔ 别修；判据 `.c:120` 早退 / `.c:352` 唯一复位点）
+            if (ti.characterCount == 0 || ti.lineCount == 0) { return; }                     // 同上（`.c:123` / `.c:126` 两条早退都不复位；只有走完循环才在 `.c:352` 置 0）
 
             var b = tmp.bounds;
             float minX = b.center.x - b.extents.x;

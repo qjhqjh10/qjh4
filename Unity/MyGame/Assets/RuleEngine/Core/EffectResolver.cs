@@ -4884,7 +4884,7 @@ namespace RuleEngine
             if (op.ChooseSrc == "played" && outp.Count > 1)
                 outp.RemoveRange(1, outp.Count - 1);
 
-            return CardPoolCriteriaFilter.Apply(ctx, op, outp);   // 🔴 2026-10-30（`B99_C1` · 账 `引擎:#4`）：**候选是卡也要过同一条 36 格 criteria**（原版 `AbilityLogic__GetTargets.c:1086-1095` 对池里每个元素一律 `CheckIfMeetsCriteria`；卡模板级那一支见 `:123`）。判据/射程/现池影响面 → `Core/CardPoolCriteriaFilter.cs` 文件头。零行数变化（铁律 18·b）。
+            return CardPoolCriteriaFilter.Apply(ctx, op, ApplyChoiceCriteriaToPool(ctx, op, outp));   // 🔴 2026-10-30（`B99_C1` · 账 `引擎:#4`）：**候选是卡也要过同一条 36 格 criteria**（原版 `AbilityLogic__GetTargets.c:1086-1095` 对池里每个元素一律 `CheckIfMeetsCriteria`；卡模板级那一支见 `:123`）。判据/射程/现池影响面 → `Core/CardPoolCriteriaFilter.cs` 文件头。零行数变化（铁律 18·b）。｜🆕 2026-11-05（`B145-E5` · A-19）：外面再套一层 `ApplyChoiceCriteriaToPool` —— 原版选牌池 = `GetTargets(choicesDefinition)` 的结果（`BattleManager__GetChoiceFullPool.c:28-35`），那 36 格与 `op.TargetCriteriaSet`（abilityLogic 的 criteria）**不是同一个对象**；判据 + 降级纪律见该方法的 doc
         }
 
         static bool DoChooseCard(BattleContext ctx, int owner, string by, EffectOp op,
@@ -19914,9 +19914,9 @@ namespace RuleEngine
                 return opts;
             }
 
-            var left = new List<CardDef>(cands);      // 原版 `lVar5`（`fullPool`，就地 `RemoveAll`）
-            var backup = new List<CardDef>(cands);    // 原版 `lVar6`（`fullPool.ToList()`）
-            int n = cands.Count <= limit ? cands.Count : limit;   // 原版 `iVar1`
+            var left = SortedChoicePool(cands);       // 原版 `lVar5`（`fullPool`，就地 `RemoveAll`）｜A-20：原版建池即按 `uniqueId` 排（判据见 `SortedChoicePool` 的 doc）
+            var backup = SortedChoicePool(cands);     // 原版 `lVar6`（`fullPool.ToList()`）｜同上：`fullPool` 已经是排好的那一份
+            int n = left.Count <= limit ? left.Count : limit;   // 原版 `iVar1`（`.c:40-45`：`min(fullPool.Count, maxTargets)`，取的是**筛后池**的张数）
 
             for (int i = 0; i < n; i++)
             {
@@ -22542,6 +22542,159 @@ namespace RuleEngine
         public static void EmitWhileInPlayHandPassForTest(BattleContext ctx)
         {
             EmitWhileInPlayHandPass(ctx);
+        }
+
+        // ==========================================================================================
+        //  🆕 2026-11-05（执行代理 `B145-E5` · 施工单 `判据/B145_施工单汇总_离线.md` §二 A-20 / A-19）
+        //  ⛔ 追加在类尾（铁律 18·b：本文件 22,547 行、`账/*.tsv` 按 `文件:行号` 落点密集）。
+        // ==========================================================================================
+
+        /// <summary>
+        /// **A-20 的一半：原版建池就对 `uniqueId` 排序。**
+        ///
+        /// <para>**判据**（🥇 `out_il2csharp/Assembly-CSharp/BattleManager.cs:9142-9159` 逐句）：
+        /// <c>Enumerable.ToList(Enumerable.OrderBy(Enumerable.Where(list13, c =&gt; c != null &amp;&amp; c.uniqueId != null), c =&gt; c.uniqueId))</c>
+        /// —— 排序键就是基类字段 `PlayerItem.uniqueId`（`dump.cs:18804` 的 `public string uniqueId; // 0x38`；
+        /// `decomp_full/BattleManager__GetChoiceFullPool.c` 末尾那个 `*(param_2 + 0x38)` 读的就是它）。</para>
+        ///
+        /// <para>**为什么必须排**：`BattleManager__GetChoiceOptions.c:46-70` 是
+        /// 「`GetRandomInt(0, 池张数)` → 取**下标**」⇒ 池的顺序决定「同一个随机数抽到哪一张」。
+        /// 不排 ⇒ 同一局、同一张预烧随机表会抽出**另一批卡**；而 `play all dump` 只比结算列、
+        /// 抓不到这一层，所以这条一直没被自检发现（施工单 `二·★18`）。</para>
+        ///
+        /// <para>**稳定排序**：`Enumerable.OrderBy` 是稳定排序（相等键保持原序）⇒ 这里用**插入排序**逐位模拟
+        /// （池只有几张～全卡池，成本可忽略）。⚠️ `OrderBy&lt;string&gt;` 的默认比较器是
+        /// `Comparer&lt;string&gt;.Default`（CurrentCulture）：本池 id 全是 ASCII 大写字母/数字或小写十六进制
+        /// ⇒ 与 <see cref="string.CompareOrdinal(string, string)"/> 同序；真出现非 ASCII id 时两者可能分叉
+        /// —— 如实记在这里，⛔ 别当成「原版也是 ordinal」。</para>
+        ///
+        /// <para>⚠️ `null` / `Id == null` 的元素**照原版那个 `Where` 剔掉**（原版就是这么筛的，
+        /// 不是我们加的）。</para>
+        /// </summary>
+        /// <remarks>✅ 已复刻（2026-11-05 · B145-E5 · 判据 = out_il2csharp/BattleManager.cs:9142-9159 ＋ dump.cs:18804 `uniqueId // 0x38`）</remarks>
+        public static List<CardDef> SortedChoicePool(List<CardDef> pool)
+        {
+            var list = new List<CardDef>(pool != null ? pool.Count : 0);
+            if (pool == null) return list;
+            for (int i = 0; i < pool.Count; i++)
+                if (pool[i] != null && pool[i].Id != null) list.Add(pool[i]);      // 原版 `Where(c => c != null && c.uniqueId != null)`
+            for (int i = 1; i < list.Count; i++)                                   // 稳定插入排序（= `OrderBy` 的稳定性）
+            {
+                var item = list[i];
+                int j = i - 1;
+                while (j >= 0 && string.CompareOrdinal(list[j].Id, item.Id) > 0)
+                { list[j + 1] = list[j]; j--; }
+                list[j + 1] = item;
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// **A-19：`choicesDefinition` 那 36 格 criteria 的取数口。**
+        ///
+        /// <para>原版 `BattleManager__GetChoiceFullPool.c:28-35` 建池那一步是
+        /// `AbilityLogic.GetTargets(this, rawCard.choicesDefinition, actingCard, actingCard, targetCard, 0)`；
+        /// 而 `AbilityLogic__GetTargets.c:1086-1095` 在**建完池之后**对池里每一个元素调
+        /// `FilterMethods.CheckIfMeetsCriteria(thisCard, 候选, targetCard, criteria, 0)`
+        /// ⇒ `choicesDefinition` 的**整条 36 格**都在筛，**不只是** `targetsAffected` /
+        /// `maxTargets` / `filterSpecificCards` 三格。</para>
+        ///
+        /// <para>我们这一侧那 36 格**早就在数据里**（`cards_engine.json` 的 `unitConditions` 里
+        /// `role="choice"` 行 + `choiceSet`，生成器 `工具/gen_cards_engine.py:3068-3072` 落的，
+        /// 现读 **84 行**），此前**没有消费端**。这里取出来喂
+        /// <see cref="TargetCriteriaEval.MatchesRawCard"/>（卡面级逐候选判据，与
+        /// `CardPoolCriteriaFilter` 同一个求值器）。</para>
+        ///
+        /// <para>⚠️ 一张卡最多一条 `role="choice"` 行（原版只有一个 `choicesDefinition` @0x2A0）；
+        /// 取不到 ⇒ `null`（= 这张卡没有 choicesDefinition ⇒ 不筛，⛔ 不是「判不了」）。</para>
+        /// </summary>
+        static CardDef.CountSetSpec ChoiceCriteriaOf(CardDef card)
+        {
+            if (card == null || card.Conditions == null) return null;
+            for (int i = 0; i < card.Conditions.Count; i++)
+            {
+                var r = card.Conditions[i];
+                if (r != null && r.Role == "choice" && r.ChoiceSet != null) return r.ChoiceSet;
+            }
+            return null;
+        }
+
+        /// <summary>`choicesDefinition.targetsAffected` 与<b>候选域</b>是否对得上（= 「这张卡是不是这一问的主人」）。
+        ///
+        /// <para>**为什么要这道闸**：`ChooseCardCandidates` 有两类调用方 —— 结算（`ctx.PlayingCard` 刚被
+        /// `ResolveOps` 写成本卡）与**面板**（开面板早于结算，`ctx.PlayingCard` 还是**上一张卡**）。
+        /// 面板那条我们改不到（白名单外），所以只在这张卡的 `ta` 与 `op.ChooseSrc` **自洽**时才筛：
+        /// 否则宁可**不筛**（= 回到今天的行为），也不拿上一张卡的 criteria 去筛这一问的池。</para>
+        ///
+        /// <para>取值依据 = `AbilityLogic__GetTargets.c` 的建池分派：
+        /// `0x32/50` 手牌（`:895`）· `0x33/51` 手牌+牌库（`:907`）· `0x34/52` 手牌+场上（`:917`）·
+        /// `0x3c/60` 墓地（`:926`）· `0x41/65` 牌库（`:963`）。</para>
+        /// </summary>
+        static bool ChoiceTaMatchesSource(int ta, string src)
+        {
+            switch (src)
+            {
+                case "hand":
+                case "enemyhand": return ta == 50 || ta == 51 || ta == 52;
+                case "deck":      return ta == 65 || ta == 51;
+                case "dead":      return ta == 60;
+                default:          return false;   // played(190) / specific(180) / 全池(0) / 其余 ⇒ 不套
+            }
+        }
+
+        /// <summary>
+        /// **A-19 的消费端**：把这一问的 `choicesDefinition` 36 格套到候选卡池上（原地过滤 + 返回同一份）。
+        ///
+        /// <para>**判据**（🥇 `decomp_full/AbilityLogic__GetTargets.c:1086-1095` 的倒序循环
+        /// `CheckIfMeetsCriteria(param_3 thisCard, 池元素, param_5 targetCard, param_2 criteria, 0)`
+        /// ＋ `BattleManager__GetChoiceFullPool.c:28-35` 的池来源；卡模板级那一支的求值器 = 同一份
+        /// `TargetCriteriaEval.MatchesRawCard`，理由见 `CardPoolCriteriaFilter.cs` 文件头）。</para>
+        ///
+        /// <para>⚠️ **不是** `CardPoolCriteriaFilter.Apply` 的第二份实现：那一个筛的是
+        /// `op.TargetCriteriaSet`（**abilityLogic 的** `targetCriteria`），本方法筛的是
+        /// **卡级 `choicesDefinition`**（两个不同的 criteria 对象，原版分别由
+        /// `GetTargets(choicesDefinition)` 与 `GetTargets(targetCriteria)` 建池）。
+        /// 真正的「怎么判一格」只有 `TargetCriteriaEval` 那一份，这里只有循环与降级。</para>
+        ///
+        /// <para>**判不了 ⇒ 整池原样返回 + 出声一次**（与 `CardPoolCriteriaFilter.Apply` 同一条纪律：
+        /// 宁可不筛也不猜；⛔ 不许把「判不了」当「不成立」筛空）。✅ 已复刻（2026-11-05 · B145-E5 · A-19 · 判据 = BattleManager__GetChoiceFullPool.c:28-35 ＋ AbilityLogic__GetTargets.c:1086-1095）</para>
+        /// </summary>
+        public static List<CardDef> ApplyChoiceCriteriaToPool(BattleContext ctx, EffectOp op, List<CardDef> pool)
+        {
+            if (pool == null || pool.Count == 0 || op == null) return pool;
+            // 「这一问的主人」= 正在结算的那张卡（与 `ChoiceLimitOf` 同一个取值次序）
+            var card = (ctx != null && ctx.ActingUnit != null && ctx.ActingUnit.Card != null)
+                     ? ctx.ActingUnit.Card
+                     : (ctx != null ? ctx.PlayingCard : null);
+            if (card == null) return pool;
+            var set = ChoiceCriteriaOf(card);
+            if (set == null) return pool;                                     // 这张卡没有 choicesDefinition ⇒ 不筛
+            int ta = set.TargetsAffected;
+            if (ta == CardDef.CountSetSpec.Unknown || ta == 0) return pool;    // `any` ⇒ 原版「其余 35 格全失效」（`:190-192`）
+            if (!ChoiceTaMatchesSource(ta, op.ChooseSrc)) return pool;         // 源与 ta 不自洽 ⇒ 这张卡不是这一问的主人（见上一条 doc）
+
+            int before = pool.Count;
+            var kept = new List<CardDef>(pool.Count);
+            for (int i = 0; i < pool.Count; i++)
+            {
+                string gap;
+                bool? ok = TargetCriteriaEval.MatchesRawCard(pool[i], set, out gap);
+                if (ok == null)
+                {
+                    StructuredConditionNotice(
+                        "choicecriteria|" + (op.Source ?? "?") + "|" + gap,
+                        $"「{(op.Source ?? "?")}」的 `choicesDefinition` 36 格 criteria **本版判不了卡池那一路**：{gap}"
+                      + " ⇒ 这一问**不筛候选卡池**（⛔ 没有当成「不成立」、也没有筛空）。");
+                    return pool;
+                }
+                if (ok.Value) kept.Add(pool[i]);
+            }
+            pool.Clear();
+            pool.AddRange(kept);
+            if (ctx != null && pool.Count != before)
+                ctx.Log($"（按原版 `choicesDefinition` 36 格筛**选牌候选**：{before} → {pool.Count}；"
+                      + $"`ta={ta}`，原版 `AbilityLogic__GetTargets.c:1086-1095`）");
+            return pool;
         }
     }
 }

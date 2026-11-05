@@ -328,6 +328,13 @@ public static class ArenaBuilder
         public float normalDirection = 1f;
         public int sortMode;
         public int maskInteraction;
+        // 🆕 2026-11-05（`B145-E8` · A-26 · `B144_R1_网格结构.md` §8·6）：清单 `particles[]` 新增三字段。
+        //   原版 battlearena1 的 34 条清单粒子实读：`renderingLayerMask` All×28 / 1×6 ·
+        //   `lightProbeUsage` 1×14 · `sortingOrder` 1×2。缺键时保持 Unity 新建 PSR 默认 (1/0/0)。
+        //   ⚠️ 必须是 `uint`：原版 All = 4294967295 装不进 `int`（写成 −1 会被 `<0 ? 1` 映射回 1）。
+        public uint renderingLayerMask = 1u;
+        public int lightProbeUsage;
+        public int sortingOrder;
         public float[] matColor;                 // 粒子材质 `_BaseColor`（原版 SmokeySteam01 = 0.6038 灰）
         // 🔴 **2026-09-24 新增：原版粒子材质的【身份 + 渲染状态】。**
         //   原来只带了 `matColor` + 贴图名，shader / 关键字 / 整张属性表**全丢** ⇒ Unity 侧只能
@@ -2884,6 +2891,11 @@ public static class ArenaBuilder
                     rend.renderMode = rm == 4 ? ParticleSystemRenderMode.Billboard
                                               : (ParticleSystemRenderMode)rm;
                 }
+                // 🆕 2026-11-05（`B145-E8` · A-26 · `B144_R1_网格结构.md` §8·6）：粒子渲染器三字段按清单逐颗设值。
+                //   判据 = 原版 battlearena1 的 34 条清单粒子：renderingLayerMask All×28 / 1×6 ·
+                //   lightProbeUsage 1×14 · sortingOrder 1×2。⛔ 原来一颗都没写 ⇒ 34/34 全落 Unity 新建 PSR 默认 (1,0,0)。
+                //   ⚠️ 与 `ApplyRendererParams`（MeshRenderer）分开：两边默认值不同，合并会把一边的缺键洗成另一边的默认。
+                ApplyParticleRendererParams(rend, p);
                 // 🆕 2026-09-21：这几条原来都没设，全吃 Unity 默认值 ——
                 //    `maxParticleSize`（默认 0.5，原版多为 20 = 不限幅 ⇒ 大粒子被裁）、
                 //    `renderAlignment`（默认 View，原版 sororitas Fire/Glow 是 World）、
@@ -5407,13 +5419,13 @@ public static class ArenaBuilder
             if (p != null && p.k == "_APPLYAMBIENTCOLOR" && p.f > 0.5f) return true;
         return false;
     }
-    /// <summary>⚠️ 2026-09-20：**「用原版网格 shader」这条路当前是关的** —— 实测整屏洋红
-    /// （原版这批网格 shader 在我们工程里跑不起来，详见 `GetOrCreateMaterial` 里的长注释）。
-    /// 清单里的 `shader` 字段**已经带出来了**，改这个常量就能试。</summary>
-    /// <summary>⚠️ 2026-09-20：**「用原版网格 shader」这条路当前默认关** —— 实测整屏洋红
-    /// （Unity 的 shader 报错色），虽然探针说 6 个 shader 全都 `isSupported=True`。
-    /// 用环境变量 `WF_ORIGSHADER=1` 打开（A/B 用，不必改代码）。
-    /// 清单里的 `shader` 字段**已经带出来了**，开关一翻就能试。</summary>
+    /// <summary>🔶 自己设计（非原版）：**本体网格 shader 一律用 `Universal Render Pipeline/Unlit`** —— 不是原版的
+    /// `Everguild/UnlitAmbient`(523 槽) / `Unlit Wind`(56) / `UnlitAmbient Emissive Flickker`(24) / `Pulsating Mesh`(23) /
+    /// `Unlit UV scroll`(13) …。为什么必须自己定：原版这批网格 shader **在本工程里跑不起来**（`WF_ORIGSHADER=1` 实测整屏洋红；
+    /// 探针说 6 个 shader 全都 `isSupported=True` 也不等于能渲，详见 `GetOrCreateMaterial` 的长注释）。谁定的+日期：调度台 2026-11-05 按铁律 18 补标
+    /// （判据 → `报告/B133_审计_战场场景与环境.md` §四·M1 · `报告/B144_D_战场环境.md` §一·M1）。
+    /// 清单里的 `shader` 字段**已经带出来了**，`WF_ORIGSHADER=1` 可 A/B（不必改代码）。
+    /// ⚠️ 上一版此处有两段重复的 `<summary>`，本补丁合并成一段（行数不变）。</summary>
     static bool ArenaUseOriginalShaders
         => System.Environment.GetEnvironmentVariable("WF_ORIGSHADER") == "1";
     /// <summary>是否给原版 shader 开 `_APPLYAMBIENTCOLOR`（原版材质绝大多数带着它）。
@@ -6817,6 +6829,29 @@ public static class ArenaBuilder
         so.ApplyModifiedPropertiesWithoutUndo();
     }
     static bool _warnedStitchSeams;
+
+    /// <summary>🆕 2026-11-05（`B145-E8` · A-26 · `B144_R1_网格结构.md` §8·6）：把清单 `particles[]` 的三字段
+    /// 写到 `ParticleSystemRenderer` 上。
+    /// <para>判据 = 原版 battlearena1 的 34 条清单粒子逐颗实读：`renderingLayerMask` All(4294967295)×28 + 1×6 ·
+    /// `lightProbeUsage` 1(BlendedProbes)×14 · `sortingOrder` 1×2（两颗 `Shockwave` 逐字 (All,0,1)）。
+    /// 我们原来一颗都没写 ⇒ 34/34 全落 Unity 新建 PSR 默认 `(1,0,0)`。</para>
+    /// <para>⚠️ `renderingLayerMask` 是 **`uint`**：原版 All = 4294967295 装不进 `int`。
+    /// 缺键（= 0）兜底成 `1`（原版 578 颗只有 `1` / `All` 两档，0 不可能出现；写 0 会让渲染层全灭）。
+    /// `lightProbeUsage` / `sortingOrder` 走「非默认才写」—— 清单缺键时保持 Unity 新建 PSR 的默认值，
+    /// ⛔ 不把 `JsonUtility` 的 0 兜底洗进产物。</para>
+    /// <para>⚠️ 与 `ApplyRendererParams`（MeshRenderer）**分开**：MR 的 `lightProbeUsage` 默认是 1、PSR 是 0，
+    /// 合并会把一侧的缺键洗成另一侧的默认。</para></summary>
+    static void ApplyParticleRendererParams(ParticleSystemRenderer rend, ParticleEntry p)
+    {
+        if (rend == null || p == null) return;
+        // ⚠️ 0 当「缺键」处理（= `ApplyRendererParams` 里 `< 0 ? 1u` 的同一口径）：
+        //   清单缺键时 `JsonUtility` 可能给 0（字段初始化器不保证跑），而 **写 0 会让渲染层掩码全灭**
+        //   （相机/光的掩码与 0 相与恒 0）—— 原版 578 颗实测只有 `1` / `All` 两档，0 不可能出现。
+        rend.renderingLayerMask = p.renderingLayerMask != 0 ? p.renderingLayerMask : 1u;
+        if (p.lightProbeUsage != 0)
+            rend.lightProbeUsage = (LightProbeUsage)Mathf.Clamp(p.lightProbeUsage, 0, 4);
+        if (p.sortingOrder != 0) rend.sortingOrder = p.sortingOrder;
+    }
 
     /// <summary>🆕 2026-11-04（`B139_H` · 审计 8-01）：**在 `SaveOrReuse` 之前**把推断出来的混合先写进
     /// 新建的那份 `Material` 上。

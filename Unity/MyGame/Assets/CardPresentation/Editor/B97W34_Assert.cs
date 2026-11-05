@@ -179,9 +179,10 @@ public static partial class RuleEngineTest
             CheckCode(Gate(ctx, 0, pin, prey, true), RuleCodes.OK,
                       "★ A4-b **远程不受压制**（原版 `.c:154-166` 远程那一支**没有** `pindown` 这个 trait）"
                     + "｜🧨 把 pindown 那道闸放到 `ranged` 判断之外（远近都禁）⇒ 本行红");
-            CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, 3, false), RuleCodes.OK,
-                      "[B98_A9 2026-10-29] ★ A4-c **灭自证**：`pindown` 这张卡在共用判据里**仍然合法**（返 `OK`）"
-                    + "—— 压制只在**动作表**那一档生效｜🧨 把 pindown 那道闸并回 `IsValidTarget` ⇒ 本条红");
+            CheckCode(RuleCore.IsValidTarget(ctx, 0, 3, 1, 3, false), RuleCodes.ErrPindown,
+                      "[B145_E2 2026-11-05 订正] ★ A4-c **灭自证**：`pindown` 在共用判据里**不合法**（返 `ErrPindown`）"
+                    + "—— 原版 `IsValidAttackTarget.c:219-222` 的闸就在目标校验里，`CanAttackNow.c` 全文 0 处 `0x3ca`"
+                    + "｜🧨 把 pindown 那道闸挪回 `CanAttackNow` ⇒ 本条红");
 
             var pinZero = Place(ctx, 0, 2, Ranged("W34PindownZero", 1, 0, 5, 2, "pindown"), exhausted: false);
             CheckCode(Gate(ctx, 0, pinZero, prey, false), RuleCodes.ErrPindown,

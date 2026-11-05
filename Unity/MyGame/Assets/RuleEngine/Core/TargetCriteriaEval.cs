@@ -510,7 +510,7 @@ namespace RuleEngine
         /// <code>
         /// | 组     | cardStat（候选当前值）        | thisCardStat        | statFilter | altValue（第 5 实参）          |
         /// | 攻     | `CurrentMeleeAttack`          | 载体`CurrentMeleeAttack` | +0x48  | 候选 `CurrentRangeAttack`      |
-        /// | 血     | `CurrentHealth`（ObscuredInt +0x68） | 载体`CurrentMeleeAttack` | +0x50 | 候选 `GetCurrentTraitValueWithModifiers(0x352 /*bastion*/)` = **我们的 `Armor`**（`bastion` 那一格键名在我们数据里是 `armour`，见下） |
+        /// | 血     | `CurrentHealth`（ObscuredInt +0x68） | 载体`CurrentMeleeAttack` | +0x50 | 候选 `GetCurrentTraitValueWithModifiers(0x352 /*bastion*/)` = **我们的 `UnitState.Bastion`**（`bastion` 是 `DefinedTrait.bastion = 850`，与 `armour = 1020` **是两个 trait**，见 `TraitBastion` 的 doc） |
         /// | 费     | `CurrentCost`                 | 载体`CurrentMeleeAttack` | +0x58  | 0                              |
         /// | 稀有度 | `cardData.rarity`(+0x28)      | 载体`CurrentMeleeAttack` | +0x60  | 0                              |
         /// </code>
@@ -560,7 +560,7 @@ namespace RuleEngine
                 if (!TryStatThisCardStat(set.CurrentHealthFilterOption, thisCard, out thisStat))
                 { gap = $"`currentHealthFilterOption={set.CurrentHealthFilterOption}` 要与载体比，本版没有载体"; return null; }
                 bool? r = MeetsStatCriteria(candidate.Health, thisStat, set.CurrentHealthFilter,
-                                            set.CurrentHealthFilterOption, candidate.Armor);   // 🔴 0x352 `bastion` = 我们的**护甲**（`UnitState.Bastion` 是另一格键，恒 0）
+                                            set.CurrentHealthFilterOption, candidate.Bastion);   // ✅ 已复刻（2026-11-05 · B145-E5 · A-21 · 判据 = CheckIfMeetsCriteria.c:349-350 `GetCurrentTraitValueWithModifiers(候选, 0x352)`）；`0x352` = 850 = `DefinedTrait.bastion`（**不是** `armour`(1020)，两格是不同 trait，见 `TraitBastion` 的 doc）
                 if (r == null) { gap = $"`currentHealthFilterOption={set.CurrentHealthFilterOption}` 认不出 ⇒ 判不了"; return null; }
                 if (!r.Value) return false;
             }
@@ -847,10 +847,10 @@ namespace RuleEngine
         /// 它同时是 **trait 筛的一格** 和 **一道门**（带它的卡只能被 `traitsFilter == 730` 放行）。</summary>
         internal const int TraitSummonRift = 730;
 
-        /// <summary>原版 `DefinedTrait.bastion`（850 = `0x352`）—— **内部**就是「护甲」：
-        /// `CheckIfMeetsCriteria.c:349` / `CheckIfRawCardMeetsCriteria.c:49` 拿它当血组 `option 6` 的 altValue；
-        /// 而**卡面印的是 `Armour N`**（我们 `CardTraits` / `_keywords` 里的键 = `armour`）⇒ 读值一律用
-        /// `KeywordTable.Armour`（`UnitState.Armor` / `CardDef.GetDefaultTraitValue("armour")`）。</summary>
+        /// <summary>原版 `DefinedTrait.bastion`（850 = `0x352`）—— 血组 option 6/9/10/11 的 altValue 就是它（`CheckIfMeetsCriteria.c:349-350` / `CheckIfRawCardMeetsCriteria.c:49`）。
+        /// 🔴 **2026-11-05 就地订正（`B145-E5` · A-21，铁律 5）**：原来写「`bastion` 内部就是护甲、读值一律用 `KeywordTable.Armour`」—— **不成立**：
+        /// `DefinedTrait` 里 `bastion = 850` 与 `armour = 1020` 是**两个 trait**（`:83 / :100`）；官方本地化只有 `Card_Trait/armour`、**没有** `bastion`；
+        /// 当前 build 的 1,351 张 SO 里 trait **850 = 0 张**、trait **1020 = 5 张**（`cards_truth.json` 现扫）⇒ 读值一律用 `KeywordTable.Bastion`（`UnitState.Bastion` / `CardDef.GetDefaultTraitValue("bastion")`），⛔ 别拿 `Armour` 顶（那 5 张卡会多算 1 点）。</summary>
         internal const int TraitBastion = 850;
 
         /// <summary>`ta=140 previousAbilityTargets` ⇒ 原版**只**返回「候选在不在静态表里」
@@ -1050,7 +1050,7 @@ namespace RuleEngine
         /// `out_cpp2il_dev_ilspy/FilterMethods.cs:612-715`）。语句次序（全部 AND、任一 false 立刻返回）：
         /// ① `targetsAffected == 0 (any)` ⇒ true · ② 卡种白名单（四格 → `TypeGatePasses`）·
         /// ③ `spellType` · ④ `RawCardMeetsTraitCriteria`（含 summonRift 门）· ⑤ 攻 / 血 / 费 / 稀有度四组
-        /// `MeetsStatCriteria`（`cardStat` = **卡面值**；altValue = 攻→`RangedAttack` · 血→`armour` 值 ·
+        /// `MeetsStatCriteria`（`cardStat` = **卡面值**；altValue = 攻→`RangedAttack` · 血→`bastion`(850) 值 ·
         /// 费 / 稀有度→0）· ⑥ `filterSpecificCards` 白名单（比 `uniqueId`）· ⑦ `armyFilter` ·
         /// ⑧ `keywordFilter` + `excludeRace`（数值全等 → `KeywordHas`）。</para>
         /// <para>🔴 这个原版函数**一次都不读**的格（⛔ 别顺手补）：`friendlyUnits` / `enemyUnits` /
@@ -1082,14 +1082,14 @@ namespace RuleEngine
             if (r == null) { gap = "`attackFilterOption=" + set.AttackFilterOption + "` 未知 ⇒ 判不了"; return null; }
             if (!r.Value) return false;
             string why;
-            int armour = 0;                                     // 血组的 altValue = **护甲**（原版 0x352 `bastion`）
+            int bastion = 0;                                    // 血组的 altValue = `bastion`(850)（原版 `CheckIfRawCardMeetsCriteria.c:56` 的 `GetDefaultTraitValue(card, 0x352)`）
             if (set.CurrentHealthFilterOption != StatNotApplicable
                 && set.CurrentHealthFilterOption != CardDef.CountSetSpec.Unknown)
             {
-                armour = card.GetDefaultTraitValue(KeywordTable.Armour, out why);
+                bastion = card.GetDefaultTraitValue(KeywordTable.Bastion, out why);   // ✅ 已复刻（2026-11-05 · B145-E5 · A-21 · 判据 = CheckIfRawCardMeetsCriteria.c:49 `GetDefaultTraitValue(card, 0x352)`）
                 if (why != null) { gap = why; return null; }    // `cardTraits` 没挂 ⇒ 判不了（⛔ 不当 0）
             }
-            r = RawStat(set.CurrentHealthFilterOption, set.CurrentHealthFilter, card.Health, armour);
+            r = RawStat(set.CurrentHealthFilterOption, set.CurrentHealthFilter, card.Health, bastion);
             if (r == null) { gap = "`currentHealthFilterOption=" + set.CurrentHealthFilterOption + "` 未知 ⇒ 判不了"; return null; }
             if (!r.Value) return false;
             r = RawStat(set.ManaCostFilterOption, set.ManaCostFilter, card.Cost, 0);

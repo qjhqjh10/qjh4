@@ -987,8 +987,8 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 关键词分值表（原版 `ScoreFromBuff` 的 trait → 分值表，44 行，见正本 §五·三）。
-        /// ⚠️ 只列**我们卡池里真有的**那些（其余原版也是 0 分）；名字用我们 `KeywordTable` 的写法。
+        /// 关键词分值表（原版 `ScoreFromBuff` 的 trait → 分值表，见 `判据/AI打分与动作选择_第2轮.md` §6·6）。
+        /// ✅ 2026-11-05（`B145-E4`）：这里只留最常用的 15 条；其余 24 条（含动态取值那 6 个）由 `default:` 转发到 `TraitScoreExtra`（兄弟分册 `Data/SimpleAI.TraitScore.cs`）。
         /// </summary>
         public static float TraitScore(string keyword)
         {
@@ -1008,7 +1008,7 @@ namespace RuleEngine
                 case "stun": return -1.5f;
                 case "blind": return -1.5f;
                 case KeywordTable.CantAttack: return -2.0f;
-                default: return 0.0f;                                // 原版：**没列出的就是 0 分**
+                default: return TraitScoreExtra(keyword);            // ✅ 已复刻（2026-11-05 · B145-E4 · 判据 = 判据/AI打分与动作选择_第2轮.md §6·6 完整表，其余 24 条在 Data/SimpleAI.TraitScore.cs）
             }
         }
 
@@ -1222,28 +1222,28 @@ namespace RuleEngine
         public static float PayloadScore(string payload)
         {
             if (string.IsNullOrEmpty(payload)) return 0f;
-            string s = payload.Trim().ToLowerInvariant().Replace("+", " ").Replace("-", " ");
-
-            string[] parts = s.Split(new[] { ' ', '\t' }, System.StringSplitOptions.RemoveEmptyEntries);
-            int num = 0; string word = null;
-            for (int i = 0; i < parts.Length; i++)
-            {
-                int v;
-                if (int.TryParse(parts[i], out v)) { num += v; continue; }
-                if (word == null) word = parts[i];
-            }
-            if (word == null) return 0f;
-            if (num <= 0) num = 1;
-
-            switch (word)
-            {
-                case "attack": case "melee": return num * 1.0f;
-                case "ranged": return num * 1.0f;
-                case "health": return num * 0.7f;
-                case "armour": case "armor": return num * 0.6f;
-                case "cost": return num * 0.5f;
-                default: return TraitScore(word);      // 关键词：整条载荷算一份（原版那张表）
-            }
+            // ✅ 已复刻（2026-11-05 · B145-E26 · 判据 = 判据/AI打分与动作选择_第2轮.md §6·6）
+            // 原版 `ScoreFromPlayingNow` 对每一条 scoring criterion 各算一次再累加（`fVar7 += fVar6`），
+            // 而一条 criterion 只带一个 buff、一个 buff 只有**一个** trait（`AI__ScoreFromBuff.c`
+            // 只读 `+0x3c` 那一个 trait id）⇒ 载荷里写了几项（`+1 attack and unstoppable`）
+            // 就得**逐项各计一次、再相加**。
+            //
+            // 原来只取「第一个非数字词」⇒ 后半截静默丢分（`armour 2 and flank` 的 `flank`、
+            // `sniper and +1 ranged` 的 `+1 ranged`，都从来没有计过）。
+            //
+            // 拆分口径 = 与 `GivePayload.Parse` 同源（先 `, ` 再 ` and `，见 `SplitPayloadSegments`），
+            // ⛔ 别在这儿另写第二份拆分规则（两处写同一条规则 = 迟早不一致）。
+            //
+            // ⚠️ 属性增减益的系数（1.0 / 0.7 / 0.6 / 0.5）与「取绝对值」都是**我们配的**，不是原版：
+            // 本函数不知道这一下是打自己人还是打敌人（方向由调用方的 op 决定）⇒ 负值也按量计。
+            // 关键词那半**照原版的表**（`TraitScore`），见 `PayloadSegmentScore`。
+            // 逐段规则：段内数字求和；段内有属性词 ⇒ 属性系数；否则把整段交给 `GivePayload`
+            // 归一成关键词再查 `TraitScore`。认不出的段 = 0 分（⛔ 不猜，与 `default:` 同口径）。
+            string s = payload.Trim().ToLowerInvariant().Replace("[", "").Replace("]", "");
+            float sum = 0f;
+            foreach (string seg in SplitPayloadSegments(s))
+                sum += PayloadSegmentScore(seg);
+            return sum;
         }
 
         /// <summary>载荷里是不是给了 `fast`（= 原版 `ScoringOption.SumValueOfGivingCharge`
@@ -1915,23 +1915,23 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// 一口气把这回合打完（自检里跑完整对局用它；表现层要分部播的话别用）。
-        /// 难度固定 <see cref="AiDifficulty.Hard"/> —— **不掷骰**，让批量自检只受种子影响。
+        /// **兼容壳**：一口气把这回合打完（自检里跑完整对局 / `-wfdrive` 用它）。原版 `AI.PlayTurn` **没有循环** ——
+        /// 这里的 `for` 是**调用方那一层**的等价物（原版循环住在 `BattleManager.&lt;PlayAi&gt;d__399` 协程里）。难度固定 `Hard`，不掷骰。
         /// </summary>
         public static void PlayTurn(BattleContext ctx)
         {
-            // 🆕 2026-09-29（Q6 后半段）：**引擎拒绝 ⇒ 退次优，不是收手**。
+            // 🆕 2026-09-29（Q6 后半段）：**引擎拒绝 ⇒ 退次优，不是收手**（排除名单住在 `PlayTurnStep` 里）。
             //   原版（我们照抄的那个形状）是 `ExecuteAction` 失败就 `break` ⇒ 一条被拒整回合就停。
             //   现在把被拒的那条**记进排除名单**再挑下一条；连着被拒 `MaxRejectedActions` 条才收手。
             //   ⚠️ 每次都用**新的** `NextAction`（局面可能已被前一次失败改过）。
             var rejected = new List<AiAction>();
-            for (int guard = 0; guard < 64 && ctx != null && !ctx.IsOver; guard++)
+            for (int guard = 0; guard < PlayTurnGuard && ctx != null && !ctx.IsOver; guard++)
             {
-                AiAction a;
-                if (!NextAction(ctx, AiDifficulty.Hard, rejected, out a)) break;
-                if (ExecuteAction(ctx, a)) { rejected.Clear(); continue; }
-                rejected.Add(a);
-                if (rejected.Count >= MaxRejectedActions) break;
+                // 一步 = 挑一条最好的 → 那条不是 `endTurn` 就执行它（原版 `AI__PlayTurn.c:24-31`）
+                // 返回 false = 收手（最佳是 `endTurn` / 没动作 / 连着被拒到 `MaxRejectedActions`）
+                bool more = PlayTurnStep(ctx, AiDifficulty.Hard, rejected);
+                if (more) continue;                                   // 还有得做 ⇒ 接着走下一步
+                break;                                                // ← 收手
             }
         }
 
@@ -2177,10 +2177,10 @@ namespace RuleEngine
         ///    `+0x48 / +0x50` 两格）；`AiScoring.BestAttackScore` 那条链目前只有近战 Δ
         ///    （远程 Δ 传 0 —— 因为 `GetPotentialBuffedAttackActions` 只枚举**近战** action，
         ///    远程那一支进了门之后也会被 `atk &lt;= 0` 挡掉，净结果相同）；
-        /// ⑤ **为什么「不带 buff」那一档不套本闸**：原版 `AI__ScoreFromBestAttack.c:21`
-        ///    **只调一次** `GetPotentialBuffedAttackActions(manager, actingCard, buff)`（带 buff），
-        ///    拿到的列表逐条打分取 max；option 5 里那个「不带 buff」的对照分是我们自己重建的
-        ///    （判据里没有对应方法体），所以那一侧**不套本闸**（也不再有 `Exhausted` 闸，见 ③ 的 `B140_WN` 裁决）。</para>
+        /// ⑤ ✅ **「不带 buff」那一档【也】套本闸**（2026-11-05 `B145-E4` 回 `.c` 定案，推翻旧说法）：原版
+        ///    `AI__ScoreFromCriteria.c:181-204` 的 case 5 对每个目标调**两次** `ScoreFromBestAttack`，第二次的 buff 实参是现构的
+        ///    **空 buff 对象**（`:197` `thunk_FUN_18042f4a0` + `___ctor(…,0)`，**不是 null**）⇒ 照样进 `GetPotentialBuffedAttackActions`
+        ///    → 本闸按 Δ=0 判（`mightAct ∧ 攻或远≥1 ∧ state==2`）。⛔ 别改回「对照档不过闸」。</para>
         ///
         /// <para>**可观察量**：`bash d:/4/Unity/工具/ruleprobe.sh ai &lt;卡id&gt;` 的 `[出牌分·逐条]`
         /// 那一行 `cardTarget[0] option=5 … mightAct=真 M / 假 K` —— `M`/`K` 是这张卡
@@ -2256,5 +2256,63 @@ namespace RuleEngine
             RuleCore.StableSortByPlayOrder(slots, s => board[s].PlayOrder);
             return slots;
         }
+
+        // ==================================================================
+        //  ⑨ **一步式**出口 —— 原版 `AI.PlayTurn` 的真实形状（`B145-E14` · 施工单 A-05）
+        //
+        //  判据 = `d:/2/tools/decomp_full/AI__PlayTurn.c`（41 行，**全文无循环**）：
+        //    · `:17` `playedFirstComboCard = false`（实例字段 `+0x10` 的写点；全量反编译里**只有这一处**）
+        //    · `:19-41` 枚举动作表（`:19` `GetAvailableActions`）、`:35-40` 逐条 `GetActionScore` 写进 `actionScore`(`+0x28`)
+        //    · `:24` `TweakAvailableActions`（唯一难度旋钮）→ `:25` `SelectBestAction`
+        //    · `:28-30` 选中那条 **`actionType`(`+0x10`) `!= 4`**（`endTurn`）才 `ExecuteAction`
+        //    · `:31-33` **返回 `actionType != 4`** ⇒ true =「还有得做，接着调」，false =「收手」
+        //  循环住在调用方：`BattleManager_<PlayAi>d__399__MoveNext.c:207-208` 把返回值写回 `param_1 + 0x28`，
+        //  而 `:26-27` 的 `while (*(char *)(param_1 + 0x28) != '\0')` 就是那个循环；退出后 `:110-118`
+        //  等 `AIBotsConfig.GetEndTurnDelay` → `:232-237`（`case 8`）的 `BattleManager.AddEndTurnAction`。
+        //  ⇒ ⛔ **原版 `PlayTurn` 没有循环、没有 64 上限**；那两样是我们自检/兼容侧的兜底，
+        //    只住在 <see cref="PlayTurn"/> 里（那儿写着理由），**别塞回 <see cref="PlayTurnStep"/>**。
+        //
+        //  ⚠️ 放在类尾是**故意的**：本文件被账按 `文件:行号` 引用 50+ 处，往中间插行 = 一片漂移。
+        // ==================================================================
+
+        // ✅ 已复刻（2026-11-05 · B145-E14 · 判据 = `d:/2/tools/decomp_full/AI__PlayTurn.c:24-33` 一步式语义）
+        /// <summary>原版 `AI.PlayTurn` 的**一步**：挑一条最好的动作，那条不是 `endTurn` 就执行它。
+        ///
+        /// 返回 **true = 还有得做**（挑到了动作且不是 `endTurn`，这一步已执行/已尝试执行一条），
+        /// **false = 收手**（最佳是 `endTurn` / 没动作可做 / 连着被拒到 <see cref="MaxRejectedActions"/>）。
+        /// 调用方照原版协程那样 `while (PlayTurnStep(...)) { }` 就能打完整个 AI 回合 ——
+        /// **循环属于调用方**，⛔ 别在这里面再套一层（原版 `AI__PlayTurn.c` 全文没有循环）。
+        ///
+        /// <paramref name="rejected"/> = 「退次优」排除名单（2026-09-29 Q6 的用户口径；原版一被拒就收手）：
+        /// 被引擎拒的那条会记进去，**下一步重新枚举时先剔掉**；走成一条就清空。
+        /// 传 `null` 时**没有排除表** ⇒ 一条被拒就返回 false（否则下一步还会挑到同一条 ⇒
+        /// 调用方的 `while` 变死循环 —— ⛔ 不许那样）。
+        /// </summary>
+        public static bool PlayTurnStep(BattleContext ctx, AiDifficulty diff, IList<AiAction> rejected)
+        {
+            if (ctx == null || ctx.IsOver) return false;
+            AiAction a;
+            if (!NextAction(ctx, diff, rejected, out a)) return false;   // 最佳是 endTurn / 没有动作可做
+            if (ExecuteAction(ctx, a))
+            {
+                if (rejected != null) rejected.Clear();                  // 走成一条 ⇒ 下一步重新挑最好的
+                return true;
+            }
+            if (rejected == null) return false;                          // 没有排除表 ⇒ 收手（见上）
+            rejected.Add(a);
+            return rejected.Count < MaxRejectedActions;
+        }
+
+        /// <summary>同上，不带排除名单（`rejected = null`）—— 一步；被拒即收手。</summary>
+        public static bool PlayTurnStep(BattleContext ctx, AiDifficulty diff)
+        {
+            return PlayTurnStep(ctx, diff, null);
+        }
+
+        /// <summary>`PlayTurn` 兼容壳的**步数上限**（防「动作执行成功但状态没变」那种死循环）。
+        /// ⚠️ **原版没有这个上限**（`AI__PlayTurn.c` 全文无循环）—— 它和 <see cref="MaxRejectedActions"/>
+        /// 一样是**我们自己加的兜底**（🔶 自己设计（非原版）：自检侧防死循环 · 判据在本地 `.c` 里不存在 ·
+        /// 2026-09-17 重写时定的），⛔ 别当成原版判据、也别拿去证明复刻程度。</summary>
+        public const int PlayTurnGuard = 64;
     }
 }

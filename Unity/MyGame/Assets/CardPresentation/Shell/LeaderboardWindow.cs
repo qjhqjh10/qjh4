@@ -110,7 +110,7 @@ namespace CardPresentation
         // ============================================================ 真值（绝对画布像素）
         // ---- 三扇全屏弹窗共用那一套（三份普查逐位相同）----
         static readonly PxRect DarkBgR = new PxRect(-1327.30f, -746.18f, 3247.30f, 1826.18f);
-        static readonly Color DarkBgTint = new Color(0f, 0f, 0f, 0.773f);
+        static readonly Color DarkBgTint = new Color(0f, 0f, 0f, 0.7725490f);   // ✅ 已复刻（2026-11-05 · B145-E7 · 判据 = 原版 `Menu Dark Background` 的 `m_Color.a: 0.77254903` = 197/255）
 
         static readonly PxRect TabBarR = new PxRect(38.62f, 104.70f, 210.59f, 928.48f);
         const float TabL = 45.59f, TabR = 210.59f, TabTop = 104.70f, TabH = 157.684f;

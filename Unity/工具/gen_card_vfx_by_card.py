@@ -2072,7 +2072,18 @@ def main():
     ap.add_argument("--check", action="store_true",
                     help="只算不写：与盘上两份产物逐字节比对；一致 rc=0、不同打印差异摘要并 rc=1"
                          "（对拍要固定 --generated-at）")
+    ap.add_argument("--write", action="store_true",
+                    help="显式落盘（唯一会写盘的档；不带 --write/--check = 只打印用法 + rc 2）")
     args = ap.parse_args()
+    # 🔴 2026-11-05（`B145-E27`）：动词参数改成必填（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+    #   改前：裸跑 = 直接覆盖两份产物。现在裸跑只打印用法 + rc 2。
+    if not (args.check or args.write):
+        print("用法：python 工具/gen_card_vfx_by_card.py {--write | --check} [--quiet] [--no-truth]"
+              " [--generated-at \"...\"]\n"
+              "  --write  重新生成并写盘（card_vfx_by_card.json：数据件 + 运行期副本）\n"
+              "  --check  只算不写：与盘上两份产物逐字节比（一致 rc=0 / 不一致 rc=1）\n"
+              "  🔴 不带任何动词 = 只打印本用法并以退出码 2 退出")
+        return 2
     t0 = time.time()
 
     bundle_src = find_bundle_src()

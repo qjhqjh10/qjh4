@@ -641,11 +641,19 @@ def canon(doc):
 
 
 def main():
+    check = "--check" in sys.argv
+    write = "--write" in sys.argv
+    # 🔴 2026-11-05（`B145-E27`）：动词参数改成必填（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+    if not (check or write):
+        print("用法：python 工具/gen_card_chat_intro.py {--write | --check}\n"
+              "  --write  重新生成并写盘（数据件 + 运行期副本）\n"
+              "  --check  只比不写（与盘上两份产物逐字节比；不一致 ⇒ rc=1）\n"
+              "  🔴 不带任何动词 = 只打印本用法并以退出码 2 退出")
+        return 2
     full_doc, rt_doc, counts, rt_missing = build()
     full_text = canon(full_doc)
     rt_text = canon(rt_doc)
 
-    check = "--check" in sys.argv
     if check:
         ok = True
         for p, t in ((OUT_FULL, full_text), (OUT_RT, rt_text)):

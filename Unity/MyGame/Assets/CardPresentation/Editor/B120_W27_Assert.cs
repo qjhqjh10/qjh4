@@ -17,7 +17,7 @@
 //    `WFModuleTransformModifier` 的 `updateScaleByBoardPosition` 支）。
 //
 // ============================ 怎么用 ============================
-//   `B120_W27_Assert.Run();`   （静态类 + 无参 `Run()`；**本文件尚未接线**，宿主与聚合行由调度台决定）
+//   `B120_W27_Assert.Run();`   （静态类 + 无参 `Run()`；**已接线** —— 聚合行 = `CardPresentation/Editor/BattleScene.cs:47035` 的 `B120_W27_Assert.Run(); pass += …; fail += …`，跑 `BattleScene.Run` 时执行；⚠️ 2026-11-05 `B145-E9` 就地订正：原来这里写「本文件尚未接线」，与实际不符）
 //   本件**不建任何 GameObject**（纯源码 / 纯静态函数断言）⇒ 编辑模式与播放器都能跑。
 //
 // ============================ 🔴 灭自证（改哪一处会让哪一条红）============================
@@ -53,8 +53,8 @@ public static class B120_W27_Assert
     /// <summary>失败条数（宿主可读）。</summary>
     public static int Fail { get { return _bad; } }
 
-    /// <summary>6 处卡换层点的**契约值**（原版 `SetUnitInPlayLayer` 那一路的 6 个呈现入口）。</summary>
-    static readonly int[] CardLayerSites = { 13894, 25926, 26021, 26491, 26765, 37921 };
+    /// <summary>6 处卡换层点的**契约值**（原版 `SetUnitInPlayLayer` 那一路的 6 个呈现入口）。🔴 2026-11-05（`B145-E9` · 活状态表 `A-28`）：上游插行 ⇒ 六个落点整体漂移，据【现读】重钉为 13907 / 25969 / 26064 / 26534 / 26808 / 37992（旧值 13894 / 25926 / 26021 / 26491 / 26765 / 37921 现在分别指向 `handoff.Apply = …` / 注释 / `startScale` / `GetLastPlayed` / 血量回写注释 / 空行 ⇒ 全不是换层语句）；判据 = `BattleDriver.cs` 里 `SetLayer(ArenaSlots.BoardCardLayer)` **恰 6 处**、逐行现读确认；A1 的计数仍为 6。</summary>
+    static readonly int[] CardLayerSites = { 13907, 25969, 26064, 26534, 26808, 37992 };
 
     static void Check(bool ok, string what)
     {

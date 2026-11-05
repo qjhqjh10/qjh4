@@ -64,17 +64,31 @@ def load_json(path):
         return json.load(f)
 
 
+def json_text(obj):
+    """与 `dump_json()` 逐字节相同的文本（LF 结尾）。"""
+    text = json.dumps(obj, ensure_ascii=False, indent=1)
+    return text + "\n"
+
+
 def dump_json(path, obj):
     """整篇写（新件；行尾固定 LF）。先算好字符串再写，避免半截文件。"""
-    text = json.dumps(obj, ensure_ascii=False, indent=1)
+    text = json_text(obj)
     with io.open(path, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)
-        f.write("\n")
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--report-only", action="store_true", help="只打印覆盖情况，不写文件")
+    # 🔴 2026-11-05（`B145-E27`）：动词参数改成必填（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+    #   改前：裸跑 = 直接覆盖两份 `lore_zh+en.json`。现在裸跑只打印用法 + rc 2。
+    #   `--report-only` 保留为 `--dry` 的旧别名（它原本就是「只打印、不写」）。
+    ap = argparse.ArgumentParser(
+        description="Lore 两族风味文本 → 数据件（🔴 必须显式选一个动词）")
+    g = ap.add_mutually_exclusive_group(required=True)
+    g.add_argument("--write", action="store_true", help="重新生成并写盘")
+    g.add_argument("--check", action="store_true",
+                   help="只比对、不写盘：重算产物与盘上逐字节比（一致 rc=0 / 不一致 rc=1）")
+    g.add_argument("--dry", action="store_true", help="只跑计算、打印读数，零写盘")
+    g.add_argument("--report-only", action="store_true", help="（--dry 的旧别名）只打印覆盖情况，不写文件")
     args = ap.parse_args()
 
     src = load_json(SRC)
@@ -114,8 +128,7 @@ def main():
     missing_uid = [b.get("name") for b in backs if (b.get("uniqueId") or "") not in cl]
     print("  未命中样本：%s" % ", ".join(missing_uid[:8]))
 
-    if args.report_only:
-        return
+    dry = args.dry or args.report_only
 
     # ---- 落盘 ①：全量台账（与官方表同形）----
     full = collections.OrderedDict()
@@ -124,8 +137,6 @@ def main():
     full["_langs"] = ["en", "zh-CN"]
     full["_count"] = len(picked)
     full["terms"] = picked
-    dump_json(OUT_FULL, full)
-    print("written: %s (%d 条)" % (OUT_FULL, len(picked)))
 
     # ---- 落盘 ②：运行时件（entries 数组，JsonUtility 可读）----
     entries = [{"k": k, "en": v[0], "zh": v[1]} for k, v in picked.items()]
@@ -135,7 +146,31 @@ def main():
     res["source"] = SRC
     res["count"] = len(entries)
     res["entries"] = entries
-    dump_json(OUT_RES, res)
+
+    full_text = json_text(full)
+    res_text = json_text(res)
+
+    if dry:
+        print("[dry] 未写盘；目标 = %s（%d 条）· %s（%d 条）"
+              % (OUT_FULL, len(picked), OUT_RES, len(entries)))
+        return 0
+
+    if args.check:
+        rc = 0
+        for p, text in ((OUT_FULL, full_text), (OUT_RES, res_text)):
+            old = io.open(p, "rb").read() if os.path.isfile(p) else b""
+            same = old == text.encode("utf-8")
+            print("[check] %s 与盘上逐字节一致 = %s（%d 字节）" % (p, same, len(text.encode("utf-8"))))
+            if not same:
+                rc = 1
+        return rc
+
+    with io.open(OUT_FULL, "w", encoding="utf-8", newline="\n") as f:
+        f.write(full_text)
+    print("written: %s (%d 条)" % (OUT_FULL, len(picked)))
+
+    with io.open(OUT_RES, "w", encoding="utf-8", newline="\n") as f:
+        f.write(res_text)
     print("written: %s (%d 条)" % (OUT_RES, len(entries)))
 
     meta = OUT_RES + ".meta"
@@ -150,6 +185,7 @@ def main():
             f.write("  assetBundleName: \n")
             f.write("  assetBundleVariant: \n")
         print("written: %s (guid %s)" % (meta, guid))
+    return 0
 
 
 if __name__ == "__main__":

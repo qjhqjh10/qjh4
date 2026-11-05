@@ -10764,14 +10764,21 @@ namespace CardPresentation
         /// ⚠️ **顺序 ≠ 卡池顺序**：原版是**先随机抽 `min(maxTargets, 池)` 张、再排这 ≤maxTargets 张**
         ///   （`GetChoiceOptions.c:46-70` 抽 → `:110` 排）⇒ 排序只决定「抽出来的那几张怎么摆」。
         /// ⚠️ `List.Sort` 是**不稳定**排序；这里三个键（cost / name / id）在池内唯一 ⇒ 无歧义。
-        /// ⚠️ 名字用 <see cref="CardText.Name(CardDef)"/> = **面板上真显示的那一个**
-        ///   （`ToCardData` 的 `title` 走同一处）——原版取的也是「本地化后的卡名」。
+        /// 🔴 **2026-11-05（`B145-E3` 就地订正 · 铁律 5）：名字取【固定英文名】，⛔ 不是面板上显示的那个本地化名。**
+        ///   本行原文写「名字用 `CardText.Name(CardDef)` = 面板上真显示的那一个 …… 原版取的也是本地化后的卡名」——
+        ///   **判据不成立**：`cpp2il/out_il2csharp/Assembly-CSharp/BattleManager.cs:9071-9101` 的 `SortByCostAndName`
+        ///   逐句是 `a.GetLocalizedCardName("English")` / `b.GetLocalizedCardName("English")` ⇒ **语言参数写死 `"English"`**
+        ///   （`.c:26/:28` 的 `RawCardScript__GetLocalizedCardName(param_2, DAT_184299380)`，那个字面量就是 `"English"`）。
+        ///   ⇒ 中文档下原版**仍按英文字母序**排；我们原来按中文名排 ⇒ 顺序不同（`B144_W3_B129` 二·#19 说的就是这个）。
+        /// ⚠️ `.ToLower()` 与 `CompareTo` **仍是当前文化**（`String.ToLower()` / `String.CompareTo(string)` 都是文化敏感），
+        ///   这一点原文没错、照旧。
+        /// ⚠️ 先 **`manaCost` 升序**、再名字、再 `uniqueId` 的**三段顺序**也在上面那三行里（`a.manaCost > b.manaCost ⇒ 1`）。
         /// </summary>
         static int CompareChoiceOptions(CardDef a, CardDef b)
         {
             int c = a.Cost.CompareTo(b.Cost);
             if (c != 0) return c;
-            string an = CardText.Name(a), bn = CardText.Name(b);
+            string an = a.Name, bn = b.Name;   // ✅ 已复刻（2026-11-05 · B145-E3 · 判据 = `cpp2il/out_il2csharp/Assembly-CSharp/BattleManager.cs:9071-9101` 的 `SortByCostAndName`：`GetLocalizedCardName("English")` —— **固定英文名**，⛔ 不是 `CardText.Name` 那个本地化显示名）；`.ToLower()` / `CompareTo` 仍是当前文化（与 `String.ToLower()` / `String.CompareTo` 一致）
             c = string.Compare((an ?? "").ToLower(), (bn ?? "").ToLower(),
                                System.StringComparison.CurrentCulture);
             if (c != 0) return c;
@@ -15291,6 +15298,11 @@ namespace CardPresentation
 
             bool melee = RuleCore.FieldAttack(Ctx, _me, u, false) > 0;
             bool ranged = RuleCore.FieldAttack(Ctx, _me, u, true) > 0;
+            // ✅ 已复刻（2026-11-05 · B145-E3 · 判据 = `BattleManager__CanAttackCard.c:17-43`）：开攻击选择器前的**两道闸** ——
+            //   ① 攻方被 `cantAttack`(150) / `nonCombatant`(880) 禁攻（`.c:24` 的 `HasCurrentTrait(0x96)` / `:35` 的 `0x370`，与我们 `RuleCore.AttackBannedByTraits` **同一份口径**）；
+            //   ② 攻方 `cardState` ∉ {2 inPlay, 3 inPlayAttacking, 17 inPlayAminingAttack}（`.c:37-40` 的 `*(+0x228) == 2 || IsAttacking()`，而 `CardScript__get_IsAttacking.c` = `3 || 0x11`）。
+            //   任一命中 ⇒ **只摘掉近战/远程两格，技能钮照旧**（原版这两道在 `CanAttackCard` 里，而 `CanUseActiveAbility` 是另一个函数，互不影响）。
+            if ((melee || ranged) && !AttackSelectorAllowed(u, Ctx)) { melee = false; ranged = false; }
             // 「主动技能」这一格**四种来源**：① `Ability:`（我们自定文法）· ② 替代行动（Duty/Pray/Ferocity/Agenda，2026-09-13 A2）· ③ 誓约 · ④🆕2026-10-27 **原版通用那一格** `activeAbility`。
             //   ④ 的判据 = `CanUseActiveAbility.c` 里**没有任何卡型/关键词要求**（`SOR66主动能力_判定.md` §2·6）；而前三条全部以五个 trait 之一为载体 ⇒
             //   「五缺」的卡（现池只有 `SOR66`）落不到任何一条上 —— 那正是它没有入口的唯一原因（判据同文件 §3·2）。
@@ -25517,14 +25529,17 @@ namespace CardPresentation
             //     那一改方向对，但**这一条本身不该存在**；档位语义现在只由 `PlayHitFrameShake` 用。
             //   ⛔ 别把它加回来（`Editor/BattleScene.cs` 的 R19⑥ 已改成反向断言「后坐不震」）。
 
-            // 伤害 0 = 被挡下（原版也发事件）—— 那一条不飘字，免得屏幕上冒出「-0」
+            // 🔴 **2026-11-05（`B145-E3` 就地订正 · 铁律 5）**：这里原来写「伤害 0 = 被挡下（原版也发事件）—— 那一条不飘字」——
+            //   **判据不成立**：原版 `CardScript._ReceiveDamage_d__381__MoveNext.c:54` 把 `+0x35` 置 **1**（默认就弹），
+            //   `:313` 是 `if (+0x35 != 0) BattleCardUI__DamageReceived(amount)`，**`amount` 根本不参与判断** ⇒ **0 也弹 `0`**。
+            //   （`+0x35` 只在 `:186` 被 `dodge(0xf0) / invulnerable(0x136) / shield(0x50)` 那一支清 0 —— 见 `ShowHitDamagePop` 的 doc。）
             // 🔴 **2026-10-17（`A1213②`）**：伤害 / 治疗走**两条独立路径**（原版是两颗不同的 TMP 组件，
             //    四格、自己的 RT 缩放、`m_isOrthographic`（0 / 1）都不同 ⇒ 有效字号比 **1.21 : 1**）。
             //    ⚠️ **2026-10-18（`N54②`）订正**：这里原来写「12.1 : 1」—— 那是漏了 3D TMP 的
             //    `isOrthographic` ×0.1 那一跳（两颗都是 3D `TextMeshPro`，不是 UGUI）。实现在 `Battle/PopNumber.cs`，
             //    判据（两颗 MB 的 pid 与逐字段读数 + 绝对字号的换算链）在它的文件头。
             //    ⛔ 别再并回「一颗函数 + 一个 bool」。
-            if (e.Amount != 0)
+            if (ShowHitDamagePop(e.Amount, e.DamageFullyBlocked))   // ✅ 已复刻（2026-11-05 · B145-E3 · 判据 = `CardScript._ReceiveDamage_d__381__MoveNext.c:54`（`+0x35 = 1` 默认）＋ `:313`（`if (+0x35 != 0) DamageReceived(amount)`）⇒ **`amount` 不参与判断、0 也弹 `0`**）：改前是 `if (e.Amount != 0)`（伤害被压到 0 就不飘字），已删。✅ 2026-11-05（`B145-E17`）：第二位 `e.DamageFullyBlocked` = 原版 `:185-187` 那三条免伤 trait（dodge/invulnerable/shield）挡下 ⇒ 不弹（残留已收口）
             {
                 // 🆕 2026-10-20（`W58`）：**治疗不再走这里**（负数 `Hit` 已在函数头 return；
                 //   真正的治疗走 `EvtKind.Heal` → `PlayHealFeel` → 卡上 `HealText`）。
@@ -28839,7 +28854,7 @@ namespace CardPresentation
             //   `PlayerNameText` 文本框 x[112.6,361.9] y[977.0,1021.9]、**H=居中**、fs 35 →
             //     文字中心 (237.25, 999.45)；`EnemyNameText` x[72,435.7] y[40.9,86.9]（左右 margin 43.26/70.58）
             //     → 有效文字中心 (240.19, 63.9)。所以文字**要按中心摆**，不是左对齐。
-            var dim = new Color(0.86f, 0.88f, 0.93f);
+            var dim = DimInk;   // 🔴 2026-11-05（`B145-E3` · 铁律 6）：色值搬到类尾的 `public static readonly Color DimInk`（自检要读**同一份**），**数值一个字没改** `(0.86, 0.88, 0.93)`。
             // 名牌尺寸：原版 `NameBackground` 的**屏幕框 = 348.56×101.04**（= 裸 `m_SizeDelta` 435.7×126.3
             // × 父 `EnemyName`/`PlayerName` 的 `m_LocalScale` **0.8**，见 `HudPlateScale`）。
             // 🔴 **2026-10-19（A1512 + A1254 同批）**：这里原来写 `435.7×126.3` —— 那是**裸 `m_SizeDelta`、
@@ -28864,7 +28879,7 @@ namespace CardPresentation
             //    再扣 TMP 的左右 margin（`MonoBehaviour_4031.json` 的 `m_margin = (43.25634765625, 0, 70.57666015625, 0)`，
             //    画布 px 值 = ×0.8）⇒ **文字实际居中于 239.099595 − 0.8×13.66015625 = 228.17147**。
             //    ⚠️ 我们自己那版 `Label` 不实现 TMP margin，所以要把**中心**摆到「文字实际居中」那一处。
-            _enemyText = Hud(root, "", 228.17147f / 1920f, 1f - 66.88264f / 1080f, 3, dim, new Vector2(0.5f, 0.5f), "EnemyPlateText",
+            _enemyText = Hud(root, "", 228.17147f / 1920f, 1f - 66.88264f / 1080f, 3, PlateInk, new Vector2(0.5f, 0.5f), "EnemyPlateText",   // ✅ 已复刻（2026-11-05 · B145-E3 · 判据 = `Battle Arena 1.unity` 的 `EnemyNameText`(MB3834) `m_fontColor=(1,1,1,1)` ＋ 材质 `_FaceColor=(1,1,1,1)`）：名牌文字**纯白**；⛔ 别拿 `dim`/`DimInk` 来换（那是 HandLabel / pileLabel 那三处）
                              290.94f, 36.84f, 2f, 35f, 36f, 0, TmpFont.Face.LatinUi);
             // 我方那块底（`NameBackground`，与敌方同一贴图/尺寸，中心压在 `PlayerInfo` 正中）：
             // 🔴 **2026-10-19（A1512 + A1254 同批）**：见 `_enemyPlate` 那一段 —— 尺寸 435.7×126.3 → **348.56×101.04**
@@ -28877,7 +28892,7 @@ namespace CardPresentation
             // 🔴 **2026-10-19（A1512）：同样「框对了、中心没乘 0.8」** —— 原来的 `0.123568` = 237.25 px
             //    来自 0827 的 x[112.6,361.9]（未乘 0.8），真值 = `menu_dump` 的框心 **(225.74343, 1002.47582)**
             //    （`MonoBehaviour_3944.json` 的 `m_margin` 是全 0 ⇒ 不用像敌侧那样再扣 margin）。
-            _myText = Hud(root, "", 225.74343f / 1920f, 1f - 1002.47582f / 1080f, 3, dim, new Vector2(0.5f, 0.5f), "PlayerPlateText",
+            _myText = Hud(root, "", 225.74343f / 1920f, 1f - 1002.47582f / 1080f, 3, PlateInk, new Vector2(0.5f, 0.5f), "PlayerPlateText",
                           199.38f, 35.93f, 2f, 35f, 36f, 0, TmpFont.Face.LatinUi);
 
             // ---- 我方名牌上的**里程碑**：原版 `LeftArea/PlayerInfo/Milestones` = `BattleScoreUiManager` ----
@@ -33713,10 +33728,14 @@ namespace CardPresentation
         /// <summary>自检用：演出在演吗。</summary>
         public bool AiTargetingAnimActive { get { return _aiAnimAct != null; } }
 
-        /// <summary>自检用：把对手那一步也走完（省得等延时）</summary>
+        /// <summary>自检用：把对手那一步也走完（省得等延时）。
+        /// 🔴 **一次调用仍然打完整个 AI 回合**（`BattleAutoDrive` / 各处自检按这个契约反复调）：循环留在这一层，
+        /// 一步一格地调 <see cref="SimpleAI.PlayTurnStep"/> —— 就是原版 `BattleManager.&lt;PlayAi&gt;d__399__MoveNext.c:26,207` 那个 `while`。</summary>
         public void SimulateAiTurn()
         {
-            SimpleAI.PlayTurn(Ctx);
+            var rejected = new List<AiAction>();
+            int guard = 0;
+            while (guard++ < SimpleAI.PlayTurnGuard && SimpleAI.PlayTurnStep(Ctx, AiDifficulty.Hard, rejected)) { }
             if (Ctx.IsOver) { RefreshAll(); return; }
             // ⚠️ **走同一个 `EndTurnAndAdvance`**（不是图省事：录像那条判据只有一处，
             //    见它的注释 —— 这里各写一份的话，自检里录的局回放不出来）
@@ -42504,6 +42523,63 @@ namespace CardPresentation
         public bool ChatButtonInteractable
         {
             get { return _chatCooldown <= 0f && !(_chatPopup != null && _chatPopup.Visible); }
+        }
+
+        // ==================================================================
+        //  🆕 2026-11-05（执行代理 `B145-E3`）：A-09 / A-12 / A-13 三条的**判据口**
+        //  ⚠️ 全部追加在**类尾**（铁律：`BattleDriver.cs` 非 partial、235+ 账落点按行号引用；
+        //     本文件有两个顶层类，最末那对 `}` 关的是 `ChoicePanelPool` —— 所以⛔ 别追加到文件最末）。
+        // ==================================================================
+
+        /// <summary>**名牌文字色 = 纯白**（敌我两边 `EnemyPlateText` / `PlayerPlateText`）。
+        /// 判据 = `Battle Arena 1.unity` 的 `PlayerNameText`(MB3747) / `EnemyNameText`(MB3834) `m_fontColor = (1,1,1,1)`，
+        /// 材质 `_FaceColor = (1,1,1,1)`。⛔ 别拿它去换 <see cref="DimInk"/>（那是手牌行 / 牌堆行那一档）。</summary>
+        public static readonly Color PlateInk = new Color(1f, 1f, 1f);
+
+        /// <summary>**手牌行 `HandLabel` / 牌堆 `pileLabel` / `foePileLabel` 的蓝灰**（原值 `(0.86, 0.88, 0.93)`）。
+        /// ⚠️ 2026-11-05（`B145-E3`）：它原来是 `BuildHud` 里的**局部 `dim`**，搬到类尾只为让自检读到**同一个值**
+        /// （铁律 6：判据只此一处）；**数值一个字没改**。⛔ 别把名牌改成它（见 <see cref="PlateInk"/>）。</summary>
+        public static readonly Color DimInk = new Color(0.86f, 0.88f, 0.93f);
+
+        /// <summary>`Hit` 事件在表现层要不要飘伤害数字（`PlayHitFeel` 的**唯一决策口**）。
+        ///
+        /// <para>**判据** = `decomp_full/CardScript._ReceiveDamage_d__381__MoveNext.c:54`（`+0x35 = 1` 默认 ⇒ 默认就弹）
+        /// ＋ `:313`（`if (*(char*)(param_1 + 0x35) != '\0') BattleCardUI__DamageReceived(amount)`）
+        /// ⇒ **`amount` 不参与判断**：0 也弹 `0`（改前我们的 `if (e.Amount != 0)` 是**自加的闸**）。</para>
+        ///
+        /// <para>⚠️ **唯一不弹的负档**：`amount &lt; 0` = 「幸存者广播」标记（原版 `CardScript.__UseSurvivor.c:36-40`
+        /// 直接写血、**不进** `_ReceiveDamage`）—— 调用点前面已有 `if (e.Amount &lt; 0) return;`，这里再表达一次
+        /// 是为了让自检能钉住它（⛔ 别把它写成 `return true` 的恒等式）。</para>
+        ///
+        /// <para>✅ **2026-11-05（执行代理 `B145-E17`）已补上原版 `:186` 那一档**：
+        /// `BattleEvent.DamageFullyBlocked` = 原版 `+0x35` 被清 0 的三种情况 ——
+        /// `dodge(0xf0=240)` / `invulnerable(0x136=310)` / `shield(0x50=80)`
+        /// （引擎在 `RuleCore.ApplyDamageCore` 那两条挡下口 `EmitHit(ctx, u, 0, fullyBlocked: true)` 里置位，**早于**它把 `shield`/`dodge` 摘掉）。⇒ 第一位形参 `amount` 仍按原版不参与判断，但 `fullyBlocked` 为真时**不弹**。
+        /// ⚠️ **空投舱 / 堡垒整份吃下【不】置这一位** —— 原版 `:186` 那三条里没有它们 ⇒ 那两档照旧弹 `0`
+        /// （可达性今天 = 0，判据仍按二进制留）。</para></summary>
+        public static bool ShowHitDamagePop(int amount, bool fullyBlocked = false) { return amount >= 0 && !fullyBlocked; }   // ✅ 已复刻（2026-11-05 · B145-E17 · 判据 = `CardScript._ReceiveDamage_d__381__MoveNext.c:54`（`+0x35 = 1`）＋ `:185-187`（dodge/invulnerable/shield ⇒ `+0x35 = 0`）＋ `:313`（`if (+0x35 != 0) DamageReceived(amount)`））：`amount` 不参与判断、0 也弹；`fullyBlocked` 为真 ⇒ 不弹
+
+        /// <summary>开**攻击**选择器前的两道闸（原版 `decomp_full/BattleManager__CanAttackCard.c:17-43`；
+        /// 对应 `:24` / `:35` 的两个禁攻 trait，以及 `:37-40` 的 `cardState ∈ {2, 3, 17}`）。
+        ///
+        /// <para>**逐条**：
+        /// ① `!HasCurrentTrait(0x96=150 cantAttack)` ∧ `!HasCurrentTrait(0x370=880 nonCombatant)`
+        ///    —— 与 `RuleCore.AttackBannedByTraits`（**private**，所以这里用文本引用）**同一份口径**（铁律 6：那边是唯一判定口，
+        ///    这里只是把「攻击者能不能打」这个结论拿来当 UI 闸，⛔ 别另立第三份关键词表）；</para>
+        /// <para>② `cardState ∈ {2 inPlay, 3 inPlayAttacking, 17 inPlayAminingAttack}`
+        ///    —— `.c:37` 读 `*(int*)(param_2 + 0x228) == 2`，`:39` 走 `CardScript__get_IsAttacking.c`
+        ///    （= `state == 3 || state == 0x11`）⇒ 三档并列，**不含 15 inPlayTransforming**（与 `RuleCore.CanAttackNow` 的 `B97_W1` 同一口径）。</para>
+        ///
+        /// <para>⚠️ **只管「近战/远程两格开不开」**：原版这两道在 `CanAttackCard` 里，而技能那颗钮走
+        /// `CanUseActiveAbility`（另一个函数）⇒ 被禁攻的单位**照样能开技能钮**，调用点只把 `melee/ranged` 置 false。</para></summary>
+        public static bool AttackSelectorAllowed(UnitState u, BattleContext ctx)
+        {
+            if (u == null) return false;
+            if (u.Has(KeywordTable.CantAttack) || u.Has(RuleCore.Noncombatant)) return false;
+            var cs = u.CardStateOf(ctx);
+            return cs == CardStateOptions.inPlay
+                || cs == CardStateOptions.inPlayAttacking
+                || cs == CardStateOptions.inPlayAminingAttack;
         }
 
     }

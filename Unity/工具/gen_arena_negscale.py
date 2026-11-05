@@ -366,7 +366,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--arena')
     ap.add_argument('--check', action='store_true', help='只扫不写')
+    ap.add_argument('--write', action='store_true', help='显式落盘（唯一会写盘的档）')
     a = ap.parse_args()
+    # 🔴 2026-11-05（`B145-E27`）：动词参数改成必填（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+    if not (a.check or a.write):
+        print("用法：python 工具/gen_arena_negscale.py {--write | --check} [--arena <场>]\n"
+              "  --write  重新生成并写盘（<场>_negscale.json）\n"
+              "  --check  只扫不写：与盘上产物比对（有缺/过期 ⇒ rc=1）\n"
+              "  🔴 不带任何动词 = 只打印本用法并以退出码 2 退出")
+        return 2
 
     arenas = [a.arena] if a.arena else ALL_ARENAS
     total, gtotal, mtotal = 0, 0, 0

@@ -439,10 +439,10 @@ namespace CardPresentation
                 //     `WarpforgeEffectPlayer` 会照 prefab 的 `destroyTime` 播完 —— **不进时间线**。
                 case EvtKind.AmbushExit: return 0f;
 
-                // 🆕 2026-10-22（`W64`）：**反击与上一条之间不加额外间隔** —— 原版那一跳是
-                //   `if (0 < GetCombatDamage) { … }` 直接接上（`_ResolveAttack…:1114-1152`），
-                //   没有 `WaitForSeconds`；这一拍**自己演多久**由 `DurationOf` 负责（⛔ 别两处都排）。
-                case EvtKind.Retaliation: return 0f;
+                // ✅ 已复刻（2026-11-05 · B145-E6 · 判据 = `_ResolveAttack_d__438__MoveNext.c:988-1001,1114-1152`：受方 `ReceiveDamage` **不 yield**、反击与受方伤害**同拍**）—— 原版反击起点 = 主攻击动画结束那一刻 = **Attack+0.4**（与受方伤害计数器同拍）
+                //   我们时间线里上一条 `Hit` 占满 1.0 s ⇒ 回 `0` 会把反击排到它**之后**（实测 Attack+1.4、晚 1.0）；回 `-DurationOf(prev)` 把它拉回 `prev` 的**起点**（同拍）。
+                //   兜底（引擎正常路径不会出现：prev 不是 `Hit`）= 上一拍收尾后再走「近战伤害那一截」`MeleeDamageLag - DurationOf(prev)`。
+                case EvtKind.Retaliation: return prev == null ? 0f : (prev.Kind == EvtKind.Hit ? -DurationOf(prev) : MeleeDamageLag - DurationOf(prev));   // ✅ 已复刻（2026-11-05 · B145-E6）
 
                 default: return 0f;
             }

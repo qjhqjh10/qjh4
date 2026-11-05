@@ -910,6 +910,28 @@ namespace RuleEngine
         /// （否则会把替代能力第 0 行错当成主动能力第 0 行）。</para>
         /// <para>⚠️ 缺省 **`0` = 未设置**（`0` 不是合法的能力对象号 ⇒ 结构上 fail-closed，消费端退回并集）。</para></summary>
         public int AbilityRowTargetsObject;
+
+        /// <summary>
+        /// 🆕 **2026-11-05（执行代理 `B145-E17` · 活状态表 `B145-HIT0-BLOCKED-FLAG`）：这一条
+        /// <see cref="EvtKind.Hit"/> 的伤害是不是被「免伤三件套」**整份挡下**（原版 `+0x35` 那一格）。
+        ///
+        /// <para>**判据（第一权威）= `decomp_full/CardScript._ReceiveDamage_d__381__MoveNext.c`**：
+        /// · `:54` `*(param_1 + 0x35) = 1;` —— 协程开场**默认就弹**伤害数字；
+        /// · `:185-187` 那一支：`if (!HasCurrentTrait(0xf0=240 dodge) &amp;&amp; !HasCurrentTrait(0x136=310 invulnerable)
+        ///   &amp;&amp; !HasCurrentTrait(0x50=80 shield)) { … } else { *(param_1 + 0x35) = 0; }`
+        ///   ⇒ **命中这三条中任意一条就把「弹数字」清 0**（`:186` 是全文**唯一**清 0 的地方）；
+        /// · `:313-318` `if (*(char*)(param_1 + 0x35) != '\0') BattleCardUI__DamageReceived(amount)`
+        ///   ⇒ **`amount` 不参与判断**（0 也弹 `0`），只有这个位能压掉它。</para>
+        ///
+        /// <para>为什么必须由引擎带出来：`RuleCore.ApplyDamageCore` 在 `EmitHit(ctx, u, 0)` **之前**
+        /// 就把 `shield` / `dodge` 摘掉了（原版 `:320-333` 同样是在 `:313` **之后**才摘）
+        /// ⇒ 事件到表现层时那两条 trait 已经不在，表现层按 `u.Has(...)` 判**恒假**。</para>
+        ///
+        /// <para>⚠️ 只有 `Hit` 会填（今天是**唯二**的挡下口：① `shield ∨ dodge`、② `invulnerable`）。
+        /// ⛔ **空投舱（`dropPod`）/ 堡垒（`bastion`）整份吃下【不】置它** —— 原版 `:186` 那三条 trait
+        /// 里没有它们，那两档照旧弹 `0`（可达性今天 = 0，照原版留）。⛔ 别拿它当「这次伤害是多少」的判据。</para>
+        /// </summary>
+        public bool DamageFullyBlocked;
     }
 
     /// <summary>

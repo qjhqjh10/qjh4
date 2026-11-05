@@ -226,8 +226,8 @@ namespace CardPresentation
                 }
                 wroteAnything = true;
                 sb.Append("  ✅ ").Append(label).Append("：`").Append(Rel(legacyPath)).Append("` → `").Append(key)
-                  .Append("`（").Append(Utf8Bytes(text)).Append(" B，**整份导入**；6 个字段全进：")
-                  .AppendLine("playerName / avatarIndex / titleIndex / avatarBorderOn / achIds / achValues）");
+                  .Append("`（").Append(Utf8Bytes(text)).Append(" B，**整份导入**；旧档有几个字段就进几个：")
+                  .AppendLine("playerName / avatarIndex / titleIndex / avatarBorderOn / achIds / achValues / achHighest〔旧档没有这一列就没有〕）");
             }
             else
             {
@@ -293,11 +293,11 @@ namespace CardPresentation
             if (wroteAnything) LastImportedCount++;
         }
 
-        /// <summary>`profile.json` 那一族**应该有**的 7 个顶层键（`ver` + 6 个真数据）。
-        /// 判据 = `Shell/ProfileData.cs` 的 `SaveDto`（那边的字段名就是这份文件的形状）。</summary>
+        /// <summary>`profile.json` 那一族**应该有**的 8 个顶层键（`ver` + 7 个真数据）。
+        /// 判据 = `Shell/ProfileData.cs` 的 `SaveDto`（那边的字段名就是这份文件的形状；⚠️ `equippedBorderIndex` **故意不在**本表 —— 理由见 `ProfileData.cs:1495-1498`）。</summary>
         public static readonly string[] ProfileFields =
         {
-            "ver", "playerName", "avatarIndex", "titleIndex", "avatarBorderOn", "achIds", "achValues",
+            "ver", "playerName", "avatarIndex", "titleIndex", "avatarBorderOn", "achIds", "achValues", "achHighest",   // ✅ 已复刻（2026-11-05 · B145-E21 · 判据 = `AchievementsManager__GetHighestValue.c:15-20`；字段闸 + `TryFillMissingProfileFields` 迁移同批补齐）
         };
 
         /// <summary>这份 payload 缺了 `profile.json` 该有的哪几个顶层键（返回 `null` = **一个都不缺**）。
@@ -357,11 +357,37 @@ namespace CardPresentation
                 c.achIds = l.achIds;
                 c.achValues = l.achValues;
             }
+            // `achHighest` 是**第三列**（与 `achValues` 同下标，按 id 配）：旧档有就搬，没有才按 `max(current,0)` 兜底。
+            if (!HasTopField(flat, "achHighest")) c.achHighest = HighestForLegacyFill(l, c);   // ✅ 已复刻（2026-11-05 · B145-E21 · 判据 = `AchievementsManager__GetHighestValue.c:15-20` = `Math.Max(current, highest, 0)`）
 
             merged = JsonUtility.ToJson(c);
             string still = MissingProfileFields(merged);
             if (still != null) { why = "补完还是缺 " + still + "（旧档本身也不全？）"; merged = null; return false; }
             return true;
+        }
+
+        /// <summary>「补缺迁移」时 `achHighest` 那一列的取值：**逐 id 去旧档找**（⛔ 不按下标 —— 两边的成就表次序可能不同）。
+        /// <para>旧档没有这一列 / 那条 id 在旧档里没有 ⇒ **`max(current, 0)` 兜底**（⛔ 写 0 会把历史最高清零）；
+        /// 找到了也夹到 ≥ current（原版读口自己就做 `Math.Max`）。判据 = `AchievementsManager__GetHighestValue.c:15-20`。</para>
+        /// <para>返回数组与 <paramref name="into"/> 的 `achValues` **等长同序**（读口 `ProfileData.LoadFromDisk` 就是按下标取的）。</para></summary>
+        static int[] HighestForLegacyFill(LegacyProfileFields legacy, LegacyProfileFields into)
+        {
+            int[] cur = (into == null ? null : into.achValues) ?? new int[0];
+            string[] ids = (into == null ? null : into.achIds) ?? new string[0];
+            string[] srcIds = legacy == null ? null : legacy.achIds;
+            int[] srcHi = legacy == null ? null : legacy.achHighest;
+            int[] outp = new int[cur.Length];
+            for (int i = 0; i < cur.Length; i++)
+            {
+                int v = cur[i] < 0 ? 0 : cur[i];                       // 负数按 0 收（与 `BuildAchievementsPayload` 同口径）
+                int h = v;
+                string id = i < ids.Length ? ids[i] : null;
+                if (!string.IsNullOrEmpty(id) && srcIds != null && srcHi != null)
+                    for (int j = 0; j < srcIds.Length && j < srcHi.Length; j++)
+                        if (string.Equals(srcIds[j], id, StringComparison.Ordinal)) { h = srcHi[j]; break; }
+                outp[i] = h < v ? v : h;                               // 只涨不落：highest 永远不低于 current
+            }
+            return outp;
         }
 
         /// <summary>摊平后的键表里有没有这个**顶层字段**。        /// <para>⚠️ **非空数组不会在「数组本身」那个路径上留条目** —— `SaveJsonDiff.Flatten` 只写
@@ -765,11 +791,14 @@ namespace CardPresentation
         }
     }
 
-    /// <summary>`profile.json` 的 **7 字段形状** —— ⚠️ **只用于「补缺迁移」**（<see cref="LegacySaveReader"/> 的
+    /// <summary>`profile.json` 的 **9 字段形状** —— ⚠️ **只用于「补缺迁移」**（<see cref="LegacySaveReader"/> 的
     /// `TryFillMissingProfileFields`）；正常导入（整份转存）与正常写出（`ProfileData.SaveNow` 的 `ToJson`）都不走它。
     /// <para>🔴 **字段名必须与 `Shell/ProfileData.cs` 的 `SaveDto` 一字不差**（含默认值语义：
-    /// `ver=1` / `titleIndex=-1` / `avatarBorderOn=true` / 两个空数组）—— 脚手架里有一条
-    /// 「`SaveDto` 字段名 vs `LegacySaveReader.ProfileFields`」的漂移断言钉着这件事。</para>
+    /// `ver=1` / `titleIndex=-1` / `avatarBorderOn=true` / 三个空数组）—— ⚠️ 2026-11-05 订正：这里原来写「脚手架里有一条
+    /// 「`SaveDto` 字段名 vs `ProfileFields`」的漂移断言钉着这件事」，实测 `CardPresentation/Editor` **0 命中**
+    /// （`B145-SAVEDTO-FIELDGATE-ASSERT`）⇒ 现在由 `Editor/B145_E21_Assert.cs` 的 F 段（反射逐键核 `ProfileFields ⊂ SaveDto`）钉住。</para>
+    /// <para>🔴 **本 DTO 必须覆盖 `SaveDto` 的【全部】字段**（⚠️ 不是 `ProfileFields` 的子集）：迁移是「按本 DTO 重建 payload」，
+    /// 少一列 = 重建时把那一列**静默丢掉**（2026-11-05 `B145-E21` 实测：`equippedBorderIndex` 就是这个坑）。</para>
     /// <para>⚠️ 文件级、非 `MonoBehaviour`（同 `SaveVersionProbe` 的理由）。</para></summary>
     [Serializable]
 #pragma warning disable 0649   // 全部字段只由 `JsonUtility` 反序列化填 —— 编译器看不见写点（同理于全工程所有 JsonUtility DTO）
@@ -779,9 +808,9 @@ namespace CardPresentation
         public string playerName = "";
         public int avatarIndex = 0;
         public int titleIndex = -1;
-        public bool avatarBorderOn = true;
+        public bool avatarBorderOn = true; public int equippedBorderIndex = 0;   // ⚠️ 这一列**只在迁移重建时原样带回**、⛔ **不进 `ProfileFields`**（那是「少一个就不许写盘」的闸；加进去会把这一批老档判成字段不全，理由见 `ProfileData.cs:1495-1498`）
         public string[] achIds = new string[0];
-        public int[] achValues = new int[0];
+        public int[] achValues = new int[0]; public int[] achHighest = new int[0];   // ✅ 已复刻（2026-11-05 · B145-E21 · 判据 = `AchievementsManager__GetHighestValue.c:15-20`）：旧档第三列；缺列/短列 ⇒ 迁移按 `max(current,0)` 兜底。⚠️ 与 `achValues` 同一行 = **零行数变化**
     }
 #pragma warning restore 0649
 

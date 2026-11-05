@@ -581,7 +581,15 @@ def build():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true", help="只和盘上那份比，不写")
+    ap.add_argument("--write", action="store_true", help="显式落盘（唯一会写盘的档）")
     args = ap.parse_args()
+    # 🔴 2026-11-05（`B145-E27`）：动词参数改成必填（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+    if not (args.check or args.write):
+        print("用法：python 工具/gen_cards_truth.py {--write | --check}\n"
+              "  --write  重新生成并写盘（数据件 + 运行期副本）\n"
+              "  --check  只比不写（一致 rc=0 / 不一致 rc=1）\n"
+              "  🔴 不带任何动词 = 只打印本用法并以退出码 2 退出")
+        return 2
 
     doc = build()
     human = json.dumps(doc, ensure_ascii=False, indent=1) + "\n"

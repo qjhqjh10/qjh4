@@ -614,13 +614,23 @@ def collect_part_recompute():
 def main(argv=None):
     # -------------------------------------------------------------- 2026-10-26 B8_AK 加的 CLI
     # `--dry` = 只算不写（账写手还在跑时**只能用这个**）；`--out PATH` = 写到别处（核样子用）。
-    # 默认（无参）仍然是「覆盖写 DEST」—— 与旧版一致，因为调度台的重跑单就是无参命令；
-    # 改默认值会让那条命令**静默变成空操作**，比误写更糟。要安全就先 `--dry`。
+    # 🔴 2026-11-05（`B145-E27`）：**这里原来写「默认（无参）仍然是『覆盖写 DEST』」——已作废。**
+    #   按 CLAUDE.md §三「写盘脚本裸跑必须什么都不做」，裸跑现在只打印用法 + rc 2；
+    #   真写盘必须显式 `--write`（或 `--out <路径>`）。调度台的重跑单相应改成 `--write`。
     argv = list(sys.argv[1:] if argv is None else argv)
     if '--help' in argv or '-h' in argv:
         print(__doc__)
         return
     dry = '--dry' in argv
+    write = '--write' in argv
+    has_out = '--out' in argv
+    if not (dry or write or has_out):
+        print('用法：python -I -X utf8 gen_feature_index.py {--write | --dry | --out PATH}\n'
+              '  --write     重新生成并覆盖写 %s\n'
+              '  --dry       只算不写，打印自检摘要\n'
+              '  --out PATH  写到别处（核样子用）\n'
+              '  🔴 不带任何动词 = 只打印本用法并以退出码 2 退出' % DEST)
+        return 2
     out = DEST
     if '--out' in argv:
         k = argv.index('--out')
@@ -937,4 +947,4 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

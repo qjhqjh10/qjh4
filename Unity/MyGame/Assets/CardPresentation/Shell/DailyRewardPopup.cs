@@ -49,8 +49,8 @@ namespace CardPresentation
         // ---------------- 窗口根（正本 §四 表 #1~#3）
         public const float ShadeW = 4574.6f, ShadeH = 2572.36f;
         /// <summary>🔴 **2026-10-18（T29 · D6）**：alpha 原来是 `0.77f`，原版 `Menu Dark Background` 的 `m_Color` 是
-        /// **(0,0,0,0.773)**（判据 = `R_T29_全界面底纹背景对账.md` §13 那张表；同族 `SettingsWindow.ShadeColor` 也是这一档）。</summary>
-        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.773f);
+        /// **(0,0,0,0.77254903)**（判据 = 原版 `Menu Dark Background` 的 `m_Color.a`，`assetripper_out` 85 处同值；`0.77254903` = 197/255）。✅ 已复刻（2026-11-05 · B145-E7 · 判据 = `B145_施工单汇总_离线.md` A-24 + `m_Color a: 0.77254903`）</summary>
+        public static readonly Color ShadeColor = new Color(0f, 0f, 0f, 0.7725490f);
 
         public static readonly PxRect Tracks = new PxRect(231.00f, 152.84f, 1947.55f, 964.94f);
         public static readonly PxRect TrackBg = new PxRect(242.37f, 159.34f, 1918.78f, 558.89f);

@@ -83,6 +83,15 @@ def find_sos():
 
 
 def main():
+    write = '--write' in sys.argv[1:]
+    # 🔴 2026-11-05（`B145-E27`）：动词参数改成必填（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+    if not (DRY or write):
+        print('用法：PYTHONIOENCODING=utf-8 python 工具/gen_environment_conditions.py '
+              '{--write | --dry}\n'
+              '  --write  重新生成并写盘（数据件 + Resources/EnvironmentConditions.json）\n'
+              '  --dry    只跑计算、打印读数，**零写盘**\n'
+              '  🔴 不带任何动词 = 只打印本用法并以退出码 2 退出')
+        return 2
     cards = json.load(io.open(os.path.join(ROOT, '数据', '游戏数据', 'offensive_cards.json'), encoding='utf-8'))
     armies = cards['armies']
     bundle2army = {a['cardanimsBundle']: name for name, a in armies.items()}
@@ -263,4 +272,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

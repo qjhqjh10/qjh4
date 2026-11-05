@@ -89,6 +89,11 @@
          🔴 必须显式列 —— 本 csproj 关了 `EnableDefaultCompileItems`，漏了就是构建期
          `CS0103 名称"AddActiveAbilityEntry"`（`SimpleAI.cs:421` 调用它）。 -->
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/SimpleAI.ActiveEntry.cs" />
+    <!-- 🆕 2026-11-05（`B145-E4` · 调度台补登）：`SimpleAI` 的第二份兄弟分册（`TraitScore` 字符串键分值表）。
+         同 ActiveEntry：本 csproj 关了 `EnableDefaultCompileItems` ⇒ 漏了就是构建期
+         `CS0103 名称"TraitScoreExtra"`（`SimpleAI.cs:1011` 的 `default:` 转发到它）。
+         ⚠️ `typecheck.sh` 走 `gen_csc_rsp.py` 自动扫 `Assets/`，**看不到这个缺口** —— 只有 ruleprobe 会炸。 -->
+    <Compile Include="../../MyGame/Assets/RuleEngine/Data/SimpleAI.TraitScore.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiScoring.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiTargets.cs" />
     <Compile Include="../../MyGame/Assets/RuleEngine/Data/AiScoringData.cs" />

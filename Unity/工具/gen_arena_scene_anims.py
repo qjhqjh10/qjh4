@@ -24,6 +24,31 @@ import glob
 import io
 import json
 import os
+import sys
+
+# 🔴 2026-11-05（`B145-E27` · 调度台）：**动词参数改成必填**（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+#   改前：裸跑 = 直接覆盖两份产物（`数据/游戏数据/` + `Resources/`）。现在裸跑只打印用法 + rc 2。
+USAGE = ('用法：python -I -X utf8 d:/4/Unity/工具/gen_arena_scene_anims.py <--write|--check|--dry>\n'
+         '  说明：13 战场的 Animation/Animator → clip/controller 映射表（两份产物，同一次生成）。\n'
+         '    --write   重新生成并写盘（数据件 + 运行期副本）\n'
+         '    --check   只比对、**不写盘**：两份产物与盘上逐字节比（一致 rc=0 / 不一致 rc=1）\n'
+         '    --dry     只跑计算、打印读数，**零写盘**\n'
+         '  🔴 不带任何动词 = 只打印本用法并以**退出码 2** 退出')
+if any(sys.argv[_i] in ("-h", "--help") for _i in range(1, len(sys.argv))):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    print(USAGE)
+    sys.exit(0)
+_MODE_FLAGS = [f for f in ("--write", "--check", "--dry") if f in sys.argv[1:]]
+if len(_MODE_FLAGS) != 1:
+    if _MODE_FLAGS:
+        print("冲突的动作参数：%s（--write / --check / --dry 只能选一个）\n" % _MODE_FLAGS)
+    print(USAGE)
+    sys.exit(2)
+WRITE = _MODE_FLAGS[0] == "--write"
+CHECK = _MODE_FLAGS[0] == "--check"
 
 ASSETS = r"d:/2/新解包资源/assets_full"
 BUNDLE_DIR = r"d:/2/Warhammer 40k Warpforge/Warpforge_Data/StreamingAssets/aa/StandaloneWindows64"
@@ -206,19 +231,33 @@ def main():
                       "clips": total_clip, "controllers": total_ctrl,
                       "unresolved": len(unresolved), "skipped": len(skipped)}
     body = json.dumps(doc, ensure_ascii=False, indent=1)
-    for p in (DST, DST_RUNTIME):
-        d = os.path.dirname(p)
-        if not os.path.isdir(d):
-            os.makedirs(d)
-        io.open(p, "w", encoding="utf-8", newline="\n").write(body)
+    new_bytes = body.encode("utf-8")
+    rc = 0
+    if WRITE:
+        for p in (DST, DST_RUNTIME):
+            d = os.path.dirname(p)
+            if not os.path.isdir(d):
+                os.makedirs(d)
+            io.open(p, "w", encoding="utf-8", newline="\n").write(body)
+    elif CHECK:
+        for p in (DST, DST_RUNTIME):
+            old = io.open(p, "rb").read() if os.path.isfile(p) else b""
+            same = old == new_bytes
+            print("[check] %s 与盘上逐字节一致 = %s（%d 字节）" % (p, same, len(new_bytes)))
+            if not same:
+                rc = 1
+    else:
+        print("[dry] 未写盘；目标 = %s · %s（%d 字节）" % (DST, DST_RUNTIME, len(new_bytes)))
     print("\n[gen] 合计：Animation %d（clip %d）· Animator %d（有 controller %d）· 未解析 %d · 跳过 %d"
           % (total_anim, total_clip, total_animator, total_ctrl, len(unresolved), len(skipped)))
     for u in unresolved:
         print("   MISS %s" % (u,))
     for s in skipped:
         print("   SKIP %s  ← %s" % (s[0] + " | " + s[1], s[2]))
-    print("[gen] 写出 %s\n[gen] 运行期副本 %s" % (DST, DST_RUNTIME))
+    if WRITE:
+        print("[gen] 写出 %s\n[gen] 运行期副本 %s" % (DST, DST_RUNTIME))
+    return rc
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

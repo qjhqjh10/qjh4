@@ -802,9 +802,18 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--arena', default=None, help='只处理某一场（默认 13 场全做）')
     ap.add_argument('--check', action='store_true', help='只扫不写')
+    ap.add_argument('--write', action='store_true', help='显式落盘（唯一会写盘的档）')
     ap.add_argument('--selftest', action='store_true',
                     help='只跑「流式网格」那一路的自检（不写文件；见 `selftest()` 的头注释）')
     a = ap.parse_args()
+    # 🔴 2026-11-05（`B145-E27`）：动词参数改成必填（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+    if not (a.check or a.write or a.selftest):
+        print("用法：python 工具/gen_arena_vertexcolors.py {--write | --check | --selftest} [--arena <场>]\n"
+              "  --write     重新生成并写盘（<场>_vcol.json）\n"
+              "  --check     只扫不写：与盘上产物比对（有缺/过期 ⇒ rc=1）\n"
+              "  --selftest  只跑自检、不写文件\n"
+              "  🔴 不带任何动词 = 只打印本用法并以退出码 2 退出")
+        return 2
 
     if a.selftest:
         return selftest()

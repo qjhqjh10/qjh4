@@ -67,10 +67,14 @@ PS_MODULES = ["InitialModule", "ShapeModule", "EmissionModule", "SizeModule", "R
               "SizeBySpeedModule", "RotationBySpeedModule", "ColorBySpeedModule", "CollisionModule",
               "TriggerModule", "SubModule", "LightsModule", "TrailModule"]
 
-USAGE = """用法（默认不写盘）：
+USAGE = """用法（🔴 必须显式选一个动词）：
   PYTHONIOENCODING=utf-8 D:/2/Warpforge_tools/py312/python.exe \\
-      d:/4/Unity/工具/gen_mainmenu_effects.py --apply
+      d:/4/Unity/工具/gen_mainmenu_effects.py <--write|--check|--dry>
+    --write   重新生成并写盘（`--apply` 是它的旧别名，行为不变）
+    --check   只比对、**不写盘**：两份产物与盘上逐字节比（一致 rc=0 / 不一致 rc=1）
+    --dry     只跑计算、打印读数与预览，**零写盘**
   -h / --help   只打印本用法并退出（退出码 0）
+  🔴 不带任何动词 = 只打印本用法并以**退出码 2** 退出
 
 做的事：把主菜单那批「环境光效」的判据（父链 / active / 组件类 / 矩形 / 粒子模块 / 材质）摊成
         `Resources/Art/mainmenu_effects.json`（+ 同一次运行顺带出 `card_display_effects.json`）。
@@ -233,8 +237,11 @@ def _grad(g):
             "colorKeys": ck, "alphaKeys": ak}
 
 
-def emit_runtime(doc):
-    """把判据正本折成运行时 DTO（扁平；字段名与 `Shell/CardDisplayEffects.cs` 的 DTO 逐字对应）。"""
+def emit_runtime(doc, write=True):
+    """把判据正本折成运行时 DTO（扁平；字段名与 `Shell/CardDisplayEffects.cs` 的 DTO 逐字对应）。
+
+    `write=False`（`--check` 用）⇒ 只返回文本、**不落盘**。
+    """
     import math
     parts = []
     for it in doc["items"]:
@@ -426,11 +433,13 @@ def emit_runtime(doc):
 
     txt = json.dumps({"note": "runtime DTO (gen = 工具/gen_mainmenu_effects.py --apply; judge = mainmenu_effects.json)",
                       "particles": parts, "images": images}, ensure_ascii=False, indent=1)
-    io.open(OUT_RT, "wb").write(txt.encode("utf-8"))
-    print("写入", OUT_RT, "（%d 字节；%d 颗粒子 / %d 条图件）" % (len(txt.encode("utf-8")), len(parts), len(images)))
+    if write:
+        io.open(OUT_RT, "wb").write(txt.encode("utf-8"))
+        print("写入", OUT_RT, "（%d 字节；%d 颗粒子 / %d 条图件）" % (len(txt.encode("utf-8")), len(parts), len(images)))
+    return txt
 
 
-def main(apply):
+def main(apply, check=False):
     b = os.path.join(ASSETS, BUNDLE)
     comp, go, comp2go = build_index(b)
 
@@ -534,6 +543,17 @@ def main(apply):
     text = json.dumps(doc, ensure_ascii=False, indent=1)
 
     if not apply:
+        if check:
+            rt_text = emit_runtime(doc, write=False)
+            rc = 0
+            for p, t in ((OUT, text), (OUT_RT, rt_text)):
+                old = io.open(p, "rb").read() if os.path.isfile(p) else b""
+                same = old == t.encode("utf-8")
+                print("[check] %s 与盘上逐字节一致 = %s（%d 字节）"
+                      % (p, same, len(t.encode("utf-8"))))
+                if not same:
+                    rc = 1
+            return rc
         print(USAGE)
         print("[dry] %d 条已解析，未写盘。目标 =" % len(TARGETS), OUT, "（%d 字节）" % len(text.encode("utf-8")))
         for it in items:
@@ -564,11 +584,20 @@ if __name__ == "__main__":
     if any(a in ("-h", "--help") for a in argv):
         print(USAGE)
         sys.exit(0)
-    if "--apply" not in argv:
-        # 真扫一遍再打印预览（这样 --help 之外的默认行为也给出真实信息）
-        ALL.update(build_all_index())
-        main(False)
-        print("（本次未带 --apply ⇒ 什么都没做）")
-        sys.exit(0)
+    # 🔴 2026-11-05（`B145-E27`）：动词参数改成必填（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+    #   改前：裸跑 = 直接扫一遍并打印预览（**不写盘是对的**，但 rc=0 会被误当成功）。
+    #   现在裸跑只打印用法 + rc 2；`--apply` 保留为 `--write` 的旧别名。
+    modes = [f for f in ("--write", "--apply", "--check", "--dry") if f in argv]
+    if "--write" in modes and "--apply" in modes:
+        print("冲突的动作参数：--write 与 --apply 是同义词，只能选一个\n")
+        print(USAGE)
+        sys.exit(2)
+    if len(modes) != 1:
+        if modes:
+            print("冲突的动作参数：%s（--write / --check / --dry 只能选一个）\n"
+                  % [("--write" if m == "--apply" else m) for m in modes])
+        print(USAGE)
+        sys.exit(2)
+    _mode = "--write" if modes[0] == "--apply" else modes[0]
     ALL.update(build_all_index())
-    sys.exit(main(True))
+    sys.exit(main(_mode == "--write", _mode == "--check"))

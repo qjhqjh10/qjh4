@@ -27,13 +27,33 @@ from collections import Counter, OrderedDict, defaultdict
 
 ## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
 import sys as _wf_help_sys
+# 🔴 2026-11-05（`B145-E27` · 调度台）：**动词参数改成必填**（CLAUDE.md §三「写盘脚本裸跑必须什么都不做」）。
+#   改前：裸跑 = 直接覆盖默认 TSV。现在裸跑只打印用法 + rc 2；`--out TSV` 仍等价于 `--write`（旧用法不变）。
+USAGE = ('用法：python -I -X utf8 d:/4/Unity/工具/gen_ability_enum_dict.py <--write|--check|--dry> [--out TSV]\n'
+         '  说明：abilityLogic 一族枚举字段 → 取值/枚举名对照 TSV。\n'
+         '    --write   重新生成并写盘（默认目标 = d:/4/Unity/资料/普查产出_第二十七会话/abilityLogic_枚举词典.tsv）\n'
+         '    --check   只比对、**不写盘**：重算产物与盘上逐字节比（一致 rc=0 / 不一致 rc=1）\n'
+         '    --dry     只跑计算、打印摘要，**零写盘**\n'
+         '    --out TSV 指定输出路径（**单独使用时等价于 --write**，兼容旧用法）\n'
+         '  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。\n'
+         '  🔴 不带任何动词 = 只打印本用法并以**退出码 2** 退出')
 if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
     try:
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：python -I -X utf8 d:/4/Unity/工具/gen_ability_enum_dict.py [--out TSV]\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    print(USAGE)
     _wf_help_sys.exit(0)
+_MODE_FLAGS = [f for f in ("--write", "--check", "--dry") if f in _wf_help_sys.argv[1:]]
+if not _MODE_FLAGS and "--out" in _wf_help_sys.argv[1:]:
+    _MODE_FLAGS = ["--write"]                 # 旧用法：--out 本身就是「要写盘」
+if len(_MODE_FLAGS) != 1:
+    if _MODE_FLAGS:
+        print("冲突的动作参数：%s（--write / --check / --dry 只能选一个）\n" % _MODE_FLAGS)
+    print(USAGE)
+    _wf_help_sys.exit(2)
+WRITE = _MODE_FLAGS[0] == "--write"
+CHECK = _MODE_FLAGS[0] == "--check"
 
 STUB_DIR = r"d:/2/Warpforge_code/Scripts/Assembly-CSharp"
 TRUTH = r"d:/2/远端缓存_旧profile_1013/导出/cards_1195_2022时代.json"
@@ -221,8 +241,17 @@ def main():
     lines += ["%s\t%s\t%d\t%s\t%d\t%s" % r for r in rows]
     data = "\n".join(lines) + "\n"
     tmp = data.replace("\n", "\r\n").encode("utf-8")
-    with io.open(out_tsv, "wb") as f:
-        f.write(tmp)
+    rc = 0
+    if WRITE:
+        with io.open(out_tsv, "wb") as f:
+            f.write(tmp)
+    elif CHECK:
+        old = io.open(out_tsv, "rb").read() if os.path.isfile(out_tsv) else b""
+        same = old == tmp
+        print("[check] %s 与盘上逐字节一致 = %s（%d 字节）" % (out_tsv, same, len(tmp)))
+        rc = 0 if same else 1
+    else:
+        print("[dry] 未写盘；目标 = %s（%d 字节）" % (out_tsv, len(tmp)))
 
     # ------------------------------------------------ 控制台摘要
     print("== 实例数 ==")
@@ -254,7 +283,8 @@ def main():
         print("   %-26s %-4s  ca=%-4d act=%d" % (nm, v, ca[v], aa[v]))
     print()
     print("TSV ->", out_tsv)
+    return rc
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

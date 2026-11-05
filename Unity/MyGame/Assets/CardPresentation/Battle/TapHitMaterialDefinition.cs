@@ -216,7 +216,7 @@ namespace CardPresentation
         }
 
         /// <summary>🔶 自己设计（非原版）：开 `WF_GRAB501=1` 时，把**本条 `Object.Instantiate` 路**建出来的
-        /// 失真粒子树也搬到 `GrabScreen501.LayerIndex` 层（默认 9），让它和走 `WarpforgeEffectPlayer.Play`
+        /// 失真粒子树也搬到 `GrabScreen501.LayerIndex` 层（2026-11-05 `B145-E7` 起 = 6；原写「默认 9」，那是旧值），让它和走 `WarpforgeEffectPlayer.Play`
         /// 的那 233 件一样由 501 重画，而不是采样上一帧的抓屏。
         /// <para>为什么必须自己定：原版没有这条代码路径 —— 它靠自身 `UniversalRendererData` 的 `Settings.LayerMask`
         /// 分工，而那份资产本地没解出来、**目标层号是我们挑的（非原版值）**。

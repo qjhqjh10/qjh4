@@ -506,7 +506,7 @@ namespace CardPresentation
         /// </code>
         /// ⚠️ 差异（如文件头差异③）：原版返回**PlayFab SQL 串**喂匹配器；我们 P2P 没有过滤层 ⇒
         /// 本方法算**上下界**并按原版语义拼一可读串（`rating&gt;=min and rating&lt;=max`）、**没有消费方**（如实记）。
-        /// ⚠️ 仍未搬：`GetSqlFilter` 的联盟 / 黑名单两段（本机没有那几条线）。
+        /// ✅ 2026-11-05（B145-E19 现读订正）：原来写「仍未搬：`GetSqlFilter` 的联盟 / 黑名单两段（本机没有那几条线）」——不成立：6 参 `GetSqlFilter` 已在 `:698-717` 落地（C2 黑名单 / C3 联盟两段齐全），数据源走注入点 `MatchmakingInputs.CurrentGroupId` / `SuspiciousIds` / `OwnPlayerId`（不注入 ⇒ 跳过该段 + `WarnOnceSql` 出声一次）。
         /// 判据①：`.c` 里 `param_3`（= **tryCount**，IL2CPP 实参序 currentElo/tryCount/gamesLost）既做 `%3` 下标又做 `==2` 闸；
         /// 判据②：收紧上界的两量 = `RankedBaseData` 字段序 `legendaryElo(+0x98)` / `maxEloCap(+0x9c)`（与 Ghidra 偏移逐一对上）。</summary>
         public override string GetMatchmakingFilter(int currentElo, int tryCount, int gamesLost)
