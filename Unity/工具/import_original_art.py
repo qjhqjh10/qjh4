@@ -1246,6 +1246,204 @@ MENU_TEXTURE_IMAGES = [
 #      `素材/Warpforge原版/特效共享资源/Texture2D/`）再挂 `FX_TEXTURES` —— 同样有 ① 的换层问题。
 #   （两条都要动本文件 `MENU_IMAGES` 之外的代码 ⇒ 不在本件白名单内，如实停在报告里。）
 
+# ---- 🆕 2026-11-05（B146_E13 · 活状态表 `C-08`）：125 张「缺失精灵」补导 ---------------------
+# 判据 = `资料/完全复刻/判据/B146_C08_缺失精灵来源.tsv`（125 行：名字 / 源包 / 建议落点 / 尺寸）
+#        ＋ `报告/B146_E11_C08精灵导入.md`（E11 已逐张导入并核对：目标 sha256 == 源 sha256，125/125）。
+# 为什么**单开一张表**、不并进 `MENU_IMAGES` / `MENU_DECK_IMAGES` / `UI_EXTRACT_IMAGES`：
+#   ① 这 125 张**跨三个落点目录**（`ui_deck` 78 · `ui_menu` 29 · `ui` 18）—— 上面三张表各自绑死一个目录；
+#   ② 它们是 `ui_extract` 里**已按 `m_RD.textureRect` 紧裁好的 Sprite PNG**，E11 是**原样直拷**（不补画布）。
+#      并进 `MENU_IMAGES` / `MENU_DECK_IMAGES` 会被 `menu_pad` 判成「紧裁件」走 `copy_ui_sprite`
+#      **补回透明画布** ⇒ 与盘上已验收的字节不一致（sha 变、`--check` 报漂移）；并进
+#      `UI_EXTRACT_IMAGES` 则只能落 `ui/`，`ui_menu` / `ui_deck` 那 107 张放不进去。
+#   ③ 所以：表里多一列「落点目录」，拷贝走**原样直拷**（与 `UI_EXTRACT_IMAGES` 同一条路）。
+# 表项 = (切片名, `ui_extract` 下的 bundle 目录, 落点目录)；落盘名 = `name.replace(' ', '_') + '.png'`（本文件惯例）。
+C08_ATLAS_SPRITES = [
+    ('40K_general_icon_lock',                         'duplicateassetisolation_assets_all',  'ui_menu'),
+    ('40K_generic_list_container',                    'atlasgroup_assets_all',               'ui_menu'),
+    ('40K_generic_list_fade',                         'atlasgroup_assets_all',               'ui_menu'),
+    ('40K_icon_friends',                              'atlasgroup_assets_all',               'ui_menu'),
+    ('40K_icon_smiley_down',                          'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('40K_icon_smiley_up',                            'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('40K_rewards_bt_achievements',                   'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('40kIbt_eye',                                    'duplicateassetisolation_assets_all',  'ui'),
+    ('40k_DeckSelection_bt_AcolyteSpecialist',        'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Arco-Flagellant',          'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_ArdshellGurk',             'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_AunShi',                   'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_AvatarOfKhaine',           'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_BannerNob',                'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_BattleSister',             'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Benefictus',               'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_BringersOfDecay',          'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Cadian Castellan',         'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Cadre Fireblade',          'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_CelestianSacresant',       'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_ChaosAbsolute',            'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_ChildrenOfTorment',        'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Clamavus',                 'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Coldstar Battlesuit',      'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_CrimsonHunter',            'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Crisis Battlesuit',        'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_CultAssassin',             'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Daemon Prince',            'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Darkstrider',              'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Deathwing Champion',       'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Deathwing Knight Master',  'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Destroyer Cult',           'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Dialogus',                 'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Eldritch Artifice',        'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Fabian',                   'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Flawless Blade',           'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Gauss Warrior',            'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Genestealer',              'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Gorkanaut',                'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Guardian Drone',           'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Heldrake',                 'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Hormagaunt',               'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_HoundsofAbaddon',          'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_HulkingAberrant',          'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Implacable Conqueror',     'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Infractor',                'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Inner Circle Companion',   'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Intercessor',              'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Issoras',                  'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_KroogaStormboy',           'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Lord Kakophonist',         'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Master of Ordnance',       'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Minka Lesk',               'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_NeophyteInitiate',         'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_NeophyteLeader',           'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Noise Marine',             'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Nork Deddog',              'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_NuadhuFireheart',          'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Octavio',                  'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Painboy',                  'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Patriarch',                'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Preacher',                 'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_PrimarisJudiciar',         'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Ravenwing Champion',       'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Reiver',                   'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Relentless March',         'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_RepulsorTank',             'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Sammael',                  'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Scarab Swarm',             'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Screamer Killer',          'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Shock Trooper',            'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Shock Trooper Sgt',        'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_SinAndRuin',               'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Slaanesh Sorcerer',        'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_SluggaBoy',                'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_SonsOfTheCyclops',         'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_SpiritSeerQelenaris',      'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Stealth Battlesuit',       'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_StormGuardian',            'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Termagant',                'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Tutorial4',                'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Vengeful Wraithblade',     'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Von Ryans Leaper',         'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Vyper',                    'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_Winged Hive Tyrant',       'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_DeckSelection_bt_WitchbladeWarlock',        'deckselectionbuttons_assets_all',     'ui_deck'),
+    ('40k_Display_trait',                             'duplicateassetisolation_assets_all',  'ui'),
+    ('40k_UI_bt_deck_change_pressed',                 'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('40k_UI_bt_deck_info_hover',                     'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('40k_UI_bt_deck_info_pressed',                   'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('40k_UI_bt_info',                                'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('40k_UI_bt_info_hover',                          'duplicateassetisolation_assets_all',  'ui_menu'),
+    ('40k_UI_bt_info_pressed',                        'duplicateassetisolation_assets_all',  'ui_menu'),
+    ('40k_bt_eye_pressed',                            'duplicateassetisolation_assets_all',  'ui_menu'),
+    ('40k_collection_bt_DailyRewards',                'liveopsicons_assets_all_sprites',     'ui_menu'),
+    ('40k_general_banner_specialoffer',               'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('40k_general_bt_yellow_ArrowHorizontal',         'duplicateassetisolation_assets_all',  'ui'),
+    ('40k_icon_alliance points v3',                   'duplicateassetisolation_assets_all',  'ui_menu'),
+    ('40k_menu_bt_hover',                             'duplicateassetisolation_assets_all',  'ui_menu'),
+    ('40k_rewards_bt_missions_expansion pass',        'liveopsicons_assets_all',             'ui_menu'),
+    ('40k_tick',                                      'duplicateassetisolation_assets_all',  'ui'),
+    ('BW_Trim1',                                      'scenes_scenes_battlearena1_sprites',  'ui'),
+    ('BW_Trim2',                                      'scenes_scenes_battlearena1_sprites',  'ui'),
+    ('BW_Trim3',                                      'scenes_scenes_battlearena1_sprites',  'ui'),
+    ('Debug Add Energy',                              'scenes_scenes_battlearena1_sprites',  'ui'),
+    ('Debug Add extra card',                          'scenes_scenes_battlearena1_sprites',  'ui'),
+    ('Debug Add health',                              'scenes_scenes_battlearena1_sprites',  'ui'),
+    ('Debug Clear Hand',                              'scenes_scenes_battlearena1_sprites',  'ui'),
+    ('Debug Destroy troops',                          'scenes_scenes_battlearena1_sprites',  'ui'),
+    ('Debug Heal',                                    'scenes_scenes_battlearena1_sprites',  'ui'),
+    ('Debug Remove Energy',                           'scenes_scenes_battlearena1_sprites',  'ui'),
+    ('Purity Seal_01',                                'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('Purity Seal_03',                                'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('Purity Seal_04',                                'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('Purity Seal_05',                                'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('Skull_jaw',                                     'scenes_scenes_battlearena1_sprites',  'ui'),
+    ('Skulltop',                                      'scenes_scenes_battlearena1_sprites',  'ui'),
+    ('UI_Button_Organe_Square_Pressed',               'duplicateassetisolation_assets_all',  'ui_menu'),
+    ('UI_Card_name_background_click BW',              'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('UI_Card_name_background_hover BW',              'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('UI_Deck_button_hover',                          'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('UI_Description_Arrow',                          'duplicateassetisolation_assets_all',  'ui'),
+    ('UI_Main_Separation bar',                        'atlasindividual_assets_0_mainmenu',   'ui_menu'),
+    ('traitline',                                     'duplicateassetisolation_assets_all',  'ui'),
+]
+
+
+# 例外 1 张：源**不在** `ui_extract`，在**工程自己的图集切片库**（`Art/原版/0_mainmenu/`；
+# git 已跟踪 ⇒ 新克隆就有）。TSV 那行备注：「已与 0_MainMenu 图集裁切逐像素核对(diff=0)」。
+# 🔴 源文件名里本来就用下划线（`40K_shop_display_info_gradient.png`），落盘名同它。
+C08_PROJECT_SRC = 'd:/4/Unity/MyGame/Assets/CardPresentation/Art/原版/0_mainmenu'
+C08_PROJECT_IMAGES = [
+    ('40K_shop_display_info gradient', 'ui_menu'),
+]
+
+
+def file_sha256(path: str) -> str:
+    """整文件 sha256（C-08 那批「内容不同不覆盖」的判据用）。"""
+    import hashlib                     # 只在这里用，别为它改文件头的 import 段
+    h = hashlib.sha256()
+    with io.open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def c08_jobs():
+    """C-08 表 → `[(源, 目标)]`。缺源由调用方点名（⛔ 不静默跳过）。"""
+    out_dirs = {'ui': UI_OUT, 'ui_menu': MENU_OUT, 'ui_deck': MENU_DECK_OUT}
+    out = [(os.path.join(MENU_SRC, bundle, 'Sprite', name + '.png'),
+            os.path.join(out_dirs[outdir], name.replace(' ', '_') + '.png'))
+           for name, bundle, outdir in C08_ATLAS_SPRITES]
+    out += [(os.path.join(C08_PROJECT_SRC, name.replace(' ', '_') + '.png'),
+             os.path.join(out_dirs[outdir], name.replace(' ', '_') + '.png'))
+            for name, outdir in C08_PROJECT_IMAGES]
+    return out
+
+
+def apply_c08(check, only=None):
+    """按 `C08_ATLAS_SPRITES` **只补缺**地拷：内容相同跳过 · **内容不同绝不覆盖**。
+
+    返回统计 dict：`table`（表条目总数）· `jobs`（本次参与，受 `only` 过滤）· `same` ·
+    `new`（缺目标：`check` 时只报不写）· `conflict`（盘上内容与源不同，未覆盖）· `miss_src`。
+    🔴 与通用 `jobs` 循环的区别就在这儿：那条路对同名目标 `shutil.copyfile` 一律覆盖。
+    """
+    jobs = c08_jobs()
+    if only:
+        jobs = [j for j in jobs if only.lower() in os.path.basename(j[1]).lower()]
+    st = dict(table=len(C08_ATLAS_SPRITES) + len(C08_PROJECT_IMAGES), jobs=len(jobs),
+              same=0, new=0, conflict=[], miss_src=[])
+    for src, dst in jobs:
+        if not os.path.exists(src):
+            st['miss_src'].append(src)
+            continue
+        if os.path.exists(dst):
+            if file_sha256(src) == file_sha256(dst):
+                st['same'] += 1
+            else:
+                st['conflict'].append(dst)   # ⛔ 不覆盖：盘上那版可能是另一来源 / 更晚的修正
+            continue
+        st['new'] += 1
+        if not check:
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copyfile(src, dst)
+    return st
+
 # ---- 只在**工程自己的图集切片库**里有的那几张（2026-09-23 加）--------------------------
 # 判据：先在 `MENU_SRC/*/Sprite/` 全目录里按名字 glob，**0 命中**的那些才进这里
 #（实测整个 extract 缓存里 48 张里只有这 1 张查不到）。
@@ -2251,6 +2449,21 @@ def main() -> int:
     #   （本脚本自己的行为）· 2026-11-04 B140_WH。键 = 落盘路径，值 = (原版名, bundle)。
     menu_tex_guard = {os.path.join(MENU_OUT, name.replace(' ', '_') + '.png'): (name, bundle)
                       for name, bundle in MENU_TEXTURE_IMAGES}
+    # ---- 🆕 2026-11-05（B146_E13 · 活状态表 `C-08`）：125 张「缺失精灵」----
+    # 表与理由见 `C08_ATLAS_SPRITES`。🔴 **不走下面通用的 `jobs` 循环**：那条路对同名目标
+    # 一律 `shutil.copyfile`（**直接覆盖**）；本批的纪律是「**内容不同就不覆盖**、内容相同就跳过」
+    # —— 这 125 张是 E11 已验收的字节，即使内容一样也不该重写（会动 mtime）。
+    c08_st = apply_c08(args.check, args.only)
+    print(f'C-08 补充精灵：表 {c08_st["table"]} 条 · 源存在 '
+          f'{c08_st["jobs"] - len(c08_st["miss_src"])}/{c08_st["jobs"]} · '
+          f'目标已一致 {c08_st["same"]}/{c08_st["jobs"]}'
+          f'（{"待补" if args.check else "本次补"} {c08_st["new"]} · '
+          f'内容不同拒覆盖 {len(c08_st["conflict"])}）')
+    if c08_st['miss_src']:
+        print(f'  🔴 {len(c08_st["miss_src"])} 张缺源:', c08_st['miss_src'][:5])
+    if c08_st['conflict']:
+        print(f'  🔴 {len(c08_st["conflict"])} 张**盘上内容与源不同**（⛔ 没覆盖，需人工判）:',
+              c08_st['conflict'][:5])
 
     # ---- 🆕 2026-10-29（B97_W17）：锻造/开卡包那件 3D 卡包的资源（表与理由见 `BOOSTERPACK_IMAGES`）----
     booster_jobs = []

@@ -15,7 +15,7 @@
 //    ⇒ `OriginalTextureType` **保留现值 `NormalMap`(1)**（改前返 `Default`(0) ⇒ 下次烘焙静默打回）。
 //    判据 = `报告/B141_W130_ArtBaker.md` §2 · 盘上 `.meta:57 textureType: 1` ·
 //           `WarpforgeArena1/Editor/B139_H_Assert.cs` 的三步口径（⛔ 别直接写 NormalMap，只「保留现值」）。
-//  **修复三（15-10 压缩档真值表）**：`CompTruths` 现读 **144 条**（其中 **70 条 `crunched=true`**）；
+//  **修复三（15-10 压缩档真值表）**：`CompTruths` 现读 **234 条**（其中 **92 条 `crunched=true`**）；
 //    15-10 那 8 个原版名（rgba32 × 5 · dxt1 × 3）必须逐条 = 原版档。
 //    判据 = `报告/B141_W130_ArtBaker.md` §3 · `判据/B141_W130_对账_资源.md` §一 15-10 ·
 //           原版 `Texture2D.m_TextureFormat`（4 = RGBA32 · 10 = DXT1）。
@@ -25,15 +25,15 @@
 // ============================ 分组 ============================
 //  A · wrap 三档（`.meta` 现值 + `ArtBaker.OriginalWrap` 生产路径 + TSV 表头结构）
 //  B · `OriginalTextureType` == 1（下划线命名 + `.meta` 现值 + 反例）
-//  C · `CompTruths` 144 条 / 70 条 crunched + 15-10 那 8 名逐条 + 反例 + 盘上已应用的 UI 切片
+//  C · `CompTruths` 234 条 / 92 条 crunched + 15-10 那 8 名逐条 + 反例 + 盘上已应用的 UI 切片
 //  D · 三条过期注释归零 + 注释数字 == 表内数字
-//  E · 灭自证（解析器 / 陈旧检测器都能给出「非 0 / 非默认」）
+//  E · 灭自证（解析器 / 陈旧检测器都能给出「非 0 / 非默认」；计数三读 = 逐键枚举 / `Count` / 源文本键集）
 //
 // ============================ 灭自证（🧨 什么坏法会让哪条红）============================
 //  · `LoadArtTruth` 改回固定偏移 `6/7/8/9` ⇒ **A5/A8/A9 红**（`Shine trail` 读成 (1,1)、表头下标对不上）。
 //  · `RepeatTextures` / 真值表里删掉 `Shine trail` 那条 ⇒ A6/A7/A9 红。
 //  · `OriginalNameCandidates` 删掉「下划线 → 空格」那一档 ⇒ **B2 红**（回 `Default`）。
-//  · `CompTruths` 删掉/改档任一条 ⇒ C3–C10 / C11–C18 对应条红；条数变化 ⇒ C1/C2 红。
+//  · `CompTruths` 删掉/改档任一条 ⇒ C3–C10 / C11–C18 对应条红；条数变化 ⇒ C1/C2 红；源文本键集与运行时字典对不上 ⇒ E7 红。
 //  · 把三条注释写回旧说法 ⇒ **D1–D3 红**；注释数字与表脱节 ⇒ D4 红。
 //  · 盘上 `.meta` 被某次烘焙打回（`textureType` 0 / `textureFormat` 2 = BC7）⇒ A1/A2/A3/A4/B1/C20/C21 红。
 //
@@ -97,8 +97,8 @@ public static class B142_E33_Assert
 
     /// <summary>`CompTruths` 现读条数 / 其中 `crunched=true` 的条数（`B142-ARTBAKER-DOC` 的判据就是这个数）。
     /// ⚠️ 表扩了就要**同刻**改这里 + `ArtBaker.cs:531/:635/:648` 三条注释，否则 D 组红。</summary>
-    const int CompTruthsCount = 144;
-    const int CompTruthsCrunched = 70;
+    const int CompTruthsCount = 234;
+    const int CompTruthsCrunched = 92;
 
     /// <summary>15-10 的 8 个原版名（`报告/B141_W130_ArtBaker.md` §3）。</summary>
     struct Expect
@@ -216,7 +216,7 @@ public static class B142_E33_Assert
     // ------------------------------------------------------------ C · 压缩档真值表
     static void CompressionGroup()
     {
-        Section("C · `CompTruths` 144 条 / 70 条 crunched + 15-10 那 8 名逐条（判据 = 报告/B141_W130_ArtBaker.md §3）");
+        Section("C · `CompTruths` 234 条 / 92 条 crunched + 15-10 那 8 名逐条（判据 = 报告/B141_W130_ArtBaker.md §3）");
 
         IDictionary table = CompTruths();
         Check(table != null, "C0 前提：反射拿到 `ArtBaker.CompTruths`（私有的原版名 → 压缩档表）");
@@ -283,25 +283,25 @@ public static class B142_E33_Assert
         if (string.IsNullOrEmpty(src)) return;
 
         Eq(CountOf(src, "都是 false ⇒ 无行为变化"), 0,
-           "D1 旧说法「（现表内 8 条都是）false ⇒ 无行为变化」== 0（现读 70 条 crunched=true）");
+           "D1 旧说法「（现表内 8 条都是）false ⇒ 无行为变化」== 0（现读 92 条 crunched=true）");
         Eq(CountOf(src, "`CompTruths`，8 个名字"), 0,
-           "D2 旧说法「表内（`CompTruths`，8 个名字）」== 0（现读 144 条）");
+           "D2 旧说法「表内（`CompTruths`，8 个名字）」== 0（现读 234 条）");
         Eq(CountOf(src, "本方法现读只影响 1 张"), 0,
            "D3 旧说法「本方法现读只影响 1 张」== 0（15-09 并入后 `Resources/Art` 的 UI 切片也走真值表）");
 
-        Check(src.IndexOf("现读 144 条", StringComparison.Ordinal) >= 0,
-              "D4 正向标记「现读 144 条」在位（挡「把整段注释删掉也算过」）");
-        Check(src.IndexOf("70 条 crunched=true", StringComparison.Ordinal) >= 0,
-              "D5 正向标记「70 条 crunched=true」在位");
-        Check(src.IndexOf("144 条里 70 条 true", StringComparison.Ordinal) >= 0,
-              "D6 正向标记「144 条里 70 条 true」在位（`:648` 的平台块那句）");
+        Check(src.IndexOf("现读 234 条", StringComparison.Ordinal) >= 0,
+              "D4 正向标记「现读 234 条」在位（挡「把整段注释删掉也算过」）");
+        Check(src.IndexOf("92 条 crunched=true", StringComparison.Ordinal) >= 0,
+              "D5 正向标记「92 条 crunched=true」在位");
+        Check(src.IndexOf("234 条里 92 条 true", StringComparison.Ordinal) >= 0,
+              "D6 正向标记「234 条里 92 条 true」在位（`:648` 的平台块那句）");
 
-        // 注释里的数字必须 **= 表里的真实数字**（双向：不是只信注释写了 144）
+        // 注释里的数字必须 **= 表里的真实数字**（双向：不是只信注释写了 234）
         IDictionary table = CompTruths();
         if (table != null)
         {
             Check(table.Count == CompTruthsCount && CountCrunched(table) == CompTruthsCrunched,
-                  $"D7 注释写的 144 / 70 == 表内真实 {table.Count} / {CountCrunched(table)}（三处同刻改，⛔ 别各写各的）");
+                  $"D7 注释写的 234 / 92 == 表内真实 {table.Count} / {CountCrunched(table)}（三处同刻改，⛔ 别各写各的）");
         }
         else Check(false, "D7 `CompTruths` 取不到 ⇒ 注释数字无法与表对账（⛔ 不静默跳过）");
     }
@@ -319,6 +319,28 @@ public static class B142_E33_Assert
            "E3 `CountOf` 对合成文本能数出 1（挡「陈旧检测器恒返 0」）");
         Eq(HeaderIndex(new[] { "name", "width", "wrapU", "wrapV" }, "wrapV"), 3,
            "E4 `HeaderIndex` 按名取下标（不是按固定偏移）");
+
+        // 🧨 灭自证（计数）：只断 `table.Count == 常量` 是自证的 —— 删一条后把常量也改成 233 就绿了。
+        //   这里**三读对拍**：反射字典的逐键枚举数 · `table.Count` · **源文本 `CompTruths` 块解析出的键集**。
+        //   删/多一条 ⇒ E6（三读不同时相等）与 E7（键集点名）必红，C1 也会红。
+        var srcKeys = SourceCompTruthKeys(ReadText(ArtBakerSrc));
+        Check(srcKeys != null, "E5 前提：从 `ArtBaker.cs` 源文本解析出 `CompTruths` 块的键集（第二读口）");
+        IDictionary tbl = CompTruths();
+        if (srcKeys != null && tbl != null)
+        {
+            int manual = 0;
+            var runtime = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (DictionaryEntry kv in tbl) { manual++; runtime.Add((string)kv.Key); }
+            Check(manual == tbl.Count && manual == CompTruthsCount,
+                  $"E6 逐键枚举数 {manual} == `table.Count` {tbl.Count} == 常量 {CompTruthsCount}（删一条不可能三处同时对得上）");
+            var missing = new List<string>(); var extra = new List<string>();
+            foreach (var k in srcKeys) if (!runtime.Contains(k)) missing.Add(k);
+            foreach (var k in runtime) if (!srcKeys.Contains(k)) extra.Add(k);
+            Check(missing.Count == 0 && extra.Count == 0,
+                  $"E7 运行时键集 == 源文本键集（{runtime.Count} vs {srcKeys.Count}）⇒ 少一条/多一条都会点名"
+                  + $"［源有运行无：{string.Join(",", missing.ToArray())} · 运行有源无：{string.Join(",", extra.ToArray())}］");
+        }
+        else Check(false, "E6/E7 `CompTruths` 或源文本取不到 ⇒ 计数对账无法判定（⛔ 不静默跳过）");
     }
 
     // ============================================================ 反射 / 读盘
@@ -434,6 +456,26 @@ public static class B142_E33_Assert
         int j = meta.IndexOf("- serializedVersion:", i + 1, StringComparison.Ordinal);
         string seg = j > i ? meta.Substring(i, j - i) : meta.Substring(i);
         return MetaInt(seg, key);
+    }
+
+    /// <summary>从 `ArtBaker.cs` 源文本里抠 `CompTruths` 初始化块的键集（独立于反射的第二读口 ⇒ 灭「计数自证」）。</summary>
+    static HashSet<string> SourceCompTruthKeys(string src)
+    {
+        if (string.IsNullOrEmpty(src)) return null;
+        string[] lines = src.Replace("\r\n", "\n").Split('\n');
+        int start = -1;
+        for (int i = 0; i < lines.Length; i++)
+            if (lines[i].Contains("Dictionary<string, ArtCompressionTruth> CompTruths =")) { start = i; break; }
+        if (start < 0) return null;
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int i = start + 1; i < lines.Length; i++)
+        {
+            string t = lines[i].Trim();
+            if (t.StartsWith("};", StringComparison.Ordinal)) break;
+            var m = Regex.Match(t, "^\\{\\s*\"([^\"]+)\"\\s*,");
+            if (m.Success) set.Add(m.Groups[1].Value);
+        }
+        return set.Count > 0 ? set : null;
     }
 
     static int CountOf(string text, string needle)

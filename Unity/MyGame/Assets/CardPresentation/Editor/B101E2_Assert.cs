@@ -128,6 +128,7 @@ public static class B101E2_Assert
         SectionC_AllHandFamily();
         SectionD_OtherFamiliesNoOp();
         SectionE_GuardWhenPendingNotInHand();
+        SectionF_SourceCardIsPending();
         Debug.Log(_sink.P + "B101E2 合计：" + _sink.Pass + " 通过 / " + _sink.Fail + " 失败");
     }
 
@@ -339,5 +340,55 @@ public static class B101E2_Assert
         var ops = ChooseOps(card);
         for (int i = 0; i < ops.Count; i++) if (SrcOf(ops[i]) == src) return ops[i];
         return null;
+    }
+
+    // ============================================================ F · 面板路径必须把 `PendingCard` 当 `sourceCard` 传（B146-E7）
+    /// <summary>
+    /// 账 `B145-CHOOSECARD-SOURCECARD`：`ChooseCardCandidates` 的 36 格 criteria 要按**这一问的主人**筛池。
+    /// 旧面板路径拿 `ctx.ActingUnit ?? ctx.PlayingCard`（开面板早于结算 ⇒ 读到的是**上一张卡**）；
+    /// `B146-E7` 起面板把 `PendingCard` 当可选 `sourceCard` 直接传进去。
+    ///
+    /// <para>判据 = `BattleManager__GetChoiceFullPool.c:28-35`（池 = `GetTargets(choicesDefinition)`，主人 = 这张卡自己）
+    /// ＋ `AbilityLogic__GetTargets.c:1086-1095`（对池里每个元素 `CheckIfMeetsCriteria`）。夹具取
+    /// `Path of the Seer`：choicesDefinition 现读 = `traitsFilter=5 (ephemeral) + excludeTrait=1` ⇒ **带 ephemeral 的候选全部淘汰**；
+    /// 它的 `ChooseWhat` 现读 = `card`（不按卡种筛）⇒ 手牌里那张 ephemeral 战术卡正是鉴别点。</para>
+    /// </summary>
+    static void SectionF_SourceCardIsPending()
+    {
+        MenuCheck.Section(_sink, "F 面板路径取到的是 `PendingCard`，不是上一张卡（`B146-E7`）");
+
+        var seer  = FindById("09bcb1b3b8794c4429d82d4b2e68fa1f");   // Path of the Seer：choicesDefinition = 排除 ephemeral
+        var unit  = FindById("ASH62");                                // Dire Avenger：非 ephemeral 部队
+        var eph   = FindById("dc7e575c0a328f446be1521c23ec850b");     // Empyric Ambush：ephemeral 战术卡（筛选词 `card` 放它过、36 格淘汰它）
+        var stale = FindById("ASH83");                                // Autarch：**没有** role="choice" ⇒ 旧路径那一格不筛
+        Tr(seer != null && unit != null && eph != null && stale != null,
+           "F0 **前提**：池里有 `Path of the Seer` / `Dire Avenger` / `Empyric Ambush` / `Autarch`"
+         + "（缺一张 ⇒ 本节全部无意义，⛔ 不静默跳过）");
+        if (seer == null || unit == null || eph == null || stale == null) return;
+        var op = FirstOp(seer, "hand");
+        Tr(op != null, "F0-b **前提**：`Path of the Seer` 的 `choosecard` op 是 `hand` 族");
+        if (op == null) return;
+
+        var ctx = MakeCtx(unit, seer, eph);        // 手牌 = [Dire Avenger, Path of the Seer, Empyric Ambush]
+        ctx.PlayingCard = stale;                   // 「上一张卡」= 结算还没轮到这一问时那一格里的东西（没有 choicesDefinition）
+        string sn, dt, wy;
+        var oldPath = RuleCore.ChooseCardCandidates(ctx, 0, op, out sn, out dt, out wy);
+        Tr(HasId(oldPath, eph.Id), "F1 **真缺陷在**：旧面板路径（读上一张卡）不筛 ⇒ ephemeral 那张**还在**候选里"
+                                 + "｜🧨 候选域/解析改了 ⇒ 先回源核，别当成「修好了」");
+
+        var panel = ChoicePanelPool.PanelChoiceCandidates(ctx, 0, op, seer, ctx.Players[0].Hand[1], 1, out sn, out dt, out wy);
+        Tr(!HasId(panel, eph.Id), "F2 ★ 面板路径（`PendingCard` = 本卡）把 ephemeral 那张**筛掉了**"
+                               + "｜🧨 `PanelChoiceCandidates` 不把 `pendingCard` 传给 `ChooseCardCandidates` ⇒ 回退上一张卡 ⇒ 本行红");
+        Tr(HasId(panel, unit.Id), "F2-b 非 ephemeral 的那张**还在**（筛选没把池筛空 —— 否则 F2 是空对空的假绿）");
+
+        // 灭自证：同一份池、**不传** `PendingCard` ⇒ 必须与旧路径一致（= 断言确实盯住那次接线，而不是别的东西把它筛掉了）
+        var unplugged = ChoicePanelPool.PanelChoiceCandidates(ctx, 0, op, null, null, -1, out sn, out dt, out wy);
+        C(Ids(unplugged), Ids(oldPath), "F3 ★ 灭自证：不传 `PendingCard` ⇒ 面板池 == 旧路径（回到缺陷）");
+
+        // 引擎那一刻：牌已离手、`ctx.PlayingCard` 指向本卡 ⇒ 面板池必须与引擎池逐项同 id 同序
+        ctx.Players[0].Hand.RemoveAt(1);
+        ctx.PlayingCard = seer;
+        var engine = RuleCore.ChooseCardCandidates(ctx, 0, op, out sn, out dt, out wy);
+        C(Ids(panel), Ids(engine), "F4 ★ 面板池 == 引擎池（逐项同 id 同序：两刻的「主人」都是本卡）");
     }
 }

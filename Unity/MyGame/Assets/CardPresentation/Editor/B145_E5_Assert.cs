@@ -108,6 +108,8 @@ public static class B145_E5_Assert
 
         GroupA20();
         GroupA21();
+        GroupA18();
+        GroupW21();
 
         Debug.Log(Tag + $" === 合计：{_pass} 通过 / {_fail} 失败 ===");
     }
@@ -288,5 +290,199 @@ public static class B145_E5_Assert
         s.ExcludeEnemyHero = 0;
         s.IncludeRemnants = 1;               // 候选不是残骸；这一格不参与（`Matches` ⑤ 只看 0 且候选是残骸）
         return s;
+    }
+
+    // ------------------------------------------------------------ C · A-18（actingCard，2026-11-05 `B146-W16`）
+    /// <summary>`ta = 40 attacker / 70 abilityOwner / 80 actingCard` 的候选池 = **`[actingCard]`**
+    /// （判据 = `decomp_full/AbilityLogic__GetTargets.c:760-769` 的 `(iVar6 == 0x50) || (iVar6 == 0x28)`
+    /// ⇒ `Add(param_4)` 后 `goto LAB_180818485` = 建池即 return；`:845-847` 的 `0x46` 也 `goto LAB_180819b04`）。
+    /// ⛔ 改前的两个近似（`ta==80` 无条件 true / `ta=40` 拿 `thisCard` 比）都会让下面的 C2/C3 红。</summary>
+    static void GroupA18()
+    {
+        Section("C · A-18 `ta=40/70/80` 候选池 = [actingCard]（判据 = AbilityLogic__GetTargets.c:760-769 / :845-847）");
+
+        var acting = new UnitState(Mk("W16_ACTING", "acting"), false);
+        var other = new UnitState(Mk("W16_OTHER", "other"), false);
+
+        // C1 · ta=80：候选就是 actingCard ⇒ 过
+        string g1;
+        Eq(TargetCriteriaEval.Matches(null, 0, TaSet(80), acting, null, other, null, out g1, null, acting), (bool?)true,
+           "C1 `ta=80` 候选 == actingCard ⇒ **true**（池 = [actingCard]）" + (g1 != null ? " · gap=" + g1 : ""));
+
+        // C2 · ta=80：候选不是 actingCard ⇒ 淘汰（这一条是「⛔ 别再直接 return true」的判别式）
+        string g2;
+        Eq(TargetCriteriaEval.Matches(null, 0, TaSet(80), other, null, acting, null, out g2, null, acting), (bool?)false,
+           "C2 `ta=80` 候选 != actingCard ⇒ **false**（改前无条件 true ⇒ 这条会红）" + (g2 != null ? " · gap=" + g2 : ""));
+
+        // C3 · ta=40：⛔ 不拿 thisCard 兜底 —— `thisCard` 换成另一只，结论仍只看 actingCard
+        string g3;
+        Eq(TargetCriteriaEval.Matches(null, 0, TaSet(40), acting, null, other, null, out g3, null, acting), (bool?)true,
+           "C3 `ta=40` 候选 == actingCard、而 `thisCard` 是**另一只** ⇒ **true**（改前拿 thisCard 比 ⇒ 这条会红）" + (g3 != null ? " · gap=" + g3 : ""));
+
+        // C4 · ta=70 与 40/80 同一出口（`GetTargets.c:845-847` → `LAB_180819b04`）
+        string g4;
+        Eq(TargetCriteriaEval.Matches(null, 0, TaSet(70), other, null, other, null, out g4, null, acting), (bool?)false,
+           "C4 `ta=70` 候选 != actingCard ⇒ **false**（`:845-847` 落到同一出口）" + (g4 != null ? " · gap=" + g4 : ""));
+
+        // C5/C6 · actingCard == null ⇒ **判不了**（⛔ 不冒充 true、⛔ 不拿 thisCard 顶；出声说明缺的是它）
+        //   依据：原版 `GetTargets` 对 `param_4` 没有 null 闸（`Add(null)` 进池 ⇒ 池里没有真候选）；
+        //   本仓契约「缺比较对象 ⇒ null」与同文件 `ta=30` 无 `targetCard` 那一支一致。
+        string g5;
+        Eq(TargetCriteriaEval.Matches(null, 0, TaSet(80), acting, null, acting, null, out g5), (bool?)null,
+           "C5 `ta=80` 没给 actingCard ⇒ **null（判不了）**（改前无条件 true ⇒ 这条会红）");
+        Check(g5 != null && g5.IndexOf("actingCard", StringComparison.Ordinal) >= 0,
+              "C6 `gap` 点名缺的是 `actingCard`（必须出声，⛔ 不静默）" + (g5 != null ? " · gap=" + g5 : ""));
+    }
+
+    /// <summary>`ta=40/70/80` 只有 `targetsAffected` 这一格参与（那三档在建池侧就 return，不进 36 格）。</summary>
+    static CardDef.CountSetSpec TaSet(int ta)
+    {
+        var s = new CardDef.CountSetSpec();
+        s.TargetsAffected = ta;
+        return s;
+    }
+
+    // ------------------------------------------------------------ D · B146-E4 残差（写手 W21，2026-11-05）
+    //  判据：`判据/B146_A27_E4REST判据.md` §四/§五 · `FilterMethods__CheckIfMeetsCriteria.c`
+    //        · `FilterMethods__MeetsArmyCriteria.c` · `DefinedTrait`（`dump.cs:45721-45859`）。
+    //  🧨 灭自证（哪条改动会让哪条红）：
+    //    · 删掉 `TraitName` 的 260 / 1230 ⇒ D1/D2/D3/D4/D10/D13 红；
+    //    · 把 `if (ta == 30)` 改回 `if (ta == 30 || ta == 220)` ⇒ D5 红；
+    //    · 费组改回 `t.Cost`（卡面值）⇒ D15 红；
+    //    · `excludeEnchantments` 改回「比候选卡本身」⇒ D18 红；
+    //    · `MeetsArmy` 改回「0 档以外恒 true」⇒ D20/D22/D23 红。
+    static void GroupW21()
+    {
+        Section("D · B146-E4 残差：TraitName 260/1230 · 费组当前费 · ta==220 · excludeEnchantments · armyFilter");
+
+        // ---- D1..D4 · trait 映射表（值 + 源码结构）----
+        Eq(AiTargets.TraitName(260), "slay", "D1 ★★ `TraitName(260)` == `slay`（`DefinedTrait.slay`；改前 null ⇒ `MeetsTrait` 恒 false）");
+        Eq(AiTargets.TraitName(1230), "teleport", "D2 ★★ `TraitName(1230)` == `teleport`（`DefinedTrait.teleport`）");
+        string at = ReadSrc("RuleEngine/Data/AiTargets.cs");
+        Check(!string.IsNullOrEmpty(at), "D3a 前提：`RuleEngine/Data/AiTargets.cs` 读得到");
+        if (string.IsNullOrEmpty(at)) return;
+        Check(at.Contains("case 260: return KeywordTable.Slay;"), "D3 ★ 源码结构：`case 260: return KeywordTable.Slay;` 在（⛔ 别删）");
+        Check(at.Contains("case 1230: return KeywordTable.Teleport;"), "D4 ★ 源码结构：`case 1230: return KeywordTable.Teleport;` 在");
+        // ⚠️ 只看 `Match` 这一段 —— `GetTargets` 建池侧**保留** `ta == 30 || ta == 220 || ta == 90`（那是对的）。
+        string matchBody = Slice(at, "static bool Match(", "public static bool MatchesTarget");
+        Check(matchBody != null && matchBody.Length > 200, "D5a 前提：`AiTargets.Match` 的方法体切得出来");
+        if (matchBody != null)
+            Check(!matchBody.Contains("ta == 220"),
+                  "D5 ★★ `Match` 里**不再**有 `ta == 220` 的 target 身份特判（`CheckIfMeetsCriteria.c` 没有 220 这一档 ⇒ 落常规筛）｜🧨 加回 `if (ta == 30 || ta == 220)` ⇒ 红（`GetTargets` 建池侧那一处保留，不在本断言范围）");
+        Check(at.Contains("RuleCore.CostOf(ctx, t.Side, inst)"),
+              "D6 费组读**当前费**（`RuleCore.CostOf`），不是卡面 `t.Cost`（原版 `get_CurrentCost`）");
+        Check(at.Contains("carrier.ActiveEnchantments"),
+              "D7 `excludeEnchantments` 比的是**候选身上的附魔列表**（原版 `+0x110 activeEnchantments`）");
+        Check(at.Contains("TargetCriteriaEval.ArmyPassesFor"),
+              "D8 `armyFilter` 转调唯一判定表 `ArmyPassesFor`（四档全实现；⛔ 别在本类抄第二份 switch）");
+
+        // ---- D9..D14 · 端到端：DA20 的两条真实 criteria（traitsFilter 260 / 1230，ta=90）----
+        var dto = AiScoringData.Get("DA20");
+        var aa = dto != null ? dto.activeAbility : null;
+        bool prem = aa != null && aa.cardTargetScoringCriteria != null && aa.cardTargetScoringCriteria.Length >= 2;
+        Check(prem, "D9a 前提：`ai_scoring.json` 里有 `DA20 Master Lazarus` 的 activeAbility 两条 cardTarget criteria");
+        if (!prem) return;
+        var e260 = aa.cardTargetScoringCriteria[0];
+        var e1230 = aa.cardTargetScoringCriteria[1];
+        Eq(e260.targetCriteria.traitsFilter, 260, "D9b 前提：第 1 条 traitsFilter = 260（slay）");
+        Eq(e1230.targetCriteria.traitsFilter, 1230, "D9c 前提：第 2 条 traitsFilter = 1230（teleport）");
+
+        var ctx = W21Ctx();
+        var self = W21Card("DA20", "unit", "Test", 1);
+        var slayUnit = W21Place(ctx, 0, 3, W21Card("W21_SLAY", "unit", "Test", 2));
+        slayUnit.AddKeyword("slay", 1);
+        var teleUnit = W21Place(ctx, 0, 5, W21Card("W21_TELE", "unit", "Test", 3));
+        teleUnit.AddKeyword("teleport", 1);
+        var plain = W21Place(ctx, 0, 0, W21Card("W21_PLAIN", "unit", "Test", 2));
+
+        var pool260 = AiTargets.GetTargets(ctx, e260.targetCriteria, self, null, 0, slayUnit);
+        Eq(pool260.Count, 1, "D10 ★★ 260 slay：候选池 = 1（改前 `TraitName(260)` 为 null ⇒ 池 = 0）");
+        var pool260b = AiTargets.GetTargets(ctx, e260.targetCriteria, self, null, 0, plain);
+        Eq(pool260b.Count, 0, "D11 灭自证：同一 criteria 对**没有 slay** 的候选 ⇒ 0（⛔ 不是「一律放行」）");
+        float s260 = AiScoring.ScoreFromCriteria(ctx, self, null, 0, slayUnit, e260);
+        Check(s260 > 0f, "D12 ★★ DA20 的 260 评分 **> 0**（option 2 = SumValueInPlay；改前 0 个目标 ⇒ 0 分）· 实际 = " + s260.ToString("0.###"));
+
+        var pool1230 = AiTargets.GetTargets(ctx, e1230.targetCriteria, self, null, 0, teleUnit);
+        Eq(pool1230.Count, 1, "D13 ★★ 1230 teleport：候选池 = 1（改前恒 0）");
+        var pool1230b = AiTargets.GetTargets(ctx, e1230.targetCriteria, self, null, 0, slayUnit);
+        Eq(pool1230b.Count, 0, "D14 灭自证：slay 候选**不**满足 teleport ⇒ 0（两个映射不串）");
+        float s1230 = AiScoring.ScoreFromCriteria(ctx, self, null, 0, teleUnit, e1230);
+        Check(s1230 > 0f, "D14b ★★ DA20 的 1230 评分 **> 0** · 实际 = " + s1230.ToString("0.###"));
+
+        // ---- D15/D16 · 费组 = 当前费（不是卡面费）----
+        var costUnit = W21Place(ctx, 0, 2, W21Card("W21_COST", "unit", "Test", 3));
+        ctx.CostMods.Add(new CostMod { Player = 0, Key = "W21_COST", Delta = -2 });   // 3 → 1
+        var cc = W21EnemyMinions();
+        cc.friendlyUnits = true;       // 候选在 P0 侧（= thisSide）
+        cc.manaCostFilterOption = 1;   // EqualTo
+        cc.manaCostFilter = 1;
+        Check(AiTargets.MatchesTarget(ctx, cc, self, null, 0, costUnit),
+              "D15 ★★ 费组读**当前费**：基础 3 − 2 = 1，filter 1 ⇒ 过（改前拿卡面 3 ⇒ 不过 ⇒ 本行红）");
+        cc.manaCostFilter = 3;
+        Check(!AiTargets.MatchesTarget(ctx, cc, self, null, 0, costUnit),
+              "D16 灭自证：filter = 卡面 3 ⇒ 不过（证明它读的不是卡面值）");
+        ctx.CostMods.Clear();
+
+        // ---- D17/D18 · excludeEnchantments 比的是「候选身上的附魔」----
+        var carrier = W21Place(ctx, 0, 1, W21Card("W21_CARRIER", "unit", "Test", 1));
+        var ex = W21EnemyMinions();
+        ex.friendlyUnits = true;       // 候选在 P0 侧（= thisSide）
+        ex.excludeEnchantments = new[] { "W21_ENCH" };
+        Check(AiTargets.MatchesTarget(ctx, ex, self, null, 0, carrier),
+              "D17 控制条：候选身上**没有**这条附魔 ⇒ 过");
+        carrier.Instance.ActiveEnchantments.Add(new ActiveEnchantment { Card = W21Card("W21_ENCH", "enchantment", "Test", 0) });
+        Check(!AiTargets.MatchesTarget(ctx, ex, self, null, 0, carrier),
+              "D18 ★★ 候选身上**挂着**这条附魔 ⇒ 淘汰（改前拿候选卡本身比 ⇒ 恒不命中 ⇒ 本行红）");
+
+        // ---- D19..D23 · armyFilter 四档（`MeetsArmyCriteria.c`）----
+        var ultra = W21Place(ctx, 0, 6, W21Card("W21_ULTRA", "unit", "Ultramarines", 1));
+        var goff = W21Place(ctx, 0, 7, W21Card("W21_GOFF", "unit", "Goff", 1));
+        var neutral = W21Place(ctx, 1, 6, W21Card("W21_NEUTRAL", "unit", "Neutral", 1));
+        var ac = W21EnemyMinions();
+        ac.chosenArmy = 10;            // CardArmy.Ultramarines
+        ac.friendlyUnits = true;       // 候选都在 P0 侧
+        ac.armyFilter = 1;             // OnlyChosenArmy
+        Check(AiTargets.MatchesTarget(ctx, ac, self, null, 0, ultra), "D19 `armyFilter=1` 同阵营 ⇒ 过");
+        Check(!AiTargets.MatchesTarget(ctx, ac, self, null, 0, goff), "D20 ★★ `armyFilter=1` 异阵营 ⇒ 淘汰（改前恒 true ⇒ 红）");
+        ac.armyFilter = 2;             // ExcludeChosenArmy
+        Check(!AiTargets.MatchesTarget(ctx, ac, self, null, 0, ultra), "D21 `armyFilter=2` 同阵营 ⇒ 淘汰");
+        Check(AiTargets.MatchesTarget(ctx, ac, self, null, 0, goff), "D22 ★★ `armyFilter=2` 异阵营 ⇒ 过（改前恒 true、且分不出两侧）");
+        ac.armyFilter = 3;             // OnlyChosenArmyOrNeutral
+        ac.enemyUnits = true;
+        Check(AiTargets.MatchesTarget(ctx, ac, self, null, 0, neutral), "D23 ★★ `armyFilter=3` **中立**（异阵营）⇒ 过（`IsNeutralArmy` 那一档）");
+        Check(!AiTargets.MatchesTarget(ctx, ac, self, null, 0, goff), "D24 控制条：`armyFilter=3` 异阵营且**非中立** ⇒ 淘汰");
+    }
+
+    /// <summary>W21 夹具：`ta=10`（走全部常规筛）· 只收敌方 Minion —— 与 <see cref="Criteria"/> 同形，
+    /// 只是本组要逐格改 `manaCostFilter` / `armyFilter` / `excludeEnchantments`。</summary>
+    static AiTargetCriteriaDto W21EnemyMinions()
+        => new AiTargetCriteriaDto { targetsAffected = 10, enemyUnits = true, includeMinions = true };
+
+    static CardDef W21Card(string id, string type, string faction, int cost)
+    {
+        var c = new CardDef(id, id, type, "", "common", faction, cost, 1, 5, 0, (IEnumerable<string>)null);
+        c.AttachCardType(type == "hero" ? 10 : 0);
+        return c;
+    }
+
+    static BattleContext W21Ctx()
+    {
+        var d0 = new List<CardDef> { W21Card("W21Warlord0", "hero", "Test", 0) };
+        var d1 = new List<CardDef> { W21Card("W21Warlord1", "hero", "Test", 0) };
+        for (int i = 0; i < 10; i++)
+        {
+            d0.Add(W21Card("W21F0_" + i, "unit", "Test", 1));
+            d1.Add(W21Card("W21F1_" + i, "unit", "Test", 1));
+        }
+        return RuleCore.NewBattle(d0, d1, seed: 0, shuffle: false);
+    }
+
+    static UnitState W21Place(BattleContext ctx, int p, int slot, CardDef card)
+    {
+        var u = new UnitState(ctx.NewInstance(card), false) { Exhausted = false };
+        u.DeployedTurn = ctx.Turn;
+        u.PlayOrder = ctx.TakePlayOrder();
+        ctx.Players[p].Board[slot] = u;
+        return u;
     }
 }

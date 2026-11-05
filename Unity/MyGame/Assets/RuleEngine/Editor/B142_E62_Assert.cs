@@ -44,7 +44,8 @@
 //   （⚠️ 追加的文本必须落在该行第一个 `//` **之前**；接线由调度台统一做，本写手不改那个文件。）
 //
 // ⚠️ 本件**无副作用**：只建裸 `BattleContext`（不建 GameObject、不碰存档、不改静态表）＋
-//    一个**闭合泛型**上的假事件实例（用完把 `OnErrorPopup` 还原成 null）。
+//    一个**闭合泛型**上的假事件实例（用完把 `OnErrorPopup` / `OnConfirmPopup` 还原成原值；
+//    `OnConfirmPopup` 是 2026-11-05 `B146-E8` 加的两钮弹窗口，见 B3-2d~j）。
 using System.Collections.Generic;
 using CardPresentation;      // PlayEvent<,> / PlayEventSaveGame / PlayEventData / DefensiveCardInventoryCheck / PlayEventDefensiveCards
 using RuleEngine;            // RuleCore / CardDef / BattleContext / BattleEvent / EvtKind
@@ -172,27 +173,60 @@ public static class B142_E62_Assert
                   "B2-5 `null` 卡 ⇒ 假（不抛）");
 
         // ---------- B3 接线：`StartMatch` **只认 `== HaveItInInventory`** ----------
+        //   ✅ 已复刻（2026-11-05 · B146-E8 · 判据 `decomp_b91/PlayEvent.__c__DisplayClass13_0…_StartMatch_b__0.c`
+        //      = `StartMatchNoCheck(this, deck)` / `…__c_object__object_._StartMatch_b__13_1.c`
+        //      = `WindowsManager.CloseWindow(wm, wm.CurrentWindow(0x58), 0)`）：`HaveItInInventory` 那一支现在是**两钮弹窗**
+        //      （原版文案是疑问句「…start the match anyway?」）⇒ 本组改成「假弹窗同时捕获 onOk/onCancel，
+        //      并**实调**两个回调」—— ⛔ 不许只断 popup key（那拦不住「两颗钮都挂空」）。
         var prev = PlayEvent<PlayEventSaveGame, B142E62FakeData>.OnErrorPopup;
+        var prevConfirm = PlayEvent<PlayEventSaveGame, B142E62FakeData>.OnConfirmPopup;
         string popup = null;
+        string confirmKey = null;
+        System.Action confirmOk = null, confirmCancel = null;
         PlayEvent<PlayEventSaveGame, B142E62FakeData>.OnErrorPopup = k => popup = k;
+        PlayEvent<PlayEventSaveGame, B142E62FakeData>.OnConfirmPopup =
+            (k, ok, cancel) => { confirmKey = k; confirmOk = ok; confirmCancel = cancel; };
         try
         {
             // B3-1 `DontHave`（0）⇒ 直接开打
             {
                 var e = new B142E62FakeEvent { Defensive = DefensiveCardInventoryCheck.DontHave };
-                popup = null;
+                popup = null; confirmKey = null;
                 e.StartMatch();
                 CheckTrue(e.Started, "B3-1 `DontHave`(0) ⇒ 直接 `StartMatchNoCheck`（原版 `.c:112`）");
                 Check((object)popup, null, "B3-1b 且不弹窗");
+                Check((object)confirmKey, null, "B3-1c 且**不走**两钮弹窗");
             }
-            // B3-2 `HaveItInInventory`（1）⇒ 弹「没分配防御卡」、不开打
+            // B3-2 `HaveItInInventory`（1）⇒ **两钮**：先不开打；点 OK 照打
             {
                 var e = new B142E62FakeEvent { Defensive = DefensiveCardInventoryCheck.HaveItInInventory };
-                popup = null;
+                popup = null; confirmKey = null; confirmOk = null; confirmCancel = null;
                 e.StartMatch();
-                CheckTrue(!e.Started, "B3-2 `HaveItInInventory`(1) ⇒ **不开打**");
-                Check(popup, "MenuDeck/Error/HasNotAssignedDefensiveCard",
-                      "B3-2b 文案键逐字 = `MenuDeck/Error/HasNotAssignedDefensiveCard`");
+                CheckTrue(!e.Started, "B3-2 `HaveItInInventory`(1) ⇒ **先不开打**（等玩家点钮）");
+                Check(confirmKey, "MenuDeck/Error/HasNotAssignedDefensiveCard",
+                      "B3-2b 两钮弹窗的文案键逐字 = `MenuDeck/Error/HasNotAssignedDefensiveCard`（原版疑问句那一条）");
+                Check((object)popup, null, "B3-2c ⛔ 这一支**不再**走单钮 `OnErrorPopup`（原版这里是两颗钮）");
+                CheckTrue(confirmOk != null && confirmCancel != null,
+                          "B3-2d ★ 两颗钮**都挂了回调**（OK ⇒ `StartMatchNoCheck` / Cancel ⇒ 关当前窗）"
+                        + "｜🧨 少挂一颗 ⇒ 那颗钮点了什么都不发生（原版 `b__0` / `b__13_1` 两颗都在）");
+                if (confirmOk != null) confirmOk();
+                CheckTrue(e.Started, "B3-2e ★ 点 **OK** ⇒ 照打（`StartMatchNoCheck`）—— ⛔ **不是**「自动分配防御卡」"
+                    + "｜🧨 OK 接成关窗 / 什么都不做 ⇒ 本条红");
+                Check(e.LastDeckId, "B142E62_fake_deck",
+                      "B3-2f OK 那一下带的是**同一个** deckId（`b__0` 捕的就是 closure 里那一副）");
+                Check(e.CloseCalls, 0, "B3-2g 点 OK **不**关窗");
+            }
+            // B3-2h~j Cancel 那一支：新实例，点 Cancel ⇒ 不开打 + 关当前窗（原版 `b__13_1`）
+            {
+                var e = new B142E62FakeEvent { Defensive = DefensiveCardInventoryCheck.HaveItInInventory };
+                confirmKey = null; confirmOk = null; confirmCancel = null;
+                e.StartMatch();
+                CheckTrue(confirmCancel != null, "B3-2h（前提）Cancel 回调已捕获");
+                if (confirmCancel != null) confirmCancel();
+                CheckTrue(!e.Started, "B3-2i ★ 点 **Cancel** ⇒ **不开打**");
+                Check(e.CloseCalls, 1,
+                      "B3-2j ★ 点 Cancel ⇒ 恰调一次「关当前窗」（原版 `b__13_1` = `WindowsManager.CloseWindow(CurrentWindow)`）"
+                    + "｜🧨 把 Cancel 接成 OK / 接成什么都不做 ⇒ 本条红");
             }
             // B3-3 `HaveItAssigned`（2）⇒ 直接开打（这条就是「别写成 `!= DontHave`」的闸）
             {
@@ -217,6 +251,7 @@ public static class B142_E62_Assert
         finally
         {
             PlayEvent<PlayEventSaveGame, B142E62FakeData>.OnErrorPopup = prev;   // ⚠️ 泛型类的 static 是**按闭合类型各一份** ⇒ 只还原本夹具这一份
+            PlayEvent<PlayEventSaveGame, B142E62FakeData>.OnConfirmPopup = prevConfirm;
         }
 
         // ---------- B4 真实卡池：13 阵营各自都有防御卡（`spellType == 210`）----------
@@ -357,9 +392,15 @@ sealed class B142E62FakeEvent : PlayEvent<PlayEventSaveGame, B142E62FakeData>
     public bool DeckValid = true;
     public DefensiveCardInventoryCheck Defensive = DefensiveCardInventoryCheck.DontHave;
     public bool Started;
+    /// <summary>`StartMatchNoCheck` 收到的那副卡组 id（两钮弹窗点 OK 时带回来的）。</summary>
+    public string LastDeckId;
+    /// <summary>`CloseCurrentWindow` 被调了几次（两钮弹窗点 Cancel 的等价口）。</summary>
+    public int CloseCalls;
 
     public override string GetEventDeck() { return "B142E62_fake_deck"; }
     public override bool ValidateEventDeck(string deckId, bool validateOwnership = true) { return DeckValid; }
     protected override DefensiveCardInventoryCheck HasDefensiveCards(string deckId) { return Defensive; }
-    public override void StartMatchNoCheck(string deckId) { Started = true; }
+    public override void StartMatchNoCheck(string deckId) { Started = true; LastDeckId = deckId; }
+    /// <summary>原版 `b__13_1` = `WindowsManager.CloseWindow(CurrentWindow)` 的观测口（真实现要窗口层，夹具里改成计数）。</summary>
+    protected override void CloseCurrentWindow() { CloseCalls++; }
 }

@@ -6610,7 +6610,7 @@ namespace RuleEngine
             attacker.LastAttackType = ranged ? 2 : 1;
             if (attacker.Has(KeywordTable.Stealth))
             {
-                attacker.RemoveKeyword(KeywordTable.Stealth);
+                attacker.RemoveAll(KeywordTable.Stealth);   // ✅ 已复刻（2026-11-05 · B146-W14 · S1 G-7 · 判据 `_ResolveAttack…MoveNext.c:429 CardScript__RemoveTraitAndEffects(0x46)`）：原版**整摘**（`RemoveTraitAndEffects.c:27` = 先按 trait id 清 `+0x108` activeEffects 全部、再 `RemoveTrait` 本体）⇒ 我们 `RemoveAll` 同一口径（见 `UnitState.RemoveAll` doc）；改前是 `RemoveKeyword`（**只减一层**），关键词值 ≥2 时摘不干净
                 // 🆕 `When a friendly unit loses Stealth, …`（2026-09-13 第三十四轮）。
                 //    ⚠️ **2026-09-14 A7 更正**：这里原来写「**全仓只有这一处**会摘掉 Stealth」——
                 //    现在**有两处**了：另一处是 `BeginTurn` 的「一回合到期」
@@ -6619,12 +6619,12 @@ namespace RuleEngine
                 BroadcastKeywordEvent(ctx, WhenEventKind.LosesStealth, attacker);
                 ctx.Log($"{attacker.Name} 攻击后现身（失去 Stealth）");
             }
-            // 伪装：**攻击前**不能被敌方战术/效果选中，攻击之后就没了（规则书 :173；原版 `:4259` 一带）
-            if (attacker.Has("camouflage"))
-            {
-                attacker.RemoveKeyword("camouflage");
-                ctx.Log($"{attacker.Name} 攻击后失去伪装（Camouflage）");
-            }
+            // ✅ 已复刻（2026-11-05 · B146-W19 · 判据 `_ResolveAttack…MoveNext.c:355/601`；迷彩摘除挪到 dropPod 之后）：原版 `:601-607` 在 `dropPod`（`:355`）与「取消攻击」（`:531`）之后、`LongRange`（`:609`）之前。
+            //   ⚠️ 2026-11-05（W19）订正结构偏差：原来摘在 `DeclareAttackCore`（早于 `dropPod` / `Landing` 早退）⇒ `dropPod ∧ landing` 那一档会在「被 Landing 取消的第一次」就摘掉迷彩，原版那一次不摘（池内各 0 张）。
+            //   现在只在 `DeclareAttackExecute` 一处摘（与 G-1/G-2 同段）。旧实现留痕（已注释，⛔ 别再启用）：
+            //   attacker.RemoveAll(ConditionEval.Camouflage);   // ✅ 已复刻（2026-11-05 · B146-W14 · S1 G-7 · 判据 `_ResolveAttack…MoveNext.c:601-607`：`RemoveTrait(0x3d9)` + `RemoveBuffedTrait(0x3d9)` = **整摘**，`RemoveBuffedTrait.c:46-56` 对 `+0x108` 逐条 `RemoveEffect` 全清）⇒ 我们 `RemoveAll`；改前是 `RemoveKeyword`（值 ≥2 时只减一层、摘不干净）
+                // ctx.Log($"{attacker.Name} 攻击后失去伪装（Camouflage）");   ← 旧实现留痕（摘除已挪到 `DeclareAttackExecute`）
+                // }
 
             // ---- 🆕 2026-10-21（`A1354`）：**出手之后【自动开舱】**（`dropPod`）----
             //  判据 = `BattleManager._ResolveAttack_d__438__MoveNext.c:339-379`，
@@ -6808,7 +6808,7 @@ namespace RuleEngine
             //     `_ResolveForceAttack_d__504` 结算，**全库只有 `_ResolveAttack` 调
             //     `CheckUnitsCancellingAttack`** ⇒ 那条路根本不经过替身。判据写在 `DeclareAttack` 的
             //     `forced` 形参上（含 `grep -rln` 的出处）。
-            RemoveDuplicitousTrait(ctx, target);   // 🔴 2026-10-27（B88-E1 · 账行 `CardScript.RemoveDuplicitous()`）：原版 `_ResolveAttack_d__438__MoveNext.c:512-519` 在结算段开头判**被打者** `HasCurrentTrait(0xa0 tainted)` ⇒ `RemoveDuplicitous`（摘一次，这一记照常结算，不是取消攻击）｜🆕 B142_E2（2026-11-04）：「单位取消攻击」这一跳**已上移到 `DeclareAttackCore`**（`IsValidTarget` 之后、配额/隐身/迷彩之前 = 原版 `:531`）⇒ 本行不再调 `TryCancelAttackByUnits`（否则同一记会响两遍 280）
+            RemoveDuplicitousTrait(ctx, attacker); if (attacker.Has(ConditionEval.Camouflage)) { attacker.RemoveAll(ConditionEval.Camouflage); ctx.Log($"{attacker.Name} 攻击后失去伪装（Camouflage）"); } if (target != null && target.Has(KeywordTable.LongRange)) target.RemoveAll(KeywordTable.LongRange);   // ✅ 已复刻（2026-11-05 · B146-W14 · S1 G-1/G-2 · 判据 `_ResolveAttack…MoveNext.c:511-519` / `:608-615`）：① **G-1 摘的是【攻方】** —— `:512` 读 `+0x28` = `battleAction.actingCard`（`out_il2csharp/BattleManager.cs:33432` 明写 `battleAction.actingCard`；`+0x30` 才是 `targetCard`）⇒ 摘**攻方**的 `tainted`（改前误传 `target` = 被打者，已订正）；② **G-2 摘被打者的 `LongRange`** —— `:609-614` 判 `HasCurrentTrait(被打者, 0x488 longrange)` ⇒ `RemoveTrait(0x488)` + `RemoveBuffedTrait(0x488)`（`RemoveBuffedTrait.c:46-56` 清 `+0x108` 全部同 trait 条目 + `RemoveTrait` 清本体 ⇒ 合起来 = 我们 `UnitState.RemoveAll`，见其 doc「合并字典」那一段）；时点 = **主伤害(`:863`)之前**、紧接 `+0x138=1`(`:616`) 之前，与 `:601-607` 迷彩同一段；池内 13 张（AM33/AM23/TAU27/TAU36/TAU38/TAU15/TAU18/TAU5/TAU31/TAU35/TAU30/UM90/UM92）；⛔ 别改回 `target`（G-1）｜🗒 历史：B88-E1（2026-10-27）把 `:512-519` 判据写成「被打者」**是错的**，据此误传 `target`；B142_E2（2026-11-04）另把「单位取消攻击」上移到 `DeclareAttackCore` ⇒ 本行不再调 `TryCancelAttackByUnits`（否则同一记会响两遍 280）
 
             // 🔴🔴 **2026-10-20（`W58-REVIEWFIX-B2` · 审查 `P2-2` · D9）：`Attack` 宣言/广播的【位置】。**
             //   **原来那两句（`Emit(Attack)` + `BroadcastWhen(Attack)`）就摆在这儿** ——

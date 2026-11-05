@@ -4735,7 +4735,7 @@ namespace RuleEngine
         }
 
         public static List<CardDef> ChooseCardCandidates(BattleContext ctx, int owner, EffectOp op,
-                                                         out string srcName, out string detail, out string why)
+                                                         out string srcName, out string detail, out string why, CardDef sourceCard = null)   // ✅ 已复刻（2026-11-05 · B146-E7 · 判据 BattleManager__GetChoiceFullPool.c:28-35 + AbilityLogic__GetTargets.c:1086-1095；sourceCard 由面板传 PendingCard，不再回退上一张卡）
         {
             var ps = ctx.Players[owner];
             var foe = ctx.Players[1 - owner];
@@ -4884,7 +4884,7 @@ namespace RuleEngine
             if (op.ChooseSrc == "played" && outp.Count > 1)
                 outp.RemoveRange(1, outp.Count - 1);
 
-            return CardPoolCriteriaFilter.Apply(ctx, op, ApplyChoiceCriteriaToPool(ctx, op, outp));   // 🔴 2026-10-30（`B99_C1` · 账 `引擎:#4`）：**候选是卡也要过同一条 36 格 criteria**（原版 `AbilityLogic__GetTargets.c:1086-1095` 对池里每个元素一律 `CheckIfMeetsCriteria`；卡模板级那一支见 `:123`）。判据/射程/现池影响面 → `Core/CardPoolCriteriaFilter.cs` 文件头。零行数变化（铁律 18·b）。｜🆕 2026-11-05（`B145-E5` · A-19）：外面再套一层 `ApplyChoiceCriteriaToPool` —— 原版选牌池 = `GetTargets(choicesDefinition)` 的结果（`BattleManager__GetChoiceFullPool.c:28-35`），那 36 格与 `op.TargetCriteriaSet`（abilityLogic 的 criteria）**不是同一个对象**；判据 + 降级纪律见该方法的 doc
+            return CardPoolCriteriaFilter.Apply(ctx, op, ApplyChoiceCriteriaToPool(ctx, op, outp, sourceCard));   // 🔴 2026-10-30（`B99_C1` · 账 `引擎:#4`）：**候选是卡也要过同一条 36 格 criteria**（原版 `AbilityLogic__GetTargets.c:1086-1095` 对池里每个元素一律 `CheckIfMeetsCriteria`；卡模板级那一支见 `:123`）。判据/射程/现池影响面 → `Core/CardPoolCriteriaFilter.cs` 文件头。零行数变化（铁律 18·b）。｜🆕 2026-11-05（`B145-E5` · A-19）：外面再套一层 `ApplyChoiceCriteriaToPool` —— 原版选牌池 = `GetTargets(choicesDefinition)` 的结果（`BattleManager__GetChoiceFullPool.c:28-35`），那 36 格与 `op.TargetCriteriaSet`（abilityLogic 的 criteria）**不是同一个对象**；判据 + 降级纪律见该方法的 doc
         }
 
         static bool DoChooseCard(BattleContext ctx, int owner, string by, EffectOp op,
@@ -22622,9 +22622,9 @@ namespace RuleEngine
         /// <summary>`choicesDefinition.targetsAffected` 与<b>候选域</b>是否对得上（= 「这张卡是不是这一问的主人」）。
         ///
         /// <para>**为什么要这道闸**：`ChooseCardCandidates` 有两类调用方 —— 结算（`ctx.PlayingCard` 刚被
-        /// `ResolveOps` 写成本卡）与**面板**（开面板早于结算，`ctx.PlayingCard` 还是**上一张卡**）。
-        /// 面板那条我们改不到（白名单外），所以只在这张卡的 `ta` 与 `op.ChooseSrc` **自洽**时才筛：
-        /// 否则宁可**不筛**（= 回到今天的行为），也不拿上一张卡的 criteria 去筛这一问的池。</para>
+        /// `ResolveOps` 写成本卡）与**面板**（开面板早于结算；🆕 2026-11-05 `B146-E7` 起面板把 `PendingCard` 当
+        /// `sourceCard` 直接传进来，不再回退上一张卡），所以只在这张卡的 `ta` 与 `op.ChooseSrc` **自洽**时才筛：
+        /// 否则宁可**不筛**（= 回到今天的行为），也不拿不相干的 criteria 去筛这一问的池。</para>
         ///
         /// <para>取值依据 = `AbilityLogic__GetTargets.c` 的建池分派：
         /// `0x32/50` 手牌（`:895`）· `0x33/51` 手牌+牌库（`:907`）· `0x34/52` 手牌+场上（`:917`）·
@@ -22659,13 +22659,13 @@ namespace RuleEngine
         /// <para>**判不了 ⇒ 整池原样返回 + 出声一次**（与 `CardPoolCriteriaFilter.Apply` 同一条纪律：
         /// 宁可不筛也不猜；⛔ 不许把「判不了」当「不成立」筛空）。✅ 已复刻（2026-11-05 · B145-E5 · A-19 · 判据 = BattleManager__GetChoiceFullPool.c:28-35 ＋ AbilityLogic__GetTargets.c:1086-1095）</para>
         /// </summary>
-        public static List<CardDef> ApplyChoiceCriteriaToPool(BattleContext ctx, EffectOp op, List<CardDef> pool)
+        public static List<CardDef> ApplyChoiceCriteriaToPool(BattleContext ctx, EffectOp op, List<CardDef> pool, CardDef sourceCard = null)
         {
             if (pool == null || pool.Count == 0 || op == null) return pool;
-            // 「这一问的主人」= 正在结算的那张卡（与 `ChoiceLimitOf` 同一个取值次序）
-            var card = (ctx != null && ctx.ActingUnit != null && ctx.ActingUnit.Card != null)
+            // 「这一问的主人」= 调用方点名的那张卡（面板传 `PendingCard`）；没点名才回退结算那一刻的本卡（与 `ChoiceLimitOf` 同一取值次序）
+            var card = sourceCard ?? ((ctx != null && ctx.ActingUnit != null && ctx.ActingUnit.Card != null)
                      ? ctx.ActingUnit.Card
-                     : (ctx != null ? ctx.PlayingCard : null);
+                     : (ctx != null ? ctx.PlayingCard : null));
             if (card == null) return pool;
             var set = ChoiceCriteriaOf(card);
             if (set == null) return pool;                                     // 这张卡没有 choicesDefinition ⇒ 不筛

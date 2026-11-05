@@ -196,7 +196,8 @@ namespace CardPresentation
         ///
         /// <para>幂等：同一颗 <paramref name="headerRoot"/> 重复调用只会 `Bind` 一次（`Bind` 内含 `Unhook`）。</para></summary>
         public static WindowHeaderWithBackButton WireHeader(Transform headerRoot, WindowButton back, Label title,
-                                                           Action onBack, string titleText, ILiveOps liveopEvent = null)
+                                                           Action onBack, string titleText, ILiveOps liveopEvent = null,
+                                                           IWindowHeaderUIDrawer[] drawers = null)
         {
             if (headerRoot == null)
             {
@@ -206,7 +207,7 @@ namespace CardPresentation
             var hdr = headerRoot.GetComponent<WindowHeaderWithBackButton>();
             if (hdr == null) hdr = headerRoot.gameObject.AddComponent<WindowHeaderWithBackButton>();
             if (back != null) back.onClick = null;      // ⛔ 别让 `Spec.OnBack` 与组件各走一遍（见上）
-            hdr.Bind(back, title);
+            hdr.Bind(back, title, drawers);
             if (back == null)
                 Debug.LogError("[WindowHeader] `WireHeader`：返回钮上没找到 `WindowButton` ⇒ 点不动（原版这一颗必有）");
             if (liveopEvent != null) hdr.Initialize(liveopEvent, onBack);
@@ -218,7 +219,8 @@ namespace CardPresentation
         /// 子类 `BuildExtras` 里补线）的宿主用。路径 = `<paramref name="headerRootName"/>` →
         /// `<c>Header Background/Window Title</c>`（标题 `Label`）与 `<c>BackHit</c>`（返回钮命中区，`WindowButton` 在它身上）。</summary>
         public static WindowHeaderWithBackButton WireByPath(Transform windowRoot, string headerRootName,
-                                                            Action onBack, string titleText, ILiveOps liveopEvent = null)
+                                                            Action onBack, string titleText, ILiveOps liveopEvent = null,
+                                                            IWindowHeaderUIDrawer[] drawers = null)
         {
             var hdr = (windowRoot != null && !string.IsNullOrEmpty(headerRootName)) ? windowRoot.Find(headerRootName) : null;
             if (hdr == null)
@@ -235,7 +237,7 @@ namespace CardPresentation
                 Debug.LogError("[WindowHeader] `WireByPath` 找不到标题 `" + WindowHeader.PlateName + "/" + WindowHeader.TitleName + "`");
             if (wb == null)
                 Debug.LogError("[WindowHeader] `WireByPath` 找不到返回钮命中区 `" + WindowHeader.BackHitName + "`（`WindowButton`）");
-            return WireHeader(hdr, wb, title, onBack, titleText, liveopEvent);
+            return WireHeader(hdr, wb, title, onBack, titleText, liveopEvent, drawers);
         }
 
         /// <summary>装上「事件 → 标题词条键」的解析器（= 原版 `LiveOpsAssetUtility.GetLabel(baseData, Title, [])`）。

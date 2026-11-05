@@ -31,9 +31,9 @@ namespace RuleEngine
         ///   **没有 `duplicitous` 这个词**）⇒ 方法名叫 Duplicitous，摘的是 **tainted**。</para>
         ///
         /// <para>**原版唯一的调用点** = `BattleManager._ResolveAttack_d__438__MoveNext.c:512-519`：
-        /// 攻击结算里 `HasCurrentTrait(被打者, 0xa0)` ⇒ `RemoveDuplicitous(被打者)`（**摘一次**，
-        /// 这一记照常结算下去 —— 它不是「取消攻击」）。我们那一跳的落点 =
-        /// `RuleCore.DeclareAttackExecute`（声明层之后、主伤害之前）。</para>
+        /// 攻击结算里 `HasCurrentTrait(攻方, 0xa0)` ⇒ `RemoveDuplicitous(攻方)`（**摘一次**，这一记照常结算下去）。
+        /// ⚠️ **2026-11-05 订正（W14）**：原来这几行写「被打者」，实际 `.c:512` 读 `+0x28 = battleAction.actingCard` = **攻方**；
+        /// 我们那一跳的落点 = `RuleCore.DeclareAttackExecute`（声明层之后、主伤害之前）。</para>
         ///
         /// <para>⚠️ **我们这一层里两条 `Remove*Trait` 合成一句 `RemoveAll`**：`UnitState.RemoveAll`
         /// 清的是「当前关键词 + 它授予的正文 + 它带出的属性增益」，正好覆盖原版
@@ -43,7 +43,7 @@ namespace RuleEngine
         ///
         /// <para>⚠️ **可达性**：全池 `tainted` / `Duplicitous` / `"trait":160` **各 0 处**
         /// （`cards_engine.json` 两档现读）⇒ **休眠机制**（铁律 11：照样做）。
-        /// 验收口 = 给一张带 `tainted` 的卡打一记之后 `u.Has("tainted")` 转假。</para>
+        /// 验收口 = 给一张带 `tainted` 的**攻方**打一记之后，它的 `u.Has("tainted")` 转假（断言 `B146_W14_Assert.W14_G1`）。</para>
         /// </summary>
         internal static void RemoveDuplicitousTrait(BattleContext ctx, UnitState u)
         {

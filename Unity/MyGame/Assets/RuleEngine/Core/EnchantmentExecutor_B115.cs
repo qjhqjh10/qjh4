@@ -1125,7 +1125,7 @@ namespace RuleEngine
                 if (u == null) continue;
                 string gap;
                 var ok = TargetCriteriaEval.Matches(ctx, owner, set, u, cond, thisCard: carrier,
-                                                    targetCard: chosen, out gap);
+                                                    targetCard: chosen, out gap, actingCard: actingCard);
                 if (ok == null)
                 {
                     // 契约：判不了 ⇒ **保留**候选 + 出声（与 `ApplyTargetCriteriaFilter` 同一条纪律）

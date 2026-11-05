@@ -27,7 +27,7 @@
 //      一律换成**本地落地 + 出声**（`SaveEventProgress` 写 `LiveOpsSaveStore`；`RecordMatchFinished`
 //      直接写进度并立刻回调，**没有重试**）。⛔ 这不是「等价」，是**如实降级**。
 //   ③ **卡组是 `string` id 不是 `CardDeck` 对象**：原版这一层拿 `CardDeck`（`AssetLocator.GetAsset<CardDeck>` /
-//      `InventoryManager.GetInventory<CardDeck>()`）。我们的卡组唯一 id = `CollectionData.DeckInfo.Name`
+//      `InventoryManager.GetInventory<CardDeck>()`）。我们的卡组唯一 id = `CollectionData.DeckIdAt` / `EnsureDeckId`（⛔ 不是名字：同名会选错）
 //      （`Shell/CollectionData.cs:44` 写着「本轮兼作 id」）⇒ 本类只认 id，取卡的事走
 //      <see cref="IPlayEventDeckSource"/>（⚠️ 那是**我们自己设计**的口，见那里的注释）。
 //   ④ **`PlayEventData.IsCardBanned(RawCardScript)` → `IsCardBanned(string cardId)`**：我们没有
@@ -110,7 +110,7 @@ namespace CardPresentation
     /// <summary>原版 `ArmyStatsV3`（`Everguild.LiveOps/ArmyStatsV3.cs`，字段逐个抄）：
     /// `wins` / `losses` / `draws` / `lastPlayedDeck`（`LoadableReference&lt;CardDeck&gt;`）。
     /// <para>⚠️ 差异：`lastPlayedDeck` 是资产引用，我们没有等价物 ⇒ 存**卡组 id 字符串**
-    /// （= `CollectionData.DeckInfo.Name`，见文件头差异③）。</para>
+    /// （= `CollectionData.DeckIdAt` / `EnsureDeckId`，见文件头差异③；⛔ 不是卡组名）。</para>
     /// <para>🔴 `GetArmyStats` 的缺省值是 **`new ArmyStatsV3()` 而不是 null**（判据 `.c`
     /// `GetArmyStats__1a0fbe0.c`：`GetValueOrDefault(dict, army, new ArmyStatsV3())`）—— 照抄。</para></summary>
     [Serializable]
@@ -403,7 +403,7 @@ namespace CardPresentation
     public interface IPlayEventDeckSource
     {
         int Count { get; }
-        /// <summary>第 i 套的 id（我们的 id = `CollectionData.DeckInfo.Name`）。</summary>
+        /// <summary>第 i 套的 id（我们的 id = `CollectionData.DeckIdAt` / `EnsureDeckId`；⛔ **不是** `DeckInfo.Name` —— 同名会选错，见 `CollectionData.cs:181`）。</summary>
         string IdAt(int i);
         /// <summary>第 i 套的阵营（督军决定的那个 `CardArmy`；查不到给 `Neutral`）。</summary>
         CardArmy ArmyAt(int i);
@@ -549,7 +549,13 @@ namespace CardPresentation
             }
             if (HasDefensiveCards(deckId) == DefensiveCardInventoryCheck.HaveItInInventory)
             {
-                PopupError("MenuDeck/Error/HasNotAssignedDefensiveCard");
+                // ✅ 已复刻（2026-11-05 · B146-E8 · 判据 `decomp_b91/PlayEvent.__c__DisplayClass13_0_object__object_._StartMatch_b__0__eb18c0.c`
+                //   = `StartMatchNoCheck(this, deck)` · `…__c_object__object_._StartMatch_b__13_1__eaaba0.c` = `WindowsManager.CloseWindow(wm, *(wm+0x58)=CurrentWindow, 0)`；
+                //   文案 `MenuDeck/Error/HasNotAssignedDefensiveCard` 是**疑问句**（EN「…start the match anyway?」/ ZH「你还想开始比赛吗？」）⇒ 原版是**两钮**；
+                //   用户 2026-11-05 裁定按原版两钮）⛔ **不是**「自动分配防御卡」。
+                PopupConfirm("MenuDeck/Error/HasNotAssignedDefensiveCard",
+                             () => StartMatchNoCheck(deckId),   // = 原版 `b__0`：点 OK ⇒ 照打（不带防御卡）
+                             () => CloseCurrentWindow());      // = 原版 `b__13_1`：点 Cancel ⇒ 关当前窗
                 return;
             }
             StartMatchNoCheck(deckId);
@@ -906,7 +912,7 @@ namespace CardPresentation
 //    建好之后那两处可以换回强类型（⚠️ 本批**没换**：`GameModesHandler.cs` 不在 B92·N1 白名单，交给 N5）。
 //
 // ⚠️ **与原版的两处如实差异**（⛔ 不是「已经一样」）：
-//   ① `CardDeck` → **`string`**：本工程卡组没有 `CardDeck` 资产对象，唯一 id = `CollectionData.DeckInfo.Name`
+//   ① `CardDeck` → **`string`**：本工程卡组没有 `CardDeck` 资产对象，唯一 id = `CollectionData.DeckIdAt` / `EnsureDeckId`（⛔ 不是名字）
 //      （文件头差异③；`GetEventDeck()` / `GetEventDeck(CardArmy)` / `SetDefaultDeck` 三处同此）。
 //   ② `JoinState` / `CurrentGamesLost` 在原版是**接口的默认实现**（Cpp2IL 在两处都写
 //      `NoteDecompilerIssue("Method not found @…")`，但 `CurrentGamesLost` 的控制流可读 =
@@ -1069,10 +1075,10 @@ namespace CardPresentation
             return false;
         }
 
-        /// <summary>原版 `HasDefensiveCards(deck)` 的落点。`deckId` = 我们的卡组 id（= `PlayerDeck.Name`）。</summary>
+        /// <summary>原版 `HasDefensiveCards(deck)` 的落点。`deckId` = 我们的卡组 id（`PlayerDeck.DeckId`；旧调用点传名字时按名回落）。</summary>
         public static DefensiveCardInventoryCheck Check(string deckId)
         {
-            int i = CollectionData.IndexOf(deckId);                 // 原版拿的是 CardDeck 对象；我们这一层只认 id
+            int i = CollectionData.IndexOfDeckId(deckId); if (i < 0) i = CollectionData.IndexOf(deckId);   // 原版拿的是 CardDeck 对象；我们这层只认 id（⛔ 同名会选错）—— 按名只作旧调用点/夹具的回落｜✅ 已复刻（2026-11-05 · B146-E8 · `StartMatch` 现在喂的是 `GetEventDeck()` 的 **id**，不改这里记不下防御卡）
             var deck = i >= 0 ? CollectionData.Raw(i) : null;
             if (deck == null)
             {
@@ -1091,6 +1097,69 @@ namespace CardPresentation
             return OwnsAnyDefensiveCard(hero.Faction)
                  ? DefensiveCardInventoryCheck.HaveItInInventory
                  : DefensiveCardInventoryCheck.DontHave;
+        }
+    }
+}
+
+// ================================================================================================
+//  🆕 2026-11-05（B146-E8）· `PlayEvent<,>` 的**两钮弹窗口** —— 追加在文件末的 partial 段
+//  （本类已经是 `partial`；⛔ 别把它们插进上面的类体：本文件被账按 `文件:行号` 引用，插中间会整体漂移）
+//
+//  判据（`_tmp_view/decomp_b91/`，两个 lambda 逐句现读）：
+//    · `PlayEvent.__c__DisplayClass13_0_object__object_._StartMatch_b__0__eb18c0.c`
+//        `FUN_181127900(closure.this, closure.deck, …)` ⇒ **点 OK = `StartMatchNoCheck(this, deck)`**
+//    · `PlayEvent.__c_object__object_._StartMatch_b__13_1__eaaba0.c`
+//        `WindowsManager__CloseWindow(wm, *(wm + 0x58), 0)` ⇒ **点 Cancel = 关 `CurrentWindow`**
+//  ⇒ 原版这条支是 `ShowPopUp(疑问句, …, twoButtons)`，⛔ **不是**「自动分配防御卡」（用户 2026-11-05 裁定）。
+// ================================================================================================
+namespace CardPresentation
+{
+    public abstract partial class PlayEvent<TSave, TData>
+    {
+        /// <summary>原版 `WindowsManager.ShowPopUp(键, localizeTexts:true, …, <b>两颗钮</b>)` 的等价注入点。
+        /// 签名 = `(文案键, 点 OK, 点 Cancel)`。
+        /// <para>⚠️ 与 <see cref="OnErrorPopup"/> 同族、同一个坑：它是**泛型类的 static** ⇒ **按闭合类型各一份**
+        /// （`GameModesHandler.cs:443` 记的那条），自检用完必须还原自己那一份。</para>
+        /// <para>生产侧**不靠它** —— 没接时 <see cref="PopupConfirm"/> 直接走真的 `WindowsManager.Instance.ShowPopUp`
+        /// （原版那条路）；这个口只给「没有窗口层的宿主 / 自检」用。</para></summary>
+        public static Action<string, Action, Action> OnConfirmPopup;
+
+        /// <summary>把「键 + 两个回调」交给弹窗口。
+        /// <list type="number">
+        /// <item>接了 <see cref="OnConfirmPopup"/> ⇒ 用它（自检 / 无窗口层宿主）；</item>
+        /// <item>否则走真的 `WindowsManager.Instance.ShowPopUp`（原版那条链）；</item>
+        /// <item>都没有 ⇒ **出声**，⛔ 不静默（红线）。</item>
+        /// </list>
+        /// ⚠️ 我们的 `ShowPopUp` 吃**明文**（`PopUpGameWindow.Term()` 查不到就原样返回）⇒ 这里先把键翻成人话。</summary>
+        protected void PopupConfirm(string locKey, Action onOk, Action onCancel)
+        {
+            if (OnConfirmPopup != null) { OnConfirmPopup(locKey, onOk, onCancel); return; }
+
+            var wm = WindowsManager.Instance;          // ⛔ 别用 `Get()`：自检里现建一台窗口层会污染场景
+            if (wm != null)
+            {
+                wm.ShowPopUp(Loc.T(locKey), Loc.T("MainMenu/General/OK"), onOk,
+                             Loc.T("MainMenu/General/Cancel"), onCancel);
+                return;
+            }
+            Debug.LogWarning("[PlayEvent] 要弹的两钮提示 '" + locKey + "' 没有弹窗口（原版 `WindowsManager.ShowPopUp`）"
+                           + " ⇒ 这一支**不开打**");
+        }
+
+        /// <summary>原版 `StartMatch` 那个 `b__13_1` lambda：`WindowsManager.CloseWindow(Instance, CurrentWindow(0x58), 0)`。
+        /// <para>关的是**当前窗**（不是弹窗 —— 弹窗由 `ShowPopUp` 自己先关，`NotifyClosed` 会把 `currentWindow`
+        /// 换回台前那扇活动窗，所以走到这里时正好是它）。</para>
+        /// <para>⚠️ 做成 `protected virtual` 只为一件事：自检能观测到「Cancel 真的走到关窗」（原版 lambda 不可注入）。</para></summary>
+        protected virtual void CloseCurrentWindow()
+        {
+            var wm = WindowsManager.Instance;
+            if (wm == null || wm.currentWindow == null)
+            {
+                Debug.LogWarning("[PlayEvent] 两钮弹窗点了 Cancel：没有 `WindowsManager` / 没有当前窗 ⇒ 关不了"
+                               + "（原版这一跳 = `WindowsManager.CloseWindow(CurrentWindow)`）");
+                return;
+            }
+            wm.currentWindow.Close();
         }
     }
 }

@@ -528,7 +528,7 @@ public static class ArtBaker
                 ti.SetPlatformTextureSettings(sdfPs);
             }
             // ✅ 已复刻（2026-11-04 · B141 · 15-10 · 判据 = `判据/B141_W130_对账_资源.md` §一 15-10 + 原版 `m_TextureFormat`）
-            //   表内（`CompTruths`，现读 144 条）照原版压缩档；表外保持上面的 `CompressedHQ`（原口径不动）。
+            //   表内（`CompTruths`，现读 234 条）照原版压缩档；表外保持上面的 `CompressedHQ`（原口径不动）。
             //   本方法接表后 `Resources/Art` 的 UI 切片也走真值表（15-09 并入 137 个文件 / 136 个原版名）；旧注释「只影响 1 张」已过期。
             if (!isSdf) ApplyCompressionTruth(ti, path);
             ti.SaveAndReimport();
@@ -632,7 +632,7 @@ public static class ArtBaker
             // （`判据/B108_AUD09_纹理格式.md` §1·3 实读枚举）。`CompressedHQ` 这个结论不变，只订正判据。
             // ✅ 已复刻（2026-11-04 · B141 · 15-10：`判据/B141_W130_对账_资源.md` §一 15-10 + 报告 `B141_W130_ArtBaker.md` §3）
             //   原来这里**无条件**写 `CompressedHQ` ⇒ 15-10 那 8 个名字（原版 RGBA32 / DXT1；共 39 个文件实例）被压到 BC7，
-            //   比原版**低档**。现在表内（`CompTruths`，现读 144 条 · 70 条 crunched=true）照原版，表外仍是 `CompressedHQ`（原口径不动）。
+            //   比原版**低档**。现在表内（`CompTruths`，现读 234 条 · 92 条 crunched=true）照原版，表外仍是 `CompressedHQ`（原口径不动）。
             var ctruth = OriginalCompression(path);
             ti.textureCompression = ctruth.Compression;
             // 🔴 **2026-09-22 补：平台覆盖也要一起设** ——
@@ -645,7 +645,7 @@ public static class ArtBaker
                 var ps = ti.GetPlatformTextureSettings("Standalone");
                 ps.maxTextureSize = cap;
                 ps.textureCompression = ctruth.Compression;   // ✅ B141 · 15-10：平台块也照原版（否则顶层被它盖掉）
-                ps.crunchedCompression = ctruth.Crunched;   // ✅ B141 · 15-09/15-10：原版是 *Crunched 时平台块也带 Crunch（现表内 144 条里 70 条 true ⇒ **不是「无行为变化」**）
+                ps.crunchedCompression = ctruth.Crunched;   // ✅ B141 · 15-09/15-10：原版是 *Crunched 时平台块也带 Crunch（现表内 234 条里 92 条 true ⇒ **不是「无行为变化」**）
                 if (ctruth.ExplicitFormat >= 0) ps.format = (TextureImporterFormat)ctruth.ExplicitFormat;   // 原版 DXT1 那三张要显式格式
                 ps.overridden = true;
                 ti.SetPlatformTextureSettings(ps);
@@ -1222,6 +1222,23 @@ public static class ArtBaker
         { "LargeFlame02", UiDxt5(true) },
         { "SmokeLoop", UiDxt5(true) },
         { "Space Wolves Battle Arena Baked Atlas-_BaseMap-atlas-0", UiDxt5(true) },
+
+        // ✅ 已复刻（2026-11-05 · B146-E11 · 判据 = `报告/B146_E11_C08精灵导入.md` §三 + 原版图集纹理 `m_TextureFormat`）
+        //   `判据/B146_C08_缺失精灵来源` 的 125 张**全是图集切片、没有独立 Texture2D**（现算 125/125 命中 0 个独立纹理）
+        //   ⇒ 压缩档只能取**所属图集**的 `sactx-*` 纹理格式（`orig_textures.json` 与原版 bundle 内 sactx 文件名**双源一致**）：
+        //   `0_MainMenu` / 12 份 `Deck Selection Atlas *` / `0_GeneralUI Atlas` / `FriendsMenu` / `Skull Particle icons`
+        //   都是 **BC7(fmt 25)** ⇒ 与默认 `CompressedHQ` 同档、**无需入表**；
+        //   只有 `Battle Debug Atlas` 与 `Liveop Icons` 是 **DXT5|BC3(fmt 12)** ⇒ 下面 8 条入表，
+        //   否则 `ApplyImportSettings` 下次会无条件写回 BC7（静默比原版高档）。
+        // ── 原版 `fmt 12`(DXT5) ⇒ `Compressed` + 显式 `DXT5`（7 张 Battle Debug + 1 张 Liveop Icons）──
+        { "Debug Add Energy", UiDxt5(false) },
+        { "Debug Add extra card", UiDxt5(false) },
+        { "Debug Add health", UiDxt5(false) },
+        { "Debug Clear Hand", UiDxt5(false) },
+        { "Debug Destroy troops", UiDxt5(false) },
+        { "Debug Heal", UiDxt5(false) },
+        { "Debug Remove Energy", UiDxt5(false) },
+        { "40k_rewards_bt_missions_expansion pass", UiDxt5(false) },
     };
 
     /// <summary>15-09 · UI 切片的三档构造器（与上面 `CompTruths` 的五个分组一一对应）。</summary>

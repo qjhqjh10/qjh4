@@ -1302,8 +1302,8 @@ namespace CardPresentation
                 _p2HeaderTitle.SetCharSpacing(5f);           // `m_characterSpacing = 5`
             }
             // `Game Mode Icon`：`m_Color.a = 0`（出厂不可见），运行时由 `LiveopUIDrawer_GameModeIcon` 灌图
-            var gmIcon = MenuDraw.Node(hdrBg, "Game Mode Icon", Scr(P2GameModeIconR));
-            MenuDraw.Rect(gmIcon, Tex(ArtInfo, "活动模式提示图标"), Scr(P2InfoTriggerR), "tooltip trigger",
+            var gmIcon = _p2GameModeIcon = MenuDraw.Rect(hdrBg, CardArt.Solid(), Scr(P2GameModeIconR), "Game Mode Icon", QPageArt1, new Color(1f, 1f, 1f, 0f), false);   // ✅ 已复刻（2026-11-05 · B146-W17 · 判据 = `Two Sides Event Window.prefab` 的 `Header Background/Game Mode Icon`：100×100 · `PA 0` · `m_Color.a = 0`；本颗 = 原版那颗 `Image`，子件 `tooltip trigger` 75.4255×71.6789 · pad −15）
+            MenuDraw.Rect(gmIcon.transform, Tex(ArtInfo, "活动模式提示图标"), Scr(P2InfoTriggerR), "tooltip trigger",
                           QPageArt1, Color.white, true);
             var hdrBg1 = MenuDraw.Node(header, "Header Background (1)", Scr(P2HeaderBg1R));
             MenuDraw.Nine(hdrBg1, Tex(ArtCampaignHeader, "表头底（左）"), Scr(P2HeaderBg1R),
@@ -1644,7 +1644,7 @@ namespace CardPresentation
         {
             EnsureHeaderTitleResolver();
             var backWb = backHit != null ? backHit.GetComponent<WindowButton>() : null;
-            WindowHeaderWithBackButton.WireHeader(header, backWb, _p2HeaderTitle, onBack, P2HeaderTitle);
+            WindowHeaderWithBackButton.WireHeader(header, backWb, _p2HeaderTitle, onBack, P2HeaderTitle, null, ParentHeaderDrawers());
         }
         // ============================================================ 🆕 2026-10-28（B90 · N3c，追加在类尾）
         //   **原版 `TwoSidesTeamDrawer`（prefab 根 `Two Side Event Select Team`）的三格字段 + `Initialize(TeamInfo)` 的等价物。**
@@ -2729,6 +2729,27 @@ namespace CardPresentation
                 case LiveOpsLocalKind.Scoring: return EventWindowKind.ExpansionPass;
                 default: return null;      // PremiumItemOffer / FastMode：本地没有它们的活动承载窗
             }
+        }
+
+        // ================================================================================================
+        //  ✅ 已复刻（2026-11-05 · B146-W17 · 判据 = `Two Sides Event Window.prefab`：`WindowHeaderWithBackButton`
+        //    （guid `6d74726afb8bab28201edc2a0ace1fa8`）的 `eventUIDrawers` 里**一格** `LiveopUIDrawer_GameModeIcon`
+        //    （guid `460e6f2a15758dc678c7ca2d02d47949`，`icon` 指向 `Game Mode Icon` 那颗 Image）。
+        //  ⚠️ 本窗没有 `ILiveOps` 实例（原版喂的是服务端 liveops 事件）⇒ `Initialize(ILiveOps, Action)` 那条路
+        //    走不到、抽屉**不会被 Initialize**；`Game Mode Icon` 保持 prefab 出厂态（`m_Color.a = 0` ⇒ 不可见），
+        //    与「本地没有 Two Sides 事件数据」的同一档。⛔ 不伪造事件对象去让它画图。
+        // ================================================================================================
+
+        /// <summary>表头那颗 `Game Mode Icon` 的 `Image` 等价物（`BuildOnGoingPage` 里建）。
+        /// <para>⚠️ 追加在**类尾**（⛔ 别插中段 —— 本文件被账按行号钉着，插行会让下游落点整体漂移）。</para></summary>
+        ImageQuad _p2GameModeIcon;
+
+        /// <summary>`WindowHeaderWithBackButton.eventUIDrawers` 的等价物（原版这一扇挂**一格**
+        /// `LiveopUIDrawer_GameModeIcon`）。返回 `null` ⇒ `eventUIDrawers` 保持 `null`（原版空数组同语义）。</summary>
+        IWindowHeaderUIDrawer[] ParentHeaderDrawers()
+        {
+            if (_p2GameModeIcon == null) return null;
+            return new IWindowHeaderUIDrawer[] { new LiveopUIDrawer_GameModeIcon(_p2GameModeIcon) };
         }
     }
 }

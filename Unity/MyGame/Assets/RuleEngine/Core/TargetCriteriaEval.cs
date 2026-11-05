@@ -22,7 +22,7 @@
 //  特例档（`:60-160`，按 `targetsAffected` 短路）：
 //    20 self          ⇒ 候选 == thisCard（`Object.op_Equality(param_1, …)`；取不到 ⇒ 原版抛异常 ⇒ 我们 `null`）
 //    30 target        ⇒ 候选 == targetCard（同上）
-//    70 abilityOwner / 40 attacker / 80 actingCard ⇒ 候选 == thisCard（80 另有 `:169 return 1` 一支）
+//    70 abilityOwner / 40 attacker / 80 actingCard ⇒ **池 = `[actingCard]`**（`GetTargets.c:760-769` 40/80 同支、`:845-847` 70 同出口；✅ 2026-11-05 B146-W16：`Matches` 第 9 形参 `actingCard`，⛔ 不拿 thisCard 顶）
 //    90 targetIfMeetsCriteria ⇒ 候选 == targetCard **只是准入**（不等 ⇒ false），
 //       **相符后继续走下面那批常规格**（`:193-201`；⚠️ 与 30 不是同一档 —— 2026-10-25 `E9` 订正）
 //    140 / 150        ⇒ 140 **只**回「候选在不在静态表」（`:495-510`）；150 在表里才继续走常规格（`:172-183`）
@@ -89,11 +89,11 @@ namespace RuleEngine
         /// <param name="cond">`unitConditions` 里同 `(ab,lg)` 的 `role="target"` 行（`cond`/`ex`）。
         /// `null` ⇒ 这一格**没有条件行** = `none(0)` = **放行**（⛔ 不是「判不了」）。</param>
         /// <param name="thisCard">这条 ability 的**载体单位**（`ctx.ActingUnit`）。拿不到（战术卡）⇒ `null`。</param>
-        /// <param name="targetCard">玩家点选的那一个目标（原版 `targetCard`）。没有 ⇒ `null`。</param><param name="sideOverride">🆕 2026-11-01（`B114_W34` · `B-271`）：**候选在哪一侧**由调用方直接给（`0`/`1`）—— 只服务「还没上棋盘的对象」（`PlayTargetPool` 的 `asIfOnBoard` 预览单位：它落地必在出牌者那一侧，`SideOf` 却恒 -1 ⇒ 整道闸全变「判不了」）。`null` = 照旧回棋盘查。</param>
+        /// <param name="targetCard">玩家点选的那一个目标（原版 `targetCard`）。没有 ⇒ `null`。</param><param name="sideOverride">🆕 2026-11-01（`B114_W34` · `B-271`）：**候选在哪一侧**由调用方直接给（`0`/`1`）—— 只服务「还没上棋盘的对象」（`PlayTargetPool` 的 `asIfOnBoard` 预览单位：它落地必在出牌者那一侧，`SideOf` 却恒 -1 ⇒ 整道闸全变「判不了」）。`null` = 照旧回棋盘查。</param><param name="actingCard">🆕 2026-11-05（`B146-W16` · A-18）：**正在结算的源卡**（原版 `AbilityData.actingCard` / `GetTargets` 的 `param_4`）—— `ta=40 attacker` / `70 abilityOwner` / `80 actingCard` 的**候选池 = `[actingCard]`**（判据 `AbilityLogic__GetTargets.c:760-769` 40/80 同支、`:845-847` 70 同出口）。`null` = 调用方没给 ⇒ 这三档**判不了**（⛔ 不拿 `thisCard` 兜底、⛔ 不冒充 `true`）。</param>
         public static bool? Matches(BattleContext ctx, int owner, CardDef.CountSetSpec set,
                                     UnitState candidate, CardDef.ConditionSpec cond,
                                     UnitState thisCard, UnitState targetCard,
-                                    out string gap, int? sideOverride = null)
+                                    out string gap, int? sideOverride = null, UnitState actingCard = null)
         {
             gap = null;
             if (set == null) return true;                 // 没有 36 格 ⇒ 不筛（`any` 之外没有东西可判）
@@ -108,12 +108,12 @@ namespace RuleEngine
                 case 0:                                   // any —— 原版「disregards all other filters」
                     return true;
                 case 20:                                  // self —— 原版 `:184-191` 池 = `[thisCard]`、**不筛**；我们比 thisCard ⇒ 等价
-                case 40:                                  // attacker —— ⚠️ 原版 `GetTargets.c:760-769`（与 80 同支，`0x28/0x50`）池 = `[**actingCard**]`、**不筛直接 return**；我们**却**拿 thisCard 比（对象不同）
-                case 70:                                  // abilityOwner —— ⚠️ 原版 `:845-848` 是 `LogError("not tested")` 后 `Add(actingCard)`、不筛；我们同样比 thisCard（同上）
-                case 80:                                  // actingCard（`:760-769` 与 40 同支；`:169` 直接 return 1）—— 我们直接 true
-                    if (ta == 80) return true;
-                    if (thisCard == null) { gap = $"`ta={ta}` 要拿 thisCard 比身份，本版没有载体"; return null; }
-                    return ReferenceEquals(candidate, thisCard);
+                case 40:                                  // attacker —— ✅ 已复刻（2026-11-05 · B146-W16 · 判据 AbilityLogic__GetTargets.c:760-769；actingCard 由调用方显式传入）：池 = `[actingCard]`、**建池即 return**、不筛
+                case 70:                                  // abilityOwner —— 同一出口（`GetTargets.c:845-847` `LogError("not tested")` 后 `goto LAB_180819b04`）⇒ 池 = `[actingCard]`
+                case 80:                                  // actingCard —— 与 40 同支（`0x50/0x28`）；⛔ 别保留改前那两个近似（`ta==80 return true` / 拿 thisCard 比）
+                    if (actingCard == null) { gap = $"`ta={ta}` 的候选池 = [actingCard]，这次没有 actingCard ⇒ 判不了"; return null; }
+                    return ReferenceEquals(candidate, actingCard);
+                    // ⚠️ 载体 ≠ 触发者（例：「A 打出时，B 的响应能力」）⇒ ⛔ 不拿 `thisCard` 兜底（E5 报告 §A-18 已裁定）
                 case 30:                                  // target
                     // 原版 `:76-94`（`0x1e`）：`candidate == targetCard` —— 比完身份**直接 `return`**
                     // （满足 ⇒ 1 / 不满足 ⇒ 0），**不再走** ①..⑮ 那批常规格。与 90 分开写（见下）。
@@ -455,7 +455,7 @@ namespace RuleEngine
         /// `null` = `option == -1`（我们数据里**没落**）⇒ **判不了**：⛔ 不拿「原版对越界值返回 true」顶，
         /// 那会把「数据缺失」冒充成「这一组不筛」（红线：不许静默失败）。
         /// </summary>
-        static bool? MeetsStatCriteria(int cardStat, int thisCardStat, int statFilter, int option, int altValue)
+        internal static bool? MeetsStatCriteria(int cardStat, int thisCardStat, int statFilter, int option, int altValue)
         {
             if (option == CardDef.CountSetSpec.Unknown) return null;
             switch (option)
@@ -618,7 +618,7 @@ namespace RuleEngine
         ///  旁证 = 宝石色 hue 186/122/279/42/15 的官方卡框图 `{1..5}_40k_cardframe_rarity_*.png`）。
         /// 认不出 ⇒ `null`（判不了；⛔ 不猜成 `None = 0` —— 0 会让 `EqualOrLower` 全过）。
         /// </summary>
-        static int? RarityOf(CardDef c)
+        internal static int? RarityOf(CardDef c)
         {
             if (c == null) return null;
             switch ((c.Rarity ?? "").Trim().ToLowerInvariant())

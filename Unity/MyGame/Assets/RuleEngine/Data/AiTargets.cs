@@ -607,7 +607,7 @@ namespace RuleEngine
 
             // ---- special case（原版在 general 分支之前**提前 return**，不跑任何筛选）----
             if (ta == 20) return isSelf;                                        // self
-            if (ta == 30 || ta == 220)                                          // target / targetCountTraits
+            if (ta == 30)                                                       // target —— ⛔ 220 不在此：`CheckIfMeetsCriteria.c` 没有这一档 ⇒ 落常规筛（2026-11-05 B146-E4 删掉从 `GetTargets` 搬来的特判）
                 return targetUnit != null && t.Unit != null && ReferenceEquals(t.Unit, targetUnit);
             if (ta == 40 || ta == 80) return isSelf;                            // attacker / actingCard
 
@@ -672,15 +672,23 @@ namespace RuleEngine
             // ---- 数值筛选（攻击 / 当前血 / 当前费 / 稀有度）----
             //   原版第二参数**恒是 thisCard 的当前近战攻击**（`CheckIfMeetsCriteria.c` 里
             //   `uVar5 = EntityScript__get_CurrentMeleeAttack(param_1)` 那一句四处复用）。
+            // ✅ 已复刻（2026-11-05 · B146-E4 · 判据 CheckIfMeetsCriteria.c:326-328 / :349-352；alt 口径收口到 TargetCriteriaEval.MeetsStatCriteria）
             int thisAtk = thisCard.Attack;
-            if (!MeetsStat(t.Attack, thisAtk, c.attackFilter, c.attackFilterOption, 0)) return false;
-            if (!MeetsStat(t.Health, thisAtk, c.currentHealthFilter, c.currentHealthFilterOption, 0)) return false;
-            if (!MeetsStat(t.Cost, thisAtk, c.manaCostFilter, c.manaCostFilterOption, 0)) return false;
-            // 稀有度筛选：`RawCardScript` 的那一列在我们的真值里没有落「枚举值」这一栏
-            // （`CardDef.Rarity` 是字符串）—— 池内评分数据 **0 条**用到它 ⇒ 只保留 op=0 的放行。
+            // 血组 alt = 候选 `EntityScript.GetCurrentTraitValueWithModifiers(0x352 /*bastion*/)`（`:349-352`）；
+            // 在场候选取运行时值，手牌/牌库候选取卡面值（原版读的也是候选自己那份 trait）。
+            int thisBastion = t.Unit != null ? t.Unit.Bastion : card.KwValue(KeywordTable.Bastion);
+            if (!StatPasses(t.Attack, thisAtk, c.attackFilter, c.attackFilterOption, t.RangedAttack)) return false;   // 攻组 alt = 候选 `CurrentRangeAttack`（`:326-328`）
+            if (!StatPasses(t.Health, thisAtk, c.currentHealthFilter, c.currentHealthFilterOption, thisBastion)) return false;
+            // ✅ 已复刻（2026-11-05 · B146-E4 · 判据 `CheckIfMeetsCriteria.c:354-360`）：费组第 1 实参 = 候选的
+            //   **`CurrentCost`**（`EntityScript.get_CurrentCost`），不是卡面 `CardDef.Cost`；
+            //   现价只走 `RuleCore.CostOf`（按份费用修正 / `setCost` 只有它看得见，⛔ 别在这里另算）。
+            if (!StatPasses(CostNow(ctx, t), thisAtk, c.manaCostFilter, c.manaCostFilterOption, 0)) return false;
+            // 稀有度（第 4 组，`:367-377`）：同一个求值器；`option == 0` 不筛，altValue = 0。
             if (c.rarityFilterOption != 0)
             {
-                // ⚠️ 没有判据 ⇒ 不猜：保守地不排除（报告 §三 记录未覆盖）
+                int? rar = TargetCriteriaEval.RarityOf(card);
+                if (rar == null) return false;            // 判不了（不在五档里）⇒ AI 侧保守不进候选（同 `MeetsCondition` 的 `?? false`）
+                if (!StatPasses(rar.Value, thisAtk, c.rarityFilter, c.rarityFilterOption, 0)) return false;
             }
 
             // ---- 具名卡（`filterSpecificCards` +0x70：按卡名逐条比）----
@@ -694,11 +702,24 @@ namespace RuleEngine
                 if (!named) return false;
             }
 
-            // ---- 排除附魔卡（`excludeEnchantments` +0x78：名字相等的排掉）----
-            if (c.excludeEnchantments != null)
+            // ---- 排除附魔卡（`excludeEnchantments` +0x78）----
+            // ✅ 已复刻（2026-11-05 · B146-E4 · 判据 `CheckIfMeetsCriteria.c:430-463`）：原版比的是
+            //   **候选身上的附魔列表 `+0x110 activeEnchantments`** —— 逐件取那件附魔**卡**（`ActiveEnchantment+0x10`）
+            //   再比名字（`+0x38`）；**不是**拿候选卡本身去比（改前那样比 ⇒ 整条判据恒不命中）。
+            if (c.excludeEnchantments != null && c.excludeEnchantments.Length > 0)
             {
-                for (int i = 0; i < c.excludeEnchantments.Length; i++)
-                    if (SameCardId(c.excludeEnchantments[i], card)) return false;
+                var carrier = t.Inst != null ? t.Inst : (t.Unit != null ? t.Unit.Instance : null);
+                if (carrier != null)
+                {
+                    for (int i = 0; i < c.excludeEnchantments.Length; i++)
+                    {
+                        for (int j = 0; j < carrier.ActiveEnchantments.Count; j++)
+                        {
+                            var ench = carrier.ActiveEnchantments[j];
+                            if (ench != null && SameCardId(c.excludeEnchantments[i], ench.Card)) return false;
+                        }
+                    }
+                }
             }
 
             // ---- 阵营（`chosenArmy` +0x24 / `armyFilter` +0x28）----
@@ -724,24 +745,14 @@ namespace RuleEngine
             return Match(ctx, c, thisCard, thisInst, thisSide, t, target);
         }
 
-        /// <summary>原版 `FilterMethods.MeetsStatCriteria`（`MeetsStatCriteria.c` 全文）。
-        /// `value` = 候选的这一项，`thisValue` = 施法者的当前近战攻击，`op` = `StatFilterOptions`。</summary>
-        static bool MeetsStat(int value, int thisValue, int filter, int op, int extra)
+        /// <summary>✅ 2026-11-05（B146-E4）：**唯一求值器 = `TargetCriteriaEval.MeetsStatCriteria`**
+        /// （`MeetsStatCriteria.c` 逐句；本类原来那份 switch 是第二份实现，已删 —— 两处写同一条规则迟早不一致）。
+        /// `value` = 候选的这一项 · `thisValue` = 施法者当前近战攻击 · `alt` = 原版第 5 实参
+        /// （攻组 = 候选远程攻击 `:326` · 血组 = 候选 bastion `:349` · 费/稀有度 = 0）。
+        /// `null`（`option == -1` 没落）⇒ AI 侧保守口径：**不进候选**（同 `MeetsCondition` 的 `?? false`）。</summary>
+        static bool StatPasses(int value, int thisValue, int filter, int op, int alt)
         {
-            switch (op)
-            {
-                case 1: return value == filter;                       // EqualTo
-                case 2: return filter <= value;                       // EqualOrHigher
-                case 3: return value <= filter;                       // EqualOrLower
-                case 4: return value <= thisValue;                    // EqualOrLowerToThisUnitAttack
-                case 5: return thisValue < value;                     // HigherToThisUnitAttack
-                case 6: return value + extra <= filter;               // EqualOrLowerIncludingBastion
-                case 7: return value < thisValue;                     // LowerToThisUnitAttack
-                case 9: return extra == filter;                       // EqualToAlt
-                case 10: return filter <= extra;                      // EqualOrHigherAlt
-                case 11: return extra <= filter;                      // EqualOrLowerAlt
-                default: return true;                                 // op=0 ⇒ 不筛
-            }
+            return TargetCriteriaEval.MeetsStatCriteria(value, thisValue, filter, op, alt) ?? false;
         }
 
         /// <summary>原版 `FilterMethods.MeetsConditionCriteria` 的**AI 打分用到的那几档**。
@@ -831,11 +842,17 @@ namespace RuleEngine
         }
 
         /// <summary>原版 `FilterMethods.MeetsArmyCriteria(card.army, chosenArmy, armyFilter)`。
-        /// `armyFilter=0`（`NotApplicable`）⇒ 恒真。池内评分数据 **0 条**用到它 ⇒ 只实现 0 档。</summary>
+        /// ✅ 已复刻（2026-11-05 · B146-E4 · 判据 `FilterMethods__MeetsArmyCriteria.c`）—— **四档全实现**：
+        /// `0 AnyArmy` ⇒ true · `1 OnlyChosenArmy` ⇒ 同阵营 · `2 ExcludeChosenArmy` ⇒ 不同阵营 ·
+        /// `3 OnlyChosenArmyOrNeutral` ⇒ 同阵营或中立 · 其余值 ⇒ 原版 `LogError` 后 **true**（照抄，⛔ 别收紧）。
+        /// 判定表**只此一处** = `TargetCriteriaEval.ArmyPassesFor`（棋盘级 / 卡面级共用；⛔ 别在本类抄第二份 switch）。
+        /// 判不了（`armyFilter`/`chosenArmy`/阵营名认不出）⇒ AI 侧保守口径 **false**（同 `MeetsCondition` 的 `?? false`）。
+        /// ⚠️ 池内 `armyFilter != 0` 现读 **0 行** ⇒ 今天无可观测面。</summary>
         static bool MeetsArmy(CardDef card, int chosenArmy, int armyFilter)
         {
             if (armyFilter == 0) return true;
-            return true; // 其余档当前无数据；⛔ 不猜（报告里记为未覆盖）
+            bool? r = TargetCriteriaEval.ArmyPassesFor(card != null ? card.Faction : null, chosenArmy, armyFilter);
+            return r ?? false;
         }
 
         // ==================================================================
@@ -1051,10 +1068,11 @@ namespace RuleEngine
         //  出处：`d:/2/tools/il2cpp_out/dump.cs:45721-45859`
         // ==================================================================
 
-        /// <summary>只登记**本工程认识、且池内评分判据真用到**的那些（池内用到的 9 个值：
-        /// 1225 regiment · 330 markOfChaos · 390 flying · 1200 ambush · 70 stealth ·
-        /// 920 mob · 1260 huntMark · 1170 markerlight · 1000 codex）。
-        /// 其余返回 null ⇒ 该判据不成立（报告 §三 已记「未登记 ⇒ 静默偏小」的风险）。</summary>
+        /// <summary>只登记**本工程认识**（= 归一化后能落到同一个 `_keywords` 键）的那些。
+        /// ✅ 2026-11-05（B146-E4 · 判据 `dump.cs:45721-45859` 的 `DefinedTrait`）：补 **260 `slay` / 1230 `teleport`**
+        /// —— 缺这两条 ⇒ `MeetsTrait` 恒 false；池内 16 张带 `slay`、7 张带 `teleport`，而
+        /// `DA20 Master Lazarus` 的 activeAbility 两条 `cardTargetScoringCriteria` 正是 `traitsFilter 260/1230`（ta=90）⇒ 两条评分恒 0。
+        /// 其余返回 null ⇒ 该判据不成立（「未登记 ⇒ 静默偏小」的风险仍在，见报告 §三）。</summary>
         public static string TraitName(int trait)
         {
             switch (trait)
@@ -1071,6 +1089,7 @@ namespace RuleEngine
                 case 200: return "poisoned";
                 case 230: return KeywordTable.DropPod;
                 case 240: return KeywordTable.Dodge;
+                case 260: return KeywordTable.Slay;            // ✅ 已复刻（2026-11-05 · B146-E4 · `DefinedTrait.slay = 260`；`Prefixes` 有 `{"slay"}` ⇒ 键 = `slay`）
                 case 280: return "rage";
                 case 310: return "invulnerable";
                 case 330: return "markofchaos";
@@ -1099,6 +1118,7 @@ namespace RuleEngine
                 case 1200: return "ambush";
                 case 1220: return "duty";
                 case 1225: return KeywordTable.Regiment;
+                case 1230: return KeywordTable.Teleport;       // ✅ 已复刻（2026-11-05 · B146-E4 · `DefinedTrait.teleport = 1230`；`Prefixes` 有 `{"teleport"}` ⇒ 键 = `teleport`）
                 case 1260: return "huntmark";
                 case 1265: return "ferocity";
                 default: return null;
@@ -1123,6 +1143,19 @@ namespace RuleEngine
             if (t.Unit == null) return false;
             bool? r = ConditionEval.MeetsUnit(ctx, t.Unit, 20, false);
             return r ?? false;
+        }
+
+        /// <summary>候选的**当前费**（= 原版 `EntityScript.get_CurrentCost(候选)`，`CheckIfMeetsCriteria.c:354-360` 的费组第 1 实参）。
+        /// 在场候选走 `Unit.Instance`、手牌/牌库/弃牌候选走 `Inst`；有 `ctx` 且有实例 ⇒ 转调 `RuleCore.CostOf`
+        /// （唯一现价口：`setCost(95)` / `changeCost(2)` / 静态降费只有它看得见）。
+        /// 拿不到实例（自检夹具 / 表现层）⇒ 退回卡面 <see cref="AiTargetRef.Cost"/>（原版此刻也无 `EntityScript` 可读）。
+        /// ⚠️ `ctx == null` 时不抛、走卡面值（`CostOf` 需要 `ctx.CostMods`）。
+        /// ✅ 已复刻（2026-11-05 · B146-E4 · 改前恒拿卡面 `CardDef.Cost` ⇒ 有降费/加费时费组筛错）。</summary>
+        static int CostNow(BattleContext ctx, AiTargetRef t)
+        {
+            if (ctx == null) return t.Cost;
+            var inst = t.Inst != null ? t.Inst : (t.Unit != null ? t.Unit.Instance : null);
+            return inst != null ? RuleCore.CostOf(ctx, t.Side, inst) : t.Cost;
         }
     }
 }

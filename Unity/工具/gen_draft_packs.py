@@ -11,7 +11,7 @@ gen_draft_packs.py — 原版「轮抽（Draft）」的卡包表 → 一份工�
     d:/4/Unity/数据/游戏数据/draft_packs.json
 
 用法：
-    python -I -X utf8 d:/4/Unity/工具/gen_draft_packs.py               干跑（打读数、零写盘）
+    python -I -X utf8 d:/4/Unity/工具/gen_draft_packs.py --dry         干跑（打读数、零写盘）
     python -I -X utf8 d:/4/Unity/工具/gen_draft_packs.py --write       落盘
     python -I -X utf8 d:/4/Unity/工具/gen_draft_packs.py --check       只对账（与盘上比），不写盘
     python -I -X utf8 d:/4/Unity/工具/gen_draft_packs.py --write --emit-resources
@@ -19,6 +19,7 @@ gen_draft_packs.py — 原版「轮抽（Draft）」的卡包表 → 一份工�
                                                                        （`Assets/CardPresentation/Resources/draft_packs.json`）
     ... -h / --help                                                    只打用法、exit 0（不干活）
 
+🔴 不带显式动作（`--write/--check/--dry` 一个都没有）= **只打印本用法 + 退出码 2**，一个字节都不写。
 ⚠️ 不带 `--write` = **干跑**（`A1648` 同族口径）：读数照打，**一个字节都不写**。
 
 ------------------------------------------------------------------
@@ -243,6 +244,7 @@ def main():
     ap = argparse.ArgumentParser(add_help=False)
     ap.add_argument("-h", "--help", action="store_true", dest="help")
     ap.add_argument("--check", action="store_true", help="只对账，不写文件")
+    ap.add_argument("--dry", action="store_true", help="干跑：打读数、零写盘")
     ap.add_argument("--write", action="store_true", help="显式落盘")
     ap.add_argument("--emit-resources", action="store_true", dest="emit_res",
                     help="顺带落一份 Assets/CardPresentation/Resources/draft_packs.json（运行期要读它）")
@@ -250,6 +252,10 @@ def main():
     if args.help:
         print(__doc__)
         return 0
+    if not (args.write or args.check or args.dry):
+        # 🔴 2026-11-05（B146-E1）：不带显式动作 ⇒ 用法 + 退出码 2，绝不做事。
+        print(__doc__)
+        return 2
     if args.check and args.write:
         ap.error("--check 与 --write 不能同时给（一个是只对账、一个是显式落盘）")
 

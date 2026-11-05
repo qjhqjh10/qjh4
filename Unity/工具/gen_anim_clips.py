@@ -375,10 +375,25 @@ def meta_text(name):
     ])
 
 
+USAGE = """用法（🔴 不带显式动作 = 只打印本用法并以**退出码 2**退出，绝不写盘）：
+    python -I -X utf8 d:/4/Unity/工具/gen_anim_clips.py --write    # 真写 .anim（+ 缺的 .meta）
+    python -I -X utf8 d:/4/Unity/工具/gen_anim_clips.py --check    # 只复核已写出的文件（重读 + 断言），不写盘
+    python -I -X utf8 d:/4/Unity/工具/gen_anim_clips.py --dry      # 只打印读数，不写盘
+    + 可选 `--only=<clip 名>`：只处理这一条（带空格的名字要整个引号里，如 `--only="Level Up Card"`）。
+    -h, --help  只打印本用法并退出（退出码 0）。"""
+
+
 def main():
     args = sys.argv[1:]
+    if any(a in ('-h', '--help') for a in args):
+        print(USAGE)
+        return 0
     check = '--check' in args
     write = '--write' in args
+    dry = '--dry' in args
+    if not (check or write or dry):
+        print(USAGE)
+        return 2
     only = None
     for a in args:
         if a.startswith('--only='):
@@ -432,7 +447,8 @@ def main():
         sys.exit(0 if ok else 1)
     if not write:
         print('（dry-run，未写盘；要真写加 --write；复核加 --check）')
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

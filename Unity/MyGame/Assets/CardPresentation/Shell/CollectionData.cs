@@ -672,5 +672,20 @@ namespace CardPresentation
             info.Faction = hero != null ? hero.Faction : "";
             return info;
         }
+
+        // ================================================================================================
+        //  🆕 2026-11-05（B146-E8）· 事件卡组取用口的**注入点** —— 追加在类尾（⛔ 别插进类中间：本文件被账按
+        //  `文件:行号` 引用 29 处，插中间会让下游落点整体漂移）。
+        //
+        //  为什么是本类：原版 `PlayEvent.GetEventDeck()` 直接 `InventoryManager.GetInventory<CardDeck>()`；
+        //  我们这一层**没有** `InventoryManager` / `AssetLocator`，卡组住的**唯一宿主就是本类的 `static DeckLibrary Lib`**
+        //  ⇒ 静态构造（= 本类第一次被碰到那一刻）是「库上线」的唯一共同入口，与 `Lib` 的懒加载同拍。
+        //  ⚠️ 构造时**不读盘**（`PlayEventDeckSource` 的每个成员才现读 `CollectionData`）⇒ 注入本身零 I/O。
+        //  ✅ 已复刻（2026-11-05 · B146-E8 · 判据 `判据/B146_对账_B界面卡组收藏.md` `B142-PLAYEVENT-REACH` ②）
+        // ================================================================================================
+        static CollectionData()
+        {
+            PlayEventDecks.Source = new PlayEventDeckSource();
+        }
     }
 }

@@ -1,0 +1,749 @@
+类型	列名	有值卡数	携带卡数	代码命中	生产端	测试端	DTO	生成器	状态	备注
+column	_hide	1	1	0	0	0	0	0	⚠️ 仅truth未承接	来源 truth · 容器: cardTraits(1)
+column	_trait	749	750	0	0	0	0	0	⚠️ 仅truth未承接	来源 truth · 容器: cardTraits(749)
+column	_traitValue	144	750	0	0	0	0	0	⚠️ 仅truth未承接	来源 truth · 容器: cardTraits(144)
+column	a	875	875	5226	2136	2906	184	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(875)
+column	ab	441	1045	514	194	225	95	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilityTargetCriteria(242), abilityDamage(242), abilitySummon(242)
+column	abilityContext	162	162	63	27	32	4	0	✅ 有读取	容器: abilities(162)
+column	activeAbilityManaCost	34	1142	22	17	2	3	0	✅ 有读取	来源 engine
+column	activeAbilityPlasmaCost	0	1142	5	2	0	3	0	— 全默认	来源 none · 全部默认值
+column	activeAbilityPsychicCost	0	1142	5	2	0	3	0	— 全默认	来源 none · 全部默认值
+column	activeAbilityTargeted	105	1142	4	1	0	3	0	✅ 有读取	来源 engine
+column	activeAbilityTextReferenceId	2	1142	12	5	4	3	0	✅ 有读取	来源 engine
+column	all	19	1010	1104	432	619	53	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilitySummon(19)
+column	amount	44	44	740	462	255	23	0	✅ 有读取	来源 engine · 容器: abilityMana(44)
+column	armour	81	1351	92	45	43	4	0	✅ 有读取	
+column	armourChange	61	636	12	4	3	5	0	✅ 有读取	容器: abilities.logic.buff(56), abilityBuffs(49), activeAbility.logic.buff(6)
+column	armourValueOptions	1	636	8	1	3	4	0	✅ 有读取	容器: abilityBuffs(1), abilities.logic.buff(1)
+column	army	1351	1351	981	588	232	161	0	✅ 有读取	来源 truth
+column	armyFilter	35	1142	62	16	41	5	0	✅ 有读取	容器: abilities.logic.targetCriteria(33), abilityTargetCriteria.criteria(30), unitConditions.choiceSet(14)
+column	at	636	636	1008	487	465	56	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilityBuffs(636), enchantment(54), abilityEffectTexts(31)
+column	attack	631	1142	552	106	442	4	0	✅ 有读取	来源 engine
+column	attackDamageType	1096	1142	1	0	0	1	0	🟡 仅 DTO/生成器	来源 engine
+column	attackFilter	1	1142	55	5	45	5	0	✅ 有读取	来源 truth · 容器: abilities.logic.targetCriteria(1)
+column	attackFilterOption	2	1142	62	9	48	5	0	✅ 有读取	容器: abilityLevelCriteria.criteria(1), abilities.logic.targetCriteria(1), abilities.targetCriteria(1)
+column	baseValueEnemy	7	7	4	3	0	1	0	✅ 有读取	来源 truth · 容器: nonTargetScoringCriteria(6), cardTargetScoringCriteria(1)
+column	baseValueFriend	176	176	6	3	2	1	0	✅ 有读取	来源 truth · 容器: nonTargetScoringCriteria(172), cardTargetScoringCriteria(4)
+column	buffType	785	785	258	136	103	19	0	✅ 有读取	容器: abilities.logic.buff(744), abilityBuffs(636), enchantment(54)
+column	ca	1038	1044	462	194	244	24	0	✅ 有读取	名字过泛 · 来源 engine · 容器: triggerAbilityIndices(1003), activeAbilityLogic(132), abilityLevelCriteria(72)
+column	cantBeRandomlyCreated	168	1142	18	6	5	7	0	✅ 有读取	来源 engine
+column	cap	38	1010	121	53	64	4	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilitySummon(38)
+column	cardDescriptionTextReferenceId	15	1142	10	5	2	3	0	✅ 有读取	来源 engine
+column	cardShortId	840	1142	1	0	0	1	0	🟡 仅 DTO/生成器	来源 engine · 代码自标 Obsolete/死列
+column	cardType	746	1351	55	34	12	9	0	✅ 有读取	
+column	cem	2	1010	13	0	9	4	0	🟡 仅测试消费	名字过泛 · 来源 engine · 容器: abilitySummon(2)
+column	chanceOfHappening	6	6	0	0	0	0	0	⚠️ 仅truth未承接	来源 truth · 容器: abilities.logic(6)
+column	choicesMaxTargets	148	1142	26	7	15	4	0	✅ 有读取	来源 engine
+column	choicesTargetsAffected	84	1142	16	7	5	4	0	✅ 有读取	来源 engine
+column	choose	11	1010	70	9	57	4	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilitySummon(11)
+column	chooseCardInPlay	12	12	6	2	1	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.summon(11), activeAbility.logic.summon(1)
+column	chosenAbility	1223	1241	68	43	16	9	0	✅ 有读取	容器: abilities.logic(1186), activeAbility.logic(141), alternativeAbility.logic(1)
+column	chosenArmy	36	1142	55	10	40	5	0	✅ 有读取	容器: abilities.logic.targetCriteria(34), abilityTargetCriteria.criteria(31), unitConditions.choiceSet(14)
+column	cond	167	328	900	143	750	7	0	✅ 有读取	名字过泛 · 来源 engine · 容器: unitConditions(167)
+column	conditionsFilter	180	180	16	7	4	5	0	✅ 有读取	来源 truth · 容器: abilities.logic.targetCriteria(130), abilities.targetCriteria(22), nonTargetScoringCriteria.targetCriteria(20)
+column	context	157	157	258	149	103	6	0	✅ 有读取	来源 engine · 容器: abilityContext(157)
+column	cost	1082	1142	590	222	352	16	0	✅ 有读取	来源 engine
+column	costChange	117	636	31	14	12	5	0	✅ 有读取	容器: abilityBuffs(93), abilities.logic.buff(67), abilities.logic.handBuff.cardEffect(46)
+column	costValueOptions	3	636	8	1	3	4	0	✅ 有读取	容器: abilityBuffs(3), abilities.logic.buff(3)
+column	countOptions	0	2	2	0	0	2	0	— 全默认	来源 none · 全部默认值
+column	create	14	44	1198	401	791	6	0	✅ 有读取	来源 engine · 容器: abilityMana(14)
+column	createAtPos	47	47	10	2	5	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.summon(39), activeAbility.logic.summon(15)
+column	createMana	36	36	10	4	3	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.manaBuff(36)
+column	currentHealthFilter	6	1142	56	5	46	5	0	✅ 有读取	容器: unitConditions.countSet(2), cardTargetScoringCriteria.targetCriteria(2), abilities.boardCriteria.countCriteria(2)
+column	currentHealthFilterOption	6	1142	62	11	46	5	0	✅ 有读取	容器: unitConditions.countSet(2), cardTargetScoringCriteria.targetCriteria(2), abilities.boardCriteria.countCriteria(2)
+column	d	1	875	4668	2261	2152	255	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(1)
+column	daemonHostType	0	636	17	10	3	4	0	— 全默认	来源 none · 全部默认值
+column	damageType	109	1351	33	30	0	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.damage(100), activeAbility.logic.damage(9)
+column	desc	1134	1142	672	175	451	46	0	✅ 有读取	名字过泛 · 来源 engine
+column	descZh	1134	1134	78	9	62	7	0	✅ 有读取	名字过泛 · 来源 engine
+column	doNotStack	14	636	7	0	3	4	0	🟡 仅测试消费	容器: abilities.logic.buff(14), abilityBuffs(12), abilities.logic.handBuff.cardEffect(1)
+column	e	13	875	10113	3126	6776	211	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(13)
+column	effectName	14	14	71	33	35	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.buff(14)
+column	effectText	31	31	623	91	531	1	0	✅ 有读取	来源 truth · 容器: abilities.logic.buff(29), abilities.logic.handBuff.cardEffect(3)
+column	enchantTrait	24	1142	7	3	0	4	0	✅ 有读取	来源 engine
+column	enemy	17	1010	217	83	124	10	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilitySummon(16), abilityMana(1)
+column	enemyPlayer	20	20	8	3	2	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.manaBuff(20)
+column	enemyUnits	463	1142	140	19	115	6	0	✅ 有读取	容器: abilities.logic.targetCriteria(255), abilityTargetCriteria.criteria(206), cardTargetCriteriaSet(174)
+column	eventSpriteName	0	1142	1	0	0	1	0	— 全默认	来源 none · 全部默认值 · 代码自标 Obsolete/死列
+column	ex	99	328	322	81	233	8	0	✅ 有读取	名字过泛 · 来源 engine · 容器: unitConditions(99)
+column	excludeCondition	115	115	11	7	1	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.targetCriteria(99), abilities.targetCriteria(10), activeAbility.logic.targetCriteria(3)
+column	excludeEnemyHero	3	1142	51	8	38	5	0	✅ 有读取	来源 engine · 容器: cardTargetCriteriaSet(3)
+column	excludeFriendlyHero	0	1142	51	8	38	5	0	— 全默认	来源 none · 全部默认值
+column	excludeNotSelf	2	1142	60	10	45	5	0	✅ 有读取	容器: abilityBuffs.criteria(2), abilities.logic.handBuff.targetCriteria(2)
+column	excludeRace	1	1142	53	9	39	5	0	✅ 有读取	容器: abilityTargetCriteria.criteria(1), abilities.logic.targetCriteria(1)
+column	excludeSimilarCards	0	1142	49	5	39	5	0	— 全默认	来源 none · 全部默认值
+column	excludeTargetted	0	1142	43	2	36	5	0	— 全默认	来源 none · 全部默认值
+column	excludeTrait	40	1142	53	9	39	5	0	✅ 有读取	容器: abilities.logic.targetCriteria(32), abilityTargetCriteria.criteria(27), cardTargetCriteriaSet(6)
+column	expansionPack	231	1142	2	0	0	2	0	🟡 仅 DTO/生成器	来源 engine
+column	extrinsic	8	636	162	88	70	4	0	✅ 有读取	容器: abilityBuffs(8), abilities.logic.buff(6), abilities.logic.handBuff.cardEffect(2)
+column	extrinsicVariable	20	636	9	2	3	4	0	✅ 有读取	容器: abilities.logic.buff(20), abilityBuffs(19)
+column	faction	1142	1142	1468	679	726	63	0	✅ 有读取	来源 engine
+column	faith	12	44	153	30	119	4	0	✅ 有读取	来源 engine · 容器: abilityMana(12)
+column	faithMana	16	16	4	1	0	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.manaBuff(16)
+column	friendly	43	44	81	12	65	4	0	✅ 有读取	来源 engine · 容器: abilityMana(43)
+column	friendlyPlayer	88	88	13	6	4	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.manaBuff(79), activeAbility.logic.manaBuff(9)
+column	friendlyUnits	714	1142	147	19	122	6	0	✅ 有读取	容器: abilities.logic.targetCriteria(431), abilityTargetCriteria.criteria(361), cardTargetCriteriaSet(274)
+column	fullHeroSpriteReference	56	1142	1	0	0	1	0	🟡 仅 DTO/生成器	来源 engine
+column	furtherMultiplier	131	131	31	18	10	3	0	✅ 有读取	来源 truth · 容器: activeAbility.logic(82), abilities.logic(51)
+column	gate	87	132	153	55	91	7	0	✅ 有读取	来源 engine · 容器: activeAbilityLogic(87)
+column	goesSecond	56	56	2	0	0	2	0	🟡 仅 DTO/生成器	来源 engine
+column	hasActiveAbility	88	1351	65	25	35	5	0	✅ 有读取	
+column	hasAlternativeAbility	1	1351	26	4	18	4	0	✅ 有读取	
+column	hasNormalAbilityBoardCriteria	2	1142	3	0	0	3	0	🟡 仅 DTO/生成器	来源 engine
+column	health	676	1351	1367	184	1174	9	0	✅ 有读取	
+column	healthChange	97	636	26	16	5	5	0	✅ 有读取	容器: abilities.logic.buff(87), abilityBuffs(75), activeAbility.logic.buff(10)
+column	healthValueOptions	7	636	8	1	3	4	0	✅ 有读取	容器: abilityBuffs(7), abilities.logic.buff(7)
+column	id	1351	1351	4720	1852	2575	293	0	✅ 有读取	名字过泛 · 代码自标 Obsolete/死列
+column	includeHero	528	1142	113	8	99	6	0	✅ 有读取	容器: abilities.logic.targetCriteria(296), abilityTargetCriteria.criteria(247), cardTargetCriteriaSet(226)
+column	includeHeroParts	0	1142	44	2	37	5	0	— 全默认	来源 none · 全部默认值
+column	includeMinions	871	1142	120	11	103	6	0	✅ 有读取	容器: abilities.logic.targetCriteria(559), abilityTargetCriteria.criteria(481), cardTargetCriteriaSet(375)
+column	includeRemnants	238	1142	97	27	65	5	0	✅ 有读取	容器: abilities.logic.targetCriteria(145), abilityTargetCriteria.criteria(125), cardTargetCriteriaSet(93)
+column	includeSelf	105	1142	88	9	73	6	0	✅ 有读取	容器: abilities.logic.targetCriteria(64), abilityTargetCriteria.criteria(46), abilities.actingCardCriteria(22)
+column	includeSpells	104	1142	60	6	49	5	0	✅ 有读取	容器: abilities.logic.targetCriteria(58), abilityTargetCriteria.criteria(51), unitConditions.choiceSet(38)
+column	includeWeapons	0	1142	44	2	37	5	0	— 全默认	来源 none · 全部默认值
+column	includeWhispers	3	1142	50	6	39	5	0	✅ 有读取	容器: abilityTargetCriteria.criteria(1), unitConditions.choiceSet(1), unitConditions.multiplierSet(1)
+column	initiative	1351	1351	14	7	3	4	0	✅ 有读取	
+column	inventoryOptions	168	1142	51	11	32	8	0	✅ 有读取	来源 engine
+column	isForEnemy	18	18	8	4	1	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.summon(18)
+column	itemDescriptionKey	39	1142	1	0	0	1	0	🟡 仅 DTO/生成器	来源 engine
+column	keep	0	1010	246	85	149	12	0	— 全默认	名字过泛 · 来源 none · 全部默认值
+column	keyword	613	1351	880	605	235	40	0	✅ 有读取	容器: abilityContext(52), triggerPriority(4)
+column	keywordFilter	116	1142	92	30	54	8	0	✅ 有读取	容器: abilities.logic.targetCriteria(76), abilityTargetCriteria.criteria(73), cardTargetCriteriaSet(28)
+column	lg	462	1045	422	130	174	118	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilityTargetCriteria(272), abilityDamage(272), abilitySummon(272)
+column	limitedUses	33	41	17	10	2	5	0	✅ 有读取	容器: abilities.logic.handBuff(32), abilityBuffs(28), activeAbility.logic.handBuff(1)
+column	m	751	875	4459	2429	1726	304	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(751)
+column	m_PathID	114	114	0	0	0	0	0	⚠️ 仅truth未承接	来源 truth · 容器: abilities.logic.buff.enchantment(114)
+column	manaAmount	101	101	17	6	7	4	0	✅ 有读取	来源 truth · 容器: abilities.logic.manaBuff(92), activeAbility.logic.manaBuff(9)
+column	manaCost	1283	1351	12	5	2	5	0	✅ 有读取	来源 truth · 容器: activeAbility(44)
+column	manaCostFilter	16	1142	52	5	42	5	0	✅ 有读取	容器: abilities.logic.targetCriteria(16), abilityTargetCriteria.criteria(13), unitConditions.choiceSet(2)
+column	manaCostFilterOption	16	1142	59	9	45	5	0	✅ 有读取	容器: abilities.logic.targetCriteria(16), abilityTargetCriteria.criteria(13), unitConditions.choiceSet(2)
+column	markOfChaosType	36	636	70	50	15	5	0	✅ 有读取	容器: abilities.logic.buff(36), abilityBuffs(29)
+column	max	403	1044	1331	698	582	51	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilityDamage(276), activeAbilityLogic.dmg(91), abilityHeal(56)
+column	maxDamage	1351	1351	6	5	0	1	0	✅ 有读取	来源 truth · 容器: attackScoringCriteria.damage(1351), abilities.logic.damage(328), cardTargetScoringCriteria.damage(110)
+column	maxTargets	330	1351	119	26	88	5	0	✅ 有读取	容器: abilities.logic.targetCriteria(316), abilityTargetCriteria.criteria(263), unitConditions.choiceSet(84)
+column	maxValue	1351	1351	291	108	175	8	0	✅ 有读取	来源 truth · 容器: attackScoringCriteria.heal(1351), abilities.logic.heal(76), activeAbility.logic.heal(9)
+column	melee	665	1351	273	80	187	6	0	✅ 有读取	来源 truth
+column	meleeAttackChange	233	636	17	4	8	5	0	✅ 有读取	容器: abilities.logic.buff(214), abilityBuffs(188), activeAbility.logic.buff(17)
+column	meleeAttackValueOptions	7	636	11	2	4	5	0	✅ 有读取	容器: abilityBuffs(6), abilities.logic.buff(6), nonTargetScoringCriteria.buff(1)
+column	min	400	1044	639	249	369	21	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilityDamage(273), activeAbilityLogic.dmg(91), abilityHeal(57)
+column	minDamage	1351	1351	9	8	0	1	0	✅ 有读取	来源 truth · 容器: attackScoringCriteria.damage(1351), abilities.logic.damage(324), cardTargetScoringCriteria.damage(110)
+column	minValue	1351	1351	288	98	178	12	0	✅ 有读取	来源 truth · 容器: attackScoringCriteria.heal(1351), abilities.logic.heal(77), activeAbility.logic.heal(9)
+column	moveToPos	45	45	4	0	1	3	0	🟡 仅测试消费	来源 truth · 容器: abilities.logic.summon(37), activeAbility.logic.summon(15)
+column	multiplyByEnemy	1351	1351	4	3	0	1	0	✅ 有读取	来源 truth · 容器: attackScoringCriteria(1351), cardTargetScoringCriteria(124), nonTargetScoringCriteria(46)
+column	multiplyByFriend	1351	1351	10	4	5	1	0	✅ 有读取	来源 truth · 容器: attackScoringCriteria(1351), nonTargetScoringCriteria(288), cardTargetScoringCriteria(266)
+column	mut	0	1010	16	0	13	3	0	— 全默认	来源 none · 全部默认值
+column	mutationType	0	636	17	2	9	6	0	— 全默认	来源 none · 全部默认值
+column	mv	36	1010	91	6	78	7	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilitySummon(36)
+column	n	874	875	6023	2500	3370	153	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(874)
+column	name	1351	1351	8118	3127	4767	224	0	✅ 有读取	名字过泛 · 容器: cardTraits(750), unitConditions(167), abilityContext(157)
+column	nameZh	1140	1140	86	30	40	16	0	✅ 有读取	名字过泛 · 来源 engine
+column	needsLoading	0	132	26	0	22	4	0	— 全默认	来源 none · 全部默认值
+column	newRace	0	636	8	0	3	5	0	— 全默认	来源 none · 全部默认值
+column	numberOfUses	33	41	12	5	2	5	0	✅ 有读取	容器: abilities.logic.handBuff(32), abilityBuffs(28), activeAbility.logic.handBuff(1)
+column	o	875	875	1589	782	748	59	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(875)
+column	op	46	73	2282	1811	468	3	0	✅ 有读取	名字过泛 · 来源 engine · 容器: unitConditions(46)
+column	opt	90	1044	178	124	41	13	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilityDamage(82), activeAbilityLogic.dmg(7), abilityHeal(1)
+column	pa	364	1044	281	64	196	21	0	✅ 有读取	名字过泛 · 来源 engine · 容器: triggerAbilityIndices(243), activeAbilityLogic(132), abilityBuffs(12)
+column	permanentBuff	1	636	15	6	5	4	0	✅ 有读取	来源 truth · 容器: abilities.logic.buff(1)
+column	plasma	0	44	9	0	5	4	0	— 全默认	来源 none · 全部默认值
+column	plasmaCost	0	143	6	2	2	2	0	— 全默认	来源 none · 全部默认值
+column	playerTurn	1142	1142	63	7	41	15	0	✅ 有读取	容器: cardTargetCriteriaSet(1142), abilityTargetCriteria.criteria(1010), activeAbilityTargets.criteria(132)
+column	playersAffected	349	349	37	13	18	6	0	✅ 有读取	来源 truth · 容器: abilities.logic(326), activeAbility.logic(22), abilities.logic.handBuff(17)
+column	priority	9	11	141	106	20	15	0	✅ 有读取	容器: abilities(9), abilityTriggerPriority(6), triggerPriority(4)
+column	psychic	0	44	4	0	0	4	0	— 全默认	来源 none · 全部默认值
+column	psychicCost	0	143	6	2	2	2	0	— 全默认	来源 none · 全部默认值
+column	quest	20	44	32	14	10	8	0	✅ 有读取	来源 engine · 容器: abilityMana(20)
+column	questPoints	32	32	70	17	50	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.manaBuff(23), activeAbility.logic.manaBuff(9)
+column	randomAbilityChoice	1	1	0	0	0	0	0	⚠️ 仅truth未承接	来源 truth · 容器: abilities(1)
+column	randomValueChange	1	636	8	0	3	5	0	🟡 仅测试消费	容器: abilityBuffs(1), abilities.logic.buff(1)
+column	range	623	1351	43	30	12	1	0	✅ 有读取	来源 truth
+column	rangeAttackChange	167	636	11	2	4	5	0	✅ 有读取	容器: abilities.logic.buff(148), abilityBuffs(127), activeAbility.logic.buff(18)
+column	rangeAttackValueOptions	2	636	10	2	3	5	0	✅ 有读取	容器: abilityBuffs(2), abilities.logic.buff(2)
+column	ranged	590	1142	525	243	276	6	0	✅ 有读取	来源 engine
+column	rarity	1347	1351	504	297	193	14	0	✅ 有读取	
+column	rarityFilter	5	1142	55	5	45	5	0	✅ 有读取	容器: unitConditions.choiceSet(5), abilityTargetCriteria.criteria(1), activeAbilityTargets.criteria(1)
+column	rarityFilterOption	5	1142	59	10	44	5	0	✅ 有读取	容器: unitConditions.choiceSet(5), abilityTargetCriteria.criteria(1), activeAbilityTargets.criteria(1)
+column	rc	1	875	325	112	207	6	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(1)
+column	refNameId	0	1142	1	0	0	1	0	— 全默认	来源 none · 全部默认值 · 代码自标 Obsolete/死列
+column	refValue	38	73	6	3	1	2	0	✅ 有读取	名字过泛 · 来源 engine · 容器: unitConditions(38)
+column	referenceValue	43	43	46	16	20	10	0	✅ 有读取	容器: abilities.boardCriteria(43), normalAbilityBoardCriteria(1)
+column	refill	10	44	21	6	11	4	0	✅ 有读取	来源 engine · 容器: abilityMana(10)
+column	refillMana	34	34	10	5	2	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.manaBuff(34)
+column	role	328	328	221	77	106	38	0	✅ 有读取	名字过泛 · 来源 engine · 容器: unitConditions(328)
+column	s	175	875	8877	3835	4722	320	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(175)
+column	scoringOption	570	570	11	5	5	1	0	✅ 有读取	来源 truth · 容器: cardTargetScoringCriteria(364), nonTargetScoringCriteria(327)
+column	sd	1	875	69	13	45	11	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(1)
+column	selectFromChooseResolution	80	1142	59	10	44	5	0	✅ 有读取	容器: abilities.logic.targetCriteria(75), abilityTargetCriteria.criteria(73), activeAbilityTargets.criteria(5)
+column	shouldRemoveFromCemetery	2	2	5	1	1	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.summon(2)
+column	showInCollectionOptions	1018	1142	44	7	29	8	0	✅ 有读取	来源 engine
+column	specialAttackScoring	0	1142	8	4	0	4	0	— 全默认	来源 none · 全部默认值
+column	spellType	183	1351	174	70	85	19	0	✅ 有读取	容器: abilities.logic.targetCriteria(8), abilityTargetCriteria.criteria(7), unitConditions.choiceSet(6)
+column	spirit	4	44	18	9	5	4	0	✅ 有读取	来源 engine · 容器: abilityMana(4)
+column	spiritStoneMana	5	5	4	1	0	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.manaBuff(5)
+column	src	31	31	2914	966	1857	91	0	✅ 有读取	来源 engine · 容器: abilityEffectTexts(31)
+column	startingCardInHand	2	1142	2	1	0	1	0	✅ 有读取	来源 engine
+column	subtype	1129	1142	748	39	704	5	0	✅ 有读取	来源 engine
+column	summonAllTargets	23	23	7	3	1	3	0	✅ 有读取	来源 truth · 容器: abilities.logic.summon(22), activeAbility.logic.summon(1)
+column	t	359	875	12725	5992	6481	252	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(359)
+column	ta	1044	1044	928	494	377	57	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilityTargets(1010), activeAbilityLogic(132), enchantment(54)
+column	targetSelectMethod	9	1142	62	6	51	5	0	✅ 有读取	容器: abilityTargetCriteria.criteria(8), abilities.logic.targetCriteria(8), activeAbilityTargets.criteria(1)
+column	targeted	367	1351	76	28	41	7	0	✅ 有读取	容器: activeAbility(113), alternativeAbility(1)
+column	targetingTextReferenceId	51	1142	12	9	0	3	0	✅ 有读取	来源 engine
+column	targetsAffected	1183	1183	330	93	215	22	0	✅ 有读取	容器: abilities.logic.targetCriteria(1025), abilityTargetCriteria.criteria(866), cardTargetCriteriaSet(376)
+column	tg	412	875	72	52	18	2	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(412)
+column	tn	803	875	202	100	91	11	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(803)
+column	token	54	54	58	19	33	6	0	✅ 有读取	来源 engine · 容器: enchantment(54), permanentBuffs(1)
+column	trait	317	636	398	263	115	20	0	✅ 有读取	容器: abilities.logic.buff(306), abilityBuffs(279), activeAbility.logic.buff(19)
+column	traitValue	85	636	134	83	41	10	0	✅ 有读取	容器: abilities.logic.buff(84), abilityBuffs(77), activeAbility.logic.buff(2)
+column	traitsFilter	79	1142	70	20	45	5	0	✅ 有读取	容器: abilities.logic.targetCriteria(52), abilityTargetCriteria.criteria(47), abilities.targetCriteria(16)
+column	trigger	606	1205	713	167	478	68	0	✅ 有读取	容器: abilities(606), abilityTargets(524), abilityMultipliers(524)
+column	triggerEnchantAnim	1351	1351	0	0	0	0	0	⚠️ 仅truth未承接	来源 truth · 容器: attackScoringCriteria.buff(1351), attackScoringCriteria.handEffect.cardEffect(1351)
+column	triggerIf	52	52	14	2	6	6	0	✅ 有读取	容器: abilities.boardCriteria(52), normalAbilityBoardCriteria(2)
+column	triggerValue	56	1010	36	10	21	5	0	✅ 有读取	容器: abilities(56), triggerAbilityIndices(55)
+column	type	1142	1142	1824	876	896	52	0	✅ 有读取	名字过泛 · 来源 engine · 容器: abilityDamage(90), activeAbilityLogic.dmg(9)
+column	u	855	875	6035	3202	2830	3	0	✅ 有读取	名字过泛 · 来源 engine · 容器: animTimes(855)
+column	unitsToSummon_null	1	1	0	0	0	0	0	⚠️ 仅truth未承接	来源 truth · 容器: abilities.logic.summon(1)
+column	untilEndOfTurn	154	667	24	5	7	12	0	✅ 有读取	容器: abilityBuffs(127), abilities.logic.buff(120), abilities.logic.handBuff.cardEffect(36)
+column	untilEnemyTurnStart	3	636	8	2	2	4	0	✅ 有读取	容器: abilities.logic.buff(3), abilityBuffs(1)
+column	untilFollowingPlayerTurnStart	1	636	9	3	2	4	0	✅ 有读取	容器: abilityBuffs(1), abilities.logic.buff(1)
+column	untilNextAttack	1	636	10	3	3	4	0	✅ 有读取	容器: abilityBuffs(1), abilities.logic.buff(1)
+column	untilPlayerTurnStart	64	636	9	3	2	4	0	✅ 有读取	容器: abilities.logic.buff(62), abilityBuffs(56), activeAbility.logic.buff(2)
+column	useOverDraw	677	1351	35	16	15	4	0	✅ 有读取	
+column	valueOptions	97	1351	37	18	9	10	0	✅ 有读取	来源 truth · 容器: abilities.logic.damage(89), activeAbility.logic.damage(7), nonTargetScoringCriteria.damage(2)
+column	whileInPlayAnim	35	1142	33	9	18	6	0	✅ 有读取	来源 engine
+container	abilities	1205	1205	38	13	9	16	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth
+container	abilityActingCriteria	80	1142	12	3	3	6	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilityBuffs	636	1142	15	3	7	5	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilityDamage	1010	1142	4	0	0	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilityEffectTexts	31	1142	17	1	12	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilityHeal	57	1142	4	0	0	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilityLevelCriteria	76	1142	20	3	11	6	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilityMana	44	1142	4	0	0	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilityMultipliers	1010	1142	9	3	2	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilityMutations	1010	1142	5	1	0	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilitySummon	1010	1142	4	0	0	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilityTargetCriteria	1010	1142	34	3	25	6	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilityTargets	1010	1142	110	12	88	10	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilityTriggerPriority	7	7	15	5	5	5	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	abilityTriggers	1010	1142	68	3	58	7	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	actingCardCriteria	110	110	0	0	0	0	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: abilities(110)
+container	activeAbility	143	143	36	24	11	1	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth
+container	activeAbilityLogic	132	1142	64	4	51	9	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	activeAbilityPickCriteria	107	1142	14	3	5	6	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	activeAbilityTargets	132	1142	14	0	9	5	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	alternateArts	7	1142	9	6	0	3	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	alternativeAbility	2	2	0	0	0	0	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth
+container	animTimes	875	1142	115	20	92	3	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	attackScoringCriteria	1351	1351	0	0	0	0	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth
+container	availSet	17	17	11	3	4	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine · 容器: unitConditions(17)
+container	boardCriteria	91	91	0	0	0	0	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: abilities(91)
+container	buff	1351	1351	98	21	76	1	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: attackScoringCriteria(1351), abilities.logic(756), activeAbility.logic(50)
+container	cardEffect	1351	1351	2	1	0	1	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: attackScoringCriteria.handEffect(1351), abilities.logic.handBuff(47), activeAbility.logic.handBuff(1)
+container	cardTargetCriteriaSet	1142	1142	2	0	0	2	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	cardTargetScoringCriteria	367	367	9	6	1	2	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth
+container	cardTraits	750	1142	22	3	16	3	0	— 容器（非叶子列）	容器（子键才是列）
+container	choiceSet	84	84	12	2	6	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine · 容器: unitConditions(84)
+container	choicesSpecificCardIds	50	1142	21	9	9	3	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	countCriteria	60	60	8	1	5	2	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: abilities.boardCriteria(60)
+container	countSet	75	75	56	21	20	15	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine · 容器: unitConditions(73), normalAbilityBoardCriteria(2)
+container	criteria	1044	1044	265	84	143	38	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine · 容器: abilityTargetCriteria(1010), activeAbilityTargets(132), activeAbilityPickCriteria(107)
+container	damage	1351	1351	33	7	17	9	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: attackScoringCriteria(1351), abilities.logic(334), cardTargetScoringCriteria(111)
+container	dmg	132	132	86	64	10	12	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine · 容器: activeAbilityLogic(132)
+container	enchantment	114	1142	37	13	19	5	0	— 容器（非叶子列）	容器（子键才是列） · 容器: abilities.logic.buff(114)
+container	excludeEnchantments	0	1142	9	3	3	3	0	— 容器（非叶子列）	容器（子键才是列） · 来源 none · 全部默认值
+container	filterSpecificCards	56	1142	13	4	6	3	0	— 容器（非叶子列）	容器（子键才是列） · 容器: unitConditions.choiceSet(40), abilityTargetCriteria.criteria(12), abilities.logic.targetCriteria(12)
+container	fm	1044	1044	159	58	77	24	0	— 容器（非叶子列）	容器（子键才是列） · 名字过泛 · 来源 engine · 容器: abilityMultipliers(1010), activeAbilityLogic(132)
+container	handBuff	48	48	3	1	2	0	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: abilities.logic(47), activeAbility.logic(1)
+container	handEffect	1351	1351	43	23	19	1	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: attackScoringCriteria(1351)
+container	heal	1351	1351	112	56	44	12	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: attackScoringCriteria(1351), abilities.logic(77), activeAbility.logic(9)
+container	ids	214	1010	388	179	178	31	0	— 容器（非叶子列）	容器（子键才是列） · 名字过泛 · 来源 engine · 容器: abilitySummon(214)
+container	keywords	707	1142	302	101	195	6	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	logic	1241	1242	169	61	72	36	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: abilities(1204), activeAbility(143), alternativeAbility(1)
+container	manaBuff	101	101	11	9	2	0	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: abilities.logic(92), activeAbility.logic(9)
+container	multiCountCriteria	15	15	0	0	0	0	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: abilities(15)
+container	multiSet	9	9	20	6	9	5	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine · 容器: unitConditions(9)
+container	multiplier	36	36	14	13	1	0	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: abilities.logic(36)
+container	multiplierCriteria	3	3	4	3	0	1	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: nonTargetScoringCriteria(3)
+container	multiplierSet	30	30	36	11	21	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine · 容器: unitConditions(30)
+container	nonTargetScoringCriteria	387	387	9	6	1	2	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth
+container	normalAbilityBoardCriteria	2	2	22	7	11	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	permanentBuffs	1	1142	5	1	0	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	summon	266	266	32	4	12	16	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: abilities.logic(259), activeAbility.logic(15)
+container	targetCriteria	1188	1188	22	10	10	2	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: abilities.logic(1050), cardTargetScoringCriteria(364), nonTargetScoringCriteria(270)
+container	triggerAbilityIndices	1010	1142	30	2	24	4	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	triggerPriority	4	4	21	4	12	5	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	unitConditions	328	328	3	0	0	3	0	— 容器（非叶子列）	容器（子键才是列） · 来源 engine
+container	unitsToSummon	244	244	7	3	1	3	0	— 容器（非叶子列）	容器（子键才是列） · 来源 truth · 容器: abilities.logic.summon(238), activeAbility.logic.summon(14)
+enum	targetsAffected=10	1452	1452	71	71	0	0	0	✅ 有消费	列 targetsAffected 的取值 10（强 71 / 弱 0）
+enum	targetsAffected=20	545	545	49	49	0	0	0	✅ 有消费	列 targetsAffected 的取值 20（强 49 / 弱 0）
+enum	targetsAffected=30	808	808	46	46	0	0	0	✅ 有消费	列 targetsAffected 的取值 30（强 46 / 弱 0）
+enum	targetsAffected=50	143	143	37	37	0	0	0	✅ 有消费	列 targetsAffected 的取值 50（强 19 / 弱 18）
+enum	targetsAffected=51	7	7	7	7	0	0	0	✅ 有消费	列 targetsAffected 的取值 51（强 7 / 弱 0）
+enum	targetsAffected=52	4	4	4	4	0	0	0	✅ 有消费	列 targetsAffected 的取值 52（强 4 / 弱 0）
+enum	targetsAffected=55	2	2	7	7	0	0	0	✅ 有消费	列 targetsAffected 的取值 55（强 7 / 弱 0）
+enum	targetsAffected=60	24	24	27	27	0	0	0	✅ 有消费	列 targetsAffected 的取值 60（强 13 / 弱 14）
+enum	targetsAffected=65	96	96	6	6	0	0	0	✅ 有消费	列 targetsAffected 的取值 65（强 6 / 弱 0）
+enum	targetsAffected=80	54	54	40	40	0	0	0	✅ 有消费	列 targetsAffected 的取值 80（强 26 / 弱 14）
+enum	targetsAffected=90	88	88	28	28	0	0	0	✅ 有消费	列 targetsAffected 的取值 90（强 15 / 弱 13）
+enum	targetsAffected=100	35	35	38	38	0	0	0	✅ 有消费	列 targetsAffected 的取值 100（强 19 / 弱 19）
+enum	targetsAffected=106	2	2	1	1	0	0	0	✅ 有消费	列 targetsAffected 的取值 106（强 1 / 弱 0）
+enum	targetsAffected=110	33	33	29	29	0	0	0	✅ 有消费	列 targetsAffected 的取值 110（强 17 / 弱 12）
+enum	targetsAffected=113	6	6	1	1	0	0	0	✅ 有消费	列 targetsAffected 的取值 113（强 1 / 弱 0）
+enum	targetsAffected=120	129	129	32	32	0	0	0	✅ 有消费	列 targetsAffected 的取值 120（强 16 / 弱 16）
+enum	targetsAffected=130	14	14	24	24	0	0	0	✅ 有消费	列 targetsAffected 的取值 130（强 11 / 弱 13）
+enum	targetsAffected=140	8	8	17	17	0	0	0	✅ 有消费	列 targetsAffected 的取值 140（强 17 / 弱 0）
+enum	targetsAffected=150	90	90	22	22	0	0	0	✅ 有消费	列 targetsAffected 的取值 150（强 20 / 弱 2）
+enum	targetsAffected=160	25	25	10	10	0	0	0	✅ 有消费	列 targetsAffected 的取值 160（强 9 / 弱 1）
+enum	targetsAffected=161	3	3	3	3	0	0	0	✅ 有消费	列 targetsAffected 的取值 161（强 2 / 弱 1）
+enum	targetsAffected=162	8	8	6	6	0	0	0	✅ 有消费	列 targetsAffected 的取值 162（强 5 / 弱 1）
+enum	targetsAffected=180	100	100	9	9	0	0	0	✅ 有消费	列 targetsAffected 的取值 180（强 7 / 弱 2）
+enum	targetsAffected=200	2	2	19	19	0	0	0	✅ 有消费	列 targetsAffected 的取值 200（强 11 / 弱 8）
+enum	targetsAffected=201	2	2	5	5	0	0	0	✅ 有消费	列 targetsAffected 的取值 201（强 5 / 弱 0）
+enum	targetsAffected=210	4	4	8	8	0	0	0	✅ 有消费	列 targetsAffected 的取值 210（强 7 / 弱 1）
+enum	targetsAffected=220	4	4	30	30	0	0	0	✅ 有消费	列 targetsAffected 的取值 220（强 25 / 弱 5）
+enum	targetsAffected=230	1	1	10	10	0	0	0	✅ 有消费	列 targetsAffected 的取值 230（强 10 / 弱 0）
+enum	targetsAffected=235	2	2	4	4	0	0	0	✅ 有消费	列 targetsAffected 的取值 235（强 4 / 弱 0）
+enum	targetsAffected=240	4	4	17	17	0	0	0	✅ 有消费	列 targetsAffected 的取值 240（强 10 / 弱 7）
+enum	targetsAffected=245	2	2	5	5	0	0	0	✅ 有消费	列 targetsAffected 的取值 245（强 4 / 弱 1）
+enum	maxDamage=2	115	115	154	154	0	0	0	✅ 有消费	列 maxDamage 的取值 2（强 154 / 弱 0）
+enum	maxDamage=3	148	148	89	89	0	0	0	✅ 有消费	列 maxDamage 的取值 3（强 89 / 弱 0）
+enum	maxDamage=4	37	37	47	47	0	0	0	✅ 有消费	列 maxDamage 的取值 4（强 47 / 弱 0）
+enum	maxDamage=5	33	33	34	34	0	0	0	✅ 有消费	列 maxDamage 的取值 5（强 34 / 弱 0）
+enum	maxDamage=6	8	8	22	22	0	0	0	✅ 有消费	列 maxDamage 的取值 6（强 22 / 弱 0）
+enum	maxDamage=7	3	3	13	13	0	0	0	✅ 有消费	列 maxDamage 的取值 7（强 13 / 弱 0）
+enum	maxDamage=8	7	7	17	17	0	0	0	✅ 有消费	列 maxDamage 的取值 8（强 17 / 弱 0）
+enum	maxDamage=10	3	3	71	71	0	0	0	✅ 有消费	列 maxDamage 的取值 10（强 71 / 弱 0）
+enum	maxDamage=12	1	1	13	13	0	0	0	✅ 有消费	列 maxDamage 的取值 12（强 13 / 弱 0）
+enum	buffType=2	192	192	154	154	0	0	0	✅ 有消费	列 buffType 的取值 2（强 154 / 弱 0）
+enum	buffType=3	539	539	89	89	0	0	0	✅ 有消费	列 buffType 的取值 3（强 89 / 弱 0）
+enum	buffType=4	17	17	47	47	0	0	0	✅ 有消费	列 buffType 的取值 4（强 47 / 弱 0）
+enum	buffType=8	43	43	17	17	0	0	0	✅ 有消费	列 buffType 的取值 8（强 17 / 弱 0）
+enum	buffType=12	84	84	13	13	0	0	0	✅ 有消费	列 buffType 的取值 12（强 13 / 弱 0）
+enum	buffType=15	75	75	13	13	0	0	0	✅ 有消费	列 buffType 的取值 15（强 13 / 弱 0）
+enum	buffType=16	26	26	5	5	0	0	0	✅ 有消费	列 buffType 的取值 16（强 5 / 弱 0）
+enum	buffType=17	2	2	3	3	0	0	0	✅ 有消费	列 buffType 的取值 17（强 3 / 弱 0）
+enum	buffType=25	2	2	6	6	0	0	0	✅ 有消费	列 buffType 的取值 25（强 6 / 弱 0）
+enum	buffType=70	2	2	25	25	0	0	0	✅ 有消费	列 buffType 的取值 70（强 12 / 弱 13）
+enum	buffType=90	3	3	28	28	0	0	0	✅ 有消费	列 buffType 的取值 90（强 15 / 弱 13）
+enum	buffType=95	6	6	2	2	0	0	0	✅ 有消费	列 buffType 的取值 95（强 2 / 弱 0）
+enum	buffType=100	2	2	38	38	0	0	0	✅ 有消费	列 buffType 的取值 100（强 19 / 弱 19）
+enum	chosenAbility=3	10	10	89	89	0	0	0	✅ 有消费	列 chosenAbility 的取值 3（强 89 / 弱 0）
+enum	chosenAbility=10	310	310	71	71	0	0	0	✅ 有消费	列 chosenAbility 的取值 10（强 71 / 弱 0）
+enum	chosenAbility=12	4	4	13	13	0	0	0	✅ 有消费	列 chosenAbility 的取值 12（强 13 / 弱 0）
+enum	chosenAbility=13	2	2	8	8	0	0	0	✅ 有消费	列 chosenAbility 的取值 13（强 8 / 弱 0）
+enum	chosenAbility=15	1	1	13	13	0	0	0	✅ 有消费	列 chosenAbility 的取值 15（强 13 / 弱 0）
+enum	chosenAbility=20	71	71	49	49	0	0	0	✅ 有消费	列 chosenAbility 的取值 20（强 49 / 弱 0）
+enum	chosenAbility=30	494	494	46	46	0	0	0	✅ 有消费	列 chosenAbility 的取值 30（强 46 / 弱 0）
+enum	chosenAbility=31	1	1	7	7	0	0	0	✅ 有消费	列 chosenAbility 的取值 31（强 7 / 弱 0）
+enum	chosenAbility=40	173	173	43	43	0	0	0	✅ 有消费	列 chosenAbility 的取值 40（强 28 / 弱 15）
+enum	chosenAbility=50	22	22	37	37	0	0	0	✅ 有消费	列 chosenAbility 的取值 50（强 19 / 弱 18）
+enum	chosenAbility=60	64	64	27	27	0	0	0	✅ 有消费	列 chosenAbility 的取值 60（强 13 / 弱 14）
+enum	chosenAbility=70	78	78	25	25	0	0	0	✅ 有消费	列 chosenAbility 的取值 70（强 12 / 弱 13）
+enum	chosenAbility=72	1	1	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 72（强 1 / 弱 0）
+enum	chosenAbility=75	11	11	3	3	0	0	0	✅ 有消费	列 chosenAbility 的取值 75（强 2 / 弱 1）
+enum	chosenAbility=77	2	2	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 77（强 1 / 弱 0）
+enum	chosenAbility=90	1	1	28	28	0	0	0	✅ 有消费	列 chosenAbility 的取值 90（强 15 / 弱 13）
+enum	chosenAbility=100	178	178	38	38	0	0	0	✅ 有消费	列 chosenAbility 的取值 100（强 19 / 弱 19）
+enum	chosenAbility=101	1	1	2	2	0	0	0	✅ 有消费	列 chosenAbility 的取值 101（强 2 / 弱 0）
+enum	chosenAbility=110	23	23	29	29	0	0	0	✅ 有消费	列 chosenAbility 的取值 110（强 17 / 弱 12）
+enum	chosenAbility=130	32	32	24	24	0	0	0	✅ 有消费	列 chosenAbility 的取值 130（强 11 / 弱 13）
+enum	chosenAbility=140	13	13	17	17	0	0	0	✅ 有消费	列 chosenAbility 的取值 140（强 17 / 弱 0）
+enum	chosenAbility=150	2	2	22	22	0	0	0	✅ 有消费	列 chosenAbility 的取值 150（强 20 / 弱 2）
+enum	chosenAbility=160	1	1	10	10	0	0	0	✅ 有消费	列 chosenAbility 的取值 160（强 9 / 弱 1）
+enum	chosenAbility=180	1	1	9	9	0	0	0	✅ 有消费	列 chosenAbility 的取值 180（强 7 / 弱 2）
+enum	chosenAbility=185	1	1	2	2	0	0	0	✅ 有消费	列 chosenAbility 的取值 185（强 1 / 弱 1）
+enum	chosenAbility=231	2	2	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 231（强 1 / 弱 0）
+enum	chosenAbility=235	2	2	4	4	0	0	0	✅ 有消费	列 chosenAbility 的取值 235（强 4 / 弱 0）
+enum	chosenAbility=236	2	2	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 236（强 1 / 弱 0）
+enum	chosenAbility=237	1	1	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 237（强 1 / 弱 0）
+enum	chosenAbility=238	7	7	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 238（强 1 / 弱 0）
+enum	chosenAbility=250	4	4	6	6	0	0	0	✅ 有消费	列 chosenAbility 的取值 250（强 3 / 弱 3）
+enum	chosenAbility=260	14	14	6	6	0	0	0	✅ 有消费	列 chosenAbility 的取值 260（强 5 / 弱 1）
+enum	chosenAbility=270	7	7	5	5	0	0	0	✅ 有消费	列 chosenAbility 的取值 270（强 3 / 弱 2）
+enum	chosenAbility=300	5	5	13	13	0	0	0	✅ 有消费	列 chosenAbility 的取值 300（强 4 / 弱 9）
+enum	chosenAbility=301	1	1	2	2	0	0	0	✅ 有消费	列 chosenAbility 的取值 301（强 1 / 弱 1）
+enum	chosenAbility=320	27	27	12	12	0	0	0	✅ 有消费	列 chosenAbility 的取值 320（强 11 / 弱 1）
+enum	chosenAbility=325	3	3	3	3	0	0	0	✅ 有消费	列 chosenAbility 的取值 325（强 3 / 弱 0）
+enum	chosenAbility=340	7	7	5	5	0	0	0	✅ 有消费	列 chosenAbility 的取值 340（强 5 / 弱 0）
+enum	chosenAbility=360	18	18	5	5	0	0	0	✅ 有消费	列 chosenAbility 的取值 360（强 5 / 弱 0）
+enum	chosenAbility=380	3	3	7	7	0	0	0	✅ 有消费	列 chosenAbility 的取值 380（强 7 / 弱 0）
+enum	chosenAbility=410	4	4	5	5	0	0	0	✅ 有消费	列 chosenAbility 的取值 410（强 1 / 弱 4）
+enum	chosenAbility=411	1	1	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 411（强 1 / 弱 0）
+enum	chosenAbility=420	7	7	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 420（强 1 / 弱 0）
+enum	chosenAbility=430	8	8	3	3	0	0	0	✅ 有消费	列 chosenAbility 的取值 430（强 3 / 弱 0）
+enum	chosenAbility=440	1	1	2	2	0	0	0	✅ 有消费	列 chosenAbility 的取值 440（强 1 / 弱 1）
+enum	chosenAbility=450	1	1	2	2	0	0	0	✅ 有消费	列 chosenAbility 的取值 450（强 2 / 弱 0）
+enum	chosenAbility=460	1	1	2	2	0	0	0	✅ 有消费	列 chosenAbility 的取值 460（强 2 / 弱 0）
+enum	chosenAbility=461	1	1	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 461（强 1 / 弱 0）
+enum	chosenAbility=462	31	31	3	3	0	0	0	✅ 有消费	列 chosenAbility 的取值 462（强 3 / 弱 0）
+enum	chosenAbility=465	1	1	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 465（强 1 / 弱 0）
+enum	chosenAbility=466	1	1	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 466（强 1 / 弱 0）
+enum	chosenAbility=467	1	1	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 467（强 1 / 弱 0）
+enum	chosenAbility=468	2	2	1	1	0	0	0	✅ 有消费	列 chosenAbility 的取值 468（强 1 / 弱 0）
+enum	chosenAbility=470	1	1	2	2	0	0	0	✅ 有消费	列 chosenAbility 的取值 470（强 1 / 弱 1）
+enum	chosenAbility=475	3	3	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 chosenAbility 的取值 475（强 0 / 弱 0）
+enum	chosenAbility=480	1	1	9	9	0	0	0	✅ 有消费	列 chosenAbility 的取值 480（强 9 / 弱 0）
+enum	minDamage=2	130	130	154	154	0	0	0	✅ 有消费	列 minDamage 的取值 2（强 154 / 弱 0）
+enum	minDamage=3	110	110	89	89	0	0	0	✅ 有消费	列 minDamage 的取值 3（强 89 / 弱 0）
+enum	minDamage=4	17	17	47	47	0	0	0	✅ 有消费	列 minDamage 的取值 4（强 47 / 弱 0）
+enum	minDamage=5	12	12	34	34	0	0	0	✅ 有消费	列 minDamage 的取值 5（强 34 / 弱 0）
+enum	minDamage=6	7	7	22	22	0	0	0	✅ 有消费	列 minDamage 的取值 6（强 22 / 弱 0）
+enum	minDamage=7	1	1	13	13	0	0	0	✅ 有消费	列 minDamage 的取值 7（强 13 / 弱 0）
+enum	minDamage=8	7	7	17	17	0	0	0	✅ 有消费	列 minDamage 的取值 8（强 17 / 弱 0）
+enum	minDamage=10	2	2	71	71	0	0	0	✅ 有消费	列 minDamage 的取值 10（强 71 / 弱 0）
+enum	minDamage=12	1	1	13	13	0	0	0	✅ 有消费	列 minDamage 的取值 12（强 13 / 弱 0）
+enum	trigger=10	19	19	71	71	0	0	0	✅ 有消费	列 trigger 的取值 10（强 71 / 弱 0）
+enum	trigger=15	2	2	13	13	0	0	0	✅ 有消费	列 trigger 的取值 15（强 13 / 弱 0）
+enum	trigger=20	27	27	49	49	0	0	0	✅ 有消费	列 trigger 的取值 20（强 49 / 弱 0）
+enum	trigger=30	18	18	46	46	0	0	0	✅ 有消费	列 trigger 的取值 30（强 46 / 弱 0）
+enum	trigger=31	18	18	7	7	0	0	0	✅ 有消费	列 trigger 的取值 31（强 7 / 弱 0）
+enum	trigger=40	31	31	43	43	0	0	0	✅ 有消费	列 trigger 的取值 40（强 28 / 弱 15）
+enum	trigger=41	2	2	3	3	0	0	0	✅ 有消费	列 trigger 的取值 41（强 3 / 弱 0）
+enum	trigger=46	201	201	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 46（强 0 / 弱 0）
+enum	trigger=50	26	26	37	37	0	0	0	✅ 有消费	列 trigger 的取值 50（强 19 / 弱 18）
+enum	trigger=60	6	6	27	27	0	0	0	✅ 有消费	列 trigger 的取值 60（强 13 / 弱 14）
+enum	trigger=80	18	18	40	40	0	0	0	✅ 有消费	列 trigger 的取值 80（强 26 / 弱 14）
+enum	trigger=81	36	36	1	1	0	0	0	✅ 有消费	列 trigger 的取值 81（强 1 / 弱 0）
+enum	trigger=90	59	59	28	28	0	0	0	✅ 有消费	列 trigger 的取值 90（强 15 / 弱 13）
+enum	trigger=120	38	38	32	32	0	0	0	✅ 有消费	列 trigger 的取值 120（强 16 / 弱 16）
+enum	trigger=130	11	11	24	24	0	0	0	✅ 有消费	列 trigger 的取值 130（强 11 / 弱 13）
+enum	trigger=145	71	71	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 145（强 0 / 弱 0）
+enum	trigger=180	8	8	9	9	0	0	0	✅ 有消费	列 trigger 的取值 180（强 7 / 弱 2）
+enum	trigger=190	28	28	7	7	0	0	0	✅ 有消费	列 trigger 的取值 190（强 6 / 弱 1）
+enum	trigger=195	2	2	1	1	0	0	0	✅ 有消费	列 trigger 的取值 195（强 0 / 弱 1）
+enum	trigger=240	68	68	17	17	0	0	0	✅ 有消费	列 trigger 的取值 240（强 10 / 弱 7）
+enum	trigger=260	4	4	6	6	0	0	0	✅ 有消费	列 trigger 的取值 260（强 5 / 弱 1）
+enum	trigger=280	3	3	8	8	0	0	0	✅ 有消费	列 trigger 的取值 280（强 5 / 弱 3）
+enum	trigger=291	4	4	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 291（强 0 / 弱 0）
+enum	trigger=300	33	33	13	13	0	0	0	✅ 有消费	列 trigger 的取值 300（强 4 / 弱 9）
+enum	trigger=301	26	26	2	2	0	0	0	✅ 有消费	列 trigger 的取值 301（强 1 / 弱 1）
+enum	trigger=400	132	132	13	13	0	0	0	✅ 有消费	列 trigger 的取值 400（强 5 / 弱 8）
+enum	trigger=410	61	61	5	5	0	0	0	✅ 有消费	列 trigger 的取值 410（强 1 / 弱 4）
+enum	trigger=455	2	2	1	1	0	0	0	✅ 有消费	列 trigger 的取值 455（强 1 / 弱 0）
+enum	trigger=490	8	8	1	1	0	0	0	✅ 有消费	列 trigger 的取值 490（强 0 / 弱 1）
+enum	trigger=500	9	9	15	15	0	0	0	✅ 有消费	列 trigger 的取值 500（强 0 / 弱 15）
+enum	trigger=510	12	12	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 510（强 0 / 弱 0）
+enum	trigger=515	2	2	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 515（强 0 / 弱 0）
+enum	trigger=520	4	4	1	1	0	0	0	✅ 有消费	列 trigger 的取值 520（强 1 / 弱 0）
+enum	trigger=560	38	38	1	1	0	0	0	✅ 有消费	列 trigger 的取值 560（强 0 / 弱 1）
+enum	trigger=570	11	11	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 570（强 0 / 弱 0）
+enum	trigger=580	64	64	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 580（强 0 / 弱 0）
+enum	trigger=600	58	58	10	10	0	0	0	✅ 有消费	列 trigger 的取值 600（强 3 / 弱 7）
+enum	trigger=605	52	52	5	5	0	0	0	✅ 有消费	列 trigger 的取值 605（强 2 / 弱 3）
+enum	trigger=610	8	8	5	5	0	0	0	✅ 有消费	列 trigger 的取值 610（强 4 / 弱 1）
+enum	trigger=620	4	4	1	1	0	0	0	✅ 有消费	列 trigger 的取值 620（强 1 / 弱 0）
+enum	trigger=630	6	6	1	1	0	0	0	✅ 有消费	列 trigger 的取值 630（强 1 / 弱 0）
+enum	trigger=640	12	12	1	1	0	0	0	✅ 有消费	列 trigger 的取值 640（强 1 / 弱 0）
+enum	trigger=641	1	1	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 641（强 0 / 弱 0）
+enum	trigger=645	2	2	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 645（强 0 / 弱 0）
+enum	trigger=647	2	2	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 647（强 0 / 弱 0）
+enum	trigger=650	2	2	1	1	0	0	0	✅ 有消费	列 trigger 的取值 650（强 1 / 弱 0）
+enum	trigger=655	46	46	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 655（强 0 / 弱 0）
+enum	trigger=660	6	6	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 660（强 0 / 弱 0）
+enum	trigger=661	2	2	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 661（强 0 / 弱 0）
+enum	trigger=665	2	2	1	1	0	0	0	✅ 有消费	列 trigger 的取值 665（强 1 / 弱 0）
+enum	trigger=670	24	24	1	1	0	0	0	✅ 有消费	列 trigger 的取值 670（强 0 / 弱 1）
+enum	trigger=680	18	18	3	3	0	0	0	✅ 有消费	列 trigger 的取值 680（强 1 / 弱 2）
+enum	trigger=690	14	14	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 690（强 0 / 弱 0）
+enum	trigger=695	6	6	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 695（强 0 / 弱 0）
+enum	trigger=700	4	4	2	2	0	0	0	✅ 有消费	列 trigger 的取值 700（强 0 / 弱 2）
+enum	trigger=701	2	2	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 701（强 0 / 弱 0）
+enum	trigger=710	20	20	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 710（强 0 / 弱 0）
+enum	trigger=715	20	20	1	1	0	0	0	✅ 有消费	列 trigger 的取值 715（强 0 / 弱 1）
+enum	trigger=720	18	18	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 720（强 0 / 弱 0）
+enum	trigger=726	5	5	0	0	0	0	0	❓ 需人工核（数据驱动派发）	列 trigger 的取值 726（强 0 / 弱 0）
+enum	maxValue=2	26	26	154	154	0	0	0	✅ 有消费	列 maxValue 的取值 2（强 154 / 弱 0）
+enum	maxValue=3	15	15	89	89	0	0	0	✅ 有消费	列 maxValue 的取值 3（强 89 / 弱 0）
+enum	maxValue=4	8	8	47	47	0	0	0	✅ 有消费	列 maxValue 的取值 4（强 47 / 弱 0）
+enum	maxValue=5	10	10	34	34	0	0	0	✅ 有消费	列 maxValue 的取值 5（强 34 / 弱 0）
+enum	maxValue=6	1	1	22	22	0	0	0	✅ 有消费	列 maxValue 的取值 6（强 22 / 弱 0）
+enum	maxValue=100	1	1	38	38	0	0	0	✅ 有消费	列 maxValue 的取值 100（强 19 / 弱 19）
+enum	minValue=2	26	26	154	154	0	0	0	✅ 有消费	列 minValue 的取值 2（强 154 / 弱 0）
+enum	minValue=3	15	15	89	89	0	0	0	✅ 有消费	列 minValue 的取值 3（强 89 / 弱 0）
+enum	minValue=4	8	8	47	47	0	0	0	✅ 有消费	列 minValue 的取值 4（强 47 / 弱 0）
+enum	minValue=5	8	8	34	34	0	0	0	✅ 有消费	列 minValue 的取值 5（强 34 / 弱 0）
+enum	minValue=6	1	1	22	22	0	0	0	✅ 有消费	列 minValue 的取值 6（强 22 / 弱 0）
+enum	minValue=100	1	1	38	38	0	0	0	✅ 有消费	列 minValue 的取值 100（强 19 / 弱 19）
+enum	army=10	180	180	71	71	0	0	0	✅ 有消费	列 army 的取值 10（强 71 / 弱 0）
+enum	army=20	138	138	49	49	0	0	0	✅ 有消费	列 army 的取值 20（强 49 / 弱 0）
+enum	army=30	109	109	46	46	0	0	0	✅ 有消费	列 army 的取值 30（强 46 / 弱 0）
+enum	army=40	92	92	43	43	0	0	0	✅ 有消费	列 army 的取值 40（强 28 / 弱 15）
+enum	army=50	102	102	37	37	0	0	0	✅ 有消费	列 army 的取值 50（强 19 / 弱 18）
+enum	army=60	103	103	27	27	0	0	0	✅ 有消费	列 army 的取值 60（强 13 / 弱 14）
+enum	army=70	90	90	25	25	0	0	0	✅ 有消费	列 army 的取值 70（强 12 / 弱 13）
+enum	army=80	90	90	40	40	0	0	0	✅ 有消费	列 army 的取值 80（强 26 / 弱 14）
+enum	army=90	97	97	28	28	0	0	0	✅ 有消费	列 army 的取值 90（强 15 / 弱 13）
+enum	army=100	87	87	38	38	0	0	0	✅ 有消费	列 army 的取值 100（强 19 / 弱 19）
+enum	army=110	99	99	29	29	0	0	0	✅ 有消费	列 army 的取值 110（强 17 / 弱 12）
+enum	army=120	82	82	32	32	0	0	0	✅ 有消费	列 army 的取值 120（强 16 / 弱 16）
+enum	army=130	82	82	24	24	0	0	0	✅ 有消费	列 army 的取值 130（强 11 / 弱 13）
+enum	cardType=10	122	122	71	71	0	0	0	✅ 有消费	列 cardType 的取值 10（强 71 / 弱 0）
+enum	cardType=20	1180	1180	49	49	0	0	0	✅ 有消费	列 cardType 的取值 20（强 49 / 弱 0）
+enum	attackDamageType=4	1096	1096	47	47	0	0	0	✅ 有消费	列 attackDamageType 的取值 4（强 47 / 弱 0）
+enum	showInCollectionOptions=5	1018	1018	34	34	0	0	0	✅ 有消费	列 showInCollectionOptions 的取值 5（强 34 / 弱 0）
+enum	scoringOption=2	254	254	154	154	0	0	0	✅ 有消费	列 scoringOption 的取值 2（强 154 / 弱 0）
+enum	scoringOption=3	107	107	89	89	0	0	0	✅ 有消费	列 scoringOption 的取值 3（强 89 / 弱 0）
+enum	scoringOption=4	13	13	47	47	0	0	0	✅ 有消费	列 scoringOption 的取值 4（强 47 / 弱 0）
+enum	scoringOption=5	9	9	34	34	0	0	0	✅ 有消费	列 scoringOption 的取值 5（强 34 / 弱 0）
+enum	scoringOption=6	1	1	22	22	0	0	0	✅ 有消费	列 scoringOption 的取值 6（强 22 / 弱 0）
+enum	scoringOption=12	2	2	13	13	0	0	0	✅ 有消费	列 scoringOption 的取值 12（强 13 / 弱 0）
+enum	scoringOption=13	17	17	8	8	0	0	0	✅ 有消费	列 scoringOption 的取值 13（强 8 / 弱 0）
+enum	scoringOption=14	3	3	2	2	0	0	0	✅ 有消费	列 scoringOption 的取值 14（强 2 / 弱 0）
+enum	scoringOption=25	6	6	6	6	0	0	0	✅ 有消费	列 scoringOption 的取值 25（强 6 / 弱 0）
+enum	scoringOption=35	56	56	4	4	0	0	0	✅ 有消费	列 scoringOption 的取值 35（强 4 / 弱 0）
+enum	ranged=2	139	139	154	154	0	0	0	✅ 有消费	列 ranged 的取值 2（强 154 / 弱 0）
+enum	ranged=3	99	99	89	89	0	0	0	✅ 有消费	列 ranged 的取值 3（强 89 / 弱 0）
+enum	ranged=4	84	84	47	47	0	0	0	✅ 有消费	列 ranged 的取值 4（强 47 / 弱 0）
+enum	ranged=5	88	88	34	34	0	0	0	✅ 有消费	列 ranged 的取值 5（强 34 / 弱 0）
+enum	ranged=6	66	66	22	22	0	0	0	✅ 有消费	列 ranged 的取值 6（强 22 / 弱 0）
+enum	ranged=7	31	31	13	13	0	0	0	✅ 有消费	列 ranged 的取值 7（强 13 / 弱 0）
+enum	ranged=8	21	21	17	17	0	0	0	✅ 有消费	列 ranged 的取值 8（强 17 / 弱 0）
+enum	ranged=9	9	9	8	8	0	0	0	✅ 有消费	列 ranged 的取值 9（强 8 / 弱 0）
+enum	ranged=10	9	9	71	71	0	0	0	✅ 有消费	列 ranged 的取值 10（强 71 / 弱 0）
+enum	ranged=12	4	4	13	13	0	0	0	✅ 有消费	列 ranged 的取值 12（强 13 / 弱 0）
+enum	playersAffected=10	332	332	71	71	0	0	0	✅ 有消费	列 playersAffected 的取值 10（强 71 / 弱 0）
+enum	playersAffected=20	35	35	49	49	0	0	0	✅ 有消费	列 playersAffected 的取值 20（强 49 / 弱 0）
+enum	spellType=90	12	12	28	28	0	0	0	✅ 有消费	列 spellType 的取值 90（强 15 / 弱 13）
+enum	spellType=150	13	13	22	22	0	0	0	✅ 有消费	列 spellType 的取值 150（强 20 / 弱 2）
+enum	spellType=180	8	8	9	9	0	0	0	✅ 有消费	列 spellType 的取值 180（强 7 / 弱 2）
+enum	spellType=190	9	9	7	7	0	0	0	✅ 有消费	列 spellType 的取值 190（强 6 / 弱 1）
+enum	spellType=200	91	91	19	19	0	0	0	✅ 有消费	列 spellType 的取值 200（强 11 / 弱 8）
+enum	spellType=210	78	78	8	8	0	0	0	✅ 有消费	列 spellType 的取值 210（强 7 / 弱 1）
+enum	spellType=220	7	7	30	30	0	0	0	✅ 有消费	列 spellType 的取值 220（强 25 / 弱 5）
+enum	spellType=230	15	15	10	10	0	0	0	✅ 有消费	列 spellType 的取值 230（强 10 / 弱 0）
+enum	spellType=240	8	8	17	17	0	0	0	✅ 有消费	列 spellType 的取值 240（强 10 / 弱 7）
+enum	spellType=260	23	23	6	6	0	0	0	✅ 有消费	列 spellType 的取值 260（强 5 / 弱 1）
+enum	spellType=265	6	6	0	0	0	0	0	🟠 有数据0消费	列 spellType 的取值 265（强 0 / 弱 0）
+enum	spellType=270	6	6	5	5	0	0	0	✅ 有消费	列 spellType 的取值 270（强 3 / 弱 2）
+enum	expansionPack=5	1	1	34	34	0	0	0	✅ 有消费	列 expansionPack 的取值 5（强 34 / 弱 0）
+enum	expansionPack=10	13	13	71	71	0	0	0	✅ 有消费	列 expansionPack 的取值 10（强 71 / 弱 0）
+enum	expansionPack=15	12	12	13	13	0	0	0	✅ 有消费	列 expansionPack 的取值 15（强 13 / 弱 0）
+enum	expansionPack=20	13	13	49	49	0	0	0	✅ 有消费	列 expansionPack 的取值 20（强 49 / 弱 0）
+enum	expansionPack=25	12	12	6	6	0	0	0	✅ 有消费	列 expansionPack 的取值 25（强 6 / 弱 0）
+enum	expansionPack=30	12	12	46	46	0	0	0	✅ 有消费	列 expansionPack 的取值 30（强 46 / 弱 0）
+enum	expansionPack=35	12	12	4	4	0	0	0	✅ 有消费	列 expansionPack 的取值 35（强 4 / 弱 0）
+enum	expansionPack=40	12	12	43	43	0	0	0	✅ 有消费	列 expansionPack 的取值 40（强 28 / 弱 15）
+enum	expansionPack=45	12	12	7	7	0	0	0	✅ 有消费	列 expansionPack 的取值 45（强 6 / 弱 1）
+enum	expansionPack=50	12	12	37	37	0	0	0	✅ 有消费	列 expansionPack 的取值 50（强 19 / 弱 18）
+enum	expansionPack=55	10	10	7	7	0	0	0	✅ 有消费	列 expansionPack 的取值 55（强 7 / 弱 0）
+enum	expansionPack=60	12	12	27	27	0	0	0	✅ 有消费	列 expansionPack 的取值 60（强 13 / 弱 14）
+enum	expansionPack=65	37	37	6	6	0	0	0	✅ 有消费	列 expansionPack 的取值 65（强 6 / 弱 0）
+enum	expansionPack=70	12	12	25	25	0	0	0	✅ 有消费	列 expansionPack 的取值 70（强 12 / 弱 13）
+enum	expansionPack=75	38	38	3	3	0	0	0	✅ 有消费	列 expansionPack 的取值 75（强 2 / 弱 1）
+enum	expansionPack=80	11	11	40	40	0	0	0	✅ 有消费	列 expansionPack 的取值 80（强 26 / 弱 14）
+enum	keywordFilter=5	57	57	34	34	0	0	0	✅ 有消费	列 keywordFilter 的取值 5（强 34 / 弱 0）
+enum	keywordFilter=10	107	107	71	71	0	0	0	✅ 有消费	列 keywordFilter 的取值 10（强 71 / 弱 0）
+enum	keywordFilter=25	7	7	6	6	0	0	0	✅ 有消费	列 keywordFilter 的取值 25（强 6 / 弱 0）
+enum	keywordFilter=30	14	14	46	46	0	0	0	✅ 有消费	列 keywordFilter 的取值 30（强 46 / 弱 0）
+enum	keywordFilter=35	30	30	4	4	0	0	0	✅ 有消费	列 keywordFilter 的取值 35（强 4 / 弱 0）
+enum	keywordFilter=40	10	10	43	43	0	0	0	✅ 有消费	列 keywordFilter 的取值 40（强 28 / 弱 15）
+enum	conditionsFilter=10	16	16	71	71	0	0	0	✅ 有消费	列 conditionsFilter 的取值 10（强 71 / 弱 0）
+enum	conditionsFilter=40	19	19	43	43	0	0	0	✅ 有消费	列 conditionsFilter 的取值 40（强 28 / 弱 15）
+enum	conditionsFilter=50	2	2	37	37	0	0	0	✅ 有消费	列 conditionsFilter 的取值 50（强 19 / 弱 18）
+enum	conditionsFilter=220	118	118	30	30	0	0	0	✅ 有消费	列 conditionsFilter 的取值 220（强 25 / 弱 5）
+enum	conditionsFilter=221	4	4	3	3	0	0	0	✅ 有消费	列 conditionsFilter 的取值 221（强 2 / 弱 1）
+enum	conditionsFilter=222	3	3	3	3	0	0	0	✅ 有消费	列 conditionsFilter 的取值 222（强 2 / 弱 1）
+enum	conditionsFilter=241	1	1	3	3	0	0	0	✅ 有消费	列 conditionsFilter 的取值 241（强 3 / 弱 0）
+enum	conditionsFilter=243	3	3	2	2	0	0	0	✅ 有消费	列 conditionsFilter 的取值 243（强 2 / 弱 0）
+enum	conditionsFilter=244	6	6	4	4	0	0	0	✅ 有消费	列 conditionsFilter 的取值 244（强 2 / 弱 2）
+enum	conditionsFilter=245	1	1	5	5	0	0	0	✅ 有消费	列 conditionsFilter 的取值 245（强 4 / 弱 1）
+enum	conditionsFilter=331	1	1	3	3	0	0	0	✅ 有消费	列 conditionsFilter 的取值 331（强 2 / 弱 1）
+enum	conditionsFilter=340	6	6	5	5	0	0	0	✅ 有消费	列 conditionsFilter 的取值 340（强 5 / 弱 0）
+enum	conditionsFilter=341	4	4	3	3	0	0	0	✅ 有消费	列 conditionsFilter 的取值 341（强 2 / 弱 1）
+enum	cond=10	16	16	71	71	0	0	0	✅ 有消费	列 cond 的取值 10（强 71 / 弱 0）
+enum	cond=40	18	18	43	43	0	0	0	✅ 有消费	列 cond 的取值 40（强 28 / 弱 15）
+enum	cond=50	1	1	37	37	0	0	0	✅ 有消费	列 cond 的取值 50（强 19 / 弱 18）
+enum	cond=220	104	104	30	30	0	0	0	✅ 有消费	列 cond 的取值 220（强 25 / 弱 5）
+enum	cond=221	3	3	3	3	0	0	0	✅ 有消费	列 cond 的取值 221（强 2 / 弱 1）
+enum	cond=222	3	3	3	3	0	0	0	✅ 有消费	列 cond 的取值 222（强 2 / 弱 1）
+enum	cond=241	1	1	3	3	0	0	0	✅ 有消费	列 cond 的取值 241（强 3 / 弱 0）
+enum	cond=243	3	3	2	2	0	0	0	✅ 有消费	列 cond 的取值 243（强 2 / 弱 0）
+enum	cond=244	5	5	4	4	0	0	0	✅ 有消费	列 cond 的取值 244（强 2 / 弱 2）
+enum	cond=245	1	1	5	5	0	0	0	✅ 有消费	列 cond 的取值 245（强 4 / 弱 1）
+enum	cond=275	2	2	2	2	0	0	0	✅ 有消费	列 cond 的取值 275（强 2 / 弱 0）
+enum	cond=276	1	1	3	3	0	0	0	✅ 有消费	列 cond 的取值 276（强 2 / 弱 1）
+enum	cond=277	1	1	2	2	0	0	0	✅ 有消费	列 cond 的取值 277（强 2 / 弱 0）
+enum	cond=331	1	1	3	3	0	0	0	✅ 有消费	列 cond 的取值 331（强 2 / 弱 1）
+enum	cond=340	9	9	5	5	0	0	0	✅ 有消费	列 cond 的取值 340（强 5 / 弱 0）
+enum	cond=341	4	4	3	3	0	0	0	✅ 有消费	列 cond 的取值 341（强 2 / 弱 1）
+enum	inventoryOptions=5	39	39	34	34	0	0	0	✅ 有消费	列 inventoryOptions 的取值 5（强 34 / 弱 0）
+enum	inventoryOptions=10	129	129	71	71	0	0	0	✅ 有消费	列 inventoryOptions 的取值 10（强 71 / 弱 0）
+enum	abilityContext=10	14	14	71	71	0	0	0	✅ 有消费	列 abilityContext 的取值 10（强 71 / 弱 0）
+enum	abilityContext=30	1	1	46	46	0	0	0	✅ 有消费	列 abilityContext 的取值 30（强 46 / 弱 0）
+enum	abilityContext=40	70	70	43	43	0	0	0	✅ 有消费	列 abilityContext 的取值 40（强 28 / 弱 15）
+enum	abilityContext=50	78	78	37	37	0	0	0	✅ 有消费	列 abilityContext 的取值 50（强 19 / 弱 18）
+enum	context=10	13	13	71	71	0	0	0	✅ 有消费	列 context 的取值 10（强 71 / 弱 0）
+enum	context=30	1	1	46	46	0	0	0	✅ 有消费	列 context 的取值 30（强 46 / 弱 0）
+enum	context=40	67	67	43	43	0	0	0	✅ 有消费	列 context 的取值 40（强 28 / 弱 15）
+enum	context=50	77	77	37	37	0	0	0	✅ 有消费	列 context 的取值 50（强 19 / 弱 18）
+enum	choicesMaxTargets=2	12	12	154	154	0	0	0	✅ 有消费	列 choicesMaxTargets 的取值 2（强 154 / 弱 0）
+enum	choicesMaxTargets=3	127	127	89	89	0	0	0	✅ 有消费	列 choicesMaxTargets 的取值 3（强 89 / 弱 0）
+enum	choicesMaxTargets=4	9	9	47	47	0	0	0	✅ 有消费	列 choicesMaxTargets 的取值 4（强 47 / 弱 0）
+enum	furtherMultiplier=2	14	14	154	154	0	0	0	✅ 有消费	列 furtherMultiplier 的取值 2（强 154 / 弱 0）
+enum	furtherMultiplier=3	13	13	89	89	0	0	0	✅ 有消费	列 furtherMultiplier 的取值 3（强 89 / 弱 0）
+enum	furtherMultiplier=5	2	2	34	34	0	0	0	✅ 有消费	列 furtherMultiplier 的取值 5（强 34 / 弱 0）
+enum	furtherMultiplier=6	1	1	22	22	0	0	0	✅ 有消费	列 furtherMultiplier 的取值 6（强 22 / 弱 0）
+enum	furtherMultiplier=8	1	1	17	17	0	0	0	✅ 有消费	列 furtherMultiplier 的取值 8（强 17 / 弱 0）
+enum	damageType=3	5	5	89	89	0	0	0	✅ 有消费	列 damageType 的取值 3（强 89 / 弱 0）
+enum	damageType=5	103	103	34	34	0	0	0	✅ 有消费	列 damageType 的取值 5（强 34 / 弱 0）
+enum	damageType=12	1	1	13	13	0	0	0	✅ 有消费	列 damageType 的取值 12（强 13 / 弱 0）
+enum	manaAmount=2	5	5	154	154	0	0	0	✅ 有消费	列 manaAmount 的取值 2（强 154 / 弱 0）
+enum	manaAmount=3	3	3	89	89	0	0	0	✅ 有消费	列 manaAmount 的取值 3（强 89 / 弱 0）
+enum	manaAmount=5	3	3	34	34	0	0	0	✅ 有消费	列 manaAmount 的取值 5（强 34 / 弱 0）
+enum	manaAmount=100	2	2	38	38	0	0	0	✅ 有消费	列 manaAmount 的取值 100（强 19 / 弱 19）
+enum	valueOptions=8	25	25	17	17	0	0	0	✅ 有消费	列 valueOptions 的取值 8（强 17 / 弱 0）
+enum	valueOptions=40	1	1	43	43	0	0	0	✅ 有消费	列 valueOptions 的取值 40（强 28 / 弱 15）
+enum	valueOptions=80	2	2	40	40	0	0	0	✅ 有消费	列 valueOptions 的取值 80（强 26 / 弱 14）
+enum	valueOptions=90	63	63	28	28	0	0	0	✅ 有消费	列 valueOptions 的取值 90（强 15 / 弱 13）
+enum	valueOptions=101	1	1	2	2	0	0	0	✅ 有消费	列 valueOptions 的取值 101（强 2 / 弱 0）
+enum	valueOptions=140	1	1	17	17	0	0	0	✅ 有消费	列 valueOptions 的取值 140（强 17 / 弱 0）
+enum	valueOptions=202	1	1	1	1	0	0	0	✅ 有消费	列 valueOptions 的取值 202（强 1 / 弱 0）
+enum	valueOptions=203	1	1	1	1	0	0	0	✅ 有消费	列 valueOptions 的取值 203（强 1 / 弱 0）
+enum	valueOptions=204	2	2	1	1	0	0	0	✅ 有消费	列 valueOptions 的取值 204（强 1 / 弱 0）
+enum	valueOptions=210	1	1	8	8	0	0	0	✅ 有消费	列 valueOptions 的取值 210（强 7 / 弱 1）
+enum	opt=8	24	24	17	17	0	0	0	✅ 有消费	列 opt 的取值 8（强 17 / 弱 0）
+enum	opt=80	2	2	40	40	0	0	0	✅ 有消费	列 opt 的取值 80（强 26 / 弱 14）
+enum	opt=90	59	59	28	28	0	0	0	✅ 有消费	列 opt 的取值 90（强 15 / 弱 13）
+enum	opt=101	1	1	2	2	0	0	0	✅ 有消费	列 opt 的取值 101（强 2 / 弱 0）
+enum	opt=140	1	1	17	17	0	0	0	✅ 有消费	列 opt 的取值 140（强 17 / 弱 0）
+enum	opt=202	1	1	1	1	0	0	0	✅ 有消费	列 opt 的取值 202（强 1 / 弱 0）
+enum	opt=204	2	2	1	1	0	0	0	✅ 有消费	列 opt 的取值 204（强 1 / 弱 0）
+enum	opt=210	1	1	8	8	0	0	0	✅ 有消费	列 opt 的取值 210（强 7 / 弱 1）
+enum	choicesTargetsAffected=50	8	8	37	37	0	0	0	✅ 有消费	列 choicesTargetsAffected 的取值 50（强 19 / 弱 18）
+enum	choicesTargetsAffected=60	6	6	27	27	0	0	0	✅ 有消费	列 choicesTargetsAffected 的取值 60（强 13 / 弱 14）
+enum	choicesTargetsAffected=65	14	14	6	6	0	0	0	✅ 有消费	列 choicesTargetsAffected 的取值 65（强 6 / 弱 0）
+enum	choicesTargetsAffected=180	56	56	9	9	0	0	0	✅ 有消费	列 choicesTargetsAffected 的取值 180（强 7 / 弱 2）
+enum	triggerIf=2	35	35	154	154	0	0	0	✅ 有消费	列 triggerIf 的取值 2（强 154 / 弱 0）
+enum	triggerIf=3	16	16	89	89	0	0	0	✅ 有消费	列 triggerIf 的取值 3（强 89 / 弱 0）
+enum	triggerIf=8	1	1	17	17	0	0	0	✅ 有消费	列 triggerIf 的取值 8（强 17 / 弱 0）
+enum	chosenArmy=10	16	16	71	71	0	0	0	✅ 有消费	列 chosenArmy 的取值 10（强 71 / 弱 0）
+enum	chosenArmy=20	10	10	49	49	0	0	0	✅ 有消费	列 chosenArmy 的取值 20（强 49 / 弱 0）
+enum	chosenArmy=30	4	4	46	46	0	0	0	✅ 有消费	列 chosenArmy 的取值 30（强 46 / 弱 0）
+enum	chosenArmy=40	4	4	43	43	0	0	0	✅ 有消费	列 chosenArmy 的取值 40（强 28 / 弱 15）
+enum	chosenArmy=50	10	10	37	37	0	0	0	✅ 有消费	列 chosenArmy 的取值 50（强 19 / 弱 18）
+enum	chosenArmy=60	6	6	27	27	0	0	0	✅ 有消费	列 chosenArmy 的取值 60（强 13 / 弱 14）
+enum	chosenArmy=90	5	5	28	28	0	0	0	✅ 有消费	列 chosenArmy 的取值 90（强 15 / 弱 13）
+enum	chosenArmy=100	6	6	38	38	0	0	0	✅ 有消费	列 chosenArmy 的取值 100（强 19 / 弱 19）
+enum	chosenArmy=110	3	3	29	29	0	0	0	✅ 有消费	列 chosenArmy 的取值 110（强 17 / 弱 12）
+enum	chosenArmy=120	6	6	32	32	0	0	0	✅ 有消费	列 chosenArmy 的取值 120（强 16 / 弱 16）
+enum	markOfChaosType=10	7	7	71	71	0	0	0	✅ 有消费	列 markOfChaosType 的取值 10（强 71 / 弱 0）
+enum	markOfChaosType=20	5	5	49	49	0	0	0	✅ 有消费	列 markOfChaosType 的取值 20（强 49 / 弱 0）
+enum	markOfChaosType=30	18	18	46	46	0	0	0	✅ 有消费	列 markOfChaosType 的取值 30（强 46 / 弱 0）
+enum	markOfChaosType=40	4	4	43	43	0	0	0	✅ 有消费	列 markOfChaosType 的取值 40（强 28 / 弱 15）
+enum	markOfChaosType=50	31	31	37	37	0	0	0	✅ 有消费	列 markOfChaosType 的取值 50（强 19 / 弱 18）
+enum	createAtPos=3	1	1	89	89	0	0	0	✅ 有消费	列 createAtPos 的取值 3（强 89 / 弱 0）
+enum	createAtPos=6	2	2	22	22	0	0	0	✅ 有消费	列 createAtPos 的取值 6（强 22 / 弱 0）
+enum	createAtPos=14	39	39	2	2	0	0	0	✅ 有消费	列 createAtPos 的取值 14（强 2 / 弱 0）
+enum	createAtPos=18	1	1	0	0	0	0	0	🟠 有数据0消费	列 createAtPos 的取值 18（强 0 / 弱 0）
+enum	createAtPos=140	4	4	17	17	0	0	0	✅ 有消费	列 createAtPos 的取值 140（强 17 / 弱 0）
+enum	moveToPos=3	1	1	89	89	0	0	0	✅ 有消费	列 moveToPos 的取值 3（强 89 / 弱 0）
+enum	moveToPos=6	2	2	22	22	0	0	0	✅ 有消费	列 moveToPos 的取值 6（强 22 / 弱 0）
+enum	moveToPos=14	38	38	2	2	0	0	0	✅ 有消费	列 moveToPos 的取值 14（强 2 / 弱 0）
+enum	moveToPos=145	4	4	0	0	0	0	0	🟠 有数据0消费	列 moveToPos 的取值 145（强 0 / 弱 0）
+enum	amount=2	3	3	154	154	0	0	0	✅ 有消费	列 amount 的取值 2（强 154 / 弱 0）
+enum	amount=3	3	3	89	89	0	0	0	✅ 有消费	列 amount 的取值 3（强 89 / 弱 0）
+enum	amount=5	1	1	34	34	0	0	0	✅ 有消费	列 amount 的取值 5（强 34 / 弱 0）
+enum	amount=100	2	2	38	38	0	0	0	✅ 有消费	列 amount 的取值 100（强 19 / 弱 19）
+enum	activeAbilityManaCost=2	34	34	154	154	0	0	0	✅ 有消费	列 activeAbilityManaCost 的取值 2（强 154 / 弱 0）
+enum	manaCostFilter=2	8	8	154	154	0	0	0	✅ 有消费	列 manaCostFilter 的取值 2（强 154 / 弱 0）
+enum	manaCostFilter=3	6	6	89	89	0	0	0	✅ 有消费	列 manaCostFilter 的取值 3（强 89 / 弱 0）
+enum	manaCostFilter=4	2	2	47	47	0	0	0	✅ 有消费	列 manaCostFilter 的取值 4（强 47 / 弱 0）
+enum	manaCostFilter=5	4	4	34	34	0	0	0	✅ 有消费	列 manaCostFilter 的取值 5（强 34 / 弱 0）
+enum	manaCostFilter=6	4	4	22	22	0	0	0	✅ 有消费	列 manaCostFilter 的取值 6（强 22 / 弱 0）
+enum	manaCostFilterOption=2	11	11	154	154	0	0	0	✅ 有消费	列 manaCostFilterOption 的取值 2（强 154 / 弱 0）
+enum	manaCostFilterOption=3	12	12	89	89	0	0	0	✅ 有消费	列 manaCostFilterOption 的取值 3（强 89 / 弱 0）
+enum	targetSelectMethod=4	2	2	47	47	0	0	0	✅ 有消费	列 targetSelectMethod 的取值 4（强 47 / 弱 0）
+enum	targetSelectMethod=6	2	2	22	22	0	0	0	✅ 有消费	列 targetSelectMethod 的取值 6（强 22 / 弱 0）
+enum	targetSelectMethod=7	4	4	13	13	0	0	0	✅ 有消费	列 targetSelectMethod 的取值 7（强 13 / 弱 0）
+enum	priority=2	7	7	154	154	0	0	0	✅ 有消费	列 priority 的取值 2（强 154 / 弱 0）
+enum	priority=3	8	8	89	89	0	0	0	✅ 有消费	列 priority 的取值 3（强 89 / 弱 0）
+enum	healthValueOptions=17	10	10	3	3	0	0	0	✅ 有消费	列 healthValueOptions 的取值 17（强 3 / 弱 0）
+enum	healthValueOptions=30	2	2	46	46	0	0	0	✅ 有消费	列 healthValueOptions 的取值 30（强 46 / 弱 0）
+enum	healthValueOptions=90	2	2	28	28	0	0	0	✅ 有消费	列 healthValueOptions 的取值 90（强 15 / 弱 13）
+enum	meleeAttackValueOptions=10	2	2	71	71	0	0	0	✅ 有消费	列 meleeAttackValueOptions 的取值 10（强 71 / 弱 0）
+enum	meleeAttackValueOptions=40	2	2	43	43	0	0	0	✅ 有消费	列 meleeAttackValueOptions 的取值 40（强 28 / 弱 15）
+enum	meleeAttackValueOptions=50	2	2	37	37	0	0	0	✅ 有消费	列 meleeAttackValueOptions 的取值 50（强 19 / 弱 18）
+enum	meleeAttackValueOptions=80	5	5	40	40	0	0	0	✅ 有消费	列 meleeAttackValueOptions 的取值 80（强 26 / 弱 14）
+enum	meleeAttackValueOptions=201	2	2	5	5	0	0	0	✅ 有消费	列 meleeAttackValueOptions 的取值 201（强 5 / 弱 0）
+enum	currentHealthFilter=2	3	3	154	154	0	0	0	✅ 有消费	列 currentHealthFilter 的取值 2（强 154 / 弱 0）
+enum	currentHealthFilter=3	1	1	89	89	0	0	0	✅ 有消费	列 currentHealthFilter 的取值 3（强 89 / 弱 0）
+enum	currentHealthFilter=5	2	2	34	34	0	0	0	✅ 有消费	列 currentHealthFilter 的取值 5（强 34 / 弱 0）
+enum	currentHealthFilter=10	2	2	71	71	0	0	0	✅ 有消费	列 currentHealthFilter 的取值 10（强 71 / 弱 0）
+enum	currentHealthFilterOption=2	6	6	154	154	0	0	0	✅ 有消费	列 currentHealthFilterOption 的取值 2（强 154 / 弱 0）
+enum	currentHealthFilterOption=3	2	2	89	89	0	0	0	✅ 有消费	列 currentHealthFilterOption 的取值 3（强 89 / 弱 0）
+enum	rarityFilter=3	7	7	89	89	0	0	0	✅ 有消费	列 rarityFilter 的取值 3（强 89 / 弱 0）
+enum	rarityFilterOption=3	7	7	89	89	0	0	0	✅ 有消费	列 rarityFilterOption 的取值 3（强 89 / 弱 0）
+enum	costValueOptions=80	6	6	40	40	0	0	0	✅ 有消费	列 costValueOptions 的取值 80（强 26 / 弱 14）
+enum	chanceOfHappening=10	2	2	71	71	0	0	0	✅ 有消费	列 chanceOfHappening 的取值 10（强 71 / 弱 0）
+enum	chanceOfHappening=100	4	4	38	38	0	0	0	✅ 有消费	列 chanceOfHappening 的取值 100（强 19 / 弱 19）
+enum	rangeAttackValueOptions=41	2	2	3	3	0	0	0	✅ 有消费	列 rangeAttackValueOptions 的取值 41（强 3 / 弱 0）
+enum	rangeAttackValueOptions=80	2	2	40	40	0	0	0	✅ 有消费	列 rangeAttackValueOptions 的取值 80（强 26 / 弱 14）
+enum	attackFilterOption=9	2	2	8	8	0	0	0	✅ 有消费	列 attackFilterOption 的取值 9（强 8 / 弱 0）
+enum	attackFilterOption=10	1	1	71	71	0	0	0	✅ 有消费	列 attackFilterOption 的取值 10（强 71 / 弱 0）
+enum	armourValueOptions=201	2	2	5	5	0	0	0	✅ 有消费	列 armourValueOptions 的取值 201（强 5 / 弱 0）
+strenum	role="target"	130	130	20	20	34	0	0	✅ 有消费	列 role 的取值 "target"（prod 20 / test 34 / dto 0）
+strenum	role="choice"	84	84	2	2	2	0	0	✅ 有消费	列 role 的取值 "choice"（prod 2 / test 2 / dto 0）
+strenum	role="count"	73	73	11	11	6	0	0	✅ 有消费	列 role 的取值 "count"（prod 11 / test 6 / dto 0）
+strenum	role="mult"	30	30	6	6	7	0	0	✅ 有消费	列 role 的取值 "mult"（prod 6 / test 7 / dto 0）
+strenum	role="nontarget"	20	20	1	1	3	0	0	✅ 有消费	列 role 的取值 "nontarget"（prod 1 / test 3 / dto 0）
+strenum	role="avail"	17	17	2	2	3	0	0	✅ 有消费	列 role 的取值 "avail"（prod 2 / test 3 / dto 0）
+strenum	role="cardtarget"	13	13	3	3	1	0	0	✅ 有消费	列 role 的取值 "cardtarget"（prod 3 / test 1 / dto 0）
+strenum	role="multi"	9	9	3	3	3	0	0	✅ 有消费	列 role 的取值 "multi"（prod 3 / test 3 / dto 0）
+strenum	role="targetscore"	6	6	1	1	2	0	0	✅ 有消费	列 role 的取值 "targetscore"（prod 1 / test 2 / dto 0）
+strenum	role="acting"	1	1	7	7	5	0	0	✅ 有消费	列 role 的取值 "acting"（prod 7 / test 5 / dto 0）
+strenum	rarity="rare"	333	333	17	17	23	0	0	✅ 有消费	列 rarity 的取值 "rare"（prod 17 / test 23 / dto 0）
+strenum	rarity="common"	331	331	18	18	433	0	0	✅ 有消费	列 rarity 的取值 "common"（prod 18 / test 433 / dto 0）
+strenum	rarity="epic"	231	231	20	20	26	0	0	✅ 有消费	列 rarity 的取值 "epic"（prod 20 / test 26 / dto 0）
+strenum	rarity="legendary"	197	197	25	25	26	0	0	✅ 有消费	列 rarity 的取值 "legendary"（prod 25 / test 26 / dto 0）
+strenum	rarity="special"	50	50	8	8	7	0	0	✅ 有消费	列 rarity 的取值 "special"（prod 8 / test 7 / dto 0）
+strenum	type="unit"	586	586	72	72	890	0	0	✅ 有消费	列 type 的取值 "unit"（prod 72 / test 890 / dto 0）
+strenum	type="tactic"	459	459	29	29	142	0	0	✅ 有消费	列 type 的取值 "tactic"（prod 29 / test 142 / dto 0）
+strenum	type="hero"	56	56	57	57	255	0	0	✅ 有消费	列 type 的取值 "hero"（prod 57 / test 255 / dto 0）
+strenum	type="defence"	39	39	39	39	85	0	0	✅ 有消费	列 type 的取值 "defence"（prod 39 / test 85 / dto 0）
+strenum	type="enchantment"	2	2	3	3	14	0	0	✅ 有消费	列 type 的取值 "enchantment"（prod 3 / test 14 / dto 0）
+strenum	at="buffEffect"	616	616	0	0	7	0	0	🟡 仅测试/DTO消费	列 at 的取值 "buffEffect"（prod 0 / test 7 / dto 0）
+strenum	at="handBuff"	41	41	0	0	4	0	0	🟡 仅测试/DTO消费	列 at 的取值 "handBuff"（prod 0 / test 4 / dto 0）
+strenum	at="enchantment"	1	1	3	3	14	0	0	✅ 有消费	列 at 的取值 "enchantment"（prod 3 / test 14 / dto 0）
+strenum	subtype="Infantry"	397	397	5	5	419	0	0	✅ 有消费	列 subtype 的取值 "Infantry"（prod 5 / test 419 / dto 0）
+strenum	subtype="Spell"	258	258	2	2	0	0	0	✅ 有消费	列 subtype 的取值 "Spell"（prod 2 / test 0 / dto 0）
+strenum	subtype="Vehicle"	135	135	6	6	23	0	0	✅ 有消费	列 subtype 的取值 "Vehicle"（prod 6 / test 23 / dto 0）
+strenum	subtype="Tactic"	58	58	1	1	0	0	0	✅ 有消费	列 subtype 的取值 "Tactic"（prod 1 / test 0 / dto 0）
+strenum	subtype="Warlord"	57	57	6	6	51	0	0	✅ 有消费	列 subtype 的取值 "Warlord"（prod 6 / test 51 / dto 0）
+strenum	subtype="Defence"	36	36	3	3	2	0	0	✅ 有消费	列 subtype 的取值 "Defence"（prod 3 / test 2 / dto 0）
+strenum	subtype="Ability"	22	22	3	3	5	0	0	✅ 有消费	列 subtype 的取值 "Ability"（prod 3 / test 5 / dto 0）
+strenum	subtype="Monster"	18	18	4	4	0	0	0	✅ 有消费	列 subtype 的取值 "Monster"（prod 4 / test 0 / dto 0）
+strenum	subtype="Event"	17	17	4	4	2	0	0	✅ 有消费	列 subtype 的取值 "Event"（prod 4 / test 2 / dto 0）
+strenum	subtype="Beast"	15	15	7	7	23	0	0	✅ 有消费	列 subtype 的取值 "Beast"（prod 7 / test 23 / dto 0）
+strenum	subtype="Support"	8	8	9	9	10	0	0	✅ 有消费	列 subtype 的取值 "Support"（prod 9 / test 10 / dto 0）
+strenum	subtype="Battlesuit"	8	8	5	5	10	0	0	✅ 有消费	列 subtype 的取值 "Battlesuit"（prod 5 / test 10 / dto 0）
+strenum	subtype="Psychic Power"	7	7	4	4	3	0	0	✅ 有消费	列 subtype 的取值 "Psychic Power"（prod 4 / test 3 / dto 0）
+strenum	subtype="Action"	7	7	2	2	0	0	0	✅ 有消费	列 subtype 的取值 "Action"（prod 2 / test 0 / dto 0）
+strenum	subtype="Drone"	7	7	4	4	8	0	0	✅ 有消费	列 subtype 的取值 "Drone"（prod 4 / test 8 / dto 0）
+strenum	subtype="Command"	6	6	1	1	0	0	0	✅ 有消费	列 subtype 的取值 "Command"（prod 1 / test 0 / dto 0）
+strenum	subtype="Daemon"	6	6	5	5	2	0	0	✅ 有消费	列 subtype 的取值 "Daemon"（prod 5 / test 2 / dto 0）
+strenum	subtype="Combat Elixir"	6	6	5	5	7	0	0	✅ 有消费	列 subtype 的取值 "Combat Elixir"（prod 5 / test 7 / dto 0）
+strenum	subtype="Card"	6	6	1	1	0	0	0	✅ 有消费	列 subtype 的取值 "Card"（prod 1 / test 0 / dto 0）
+strenum	subtype="Stratagem"	5	5	2	2	1	0	0	✅ 有消费	列 subtype 的取值 "Stratagem"（prod 2 / test 1 / dto 0）
+strenum	subtype="Secret"	5	5	4	4	9	0	0	✅ 有消费	列 subtype 的取值 "Secret"（prod 4 / test 9 / dto 0）
+strenum	subtype="Upgrade"	4	4	1	1	0	0	0	✅ 有消费	列 subtype 的取值 "Upgrade"（prod 1 / test 0 / dto 0）
+strenum	subtype="Sabotage"	4	4	4	4	9	0	0	✅ 有消费	列 subtype 的取值 "Sabotage"（prod 4 / test 9 / dto 0）
+strenum	subtype="Dark Pact"	4	4	8	8	6	0	0	✅ 有消费	列 subtype 的取值 "Dark Pact"（prod 8 / test 6 / dto 0）
+strenum	subtype="Structure"	3	3	2	2	0	0	0	✅ 有消费	列 subtype 的取值 "Structure"（prod 2 / test 0 / dto 0）
+strenum	subtype="Genomic Enhancement"	3	3	4	4	1	0	0	✅ 有消费	列 subtype 的取值 "Genomic Enhancement"（prod 4 / test 1 / dto 0）
+strenum	subtype="Overlord Power"	3	3	4	4	1	0	0	✅ 有消费	列 subtype 的取值 "Overlord Power"（prod 4 / test 1 / dto 0）
+strenum	subtype="Rune"	3	3	3	3	0	0	0	✅ 有消费	列 subtype 的取值 "Rune"（prod 3 / test 0 / dto 0）
+strenum	subtype="Invocation"	3	3	3	3	0	0	0	✅ 有消费	列 subtype 的取值 "Invocation"（prod 3 / test 0 / dto 0）
+strenum	subtype="Codicil"	3	3	3	3	1	0	0	✅ 有消费	列 subtype 的取值 "Codicil"（prod 3 / test 1 / dto 0）
+strenum	subtype="Mission"	2	2	1	1	0	0	0	✅ 有消费	列 subtype 的取值 "Mission"（prod 1 / test 0 / dto 0）
+strenum	subtype="Battle Ability"	2	2	1	1	0	0	0	✅ 有消费	列 subtype 的取值 "Battle Ability"（prod 1 / test 0 / dto 0）
+strenum	subtype="Astra Militarum"	1	1	3	3	0	0	0	✅ 有消费	列 subtype 的取值 "Astra Militarum"（prod 3 / test 0 / dto 0）
+strenum	subtype="Order"	1	1	1	1	0	0	0	✅ 有消费	列 subtype 的取值 "Order"（prod 1 / test 0 / dto 0）
+strenum	subtype="Pact"	1	1	1	1	0	0	0	✅ 有消费	列 subtype 的取值 "Pact"（prod 1 / test 0 / dto 0）
+strenum	subtype="mission"	1	1	2	2	0	0	0	✅ 有消费	列 subtype 的取值 "mission"（prod 2 / test 0 / dto 0）
+strenum	subtype="Talent"	1	1	11	11	13	0	0	✅ 有消费	列 subtype 的取值 "Talent"（prod 11 / test 13 / dto 0）
+strenum	subtype="Trick"	1	1	1	1	0	0	0	✅ 有消费	列 subtype 的取值 "Trick"（prod 1 / test 0 / dto 0）
+strenum	subtype="Warlord Ability"	1	1	1	1	0	0	0	✅ 有消费	列 subtype 的取值 "Warlord Ability"（prod 1 / test 0 / dto 0）
+strenum	subtype="Relic"	1	1	1	1	0	0	0	✅ 有消费	列 subtype 的取值 "Relic"（prod 1 / test 0 / dto 0）
+strenum	subtype="Ephemeral"	1	1	2	2	8	0	0	✅ 有消费	列 subtype 的取值 "Ephemeral"（prod 2 / test 8 / dto 0）
+strenum	subtype="T'au Empire"	1	1	2	2	0	0	0	✅ 有消费	列 subtype 的取值 "T'au Empire"（prod 2 / test 0 / dto 0）
+strenum	subtype="spell"	1	1	4	4	3	0	0	✅ 有消费	列 subtype 的取值 "spell"（prod 4 / test 3 / dto 0）

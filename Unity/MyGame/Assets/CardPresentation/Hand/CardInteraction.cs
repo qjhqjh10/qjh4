@@ -2090,11 +2090,11 @@ namespace CardPresentation
         /// <para>🔴 那道「要不要显示」的闸只走 `CardFaceRules.ShouldShowTargetsAvailable`
         /// （原版 `CardScript.ShouldShowTargetsAvailable(false)` 的唯一正本），⛔ 别在这里重算
         /// `targetsAvailableCounter != null && targetsAffected != any`。</para>
-        /// <para>⚠️ **一条查不到的判据（如实记，见报告 §五）**：第 ⑤ 步里「敌方 Trap / SecretOrder
-        /// 战术卡换成词条」那两个词条名，本机取不到 —— 官方词表（10,862 键）里
-        /// `Card_Trait/trap` / `Card_Trait/secretOrder` **都不存在**，而原版那两个常量是
-        /// 元数据里的字符串字面量（`.c` 里只能看到 `DAT_1842ced40` / `DAT_1842ceb40`）。
-        /// ⇒ 这一档**不印卡名**（印了就泄露对手隐藏卡的身份），暂按 ⑥ 的「N 个可用目标」印，并**出声一次**。</para></summary>
+        /// <para>⚠️ **词条名已解出、缺的是「译文值」（2026-11-05 B146-B 现核 · 铁律 5 就地订正）**：第 ⑤ 步
+        /// 「敌方 Trap / SecretOrder 战术卡换成词条」那两个键 = **`Card_Trait/trap`** / **`Card_Trait/secretOrder`**
+        /// （判据 `decomp_full/BattleCardUI__ShowAvailableTargets.c:61-92` 的 `DAT_1842ced40` / `DAT_1842ceb40`
+        /// ⇒ `read_il2cpp_string.py` 解码；原句「那条词条名本机没取到」**已作废**）。官方 13 语言表（10,862 键）
+        /// 里这三条（含 `Card_Trait/classified`）都是 **None** ⇒ 是否由远端 I2 Live Source 下发**待查**（⛔ 不自编译文）。</para></summary>
         public static string AvailableTargetsSuffix(RuleEngine.BattleContext ctx, int owner,
                                                    RuleEngine.CardDef card)
         {
@@ -2116,10 +2116,10 @@ namespace CardPresentation
                             _warnedTargetTraitTerm = true;
                             Debug.LogWarning("[CardPresentation] 抬牌时单目标那张是敌方 "
                                            + (st == SpellTypeTrap ? "Trap" : "SecretOrder")
-                                           + " 战术卡：原版这里把它换成一条 `Card_Trait/*` 词条再印，"
-                                           + "而**那条词条名本机没取到**（官方 10,862 键里 `Card_Trait/trap` /"
-                                           + " `Card_Trait/secretOrder` 都不存在）⇒ 暂按「N 个可用目标」印；"
-                                           + "⛔ 不印卡名（印了就是泄露对手隐藏卡的身份）");
+                                           + " 战术卡：原版这里把它换成词条 `Card_Trait/trap` /"
+                                           + " `Card_Trait/secretOrder`；**译文值**在官方表里是 None"
+                                           + "（键名已由 B146-B 解出）⇒ 暂按「N 个可用目标」印；"
+                                           + "⛔ 不印卡名（印了就是泄露对手隐藏卡的身份），⛔ 也不自编译文");
                         }
                         return CardText.TargetsAvailable(pool.Count);
                     }

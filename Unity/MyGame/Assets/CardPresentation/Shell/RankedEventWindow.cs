@@ -467,7 +467,7 @@ namespace CardPresentation
         {
             ParentEventWindow.EnsureHeaderTitleResolver();
             WindowHeaderWithBackButton.WireByPath(root, WindowHeader.RootNameGameMode, () => CloseButtonClick(),
-                                                  Loc.T("MainMenu/GameMode/Classic"));
+                                                  Loc.T("MainMenu/GameMode/Classic"), null, HeaderDrawers());
         }
 
         // ================================================================================================

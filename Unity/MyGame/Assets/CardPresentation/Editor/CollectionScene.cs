@@ -5637,7 +5637,7 @@ public static class CollectionScene
             //     ⇒ 相对 262.5×384 的格 = **x 75…187.5（宽 112.5）· 距格底 0.768…38.272（高 37.504）**
             //   · 底图 `40K_main_deck_card counter`（工程里那张 PNG 实测 **116×36** · Simple · **`m_PreserveAspect = 1`**）
             //     ⇒ 内接进那个框后**按宽顶满 ⇒ 实绘 112.5×34.91**（高那一轴留白 2.59）
-            //   · 文案：原版 `"x{0}"` 填**原始拥有数**；**我们印 `min(拥有, 卡组上限)`**（见 `CardsCounterText` 的注释）
+            //   · 文案：原版 `"x{0}"` 填**原始拥有数**；✅ 2026-11-05（`B146-E2`）起**我们也印原始拥有数**（不再夹卡组上限，见 `CardsCounterText` 的注释）
             Section("Cards 页：卡位底下那条「张数」（原版 `Collection Card/Content/Counter`）");
             {
                 // 量落位之前**先把滚动量归零**（上面两句 `ScrollBy` 之后不保证逐位回到 0；
@@ -5676,8 +5676,9 @@ public static class CollectionScene
                     CheckTrue(t0 != null, "…那行字是它的子件 `Text (TMP)`（原版 `/Counter/Text (TMP)`）");
                 }
 
-                // 每一格都按**它自己那张卡**的卡组上限比（**督军 1** / 传说 1 / 其余 2 —— 三档）——
-                // ⚠️ 期望值**不取 `CardsCounterText`**（那会自证），这里按「卡型 + 稀有度」**独立写死三档**。
+                // ✅ 2026-11-05（`B146-E2/E9` · 用户裁定「按原版显示原始拥有数」）：这一格印 `x{GetOwnedCount}`
+                //   （判据 `CardCollectionDisplay__SetCell.c:72`）—— **卡组上限不再参与显示**。
+                // ⚠️ 期望值**不取 `CardsCounterText`**（那会自证）：改用独立读口 `CardProgress.Owned`。
                 // 🔴 **2026-10-17（F2 · 修 (α)：这条原来把「我们不建视口外那条」当成了违约）** ——
                 //   `built` 是**建出来的格**（18 = 3 行 × 6 列），而视口 `155.9 → 1079.9` 只有 924 高
                 //   ⇒ 第 3 行（i = 12…17）**格底 1307.9** 整行在视口外；那条「张数」的框长在**格底**
@@ -5711,21 +5712,19 @@ public static class CollectionScene
                         if (barInView) missingInView++; else outOfView++;
                         continue;
                     }
-                    // 🔴 **2026-10-17（A934）：期望值也要带【卡型】那一档** —— 原版 `GetMaxCopiesInDeck` 把
-                    //   `if (cardType == 10) return 1;` 排在**稀有度判断之前**
-                    //   （`d:/2/tools/decomp_full/Everguild.LiveOps.GameplayVariablesData__GetMaxCopiesInDeck.c:7-9`）
-                    //   ⇒ **非传说督军也是 `x1`**（我们池子里 28 张：epic 15 / rare 13）。
-                    //   ⚠️ 期望值仍然**不取 `CardsCounterText`**（那会自证）—— 按「督军 / 传说 / 其余」**三档**独立写死。
-                    bool isWl = d.Type == "hero";
-                    string want = (isWl || d.Rarity == "legendary") ? "x1" : "x2";
+                    // ✅ 2026-11-05（`B146-E9`）：期望值 = **它自己那张卡的原始拥有数**。
+                    //   原来那三档（督军 1 / 传说 1 / 其余 2）是「卡组上限」，用户 2026-11-05 裁定
+                    //   按原版印 `GetOwnedCount` ⇒ 上限不再参与这一格（`A934` 仍适用于 `DeckRuntime.PoolCounterText`
+                    //   与 `CardDetailPopup` 的计数条，**那两处别跟着改**）。
+                    string want = "x" + CardProgress.Owned(d.Id, d.Rarity);
                     string got = TextOf(FindChild(node, "Text (TMP)"));
                     if (got != want)
                     {
                         bad++;
                         if (bad <= 3)
-                            CheckText(got, want, $"第 {i + 1} 格（{d.Rarity}{(isWl ? " · 督军" : "")}）那条「张数」");
+                            CheckText(got, want, $"第 {i + 1} 格（{d.Rarity}）那条「张数」");
                     }
-                    if (want == "x1") lg++; else nm++;
+                    if (d.Rarity == "legendary") lg++; else nm++;
                 }
                 Check(missingInView, 0, $"「张数」**没建出来**的那些格，**一格都不是**落在视口**里**的"
                               + $"（实测视口内缺 {missingInView} 格 —— ⛔ 那不是裁切，是真缺口）");
@@ -5735,79 +5734,80 @@ public static class CollectionScene
                 CheckTrue(outOfView >= 1, $"…这条**不是空转**：本夹具真有 {outOfView} 格在视口外（第 3 行整行）"
                               + " —— 少了它上面那条等于没验");
                 Check(bad, 0, $"（共 {built} 格，其中 {skipped} 格那条在本滚动量下**不建**）已建的 {lg + nm} 格里"
-                              + $"**每一条**「张数」都 = 它那张卡的卡组上限（**督军/传说 `x1`** / 其余 `x2`；"
-                              + $"实测 {bad} 条不符）—— 覆盖 上限 1 的 {lg} 格 / 上限 2 的 {nm} 格");
+                              + $"**每一条**「张数」都 = 它那张卡的**原始拥有数**（原版 `x{{GetOwnedCount}}`；"
+                              + $"实测 {bad} 条不符）—— 覆盖传说 {lg} 格 / 非传说 {nm} 格");
                 if (i0 >= 0)
                 {
                     var d0 = win.CardsCellDef(i0);
                     int own0 = CardProgress.Owned(d0.Id, d0.Rarity);
-                    CheckTrue(TextOf(FindChild(cnt0, "Text (TMP)")) != "x" + own0,
-                              "★ **判别式**：印的**不是原始拥有数**（`CardProgress.Owned` 是「给足」口径 = " + own0
-                              + " ⇒ 照原版那条式子会印 `x" + own0 + "`；谁把 `Mathf.Min` 删掉「按公式复原」⇒ 本条红）");
+                    CheckText(TextOf(FindChild(cnt0, "Text (TMP)")), "x" + own0,
+                              "★ **判别式**：印的**就是原始拥有数**（`CardProgress.Owned`（「给足」口径）= " + own0
+                              + "）；🧨 把 `Mathf.Min(拥有, 卡组上限)` 加回来 ⇒ 印 `x"
+                              + CardProgress.DeckCap(d0.Rarity, d0.Type) + "` ⇒ 本条红");
                 }
 
                 // ================================================================
-                //  🔴 **2026-10-17（A934）判别式**：**非传说督军**那条「张数」印 `x1`，而**同稀有度的非督军**仍是 `x2`。
-                //  判据 = 原版 `GetMaxCopiesInDeck` 的 `if (cardType == 10) return 1;` **排在稀有度判断之前**
-                //  （`d:/2/tools/decomp_full/Everguild.LiveOps.GameplayVariablesData__GetMaxCopiesInDeck.c:7-9`）
-                //  ⇒ 我们池子里 **28 位督军不是传说**（epic 15 / rare 13），只看稀有度会把他们印成 `x2`（A934 改前正是）。
-                //  ⚠️ **两条必须【同时】成立**才叫改对：只断督军 `x1` ⇒ 「一律印 x1」那种写法也能过；
-                //     只断非督军 `x2` ⇒ 退回按稀有度也能过。两张卡**稀有度相同** ⇒ 这才挡得住「按稀有度一刀切」。
-                //  ⛔ 两处期望值都是**字面量**，不取 `CardsCounterText`（那会自证）。
+                //  ✅ 已复刻（2026-11-05 · `B146-E2/E9` · 用户裁定「按原版显示原始拥有数」）：
+                //  原版这一格印 `x{GetOwnedCount}`（判据 `CardCollectionDisplay__SetCell.c:72`）
+                //  ⇒ 原来那组「督军恒 `x1` / 同稀有度非督军 `x2`」的成对判别式**已失去意义**
+                //  （卡组上限不再参与显示 —— `A934` 只还管 `DeckRuntime.PoolCounterText` 与 `CardDetailPopup` 的计数条）。
+                //  改断两件事（互为判别式）：
+                //    ① **函数口径** = 原始拥有数（独立读口 `CardProgress.Owned`，⛔ 不取 `CardsCounterText`）；
+                //    ② 它**不等于**旧式 `min(拥有, 卡组上限)` = 上限那一档 ⇒ 谁把夹取加回来，②当场红。
+                //  ⚠️ 「给足」播种下 `Owned = 卡组上限 + 9`（`NeedCopies[MaxLevel] − NeedCopies[1]` = 9）
+                //     ⇒ 传说/督军 10、其余 11 ⇒ 两条数一定不相等，判别力是真的。
                 {
                     // 卡池快照取一次（`CardsCellDef(i)` 每次都会重建整张列表 ⇒ 逐张取会白跑 1000+ 次）
                     var visAll = CollectionWindow.CardsState.VisibleCards();
-                    // 挑一对**同稀有度**的「非传说督军 / 非督军」，**优先挑同一行同一屏里的那两张**
-                    //   —— 那样滚一行就能两条都落进视口，屏幕口径也能各量一次。
-                    int kHero = -1, kNorm = -1;
-                    for (int i = 0; i < visAll.Count && kHero < 0; i++)
+                    int kLeg = -1, kNorm = -1;
+                    for (int i = 0; i < visAll.Count; i++)
                     {
-                        var d = visAll[i];
-                        if (d.Type != "hero" || d.Rarity == "legendary") continue;
-                        for (int j = 0; j < visAll.Count; j++)
-                        {
-                            var e = visAll[j];
-                            if (e.Type == "hero" || e.Rarity != d.Rarity) continue;
-                            if (j / CollectionWindow.CardsCols != i / CollectionWindow.CardsCols) continue;   // 同一行
-                            kHero = i; kNorm = j; break;
-                        }
+                        if (visAll[i].Rarity == "legendary" && kLeg < 0) kLeg = i;
+                        else if (visAll[i].Rarity != "legendary" && kNorm < 0) kNorm = i;
+                        if (kLeg >= 0 && kNorm >= 0) break;
                     }
-                    string pairRar = kHero >= 0 ? visAll[kHero].Rarity : null;
-                    CheckTrue(kHero >= 0 && kNorm >= 0,
-                              "（前提）卡池里找得到**同一行、同稀有度**的「非传说督军」与「非督军」各一张"
-                            + $"（督军下标 {kHero} · 非督军下标 {kNorm}）—— 少了它，下面四条等于没验");
-                    // ① 函数口径（与滚到哪儿无关）：成对断，两条一起才挡得住「一刀切」
-                    if (kHero >= 0)
-                        CheckText(CollectionWindow.CardsCounterText(visAll[kHero]), "x1",
-                                  $"★ **判别式 · 督军恒 `x1`**：非传说督军 {visAll[kHero].Name}"
-                                + $"（{pairRar} · 第 {kHero + 1} 张）⇒ `x1`"
-                                + "（🧨 改坏法：`CardsCounterText` 退回 `DeckCap(def.Rarity)` ⇒ 本条回 `x2`）");
-                    if (kNorm >= 0)
-                        CheckText(CollectionWindow.CardsCounterText(visAll[kNorm]), "x2",
-                                  $"★ **判别式 · 同稀有度的非督军仍是 `x2`**：{visAll[kNorm].Name}"
-                                + $"（同为 {pairRar} · 第 {kNorm + 1} 张）⇒ `x2`"
-                                + " —— 与上一条**成对**：谁把式子写成「按稀有度一刀切」，这两条必有一条红");
-                    // ② 屏幕上真印出来的字**也**量一次（A934 说的就是「印 x2」）
-                    var csWl = win.CardsScroll;
-                    CheckTrue(csWl != null, "（前提·不静默）卡牌页滚动区在（画面「印 x1/x2」那条要它；kHero/kNorm 的前提在上方）");
-                    if (kHero >= 0 && kNorm >= 0 && csWl != null)
+                    CheckTrue(kLeg >= 0 && kNorm >= 0,
+                              "（前提）卡池里找得到**一张传说卡与一张非传说卡**"
+                            + $"（传说下标 {kLeg} · 非传说下标 {kNorm}）—— 少了它，下面三条等于没验");
+                    // ① 函数口径（与滚到哪儿无关）
+                    if (kLeg >= 0)
                     {
-                        float offBefore = csWl.Offset;
-                        // 把督军那一格顶到视口上沿 ⇒ 整行落进视口（那条「张数」长在格底 ⇒ 一定建得出来；
-                        // 视口高 924 > 2×384 ⇒ 这一行与下一行都是整行可见的）
-                        csWl.SetOffset(CollectionWindow.CardsCellRect(kHero).y1 - CollectionWindow.CardsViewport.y1);
-                        var nH = FindChild(tabsRoot, "Counter " + kHero);
-                        var nN = FindChild(tabsRoot, "Counter " + kNorm);
-                        CheckTrue(nH != null && nN != null,
-                                  $"…滚到第 {kHero + 1} 格那一行后，**同一行的两条**「张数」都建出来了"
-                                + "（⭐那条与跟它成对的那条各一颗）—— 下两条才有意义");
-                        if (nH != null)
-                            CheckText(TextOf(FindChild(nH, "Text (TMP)")), "x1",
-                                      $"★ 非传说督军那一格**印出来的就是 `x1`**（`Counter {kHero}` 的 `Text (TMP)`）");
-                        if (nN != null)
-                            CheckText(TextOf(FindChild(nN, "Text (TMP)")), "x2",
-                                      $"★ …而**同一行里**同为 {pairRar} 的非督军那一格仍是 `x2`（`Counter {kNorm}`）");
-                        csWl.SetOffset(offBefore);      // 还原（紧跟着那句 `SetOffset(savedOff)` 再兜一次）
+                        var dLeg = visAll[kLeg];
+                        int ownLeg = CardProgress.Owned(dLeg.Id, dLeg.Rarity);
+                        CheckText(CollectionWindow.CardsCounterText(dLeg), "x" + ownLeg,
+                                  $"★ 函数口径 = **原始拥有数**：{dLeg.Name}（{dLeg.Rarity}）⇒ `x{ownLeg}`"
+                                + "（`CardProgress.Owned`，与 `CardsCounterText` 不是同一个读口 ⇒ 不自证）");
+                        CheckTrue(CollectionWindow.CardsCounterText(dLeg) != "x" + CardProgress.DeckCap(dLeg.Rarity, dLeg.Type),
+                                  "★ **判别式**：**不夹卡组上限** —— 旧式 `min(拥有, 卡组上限)` 会印 `x"
+                                + CardProgress.DeckCap(dLeg.Rarity, dLeg.Type) + "`（`DeckCap`）"
+                                + "；🧨 把 `Mathf.Min` 加回来 ⇒ 本条红");
+                    }
+                    if (kNorm >= 0)
+                    {
+                        var dN = visAll[kNorm];
+                        int ownN = CardProgress.Owned(dN.Id, dN.Rarity);
+                        CheckText(CollectionWindow.CardsCounterText(dN), "x" + ownN,
+                                  $"★ …同口径再来一张非传说：{dN.Name}（{dN.Rarity}）⇒ `x{ownN}`");
+                    }
+                    // ② 屏幕上真印出来的字**也**量一次
+                    var csOwn = win.CardsScroll;
+                    CheckTrue(csOwn != null, "（前提·不静默）卡牌页滚动区在（画面「印原始拥有数」那条要它）");
+                    if (kNorm >= 0 && csOwn != null)
+                    {
+                        float offBefore = csOwn.Offset;
+                        // 把那一格顶到视口上沿 ⇒ 整行落进视口（那条「张数」长在格底 ⇒ 一定建得出来）
+                        csOwn.SetOffset(CollectionWindow.CardsCellRect(kNorm).y1 - CollectionWindow.CardsViewport.y1);
+                        var nOwn = FindChild(tabsRoot, "Counter " + kNorm);
+                        CheckTrue(nOwn != null, $"…滚到第 {kNorm + 1} 格那一行后那条「张数」建出来了");
+                        if (nOwn != null)
+                        {
+                            var dN = visAll[kNorm];
+                            int ownN = CardProgress.Owned(dN.Id, dN.Rarity);
+                            CheckText(TextOf(FindChild(nOwn, "Text (TMP)")), "x" + ownN,
+                                      $"★ 屏幕上印出来的就是 `x{ownN}`（`Counter {kNorm}` 的 `Text (TMP)`）"
+                                    + "—— 不是卡组上限那一档");
+                        }
+                        csOwn.SetOffset(offBefore);      // 还原（紧跟着那句 `SetOffset(savedOff)` 再兜一次）
                     }
                 }
                 if (win.CardsScroll != null) win.CardsScroll.SetOffset(savedOff);   // 还原滚动量
@@ -9772,12 +9772,12 @@ public static class CollectionScene
                                 return null;
                             }
 
-                            CardDef poc = null, sgDef = null, moa = null;
+                            CardDef poc = null, sgDef = null, maxRel = null;
                             foreach (var c in CardDatabase.Load())
                             {
                                 if (c.Name == "Path of Command") poc = c;
                                 if (c.Name == "Storm Guardian") sgDef = c;
-                                if (c.Name == "Master of Arcana") moa = c;
+                                if (c.Name == "Varro Tigurius") maxRel = c;
                             }
                             CheckTrue(poc != null && sgDef != null,
                                       "（前提）卡池里有 `Path of Command` 与 `Storm Guardian`（用户举的那个例子）");
@@ -9834,11 +9834,13 @@ public static class CollectionScene
                                 //    `Check(mentions, 128, …)`（那里 2026-10-18 已就地订正过，本行没跟着改）。
                                 //    ⚠️ 中文档另有一份**不同**的数（**132** 处 / 同样 67 张）—— 见
                                 //    `资料/普查产出_第六会话/WRelated_相关卡中文索引.md`。
-                                //    ⇒ **换一张相关卡够多的**再走这段：`Master of Arcana` 的天赋是
-                                //    `Choose an Ultramarines Psychic Power…`（**池子 4 张**）⇒ 至少 5 格。
+                                //    ⇒ **换一张相关卡够多的**再走这段。🔴 **2026-11-05（`B146-E9`）**：原夹具
+                                //    `Master of Arcana` 现读 **0 张**相关卡（用户裁定删替身三支 · `B146-E2`）
+                                //    ⇒ 改用**原版真值里 4 条边**的 `Varro Tigurius`（`UM48`：`Master of Arcana` /
+                                //    `Might of Heroes` / `Scryer's Gaze` / `Smite`）⇒ 主卡 + 4 = **5 格**。
                                 {
-                                    CheckTrue(moa != null, "（前提）卡池里有 `Master of Arcana`");
-                                    if (moa != null)
+                                    CheckTrue(maxRel != null, "（前提）卡池里有 `Varro Tigurius`（真值 4 条边 ⇒ 5 格）");
+                                    if (maxRel != null)
                                     {
                                         // 🔴 **2026-10-12（A437）换卡靠的是 `ShowCard` 里那句显式 `Build()`** ——
                                         //   A217② 把 `GameWindow.TryOpen` 按原版改成按 `CurrentState` 分三档之后，
@@ -9847,30 +9849,33 @@ public static class CollectionScene
                                         //   复用同一个窗（`WindowsManager.OpenWindow(this)`）+ 窗自己那份刷新
                                         //   ⇒ 我们的等价物 = **窗实例不变 + 内容按新卡重建**（下面两条分开断）。
                                         var wBefore = cd.gameObject;      // 换卡前那一扇（下面断它**不换**）
-                                        cd.ShowCard(moa);
+                                        cd.ShowCard(maxRel);
                                         CheckTrue(cd.gameObject == wBefore,
                                                   "★ A437：`ShowCard(A)` 紧跟 `ShowCard(B)` ⇒ **窗对象不变**（复用同一扇；"
                                                 + "原版 `WindowsManager.OpenWindow(this)` 就是这个意思）"
                                                 + " —— 改坏法：把 `ShowCard` 改成「销毁旧窗 + 建一扇新的」⇒ 这条红");
-                                        CheckTrue(cd.FrontDef != null && cd.FrontDef.Id == moa.Id,
-                                                  "★ A437 …而且前台那张**真的换成 `Master of Arcana` 了**（现在的 `FrontDef` = "
+                                        CheckTrue(cd.FrontDef != null && cd.FrontDef.Id == maxRel.Id,
+                                                  "★ A437 …而且前台那张**真的换成 `Varro Tigurius` 了**（现在的 `FrontDef` = "
                                                 + (cd.FrontDef != null ? "`" + cd.FrontDef.Name + "`" : "(null)") + "）"
                                                 + " —— 🔴 **这条最锋利**：它专打「以为复用会自动重建」的那个人。"
                                                 + "改坏法：删掉 `Shell/CardDetailPopup.cs` 的 `ShowCard` 里那句显式 `Build()`"
                                                 + "（「关过再开」那一支仍会因 `Closed` 支重建、**红不出来**）"
                                                 + "⇒ **同窗换卡这一支**的 `FrontDef` 还是上一张 ⇒ 红");
-                                        // ⚠️ 下面那条 `inPool`（相关卡有没有列出来）**单独不能当换卡的证据**：
-                                        //   `Path of Command` 自己也是 Ultramarines 的卡，池子可能与它重叠
-                                        //   ⇒ 换卡这件事由上面那条 `FrontDef` 断，`inPool` 管的是另一件事（相关卡来源②）。
+                                        // ⚠️ 下面那条（真值边有没有全列出来）**单独不能当换卡的证据**：
+                                        //   `Path of Command` 自己也是 Ultramarines 的卡，可能与 `Varro` 的边重叠
+                                        //   ⇒ 换卡这件事由上面那条 `FrontDef` 断，这一条管的是另一件事（相关卡真值）。
                                         CheckTrue(cd.SlotCount >= 5,
-                                                  $"`Master of Arcana`（天赋是个 **4 张的池子**）⇒ 卡片那一叠 {cd.SlotCount} 格");
-                                        int inPool = 0;
-                                        foreach (var c in CardDatabase.Load())
-                                            if (c.Faction == "Ultramarines" && c.Subtype == "Psychic Power"
-                                                && cd.SlotIndexOf(c.Id) > 0) inPool++;
-                                        CheckTrue(inPool >= 3,
-                                                  $"★ **池子里的卡真列进相关卡了**（{inPool} 张）—— "
-                                                + "相关卡来源②：天赋是个池子 ⇒ 池里那几张跟出来（判据 → 正本 §九）");
+                                                  $"`Varro Tigurius`（原版真值 4 条边）⇒ 卡片那一叠 {cd.SlotCount} 格");
+                                        // ★ 原版真值的 4 条边**全部**列进来了（⛔ 不再是「天赋池子」那套替身）
+                                        var relIds = RelatedCardData.Get(maxRel.Id);
+                                        CheckTrue(relIds != null && relIds.Length == 4,
+                                                  "（前提）`Varro Tigurius` 在真值表里正好 4 条边（`relatedCard1..4`）");
+                                        int inFan = 0;
+                                        if (relIds != null)
+                                            foreach (var rid in relIds) if (cd.SlotIndexOf(rid) > 0) inFan++;
+                                        CheckTrue(relIds != null && inFan == relIds.Length,
+                                                  $"★ **真值那 4 条边全部列进相关卡了**（{inFan} 张）—— "
+                                                + "判据 = 原版 `GetRelatedCards` 把 `relatedCard1..4` 原样塞进列表");
                                         int pairs = 0;
                                         for (int i = 2; i < cd.SlotCount; i++)
                                         {
@@ -9970,7 +9975,7 @@ public static class CollectionScene
                                               "★ 点前台那张 ⇒ **窗不关、也不换位**（原版闸②）");
                                     CheckTrue(cd.FrontDef.Id == sgDef.Id, "…而且前台还是刚换上去那张（没被点回去）");
                                     // 拍照前换回**格子最多**的那张（5 格）—— 截图是拿来**看扇形**的
-                                    if (moa != null) cd.ShowCard(moa);
+                                    if (maxRel != null) cd.ShowCard(maxRel);
                                 }
                             }
                         }

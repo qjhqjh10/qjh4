@@ -14309,7 +14309,7 @@ namespace CardPresentation
             NetTick();          // 🆕 2026-09-26（N4）：联机局收包 + 落地对面的动作（自检里显式调 `NetTick`）
             // 🆕 2026-10-19（B4 · `N70` P0-2）：HUD 按钮的悬停/按下反馈。**排在所有早退之前** ——
             //   下面每一支都可能 `return`（设置窗、日志窗、换牌…），排后面会出现「悬停亮着不灭」。
-            TickHudButtonFeedback(WorldPointer());
+            TickHudButtonFeedback(WorldPointer()); TickGreenLightUiState();   // ✅ 已复刻（2026-11-05 · B146-W15 · S1 G-3 · 判据 CanAttackNow.c:44-56；每帧**只采样**稳定档、⛔ 不主动重推视图）
 
             // 🆕 2026-09-20 加时：引擎一旦把 `IsOvertime` 置真就播一次。
             // 原版那道 `if (!IsOvertime)` 闸决定了**只播一次**（`BattleManager._NextTurn`）。
@@ -15028,14 +15028,14 @@ namespace CardPresentation
                     CommitCommand(hot, fromUi: true);
                     return;
                 }
-                // 槽外取消：**保持原样**（原版没有等价物，WA462 §四·3 —— ⛔ 别顺手删/别顺手改沿）
-                if (_command == AttackKind.None && ClickedThisFrame() && !selector.ContainsBar(world))   // ⚠️ 只在「还没定打法」时取消：定了打法以后，槽外按下这一下归原版 `Update.c` 的 `case 6`（抬起 ⇒ 非法目标 ⇒ `CancelAttack`）⇒ 由下面 ④ 收
-                {
-                    ClearSelection();
-                    // 这一按已经被选择器用掉了（取消）⇒ 吞掉**同一次按住**的松手沿：
-                    // 不吞的话松手那一帧会继续往下打，压在「结束回合 / 选目标」上就会**顺带点掉它**。
-                    _swallowNextRelease = true;
-                }
+                // ✅ 已复刻（2026-11-05 · B146-E7 · 用户 2026-11-05 裁定删除：原版无「点槽外取消」支；其它 ClearSelection 路径保留）
+                //    删掉的旧支 = `if (_command == AttackKind.None && ClickedThisFrame() && !selector.ContainsBar(world))`
+                //    `{ ClearSelection(); _swallowNextRelease = true; }` —— 那是 WA462 §四·3 记下的**自造行为**
+                //    （原版 `BattleManager__Update.c` 的 `case 6` 只有「抬起 ⇒ 打出去 / 非法目标 ⇒ CancelAttack」，
+                //    没有「点槽外就把刚弹出的三选一收掉」）。⛔ 别加回来：加回来 = 点空白处就把选择器收掉。
+                //    ⚠️ 下面那道 `if (_command == AttackKind.None) return;` **保留** —— 它是「定下打法之后
+                //    不再从这里 return」那条（B117-R9 补丁①配套），与取消支无关。
+                //    （保留 8 行占位 = 零行数变化：本文件被账按 `文件:行` 引用，删行会让下游整体漂移，铁律 18·b。）
                 if (_command == AttackKind.None) return;   // 🔴 2026-11-03（`B117-R9` 补丁①配套）：**定下打法之后不再从这里 return** —— 原版选择器活到 `StopTracking` 为止（见 `CommitCommand` 那一行），而「松手 ⇒ 打出去 / 取消」是 `BattleManager__Update.c` 的 `case 6`，**与选择器开着与否无关** ⇒ 让流程继续往下走、由 ④ 结算。⛔ 改回无条件 `return` ⇒ 删掉 `CommitCommand` 里的 `Hide()` 之后**攻击整条失灵**（松手被这里吞掉）
             }
 
@@ -26933,7 +26933,7 @@ namespace CardPresentation
                 //        ⇒ **飞行途中整段亮着**；
                 //     ② AI 那条：视图一建出来就是场上形态，不压就**从飞行起点亮到落地**。
                 bool inDeployPerf = (v == _handToBoardCard) || IsAiDeployFlying(owner, s, v);
-                v.SetCanAct(canAct && !inDeployPerf);
+                v.SetCanAct(canAct && !inDeployPerf && GreenLightAllowsPlayerAct(owner));   // ✅ 已复刻（2026-11-05 · B146-W15 · S1 G-3 · 判据 CanAttackNow.c:44-56；仅显示侧，引擎闸归 C-04）
 
                 // 🔧 临时诊断探针（2026-10-22）—— **只在 `WF_CANACT_PROBE=1` 时打印**，零行为变化。
                 //   用途 = 判真机「场上单位底座看不到绿光」到底是哪一档：
@@ -27011,7 +27011,7 @@ namespace CardPresentation
                 {
                     if (board[s] == null) continue;
                     if (ViewAt(p, s) != v) continue;
-                    v.SetCanAct(RuleCore.CanActNow(Ctx, p, s));
+                    v.SetCanAct(RuleCore.CanActNow(Ctx, p, s) && GreenLightAllowsPlayerAct(p));   // ✅ 已复刻（2026-11-05 · B146-W15 · S1 G-3 · 与 `SyncBoard` 同一道显示闸；判据 CanAttackNow.c:44-56）
                     return;
                 }
             }
@@ -42582,6 +42582,67 @@ namespace CardPresentation
                 || cs == CardStateOptions.inPlayAminingAttack;
         }
 
+        // ==================================================================
+        //  ✅ 已复刻（2026-11-05 · `B146-W15` · S1 `G-3`）：**绿光**的 UIstate 显示闸
+        //  判据 = `decomp_full/CardScript__CanAttackNow.c:44-56`（`if (this.isPlayer)` 分支里
+        //  `UIstate != 1 && UIstate != 6 ⇒ false`）+ 判据分析 `判据/B146_C04_UIstate判据.md` §三/§五。
+        //  ⚠️ 全部追加在**类尾**（本文件非 partial、大量账按行号引用；文件最末那对 `}` 关的是 `ChoicePanelPool`）。
+        //  ⛔ **只做显示侧**：引擎闸（`RuleCore.CanAttackNow` / `DeclareAttack` 那条路）归另一批，本段一句没碰。
+        // ==================================================================
+
+        /// <summary>绿光此刻用的**稳定 UI 档**（15 档取值 ⇒ <see cref="UiStateNow"/>）。
+        /// <para>🔴 **为什么不是一个现算 getter**：`UiStateNow()` 在演出期会落 `3 playingMinion` /
+        /// `5 playingNonTargetSpell`（由 `WaitingForBlockingAction` 间接驱动）。若绿光每帧照它重算，
+        /// **整排绿光会在每段登场 / 法术演出期间被关掉、演完还得等下一次 `SyncBoard` 才回来** ——
+        /// 原版 `ActivateMinion` 是**事件驱动**的，不会这么闪（风险分析 ⇒ `判据/B146_C04_UIstate判据.md` §5.4 ①）。
+        /// ⇒ **演出档保持上一次的稳定档**（= 演出期间不主动灭灯）。</para>
+        /// <para>缺省 `1`（`normalBattle`）⇒ 没跑过 <see cref="TickGreenLightUiState"/> 的路径（批处理 / 断言 / 回放）
+        /// 行为与改前**逐字节一致**。</para></summary>
+        int _greenLightUiState = 1;
+        /// <summary>自检钉死口：≥0 时闸只认它（`-1` = 关）。⛔ 生产恒 `-1`。</summary>
+        int _greenLightUiStateOverride = -1;
+
+        /// <summary>每帧一次（`Update` 里 `TickHudButtonFeedback` 同一句）：**只更新稳定档**，不主动重推视图。
+        /// <para>🔴 **为什么不在换档时主动刷灯**：原版 `ActivateMinion` 是**事件驱动**的
+        /// （`BattleManager__FinishResolvingAction.c:105/:115` → `MinionManager__ActivateMinions`、
+        /// `BroadcastActivateMinions`、`MinionPlayedIntoField` 等），**不是「UI 档一变就把整排重算」**。
+        /// 照「换档就刷」做的话，玩家一按住手牌（`UIstate = 2 movingHandCard`）整排绿光就会灭 —— 原版不会。
+        /// ⇒ 稳定档只供 `SyncBoard` / `RefreshCanActForView` 这两个**既有决策口**读。</para>
+        /// <para>⚠️ 演出档（3 / 5）**保持上一稳定档**，见 <see cref="_greenLightUiState"/> 的 doc。</para></summary>
+        void TickGreenLightUiState()
+        {
+            if (Ctx == null || _greenLightUiStateOverride >= 0) return;
+            int raw = UiStateNow();
+            if (raw == 3 || raw == 5) return;                 // 演出档：保持上一稳定档（见 `_greenLightUiState` 的 doc）
+            _greenLightUiState = raw;
+        }
+
+        /// <summary>原版 `CardScript__CanAttackNow.c:44-56` 的第七闸（**只决定「画不画绿光」**）：
+        /// <c>if (this.isPlayer) { if (UIstate != normalBattle(1) &amp;&amp; UIstate != minionAttacking(6)) return false; }</c>
+        /// <para>① **只对【本机座位】的卡判** —— `owner == MyIndex`（⛔ 别写死 0：P2P 客机 `_me == 1`）；
+        /// ② **敌方卡整段跳过**（原版同一句写在 `if (this.isPlayer)` 里面，敌方卡不受此闸）。</para></summary>
+        bool GreenLightAllowsPlayerAct(int owner)
+        {
+            if (owner != _me) return true;
+            int st = _greenLightUiStateOverride >= 0 ? _greenLightUiStateOverride : _greenLightUiState;
+            return st == 1 || st == 6;
+        }
+
+        /// <summary>自检读口：闸**此刻真正读的**那个档（= 钉死口优先）。</summary>
+        public int GreenLightUiStateForTest
+        { get { return _greenLightUiStateOverride >= 0 ? _greenLightUiStateOverride : _greenLightUiState; } }
+
+        /// <summary>自检钉死口：把绿光的 UI 档钉成 <paramref name="state"/>
+        /// （`-1` = 取消钉死、并回落到 `1 normalBattle` ⇒ 批处理回到「无闸」基线）。⛔ 生产不调。</summary>
+        public void SetGreenLightUiStateForTest(int state)
+        {
+            _greenLightUiStateOverride = state;
+            _greenLightUiState = state >= 0 ? state : 1;
+        }
+
+        /// <summary>自检读口：闸本身（`true` = 这一座位的绿光**不被 UIstate 档关掉**）。</summary>
+        public bool GreenLightAllowsPlayerActForTest(int owner) { return GreenLightAllowsPlayerAct(owner); }
+
     }
 }
 
@@ -42628,7 +42689,7 @@ namespace CardPresentation
                     CardDef pendingCard, CardInstance pendingInst, int pendingIdx,
                     out string srcName, out string detail, out string why)
         {
-            var cands = RuleCore.ChooseCardCandidates(ctx, owner, op, out srcName, out detail, out why);
+            var cands = RuleCore.ChooseCardCandidates(ctx, owner, op, out srcName, out detail, out why, pendingCard);   // ✅ 已复刻（2026-11-05 · B146-E7 · 面板这一侧把 `PendingCard` 当 `sourceCard` 传进去 —— 判据 BattleManager__GetChoiceFullPool.c:28-35；⛔ 不传就回退上一张卡）
             ExcludePendingHandCard(ctx, owner, op, cands, pendingCard, pendingInst, pendingIdx);
             return cands;
         }

@@ -304,11 +304,13 @@ namespace CardPresentation
         /// （`InventoryManager.GetOwnedCount(card)` → `String_Format(DAT_18425ce10, …)`，同一段在
         /// `CardCollectionDisplay__UpdateCardVisuals.c:45-47` 逐字重复）；并把 `拥有数 &lt; 1` 喂给
         /// `CollectionCardCounter.Set(…, setGreyscale)` ⇒ **没拥有的那张置灰**。</para>
-        /// <para>🔶 自己设计（非原版）：这一格印 `min(拥有, 卡组上限)`，原版印原始拥有数 —— 照原式会因「资源固定 2000 + `Owned` 给足口径」把每格印成无意义的 `x11` ⇒ 必须自定 · 用户 2026-09-28 拍板（同一节点另见 `DeckRuntime.PoolCounterText`）· 2026-10-31 `B107_W14` 补标：
-        /// 本作资源固定 2000（用户 2026-10-24 从 9999 改）、`CardProgress.Owned` 是**给足**口径（= 卡组上限 + 升满所需 ⇒ 每张 10~11）
-        /// ⇒ 照原式会把**每一格**印成 `x11` 那种没有意义的数。这一档**沿用同一个节点**在
-        /// `DeckRuntime.PoolCounterText`（「还没有督军」那一支）里**用户 2026-09-28 已经拍过板**的写法
-        /// ⇒ 同一棵树、两处印同一个数，不再各定一套口径。</para>
+        /// <para>✅ 已复刻（2026-11-05 · B146-E2 · 用户 2026-11-05 裁定「按原版显示原始拥有数」· 判据 = `CardCollectionDisplay__SetCell.c:72` = `x{GetOwnedCount}`）
+        /// 🔴 **2026-11-05 就地订正（铁律 5）：这一格原来印 `min(拥有, 卡组上限)`**，注释自称 `🔶 自己设计`
+        /// 并引「资源固定 2000 + `Owned` 给足 ⇒ 照原式每格印 `x11` 没意义」为由。
+        /// **用户 2026-11-05 裁定：按原版印原始拥有数** —— 「印出来不好看」不构成偏离原版的理由（铁律 18·0：
+        /// 需要拍板的地方默认复刻原版，只有**与服务器有关**才允许自己设计；这一条是纯显示口径）。
+        /// 「给足」是**库存播种**口径（用户 2026-09-28 拍的另一件事，`CardsState` 那边，⛔ 别动），
+        /// 与「这一格印什么」是两回事。⇒ `x11` 那种读数就是**原版行为下的真实读数**。</para>
         /// <para>⚠️ **置灰那一支本版【不可达】**（如实出声）：`owned &lt; 1` 在我们这边恒假（`CardProgress.Owned ≥ 卡组上限 + 9 ≥ 10`）⇒ 常态看不到灰度。**但代码照样接上了**：
         /// 🔴 **2026-11-03（`B121-COLL-08`）就地订正（铁律 5）**：原文写「我们的 `ImageQuad` 没有对应的判据灰值 ⇒ 只记不画」——**已过期**：
         /// `Battle/ImageQuad.cs:355` 的 `SetGrey(float)` 与 `CardView.SetGrey` **同一算式、同一属性名**（`_GreyScale`）
@@ -316,11 +318,13 @@ namespace CardPresentation
         /// <para>🔴 **2026-10-17（A934）：上限那一档必须带【卡型】** —— 原来只传稀有度，而原版
         /// `GetMaxCopiesInDeck` 那句 `if (cardType == 10) return 1;` **排在稀有度判断之前** ⇒ 我们池子里
         /// **28 位非传说督军**（epic 15 / rare 13）被印成了 `x2`。判据 / 出处 = `CardProgress.DeckCap` 的 doc
-        /// （**在 `Shell/CardDetailPopup.cs` 的 `CardProgress.DeckCap` 那两个重载上** —— `DeckCap(string rarity)` / `DeckCap(string rarity, string type)`，⛔ 不是本文件）；⛔ **别退回不带卡型那一档**。</para></summary>
+        /// （**在 `Shell/CardDetailPopup.cs` 的 `CardProgress.DeckCap` 那两个重载上** —— `DeckCap(string rarity)` / `DeckCap(string rarity, string type)`，⛔ 不是本文件）；⛔ **别退回不带卡型那一档**。
+        /// ⚠️ **2026-11-05（`B146-E2`）之后本函数已不读上限**（用户裁定印原始拥有数）⇒ A934 仍适用于
+        /// `DeckRuntime.PoolCounterText`（分母 `min(拥有, 上限)`）与 `CardDetailPopup` 的计数条，**那两处别跟着改**。</para></summary>
         public static string CardsCounterText(CardDef def)
         {
             if (def == null) return "x0";
-            int cap = CardProgress.DeckCap(def.Rarity, def.Type);
+            // 🔴 **不夹卡组上限**：原版 `SetCell.c:72` = `x{GetOwnedCount}`；`CardProgress.DeckCap` 只属于构筑校验，不是本格显示口径。
             // 🔴 **2026-10-25（`C` 域 · 背包框架层接通）**：**拥有数的正本 = `Inventories.Cards`**
             //   （原版这一格读 `InventoryManager.GetOwnedCount(card)` —— 判据
             //   `CardCollectionDisplay__SetCell.c`；背包层见 `Shell/Inventory.cs`）。
@@ -336,7 +340,7 @@ namespace CardPresentation
                     Debug.LogWarning("[Collection] 卡 `" + def.Id + "` 不在背包 `Inventories.Cards` 里 ⇒ 拥有数回退到 "
                                    + "`CardProgress.Owned`（" + owned + "）。卡池播种见 `CardsState` 的 getter。");
             }
-            return "x" + Mathf.Min(owned, cap);
+            return "x" + owned;
         }
 
         /// <summary>「这一张卡不在背包里」的出声去重表（每次会话每张卡只喊一次）。</summary>

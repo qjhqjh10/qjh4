@@ -395,8 +395,24 @@ def build(bundle_dir, ctrl_path, per_bundle, global_index):
              "layers": layers}, bad)
 
 
+USAGE = """用法（🔴 不带显式动作 = 只打印本用法并以**退出码 2**退出，绝不写盘）：
+    python -I -X utf8 d:/4/Unity/工具/gen_animator_controllers.py --write   # 重新生成（写盘）
+    python -I -X utf8 d:/4/Unity/工具/gen_animator_controllers.py --check   # 只体检，不写盘
+    python -I -X utf8 d:/4/Unity/工具/gen_animator_controllers.py --dry     # 只跑计算 + 打印读数，不写盘
+    -h, --help  只打印本用法并退出（退出码 0）。"""
+
+
 def main():
-    check = "--check" in sys.argv
+    args = sys.argv[1:]
+    if any(a in ("-h", "--help") for a in args):
+        print(USAGE)
+        return 0
+    check = "--check" in args
+    write = "--write" in args
+    dry = "--dry" in args
+    if not (check or write or dry) or any(a not in ("--check", "--write", "--dry") for a in args):
+        print(USAGE)
+        return 2
     roots = sorted(os.path.join(ASSETS_FULL, d) for d in os.listdir(ASSETS_FULL)
                    if os.path.isdir(os.path.join(ASSETS_FULL, d)))
     # 先建 clip 名字索引（控制器可能引用别的包里的 clip）——
@@ -495,6 +511,9 @@ def main():
            "clipsByGuid": prev_clips if prev_clips is not None else []}
     if check:
         print("[AC] --check：只体检，未写文件")
+        return 0 if (not missing and not guid_bad) else 1
+    if not write:
+        print("[AC] 干跑（未写盘）：要落盘请显式加 `--write`")
         return 0 if (not missing and not guid_bad) else 1
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     # 🔴 先写临时文件再 `os.replace`（**原子**）：否则跑到一半被打断就会留下半截 json，

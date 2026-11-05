@@ -37,15 +37,27 @@ import sys
 # 🔴 `--dry` = 只跑计算、打印读数、**零写盘**。默认（不带它）行为与以前完全一样。
 ## A17 2026-10-24: -h/--help early exit (print usage only, exit 0; never run the real work).
 import sys as _wf_help_sys
+_USAGE = ('用法（🔴 不带显式动作 = 只打印本用法并以**退出码 2**退出，绝不写盘）：\n'
+          '  "D:/2/Warpforge_tools/py312/python.exe" "d:/4/Unity/工具/gen_animfx_modules.py" --write\n'
+          '      --write  重新生成 animfx_modules.json + module_materials.tsv（写盘）\n'
+          '      --dry    只跑计算、打印读数、**零写盘**\n'
+          '      -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。\n')
 if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help_sys.argv))):
     try:
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：\n  "D:/2/Warpforge_tools/py312/python.exe" "d:/4/Unity/工具/gen_animfx_modules.py"\n  加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    print(_USAGE)
     _wf_help_sys.exit(0)
 
-DRY = "--dry" in sys.argv[1:]
+_ARGS = sys.argv[1:]
+if not _ARGS or any(a not in ("--write", "--dry") for a in _ARGS):
+    print(_USAGE)
+    sys.exit(2)
+
+# 🔴 2026-11-05（B146-E1）：**只有 `--write` 才写盘**；`--dry` 或任何其它组合都只是读数。
+WRITE = "--write" in _ARGS
+DRY = not WRITE
 
 ROOT = r"d:/4/Unity"
 SRC = os.path.join(ROOT, "数据/游戏数据/animfx_components.json")
@@ -267,7 +279,7 @@ def main():
         "effects": outp,
     }
     if DRY:
-        print("干跑（未写盘）：要落盘请去掉 --dry")
+        print("干跑（未写盘）：要落盘请显式加 `--write`")
     else:
         io.open(OUT, "w", encoding="utf-8", newline="\n").write(
             json.dumps(out_doc, ensure_ascii=False, indent=1))
@@ -287,7 +299,7 @@ def main():
                     mat_rows.append((e["name"], v[len("@asset:Material:"):]))
     mat_rows = sorted(set(mat_rows))
     if DRY:
-        print("干跑（未写盘）：效果名→材质名 %d 条；要落盘请去掉 --dry" % len(mat_rows))
+        print("干跑（未写盘）：效果名→材质名 %d 条；要落盘请显式加 `--write`" % len(mat_rows))
     else:
         with io.open(OUT_MATS, "w", encoding="utf-8", newline="\n") as fh:
             fh.write("# 效果名\t材质名  —— 由 工具/gen_animfx_modules.py 生成，别手改\n")

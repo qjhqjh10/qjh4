@@ -16,11 +16,11 @@
 //   本轮把 101 份的**原版逐格值**烘进下面的 `Manifest`（⛔ 不是「一律 -1/4/1/1」——
 //   原版有 34 份 usage = 0、1 份 usage = 8、1 份 keep = 0/0，照抄才不会把对的改错）。
 //
-// ⚠️ 两条**故意不做**的事（都在报告 §没做的部分 里写了理由）：
+// ⚠️ 一条**故意不做**的事（理由见下；② 已在 B146 改成「按原版做」）：
 //   ① **不调 `MeshUtility.Optimize`** —— 它会真的重排几何；这批网格的顶点字节是**逐字节验过**与原版相同的
 //      （审计 A-04/A-10：92/101 对逐字节相同）。我们只要那个**序列化标志**的数值，⛔ 不要它顺手改几何。
-//   ② **不动 `m_IsReadable`**（原版 79 份 = 0、我们 = 1）。它决定**运行时** `mesh.vertices` 能不能读；
-//      改了会直接影响读顶点的那些路径，且本活判据（top-5 #4）只点了那四个字段。见报告「没做的部分」。
+//   ② **`m_IsReadable` 照原版写 0**（`判据/B146_WS_ISREADABLE判据.md`：101 份里 79 对原版 0 / 我们 1；运行时 0 处读这批网格的顶点数据）。
+//      ⚠️ 例外：`Ship 11/21/31/41/51` 五份**保留 1** —— `WarpforgeEffectBinder.cs:321` 的 `HasVertexAttribute` 实现依赖，待出包验。
 //
 // 用法（⚠️ 要**主对话**跑 —— 子代理不许 `-executeMethod`）：
 //   unset ELECTRON_RUN_AS_NODE && "D:/Unity/Hub/Editor/6000.3.23f1/Editor/Unity.exe" -batchmode -quit \
@@ -30,7 +30,7 @@
 //
 // 落盘纪律（铁律：`SetDirty` 之后「写完当场回读」抓不到「没落盘」）：
 //   每一份都走**三段式**：① `SerializedObject` 写 → `SaveAssets` → **重开文件按字节读回**
-//   ② 不一致 ⇒ **文本级改那 4 行** → `ImportAsset(ForceUpdate)` → **再重开文件读回**
+//   ② 不一致 ⇒ **文本级改那 5 行** → `ImportAsset(ForceUpdate)` → **再重开文件读回**
 //   ③ 还不一致 ⇒ **点名报红**（⛔ 不静默、不假装成功）。行尾/ BOM 原样保留（只替换行内数值）。
 using System;
 using System.Collections.Generic;
@@ -47,115 +47,115 @@ public static class B140_WS_MeshFlags
     /// <summary>写口要覆盖的网格数（原版逐份对出来 = 101）。⛔ 改名单就同步改这里 —— 它防的是「名单被截断」。</summary>
     public const int ExpectedCount = 101;
 
-    /// <summary>四个字段在 YAML 里的名字（顺序 = 下面的 `int[4]` 顺序）。</summary>
+    /// <summary>五个字段在 YAML 里的名字（顺序 = `Manifest` 的 `p[1]..p[5]` 顺序）。</summary>
     public static readonly string[] Fields =
-        { "m_MeshOptimizationFlags", "m_MeshUsageFlags", "m_KeepVertices", "m_KeepIndices" };
+        { "m_MeshOptimizationFlags", "m_MeshUsageFlags", "m_KeepVertices", "m_KeepIndices", "m_IsReadable" };
 
-    // 清单格式：`<相对 Assets 的路径>|<OptimizationFlags>|<UsageFlags>|<KeepVertices>|<KeepIndices>`
-    // ⚠️ 值 = **同名原版 asset 的现读值**（2026-11-04 读 `ExportedProject/Assets/Mesh/`），⛔ 别「觉得应该一样就统一填」。
+    // 清单格式：`<相对 Assets 的路径>|<OptimizationFlags>|<UsageFlags>|<KeepVertices>|<KeepIndices>|<IsReadable>`
+    // ⚠️ 值 = **同名原版 asset 的现读值**（第 6 段 `m_IsReadable` 2026-11-05 现读）；实算 = **77 份 0 / 24 份 1**（24 = 原版本就 1 的 19 + `Ship 11/21/31/41/51` 例外 5），⛔ 别「觉得应该一样就统一填」。
     static readonly string[] Manifest =
     {
-        "CardPresentation/Resources/Art/card3d/Card 3D WH40k.asset|-1|4|1|1",
-        "CardPresentation/Resources/Art/card3d/FxObject_cylinder_short.asset|-1|4|1|1",
-        "CardPresentation/Resources/Art/vfx/Cylinder.asset|-1|4|1|1",
-        "WarpforgeVFX/ArenaOriginalPrefabs/battlearenaaeldari/Tower 11.asset|-1|8|0|0",
-        "WarpforgeVFX/Meshes/400px-Choppa.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Axe_1.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Background Wolf.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Background space.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Blade_DA.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/BoosterPack.asset|-1|0|0|0",
-        "WarpforgeVFX/Meshes/Bullet_Body.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Card 3D Subdivided.asset|-1|0|0|0",
-        "WarpforgeVFX/Meshes/Card 3D WH40k.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Card_Remnant_HO Optimization 2.asset|-1|0|0|0",
-        "WarpforgeVFX/Meshes/ChemVial.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Chitin barb.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Cone.006.asset|-1|1|0|0",
-        "WarpforgeVFX/Meshes/Cone.007.asset|-1|1|0|0",
-        "WarpforgeVFX/Meshes/Cylinder curved shallow.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Cylinder_Ring.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Cylinder_curve.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Disk.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Dynamic Lights 11.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Dynamic Lights 21.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Dynamic Lights 31.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Dynamic Lights 51.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Dynamic Lights 61.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/DynamiteBundle.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/EC_Sword.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 101.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 111.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 121.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 131.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 14.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 21.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 31.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 41.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 51.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 61.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 71.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 81.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon 91.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Full Moon1.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/FxObject_cylinder_short.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/GSC Dagger.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Grenade.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Hammer.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Harpoon.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Helspear.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Hemisphere.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Ice.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/IceShard01.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/IceShardTiny.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Keep Light1.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/KrootJavelin.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Missile.001.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Missile.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Moon 4.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Mountain Background First Light.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Mushroom.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Pray VFX Mesh3.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Rock003.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Rock004.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Rock005.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/RockDebris_Low.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/RockSpike_Low.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Rock_A_02_LOD00.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Rock_A_02_LOD03.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Rock_A_02_LOD04.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/RocketWarhead.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Shatter Piece 1.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Shatter Piece 3.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Shell Bolter Imperial.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Shell Bolter Traitor.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Shell Ork.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Shield Ico.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Shield_1.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Ship 11.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Ship 21.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Ship 31.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Ship 41.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Ship 51.asset|-1|0|1|1",
-        "WarpforgeVFX/Meshes/Slash.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Spear.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Spike_1.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Spore Mine.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Squig1.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Squig2.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Squig_low Merged.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Stikka.001.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Tube_pf_sh_11.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Tube_pf_sh_2.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Tube_pf_sh_21.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Tube_pf_sh_6.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Tyranid_Claw.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Tyranid_Rib.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/Vanguard Frame Animated_Mesh.asset|-1|0|0|0",
-        "WarpforgeVFX/Meshes/debris_1_sm.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/debris_2_sm.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/stone001.asset|-1|4|1|1",
-        "WarpforgeVFX/Meshes/sword-mesh.asset|-1|4|1|1",
+        "CardPresentation/Resources/Art/card3d/Card 3D WH40k.asset|-1|4|1|1|1",
+        "CardPresentation/Resources/Art/card3d/FxObject_cylinder_short.asset|-1|4|1|1|1",
+        "CardPresentation/Resources/Art/vfx/Cylinder.asset|-1|4|1|1|0",
+        "WarpforgeVFX/ArenaOriginalPrefabs/battlearenaaeldari/Tower 11.asset|-1|8|0|0|0",
+        "WarpforgeVFX/Meshes/400px-Choppa.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Axe_1.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Background Wolf.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Background space.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Blade_DA.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/BoosterPack.asset|-1|0|0|0|0",
+        "WarpforgeVFX/Meshes/Bullet_Body.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Card 3D Subdivided.asset|-1|0|0|0|0",
+        "WarpforgeVFX/Meshes/Card 3D WH40k.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/Card_Remnant_HO Optimization 2.asset|-1|0|0|0|0",
+        "WarpforgeVFX/Meshes/ChemVial.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Chitin barb.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Cone.006.asset|-1|1|0|0|0",
+        "WarpforgeVFX/Meshes/Cone.007.asset|-1|1|0|0|0",
+        "WarpforgeVFX/Meshes/Cylinder curved shallow.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Cylinder_Ring.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Cylinder_curve.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Disk.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Dynamic Lights 11.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Dynamic Lights 21.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Dynamic Lights 31.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Dynamic Lights 51.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Dynamic Lights 61.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/DynamiteBundle.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/EC_Sword.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 101.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 111.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 121.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 131.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 14.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 21.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 31.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 41.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 51.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 61.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 71.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 81.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon 91.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Full Moon1.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/FxObject_cylinder_short.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/GSC Dagger.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Grenade.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Hammer.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Harpoon.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Helspear.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Hemisphere.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Ice.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/IceShard01.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/IceShardTiny.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/Keep Light1.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/KrootJavelin.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Missile.001.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Missile.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Moon 4.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Mountain Background First Light.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Mushroom.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Pray VFX Mesh3.asset|-1|0|1|1|0",
+        "WarpforgeVFX/Meshes/Rock003.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Rock004.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Rock005.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/RockDebris_Low.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/RockSpike_Low.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/Rock_A_02_LOD00.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/Rock_A_02_LOD03.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/Rock_A_02_LOD04.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/RocketWarhead.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Shatter Piece 1.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Shatter Piece 3.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Shell Bolter Imperial.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Shell Bolter Traitor.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Shell Ork.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Shield Ico.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Shield_1.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Ship 11.asset|-1|0|1|1|1",
+        "WarpforgeVFX/Meshes/Ship 21.asset|-1|0|1|1|1",
+        "WarpforgeVFX/Meshes/Ship 31.asset|-1|0|1|1|1",
+        "WarpforgeVFX/Meshes/Ship 41.asset|-1|0|1|1|1",
+        "WarpforgeVFX/Meshes/Ship 51.asset|-1|0|1|1|1",
+        "WarpforgeVFX/Meshes/Slash.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Spear.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Spike_1.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Spore Mine.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Squig1.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Squig2.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Squig_low Merged.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Stikka.001.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Tube_pf_sh_11.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/Tube_pf_sh_2.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/Tube_pf_sh_21.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/Tube_pf_sh_6.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/Tyranid_Claw.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Tyranid_Rib.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/Vanguard Frame Animated_Mesh.asset|-1|0|0|0|1",
+        "WarpforgeVFX/Meshes/debris_1_sm.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/debris_2_sm.asset|-1|4|1|1|1",
+        "WarpforgeVFX/Meshes/stone001.asset|-1|4|1|1|0",
+        "WarpforgeVFX/Meshes/sword-mesh.asset|-1|4|1|1|1",
     };
 
     // 清单格式（16-08 · B141/W18 并入本写口）：`<相对 Assets 的路径>|<m_MeshMetrics[0]>|<m_MeshMetrics[1]>`
@@ -248,7 +248,9 @@ public static class B140_WS_MeshFlags
     public static int[] Expected(int i)
     {
         var p = Manifest[i].Split('|');
-        return new[] { int.Parse(p[1]), int.Parse(p[2]), int.Parse(p[3]), int.Parse(p[4]) };
+        var v = new int[Fields.Length];
+        for (int k = 0; k < v.Length; k++) v[k] = int.Parse(p[k + 1]);
+        return v;
     }
     public static int Count { get { return Manifest.Length; } }
 
@@ -288,7 +290,7 @@ public static class B140_WS_MeshFlags
             if (!File.Exists(full)) { fail++; Debug.LogError(T + $"🔴 缺文件：{assetPath}"); continue; }
 
             int[] before = ReadFlagsFromFile(full);
-            if (before == null) { fail++; Debug.LogError(T + $"🔴 读不到四个字段：{assetPath}"); continue; }
+            if (before == null) { fail++; Debug.LogError(T + $"🔴 读不到五个字段：{assetPath}"); continue; }
             string vBefore = VertexFingerprint(full);
 
             int[] expect = Expected(i);
@@ -321,7 +323,7 @@ public static class B140_WS_MeshFlags
         ApplyMetricsAndDims(dry, out mOk, out mChanged, out mFail);
     }
 
-    /// <summary>先 `SerializedObject`，不成就**文本级改那 4 行**；每段都**重开文件回读**核对。</summary>
+    /// <summary>先 `SerializedObject`，不成就**文本级改那 5 行**；每段都**重开文件回读**核对。</summary>
     static bool WriteOne(string assetPath, int[] expect)
     {
         // ① SerializedObject（能落盘的正路）
@@ -364,7 +366,7 @@ public static class B140_WS_MeshFlags
             Debug.LogWarning(T + $"`{assetPath}` SerializedObject 抛了（{e.GetType().Name}: {e.Message}）⇒ 退回文本级改写");
         }
 
-        // ② 文本级改那 4 行（只改数值，行尾 / BOM 原样）
+        // ② 文本级改那 5 行（只改数值，行尾 / BOM 原样）
         string full = FullPath(assetPath);
         if (!PatchFileFields(full, expect, out string err))
         {
@@ -413,7 +415,7 @@ public static class B140_WS_MeshFlags
         return Path.Combine(Application.dataPath, rel).Replace('\\', '/');
     }
 
-    /// <summary>从 `.asset`（Force Text ⇒ YAML）文本里读那四个字段。读不全 ⇒ `null`（⛔ 不拿 0 顶替）。</summary>
+    /// <summary>从 `.asset`（Force Text ⇒ YAML）文本里读那五个字段。读不全 ⇒ `null`（⛔ 不拿 0 顶替）。</summary>
     public static int[] ReadFlagsFromFile(string full)
     {
         if (!File.Exists(full)) return null;
@@ -442,7 +444,7 @@ public static class B140_WS_MeshFlags
         return $"vc={c.Groups[1].Value};ds={d.Groups[1].Value};n={hex.Length};head={hex.Substring(0, Math.Min(64, hex.Length))}";
     }
 
-    /// <summary>文本级把四个字段的**数值**换掉（行尾 / 编码 / BOM 原样保留）。
+    /// <summary>文本级把五个字段的**数值**换掉（行尾 / 编码 / BOM 原样保留）。
     /// 返回 false 时 `err` 写清是哪个字段没找到。</summary>
     public static bool PatchFileFields(string full, int[] values, out string err)
     {

@@ -9569,7 +9569,7 @@ public static class BattleScene
                 }
 
                 driver.SimulateDeselect();
-                Check(!driver.SelectorOpen, "点槽外 → 选择器收起、取消指挥");
+                Check(!driver.SelectorOpen, "SimulateDeselect（自检口 = `ClearSelection`）→ 选择器收起、取消指挥（✅ 2026-11-05 `B146-E7`：生产里「点槽外取消」那一支已按用户裁定删除，本条只验收尾口）");
                 ctx.Players[0].Board[probeSlot] = null;
                 driver.RefreshAll();
             }
@@ -14953,16 +14953,18 @@ public static class BattleScene
                 // 🔴 **这一段的「灭自证」**：把实现改回「开窗**直接摆终态**」⇒ 第 1 组（起点）与「半程」那两条**必红**。
                 //    只断终态是断不出动画的 —— 「摆终态」同样满足终态那几条。
                 {
-                    // 🆕 **2026-10-31（`B106_W1` · 交接 §三-0-1）：夹具换成 `Master of Arcana`** ——
+                    // 🆕 **2026-10-31（`B106_W1`）夹具** · 🔴 **2026-11-05（`B146-E9`）换成 `Path of Command`** ——
                     //   上面轻点的是**手牌第一张**，它常常一张相关卡都没有（`SlotCount == 1`）；
                     //   而这一节要「最外那格」（至少槽 1）⇒ 原来那两条前提**恒红**、下面 3 条一条没跑。
-                    //   判据 = 本文件 15347 那节已经用同款夹具（天赋/desc 是个 4 张池子 ⇒ 一定 ≥2 格）。
+                    //   🔴 原夹具 `Master of Arcana` **已作废**：用户 2026-11-05 裁定删掉「相关卡替身三支」
+                    //   （`B146-E2`）⇒ 它现在**0 张**相关卡。改用**原版真值**带边的卡：
+                    //   `Path of Command` 的 `relatedCard1` = `Storm Guardian`（`related_cards.json`
+                    //   `9c3562ff… → ["ASH5"]`）⇒ 主卡 + 1 = **2 格**，前提仍成立。
                     //   ⛔ 只在「手牌那张凑不出 ≥2 格」时才换 —— 换完仍由下面那条前提断言把关（不静默）。
-                    //   → `资料/完全复刻/报告/B105_F1.md` §三·2 · `B106_W1.md` §①
-                    var moaOpen = FindPoolCard("Master of Arcana");
-                    if (moaOpen != null && (cdw.SlotCount < 2 || cdw.SlotView(cdw.SlotCount - 1) == null))
+                    var pocOpen = FindPoolCard("Path of Command");
+                    if (pocOpen != null && (cdw.SlotCount < 2 || cdw.SlotView(cdw.SlotCount - 1) == null))
                     {
-                        cdw.Show(BattleDriver.ToCardData(moaOpen, moaOpen.Faction), moaOpen);
+                        cdw.Show(BattleDriver.ToCardData(pocOpen, pocOpen.Faction), pocOpen);
                         CardTween.Advance(CardFan.OpenTime + 0.05f);   // 推到终态：下面断的是展开后的最外那格
                     }
                     var dOpen = cdw.Card.Data;
@@ -14982,7 +14984,7 @@ public static class BattleScene
                     //      槽 1 时 104.8 px 那条带里、槽 8 时 ≈37 px；再往前的只会更右；转角差 ≤3.3° 不改变结论）。
                     Check(cdw.Visible && cdw.SlotCount >= 2 && cdw.SlotView(cdw.SlotCount - 1) != null,
                           "（前提·不静默）展示窗开着、且一叠至少 2 格（最外那格视图在）—— 否则「命中区跟动画走」那三条验不到"
-                        + "（⚠️ 手牌那张常常只有 1 格 ⇒ 要根治得改用 `Master of Arcana` 夹具）");
+                        + "（⚠️ 手牌那张常常只有 1 格 ⇒ 要根治得改用 `Path of Command` 夹具）");
                     int farSlot = (cdw.Visible && cdw.SlotCount >= 2 && cdw.SlotView(cdw.SlotCount - 1) != null)
                                 ? cdw.SlotCount - 1 : -1;
                     Vector3 farPt = farSlot >= 0
@@ -15123,13 +15125,15 @@ public static class BattleScene
                 //   其余槽更靠左上更小 ⇒ 也不覆盖 ⇒ 新实现恒 `== 1`、旧实现恒 `== −1`。
                 // ══════════════════════════════════════════════════════════════════════════════════
                 {
-                    // 🔴 **2026-10-17（`BSC62` · W4 · δ）：本判别式已**搬走**到下面 `Master of Arcana` 那节。**
+                    // 🔴 **2026-10-17（`BSC62` · W4 · δ）：本判别式已**搬走**到下面 `Path of Command` 那节。**
                     //   原因：这条要**槽 1**，而这里窗里是**手牌那张**（常常没有相关卡 ⇒ `SlotCount == 1`
-                    //   ⇒ `SlotView(1) == null` ⇒ 前提恒红）。`Master of Arcana` 的天赋是 **4 张池子**
-                    //   ⇒ 那里**一定 ≥2 格** ⇒ 搬过去前提**恒成立**、判别力不丢。见 `11e_展示窗_相关卡` 那一节。
+                    //   ⇒ `SlotView(1) == null` ⇒ 前提恒红）。🔴 **2026-11-05（`B146-E9`）**：原夹具
+                    //   `Master of Arcana` 现读 **0 张**相关卡（用户裁定删替身、`B146-E2`）⇒ 改用原版真值
+                    //   带边的 `Path of Command`（`relatedCard1` = `Storm Guardian`）⇒ 那里**恒 2 格**、
+                    //   判别力不丢。见 `11e_展示窗_相关卡` 那一节。
                     // 🔴 **2026-10-31（`B106_W1`）补注**：本处窗里现在**可能是手牌那张（1 格）**，也可能是
-                    //   上面「开窗那一拍」那节为凑 ≥2 格换上的 `Master of Arcana` ⇒ 判别式仍以下面那节为准。
-                    Debug.Log(P + "   「命中区跟卡转」判别式在下面 `Master of Arcana` 那节验（本处窗里可能是 1 格的手牌卡）");
+                    //   上面「开窗那一拍」那节为凑 ≥2 格换上的 `Path of Command` ⇒ 判别式仍以下面那节为准。
+                    Debug.Log(P + "   「命中区跟卡转」判别式在下面 `Path of Command` 那节验（本处窗里可能是 1 格的手牌卡）");
                 }
                 // 🔴 **数锚（防「转发」被改回自算）** —— 与 `EW9` §③①(c) 是同一条腿：
                 //   这三个常量就是命中矩形的**全部几何**（半宽 / 半高 / 中心偏移），而它们**只**来自
@@ -15419,16 +15423,19 @@ public static class BattleScene
 
                 // ---- 相关卡那一叠 + 换位：**换一张一定有相关卡的卡再验一遍** ----
                 // 上面那张手牌常常一张相关卡都没有（`SlotCount == 1`）⇒ 扇形/换位/命中那几条会整段跳过。
-                // 样卡用 `Master of Arcana`：它的天赋是个 **4 张的池子** ⇒ 一定有相关卡（`CollectionScene` 用的也是它）。
+                // ✅ 样卡 = `Path of Command`（原版真值 `relatedCard1` = `Storm Guardian`，`related_cards.json`
+                //   `9c3562ff… → ["ASH5"]` ⇒ 主卡 + 1 = **2 格**，一定 ≥2）。
+                // 🔴 **2026-11-05（`B146-E9`）**：原样卡 `Master of Arcana` **已作废** —— 用户 2026-11-05 裁定
+                //   删掉「相关卡替身三支」（`B146-E2`）⇒ 它现在 **0 张**相关卡（`SlotView(1)` 为 null，会 NRE）。
                 // 判据与真值 → `Core/CardFan.cs`（原版那条 legacy clip `Card Display Open`）+ 正本 §十。
                 {
-                    var moa = FindPoolCard("Master of Arcana");
-                    Check(moa != null, "（前提）卡池里有 `Master of Arcana`（天赋是个 4 张的池子）");
-                    if (moa != null)
+                    var poc = FindPoolCard("Path of Command");
+                    Check(poc != null, "（前提）卡池里有 `Path of Command`（真值 `relatedCard1` = `Storm Guardian`）");
+                    if (poc != null)
                     {
-                        cdw.Show(BattleDriver.ToCardData(moa, moa.Faction), moa);
+                        cdw.Show(BattleDriver.ToCardData(poc, poc.Faction), poc);
                         CardTween.Advance(CardFan.OpenTime + 0.05f);   // 开窗那一拍推到头（下面断的是终态）
-                        Check(cdw.SlotCount >= 2, $"`Master of Arcana` ⇒ 那一叠 **{cdw.SlotCount} 格**（主卡 + 相关卡）");
+                        Check(cdw.SlotCount >= 2, $"`Path of Command` ⇒ 那一叠 **{cdw.SlotCount} 格**（主卡 + 相关卡）");
                         var s1 = cdw.SlotView(1);
                         var c1 = LayoutSpace.ToDesignPixel(s1.transform.position);
                         Check(Mathf.Abs(c1.x - (960f - 121f)) < 2.5f,
@@ -15458,15 +15465,15 @@ public static class BattleScene
                         Check(!cdw.Visible, "…uGUI 点一次 ⇒ 窗关了");
                         // ⚠️ `Show` 会**重建**卡格 ⇒ 上面抓的 `s1` 变成**已销毁对象**
                         //    （实测：这里踩过一次 `MissingReferenceException`）⇒ 重开后**必须重新取一次**。
-                        cdw.Show(BattleDriver.ToCardData(moa, moa.Faction), moa);
+                        cdw.Show(BattleDriver.ToCardData(poc, poc.Faction), poc);
                         CardTween.Advance(CardFan.OpenTime + 0.05f);   // 同上：开窗那一拍推到头
                         s1 = cdw.SlotView(1);
                         Shot(cam, "11e_展示窗_相关卡");
                         // ══════════════════════════════════════════════════════════════════════════════
                         // 🔴🆕 **2026-10-17（`BSC62` · W4 · δ）：命中区**跟卡转**（本件的【唯一】判别式）——**
                         //   从「手牌那一扇窗」**搬到这里**：那条要**槽 1**，而手牌那张常常没有相关卡
-                        //   （`SlotCount == 1` ⇒ `SlotView(1) == null` ⇒ 前提恒红）；这里 `Master of Arcana`
-                        //   **一定 ≥2 格** ⇒ 前提**恒成立**、判别力不丢（`EW13` · `EW12` 接线）。
+                        //   （`SlotCount == 1` ⇒ `SlotView(1) == null` ⇒ 前提恒红）；这里 `Path of Command`
+                        //   **恒 2 格**（真值 `relatedCard1` = `Storm Guardian`）⇒ 前提**恒成立**、判别力不丢。
                         // 背景：`CardDisplayWindow.HitSlot` 已从「自算一块轴对齐框」改成**转发**
                         //   `SlotViews[i].Contains(world)`（= `EW9` 的**内层 `2DCard`** 标架）
                         //   ⇒ 命中区现在**跟着卡的扇形角一起转**。⇒ 人为把**槽 1 卡根**拧到 30°、再取
@@ -15558,22 +15565,22 @@ public static class BattleScene
                 //   ⛔ 不许直接调 `SwapToFront` 证明自己（那是自证）。
                 // ══════════════════════════════════════════════════════════════════════════════
                 {
-                    var moaA = FindPoolCard("Master of Arcana");   // 天赋是 4 张的池子 ⇒ 一定 ≥2 格
-                    Check(moaA != null && cdw.PointerWorld != null,
-                          "（前提）卡池里有 `Master of Arcana`、且展示窗的 `PointerWorld` **已接线**"
+                    var pocA = FindPoolCard("Path of Command");   // 真值 `relatedCard1` = `Storm Guardian` ⇒ 恒 2 格
+                    Check(pocA != null && cdw.PointerWorld != null,
+                          "（前提）卡池里有 `Path of Command`、且展示窗的 `PointerWorld` **已接线**"
                         + "（没接线 ⇒ 那道几何门不生效、下面三条全在空跑）"
                         + "｜🧨 删掉 `BattleDriver.cs:20588` 那句 `_cardDisplay.PointerWorld = WorldPointer` ⇒ 红");
-                    if (moaA != null && cdw.PointerWorld != null)
+                    if (pocA != null && cdw.PointerWorld != null)
                     {
                         var ptrWas = BattleDriver.PointerWorldForTest;   // ⛔ 用完必须还原（后面各节靠「死指针」）
                         var blankPtA = EndPanel.Pos(960f, 1026f, 0f);     // 卡扇形之外的遮罩空白
                         var slot1PtA = EndPanel.Pos(660f, 487f, 0f);      // 槽 1 露出前卡之外的那一条
 
                         // ---- ① 点**后面的卡**（slot 1）：窗不关 + 前台换成原来第 1 张 ----
-                        cdw.Show(BattleDriver.ToCardData(moaA, moaA.Faction), moaA);
+                        cdw.Show(BattleDriver.ToCardData(pocA, pocA.Faction), pocA);
                         CardTween.Advance(CardFan.OpenTime + 0.05f);
                         Check(cdw.SlotCount >= 2 && cdw.HitSlot(slot1PtA) == 1,
-                              $"（前提）`Master of Arcana` 那一叠 {cdw.SlotCount} 格、且 {slot1PtA} 判给**槽 1**"
+                              $"（前提）`Path of Command` 那一叠 {cdw.SlotCount} 格、且 {slot1PtA} 判给**槽 1**"
                             + "（不成立 ⇒ 下面①等于没验）");
                         if (cdw.SlotCount >= 2 && cdw.HitSlot(slot1PtA) == 1)
                         {
@@ -15598,7 +15605,7 @@ public static class BattleScene
                         }
 
                         // ---- ② 点**空白**：窗关（与①成对 —— 缺它，「backdrop 整个不关窗」也会全绿）----
-                        cdw.Show(BattleDriver.ToCardData(moaA, moaA.Faction), moaA);
+                        cdw.Show(BattleDriver.ToCardData(pocA, pocA.Faction), pocA);
                         CardTween.Advance(CardFan.OpenTime + 0.05f);
                         Check(cdw.HitSlot(blankPtA) == -1, "（前提）那个点在卡扇形之外（`HitSlot == -1`）");
                         int clicksWasA2 = cdw.UguiCloseClickCountForTest;
@@ -15613,7 +15620,7 @@ public static class BattleScene
                             + "｜🧨 把 backdrop 那条关窗整个删掉 ⇒ 这条红");
 
                         // ---- ③ 点**前排自己**（slot 0）：窗不关、也不换位 ----
-                        cdw.Show(BattleDriver.ToCardData(moaA, moaA.Faction), moaA);
+                        cdw.Show(BattleDriver.ToCardData(pocA, pocA.Faction), pocA);
                         CardTween.Advance(CardFan.OpenTime + 0.05f);
                         var frontWasA3 = cdw.FrontDef;
                         var slot0PtA = cdw.SlotView(0) != null ? cdw.SlotView(0).transform.position : Vector3.zero;
@@ -15718,15 +15725,15 @@ public static class BattleScene
                 //    本组验的是**能力**（战斗中央展示 `DisplayEnemyCardInCenter` 要用它），不是「窗会自己翻」。
                 {
                     Check(cdw.Visible, "（前提）展示窗开着");
-                    // 🆕 **2026-10-31（`B106_W1` · 交接 §三-0-1）：夹具固定成 `Master of Arcana`** ——
+                    // 🆕 **2026-10-31（`B106_W1`）夹具** · 🔴 **2026-11-05（`B146-E9`）换成 `Path of Command`** ——
                     //   这一段要「主卡之外还有一格」才验得到「只翻主卡」；原来靠上一节 `keepDef` 的残留状态，
                     //   窗里是手牌那张（`SlotCount == 1`）时下面那条前提**恒红**、一条都验不到。
-                    //   换法与 15347 那节同款（天赋/desc 是 4 张池子 ⇒ 一定 ≥2 格）。⛔ 前提断言保留。
-                    //   → `资料/完全复刻/报告/B105_F1.md` §三·2 · `B106_W1.md` §①
-                    var moaFlip = FindPoolCard("Master of Arcana");
-                    if (moaFlip != null && cdw.SlotCount < 2)
+                    //   🔴 原夹具 `Master of Arcana` 现读 **0 张**相关卡（用户裁定删替身、`B146-E2`）
+                    //   ⇒ 换 `Path of Command`（真值 `relatedCard1` = `Storm Guardian` ⇒ 恒 2 格）。⛔ 前提断言保留。
+                    var pocFlip = FindPoolCard("Path of Command");
+                    if (pocFlip != null && cdw.SlotCount < 2)
                     {
-                        cdw.Show(BattleDriver.ToCardData(moaFlip, moaFlip.Faction), moaFlip);
+                        cdw.Show(BattleDriver.ToCardData(pocFlip, pocFlip.Faction), pocFlip);
                         CardTween.Advance(CardFan.OpenTime + 0.05f);
                     }
                     Check(cdw.FrontVisible && cdw.Card != null && !cdw.Card.BackVisible,
@@ -34769,14 +34776,14 @@ public static class BattleScene
                                 }
                                 // **按下沿**允许留下的调用点（逐处判据 → WA462 §三 / §四；**2026-10-21 现读**）：
                                 //  ① 日志面板背板 `shade`（原版 `EventTrigger` `eventID 2 = PointerDown`）
-                                //  ② 攻击选择器的**槽外取消**（原版没有对应物 —— 保持现状，WA462 §四·3）
+                                //  ② ~~攻击选择器的**槽外取消**~~（✅ 2026-11-05 `B146-E7` 已按用户裁定删除 —— 原版无此支 ⇒ 按下沿从 5 处回到 4 处）
                                 //  ③ 记 `_pressSlot`（我们自己的中间态，纪律 3）
                                 //  ④ 结算后的出口（`HandleEndBattleExit` 里那句 `bool clicked = ClickedThisFrame();`）——
                                 //     原版那句就是 `UnityEngine_Input__GetMouseButtonDown(0)`
                                 //     （`BattleManager__Update.c:116`），**本来就是按下沿**、而且**无坐标判定**
                                 //     （点屏幕任意处）⇒ 这一处**不该**改成抬起。
                                 //     判据全文 → `资料/普查产出_1016/判据_结算后出口.md` §2.1 / §3。  ⑤ `HandleTutorialTipDismiss`（教程提示「点一下消掉」= 原版 `TutorialTipScript__Update.c:9-27` 的 `Input.GetMouseButtonDown(0)`；**2026-11-04（`B142-E68`）补**：B142-E67 已把它从抬沿改成按下沿）
-                                //  🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）：数从 5 改成 4** —— 🆕 **2026-11-04（`B142-E68`）：又改回 5**（新增 ⑤ 教程提示，见上一行）——
+                                //  🔴 **2026-10-21（战斗线 `T09` A4 · 步骤 S1）：数从 5 改成 4** —— 🆕 **2026-11-04（`B142-E68`）：又改回 5**（新增 ⑤ 教程提示，见上一行）—— 🔴 **2026-11-05（`B146-E7`）：② 槽外取消已删 ⇒ 回到 4**
                                 //     原来那条「`ChatPopup` 条外关闭 `CloseChatPopup`」**已退场**：
                                 //     气泡的条外关闭现在完全归面板自己的 uGUI（`EventTrigger.PointerDown` →
                                 //     `OnClosePointerDown`），驱动 `HandleChatPopup` 只做模态吞掉、**一条沿都不耗**。
@@ -34784,16 +34791,16 @@ public static class BattleScene
                                 //     见 `Update` 里那条注释）—— 那是旧注的残留，别再按它去核。
                                 //     🧨 判据：把 `ClickedThisFrame()` 加回 `HandleChatPopup` ⇒ 本条红（两条关闭路并存）。
                                 string joined4 = string.Join(" | ", downCallSites.ToArray());
-                                Check(downCallSites.Count == 5,
-                                      $"★ A462：`BattleDriver.cs` 里用**按下沿**的代码行**共 5 处**"
+                                Check(downCallSites.Count == 4,
+                                      $"★ A462：`BattleDriver.cs` 里用**按下沿**的代码行**共 4 处**"
                                     + $"（实得 {downCallSites.Count} 处：{joined4}）"
                                     + " —— 多一处 = 有一条该改抬起的没改（或有一条已退场的手搓路被加回来了）；少一处 = 把一个本来就该按下的改掉了（含 ⑤ 教程提示 `HandleTutorialTipDismiss`：2026-11-04 起按原版算按下沿）"
-                                    + "（②~⑤ 那几处：`Update` 里两条沿的行为断言覆盖不到 ⇒ 这里补"
+                                    + "（③~⑤ 那几处：`Update` 里两条沿的行为断言覆盖不到 ⇒ 这里补"
                                     + "「那一行到底调的是哪条沿」）");
 
                                 // ============================================================
                                 //  🔴 **2026-10-25（执行代理 `R` · 自检断言线 `T08` / 账 `A462`）**：
-                                //     **抬起沿的对称源级断言** —— 上面那条数「按下沿共 5 处」，这一条数
+                                //     **抬起沿的对称源级断言** —— 上面那条数「按下沿共 4 处」，这一条数
                                 //     「抬起沿**只有** 7 处」。⚠️ **锚点 = 代码文本 + 所在方法名**，⛔ 不写行号
                                 //     （`BattleDriver.cs` 一直在改；本轮现读的行号就已经和 10-21 记的那组对不上了）。
                                 //     每处一句话判据（为什么这一处该按「抬起」而不是「按下」）→ `upWhitelist` 第三列。
@@ -34853,7 +34860,7 @@ public static class BattleScene
                                     //   改成了**按下沿**（判据 = `d:/2/tools/decomp_full/TutorialTipScript__Update.c:9-27`，就是
                                     //   `Input.GetMouseButtonDown(0)`）。⚠️ **就地订正（铁律 5）**：原来这里写「这一处没有逐字的原版沿判据
                                     //   （`TutorialTipScript` 方法体拿不到）」**是错的** —— 方法体一直在盘，正是这个缺陷能活下来的原因
-                                    //   （旧注让它看起来「没有判据、只能取抬起」）。它现在计入上面「按下沿共 5 处」那一条（⑤）。
+                                    //   （旧注让它看起来「没有判据、只能取抬起」）。它现在计入上面「按下沿共 4 处」那一条（⑤）。
                                     // 🔴 2026-10-30（`B100_F24` · `报告/B100_X3` #16）：`B95_WBD`（2026-10-29）新加的
                                     //   「教程 Continue 钮」那条抬起沿 —— 原版那颗钮是 uGUI 按钮点击（`m_OnClick` = 抬起），
                                     //   判据就写在方法头（`BattleDriver.cs:37818-37824` 那三句 + 注释）。⛔ 这条**不是**
@@ -34891,7 +34898,7 @@ public static class BattleScene
                                 for (int k = 0; k < upWhitelist.Length; k++)
                                     if (!upHits[k]) upMissing.Add(upWhitelist[k][0] + " · `" + upWhitelist[k][1] + "`");
                                 Check(upCallSites.Count == 0 && upMissing.Count == 0,
-                                      "★ A462·抬起沿（源级·与上面「按下沿共 5 处」那条**对称**）：`BattleDriver.cs` 里"
+                                      "★ A462·抬起沿（源级·与上面「按下沿共 4 处」那条**对称**）：`BattleDriver.cs` 里"
                                     + " `ReleasedThisFrame()` 的代码调用点**只有白名单那 " + upWhitelist.Length + " 处**"
                                     + $"（扫到 {upIdx.Count} 处 / 白名单 {upWhitelist.Length} 处）"
                                     + " —— 多一处 = 有人把别的东西也改成抬起了（**没有判据**）；"
@@ -45402,7 +45409,7 @@ public static class BattleScene
                 }
             }
 
-            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; CheckT21TriggerAnchors(driver, Check); RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; B120_W2_Assert.Run(driver); pass += B120_W2_Assert.Pass; fail += B120_W2_Assert.Fail; B120_W10_Assert.Run(driver); pass += B120_W10_Assert.Pass; fail += B120_W10_Assert.Fail; B120_W15_Assert.Run(driver); pass += B120_W15_Assert.Pass; fail += B120_W15_Assert.Fail; CheckCardWinUiStateBlocked(driver, Check); CheckChallengeCounters(Check); CheckManaBuffHud(driver, Check); B115W7_Assert.Run(driver); pass += B115W7_Assert.Pass; fail += B115W7_Assert.Fail; B116W42_Assert.Run(driver); pass += B116W42_Assert.Pass; fail += B116W42_Assert.Fail; B118W22_Assert.Run(); pass += B118W22_Assert.Pass; fail += B118W22_Assert.Fail; /* 🆕 2026-11-04（`B142-E21` 接线）：`B117F12_Assert.Run()`（详情窗督军血量，需真窗 —— `CardDisplayWindow.Create` 依赖活的 `LayoutSpace.Cam`/`HudCanvas`）此前全仓 0 宿主；必须排在 `driver.DetachStaticHooks()` 之前（HUD/相机还活着）。⛔ 不能接在 `:47035` —— 本方法在 `:46820` 的 `CheckSavedScene` 里 `EditorSceneManager.OpenScene` 换掉场景后，静态 `LayoutSpace.Cam` 已随旧场景销毁 ⇒ 建不出真窗。同一物理行追加 ⇒ 行数零变化。 */ B117F12_Assert.Run(); pass += B117F12_Assert.Pass; fail += B117F12_Assert.Fail; { /* 🔴 2026-11-02（B117-WBT）：E2 的夹具 —— 敌方场上必须 ≥3 个单位，否则 B117F11_Assert 的 E2 组只剩一条「（前提）不够」的红、AoE 并行从没被真验过。这里在调用前把敌方空的可部署格补满 3 个引擎单位（RunWithDriver 第一句 RefreshAll 会把视图同步出来）。勿改成行注释：本行是聚合行，行注释会把后面全部代码吞掉。 */ var _e2ctx = driver.Ctx; int _e2foe = 1 - _e2ctx.Active; int _e2have = 0; for (int _s = 0; _s < BoardSpec.Size; _s++) if (BoardSpec.IsDeployable(_s) && _e2ctx.Players[_e2foe].Board[_s] != null) _e2have++; if (_e2have < 3) { CardDef _e2def = null; var _e2pool = CardDatabase.Load(); for (int _i = 0; _i < _e2pool.Count && _e2def == null; _i++) { var _c = _e2pool[_i]; if (_c != null && _c.Type == "unit") _e2def = _c; } if (_e2def == null) Debug.LogWarning(P + "E2 夹具：卡池里找不到 type==unit 的定义 ⇒ 敌方不足 3 个单位，E2 仍会报前提红"); else for (int _s = 0; _s < BoardSpec.Size && _e2have < 3; _s++) { if (!BoardSpec.IsDeployable(_s) || _e2ctx.Players[_e2foe].Board[_s] != null) continue; var _u = new UnitState(_e2ctx.NewInstance(_e2def), false); _u.DeployedTurn = _e2ctx.Turn; _u.PlayOrder = _e2ctx.TakePlayOrder(); _e2ctx.Players[_e2foe].Board[_s] = _u; _e2have++; } } } B117F11_Assert.RunWithDriver(driver); pass += B117F11_Assert.Pass; fail += B117F11_Assert.Fail; B117_G10_16_Assert.Run(driver); pass += B117_G10_16_Assert.Pass; fail += B117_G10_16_Assert.Fail; B117_G10_09_Assert.Run(); pass += B117_G10_09_Assert.Pass; fail += B117_G10_09_Assert.Fail; B117_G10_15_Assert.Run(); pass += B117_G10_15_Assert.Pass; fail += B117_G10_15_Assert.Fail; B117_WBD_Assert.Run(); pass += B117_WBD_Assert.Pass; fail += B117_WBD_Assert.Fail; B117_G10_04_Assert.RunWithDriver(driver); pass += B117_G10_04_Assert.Pass; fail += B117_G10_04_Assert.Fail; /* 🆕 2026-11-02（B117-WWIREA 接线）：这五件都必须跑在**这台 driver 还活着**的时候（本行随后就 `DetachStaticHooks` + `DestroyImmediate(driver)`）—— G10-16 录像栏四颗钮的 cue 要活 HUD；G10-09 要 `FindObjectOfType<SkillPanel>()`（收起只压 alpha、不 `SetActive(false)`，所以找得到）；G10-15 要 driver 建出的 `BattleLogPanel`；WBD 要 `LayoutSpace.Cam`/`HudCanvas` 才能 `BattleLogPanel.Create(null)`；G10-04 的 `RunWithDriver` 会临时改写 4 个 ctx 字段并**在 finally 原样还原 + 重刷 HUD** ⇒ 按它文件头的要求排在**所有依赖棋盘/HUD 现状的断言之后**、卸 driver 之前（故放在本行最末、`DetachStaticHooks` 之前）。同一物理行追加 ⇒ 行数零变化。 */ RuleEngineTest_B121WB.Run(driver); pass += RuleEngineTest_B121WB.Pass; fail += RuleEngineTest_B121WB.Fail; B128_Assert.RunMultiCardEsc(driver); pass += B128_Assert.Pass; fail += B128_Assert.Fail; /* 🆕 2026-11-04（B141-W8）：T09 S2 两条轴（`UiTopWindow` / `UiStateNow`）+ B124-TACTDROP（战术卡落点含敌方督军格）—— 要活 driver 且会真打一张牌 ⇒ 接在 `DetachStaticHooks` 之前、全场最末（后面没有别的断言会被它污染）。同一物理行追加 ⇒ 行数零变化。 */ B141_W8_Assert.Run(driver); pass += B141_W8_Assert.Pass; fail += B141_W8_Assert.Fail; /* 🆕 2026-11-04（B141-W8b）：4-05 同族第二处（战斗内设置面板语言下拉按内容收缩）+ 4-10 其余两处（END TURN / ManaText = Midline）。要活 driver 的 HUD 与 setting 面板 ⇒ 同一条活 driver 聚合行、`DetachStaticHooks` 之前。同一物理行追加 ⇒ 行数零变化。 */ B141_W8b_Assert.Run(driver); pass += B141_W8b_Assert.Pass; fail += B141_W8b_Assert.Fail; driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
+            B97W3_Assert.CheckB97W3(driver); pass += B97W3_Assert.Pass; fail += B97W3_Assert.Fail; B102C506_Assert.Run(); B102C506_Assert.RunDriver(driver); pass += B102C506_Assert.Pass; fail += B102C506_Assert.Fail; CheckT21TriggerAnchors(driver, Check); RunR13(); B104_T21_Assert.RunEngine(driver.Ctx); B104_T21_Assert.RunPresentation(driver); pass += B104_T21_Assert.Pass; fail += B104_T21_Assert.Fail; B105_W2_Assert.RunPresentation(driver); pass += B105_W2_Assert.Pass; fail += B105_W2_Assert.Fail; B120_W2_Assert.Run(driver); pass += B120_W2_Assert.Pass; fail += B120_W2_Assert.Fail; B120_W10_Assert.Run(driver); pass += B120_W10_Assert.Pass; fail += B120_W10_Assert.Fail; B120_W15_Assert.Run(driver); pass += B120_W15_Assert.Pass; fail += B120_W15_Assert.Fail; CheckCardWinUiStateBlocked(driver, Check); CheckChallengeCounters(Check); CheckManaBuffHud(driver, Check); B115W7_Assert.Run(driver); pass += B115W7_Assert.Pass; fail += B115W7_Assert.Fail; B116W42_Assert.Run(driver); pass += B116W42_Assert.Pass; fail += B116W42_Assert.Fail; B118W22_Assert.Run(); pass += B118W22_Assert.Pass; fail += B118W22_Assert.Fail; /* 🆕 2026-11-04（`B142-E21` 接线）：`B117F12_Assert.Run()`（详情窗督军血量，需真窗 —— `CardDisplayWindow.Create` 依赖活的 `LayoutSpace.Cam`/`HudCanvas`）此前全仓 0 宿主；必须排在 `driver.DetachStaticHooks()` 之前（HUD/相机还活着）。⛔ 不能接在 `:47035` —— 本方法在 `:46820` 的 `CheckSavedScene` 里 `EditorSceneManager.OpenScene` 换掉场景后，静态 `LayoutSpace.Cam` 已随旧场景销毁 ⇒ 建不出真窗。同一物理行追加 ⇒ 行数零变化。 */ B117F12_Assert.Run(); pass += B117F12_Assert.Pass; fail += B117F12_Assert.Fail; { /* 🔴 2026-11-02（B117-WBT）：E2 的夹具 —— 敌方场上必须 ≥3 个单位，否则 B117F11_Assert 的 E2 组只剩一条「（前提）不够」的红、AoE 并行从没被真验过。这里在调用前把敌方空的可部署格补满 3 个引擎单位（RunWithDriver 第一句 RefreshAll 会把视图同步出来）。勿改成行注释：本行是聚合行，行注释会把后面全部代码吞掉。 */ var _e2ctx = driver.Ctx; int _e2foe = 1 - _e2ctx.Active; int _e2have = 0; for (int _s = 0; _s < BoardSpec.Size; _s++) if (BoardSpec.IsDeployable(_s) && _e2ctx.Players[_e2foe].Board[_s] != null) _e2have++; if (_e2have < 3) { CardDef _e2def = null; var _e2pool = CardDatabase.Load(); for (int _i = 0; _i < _e2pool.Count && _e2def == null; _i++) { var _c = _e2pool[_i]; if (_c != null && _c.Type == "unit") _e2def = _c; } if (_e2def == null) Debug.LogWarning(P + "E2 夹具：卡池里找不到 type==unit 的定义 ⇒ 敌方不足 3 个单位，E2 仍会报前提红"); else for (int _s = 0; _s < BoardSpec.Size && _e2have < 3; _s++) { if (!BoardSpec.IsDeployable(_s) || _e2ctx.Players[_e2foe].Board[_s] != null) continue; var _u = new UnitState(_e2ctx.NewInstance(_e2def), false); _u.DeployedTurn = _e2ctx.Turn; _u.PlayOrder = _e2ctx.TakePlayOrder(); _e2ctx.Players[_e2foe].Board[_s] = _u; _e2have++; } } } B117F11_Assert.RunWithDriver(driver); pass += B117F11_Assert.Pass; fail += B117F11_Assert.Fail; B117_G10_16_Assert.Run(driver); pass += B117_G10_16_Assert.Pass; fail += B117_G10_16_Assert.Fail; B117_G10_09_Assert.Run(); pass += B117_G10_09_Assert.Pass; fail += B117_G10_09_Assert.Fail; B117_G10_15_Assert.Run(); pass += B117_G10_15_Assert.Pass; fail += B117_G10_15_Assert.Fail; B117_WBD_Assert.Run(); pass += B117_WBD_Assert.Pass; fail += B117_WBD_Assert.Fail; B117_G10_04_Assert.RunWithDriver(driver); pass += B117_G10_04_Assert.Pass; fail += B117_G10_04_Assert.Fail; /* 🆕 2026-11-02（B117-WWIREA 接线）：这五件都必须跑在**这台 driver 还活着**的时候（本行随后就 `DetachStaticHooks` + `DestroyImmediate(driver)`）—— G10-16 录像栏四颗钮的 cue 要活 HUD；G10-09 要 `FindObjectOfType<SkillPanel>()`（收起只压 alpha、不 `SetActive(false)`，所以找得到）；G10-15 要 driver 建出的 `BattleLogPanel`；WBD 要 `LayoutSpace.Cam`/`HudCanvas` 才能 `BattleLogPanel.Create(null)`；G10-04 的 `RunWithDriver` 会临时改写 4 个 ctx 字段并**在 finally 原样还原 + 重刷 HUD** ⇒ 按它文件头的要求排在**所有依赖棋盘/HUD 现状的断言之后**、卸 driver 之前（故放在本行最末、`DetachStaticHooks` 之前）。同一物理行追加 ⇒ 行数零变化。 */ RuleEngineTest_B121WB.Run(driver); pass += RuleEngineTest_B121WB.Pass; fail += RuleEngineTest_B121WB.Fail; B128_Assert.RunMultiCardEsc(driver); pass += B128_Assert.Pass; fail += B128_Assert.Fail; /* 🆕 2026-11-04（B141-W8）：T09 S2 两条轴（`UiTopWindow` / `UiStateNow`）+ B124-TACTDROP（战术卡落点含敌方督军格）—— 要活 driver 且会真打一张牌 ⇒ 接在 `DetachStaticHooks` 之前、全场最末（后面没有别的断言会被它污染）。同一物理行追加 ⇒ 行数零变化。 */ B141_W8_Assert.Run(driver); pass += B141_W8_Assert.Pass; fail += B141_W8_Assert.Fail; /* 🆕 2026-11-04（B141-W8b）：4-05 同族第二处（战斗内设置面板语言下拉按内容收缩）+ 4-10 其余两处（END TURN / ManaText = Midline）。要活 driver 的 HUD 与 setting 面板 ⇒ 同一条活 driver 聚合行、`DetachStaticHooks` 之前。同一物理行追加 ⇒ 行数零变化。 */ B141_W8b_Assert.Run(driver); pass += B141_W8b_Assert.Pass; fail += B141_W8b_Assert.Fail; B146_W15_Assert.Run(driver); pass += B146_W15_Assert.Pass; fail += B146_W15_Assert.Fail; driver.DetachStaticHooks(); Check(BattleDriver.StaticHookCount == 0, "★ B103R1 #76：自检卸 driver **之前**静态钩子必须清零（编辑期 `DestroyImmediate` 不派 `OnDestroy`、`BattleDriver` 无 `[ExecuteAlways]`）｜🧨 删掉这句 `driver.DetachStaticHooks();` ⇒ 这里 >0"); UnityEngine.Object.DestroyImmediate(driver);   // 🔴 2026-10-30（`B102_506`）：`B102C506_Assert.RunDriver(driver)` 与 `RunR13()` 都必须跑在**这台 driver 还活着**的时候 —— 原来它们在本方法末尾，那时 `driver` 已被本行 `DestroyImmediate` 打成假 null ⇒ 一个「假 null 组件」+ 一整段静默跳过。两个调用都写在本行（`DestroyImmediate` 之前）⇒ **零行数变化**。  // [B100_F24 2026-10-30] 账 483 那组断言要跑在**这台 driver 还活着**的时候：本行下面就是 DestroyImmediate，再往后 `driver` 是假 null、`CheckB97W3` 会回退到另一台没开局的 driver（W0b 必红） ／🔴 2026-10-31（`B106_W77`）：`CheckManaBuffHud(driver, Check)`（W47 · 11 条）原来接在 `:46873`（本行 `DestroyImmediate` **之后 4,630 行**）⇒ 拿到假 null、首句早退、另 10 条一条没跑；现挪到 `RunR13();` 之后、`driver.DetachStaticHooks();` **之前**（必须在 Detach 之前：它 `Begin` 一局新的会重挂静态钩子，否则紧随的 `StaticHookCount == 0` 会跟着红）。同一物理行追加 ⇒ 行数零变化。 ／🔴 2026-10-31（`B106_W80`）：`B104_T21_Assert.RunEngine/RunPresentation`（14+19 条）与 `B105_W2_Assert.RunPresentation`（14 条）原来接在 `:46873`（本节末尾、本行 `DestroyImmediate` **之后** ~4,630 行）⇒ 拿到假 null、「driver != null」守卫为 false、整段静默跳过；现挪到 `RunR13();` 之后、`CheckManaBuffHud` **之前**（同一物理行追加 ⇒ 行数零变化；`CheckManaBuffHud` 必须最后：它 `Begin` 重开一局会冲掉前面的现场；`B105_W2.RunPresentation` 会暂时真摘一张手牌并在 finally 复原 ⇒ 排在会 `Begin` 的 `CheckManaBuffHud` 之前是安全的）。`B105_W2_Assert.RunEngine()` 无 driver 依赖，**仍留在** `:46873`。
 
             // 🔴 **2026-10-12（A388 收红那轮）：这一段按 `Application.isPlaying` 分两档。**
             //    原来那句「批处理里 `DestroyImmediate` **同步**调 `OnDestroy`」**前提是错的**：

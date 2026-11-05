@@ -933,7 +933,7 @@ namespace CardPresentation
         {
             ParentEventWindow.EnsureHeaderTitleResolver();
             WindowHeaderWithBackButton.WireByPath(root, WindowHeader.RootNameGameMode, () => CloseButtonClick(),
-                                                  Loc.T("MainMenu/GameMode/Skirmish"));
+                                                  Loc.T("MainMenu/GameMode/Skirmish"), null, HeaderDrawers());
         }
 
         // ================================================================================================

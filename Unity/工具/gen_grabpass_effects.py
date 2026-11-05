@@ -723,7 +723,8 @@ def build_report(opts):
 def main(argv):
     if len(argv) <= 1:
         print(USAGE)
-        return 0
+        # 🔴 2026-11-05（B146-E1）：不带显式动作 ⇒ 非零退出（纪律同 §三「写盘类脚本不带动词 = 什么都不做」）。
+        return 2
 
     mode = None
     quiet = False
@@ -765,7 +766,8 @@ def main(argv):
 
     if mode is None:
         print(USAGE)
-        return 0
+        # 🔴 2026-11-05（B146-E1）：只给了 `--quiet/--out` 这类修饰、没给动作 ⇒ 同样非零退出、不做事。
+        return 2
 
     if not os.path.isdir(prefab_dir):
         print("⛔ prefab 目录不存在：%s" % prefab_dir, file=sys.stderr)

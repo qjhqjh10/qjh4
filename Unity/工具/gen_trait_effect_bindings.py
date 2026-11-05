@@ -108,10 +108,17 @@ def load_guid_names():
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(
+        description="特性→效果绑定生成器（🔴 不带显式动作 = 用法 + 退出码 2，绝不写盘；B146-E1）")
+    ap.add_argument("--write", action="store_true", help="显式落盘")
     ap.add_argument("--check", action="store_true", help="只校验现有产物与判据一致，不写文件")
+    ap.add_argument("--dry", action="store_true", help="只跑计算、打印读数，不写文件")
     ap.add_argument("--generated-at", default=None)
     args = ap.parse_args()
+    if not (args.write or args.check or args.dry):
+        ap.print_usage()
+        print("🔴 不带显式动作 ⇒ 什么也不做（退出码 2）。要落盘请加 `--write`；只对账加 `--check`。")
+        return 2
 
     tc = read_json(TRAIT_COLLECTION)
     amap = read_json(ANIM_ADDRESS_MAP)
@@ -287,6 +294,10 @@ def main():
         return 0 if same else 3
 
     # ⚠️ 先算好内容再写（CLAUDE.md 的纪律：别让 `open(...,'wb').write(<表达式>)` 在表达式炸掉时把文件清空）。
+    if not args.write:
+        # 🔴 2026-11-05（B146-E1）：`--dry` 走到这儿为止，一个字节都不写。
+        print("[dry] 未写盘：%s（rows=%d）；要落盘请显式加 `--write`" % (OUT, len(rows)))
+        return 0
     data = text.encode("utf-8") + b"\n"
     with open(OUT, "wb") as f:
         f.write(data)

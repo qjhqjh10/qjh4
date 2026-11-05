@@ -100,7 +100,7 @@ public static partial class RuleEngineTest
         "TestB94F4EngineGaps", "TestF2B94", "TestEngineB95WBDHandGate", "TestB95WREAttackerPlumbing", "CheckB96CBEngine", "TestB97W28",
         "TestB97W34", "TestB99E2", "TestB99E5", "RunB99E6", "TestB98K4", "TestB98K6",
         "TestB97W1", "CheckB100F17Gaps", "CheckB100F21RemnantSlay", "TestB145E22SentryKillSkipsAttack", "TestB145E25ShurikenKillNoCounter", "TestB145E25CoinFlipOpening",
-        "CheckB97W19CancelAttackByUnits", "B113W2Case", "B113X1Case", "B121D4Case",
+        "CheckB97W19CancelAttackByUnits", "B113W2Case", "B113X1Case", "B121D4Case", "CheckB146W14AttackChainTraitRemoval",
     };
 
     /// <summary>🔴 **2026-10-30（第一百会话）**：**子用例** —— 名字是 `Test*` 口径、但**由另一个用例内部调用**
@@ -658,6 +658,7 @@ public static partial class RuleEngineTest
         Safe("B113W2Case", () => B113W2Case());
         Safe("B113X1Case", () => B113X1Case());
         Safe("B121D4Case", () => B121D4Case());
+        Safe("CheckB146W14AttackChainTraitRemoval", () => CheckB146W14AttackChainTraitRemoval());
 
         VerifyDiagCoverage();
 

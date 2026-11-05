@@ -961,16 +961,6 @@ namespace RuleEngine
             return ValueInPlay(target) * f;
         }
 
-        /// <summary>把一个单位弹回手牌值多少分（原版 `ScoreFromReturnToHand`：
-        /// `当前费用 − (2×费+1 − 目标价值) × 1.5 − 集结/法典的 2 分`）。</summary>
-        public static float ScoreReturnToHand(UnitState target, int cost)
-        {
-            if (target == null || !target.IsAlive) return 0f;
-            float v = (2f * cost + 1f - ValueInPlay(target)) * 1.5f;
-            float bonus = (target.Has(KeywordTable.Rally) ? 2f : 0f) + (target.Has(KeywordTable.Codex) ? 2f : 0f);
-            return cost - v - bonus;
-        }
-
         /// <summary>抽一张牌值多少分（原版 `ScoreFromDrawingCard` / `ScoreFromCriteria` case 35）：
         /// `手牌上限 − 手牌数 − 1`；**牌库空 ⇒ `−2 − 疲劳`**。
         ///

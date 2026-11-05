@@ -697,6 +697,7 @@ namespace RuleEngine
             return sum;
         }
 
+        // ✅ 已复刻（2026-11-05 · B146-E3 · A-08/C-13 死码清理：原 SimpleAI.ScoreReturnToHand 0 调用，已删；产品唯一入口是这里）
         /// <summary>原版 `AI.ScoreFromReturnToHand`（`d:/2/tools/decomp_full/AI__ScoreFromReturnToHand.c:1-40`，
         /// 2026-10-26 `E4` 逐句复核）：
         /// `CurrentCost − (2×基础费+1 − GetValueInPlay) × 1.5 − (rally ? 2 : 0) − (codex ? 2 : 0)`。

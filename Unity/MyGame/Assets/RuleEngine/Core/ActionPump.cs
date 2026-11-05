@@ -802,7 +802,7 @@ namespace RuleEngine
             //   数据早就在：生成器把这两格落到 `unitConditions` 的 `role="acting"` 行（`lg = -1`）；
             //   拼回一个 `TargetCriteria` 的既有先例 = `RuleCore` 的 `ActiveAbilityPickGate`（`E5-1`）。
             var cond = AbilityLevelConditionRow(card, triggerName, "acting");
-            bool? ok = TargetCriteriaEval.Matches(ctx, owner, set, candidate, cond, thisCard, targetCard, out gap);
+            bool? ok = TargetCriteriaEval.Matches(ctx, owner, set, candidate, cond, thisCard, targetCard, out gap, actingCard: candidate);
             if (ok == null && !string.IsNullOrEmpty(gap)) why = gap;
             return ok;
         }
@@ -2292,7 +2292,7 @@ namespace RuleEngine
                 if (set == null) continue;              // 这条 ability 明确没有这一格条件 ⇒ 放行这一条
                 var cond = AbilityLevelConditionRowAt(card, r.AbilityIndex, "acting");   // ⑧ `conditionsFilter`
                 string gap;
-                bool? ok = TargetCriteriaEval.Matches(ctx, owner, set, candidate, cond, thisCard, targetCard, out gap);
+                bool? ok = TargetCriteriaEval.Matches(ctx, owner, set, candidate, cond, thisCard, targetCard, out gap, actingCard: candidate);
                 if (ok == false) { why = $"ability#{r.AbilityIndex}（trigger={triggerName}）的 acting 条件**不满足**"; return false; }
                 if (ok == null) gaps = gaps == null ? gap : gaps + "；" + gap;
             }
@@ -2388,7 +2388,7 @@ namespace RuleEngine
                 string agap;
                 bool? aok = TargetCriteriaEval.Matches(ctx, owner, actSet, actingCandidate,
                                                        AbilityLevelConditionRowAt(card, abilityIndex, "acting"),
-                                                       thisCard, targetCandidate, out agap);
+                                                       thisCard, targetCandidate, out agap, actingCard: actingCandidate);
                 if (aok == false) { why = $"ability#{abilityIndex} 的 acting 条件**不满足**"; return false; }
                 if (aok == null && !string.IsNullOrEmpty(agap)) why = agap;
             }
@@ -2401,7 +2401,7 @@ namespace RuleEngine
                 string tgap;
                 bool? tok = TargetCriteriaEval.Matches(ctx, owner, tgtSet, targetCandidate,
                                                        AbilityLevelConditionRowAt(card, abilityIndex, "target"),
-                                                       thisCard, targetCandidate, out tgap);
+                                                       thisCard, targetCandidate, out tgap, actingCard: actingCandidate);
                 if (tok == false) { why = $"ability#{abilityIndex} 的 target 条件**不满足**"; return false; }
                 if (tok == null && !string.IsNullOrEmpty(tgap)) why = tgap;
             }

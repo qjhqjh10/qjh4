@@ -1451,9 +1451,16 @@ def check_standalone(stan_root, unresolved, gaps):
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(
+        description='环境混合组件旁挂表生成器（🔴 不带显式动作 = 用法 + 退出码 2，绝不写盘）')
+    ap.add_argument('--write', action='store_true', help='显式落盘（重新生成两份旁挂 JSON）')
     ap.add_argument('--check', action='store_true', help='只扫不写')
+    ap.add_argument('--dry', action='store_true', help='只扫不写（与 --check 同样零写盘，语义上是干跑）')
     a = ap.parse_args()
+    if not (a.write or a.check or a.dry):
+        ap.print_usage()
+        print('🔴 不带显式动作 ⇒ 什么也不做（退出码 2）。要落盘请加 `--write`；只对账加 `--check`。')
+        return 2
 
     scripts = load_script_names()
     print('类名表 %d 条' % len(scripts))
@@ -1598,6 +1605,10 @@ def main():
         print('✅ 两侧自检全过（`_unresolved` 空；已知缺口见上面那条「（信息）」与 `_missingTargets`）')
 
     if a.check:
+        return 0
+    if not a.write:
+        # 🔴 2026-11-05（B146-E1）：`--dry` 只读到这儿 —— 下面两段都是写盘，一律不执行。
+        print('干跑（未写盘）：要落盘请显式加 `--write` ⇒ %s / %s' % (OUT, FLAT))
         return 0
 
     out = {

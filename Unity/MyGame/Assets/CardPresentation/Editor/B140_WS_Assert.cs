@@ -1,6 +1,6 @@
 // B140_WS_Assert.cs — 网格内部标志（审计 `B136` top-5 #4）的自检断言宿主
 //
-// 活：把 `B140_WS_MeshFlags` 那 101 份网格的四个内部标志钉住，并把「编辑器绿灯 ≠ 出包安全」这件事
+// 活：把 `B140_WS_MeshFlags` 那 101 份网格的五个内部标志钉住，并把「编辑器绿灯 ≠ 出包安全」这件事
 //     本身也钉成一条断言（否则下一轮会有人拿编辑器绿去证明出包没问题）。
 //
 // 判据出处：
@@ -15,10 +15,10 @@
 // 判绿红：按**行首** `B140WS ✓` / `B140WS ✗` 数（⛔ 别 `grep -c ✗` —— `✗` 会出现在文案里）。
 //
 // 覆盖：
-//   A  名单内 101 份网格的四个字段逐值 = 原版（四个字段各一档，逐条失败点名）
+//   A  名单内 101 份网格的五个字段逐值 = 原版（五个字段各一档，逐条失败点名）
 //   B  读顶点那条路在**编辑器**里仍然拿得到顶点（先断前提：网格在、顶点数对）
-//   C  灭自证：把 `m_KeepVertices` 改回 0 ⇒ A 的判据必须报红；而**顶点在盘上照样读得出**
-//      ⇒ 直接证明「编辑器静态证据不足以说明出包后安全」——所以出包验证是**必需**的，不是加分项
+//   C  灭自证：把 `m_KeepVertices` 改回 0 ⇒ A 的判据必须报红；把 `m_IsReadable` 改回 1 ⇒ A 的第五档报红；
+//      两种情况**顶点在盘上都照样读得出**（指纹不变）⇒ 直接证明「编辑器静态证据不足以说明出包后安全」，出包验证是**必需**的
 //
 // ⚠️ `C` 只在一份**临时副本**上做（`Library/B140_WS_tmp/`），⛔ 一个字节都不动工程里的资产。
 using System;
@@ -70,33 +70,33 @@ public static class B140_WS_Assert
             if (B140_WS_MeshFlags.ReadFlagsFromFile(full) == null)
             {
                 unparsable++;
-                Debug.LogError(Tag + "   ✗ 四个字段读不全 " + B140_WS_MeshFlags.AssetPath(i));
+                Debug.LogError(Tag + "   ✗ 五个字段读不全 " + B140_WS_MeshFlags.AssetPath(i));
             }
         }
         Check(missing == 0, $"前提：101 份网格文件都在（缺 {missing}）");
-        Check(unparsable == 0, $"前提：101 份的四个字段都读得出（读不全 {unparsable}）");
+        Check(unparsable == 0, $"前提：101 份的五个字段都读得出（读不全 {unparsable}）");
     }
 
-    // ── A：四个字段逐值 = 原版 ─────────────────────────────────────────────────
+    // ── A：五个字段逐值 = 原版 ─────────────────────────────────────────────────
 
     static void CheckA_Flags()
     {
         int n = B140_WS_MeshFlags.Count;
-        var bad = new List<string>[4];
-        for (int k = 0; k < 4; k++) bad[k] = new List<string>();
+        var bad = new List<string>[B140_WS_MeshFlags.Fields.Length];
+        for (int k = 0; k < bad.Length; k++) bad[k] = new List<string>();
 
         for (int i = 0; i < n; i++)
         {
             string full = B140_WS_MeshFlags.FullPath(B140_WS_MeshFlags.AssetPath(i));
             int[] got = B140_WS_MeshFlags.ReadFlagsFromFile(full);
             int[] want = B140_WS_MeshFlags.Expected(i);
-            if (got == null) { for (int k = 0; k < 4; k++) bad[k].Add(B140_WS_MeshFlags.AssetPath(i) + "（读不到）"); continue; }
-            for (int k = 0; k < 4; k++)
+            if (got == null) { for (int k = 0; k < bad.Length; k++) bad[k].Add(B140_WS_MeshFlags.AssetPath(i) + "（读不到）"); continue; }
+            for (int k = 0; k < bad.Length; k++)
                 if (got[k] != want[k])
                     bad[k].Add($"{B140_WS_MeshFlags.AssetPath(i)} 现 {got[k]} / 原版 {want[k]}");
         }
 
-        for (int k = 0; k < 4; k++)
+        for (int k = 0; k < bad.Length; k++)
         {
             foreach (var s in bad[k]) Debug.LogError(Tag + "   ✗ " + s);
             Check(bad[k].Count == 0,
@@ -169,7 +169,7 @@ public static class B140_WS_Assert
         string tmp = Path.Combine(tmpDir, "Card 3D WH40k.keepv0.asset");
         File.Copy(src, tmp, true);
 
-        int[] broken = new[] { cur[0], cur[1], 0, 0 };
+        int[] broken = new[] { cur[0], cur[1], 0, 0, cur[4] };
         if (!B140_WS_MeshFlags.PatchFileFields(tmp, broken, out string err))
         {
             Check(false, "C：临时副本改写失败 —— " + err);
@@ -191,6 +191,48 @@ public static class B140_WS_Assert
         Check(real != null && real[2] == 1 && real[3] == 1,
               "C-3：工程里那份未被临时副本连带改动（KeepVertices/Indices 仍 1/1）");
 
+        // C-4：`m_IsReadable` 灭自证（判据 → `判据/B146_WS_ISREADABLE判据.md`）。
+        //   样本取一份**原版 = 0** 的网格；把临时副本的 `m_IsReadable` 改回 1 ⇒ A 的第五档必须报红，
+        //   且**顶点指纹不变**（改这个字段不动顶点字节 ⇒ 编辑器静态证据照样看不出它）。
+        string asset2 = "Assets/WarpforgeVFX/Meshes/400px-Choppa.asset";
+        string src2 = B140_WS_MeshFlags.FullPath(asset2);
+        int idx2 = ManifestIndex(asset2);
+        Check(File.Exists(src2) && idx2 >= 0, "C-4 前提①：样本 `400px-Choppa` 在清单里且文件存在");
+        if (!File.Exists(src2) || idx2 < 0) return;
+        int[] want2 = B140_WS_MeshFlags.Expected(idx2);
+        int[] cur2 = B140_WS_MeshFlags.ReadFlagsFromFile(src2);
+        Check(cur2 != null && want2[4] == 0,
+              $"C-4 前提②：样本清单里的 `m_IsReadable` 原版值 = 0（实得 {want2[4]}）");
+        if (cur2 == null) return;
+
+        string vb2 = B140_WS_MeshFlags.VertexFingerprint(src2);
+        string tmp2 = Path.Combine(tmpDir, "400px-Choppa.readable1.asset");
+        File.Copy(src2, tmp2, true);
+        int[] broken2 = (int[])cur2.Clone();
+        broken2[4] = 1;   // 「改回 1」
+        if (!B140_WS_MeshFlags.PatchFileFields(tmp2, broken2, out string err2))
+        {
+            Check(false, "C-4：临时副本改写失败 —— " + err2);
+            return;
+        }
+        int[] got2 = B140_WS_MeshFlags.ReadFlagsFromFile(tmp2);
+        Check(got2 != null && got2[4] != want2[4],
+              "C-4（灭自证）：`m_IsReadable` 改回 1 ⇒ A 的第五档报红");
+        Check(B140_WS_MeshFlags.VertexFingerprint(tmp2) == vb2,
+              "C-4b（灭自证）：改 `m_IsReadable` 后顶点指纹**不变** ⇒ 编辑器侧证据看不出这个字段");
+        int[] real2 = B140_WS_MeshFlags.ReadFlagsFromFile(src2);
+        Check(real2 != null && real2[4] == want2[4],
+              "C-4c：工程里那份未被连带改动（`m_IsReadable` 仍 = 原版值）");
+
         try { File.Delete(tmp); } catch { /* 临时件删不掉不算失败 */ }
+        try { File.Delete(tmp2); } catch { /* 同上 */ }
+    }
+
+    /// <summary>按 `Assets/...` 路径找清单下标（找不到 ⇒ `-1`）。C-4 用，⛔ 不另抄一份名单。</summary>
+    static int ManifestIndex(string assetPath)
+    {
+        for (int i = 0; i < B140_WS_MeshFlags.Count; i++)
+            if (B140_WS_MeshFlags.AssetPath(i) == assetPath) return i;
+        return -1;
     }
 }

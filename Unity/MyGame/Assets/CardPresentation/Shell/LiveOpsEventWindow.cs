@@ -1341,8 +1341,8 @@ namespace CardPresentation
             float iconT = HdrBg1T + (HdrBg1B - HdrBg1T - 100f) * 0.5f;
             var gmTex = Tex(GameModeIconArt);
             if (gmTex != null)
-                MenuDraw.Rect(parts.Plate, gmTex, new PxRect(iconL, iconT, iconL + 100f, iconT + 100f),
-                              "Game Mode Icon", QArt1, null, true);
+                _headerGameModeIcon = MenuDraw.Rect(parts.Plate, gmTex, new PxRect(iconL, iconT, iconL + 100f, iconT + 100f),
+                              "Game Mode Icon", QArt1, null, true);   // ✅ 已复刻（2026-11-05 · B146-W17 · 判据 = `RankedEventWindowV2.prefab` / `SkirmishModeEventWindow.prefab` 的 `Header Background/Game Mode Icon`：100×100 · PA 0 · `m_Color.a=1`；落点 = HLG `155 + 标题实宽 + 5.5`、竖中）
             else
                 Debug.Log("[Event] `Game Mode Icon` **没画** —— 这一窗的模式图标本地没有"
                           + "（原版 `sprite=0`、由 `LiveopUIDrawer_GameModeIcon` 运行时喂；"
@@ -2539,5 +2539,29 @@ namespace CardPresentation
 
         /// <summary>自检口：当前那套在表里的 0 基序号（原版 `currentDeckIndexInTempList`）。</summary>
         public int ShownDeckOrdinalForTest() { return ShownDeckOrdinal(); }
+
+        // ================================================================================================
+        //  ✅ 已复刻（2026-11-05 · B146-W17 · 判据 = `RankedEventWindowV2.prefab` / `SkirmishModeEventWindow.prefab`：
+        //    两份 prefab 上 `WindowHeaderWithBackButton.eventUIDrawers` 各**一格** `LiveopUIDrawer_GameModeIcon`，
+        //    挂 `Header Background/Game Mode Icon` 那颗 Image（`100×100` · `m_Sprite=0` · `PA=0`）。
+        //  ⚠️ 我们这扇窗**没有 `ILiveOps` 实例**（本地等价物是 `LiveOpsLocalEvent` DTO，不实现该接口）
+        //    ⇒ `WindowHeaderWithBackButton.Initialize(ILiveOps, Action)` 那条路走不到，抽屉**不会被 Initialize**；
+        //    图由 `GameModeIconArt` 静态喂（与抽屉 `IconFileFor` 算出来的是**同一张**：classic / skirmish）。
+        //    ⛔ 不为了「让抽屉跑起来」自造 `ILiveOps` 适配器（那会是 🔶 自己设计，判据里没有）。
+        // ================================================================================================
+
+        /// <summary>表头那颗 `Game Mode Icon`（`BuildHeader` 里建；`null` = 本窗模式图标本地没有）。
+        /// <para>⚠️ 追加在**类尾**（⛔ 别插中段 —— 本文件被账按行号钉着，插行会让下游落点整体漂移）。</para></summary>
+        protected ImageQuad _headerGameModeIcon;
+
+        /// <summary>`WindowHeaderWithBackButton.eventUIDrawers` 的等价物：原版这两扇窗（排位 / 遭遇）各挂**一格**
+        /// `LiveopUIDrawer_GameModeIcon`（`bundle_menus_assets_all` 那三份 MB 实例里的两份；第三份在
+        /// `Two Sides Event Window` ⇒ `ParentEventWindow.ParentHeaderDrawers`）。
+        /// <para>返回 `null` ⇒ 组件的 `eventUIDrawers` 保持 `null`（= 原版空数组：`Initialize` 里整段跳过）。</para></summary>
+        protected IWindowHeaderUIDrawer[] HeaderDrawers()
+        {
+            if (_headerGameModeIcon == null) return null;
+            return new IWindowHeaderUIDrawer[] { new LiveopUIDrawer_GameModeIcon(_headerGameModeIcon) };
+        }
     }
 }

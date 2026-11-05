@@ -43,12 +43,19 @@ if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：\n  "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_vfx_texture_mips.py [--check]\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    print('用法（🔴 不带显式动作 = 用法 + 退出码 2，绝不写盘）：\n  "D:/2/Warpforge_tools/py312/python.exe" d:/4/Unity/工具/gen_vfx_texture_mips.py --write   # 写盘\n  ... --check   # 只对账，不写盘\n  ... --dry     # 只跑计算 + 打印读数，不写盘\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
     _wf_help_sys.exit(0)
 
 BUNDLE_DIR = (r"D:\2\Warhammer 40k Warpforge\Warpforge_Data\StreamingAssets\aa"
               r"\StandaloneWindows64")
 OUT = r"d:/4/Unity/数据/游戏数据/vfx_texture_mips.tsv"
+
+# 🔴 2026-11-05（B146-E1）：不带显式动作 = 用法 + 退出码 2，绝不写盘。
+_USAGE = """用法（🔴 不带显式动作 = 只打印本用法并以**退出码 2**退出，绝不写盘）：
+    python -I -X utf8 d:/4/Unity/工具/gen_vfx_texture_mips.py --write   # 重新生成（写盘）
+    python -I -X utf8 d:/4/Unity/工具/gen_vfx_texture_mips.py --check   # 只对账（逐字节比），不写盘
+    python -I -X utf8 d:/4/Unity/工具/gen_vfx_texture_mips.py --dry     # 只跑计算 + 打印读数，不写盘
+    -h, --help  只打印本用法并退出（退出码 0）。"""
 
 
 def _wrap(d, field):
@@ -71,7 +78,16 @@ def _wrap(d, field):
 
 
 def main():
-    check = "--check" in sys.argv
+    args = sys.argv[1:]
+    if any(a in ("-h", "--help") for a in args):
+        print(_USAGE)
+        return 0
+    check = "--check" in args
+    write = "--write" in args
+    dry = "--dry" in args
+    if not (check or write or dry) or any(a not in ("--check", "--write", "--dry") for a in args):
+        print(_USAGE)
+        return 2
     if not os.path.isdir(BUNDLE_DIR):
         print(f"!! 缺目录：{BUNDLE_DIR}")
         return 1
@@ -160,7 +176,7 @@ def main():
         #   一个字都报不出来（「看着有 check、其实啥都没查」）。现在改成**逐字节比内容**，
         #   缺失/不一致一律点名 + rc=1（口径同 `工具/import_original_art.py:1714-1721`）。
         if not os.path.exists(OUT):
-            print(f"--check：🔴 缺产物 {OUT}（重跑一次 `工具/gen_vfx_texture_mips.py`）")
+            print(f"--check：🔴 缺产物 {OUT}（重跑一次 `工具/gen_vfx_texture_mips.py --write`）")
             return 1
         old = io.open(OUT, encoding="utf-8").read()
         if old == text:
@@ -172,9 +188,13 @@ def main():
             if oldl[i] != newl[i]:
                 print(f"    第一处不同在第 {i + 1} 行：\n      盘上: {oldl[i]!r}\n      重算: {newl[i]!r}")
                 break
-        print("    ⇒ 重跑一次 `工具/gen_vfx_texture_mips.py` 生成（`--check` 只读、不写盘）。")
+        print("    ⇒ 重跑一次 `工具/gen_vfx_texture_mips.py --write` 生成（`--check` 只读、不写盘）。")
         return 1
 
+    if not write:
+        # 🔴 2026-11-05（B146-E1）：`--dry` 走到这儿为止，一个字节都不写。
+        print(f"干跑（未写盘）：{len(out)} 行 → {OUT}（要落盘请显式加 `--write`）")
+        return 0
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with io.open(OUT, "w", encoding="utf-8", newline="\n") as f:
         f.write(text)

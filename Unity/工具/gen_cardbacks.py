@@ -28,8 +28,8 @@
    所以表里直接写**枚举名**，C# 侧不用再转一次。
 
 输出：`MyGame/Assets/CardPresentation/Resources/Cardbacks.json`
-用法：`python d:/4/Unity/工具/gen_cardbacks.py`
-      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。
+用法：`python d:/4/Unity/工具/gen_cardbacks.py --write`（🔴 不带显式动作 = 用法 + 退出码 2，绝不写盘）
+      加 `--dry` = 只跑计算、打印读数、**零写盘**（`A1648` 同族口径）。
       🆕 加 `--check` = 只重算、与盘上产物比 md5，**零写盘**（rc 0 = 一致 / 1 = 缺或过期/输入对不上；
       口径同 `gen_prebuilt_bot_decks.py --check`）。
 """
@@ -48,12 +48,17 @@ if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法：`python d:/4/Unity/工具/gen_cardbacks.py`\n      加 `--dry` = 只跑计算、打印读数、**零写盘**（默认行为不变；`A1648` 同族口径）。\n      加 `--check` = 只重算、与盘上产物比 md5，**零写盘**（rc 0 = 一致 / 1 = 缺或过期/输入对不上）。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    print('用法（🔴 不带显式动作 = 只打印本用法并退出（退出码 2），绝不写盘）：\n  python d:/4/Unity/工具/gen_cardbacks.py --write   # 重新生成（写盘）\n  ... --dry    # 只跑计算、打印读数、零写盘\n  ... --check  # 只重算 + 与盘上产物比 md5，零写盘\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
     _wf_help_sys.exit(0)
 
 DRY = "--dry" in sys.argv[1:]
 # 🆕 2026-10-30（B99_A5）：`--check` = 只对账、不写盘（口径照 `gen_prebuilt_bot_decks.py:--check`）。
 CHECK = "--check" in sys.argv[1:]
+# 🔴 2026-11-05（B146-E1）：**只有 `--write` 才写盘**；不带任何显式动作 ⇒ 用法 + 退出码 2。
+WRITE = "--write" in sys.argv[1:]
+if not (DRY or CHECK or WRITE) or any(a not in ("--dry", "--check", "--write") for a in sys.argv[1:]):
+    print('🔴 不带显式动作 ⇒ 什么也不做（退出码 2）。要落盘请加 `--write`；只对账加 `--check`；只看读数加 `--dry`。')
+    sys.exit(2)
 
 SO_DIR = "d:/2/新解包资源/assets_full/bundle_cosmeticsso_assets_all/MonoBehaviour"
 TEX_DIR = "d:/4/Unity/MyGame/Assets/CardPresentation/Resources/Art/cardbacks"
@@ -225,10 +230,10 @@ def main():
     if problems:
         print("🔴 有对不上的 —— **先把上面几行查清再决定要不要写**")
         return 0
-    if DRY:
-        print("干跑（未写盘）：表里 %d 项 + %d 个默认卡背；要落盘请去掉 --dry"
+    if not WRITE:
+        print("干跑（未写盘）：表里 %d 项 + %d 个默认卡背；要落盘请显式加 `--write`"
               % (len(items), len(defaults)))
-        return
+        return 0
     io.open(DST, "w", encoding="utf-8", newline="\n").write(text)
     print("已写:", DST)
     return 0

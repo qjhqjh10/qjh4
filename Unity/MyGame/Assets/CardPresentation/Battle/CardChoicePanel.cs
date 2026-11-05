@@ -491,7 +491,7 @@ namespace CardPresentation
                                         new Vector2(0.5f, 0.5f), Z - 0.05f, "ChoiceTitle", face: TmpFont.Face.LatinCardBody);
             // ✅ 已复刻（2026-11-05 · B145-E6 · 判据 = 原版 `ChooseText` TMP `m_fontSize 55` × 字体 `capLine 36 / pointSize 50` ⇒ 大写 **cap 39.6 px**，B129 二·★3）：改前 `SetGlyphHeight(55)` 把 55 当**汉字墨高** ⇒ cap = 55×0.8217 ≈ **45.2**（大 14%）
             // ⚠️ 改走 `SetScriptHeight(text, 55, 1)` **不是修法** —— 它经 `CapOverGlyph` 折回**同一个值**（CJK 路 ≡ `SetGlyphHeight(55)`；拉丁路 `SetCapHeight(55×CapOverGlyph)` 算出的字号也是 55）⇒ 只有【按大写高定档】才真的落 39.6（uGUI 单位 = 设计 px，⛔ 别除 108）。
-            if (_title != null) _title.SetCapHeight(TitleCapPxFor(lo.TitlePx));
+            if (_title != null) { _title.SetCapHeight(TitleCapPxFor(lo.TitlePx)); ApplyAutoFit(_title, lo.TitleW, lo.TitleH, TitleFsMin, TitleFsMax, TitleFsBase); }   // ✅ 已复刻（2026-11-05 · B146-W22 · 原版 `ChooseText` TMP：`m_fontSize 55 / base 36 / auto 1 / [18,55]`、框 1344×79.44（`Battle Arena 1.unity:201208-201213`）⇒ 开自适应，收敛值由 TMP 自己算（dump 里 `选择一张牌` = **55.0**，`p4_choose_tree.tsv:13`））
 
             // 确认：底条 + 圆形播放钮（两边同图同尺寸）
             // ⚠️ 底条**给的是框**（577.5×63.84 = 原版 `BG` 的 `m_SizeDelta`，`PA=0` 拉满），
@@ -506,7 +506,7 @@ namespace CardPresentation
             _confirm = HudCanvas.MakeText(_panel, _confirmText, cp.x, cp.y, 6,
                                           new Color(1f, 0.92f, 0.75f), ConfirmTextAnchor,
                                           Z - 0.05f, "ChoiceConfirmText", face: TmpFont.Face.LatinCardBody);
-            if (_confirm != null) _confirm.SetGlyphHeight(33.7f);    // ⚠️ 实况 fs=33.7（不是 §三 那个 45）
+            if (_confirm != null) ApplyAutoFit(_confirm, ConfirmBoxW, ConfirmBoxH, ConfirmFsMin, ConfirmFsMax, ConfirmFsBase);   // ✅ 已复刻（2026-11-05 · B146-W22 · 原版 `ContinueText`：`m_fontSize 45 / base 36 / auto 1 / [18,45]`、框 372.857×43.622、margin 0（`Battle Arena 1.unity:225355-225360`）—— ⚠️ 运行时 dump 里那个 **33.7 是中文 auto-size 之后的字号**（`choose_tree_forced.tsv:9`），⛔ 不是要写死的值；改前写死 `SetGlyphHeight(33.7)` ⇒ 英文 33.7（原版 45）、中文 39.49（原版 33.7））
 
             // 眼睛：收起卡片上的按钮（原版 `onClick → ToogleChooseMenuVisibility`）
             _eye = ImgByHeight(_panel, CardArt.Ui("40k_UI_bt_eye"), "ChoiceEye",
@@ -673,8 +673,8 @@ namespace CardPresentation
         {
             _titleText = title ?? "";
             if (!string.IsNullOrEmpty(confirm)) _confirmText = confirm;
-            if (_title != null) _title.SetText(_titleText);
-            if (_confirm != null) _confirm.SetText(_confirmText);
+            if (_title != null) { _title.SetText(_titleText); ApplyAutoFit(_title, Lo.TitleW, Lo.TitleH, TitleFsMin, TitleFsMax, TitleFsBase); }       // ✅ 2026-11-05 · B146-W22：换文案可能翻字体面（CJK ⇄ 拉丁）⇒ 按新面重放自适应（`Label.ReplayFitForFace` 用的是旧面的 px 口径）
+            if (_confirm != null) { _confirm.SetText(_confirmText); ApplyAutoFit(_confirm, ConfirmBoxW, ConfirmBoxH, ConfirmFsMin, ConfirmFsMax, ConfirmFsBase); }
         }
 
         // ==================================================================
@@ -799,7 +799,7 @@ namespace CardPresentation
             Visible = v; _contentHidden = false;   // 开/关都回到「内容全显」（原版 `Setup` 自己 `SetActive(true)` 那几件）
             // 🆕 2026-10-25（`E`）：关面板时把确认钮文案**还原**成真文案（否则下次开面板会先露出
             //   上一次的 `0:02`，直到下一次 `SetTimer`）—— 原版每次 `Setup` 都重写那颗字，等价。
-            if (!v && _confirm != null) _confirm.SetText(_confirmText);
+            if (!v && _confirm != null) { _confirm.SetText(_confirmText); ApplyAutoFit(_confirm, ConfirmBoxW, ConfirmBoxH, ConfirmFsMin, ConfirmFsMax, ConfirmFsBase); }   // ✅ 2026-11-05 · B146-W22：还原文案后按当前字体面重放自适应
             // ⚠️ `_shade` 是 `ImageQuad`（世界档那一种）、其余是 `HudPiece` —— 两种的 `gameObject` 口同形，
             //    所以这一句**一个字没改**（⛔ 不必因为迁了半批就把它们分成两行）。
             if (_shade != null) _shade.gameObject.SetActive(v);
@@ -1503,14 +1503,14 @@ namespace CardPresentation
         //  ⚠️ 新成员一律追加在**类尾**（本文件非 partial、230 处账按【文件:行号】引用 ⇒ 插进中间会整片漂移）。
         // ═══════════════════════════════════════════════════════════════════════════════════════════
 
-        /// <summary>原版 `ChooseText` 那颗 TMP 的**大写高 ÷ fontSize** —— 字体 `faceInfo.capLine 36 / pointSize 50` = **0.72**
-        /// （em 口径、不含 SDF padding；判据 → `Battle/Label.cs` 的 `CapOverGlyph` doc 第 509 行同一条）。
-        /// 用它把「原版 `m_fontSize 55`」折成**大写高 39.6 px**：`SetCapHeight` 收的就是大写高，⛔ 别拿我们自己的
-        /// `CapOverGlyph`（0.8217，含 SDF padding）去折 —— 那是「汉字墨高÷em」，不是原版这个量。</summary>
-        public const float TitleCapPerFontSize = 0.72f;
+        /// <summary>原版 `ChooseText` 那颗 TMP 的**大写高 ÷ fontSize** = 字体 `faceInfo.capLine 60 / pointSize 95` = **0.6316**
+        /// （em 口径、不含 SDF padding）。🔴 **2026-11-05（B146-W22）就地订正（铁律 5）**：原来写 **0.72**（那是 **Noto** 的 `36/50`），
+        /// 但 `ChooseText.m_fontAsset` 实读是 **Pragati**（`Battle Arena 1.unity:201183`）⇒ `55 × 0.6316` = **34.74 px**、不是 39.6。
+        /// ⛔ 别拿我们自己的 `CapOverGlyph`（0.8217，含 SDF padding）去折 —— 那是「汉字墨高÷em」，不是原版这个量。</summary>
+        public const float TitleCapPerFontSize = 0.6316f;
 
-        /// <summary>标题的**大写高目标**（设计 px）= 原版 `m_fontSize`(55) × <see cref="TitleCapPerFontSize"/> = **39.6**。
-        /// 生产（`Build`）与断言走**同一个式子**（⛔ 别在断言里另写一份 55×0.72）。</summary>
+        /// <summary>标题的**大写高目标**（设计 px）= 原版 `m_fontSize`(55) × <see cref="TitleCapPerFontSize"/> = **34.74**。
+        /// 生产（`Build`）与断言走**同一个式子**（⛔ 别在断言里另写一份 55×0.6316）。</summary>
         public static float TitleCapPxFor(float titlePx) { return titlePx * TitleCapPerFontSize; }
 
         /// <summary>「确认」那颗 TMP 的**原版框宽**（`RectTransform_2741` 的 `m_SizeDelta.x` = **372.857**；
@@ -1524,5 +1524,56 @@ namespace CardPresentation
         /// <summary>「确认」字的**右沿**（设计 px、左上原点）= 原版框心 + 框宽/2 —— 选牌面板 = `1519 + 186.4285` = **1705.43**
         /// （B129 二·★4 的实测值）。`Build()` 用它摆节点，断言也读它（同一份算式，⛔ 别在断言里另写一遍）。</summary>
         public static float ConfirmRightEdgePx(float confirmCx) { return confirmCx + ConfirmBoxW * 0.5f; }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+        //  ✅ 已复刻（2026-11-05 · 执行写手 `B146-W22` · 判据 = 原版两颗 TMP 的**序列化字段现读**：
+        //     `ContinueText` → `Battle Arena 1.unity:225355-225360`（`m_fontSize 45 / base 36 / auto 1 / [18,45]`、
+        //     框 372.857×43.622）× `ChooseText` → `:201208-201213`（`55 / 36 / auto 1 / [18,55]`、框 1344×79.44））
+        //  ⚠️ 新成员一律追加在**类尾**（本文件非 partial、账按【文件:行号】引用到 `:1518`）。
+        // ═══════════════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>「确认」那颗 TMP 的**原版框高** = `RectTransform_2741` 的 `m_SizeDelta.y` = **43.622**
+        /// （框宽见 <see cref="ConfirmBoxW"/>；心 (1519,980.26) 由 `Layout.ConfirmCx/ConfirmCy` 给）。
+        /// ⚠️ 与框宽一起喂 <see cref="ApplyAutoFit"/> —— 原版那颗 `margin = 0`。</summary>
+        public const float ConfirmBoxH = 43.622f;
+
+        /// <summary>「确认」字的三档 = 原版 TMP 的 `m_fontSizeMin/Max/Base`（**em、= 设计 px**）。
+        /// ⚠️ 这三个是**原版字段原值**；喂进 `SetAutoFitBox` 前要经 <see cref="ApplyAutoFit"/> 换成
+        /// `Label` 的 px 口径（见那个方法的 doc —— 两条口径在中文字体面上差 0.853 倍）。</summary>
+        public const float ConfirmFsMin = 18f, ConfirmFsMax = 45f, ConfirmFsBase = 36f;
+
+        /// <summary>标题的三档 = 原版 `ChooseText` 的 `m_fontSizeMin/Max/Base`（**em、= 设计 px**）。</summary>
+        public const float TitleFsMin = 18f, TitleFsMax = 55f, TitleFsBase = 36f;
+
+        /// <summary>🔴 **2026-11-05（`B146-W22`）**：把**原版 TMP 的 fontSize 档**（em 设计 px，即上面那六个常量）
+        /// 换成 <see cref="Label.SetAutoFitBox"/> 收的 **px 口径**，再开自适应。
+        ///
+        /// <para>**为什么必须换**：`SetAutoFitBox` 的 min/max 是「本工程唯一那条 px 口径」
+        /// （`Label.NominalPx` = `FontSizeToPxNow(TmpFontSize(), ActualFace)`），而那个口径**按字体面分两支**：
+        /// 拉丁面 = **em**（`EmPerFontSize = 0.1` × `UguiFontScale 10` ⇒ 1:1）；`Face.Cjk` = **汉字墨高**
+        /// （`EmPerFontSize = WorldGlyphPerFontSize ≈ 0.0853` ⇒ **0.853 × em**）。
+        /// 直接把原版那个 55 填进去，中文标签的 `fontSizeMax` 会变成 `55 / 0.853 = 64.5` ——
+        /// 而标题框只有 79.44 高、中文行盒 1.2933 em ⇒ 垂直闸把它收到 **61.4 em**（原版是 **55**，大 11.6%）。
+        /// 经本方法换算后两支都落到 `[18,55] em`，与 TMP 字段逐值相同。
+        /// ⚠️ 实测锚：原版 dump `ChooseText/Text` 中文 `fontSize = 55.0`、`ContinueText` 中文 `33.7`
+        /// （后者是**垂直闸**卡出来的：`43.622 ÷ 1.2933 = 33.7`），见 `p4_choose_tree.tsv:13` / `choose_tree_forced.tsv:9`。</para>
+        /// <para>⚠️ **换面的重放**：`Label` 的 `ReplayFitForFace` 会用**写入那一刻的面**存下的 px 复算 ——
+        /// 文案翻面（CJK ⇄ 拉丁）后那个 px 就偏了 0.853 倍 ⇒ 调用方在**每次改文案之后**要再调一次本方法
+        /// （`Build` / `SetTexts` / `SetVisible(false)` 三处已接）。</para></summary>
+        public static void ApplyAutoFit(Label lb, float boxW, float boxH, float minEm, float maxEm, float baseEm)
+        {
+            if (lb == null) return;                 // 拿不到字体资产（点阵后端）⇒ `SetAutoFitBox` 自己会出声，这里不重复
+            var f = lb.ActualFace;
+            lb.SetAutoFitBox(boxW, boxH,
+                             lb.FontSizeToPxNow(minEm, f),
+                             lb.FontSizeToPxNow(maxEm, f),
+                             lb.FontSizeToPxNow(baseEm, f));
+        }
+
+        /// <summary>自检读「确认」那颗 `Label`（`B145_E6_Assert` 的 A-18 组读它的 `AutoSizing` / `FontSize*`）。</summary>
+        public Label ConfirmLabelForTest { get { return _confirm; } }
+
+        /// <summary>自检读标题那颗 `Label`（同上）。</summary>
+        public Label TitleLabelForTest { get { return _title; } }
     }
 }

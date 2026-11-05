@@ -54,6 +54,7 @@ public static class B118W21_Assert
         A_FilterDrawerAnimation();
         B_RedeemInput();
         C_GameModeIconDrawer();
+        C2_HeaderGameModeIconNodes();
         D_InitializationComplete();
         E_SceneTransitionLayer();
     }
@@ -129,6 +130,122 @@ public static class B118W21_Assert
         drawer.Initialize(null);   // 原版三处早退之一：`icon`/事件为空 ⇒ return（我们出声，但不抛）
         C(drawer.CurrentPlayEvent, null, "C6 `Initialize(null)` 早退：`currentPLayEvent` 仍是 null（原版 `:13` 第一跳）");
         C(drawer.InitCallsForTest, 1, "C7 `Initialize` 被调过 1 次（证明上面那条走的是真方法，不是没进去）");
+    }
+
+    // ============================================================ C2 · 窗头 `Game Mode Icon` 节点与抽屉接线
+    //  ✅ 已复刻（2026-11-05 · B146-W17 · 判据 = 三份 prefab 的 `Header Background/Game Mode Icon`：
+    //    `RankedEventWindowV2`（`m_Color.a=1`）/ `SkirmishModeEventWindow`（a=1）/ `Two Sides Event Window`（a=0），
+    //    三份都是 `100×100` · `m_Sprite=0` · `PA=0` · 父 = `Header Background`；且三份 prefab 的
+    //    `WindowHeaderWithBackButton.eventUIDrawers` 各**一格** `LiveopUIDrawer_GameModeIcon`。
+    //  🔴 灭自证：把 `LiveOpsEventWindow` / `ParentEventWindow` 的 `HeaderDrawers()` 传参删掉 ⇒ C9c / C16c / C23c 红；
+    //    把 Parent 的 `m_Color.a=0` 改成 1 ⇒ C23j 红；把同名节点换成裸 `Node`（不建 ImageQuad）⇒ C9g 红。
+    //  ⚠️ 本段要建三扇事件窗（`Create(null)` 即可，⛔ 不写存档），收尾 `DestroyImmediate` + 还原 `LastOpened`。
+    static void C2_HeaderGameModeIconNodes()
+    {
+        var keepLast = LiveOpsEventWindow.LastOpened;
+        var keepParentLast = ParentEventWindow.LastOpened;
+        SkirmishEventWindow sk = null; RankedEventWindow rk = null; ParentEventWindow pe = null;
+        try
+        {
+            sk = SkirmishEventWindow.Create(null);
+            T(sk != null, "C8 前提：`SkirmishEventWindow.Create(null)` 建出窗");
+            if (sk != null) { sk.Open(); CheckHeaderIcon(sk.transform, "C9", "遭遇战", "40k_gamemode_icon_skirmish"); }
+
+            rk = RankedEventWindow.Create(null);
+            T(rk != null, "C16 前提：`RankedEventWindow.Create(null)` 建出窗");
+            if (rk != null) { rk.Open(); CheckHeaderIcon(rk.transform, "C17", "排位", "40k_gamemode_icon_classic"); }
+
+            pe = ParentEventWindow.Create(null);
+            T(pe != null, "C23 前提：`ParentEventWindow.Create(null)` 建出窗");
+            if (pe != null) { pe.Build(); CheckHeaderIcon(pe.transform, "C24", "Two Sides", null); }
+        }
+        catch (System.Exception e)
+        {
+            T(false, "C2 段不应抛异常（实抛：" + e.GetType().Name + "：" + e.Message + "）");
+        }
+        finally
+        {
+            // 先 `Close()` 再销毁：`RankedEventWindow.Close()` 负责把导航侧栏还原（它 `Open()` 里藏过），
+            // `LiveOpsEventWindow.Close()` 负责撤掉搜索/到期刷新那两个登记。⛔ 直接销毁会留下半截状态。
+            TryClose(sk); TryClose(rk); TryClose(pe);
+            if (sk != null) Object.DestroyImmediate(sk.gameObject);
+            if (rk != null) Object.DestroyImmediate(rk.gameObject);
+            if (pe != null) Object.DestroyImmediate(pe.gameObject);
+            LiveOpsEventWindow.LastOpened = keepLast;
+            // `ParentEventWindow.LastOpened` 是 public get / **private set** ⇒ 直接赋值编不过，走反射还原
+            // （⚠️ 不还原会让 `MainMenuScene` 里那几条读 `LastOpened` 的断言摸到已销毁的实例）。
+            var pi = typeof(ParentEventWindow).GetProperty("LastOpened",
+                         System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            var set = pi != null ? pi.GetSetMethod(true) : null;
+            if (set != null) set.Invoke(null, new object[] { keepParentLast });
+        }
+    }
+
+    /// <summary>三扇窗共用的那一套：节点在 / 尺寸 100×100 / 图对 / 节点自己是 Image / 抽屉一格且指向同一颗。
+    /// <paramref name="wantArt"/> 为 null = `Two Sides` 那一档（原版 `m_Color.a = 0` ⇒ 不可见，但**节点必须激活**）。</summary>
+    static void CheckHeaderIcon(Transform root, string id, string who, string wantArt)
+    {
+        var hdr = FindDeep(root, "Game Mode Header With Back Button");
+        T(hdr != null, id + " 前提：" + who + " 窗有 `Game Mode Header With Back Button`");
+        var plate = hdr != null ? hdr.Find("Header Background") : null;
+        var node = plate != null ? plate.Find("Game Mode Icon") : null;
+        T(node != null, id + "a " + who + " 窗头有 `Header Background/Game Mode Icon`（原版父链）");
+        var comp = hdr != null ? hdr.GetComponent<WindowHeaderWithBackButton>() : null;
+        T(comp != null, id + "b 前提：窗头挂 `WindowHeaderWithBackButton`");
+        if (comp != null)
+        {
+            T(comp.eventUIDrawers != null && comp.eventUIDrawers.Length == 1,
+              id + "c `eventUIDrawers` = **1 格**（原版 prefab 那一格；null/0 ⇒ 抽屉没接上）");
+            if (comp.eventUIDrawers != null && comp.eventUIDrawers.Length == 1)
+                T(comp.eventUIDrawers[0] is LiveopUIDrawer_GameModeIcon,
+                  id + "d 那一格是 `LiveopUIDrawer_GameModeIcon`（原版组件类型）");
+        }
+        if (node == null) return;
+        var rt = node.GetComponent<RectTransform>();
+        N(rt.rect.width * 108f, 100f, 0.5f, id + "e 图标宽 = 原版 **100** 设计 px");
+        N(rt.rect.height * 108f, 100f, 0.5f, id + "f 图标高 = 原版 **100** 设计 px");
+        var q = node.GetComponent<ImageQuad>();
+        T(q != null, id + "g 图标节点**自己就是**那颗 `Image`（原版 Image 挂在这一颗上；裸 `Node` 不行）");
+        if (q == null) return;
+        if (wantArt != null)
+        {
+            var want = CardArt.MenuUi(wantArt);
+            T(want != null, id + "h 前提：工程里有 `" + wantArt + "` 那张图");
+            T(q.Texture == want, id + "i 图标画的正是 `" + wantArt + "`（= 原版 `GameModesIconCollection` 那张，⛔ 不是占位白图）");
+        }
+        else
+        {
+            T(q.Tint.a <= 0.001f, id + "j Two Sides：图标 α = **0**（原版 `m_Color.a = 0` ⇒ 出厂不可见）");
+            T(node.gameObject.activeSelf, id + "k 但**节点是激活的**（⛔ 别整颗 `SetActive(false)` —— 会把子件 `tooltip trigger` 一起藏掉）");
+            T(node.Find("tooltip trigger") != null, id + "l 子件 `tooltip trigger` 在（原版那一颗 75.4255×71.6789）");
+        }
+        if (comp != null && comp.eventUIDrawers != null && comp.eventUIDrawers.Length == 1)
+        {
+            var drawer = comp.eventUIDrawers[0] as LiveopUIDrawer_GameModeIcon;
+            if (drawer != null)
+                T(drawer.icon == q, id + "m 抽屉的 `icon` 指向**同一颗** `ImageQuad`（⛔ 不是另建一颗 = 画了看不见）");
+        }
+    }
+
+    /// <summary>关窗（收尾用）。异常只出声、不掀宿主 —— 本段是断言，不是产品路径。</summary>
+    static void TryClose(GameWindow w)
+    {
+        if (w == null) return;
+        try { w.Close(); }
+        catch (System.Exception e) { Debug.LogWarning("[B118W21] C2 收尾 `Close()` 抛异常（不影响断言读数）：" + e.GetType().Name + "：" + e.Message); }
+    }
+
+    /// <summary>按名字递归找第一个后代（`Transform.Find` 只认**直接相对路径** ⇒ `Two Sides` 的窗头埋在页签底下，必须递归）。</summary>
+    static Transform FindDeep(Transform root, string name)
+    {
+        if (root == null) return null;
+        if (root.name == name) return root;
+        for (int i = 0; i < root.childCount; i++)
+        {
+            var t = FindDeep(root.GetChild(i), name);
+            if (t != null) return t;
+        }
+        return null;
     }
 
     // ============================================================ D · #198 `IInitializationComplete`
