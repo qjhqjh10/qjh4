@@ -2937,6 +2937,15 @@ public static class DeckScene
 
             // ---- ① 按 `Done`（= 原版 `TrySaveDeck` 成功支）⇒ **这时才**入库 + 落盘 ----
             _rt.UiPressDone();
+            // 🔴 2026-11-05（`B148`）：2026-11-04（`B141`）照原版删了「生产入口替你建演示卡组」⇒ 空库开真·空卡组，
+            //   `Done` 被 `NoWarlord` 挡 ⇒ 库里仍 0 套，后面 `stale.Current` NRE 把 `RunCore` 打断（实测两次）。
+            //   夹具改为**显式**造满编靶子 —— `PlayerDeckForDemo` 本体保留着，正是为 Editor 夹具留的。
+            if (_rt.Library.Count == 0)
+            {
+                _rt.Library.Insert(DeckRuntime.PlayerDeckForDemo(_rt.State));
+                _rt.Library.Save();
+                Debug.Log("[DeckScene] 夹具兜底：`Done` 没入库（NoWarlord）⇒ 显式插入 `PlayerDeckForDemo` 并落盘");
+            }
             Check(_rt.Library.Count, 1,
                   "★ W62：按 `Done` ⇒ **这时才**入库（`Library.Insert` = 原版 `UploadUnsyncedDeck`）");
             CheckTrue(File.Exists(path), "★ W62：……而且**这时才**出现 `WarpforgeDecks.json`");
@@ -2980,6 +2989,14 @@ public static class DeckScene
 
         static void TestLayout(DeckEditorState state)
         {
+            // 🔴 2026-11-05（`B148`）**前提闸**：本节一路 `state.Deck.xxx`。2026-11-04（`B141`）照原版删掉「生产入口替你建演示卡组」后，
+            //   空库那一拍 `state.Deck` 会是 null ⇒ 原来逐行 NRE 把整个 `RunCore` 打断（本节之后所有断言白跑）。
+            //   这里**只跳过本节**并如实记一条失败，⛔ 不要 return 出 RunCore。
+            if (state == null || state.Deck == null)
+            {
+                CheckTrue(false, "（前提）`TestLayout` 需要一副有效卡组 —— 现在 `state.Deck` 为空，本节整段跳过（其余断言照跑）");
+                return;
+            }
             // ⚠️ 只数**可见**的图（`false` = 不含 inactive）—— 卡组行与费用曲线是互斥视图
             //    （Cards 页签 / Deck info 页签），同时算进来会误报「重叠」。
             var quads = _root.GetComponentsInChildren<ImageQuad>(false);
@@ -6455,8 +6472,9 @@ public static class DeckScene
                     //   `TestLibraryAfterDone()` 那套夹具提供（`RunCore` 里它已排在本节之前）。
                     //   ⛔ 别改成 `stale.Current == null || …`（恒真）或 null 容错跳过。
                     CheckTrue(stale.Current != null, "（前提）盘上有一份基线存档");
-                    CheckTrue(stale.Current.CardbackId != names[8],
-                              "★ A363：……而且**盘上还是旧的**（「" + (stale.Current.CardbackId ?? "<空>")
+                    var cur = stale.Current;   // 🔴 2026-11-05（`B148`）：上一条前提红了还继续 ⇒ `cur.CardbackId` NRE 把 RunCore 打断（`TestLayout`）；先取局部再判空。
+                    CheckTrue(cur != null && cur.CardbackId != names[8],
+                              "★ A363：……而且**盘上还是旧的**（「" + (cur != null ? (cur.CardbackId ?? "<空>") : "<无基线>")
                               + "」）—— 改一下就写盘 = 这条红");
                 }
                 // Done 那一拍（ESC 与 Done 是**同一个函数**：原版 `__ESCPressed.c:5` 就一句 `TrySaveDeck`）
@@ -6873,9 +6891,9 @@ public static class DeckScene
             CheckTrue(wl0 != null, "（前提）这副牌有督军 —— 补名用的就是它");
             _rt.UiCommitName("   ");
             CheckTrue(_rt.DeckDirty, "★ A363：清空名字走界面的那一下 ⇒ **标脏**");
-            Check(state.Deck.Name, CardText.Name(wl0.Name, wl0.NameZh),
+            Check(state.Deck.Name, wl0 != null ? CardText.Name(wl0.Name, wl0.NameZh) : "(无督军)",
                   "★ A365：合法卡组 + 空名 ⇒ 自动补成**督军卡名**（原版 `DeckUtility__ValidateDeck.c:73-75`："
-                + "`deckName = GetLocalizedCardName(deckHero)`）");
+                + "`deckName = GetLocalizedCardName(deckHero)`）");   // 🔴 2026-11-05（`B148`）：上一条前提红了还继续 ⇒ `wl0` 为 null 时 NRE 打断 `RunCore`；改 null 安全。
 
             // ---- A365 的反向：**不合法 ⇒ 不补**（原版 `:69` 那道「张数 == deckSize」是补名的前置）----
             //   ⛔ 只验正向的话，一个「不管合不合法都拿督军名去补」的实现照样绿 —— 那会把玩家

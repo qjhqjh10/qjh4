@@ -90,7 +90,7 @@ public static class B142E74_Assert
             if (!tmpOk) return;
 
             float fs0 = lb.FontSize, fsMin0 = lb.FontSizeMin, fsMax0 = lb.FontSizeMax;
-            var box0 = ((RectTransform)lb.transform).sizeDelta;
+            var box0 = (lb.transform as RectTransform)?.sizeDelta ?? Vector2.zero;   // 🔴 2026-11-05（`B148`）：原来硬转 `(RectTransform)lb.transform`，非 RectTransform 时抛 InvalidCast 把整个 `ShellScene.RunCore` 打断（`:11301`）。改 `as` + `??` 兜住。
             Check(Mathf.Approximately(lb.SmallScreenMaxRequestedPx, 0f) && Mathf.Approximately(lb.SmallScreenMinRequestedPx, 0f),
                   "A0（灭自证前提）**没接线**的标签两格都是 0（= 站点漏了时 B 组会红的那种形状）");
             Check(lb.SmallScreenSetCountForTest == 0, "A0b（灭自证前提）**没接线**的标签计数 = 0");
@@ -110,7 +110,7 @@ public static class B142E74_Assert
                   "A2a ★ **`fontSize` 不变**（实得 " + lb.FontSize.ToString("F4") + " / 调前 " + fs0.ToString("F4") + "）");
             Check(Mathf.Approximately(lb.FontSizeMin, fsMin0), "A2b ★ `fontSizeMin` 不变");
             Check(Mathf.Approximately(lb.FontSizeMax, fsMax0), "A2c ★ `fontSizeMax` 不变");
-            var box1 = ((RectTransform)lb.transform).sizeDelta;
+            var box1 = (lb.transform as RectTransform)?.sizeDelta ?? Vector2.zero;   // 🔴 2026-11-05（`B148`）：同 `:93`，硬转会在非 RectTransform 时抛 InvalidCast 打断整个 ShellScene.RunCore。
             Check(Mathf.Approximately(box1.x, box0.x) && Mathf.Approximately(box1.y, box0.y),
                   "A2d ★ 框（`sizeDelta`）不变 —— 原版只改字号、⛔ 不动行盒");
             Check(!lb.SmallScreenSizeAppliedForTest,

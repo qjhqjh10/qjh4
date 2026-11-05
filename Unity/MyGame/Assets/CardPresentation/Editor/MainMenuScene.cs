@@ -9670,10 +9670,16 @@ public static class MainMenuScene
                         // 🔴 2026-10-12（`A1697`）：**不能再拿「库里最后一套」当新卡组** —— 新卡组是上面
                         //   夹具那一步入库的，按**名字**取（`ResetForTest` 之后是另一个对象、内容相同）。
                         var libM = DeckLibrary.Load();
-                        var mine = libM.Decks[CollectionData.IndexOf(pendingName)];
+                        // 🔴 2026-11-05（`B148`）：`CollectionData.cs:369` 起新卡组名清成空串 ⇒ `IndexOf("")` 恒 −1 ⇒ 原来 `Decks[-1]` 抛异常、`RunCore` 中断（其后 12 条没跑）。真修 = 改用 `CurrentIndex()` 或 Insert 返回下标。
+                        int ixMine = CollectionData.IndexOf(pendingName);
+                        Check(ixMine >= 0, true, "（前提）新卡组能在库里按名找到（`pendingName` = \"" + pendingName + "\"）");
+                        var mine = ixMine >= 0 ? libM.Decks[ixMine] : null;
+                        if (mine != null)
+                        {
                         foreach (var c in CardDatabase.Load())
                             if (c.Type == "hero") { mine.WarlordId = c.Id; break; }
                         FillLegalSkirmishDeck(mine); libM.Save();   // 🔴 2026-10-28（B93_FX3）(δ) 夹具：`CreateDeckInMode` 建的是**空牌** ⇒ 先补成合法的遭遇卡组（否则 `Battle!` 的 `interactable = false`，`WindowButton.Click()` 头一句就 return）
+                        }
                         CollectionData.ResetForTest();
                     }
                     sk.Open();                        // 重开：按新模式吸附 + 重画（`_search` 也会重建）
