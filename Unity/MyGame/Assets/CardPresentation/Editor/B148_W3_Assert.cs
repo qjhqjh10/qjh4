@@ -255,50 +255,104 @@ public static class B148_W3_Assert
     }
 
     // ============================================================
-    //  ④ D 组：未激活时欠下的对齐，激活后必须兑现（`B123-ARMYTITLE` 离线半）
+    //  ④ D 组：量不出宽时欠下的对齐，真测量落定的那一拍必须兑现（`B123-ARMYTITLE` 离线半）
     // ============================================================
     static void D_PendingAlignOnEnable()
     {
-        GameObject root = null, root2 = null;
+        GameObject canvasGo = null, root = null, root2 = null;
         Label a = null, b = null;
         try
         {
-            // 🔴 夹具必须复刻**真实那条路**：`Txt()` 是在**父节点还关着**的时候建标签 + 设对齐的
-            //   （`Deck/DeckRuntime.cs` 的「军队」抬头），那时 TMP 从没生成过 ⇒ `_measured == false`、
-            //   `textBounds` 是哨兵 ⇒ `AlignLeftOn` 只能把请求记成待办。⛔ 别用「先建活的、再关掉」
-            //   —— 那一路 `_measured` 已经是 true，对齐会**当场生效**，断言就测不到待办兑现（假绿）。
+            // 🔴 夹具必须复刻**真实那条路**：`Txt()` 建标签那一刻 TMP **还从没排过版** ⇒
+            //   `textBounds` 是「空集哨兵」（±2.147e9）或全零 ⇒ `_measured == false`、`AlignLeftOn` 只能把请求记成待办。
+            //   ⛔ 别用「先真排一版、再设对齐」—— 那一路 `_measured` 已经是 true，对齐会**当场生效**，断言就假绿。
+            //
+            // 🔴 **2026-11-06（`B150` 残余）就地订正（铁律 5）—— 本组原来 3 红 + 一个 NRE，根因三条**：
+            //   ① **夹具没有 `Canvas`**：`Label.CreateUgui` 建的是 `TextMeshProUGUI`，它的 `GenerateTextMesh`
+            //      会解引用 `m_canvas`（`TextMeshProUGUI.cs:4600` = `m_canvas.worldCamera`）⇒ 不在画布下时
+            //      **必 NRE**（旧写法 D-2 那颗 `b` 上就是它，异常把 D-2/D-3 整段吞掉）。
+            //   ② **`SendMessage("Awake"/"OnEnable")` 在编辑模式下会被 Unity 拦下**：日志里留的是
+            //      `Assertion failed on expression: 'ShouldRunBehaviour()'`（本波实测，紧挨着 D-0c 那条红）
+            //      ⇒ TMP 的 `m_isAwake` 始终是 false ⇒ `ForceMeshUpdate()` 在 `TextMeshPro.OnPreRenderObject`
+            //      第一句就早退（`TextMeshPro.cs:2119`）⇒ 永远量不到宽（`WorldW = 0.00`）、待办也就永远兑不了。
+            //   ③ `b` 的判空**写在解引用之后**（`b.transform.Find(...)` 先跑）⇒ 只要 ① 让它为 null 就是 NRE。
+            //   ⇒ 本波改成：**给夹具一个真 `Canvas`** + **用反射直接调 `Awake`/`OnEnable`**（绕开 `ShouldRunBehaviour` 那道闸；
+            //      调的是**同一个方法本体**，不是另写一份实现）+ **先判空再解引用**。
+            canvasGo = new GameObject("B148W3 canvas", typeof(Canvas));
+            var cvs = canvasGo.GetComponent<Canvas>();
+            if (cvs != null) cvs.renderMode = RenderMode.ScreenSpaceOverlay;
+
             root = new GameObject("B148W3 align probe", typeof(RectTransform));
+            root.transform.SetParent(canvasGo.transform, false);
+            // 🔴 **2026-11-06（`B150` 残余 · 第二版夹具）**：先把父件**关掉**再建标签 ——
+            //   `TextMeshProUGUI` 是 `[ExecuteAlways]`（`TextMeshProUGUI.cs:23`）⇒ 父链**激活**时
+            //   `AddComponent` 那一刻它就 `Awake`、`Label.CreateCore` 尾句 `SetText` 里那次
+            //   `ForceMeshUpdate()` 就**真排了一版** ⇒ `_measured` 从第一拍起就是 true ⇒
+            //   「量不出宽」这个前提**根本造不出来**。上一版夹具实测：`AlignLeftOn(300)` 当场落在
+            //   **309.704 = 300 + WorldW/2**（WorldW = 19.41）= 对齐**立即生效**，D-0b 因此恒红。
+            //   父链关着 ⇒ TMP 的 `Awake` 不跑（`[ExecuteAlways]` 也只在**激活**那一刻跑）⇒
+            //   `textBounds` 是 `m_textInfo == null` 的全零 ⇒ `RefreshBounds` 早退、`_measured` 保持 false。
+            //   ⛔ 不改生产代码：`Label` 那条待办链（`AlignLeftOn` → `_pendAlignX` → `OnEnable` 兑现）逐字不动。
             root.SetActive(false);
+
             a = Label.CreateUgui(root.transform, "军队", Vector3.zero, 1, Color.white, new Vector2(0.5f, 0.5f), "pendAlignProbe");
             Check(a != null, "D-0（前提）夹具 Label 建出来了（`Label.CreateUgui`；拿不到字体资产时为 null）");
             if (a == null) return;
 
-            a.AlignLeftOn(300f);                 // 未激活 ⇒ 量不出宽 ⇒ 只剩待办
+            // TMP 那一拍 `Awake` 要等**激活**才跑（编辑模式下 `AddComponent` 不跑它；见上面 ②）——
+            // ⚠️ 本版**故意不在建的时候补**：补了就等于「先量过一版」，待办那一路再也构造不出来。
+            var aTmp = a.transform.Find("text");
+            Check(aTmp != null, "D-0a（前提）`Label` 底下找得到 TMP 子件 `text`（找不到 ⇒ 下面那次 `Awake` 等于没做）");
+            if (aTmp != null)
+                Check(!IsTmpAwake(aTmp.GetComponent<TMP_Text>()),
+                      "D-0a2（前提）建标签那一刻 TMP **还没 `Awake`** —— 这是「从没排过版」的机器判据；"
+                    + "落了它，本组才真的在测「待办兑现」而不是「已测量时对齐本来就会生效」");
+
+            a.AlignLeftOn(300f);                 // 从没排过版 ⇒ 量不出宽 ⇒ 只剩待办
             float centered = a.transform.localPosition.x;
             Near(centered, 0f, 0.5f,
-                 "D-0b（前提）未激活时那次 `AlignLeftOn` **没有当场生效**（节点仍在框心 x = 0）"
+                 "D-0b（前提）量不出宽时那次 `AlignLeftOn` **没有当场生效**（节点仍在框心 x = 0）"
                + " —— 它只能是一条待办（否则本组测的不是待办兑现，会假绿）");
 
-            root.SetActive(true);                // OnEnable 必须把它兑现
+            // 真激活那一拍 = 原版「窗口打开」那条路的等价物：TMP 的 `Awake` 在这一刻跑；
+            // `Label` 是普通 MonoBehaviour（编辑模式下 Unity 不派 `OnEnable`）⇒ 由下一行显式补。
+            root.SetActive(true);
+            if (aTmp != null)
+            {
+                var aT = aTmp.GetComponent<TMP_Text>();
+                if (!IsTmpAwake(aT)) CallLifecycle(aT, "Awake");   // 兜底：本机若没自动派 `OnEnable`/`Awake`，补这一拍
+            }
+            CallLifecycle(a, "OnEnable");        // 兑现口（`Label.OnEnable` 本体；见上面 ②）
 
             float left1 = a.transform.localPosition.x - a.WorldW * 0.5f;
-            Check(a.WorldW > 1f, "D-0c（前提）激活后量到了真宽度（WorldW = " + a.WorldW.ToString("F2") + "）");
+            Check(a.WorldW > 1f, "D-0c（前提）兑现之后量到了真宽度（WorldW = " + a.WorldW.ToString("F2") + "）");
             Near(left1, 300f, 1.0f,
-                 "D-1 ★★ **未激活时 `AlignLeftOn(300)` 欠下的对齐，激活后兑现**：文字块左沿 = 300"
+                 "D-1 ★★ **量不出宽时 `AlignLeftOn(300)` 欠下的对齐，在真测量落定的那一拍兑现**：文字块左沿 = 300"
                + "｜🧨 把 `TryApplyPendingAlignOnEnable()` 从 `OnEnable` 里摘掉 ⇒ 字块停在框心（左沿 ≈ −W/2 = "
                + (-a.WorldW * 0.5f).ToString("F1") + "）⇒ 红");
 
-            // D-2 先激活、后设对齐（既有路径，本来就对 —— 反面照）
+            // D-2 先排好版、后设对齐（既有路径，本来就对 —— 反面照）
             root2 = new GameObject("B148W3 align probe2", typeof(RectTransform));
+            root2.transform.SetParent(canvasGo.transform, false);
             b = Label.CreateUgui(root2.transform, "军队", Vector3.zero, 1, Color.white, new Vector2(0.5f, 0.5f), "liveAlignProbe");
             Check(b != null, "D-2（前提）第二颗夹具建出来了");
             if (b != null)
             {
+                // 编辑模式没有帧循环 ⇒ TMP 自己那一次 `OnPreRenderObject` 不跑 ⇒ 显式补 `Awake` 再排一版
+                //（`GetTextInfo` 没有 `IsActive` 闸；但**要先有 `m_TextProcessingArray`**，那个在 `Awake` 里分配）。
+                var bTmp = b.transform.Find("text");
+                Check(bTmp != null, "D-2a（前提）第二颗夹具的 TMP 子件 `text` 在");
+                if (bTmp != null)
+                {
+                    var bT = bTmp.GetComponent<TMP_Text>();
+                    CallLifecycle(bT, "Awake");
+                    TmpFont.GenerateLayout(bT);
+                }
                 b.AlignLeftOn(300f);
                 float left2 = b.transform.localPosition.x - b.WorldW * 0.5f;
-                Near(left2, 300f, 1.0f, "D-2 ★ 已激活那条路（先激活后对齐）仍然落在 300（既有行为零回归）");
+                Near(left2, 300f, 1.0f, "D-2 ★ 已排好版那条路（先有真测量、后对齐）仍然落在 300（既有行为零回归）");
                 Near(left1, left2, 0.05f,
-                     "D-3 ★★ 两条路的**落点相同**（先对齐后激活 == 先激活后对齐）—— "
+                     "D-3 ★★ 两条路的**落点相同**（欠账后兑现 == 直接就位）—— "
                    + "这是「待办那一路真的兑现了」的结构判据，⛔ 只修一条会在这儿分叉");
             }
         }
@@ -308,6 +362,47 @@ public static class B148_W3_Assert
             if (b != null) UnityEngine.Object.DestroyImmediate(b.gameObject);
             if (root != null) UnityEngine.Object.DestroyImmediate(root);
             if (root2 != null) UnityEngine.Object.DestroyImmediate(root2);
+            if (canvasGo != null) UnityEngine.Object.DestroyImmediate(canvasGo);
         }
+    }
+
+    /// <summary>🆕 **2026-11-06（`B150` 残余）**：**直接调**一个 Unity 生命周期方法的本体（`Awake` / `OnEnable`）。
+    /// <para>为什么不用 `SendMessage`：编辑模式下 `Component.SendMessage` 会被 Unity 的 `ShouldRunBehaviour()` 闸拦下
+    /// （日志原文 `Assertion failed on expression: 'ShouldRunBehaviour()'`，本波实测），消息**不派发** ⇒
+    /// TMP 的 `m_isAwake` 永远是 false、`ForceMeshUpdate()` 恒早退。反射调的是**同一个方法本体**，
+    /// ⛔ 没有另写一份实现、也没有改生产代码。</para>
+    /// <para>⚠️ 方法不存在 ⇒ 出声（⛔ 不静默），返回 false。</para></summary>
+    static bool CallLifecycle(object target, string method)
+    {
+        if (target == null) { Debug.LogWarning("[B148W3] `CallLifecycle(" + method + ")` 目标为 null"); return false; }
+        var m = target.GetType().GetMethod(method,
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        if (m == null || m.GetParameters().Length != 0)
+        {
+            Debug.LogWarning("[B148W3] `CallLifecycle`：`" + target.GetType().Name + "` 上没有无参的 `" + method + "`");
+            return false;
+        }
+        m.Invoke(target, null);
+        return true;
+    }
+
+    /// <summary>🆕 **2026-11-06（`B150` 残余）**：`TMP_Text.m_isAwake`（`protected`、没有公开读口）——
+    /// 「这一颗到底排过版没有」的**机器判据**。
+    /// <para>为什么需要：`Awake` 里才 `m_textInfo = new TMP_TextInfo(this)`（`TextMeshProUGUI.cs:814-823`）；
+    /// 没 awake ⇒ `textBounds` 恒 `new Bounds()`（`TMP_Text.cs:1354-1363`）⇒ `Label.RefreshBounds`
+    /// 早退、`_measured` 保持 false ⇒ `AlignLeftOn` 只能记待办。D 组的前提（`D-0a2`）断的就是这一格。</para>
+    /// <para>⚠️ 沿类型链找：字段声明在 `TMP_Text`，`TextMeshProUGUI` 只 override 了 `Awake` 本体
+    /// （`GetField` 带 `DeclaredOnly` 逐层扫才拿得到）。查不到 ⇒ 出声并当 false（由调用方补一次 `Awake`）。</para></summary>
+    static bool IsTmpAwake(TMP_Text t)
+    {
+        if (t == null) return false;
+        for (var ty = t.GetType(); ty != null; ty = ty.BaseType)
+        {
+            var f = ty.GetField("m_isAwake",
+                        BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly);
+            if (f != null) return (bool)f.GetValue(t);
+        }
+        Debug.LogWarning("[B148W3] `IsTmpAwake`：`" + t.GetType().Name + "` 的类型链上没有 `m_isAwake` 字段");
+        return false;
     }
 }

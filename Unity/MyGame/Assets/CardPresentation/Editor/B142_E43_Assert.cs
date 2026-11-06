@@ -109,6 +109,10 @@ public static class B142_E43_Assert
         Check(fx.TextureNameForTest == normal.name,
               "A4 悬停不盖掉禁用态：不可点时**仍是普通图**（原版 `DoStateTransition(Disabled)` 后不再走 Normal/Highlighted）");
 
+        // 🔴 2026-11-05（`B150-W-E`）：先把悬停态摘掉再恢复可点 —— 否则 `_hover` 仍是 true，
+        //   `BattleButtonFx.Apply` 的取图是 `_hover ? (_ht ?? _nt) : _nt` ⇒ **恢复后本来就该是 hover 图**
+        //   （原版 `Selectable.DoStateTransition(Highlighted)` 同义），那 A5b「没有残留换图」就测不成了。
+        fx.SetHover(false);
         fx.SetDisabled(false);
         Check(!fx.GrayedForTest && !fx.IsGrayedForTest(p),
               "🧨 A5 恢复可点 ⇒ 灰化材质**还回去**（`ApplyGray(false)` 的 `SetMaterial(_savedMat)`）");

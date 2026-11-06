@@ -138,7 +138,7 @@ namespace CardPresentation
             var ta = Resources.Load<TextAsset>(ResourcePath);
             if (ta == null)
             {
-                LastError = $"`Resources/{ResourcePath}.json` 载不到 —— 跑一次 `python 工具/gen_unit_tweens.py`";
+                LastError = $"`Resources/{ResourcePath}.json` 载不到 —— 跑一次 `python 工具/gen_unit_tweens.py --write`";
                 _byName = new Dictionary<string, UnitTweenEntry>();   // 空表（不是 null：别再重载）
                 _all = new UnitTweenEntry[0];
                 return;

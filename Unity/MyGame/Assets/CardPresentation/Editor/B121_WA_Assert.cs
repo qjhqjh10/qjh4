@@ -206,10 +206,10 @@ public static class B121_WA_Assert
     // ==================================================================
     static void GroupD_RemnantCueKey()
     {
-        var f = typeof(RemnantSfx).GetField("_lastAtCue", BindingFlags.NonPublic | BindingFlags.Static);
+        var f = typeof(WarpforgeVFX.WFSoundPlayer).GetField("_lastAt", BindingFlags.NonPublic | BindingFlags.Static);
         var t = f == null ? null : f.FieldType;
         Check(t == typeof(Dictionary<WFSoundCue, float>),
-              $"D1 ★ F21 `RemnantSfx` 的**主冷却表**键 = `WFSoundCue` 资产实例（`Dictionary<WFSoundCue,float>`）"
+              $"D1 ★ F21 `RemnantSfx` 的**主冷却表**键 = `WFSoundCue` 资产实例（`Dictionary<WFSoundCue,float>`）—— 2026-11-05（`B144-B2`）已并进 `WFSoundPlayer` 那张**全项目唯一**的冷却表（本类 `_lastAtCue` 已删）"
             + $"（实得 {(t == null ? "字段不存在" : t.ToString())}）"
             + "｜原版 `lastTimePlayed` 住在 `AudioCue` 上（偏移 `+0x34`）｜🧨 改回 `Dictionary<int,float>` 当下标键 ⇒ 本条红");
 
@@ -250,7 +250,7 @@ public static class B121_WA_Assert
         bool again = RemnantSfx.Play(RemnantSfx.Moment.Death, true);
         Check(again,
               $"D5 ★ F21 `ResetThrottle()` 会清**新表**（清完同一条 cue 立刻又能播，实得 {again}）"
-            + "｜🧨 只清旧的 `_lastAt` 不清 `_lastAtCue` ⇒ 本条红");
+            + "｜🧨 `ResetThrottle()` 不清 `WFSoundPlayer` 那张共享表（cue 那一档现在住在那里）⇒ 本条红");
 
         WFSoundPlayer.ClockOverride += 0.2f;   // 走出 0.1 s 窗口
         bool afterWindow = RemnantSfx.Play(RemnantSfx.Moment.Death, true);

@@ -82,7 +82,7 @@ namespace CardPresentation
             {
                 // **不静默**：表不在就当「一个都查不到」，调用方按「查不到」处理（并在自检里红）
                 Debug.LogWarning("[CardbackTable] 取不到 Resources/" + ResourcePath + ".json —— "
-                               + "跑 `python d:/4/Unity/工具/gen_cardbacks.py` 生成");
+                               + "跑 `python d:/4/Unity/工具/gen_cardbacks.py --write` 生成");
                 _all = new Item[0];
                 return;
             }

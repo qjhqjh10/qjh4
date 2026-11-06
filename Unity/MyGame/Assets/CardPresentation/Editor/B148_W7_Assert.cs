@@ -253,11 +253,16 @@ public static class B148_W7_Assert
             var qd1 = ImageQuad.Create(wd.transform, Texture2D.whiteTexture, Vector3.zero, 1f, new Vector2(0.5f, 0.5f), "qd1");
             var qd2 = ImageQuad.Create(wd.transform, Texture2D.whiteTexture, Vector3.zero, 1f, new Vector2(0.5f, 0.5f), "qd2");
             var qe = ImageQuad.Create(we.transform, Texture2D.whiteTexture, Vector3.zero, 1f, new Vector2(0.5f, 0.5f), "qe");
-            Tr(qd1 != null && qd2 != null && qe != null, "C-5a（前提）天花板那一组也建出来了");
-            if (qd1 == null || qd2 == null || qe == null) return;
+            // 🔴 2026-11-05（`B150-W-E`）：要测「抬完**顶破**天花板」⇒ **要抬的那扇窗自己的队列跨度必须 > 35**
+            //   （`maxQ + (topQ − minQ + 1) > 4071`，见 `GameWindow.RaiseAbove:1010-1011`）。
+            //   原来 `we` 只有一颗 3002（跨度 0）⇒ 抬 1034 只到 4036、**根本不会顶破** ⇒ 这一组测的不是天花板。
+            //   ⛔ 别改成「把 qe 抬到 4040」—— 那是 `minQ > topQ` 的「已经在上面」分支（C-3），同样测不到天花板。
+            var qe2 = ImageQuad.Create(we.transform, Texture2D.whiteTexture, Vector3.zero, 1f, new Vector2(0.5f, 0.5f), "qe2");
+            Tr(qd1 != null && qd2 != null && qe != null && qe2 != null, "C-5a（前提）天花板那一组也建出来了");
+            if (qd1 == null || qd2 == null || qe == null || qe2 == null) return;
 
-            qd1.SetRenderQueue(3002); qd2.SetRenderQueue(4040);   // 跨度 38：想压过 4035 就得 +1034 ⇒ 顶到 5074
-            qe.SetRenderQueue(3002);
+            qd1.SetRenderQueue(3002); qd2.SetRenderQueue(4040);   // 跨度 1038（> 35 ⇒ 抬 1034 会顶到 5074）
+            qe.SetRenderQueue(3002); qe2.SetRenderQueue(4040);    // `we` 自己也是跨度 1038 = 「这一扇窗本来就很宽」（原版 SocialWindow 401 格那一类）
 
             int refused = we.RaiseAbove(4035, GameWindow.CeilingQueue);
             Check(refused == 0 && we.QueueBias == 0,

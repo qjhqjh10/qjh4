@@ -201,22 +201,22 @@ public static class SkirmishWindowAssertE15
                         + "｜🧨 退回留空 ⇒ 红");
             }
 
-            // 「结束于：」那一行（`Content/Timer`）—— 🔴 **整棵不建**
-            //   判据（`判据/B99_R3b_施工单_其余按文件.md` §2·4）：原版 `TimerDisplay.UpdateTimer` 取不到目标时刻那一支
-            //   是 **`return;`（静默、一个字都不印）**；本地经典式左列只在「没有 FastMode 活动」时建 ⇒ 根本没有结束时刻。
-            //   ⇒ 我们原来印的那行 `--` = **做了原版没有的**，2026-10-29（`B99_W2`）去掉。先例 = `X4` 的「无倒计时 ⇒ 整行不建」。
+            // 「结束于：」那一行（`Content/Timer`）—— 🔴 **节点在、整棵藏**（`B150` #4/#5/#6 就地订正：原写「整棵不建」**已过期**）
+            //   判据（`判据/B143_E74剩余28颗.md` §三·3，三源交叉）：原版 `SkirmishEventWindow__TryOpen` 是
+            //   `timerDisplay.gameObject.SetActive(activationType != 0)`（`out_il2csharp/SkirmishEventWindow.cs:112-113`）
+            //   ⇒ 无值态 = **建完立刻藏**；同族先例 `LeaderboardWindow.cs:1007`。⇒ 下面 A7/A7b/A7c 断「节点在 + 藏住」。
             var cContent = Find(colOff, "Content");
             CheckTrue(cContent != null, "（前提 · A7）段位块 `Content` 在（下面两条按它的直接子件查，⛔ 不递归）");
-            CheckTrue(cContent != null && DirectChild(cContent, "Timer") == null,
-                      "★ A7 `Content/Timer`（= `RankingDisplay.timerDisplay`）**整棵不建** —— 本地没有活动结束时刻，"
-                    + "原版那一支是 `return;`（静默、⛔ 不印 `--`）"
-                    + "｜🧨 把那一行建回来（哪怕写的是 `--`）⇒ 红");
-            Check(CountNamed(colOff, "Timer"), 0,
-                  "★ A7b 经典式左列**全树一个 `Timer` 都没有**（`Content` 底下那颗也不许有）"
-                + "｜🧨 「有条件建」被写成恒建 ⇒ 红；⚠️ 与 B3（活动期那颗 `Timer` **在**）并排 ⇒ 闸不是「恒不建」");
-            Check(CountNamed(colOff, "Timer Icon"), 0,
-                  "★ A7c 那颗 `Timer Icon`（`WF_icon_clock`）**也没有** —— 同一棵子树一起不建"
-                + "｜🧨 只删文字、留着图标 ⇒ 红");
+            CheckTrue(cContent != null && DirectChild(cContent, "Timer") != null && !DirectChild(cContent, "Timer").gameObject.activeSelf,
+                      "★ A7 `Content/Timer`（= `RankingDisplay.timerDisplay`）**节点在、整棵藏** —— "
+                    + "原版 `TryOpen` 的 `timerDisplay.gameObject.SetActive(activationType != 0)`（⛔ 不是不建）"
+                    + "｜🧨 改成不建 / 建了不藏 ⇒ 红");
+            Check(CountNamed(colOff, "Timer"), 2,
+                  "★ A7b 经典式左列**有 `Timer` 节点**（2 = 父件 `Content/Timer` ＋ 它同名的文字子件，两者都在、只是关着）"
+                + "｜🧨 退回「无值整棵不建」⇒ 数成 0 ⇒ 红；⚠️ 与 B3（活动期那颗 `Timer` **在**）并排 ⇒ 闸不是「恒不建」");
+            Check(CountNamed(colOff, "Timer Icon"), 1,
+                  "★ A7c 那颗 `Timer Icon`（`WF_icon_clock`）**也在** —— 同一棵子树一起建、一起藏"
+                + "｜🧨 退回「整棵不建」⇒ 数成 0 ⇒ 红");
             CheckTrue(DirectChild(skOff.transform, "Timer") == null,
                       "★ A8 **活动倒计时那颗 `Timer` 不在**（非活动期没有活动可倒计时；"
                     + "否则屏幕上会同时出现两行「结束于：」）"

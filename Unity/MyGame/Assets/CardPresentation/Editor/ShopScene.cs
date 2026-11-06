@@ -2308,8 +2308,8 @@ public static class ShopScene
         //   ⚠️ **自检一律走临时目录**（`OverrideDir`），⛔ 不动玩家的真存档（同 `DailyData.OverrideDir` 那条纪律）。
         Section("拥有数 / 限购**落盘**：写 → 重读 → 值还在（`WarpforgeInventory/shop.json`）");
         {
-            string prevDir = ShopData.OverrideDir;
-            ShopData.OverrideDir = "d:/4/_tmp_view/shop_selftest_owned";
+            string prevDir = ShopData.OverrideDir; string prevSaveRoot = SaveCenter.OverrideRoot;   // 🆕 2026-11-06（B150）：中央档改道存档-还原
+            ShopData.OverrideDir = "d:/4/_tmp_view/shop_selftest_owned"; SaveCenter.OverrideRoot = ShopData.OverrideDir;   // 🆕 2026-11-06（B150）：中央档同改道（Play 下不写玩家真档）
             ShopData.ResetForTest();                  // 连盘一起清（ResetForTest 现在会 DeleteStoreForTest）
             int o0 = ShopData.OwnedOf(0, 0);
             int a0 = ShopData.AvailableOf(0, 0);
@@ -2317,8 +2317,8 @@ public static class ShopScene
             int o1 = ShopData.OwnedOf(0, 0);
             int a1 = ShopData.AvailableOf(0, 0);
             Check(o1, o0 + 1, "（前提）买一件 ⇒ 内存里拥有数 +1");
-            CheckTrue(ShopData.LastStorePath != null && System.IO.File.Exists(ShopData.StorePath),
-                      "★ 买一件**真的写盘**了（`LastStorePath` 非 null 且文件在）—— 判据 = 重启不清零那条缺陷");
+            CheckTrue(ShopData.LastStorePath != null && SaveCenter.ReadThroughLegacy(SaveKeys.OursInventoryPrefix + ShopData.InventoryName, ShopData.StorePath) != null,
+                      "★ 买一件**真的写盘**了（`LastStorePath` 非 null + 读口回读到内容）—— 判据 = 重启不清零那条缺陷");
             CheckTrue(ShopData.LastStoreError == null,
                       "★ 落盘**没有失败**（失败会写在 `LastStoreError` 并出声）"
                     + (ShopData.LastStoreError == null ? "" : "｜🧨 " + ShopData.LastStoreError));
@@ -2328,7 +2328,7 @@ public static class ShopScene
                 Check(ShopData.AvailableOf(0, 0), a1, "★ **限购剩余次数也在**（它原来只是静态表里的结构体字段，重启就回初值）");
             else Debug.Log(P + "（这一件没有限购信息 ⇒ 跳过限购那一条 —— 本条验不到，如实登记）");
             ShopData.DeleteStoreForTest();            // 收尾：删档
-            ShopData.OverrideDir = prevDir;           // ⚠️ 关掉门（后面的节不再碰盘，行为与今天完全一致）
+            ShopData.OverrideDir = prevDir; SaveCenter.OverrideRoot = prevSaveRoot;           // ⚠️ 关掉门（后面的节不再碰盘，行为与今天完全一致）｜🆕 2026-11-06（B150）：中央档改道一并还原
             ShopData.ResetForTest();
             Check(ShopData.OwnedOf(0, 0), o0, "（收尾：拥有数推回初值）");
         }

@@ -267,7 +267,7 @@ namespace CardPresentation
         public const float CollectFont = 40f, CollectAutoMin = 10f;
         public const float CollectAutoMax = 40f, CollectAutoBase = 12f;
         /// <summary>`Premium Disclaimer` 的 `m_text`（36px · Right/Middle · 折行 0 · **autosize 0**）。
-        /// ⚠️ 原版这一串是 I2 词条（`Localize`），**词条表在远端 CCD、本地没有** ⇒ 我们画的就是 prefab 里这串英文。</summary>
+        /// ⚠️ 原版这一串是 I2 词条（`Localize`）。⚠️ 2026-11-06 更正：原来写「**词条表在远端 CCD、本地没有**」—— 实际官方 I2 全表 10,862 键早在本地（这串英文现读在 `MainMenu/RewardWindow/PremiumItems`）⇒ 我们画的仍是 prefab 里这串英文，但那是**还没接**本地化。</summary>
         public const string TxtPremium = "Upgrade to premium to unlock";
         public const float PremFont = 36f;
         /// <summary>`Tap To Continue` 的 `m_text`（55px · Center/**Bottom** · 折行 0 · raycastTarget **0**）。

@@ -383,7 +383,7 @@ namespace CardPresentation
         protected Label Text(Transform parent, PxRect r, string s, Color color, string name, float fontPx, int q,
                              float wrapPx = 0f, float autoMinPx = 0f, int align = 0,
                              float autoMaxPx = 0f, float autoBasePx = 0f,
-                             TmpFont.Face face = TmpFont.Face.Cjk)
+                             TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-06 · B150-font2 · 判据 = 原版 prefab 实读：`Campaign Reward Window` 14/14 颗 TMP = Pragati（含 `Warning`/`Point Count`/`Claimed Text`/`Title/Glow…/Text …`）· `Reward Window` 5/5 Pragati · `Inbox Menu` 正文 Pragati（Asar 只有窗标题 `Content/Title`）· `Daily Streak Popup` 正文 Pragati（Asar 只有 Window Title / Current Streak*）⇒ 不传面的站点一律 Pragati；⛔ 别改回 Cjk（B146 §1·1 主面）
         {
             // 🔴 **2026-10-13（A435 阶段 2 · 丁 / B1）：取状态走【一处】共用解析**（`ViewportClip.Resolve`）——
             //    本方法原来两处都直接读 `RenderClip` / `ClipSoftness` 两个**本窗字段**，于是本窗没设

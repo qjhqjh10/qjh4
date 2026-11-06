@@ -107,7 +107,7 @@ namespace RuleEngine
             {
                 case 0:                                   // any —— 原版「disregards all other filters」
                     return true;
-                case 20:                                  // self —— 原版 `:184-191` 池 = `[thisCard]`、**不筛**；我们比 thisCard ⇒ 等价
+                case 20: return ReferenceEquals(candidate, thisCard);   // self —— 原版 `:184-191` 池 = `[thisCard]`、**不筛**；我们比 thisCard ⇒ 等价。✅ 已复刻（2026-11-05 · B150 · 改前这一格**没有语句**、直接掉进下面 40/70/80 那句 `ReferenceEquals(candidate, actingCard)`，而 `ActionPump.ActingLevelCriteriaAllows` 传的是 `actingCard: candidate` ⇒ **ta=20 恒真** ⇒ `RuleEngineTest_EngineE3` ④b 负例（acting = 另一个友方）照常结算且不出声；判据 `FilterMethods__CheckIfMeetsCriteria.c` 的 self 支 = 候选 == thisCard）
                 case 40:                                  // attacker —— ✅ 已复刻（2026-11-05 · B146-W16 · 判据 AbilityLogic__GetTargets.c:760-769；actingCard 由调用方显式传入）：池 = `[actingCard]`、**建池即 return**、不筛
                 case 70:                                  // abilityOwner —— 同一出口（`GetTargets.c:845-847` `LogError("not tested")` 后 `goto LAB_180819b04`）⇒ 池 = `[actingCard]`
                 case 80:                                  // actingCard —— 与 40 同支（`0x50/0x28`）；⛔ 别保留改前那两个近似（`ta==80 return true` / 拿 thisCard 比）

@@ -215,7 +215,7 @@ namespace CardPresentation
             if (ta == null)
             {
                 Debug.LogError("[Prebuilt] 读不到 `Resources/" + ResourcePath + ".json` —— " +
-                               "请跑 `python 工具/gen_prebuilt_decks.py` 生成（预组页会是空的）");
+                               "请跑 `python 工具/gen_prebuilt_decks.py --write` 生成（预组页会是空的）");
                 return;
             }
             try { _doc = JsonUtility.FromJson<Doc>(ta.text); }

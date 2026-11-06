@@ -1796,7 +1796,7 @@ namespace CardPresentation
             if (ta == null)
             {
                 _lastError = "`Resources/" + ResourcePath + ".json` 载不到 —— 跑一次 "
-                           + "`python 工具/gen_card_chat_intro.py`；开场白退回旧口径"
+                           + "`python 工具/gen_card_chat_intro.py --write`；开场白退回旧口径"
                            + "（`Chat_Messages/<卡 id>-Chat0`，⛔ 不静默）";
                 Debug.LogWarning("[Chat] " + _lastError);
                 return;

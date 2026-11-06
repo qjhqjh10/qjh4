@@ -160,7 +160,7 @@ namespace CardPresentation
             if (ta == null)
             {
                 LastError = "`Resources/" + ResourcePath + ".json` 载不到 —— 跑一次 "
-                          + "`python 工具/gen_ability_anim_durations.py`";
+                          + "`python 工具/gen_ability_anim_durations.py --write`";
                 _all = new AbilityAnimEntry[0];
                 _byName = new Dictionary<string, AbilityAnimEntry>();
                 _byId = new Dictionary<string, AbilityAnimEntry>();

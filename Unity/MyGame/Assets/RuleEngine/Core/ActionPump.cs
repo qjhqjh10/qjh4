@@ -359,7 +359,7 @@ namespace RuleEngine
             //
             //  ⚠️ **只在 `abilityActingGate = true` 的路径上跑** —— 那一位是调用点对
             //    「这条事件的 `actingCard` 是哪一格」**已经查清**的正面信号；
-            //    今天只有 `FireBoardWhenListener` 的 `Attack` / `Die` 两族置 `true`。
+            //    🔴 **2026-11-05（`B150` · 铁律 5 就地订正）**：原文写「今天只有 `Attack` / `Die` 两族置 `true`」——**已过期**。现读四个调用点传的都是 `AbilityActingGateApplies(kind)`，而它就是 `!string.IsNullOrEmpty(kind)` ⇒ **全部 trigger 都启用**（2026-10-29 `B97_ER` 扩过；原版 `CardAbility__CanTriggerAbility.c:126-141` 的 `+0x28` 那一道**不看 trigger 号**）。拿不到 `actingCard` 的那几族由下面三档处置里的「判不了 ⇒ 放行 + 出声」兜住。
             //  三档处置（与本函数下面那道 target 闸同口径，⛔ 别合并）：
             //    · **确定不满足** ⇒ **不触发**；· **定位不唯一** ⇒ **不触发**（⛔ 不猜第几条）；
             //    · **拿不到 `actingCard` / 列没落 / 认不出 / 该 `ta` 档没建池器** ⇒

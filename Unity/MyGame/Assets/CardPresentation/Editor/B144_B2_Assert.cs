@@ -291,8 +291,18 @@ public static class B144_B2_Assert
         }
 
         // 🔴 前提断言先写死：正则失配 ⇒ 0 条 ⇒ 后面「全部可解析」是**假绿**（本项目踩过多次静默跳过）
-        Check(hits.Count >= 5,
-              "E0 前提：生产代码里扫到 **" + hits.Count + " 处**字面量 cue 调用（< 5 ⇒ 多半是正则失配，本组不算数）");
+        // ⚠️ 2026-11-05（`B150-W-D`）：门槛由 5 降到 2 —— 生产已改成「常量喂 cue」，现读**只剩 2 处字面量**
+        //   （`Shell/DraftModeWindow.cs:2763/2772` 的 `Draft Mode Progress Jingle` / `Draft Mode Loss Jingle`，
+        //   判据 = 原版 `DraftRunDisplay.progressSound` / `lossesSound`）⇒ 把这两条当成目标，别拿旧门槛判「正则失配」。
+        bool hasProgress = false, hasLoss = false;
+        foreach (var kv in hits)
+        {
+            if (kv.Key == "Draft Mode Progress Jingle") hasProgress = true;
+            if (kv.Key == "Draft Mode Loss Jingle") hasLoss = true;
+        }
+        Check(hits.Count >= 2 && hasProgress && hasLoss,
+              "E0 前提：生产代码里扫到 **" + hits.Count + " 处**字面量 cue 调用（< 2 ⇒ 多半是正则失配；"
+              + "且必须含 `Draft Mode Progress Jingle` / `Draft Mode Loss Jingle` = " + hasProgress + "/" + hasLoss + "）");
 
         int bad = 0;
         var detail = new System.Text.StringBuilder();

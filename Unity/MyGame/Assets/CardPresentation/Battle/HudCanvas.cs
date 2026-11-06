@@ -664,7 +664,7 @@ namespace CardPresentation
         /// <para>⛔ 不要用 `Label.Create`（那是**世界空间**档）—— 见 `Label` 文件头那条「只许二选一」。</para></summary>
         public static Label MakeText(Transform parent, string text, float px, float py, int scale,
                                      Color color, Vector2 anchor, float z, string name = null,
-                                     TmpFont.Face face = TmpFont.Face.Cjk)
+                                     TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-06 · B150-font2 · 判据 = 原版实读：`BattleSettingsPanel/Auto Zoom Toggle/Label` = Pragati · `EndBattlePanel/…/RewardHolder/Quantity` = Pragati ⇒ 缺省 Pragati；⛔ 这一档其余没传面的站点只有 `EndPanel` 那两颗**我们自己加的**字，它们已显式钉 `Cjk`）
         {
             if (parent == null) return null;
             var l = Label.CreateUgui(parent, text, new Vector3(px, py, 0f), scale, color, anchor, name);

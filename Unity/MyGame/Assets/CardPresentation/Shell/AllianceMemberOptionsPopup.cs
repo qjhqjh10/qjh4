@@ -158,7 +158,7 @@ namespace CardPresentation
                          IDemote = 4, IKick = 5, IQuit = 6, IDebug = 7;
 
         /// <summary>`Promote` 那颗运行期会换字的两个 I2 词条键（二进制字面量表实读）。
-        /// 本地没有词条表 ⇒ 只用作出声与断言，不换字。</summary>
+        /// ⚠️ 2026-11-06 更正：原来写「本地没有词条表 ⇒ 只用作出声与断言，不换字」—— 实际官方 I2 全表 **10,862 键 / 13 语言早在本地**（`CardPresentation/Resources/official_loc_13lang.json`，2026-10-18 并入；`SocialMenu/Alliances/Promote` 现读**在表里**）⇒ 「不换字」是**还没接**，不是拿不到。</summary>
         public const string TermPromote = "SocialMenu/Alliances/Promote";
         public const string TermTransferLeadership = "SocialMenu/Alliances/TransferLeadership";
 
@@ -489,7 +489,7 @@ namespace CardPresentation
                 if (_btnNodes[i] != null) _btnNodes[i].gameObject.SetActive(on);
             }
             // `Promote` 那颗的运行期换字（role == Admin ⇒ `TransferLeadership`）。
-            // 🔴 本地没有 I2 词条表 ⇒ **不出声就不用换**：只有真按数据算过、且 role 真是 Admin 时才出声说明。
+            // ⚠️ 2026-11-06 更正：原来写「本地没有 I2 词条表」—— 实际全表 10,862 键早在本地（`Resources/official_loc_13lang.json`，2026-10-18 并入），`SocialMenu/Alliances/Promote` 现读在表里 ⇒ 「不出声就不用换」只是**还没接本地化**，⛔ 别当成「拿不到」。
             if (HasData && role == 2 && _btnTexts[IPromote] != null)
                 Debug.Log("[MemberOptions] `Promote` 那一颗：原版在 `role == Admin(2)` 时把文字换成 I2 词条 "
                         + "`" + TermTransferLeadership + "`（否则 `" + TermPromote + "`）—— "

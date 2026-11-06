@@ -118,9 +118,18 @@ public static class B142_E36_Assert
             for (int k = 0; k < ctxs.Count; k++)
                 if (ctxs[k] != null && ctxs[k].Context == CardDef.AbilityContextHand) { withHandCtxRow++; break; }
         }
-        Check(pop, 79, "A5 ★★ 闸 A 的放行面 = **79 张** unit/hero 卡（R12 表 2a 现读）"
+        // ✅ 已复刻（2026-11-05 · B150 · #16）：按 R12 §二·表 2a 的**同一条定义**（`CanListenForEvents`∧`WhenTriggers.Count>0`）
+        //   离线重数（`ruleprobe layers` 的 `ch.when`，现池 1142 张）：**83 张**（unit 78 + hero 5）。
+        //   与 R12 当时那 79 张逐张对差：**只多 4 张、一张没少** ——
+        //   `BL12 Aspiring Champion`（After receiving a Dark Pact, gain +1 [Ranged] and +1 Health）·
+        //   `BL3 Chaos Legionary`（After receiving a Dark Pact, deal 2 damage to a random enemy）·
+        //   `BL69 Meltagun Legionary`（Blast 2. After receiving a Dark Pact, …）·
+        //   `TAU15 Sniper Drone`（Gains Long Range when an enemy gains Markerlight）
+        //   ⇒ 四张都真的带「监听句」（分别是 `After …` 与句尾 `when …` 两种句式）⇒ 放行面口径没变，是卡池长了。
+        //   ⛔ 别把这个数当成可以随手改的常数：它 = 该定义在现池上的**读数**，卡池再变要重新对差。
+        Check(pop, 83, "A5 ★★ 闸 A 的放行面 = **83 张** unit/hero 卡（R12 表 2a 定义重数；R12 当时 79 = 现 83 − 新增 4）"
                      + "｜🧨 卡表/注册闸变了 ⇒ 这条会先红（那时先复核 R12 §二）");
-        Check(withHandCtxRow, 0, "A5b ★★ 这 79 张里**有 `abilityContext == 10` 行的 = 0 张**"
+        Check(withHandCtxRow, 0, "A5b ★★ 这 83 张里**有 `abilityContext == 10` 行的 = 0 张**"
                               + "（⇒ 补了闸之后，池内没有一张 unit/hero 的 `When` 能从手牌执行 —— 这正是原版的口径）");
 
         var sor38 = CardDatabase.Find(pool, "Paragon Warsuit");
@@ -342,7 +351,7 @@ public static class B142_E36_Assert
             if (presence0) nPresence0++;
             if (reject) nAnyReject++;
         }
-        Check(nGateA, 79, "D5 ★★ 闸 A 的放行面仍是 **79 张**（与 A5 同口径，R12 表 2a）");
+        Check(nGateA, 83, "D5 ★★ 闸 A 的放行面仍是 **83 张**（与 A5 同口径；R12 表 2a 定义重数，R12 当时 79 + 新增 4）");
         CheckTrue(nPresence0 >= 1,
                   "D5b ★★★ **这一刀在池内不是空转**：落在「presence = 0」上的卡 = **" + nPresence0 + " 张**"
                 + "（现读；含 `SOR10` / `UM81`）｜🧨 若为 0 ⇒ 先复核 `TriggerNameOfWhenKind` 的映射，别当它已对齐");

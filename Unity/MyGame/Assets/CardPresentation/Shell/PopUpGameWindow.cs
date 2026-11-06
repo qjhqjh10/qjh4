@@ -411,7 +411,7 @@ namespace CardPresentation
         public override void Open()
         {
             Build();
-            // 两条如实出声（红线）：① 词条表本地没有 ⇒ 现在印的是**键**；② 音效没做。
+            // 两条如实出声（红线）：① 正文词条键是**运行期传进来的** `_msgKey`（可能不在表里）⇒ 表里没有就印**键**（⚠️ 2026-11-06 更正：原来写「词条表本地没有」—— 表本身**在本地**，10,862 键，见下一句「表里有就印词条」）；② 音效没做。
             Debug.Log("[PopUp] 开了 `" + name + "`（" + (TwoButtons ? "2" : "1") + " 按钮版）· 正文键 `"
                     + _msgKey + "` · 左钮 `" + _primaryKey + "`"
                     + (TwoButtons ? " · 右钮 `" + _secondaryKey + "`" : "")

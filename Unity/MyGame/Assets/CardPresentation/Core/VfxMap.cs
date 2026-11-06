@@ -947,7 +947,7 @@ namespace CardPresentation
             {
                 Debug.LogWarning($"[Vfx] `Resources/{CardTableResourcePath}.json` **没载到** ⇒ "
                                + "逐卡特效这一档**不起作用**，退回「按阵营 + 按事件」的老兜底。"
-                               + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_card_vfx_by_card.py");
+                               + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_card_vfx_by_card.py --write");
                 return;
             }
             RtFile dto;

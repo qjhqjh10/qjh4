@@ -13,7 +13,9 @@
 //   `B112R3C_Assert.Run(driver)` —— `driver` 必须是一局**已开始、未结束**的对战，并且
 //   **本地玩家（`driver.MySeat`）手牌里有一张 `Targeted == 1 && CardType == 20` 的战术卡，
 //   且 `driver.PlayTargetPoolForTest(那张卡).Count > 0`**。
-//   ⛔ 前提不成立时本文件会**报红并写明缺什么**（不静默跳过 —— 本仓红线条目）。
+//   🔴 2026-11-06 `B150` 就地订正：上一句「宿主手牌里必须有一张…」**不再是硬契约** ——
+//   手牌里凑不出时本文件会**从 `ctx.CardPool` 注入一张**（用完摘掉还原，判据 `判据/B150_横切_固定种子手牌断言.md` §五类2）；
+//   连卡池都凑不出才按 A1 报红并写明缺什么（不静默跳过 —— 本仓红线条目）。
 //   ⛔ 别把它塞进某条已有断言的**行尾 `//` 之后**（本仓踩过 6 次，代码被注释吞掉而 `typecheck` 照样 0/0）。
 using System.Collections.Generic;
 using UnityEngine;
@@ -115,7 +117,7 @@ public static class B112R3C_Assert
         var hand = driver.Ctx.Players[seat].Hand;
 
         // ---- 夹具：手牌里找一张「targeted 战术卡 + 目标池非空」 ----
-        int handIdx = -1; CardDef def = null; List<UnitState> pool = null;
+        int handIdx = -1; CardDef def = null; List<UnitState> pool = null; CardInstance injectedInst = null;
         for (int i = 0; i < hand.Count; i++)
         {
             var d = hand[i] != null ? hand[i].Card : null;
@@ -124,6 +126,7 @@ public static class B112R3C_Assert
             if (p == null || p.Count == 0) continue;
             handIdx = i; def = d; pool = p; break;
         }
+        if (handIdx < 0) { var poolDefs = driver.Ctx != null ? driver.Ctx.CardPool : null; if (poolDefs != null) for (int i = 0; i < poolDefs.Count && handIdx < 0; i++) { var pd = poolDefs[i]; if (pd == null || pd.IsUnit || pd.Targeted != 1 || pd.CardType != 20) continue; var pp = driver.PlayTargetPoolForTest(pd); if (pp == null || pp.Count == 0) continue; injectedInst = driver.Ctx.NewInstance(pd); hand.Add(injectedInst); driver.RefreshAll(); handIdx = hand.Count - 1; def = pd; pool = pp; } }   // 🔴 2026-11-06 `B150` 修（判据 `判据/B150_横切_固定种子手牌断言.md` §三/§五类2）：手牌里**有没有**这一档取决于洗牌结果 ⇒ 凑不出就**从卡池注入一张**（同 `BattleScene.cs:16385` 的范式），收尾摘掉还原；⛔ 别让 A1 红在「夹具没牌」上（那会把实现缺陷和夹具缺陷混成一堆红）
         T(handIdx >= 0,
           "A1 （前提）本地玩家手牌里有一张 `Targeted==1 && CardType==20` 且目标池非空的战术卡"
           + " —— ⛔ 前提不成立=红（宿主夹具要么补一张，要么这条按红报给调度台，⛔ 不许静默跳过）");
@@ -138,7 +141,7 @@ public static class B112R3C_Assert
             if (empty) { dropSlot = s; break; }
         }
         T(dropSlot >= 0, "A2 （前提）棋盘上至少有一个空格可作落点 —— ⛔ 前提不成立=红");
-        if (dropSlot < 0) return;
+        if (dropSlot < 0) { if (injectedInst != null) { hand.Remove(injectedInst); driver.RefreshAll(); } return; }
 
         bool dropped = driver.SimulateCardDroppedForTest(handIdx, dropSlot);
         T(dropped, "A3 `SimulateCardDroppedForTest` 走到了产品那条落位链路（`OnCardDeployed`）");
@@ -188,6 +191,7 @@ public static class B112R3C_Assert
         T(!driver.AwaitingPlayTarget && stillLit == 0,
           $"A8 取消之后：退出等待态 **且** 绿环全收（仍亮 {stillLit} 个）"
           + " —— 🧨 把取消支里的 `ClearPlayTargetHighlight()` 删掉 ⇒ 本仓会留一整屏绿环 ⇒ 红");
+        if (injectedInst != null) { hand.Remove(injectedInst); driver.RefreshAll(); }   // 🔴 2026-11-06 `B150`：注入的夹具卡收尾**摘掉还原**，别污染宿主后面那几节的手牌
     }
 
     // ------------------------------------------------------------------

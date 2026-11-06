@@ -201,12 +201,12 @@ public static class B118W21_Assert
                   id + "d 那一格是 `LiveopUIDrawer_GameModeIcon`（原版组件类型）");
         }
         if (node == null) return;
-        var rt = node.GetComponent<RectTransform>();
-        N(rt.rect.width * 108f, 100f, 0.5f, id + "e 图标宽 = 原版 **100** 设计 px");
-        N(rt.rect.height * 108f, 100f, 0.5f, id + "f 图标高 = 原版 **100** 设计 px");
+        // ⚠️ 世界档 `ImageQuad` 的宿主是**裸 `Transform`**（`ImageQuad.Create` 的 `new GameObject(name)`）⇒ ⛔ 别取 `RectTransform`（会抛 `MissingComponentException`，`B150` #10）。
         var q = node.GetComponent<ImageQuad>();
         T(q != null, id + "g 图标节点**自己就是**那颗 `Image`（原版 Image 挂在这一颗上；裸 `Node` 不行）");
-        if (q == null) return;
+        if (q == null) return;   // ⛔ 不静默跳过：上面那条已把「节点上没有 ImageQuad」报红
+        N(q.WorldW * 108f, 100f, 0.5f, id + "e 图标宽 = 原版 **100** 设计 px（`ImageQuad.WorldW × 108`，不是 `rect.width`）");
+        N(q.WorldH * 108f, 100f, 0.5f, id + "f 图标高 = 原版 **100** 设计 px");
         if (wantArt != null)
         {
             var want = CardArt.MenuUi(wantArt);

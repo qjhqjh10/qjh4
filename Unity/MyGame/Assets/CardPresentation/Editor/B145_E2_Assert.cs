@@ -255,7 +255,12 @@ public static class B145_E2_Assert
         return u;
     }
 
-    /// <summary>A-01 用：`ta=10` 的最小 criteria。其余格留 `Unknown`(-1) ⇒ `Matches` 在 ③ 返回 `null` ⇒ 全保留。</summary>
+    /// <summary>A-01 用：`ta=10` 的最小 criteria。其余格留 `Unknown`(-1) ⇒ `Matches` 在 ③ 返回 `null` ⇒ 全保留。
+    /// <para>✅ 已复刻（2026-11-05 · B150 · #8/#9）：`IncludeHero` 缺省是 `Unknown(-1)`（= 判不了 ⇒ 放行），
+    /// 而 `Place` 之外**两侧督军本来就坐在 `Board[4]` 上** ⇒ 敌方督军 `E2FixtureWarlord` 被算进池子、
+    /// 挤掉了表尾三张的位置（实得 `[E5,E2FixtureWarlord,E3]`）。原版 `AbilityLogic__GetTargets.c:972-990`
+    /// 的 `ta=10` 支把 `+0x16`（includeHero）原样交给 `GetUnitsInPlayList` ⇒ **0 = 不数督军**，
+    /// 与这份夹具「池里只有摆上去的 5 个部队」的意图一致。</para></summary>
     static CardDef.CountSetSpec Criteria(int tA, int max, int method)
     {
         return new CardDef.CountSetSpec
@@ -263,6 +268,7 @@ public static class B145_E2_Assert
             TargetsAffected = tA,
             FriendlyUnits = 0,
             EnemyUnits = 1,
+            IncludeHero = 0,          // 🔴 2026-11-05（`B150`）：不数督军 —— 否则敌方督军混进 `ta=10` 池
             MaxTargets = max,
             TargetSelectMethod = method,
         };

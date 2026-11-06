@@ -607,8 +607,8 @@ namespace CardPresentation
                     _cntNum.SetText(string.Format(TxtCounter, v.RewardCount));
                 else
                 {
-                    // 🔴 `MenuShop/referral/counterMaximum` 那条词条的**正文本地拿不到**（词条表在远端 CCD）
-                    //    ⇒ 出声 + 退回 prefab 里那条带占位的串（**不假装知道**）。
+                    // 🔴 `MenuShop/referral/counterMaximum` 那条词条的**正文现在拿得到**（⚠️ 2026-11-06 更正：原来写「本地拿不到（词条表在远端 CCD）」—— 实际官方 I2 全表 10,862 键早在本地，且该键现读**在表里**）⇒ 下面「退回 prefab 占位串」是**还没接**本地化，不是拿不到。
+                    //    ⇒ **现行代码**仍「出声 + 退回 prefab 里那条带占位的串」（不假装知道）；接本地化时按官方表取该键。
                     if (!_warnedCounterMax)
                     {
                         _warnedCounterMax = true;

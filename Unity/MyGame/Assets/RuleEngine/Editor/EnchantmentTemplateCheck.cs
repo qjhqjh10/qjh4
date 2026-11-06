@@ -461,35 +461,47 @@ public static class EnchantmentTemplateCheck
            && Enchantments.GrantedEnchantmentOf(tl47) != null,
            "G1（同族）按**卡对象**（不是 id 字符串）也命中登记表");
 
-        // ---- G2 · 真战斗：打出 `SAU53` ⇒ 目标身上真的挂上 Undying Legions ----
+        // ---- G2 · 真战斗：打出 `SAU53` ⇒ Undying Legions 挂到**己方督军**（卡表 `ta = 120 friendlyHero`）----
+        //  🔴 2026-11-06（`B150_修_附魔授予`）就地订正：`B124_W39` 把载体从「一律 chosen」改成「按 `ta` 取载体集」，
+        //     `SAU53` 那行是 `ta = 120`（原版 `AbilityLogic__GetTargets.c:721-736` 的 `0x78` 支 ⇒
+        //     `GetHero(actingCard.player)`），卡面也写着「Give Shield to your Warlord」
+        //     ⇒ 载体是**己方督军**，不是落牌目标（`报告/B124_W39_附魔三件.md` §三 已把 `SAU53` 列进「🔴 变」）。
         {
             BattleContext bctx; UnitState carrier;
             int code = PlayTacticOnFixture(sau53, 20261102, out bctx, out carrier);
             Ok(code == RuleCodes.OK,
                $"G2 前提：`SAU53` 在夹具战斗里打得出去（返回 {code}）—— 🧨 若这一条红，"
              + "下面几条全部无效（别把「没打出去」当成「没挂上」）");
-            if (code == RuleCodes.OK && carrier != null)
+            if (code == RuleCodes.OK && carrier != null && bctx != null)
             {
-                Ok(carrier.Instance.ActiveEnchantments.Count == 1,
-                   $"★ G2 打出 `SAU53` 之后，目标身上 `activeEnchantments(+0x110)` 有 "
-                 + $"**{carrier.Instance.ActiveEnchantments.Count}** 条（期望 1）"
-                 + " —— 🧨 删掉 `EffectResolver.PlayTacticCore` 里 `Enchantments.AttachGrantedByPlayedCard(...)` 那句 ⇒ 本条红（变 0）");
-                if (carrier.Instance.ActiveEnchantments.Count == 1)
+                var wl = bctx.Players[0].Warlord;
+                if (Ok(wl != null && wl.Instance != null,
+                       "G2 前提：己方督军在位（`ta = 120 (friendlyHero)` 的载体就是它）"))
                 {
-                    var rec = carrier.Instance.ActiveEnchantments[0];
-                    Ok(rec.Card != null && rec.Card.Id == UndyingId,
-                       $"★ G2（同族）挂的是**那张模板**（实得 `{(rec.Card == null ? "null" : rec.Card.Id)}`）");
-                    Ok(rec.WhileInPlayAnim == 1,
-                       $"★ G2（同族）记录上的 `WhileInPlayAnim` = {rec.WhileInPlayAnim}（期望 1）"
-                     + " —— 🧨 把 `Attach` 里 `EnchantmentWhileInPlayAnimOf(...)` 改回直传缺省 ⇒ 落 -1 ⇒ 红");
+                    var ci = wl.Instance;
+                    Ok(ci.ActiveEnchantments.Count == 1,
+                       $"★ G2 打出 `SAU53` 之后，**己方督军**身上 `activeEnchantments(+0x110)` 有 "
+                     + $"**{ci.ActiveEnchantments.Count}** 条（期望 1）"
+                     + " —— 🧨 删掉 `EffectResolver.PlayTacticCore` 里 `Enchantments.AttachGrantedByPlayedCard(...)` 那句 ⇒ 本条红（变 0）");
+                    if (ci.ActiveEnchantments.Count == 1)
+                    {
+                        var rec = ci.ActiveEnchantments[0];
+                        Ok(rec.Card != null && rec.Card.Id == UndyingId,
+                           $"★ G2（同族）挂的是**那张模板**（实得 `{(rec.Card == null ? "null" : rec.Card.Id)}`）");
+                        Ok(rec.WhileInPlayAnim == 1,
+                           $"★ G2（同族）记录上的 `WhileInPlayAnim` = {rec.WhileInPlayAnim}（期望 1）"
+                         + " —— 🧨 把 `Attach` 里 `EnchantmentWhileInPlayAnimOf(...)` 改回直传缺省 ⇒ 落 -1 ⇒ 红");
+                    }
+                    Ok(Enchantments.HasEnchantmentWhileInPlay(ci),
+                       "★★ G2 **可观察结果**：`Enchantments.HasEnchantmentWhileInPlay(己方督军)` == true"
+                     + "（= 原版 `EntityScript__HasEnchantmentWhileInPlay` 为真 ⇒ 表现层那一下应该播；"
+                     + "`whileInPlayAnim` 此前**全仓没有任何真战斗路径会写它**）");
+                    Ok(Enchantments.CountUnknownWhileInPlayAnim(ci) == 0,
+                       "★ G2（同族）`CountUnknownWhileInPlayAnim(己方督军)` == 0（= **不是靠「未知」蒙对的**）");
+                    Ok(carrier.Instance.ActiveEnchantments.Count == 0,
+                       $"★ G2（**反方向灭自证**）落牌目标（那个小兵）身上 **{carrier.Instance.ActiveEnchantments.Count}** 条（期望 0）"
+                     + " —— `ta = 120` 只认己方督军；🧨 改成「见谁都挂」⇒ 这里 >0");
                 }
-                Ok(Enchantments.HasEnchantmentWhileInPlay(carrier.Instance),
-                   "★★ G2 **可观察结果**：`Enchantments.HasEnchantmentWhileInPlay(carrier)` == true"
-                 + "（= 原版 `EntityScript__HasEnchantmentWhileInPlay` 为真 ⇒ 表现层那一下应该播；"
-                 + "`whileInPlayAnim` 此前**全仓没有任何真战斗路径会写它**）");
-                Ok(Enchantments.CountUnknownWhileInPlayAnim(carrier.Instance) == 0,
-                   "★ G2（同族）`CountUnknownWhileInPlayAnim(carrier)` == 0"
-                 + "（= **不是靠「未知」蒙对的**；P-07 之前那版这里会是 1）");
             }
         }
 
@@ -501,31 +513,45 @@ public static class EnchantmentTemplateCheck
                 BattleContext.EnchantmentTemplatesProvider = null;
                 BattleContext bctx; UnitState carrier;
                 int code = PlayTacticOnFixture(sau53, 20261103, out bctx, out carrier);
-                Ok(code == RuleCodes.OK && carrier != null,
+                Ok(code == RuleCodes.OK && carrier != null && bctx != null,
                    $"★ G3 前提：摘掉 provider 之后 `SAU53` 照样打得出去（返回 {code}）");
-                if (code == RuleCodes.OK && carrier != null)
-                    Ok(carrier.Instance.ActiveEnchantments.Count == 0,
-                       $"★ G3（**灭自证**）摘掉 provider ⇒ 目标身上挂了 "
-                     + $"**{carrier.Instance.ActiveEnchantments.Count}** 条（期望 0）"
-                     + " —— 🧨 如果本条红（= 摘掉还挂上了），说明命中的根本不是第二张表");
+                if (code == RuleCodes.OK && carrier != null && bctx != null)
+                {
+                    var wl3 = bctx.Players[0].Warlord;
+                    if (Ok(wl3 != null && wl3.Instance != null, "★ G3 前提：己方督军在位（载体是它，断它才有鉴别力）"))
+                        Ok(wl3.Instance.ActiveEnchantments.Count == 0,
+                           $"★ G3（**灭自证**）摘掉 provider ⇒ **己方督军**身上挂了 "
+                         + $"**{wl3.Instance.ActiveEnchantments.Count}** 条（期望 0）"
+                         + " —— 🧨 如果本条红（= 摘掉还挂上了），说明命中的根本不是第二张表");
+                }
             }
             finally { BattleContext.EnchantmentTemplatesProvider = saved; }
         }
 
         // ---- G4 · 真战斗：`TL47 Hive Fleet Leviathan`（模板自己 `cardAbilities` 为空，只有 wp=1）----
+        //  🔴 2026-11-06（`B150_修_附魔授予`）就地订正：`TL47` 的 3 条行是
+        //     `lg0 ca50 (buffHand, ta 0)` / `lg1 ca30 (buffOthers, ta 120)` / `lg2 ca0 (drawCard, ta 65)`。
+        //     原版只有 `ca 30` 那条会产生 `AddEffect`（`PlayAbility.c:1218`），另两条 `ca 50 / 0` 不产生
+        //     ⇒ 载体 = `ta 120` 的**己方督军**，且 `lg0` 那条**不再**按 `ta 0` 把模板撒给双方全场。
         {
             BattleContext bctx; UnitState carrier;
             int code = PlayTacticOnFixture(tl47, 20261104, out bctx, out carrier);
             Ok(code == RuleCodes.OK, $"G4 前提：`TL47` 打得出去（返回 {code}）");
-            if (code == RuleCodes.OK && carrier != null)
+            if (code == RuleCodes.OK && carrier != null && bctx != null)
             {
-                Ok(carrier.Instance.ActiveEnchantments.Count == 1
-                   && carrier.Instance.ActiveEnchantments[0].Card != null
-                   && carrier.Instance.ActiveEnchantments[0].Card.Id == HiveId,
-                   "★ G4 `TL47` 打出 ⇒ 目标身上挂着 `Hive Fleet Leviathan` 模板（1 条）"
-                 + " —— 🧨 白名单里删掉 `TL47` 那一行 ⇒ 红");
-                Ok(Enchantments.HasEnchantmentWhileInPlay(carrier.Instance),
-                   "★ G4（同族）`HasEnchantmentWhileInPlay` == true（这张模板**唯一**的语义就是它）");
+                var wl4 = bctx.Players[0].Warlord;
+                if (Ok(wl4 != null && wl4.Instance != null, "G4 前提：己方督军在位（`lg1` 的 `ta = 120` 载体就是它）"))
+                {
+                    var recs4 = wl4.Instance.ActiveEnchantments;
+                    Ok(recs4.Count == 1 && recs4[0].Card != null && recs4[0].Card.Id == HiveId,
+                       $"★ G4 `TL47` 打出 ⇒ **己方督军**身上挂着 `Hive Fleet Leviathan` 模板（实得 {recs4.Count} 条）"
+                     + " —— 🧨 白名单里删掉 `TL47` 那一行 ⇒ 红");
+                    Ok(Enchantments.HasEnchantmentWhileInPlay(wl4.Instance),
+                       "★ G4（同族）`HasEnchantmentWhileInPlay` == true（这张模板**唯一**的语义就是它）");
+                    Ok(carrier.Instance.ActiveEnchantments.Count == 0,
+                       $"★ G4（**ca 闸·反方向**）落牌目标身上 **{carrier.Instance.ActiveEnchantments.Count}** 条（期望 0）"
+                     + " —— 🧨 去掉 `AttachGrantedByPlayedCard` 的 `chosenAbility` 闸 ⇒ `lg0 (ca 50, ta 0)` 会赢下去重、按 `ta 0` 撒给双方全场 ⇒ 这里 >0");
+                }
             }
         }
 
@@ -595,20 +621,30 @@ public static class EnchantmentTemplateCheck
         if (!Ok(am51 != null, $"H2 前提：真卡池里有 `AM51 Cadia Stands`（现读 {pool.Count} 张）"
                             + " —— ⛔ 缺了就让 H2/H3 变成「0 == 0」的假绿")) return;
 
-        // ---- H2 · 真战斗：打出 `AM51` ⇒ 目标身上挂上它那张模板 ----
+        // ---- H2 · 真战斗：打出 `AM51` ⇒ 它那张模板挂到**己方督军**（卡表 `ta = 120 friendlyHero`）----
+        //  🔴 2026-11-06（`B150_修_附魔授予`）就地订正：`AM51 Cadia Stands` 的挂载行是 `ta = 120`
+        //     ＝ 己方督军（原版 `AbilityLogic__GetTargets.c:721-736` 的 `0x78` 支；卡面「at the start of
+        //     your turn, deploy a Shock Trooper」也挂在督军身上）⇒ `B124_W39` 之后载体不再是被点的小兵。
         {
             BattleContext bctx; UnitState carrier;
             int code = PlayTacticOnFixture(am51, 20261201, out bctx, out carrier);
             Ok(code == RuleCodes.OK, $"H2 前提：`AM51` 打得出去（返回 {code}）");
-            if (code == RuleCodes.OK && carrier != null)
+            if (code == RuleCodes.OK && carrier != null && bctx != null)
             {
-                int n = carrier.Instance.ActiveEnchantments.Count;
-                Ok(n == 1 && carrier.Instance.ActiveEnchantments[0].Card != null
-                   && carrier.Instance.ActiveEnchantments[0].Card.Id == CadiaTemplateId,
-                   $"★ H2 `AM51` 打出 ⇒ 目标身上 **{n}** 条附魔，"
-                 + $"挂的是 `{(n > 0 && carrier.Instance.ActiveEnchantments[0].Card != null ? carrier.Instance.ActiveEnchantments[0].Card.Id : "null")}`"
-                 + $"（期望 1 条 · `{CadiaTemplateId}`）"
-                 + " —— 🧨 把 `AttachGrantedByPlayedCard` 换回只查白名单（`GrantedEnchantmentOf`）⇒ 变 0");
+                var wl2 = bctx.Players[0].Warlord;
+                if (Ok(wl2 != null && wl2.Instance != null, "H2 前提：己方督军在位（`ta = 120` 的载体就是它）"))
+                {
+                    var recs = wl2.Instance.ActiveEnchantments;
+                    int n = recs.Count;
+                    Ok(n == 1 && recs[0].Card != null && recs[0].Card.Id == CadiaTemplateId,
+                       $"★ H2 `AM51` 打出 ⇒ **己方督军**身上 **{n}** 条附魔，"
+                     + $"挂的是 `{(n > 0 && recs[0].Card != null ? recs[0].Card.Id : "null")}`"
+                     + $"（期望 1 条 · `{CadiaTemplateId}`）"
+                     + " —— 🧨 把 `AttachGrantedByPlayedCard` 换回只查白名单（`GrantedEnchantmentOf`）⇒ 变 0");
+                    Ok(carrier.Instance.ActiveEnchantments.Count == 0,
+                       $"★ H2（**反方向灭自证**）落牌目标身上 **{carrier.Instance.ActiveEnchantments.Count}** 条（期望 0）"
+                     + " —— `ta = 120` 只认己方督军；🧨 改成「见谁都挂」⇒ 这里 >0");
+                }
             }
         }
 
@@ -620,13 +656,17 @@ public static class EnchantmentTemplateCheck
                 Enchantments.GrantedEnchantmentsProvider = null;
                 BattleContext bctx2; UnitState carrier2;
                 int code2 = PlayTacticOnFixture(am51, 20261202, out bctx2, out carrier2);
-                Ok(code2 == RuleCodes.OK && carrier2 != null,
+                Ok(code2 == RuleCodes.OK && carrier2 != null && bctx2 != null,
                    $"★ H3 前提：摘掉数据源之后 `AM51` 照样打得出去（返回 {code2}）");
-                if (code2 == RuleCodes.OK && carrier2 != null)
-                    Ok(carrier2.Instance.ActiveEnchantments.Count == 0,
-                       $"★ H3（**灭自证**）摘掉数据源 ⇒ 目标身上挂了 "
-                     + $"**{carrier2.Instance.ActiveEnchantments.Count}** 条（期望 0）"
-                     + " —— 🧨 如果本条红（= 摘掉还挂上了），说明命中的根本不是卡表 `enchantment` 列");
+                if (code2 == RuleCodes.OK && carrier2 != null && bctx2 != null)
+                {
+                    var wl3 = bctx2.Players[0].Warlord;
+                    if (Ok(wl3 != null && wl3.Instance != null, "★ H3 前提：己方督军在位（载体是它，断它才有鉴别力）"))
+                        Ok(wl3.Instance.ActiveEnchantments.Count == 0,
+                           $"★ H3（**灭自证**）摘掉数据源 ⇒ **己方督军**身上挂了 "
+                         + $"**{wl3.Instance.ActiveEnchantments.Count}** 条（期望 0）"
+                         + " —— 🧨 如果本条红（= 摘掉还挂上了），说明命中的根本不是卡表 `enchantment` 列");
+                }
             }
             finally { Enchantments.GrantedEnchantmentsProvider = saved; }
         }
@@ -654,18 +694,37 @@ public static class EnchantmentTemplateCheck
             }
         }
 
-        // ---- H5 · 去重：`TL47` 的 3 条同模板 logic ⇒ 只挂 **1** 条（本钩子只有一个目标）----
+        // ---- H5 · `chosenAbility` 闸 + 去重：`TL47` 的 3 条同模板行里**只有 `lg1 (ca 30)` 该挂** ----
+        //  🔴 2026-11-06（`B150_修_附魔授予`）就地订正：原来只断「目标小兵身上 1 条」—— 那断的是
+        //     「`lg0 (ca 50, ta 0)` 按 `ta 0` 撒给双方全场」这条**错口径**（`B124_W39` 之前 `ta` 不参与，
+        //     去重直接把后两条吃掉）。按原版：`ca 50 buffHand` / `ca 0 drawCard` 不产生 `AddEffect`
+        //     ⇒ 只有 `lg1 (ca 30, ta 120)` 挂 **1** 条到**己方督军**；`lg0` 必须先被 `ca` 闸挡掉，
+        //     否则它会在去重里把 `lg1` 顶掉（那正是「一条都不挂」的方向）。
         {
             var tl47 = FindById(pool, "TL47");
-            if (Ok(tl47 != null, "H5 前提：真卡池里有 `TL47`（数据列里它有 3 条指向同一张模板的行）"))
+            if (Ok(tl47 != null, "H5 前提：真卡池里有 `TL47`（数据列里它有 3 条指向同一张模板的行：`ca 50 / 30 / 0`）"))
             {
                 BattleContext bctx4; UnitState carrier4;
+                int skipBefore = Enchantments.GrantedSkippedNotAddEffect;
                 int code4 = PlayTacticOnFixture(tl47, 20261204, out bctx4, out carrier4);
-                Ok(code4 == RuleCodes.OK && carrier4 != null, $"★ H5 前提：`TL47` 打得出去（返回 {code4}）");
-                if (code4 == RuleCodes.OK && carrier4 != null)
-                    Ok(carrier4.Instance.ActiveEnchantments.Count == 1,
-                       $"★ H5 `TL47` 的 3 条同模板行只挂 **1** 条（实得 {carrier4.Instance.ActiveEnchantments.Count}）"
-                     + " —— 🧨 删掉 `AttachGrantedByPlayedCard` 里那段 `dup` 去重 ⇒ 变 3（原版不会多出这两条）");
+                Ok(code4 == RuleCodes.OK && carrier4 != null && bctx4 != null, $"★ H5 前提：`TL47` 打得出去（返回 {code4}）");
+                if (code4 == RuleCodes.OK && carrier4 != null && bctx4 != null)
+                {
+                    var wl5 = bctx4.Players[0].Warlord;
+                    if (Ok(wl5 != null && wl5.Instance != null, "★ H5 前提：己方督军在位（`lg1` 的 `ta = 120` 载体就是它）"))
+                    {
+                        var recs5 = wl5.Instance.ActiveEnchantments;
+                        Ok(recs5.Count == 1 && recs5[0].Card != null && recs5[0].Card.Id == "a5960475756bec144a1d6d8a9d141fc9",
+                           $"★ H5 3 条同模板行 ⇒ **只挂 1 条**（实得 {recs5.Count}），挂在**己方督军**身上"
+                         + " —— 🧨 去掉 `dup` 去重 ⇒ 变 3；🧨 去掉 `ca` 闸 ⇒ `lg0 (ta 0)` 顶掉 `lg1` ⇒ 这里 0 且落牌目标 >0");
+                        Ok(Enchantments.GrantedSkippedNotAddEffect - skipBefore == 2,
+                           $"★ H5（**ca 闸·可观察**）这一跳 `GrantedSkippedNotAddEffect` +{Enchantments.GrantedSkippedNotAddEffect - skipBefore}（期望 +2 = `lg0 ca50` + `lg2 ca0`）"
+                         + " —— 🧨 把 `ChosenAbilityBlocksAttach` 改成恒 false ⇒ +0（且上面那条同时红）");
+                        Ok(carrier4.Instance.ActiveEnchantments.Count == 0,
+                           $"★ H5（**反方向**）落牌目标身上 **{carrier4.Instance.ActiveEnchantments.Count}** 条（期望 0）"
+                         + " —— 🧨 `ca 闸` 失守 ⇒ `lg0 (ta 0)` 会撒到它身上");
+                    }
+                }
             }
         }
 
@@ -702,6 +761,13 @@ public static class EnchantmentTemplateCheck
                 pre &= Ok(bctx5 != null && bctx5.FindEnchantmentTemplate(CadiaTemplateId) != null,
                           "H7 前提：本局查得到附魔模板 `Cadia Stands_enchantment`"
                         + " —— ⛔ 查不到时 `Attach` 会静默跳过（只涨 `GrantedTemplateMissing`）⇒ 别当成「没挂」");
+                // 🔴 2026-11-06（`B150_修_附魔授予`）：**硬前提** —— 双方督军必须还在 `Board[4]`。
+                //   夹具一旦把某个小兵摆在 4 号格（= `BoardSpec.WarlordSlot`），督军就被挤出盘面：
+                //   `AllUnitsBothSides` 仍会把它补回候选池，而 `TargetCriteriaEval.SideOf` 查不到它的阵营
+                //   ⇒ 按「判不了就保留」的契约放行 ⇒ `includeHero = 0` 失守 ⇒ H7a 变 4 / H7c 督军 ≠ 0。
+                pre &= Ok(bctx5 != null && bctx5.Players[0].Board[BoardSpec.WarlordSlot] == bctx5.Players[0].Warlord
+                          && bctx5.Players[1].Board[BoardSpec.WarlordSlot] == bctx5.Players[1].Warlord,
+                          "H7 前提：双方督军都还在 4 号格（⛔ 被 `Place` 挤掉 ⇒ `includeHero = 0` 失守、H7a/H7c 会假红）");
                 if (pre)
                 {
                     int fallbackBefore = Enchantments.GrantedTargetResolveFallback;
@@ -741,7 +807,7 @@ public static class EnchantmentTemplateCheck
                      + "白名单（3 张）仍是「数据源不可用」时的兜底");
     }
 
-    /// <summary>G 节夹具：**真卡池** + 一张督军 + 一张要打出的战术卡（+ 可选：4 号格摆一个己方单位当目标）。
+    /// <summary>G 节夹具：**真卡池** + 一张督军 + 一张要打出的战术卡（+ 可选：**5 号格**摆一个己方单位当目标）。🔴 2026-11-06（`B150_修_附魔授予`）就地订正：原来用 **4 号格**，而 `BoardSpec.WarlordSlot == 4` ⇒ `Place` 会把**己方督军挤出盘面**（`B101_E1` 普查 #11 已点名、建议改 5），而 `ta = 120 (friendlyHero)` 的载体判据跟着失真。
     /// <para>⚠️ 这是**本文件自己的一份**最小夹具（`RuleEngineTest.cs` 的 `ProbeBattle` / `Place` 是 private，
     /// 跨类拿不到；而且那个文件不在本代理的所有权内）。</para></summary>
     static int PlayTacticOnFixture(CardDef tactic, int seed, out BattleContext ctx, out UnitState carrier,
@@ -755,14 +821,14 @@ public static class EnchantmentTemplateCheck
         ctx = RuleCore.NewBattle(d0, d1, seed: seed, shuffle: false, cardPool: pool);
         if (ctx.Turn == 0) RuleCore.BeginTurn(ctx);
         ctx.Players[0].Energy = 30;                       // 夹具：不测费用，只测「打出去之后挂没挂」
-        if (placeCarrier) carrier = Place(ctx, 0, 4, BareCard("E26Carrier"));
+        if (placeCarrier) carrier = Place(ctx, 0, 5, BareCard("E26Carrier"));   // 5 = 己方右贴督军格（⛔ 别用 4：那是 `BoardSpec.WarlordSlot`，会把督军挤出盘面）
 
         int idx = -1;
         var hand = ctx.Players[0].Hand;
         for (int i = 0; i < hand.Count; i++)
             if (hand[i] != null && hand[i].Card != null && hand[i].Card.Id == tactic.Id) { idx = i; break; }
         if (idx < 0) return -999;                          // 手牌里没抽到（G2 的前提断言会把它报出来）
-        return RuleCore.PlayCard(ctx, 0, idx, placeCarrier ? 4 : 0, carrier);
+        return RuleCore.PlayCard(ctx, 0, idx, placeCarrier ? 5 : 0, carrier);
     }
 
     static CardDef Hero(string name, string faction)
@@ -1090,8 +1156,13 @@ public static class EnchantmentTemplateCheck
         };
     }
 
-    /// <summary>H7 夹具：3 个己方小兵（格 3/4/6）+ 1 个敌方小兵（格 3）。行动方钉成 **0** ——
-    /// `AttachRowToCarrierSet` 的 `owner` 取的是 `ctx.Active`（`Enchantment.cs:2140`）。</summary>
+    /// <summary>H7 夹具：3 个己方小兵（格 **3/5/6**）+ 1 个敌方小兵（格 3）。行动方钉成 **0** ——
+    /// `AttachRowToCarrierSet` 的 `owner` 取的是 `ctx.Active`（`Enchantment.cs:2140`）。
+    /// <para>🔴 2026-11-06（`B150_修_附魔授予`）就地订正：原来第 2 个载体摆 **4 号格**，而
+    /// `BoardSpec.WarlordSlot == 4` ⇒ `Place` 把**己方督军挤出盘面**；`AllUnitsBothSides` 又会把
+    /// `PlayerState.Warlord` 补回候选池，而它已不在任何一侧棋盘上 ⇒ `TargetCriteriaEval` 判不出阵营
+    /// （`SideOf == -1`）⇒ 按「判不了就保留」的契约**放行**，于是 `includeHero = 0` 失守
+    /// ⇒ 多挂 1 条到督军身上（H7a 4 ≠ 3、H7c 督军 1 ≠ 0）。改到 5 号格后督军在盘、`includeHero = 0` 真正生效。</para></summary>
     static bool BuildMultiCarrierFixture(CardDef grant, int seed,
                                          out BattleContext ctx, out List<UnitState> mine)
     {
@@ -1104,7 +1175,7 @@ public static class EnchantmentTemplateCheck
         if (ctx.Turn == 0) RuleCore.BeginTurn(ctx);
         ctx.Active = 0;
         mine.Add(Place(ctx, 0, 3, BareCard("B140WBCarrierA")));
-        mine.Add(Place(ctx, 0, 4, BareCard("B140WBCarrierB")));
+        mine.Add(Place(ctx, 0, 5, BareCard("B140WBCarrierB")));   // 5 = 右贴督军格（⛔ 别用 4：`BoardSpec.WarlordSlot` 会把督军挤出盘面）
         mine.Add(Place(ctx, 0, 6, BareCard("B140WBCarrierC")));
         Place(ctx, 1, 3, BareCard("B140WBOppCarrier"));
         return mine[0] != null && mine[1] != null && mine[2] != null;

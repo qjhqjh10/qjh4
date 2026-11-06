@@ -324,6 +324,12 @@ public static class B140_V4b_Assert
         Func<bool> prevProbe = SaveSandbox.BatchModeProbe;
         string prevOverride = SaveSandbox.OverridePath;
         bool prevDisable = SaveSandbox.DisableForTest;
+        // 🔴 **2026-11-05（`B150`）**：宿主 `SettingsScene.RunCore` 会把 `NetConfig.OverridePath`
+        //   指到 `%TEMP%/wf_settings_selftest.json` 且**不还原**（那是它自己的自检固定写法）⇒ 本组
+        //   A2/A4/B1/B2/C2 五条会看到「沙箱外」的路径。本组自给自足：先存、清掉、`finally` 还原。
+        //   ⛔ 不改产品代码（`NetConfig.Path` 的「有 Override 就用 Override」是对的）。
+        string prevNetOverride = NetConfig.OverridePath;
+        NetConfig.OverridePath = null;
         try
         {
             Debug.Log("=== " + Tag + " 开始（存档写口沙箱 · 进程 tag " + SaveSandbox.ProcessTag + "）===");
@@ -337,6 +343,7 @@ public static class B140_V4b_Assert
             SaveSandbox.BatchModeProbe = prevProbe;
             SaveSandbox.OverridePath = prevOverride;
             SaveSandbox.DisableForTest = prevDisable;
+            NetConfig.OverridePath = prevNetOverride;   // ← 2026-11-05 `B150`：还原宿主设的那个值
             Debug.Log("=== " + Tag + " 结束：通过 " + _pass + " · 失败 " + _fail + " ===");
         }
     }

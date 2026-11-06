@@ -50,8 +50,10 @@ namespace CardPresentation
         /// 判据（2026-11-02 `B117-G10-03` 现读 `Battle Arena 1.unity`，39 颗 `EverguildButton` 逐颗）：
         /// **`grey = 0` 的 4 颗 ColorTint 全是 α 0.502**（`Auto Zoom Toggle` · `Select Active Skill Button` ·
         /// `Select Melee Button` · `Select Range Button`）⇒ 这一档**对**，⛔ 别把它当成所有钮的值。
-        /// ⚠️ **今天 `Tint(...)` 的缺省不走它**，走 <see cref="DisabledOpaque"/>（见那条 doc）。</summary>
-        public static readonly Color Disabled = new Color(0.7843137f, 0.7843137f, 0.7843137f, 0.502f);
+        /// ⚠️ **今天 `Tint(...)` 的缺省不走它**，走 <see cref="DisabledOpaque"/>（见那条 doc）。
+        /// ✅ 已复刻（2026-11-05 · `B150` 账 #35 · 判据 = `MonoBehaviour_4262.json` 的 `m_DisabledColor.a`
+        /// 序列化实读 **0.5019608140** = 128/255）：原来写 `0.502f` 差 3.9e-5 ⇒ 断言 A6 红；⛔ 别写成 `0.502f`。</summary>
+        public static readonly Color Disabled = new Color(0.7843137f, 0.7843137f, 0.7843137f, 128f / 255f);
         /// <summary>`colorTintGreyOnDisable = 1`（**变灰**）那一族的禁用色 = 同样的 RGB、**α 1.0（不透明）**。
         /// <para>🔴 **判据（2026-11-02 `B117-G10-03` 现读，两处互相印证）**：
         /// ① **场景表**：`Battle Arena 1.unity` 的 39 颗 `EverguildButton` 里 `grey = 1 & m_Transition = 1(ColorTint)`

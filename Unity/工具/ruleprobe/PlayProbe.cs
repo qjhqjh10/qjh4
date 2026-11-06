@@ -164,6 +164,16 @@ class PlayProbe
         /// <summary>打出去之后**引擎自己的事件日志**末尾几行 —— 🔴 少了它，「什么都没发生」就只能靠猜；
         /// 有了它，引擎自己会说出「查不到 / 没有合法目标 / 这一项没生效」那类话（本仓红线「不许静默失败」）。</summary>
         public List<string> LogTail = new List<string>();
+        /// <summary>🆕 **`B150` · `B146-S4-BRANCH-COVERAGE`（2026-11-05）**：这张卡这次打出去**走到了哪些原版分支 id**
+        /// （空格分隔；空 = 一条都没走到 / 督军档没有「打出去」这一步）。
+        /// <para>⚠️ 这是**推导**、不是引擎自报：只由 <see cref="BattleContext.ActionLog"/> 里的**结构化事件**反推，
+        /// ⛔ 不读日志文本、⛔ 不改引擎。⇒ 与 `willrun` 同纪律 —— **只给候选**，判决归人。
+        /// ⛔ **不进** `Fingerprint` / `FingerprintRow`（与 `PlayOrder` / `PickTarget` 同族）⇒ 加这一列**不需要**重钉 `PinnedPlayMd5`。</para>
+        /// <para>**注册表只收「事件能唯一指认」的分支**（见 <see cref="CaptureBranchIds"/> 的 doc）：
+        /// `R-06`（伏击撤·攻击档）· `R-13` 星镖 · `R-15` 哨戒 · `R-24` 爆裂 · `R-25` 践踏 · `R-26` 反击 · `R-30` 猎杀标记。
+        /// ⛔ **不收** `R-05`/`R-07`/`R-08`/`R-10`/`R-11`（引擎摘关键词/开空投舱**不发事件**）·
+        /// `R-19`（主伤害走 `DamageKind.Unknown`，与「无类型伤害」不可区分）· `R-31`（收尾置位不产事件）。</para></summary>
+        public string Branches = "";
     }
 
     /// <summary>局面指纹 —— 逐格 / 逐区域。**只打实得数值，不打判据。**
@@ -1608,6 +1618,7 @@ class PlayProbe
         bool injected;
         var ctx = BuildFixture(pool, card, null, out handIdx, out injected, preset);
         r.Injected = injected;
+        int brCount; BattleEvent brHead; BranchMark(ctx, out brCount, out brHead);   // 🆕 `B150` · `B146-S4-BRANCH-COVERAGE`：记下「打出去之前」的日志水位
         if (handIdx < 0)
         {
             // 🔴 **夹具没接住要出声、而且要说清手里有什么** —— ⛔ 不静默（本仓红线）。
@@ -1731,6 +1742,7 @@ class PlayProbe
         }
 
         var after = Capture(ctx);
+        CaptureBranchIds(ctx, brCount, brHead, r);   // 🆕 `B150` · `B146-S4-BRANCH-COVERAGE`：分支覆盖列（只推导，不改局面）
         r.PlayOrder = PlayOrderCol(ctx);
         // 🆕 2026-10-27（`B9_E5ENG`）：计数类两格（进结算指纹 —— 见 `Reading.AtkCount` 的 doc）
         r.AtkCount = after.ActCnt[0] + " ‖ " + after.ActCnt[1];
@@ -3230,6 +3242,72 @@ class PlayProbe
         return sb.ToString();
     }
 
+    // ==================================================================
+    //  🆕 `B150` · `B146-S4-BRANCH-COVERAGE`（2026-11-05）：**分支覆盖列**
+    // ==================================================================
+    //
+    // 「这张卡这次打出去走到了哪些**原版分支 id**」—— 只由 `ctx.ActionLog` 的**结构化事件**反推。
+    // ⛔ 不读日志文本（措辞会变、且那是自证）；⛔ 不改引擎（本工具只读）。
+    //
+    // 注册表（**只收「事件能唯一指认」的**）：
+    //   R-06 伏击撤（攻击档）  `_ResolveAttack_d__438__MoveNext.c:293-353`  → `EvtKind.AmbushExit{Effect="attack"}`
+    //   R-13 星镖预判          `:619-633`   → `EvtKind.Hit{DamageKind=Shuriken}`
+    //   R-15 哨戒预判          `:719-736`   → `EvtKind.Hit{DamageKind=Sentry}`
+    //   R-24 爆裂传播          `:1012-1055` → `EvtKind.Hit{DamageKind=Blast}`
+    //   R-25 践踏              `:1057-1112` → `EvtKind.Hit{DamageKind=Stomp}`
+    //   R-26 反击              `:1114-1152` → `EvtKind.Retaliation`
+    //   R-30 猎杀标记          `:1250-1306` → `EvtKind.Hit{DamageKind=Markerlight}`
+    //
+    // ⛔ **不收**（引擎今天不产可分辨的事件，硬收就是编）：
+    //   R-05 摘潜行 / R-07 开空投舱 / R-08 摘 tainted / R-10 摘迷彩 / R-11 摘远射 / R-31 收尾置位
+    //     —— `UnitState.RemoveAll` / `OpenDropPod` 现读**都不发事件**；
+    //   R-19 主伤害 —— 走 `DamageKind.Unknown`，与「无类型伤害」不可区分。
+    // ⚠️ **「没出现在这一列」≠「我们没实现」**：可能是本卡不适用 / 数据里没有 / 引擎确实没实现，**三种混在一起**。
+    static void BranchMark(BattleContext ctx, out int count, out BattleEvent head)
+    {
+        count = ctx == null ? 0 : ctx.ActionLog.Count;
+        head = count > 0 ? ctx.ActionLog[0] : null;
+    }
+
+    static void CaptureBranchIds(BattleContext ctx, int beforeCount, BattleEvent beforeHead, Reading r)
+    {
+        if (ctx == null || r == null) return;
+        int from = 0; bool overflowed = false;
+        if (beforeCount > 0)
+        {
+            int idx = beforeHead == null ? -1 : ctx.ActionLog.IndexOf(beforeHead);
+            // 头还在 ⇒ 从它后面起算；头被 `LogCapacity`(400) 挤掉了 ⇒ 从 0 起算并**标记溢出**
+            if (idx >= 0) from = idx + 1; else overflowed = true;
+        }
+        var ids = new List<string>();
+        for (int i = from; i < ctx.ActionLog.Count; i++)
+        {
+            var e = ctx.ActionLog[i];
+            if (e == null) continue;
+            switch (e.Kind)
+            {
+                case EvtKind.Hit:
+                    switch (e.DamageKind)
+                    {
+                        case DamageKind.Shuriken: AddId(ids, "R-13"); break;
+                        case DamageKind.Sentry: AddId(ids, "R-15"); break;
+                        case DamageKind.Blast: AddId(ids, "R-24"); break;
+                        case DamageKind.Stomp: AddId(ids, "R-25"); break;
+                        case DamageKind.Markerlight: AddId(ids, "R-30"); break;
+                    }
+                    break;
+                case EvtKind.Retaliation: AddId(ids, "R-26"); break;
+                case EvtKind.AmbushExit:
+                    if (string.Equals(e.Effect, "attack", StringComparison.Ordinal)) AddId(ids, "R-06");
+                    break;
+            }
+        }
+        ids.Sort(StringComparer.Ordinal);          // 固定次序 ⇒ 同一场景两跑逐字节一致
+        r.Branches = (overflowed ? "… " : "") + string.Join(" ", ids);
+    }
+
+    static void AddId(List<string> ids, string id) { if (!ids.Contains(id)) ids.Add(id); }
+
     /// <summary>🆕 **`B8_AV`（2026-10-26）：把棋盘上的 `PlayOrder`（进场序）摊成一列。**
     ///
     /// <para>**形状**：`P0[4]=0 P0[3]=1 P0[6]=2 P0[7]=3 P1[4]=4 …`，**按 `PlayOrder` 升序** ——
@@ -3615,6 +3693,11 @@ class PlayProbe
             Console.WriteLine("  进场序(PlayOrder): " + r.PlayOrder
                               + "\n     ⚠️ 按号升序；`-1` = 从没取过号（排末尾）。督军也在里面"
                               + "（`RuleCore.BuildPlayer` 给它发了第一个号），⛔ 别拿它跟 `UnitsByPlayOrder()` 比张数。");
+        // 🆕 `B150` · `B146-S4-BRANCH-COVERAGE`：分支覆盖读数（⚠️ 是**推导**，只给候选）
+        Console.WriteLine("  分支(Branches): " + (r.Branches.Length > 0 ? r.Branches : "（一条都没走到）")
+                          + "\n     ⚠️ 只收「事件能唯一指认」的原版分支：R-06/R-13/R-15/R-24/R-25/R-26/R-30。"
+                          + "⛔ 空 ≠ 我们没实现（本卡不适用 / 数据没有 / 真没实现，三种混在一起）；"
+                          + "R-05/07/08/10/11/19/31 结构上观测不到（见 `CaptureBranchIds` 的 doc）。");
         Console.WriteLine();
         Console.WriteLine("  ── 变化逐条（" + r.Changes.Count + " 条"
                           + (r.HeroMode ? "（= 上面那一趟 **减掉** 下面的空督军对照）"
@@ -3697,7 +3780,11 @@ class PlayProbe
                   // 🆕 2026-10-27（`B9_E5ENG`）：计数类两列 —— **只加在末尾**（前面的列一个字没动）。
                   //   形如 `P0[3]=1 P0[5]=2 ‖ P1[3]=1`（`UnitNumCol`；空 = 全员 0 / 未疲劳）。🔴 与 `playOrder` / `pickTarget`
                   //   **相反**：这两列**进**结算指纹（`FingerprintRow`）⇒ 加它们**一定要重钉** `PinnedPlayMd5`。
-                  + "\tatkCount\texhausted\n");
+                  + "\tatkCount\texhausted"
+                  // 🆕 `B150` · `B146-S4-BRANCH-COVERAGE`（2026-11-05）：**分支覆盖列** —— 只加在末尾。
+                  //   形如 `R-13 R-26`（按 id 字典序；空 = 一条都没走到 / 督军档没有「打出去」这一步）。
+                  //   ⚠️ 与 `playOrder` / `pickTarget` 同族：**不进**结算指纹 ⇒ 加这一列**不需要**重钉 `PinnedPlayMd5`。
+                  + "\tbranches\n");
         var pfRows = new List<string>();      // 🆕 `A1431` 第二笔：**结算指纹**（逐卡一行，见 `FingerprintRow`）
         var ecRows = new List<string>();      // 🆕 `A1431` 第三笔：**事件电池**（`E|` 前缀那一套，见 `FingerprintERow`）
         var ecReads = new List<EventReading>();   // 电池档的读数（末尾那两节要按档统计）
@@ -3794,6 +3881,8 @@ class PlayProbe
               // 🆕 2026-10-27（`B9_E5ENG`）：计数两列（末尾；见 `Snap.ActCnt` / `UnitNumCol`）
               .Append('\t').Append(r.AtkCount)
               .Append('\t').Append(r.Exh)
+              // 🆕 `B150` · `B146-S4-BRANCH-COVERAGE`：分支覆盖列（末尾；只推导、⛔ 不进指纹）
+              .Append('\t').Append(r.Branches)
               .Append('\n');
         }
 

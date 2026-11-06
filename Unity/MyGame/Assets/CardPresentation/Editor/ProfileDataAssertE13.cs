@@ -222,7 +222,7 @@ public static class ProfileDataAssertE13
         BattleLogData.Add(Mk("E13 Hero C", "E13 Hero D", BattleLogData.Outcome.Defeat, ""));
         BattleLogData.Add(Mk("E13 Hero E", "E13 Hero F", BattleLogData.Outcome.Draw, "20260101_000000_E13HeroE_vs_E13HeroF.json"));
         Eq(BattleLogData.Count, 3, "B1 写进 3 条");
-        Ok(File.Exists(BattleLogData.StorePath), "B1 落盘文件真的出现了（" + BattleLogData.StorePath + "）");
+        Ok(SaveCenter.ReadThroughLegacy(SaveKeys.BattleLogData, BattleLogData.StorePath) != null, "B1 落盘文件真的出现了（读口 = `SaveCenter.ReadThroughLegacy` · 落点 " + SaveCenter.PathOf(SaveKeys.BattleLogData) + "）");   // 🆕 2026-11-06（B150）：⛔ 别用 `File.Exists(StorePath)` —— Play 下产品只写中央档
 
         // 🔴 **清内存再读盘** —— 不清的话下面那条「读回 3 条」可能只是内存里那 3 条（自证）
         BattleLogData.ResetForTest();

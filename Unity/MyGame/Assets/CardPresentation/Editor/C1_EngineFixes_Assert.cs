@@ -126,7 +126,12 @@ public static class C1_EngineFixes_Assert
                   "A10 前提：`Draw 1 card` 解析得出 op（拿它给 listener 造一条 290 正文）");
         if (seg.Kind != EffectText.SegKind.Ok || seg.Ops == null || seg.Ops.Count == 0) return;
 
-        var givePoison = new List<EffectOp> { new EffectOp { Verb = "give", Payload = "poisoned", Source = "C1 广播夹具" } };
+        // ✅ 已复刻（2026-11-05 · B150 · #26 探针结论）：原夹具的 op **没有 `Target`** ⇒ 引擎把它套在
+        //   **全部友方单位**上（`ActionLog` 实测两条 `StatusApplied`：受害者 P0/格3 + **P0 督军格4**）⇒
+        //   钩子按「每次落地各播一次」正当地发了 2 条 ⇒ A15 的 `got == 1` 是**夹具前提不成立**，不是双播。
+        //   给一条**单目标** spec 即可（`Kind = "unit"` 天然排除 `hero` 那一张）。
+        var givePoison = new List<EffectOp> { new EffectOp { Verb = "give", Payload = "poisoned", Source = "C1 广播夹具",
+                                                             Target = new EffectTargetSpec { Side = "own", Kind = "unit", Count = 1 } } };
 
         // ---- ① 负对照：场上**没有 290 听众** ⇒ give 不产生任何 `UnitPoisoned` 触发 ----
         UnitState victimN;

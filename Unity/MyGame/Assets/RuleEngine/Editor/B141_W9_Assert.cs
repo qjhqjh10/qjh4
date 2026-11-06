@@ -236,9 +236,12 @@ public static class B141_W9_Assert
         f.Target.MaxHealthBase = 10; f.Target.Health = 6;
 
         f.This.AddKeyword("shuriken", 2);
-        f.This.AddKeyword(KeywordTable.MarkOfChaos, 3);
-        f.Target.AddKeyword(KeywordTable.MarkOfChaos, 5);
-        f.Ally.AddKeyword(KeywordTable.MarkOfChaos, 7);
+        // ✅ 已复刻（2026-11-05 · B150 · `markOfChaos(330)` 是原版唯一 `_stackable == count(20)` 的 trait ⇒
+        //   `UnitState.AddKeyword` 对它是「每次只 +1、不看 traitValue」（`Core/UnitState.cs:1129-1139`，判据
+        //   `判据/CardTrait_stackable_真值表_第2轮.md`）⇒ 夹具必须连调 N 次，⛔ 不能写 `AddKeyword(kw, N)`）
+        for (int i = 0; i < 3; i++) f.This.AddKeyword(KeywordTable.MarkOfChaos, 1);
+        for (int i = 0; i < 5; i++) f.Target.AddKeyword(KeywordTable.MarkOfChaos, 1);
+        for (int i = 0; i < 7; i++) f.Ally.AddKeyword(KeywordTable.MarkOfChaos, 1);
         f.Target.AddKeyword(KeywordTable.Bastion, 2);
         f.This.AddKeyword(KeywordTable.Bastion, 1);
         ctx.Players[0].Faith = 12;

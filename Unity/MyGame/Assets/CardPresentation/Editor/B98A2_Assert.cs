@@ -72,7 +72,7 @@ public static class B98A2_Assert
         MenuCheck.Section(_sink, "B98_A2 账 `日常/奖励:155`：`Quantity` 自适应 [18,40] base 36 —— 复核 + 换算承重 + 生产态 + 一位数");
 
         SectionA_三档();
-        SectionB_换算承重();
+        SectionB_换算承重();  SectionB5_世界档承重();
         SectionC_生产态未喂();
         SectionD_一位数与五位数();
     }
@@ -150,7 +150,7 @@ public static class B98A2_Assert
     // ============================================================ B 换算承重（灭自证）
     static void SectionB_换算承重()
     {
-        MenuCheck.Section(_sink, "B 换算**承重**证明：`x × FontSizeToPxNow(1)` 这一乘是必须的（不乘 ⇒ 读回 18/qk ≠ 18）");
+        MenuCheck.Section(_sink, "B 换算**承重**证明：`x × FontSizeToPxNow(1)` 这一乘是必须的（不乘 ⇒ 读回 18/qk ≠ 18；⚠️ 本档 `qk ≡ 1` ⇒ 承重证据在世界档 `B5'` 那一段）");
 
         Camera madeCam;
         var panel = MakePanel(out madeCam);
@@ -167,28 +167,28 @@ public static class B98A2_Assert
             if (r0 == null || r0.Quantity == null) return;
             var q = r0.Quantity;
 
-            // ---- B1/B2 前提：本标签空间的「1 个 fontSize = 多少设计 px」量得出来、且确实不是 1 ----
+            // ---- B1/B2 本档基线：本标签空间的「1 个 fontSize = 多少设计 px」量得出来、且（改判后）**恒等于 1** ----
             float qk = q.FontSizeToPxNow(1f, q.ActualFace);
             Tr(qk > 0f, $"B1 **前提断言**：`FontSizeToPxNow(1)` 量得出来（实测 {qk:F4} 设计 px / fontSize）");
-            Tr(Mathf.Abs(qk - 1f) > 0.01f,
-               $"B2 **前提断言**：这个系数**确实不等于 1**（实测 {qk:F4}）—— 否则 B4/B5 证明不了「换算承重」"
-             + "（⚠️ 若哪天换面到系数 = 1，本段要回来重核，⛔ 别把绿当成永久成立）");
+            Tr(Mathf.Abs(qk - 1f) <= 0.01f,
+               $"B2 **本档基线**（2026-11-06 改判 · 铁律 5）：uGUI 档 1 个 fontSize = **1 设计 px**（实测 {qk:F4}）"
+             + " = `EmPerFontSize`(0.1) × `UguiFontScale`(10) 相消 ⇒ `× qk` 那条乘号在本档**数值上恒等**；🧨 把 `EmPerFontSize(Cjk)` 改回汉字墨高(0.0853) ⇒ 读 0.853 ⇒ 红");
 
             // ---- B3 生产口落回来的下限（= 18 × qk ÷ qk）----
             N(q.FontSizeMin, WantMin, FsEps,
               "B3 生产口（`FillRewardRow`）落回来的 `m_fontSizeMin` = 18（= `18 × qk ÷ qk`，`cur` 约掉）");
 
-            // ---- B4/B5 灭自证：把一个**原版数字不换算**直接灌进同一个口 ⇒ 必须偏 ----
+            // ---- B4/B5 灭自证：把一个**原版数字不换算**直接灌进同一个口（本档 qk = 1 ⇒ 与换算后的值逐位相同；承重见 B5'）----
             q.SetAutoFitBox(BoxW, BoxH, WantMin, WantMax, WantBase);
             float rawMin = q.FontSizeMin;
             float rawMax = q.FontSizeMax;
             N(rawMin, WantMin / qk, 0.05f,
-              $"B4 ★ **换算承重（灭自证）**：直接传原版 **18**（不乘 {qk:F4}）⇒ 读回 {rawMin:F3} = 18 ÷ {qk:F4}（**不是 18**）");
+              $"B4 直接传原版 **18**（不乘 {qk:F4}）⇒ 读回 {rawMin:F3} = 18 ÷ {qk:F4}（本档 qk = 1 ⇒ 恰好也是 18；⚠️ 这不是「乘号不承重」，见 B5'）");
             N(rawMax, WantMax / qk, 0.05f,
-              $"B4b 同上，上限：直接传 **40** ⇒ 读回 {rawMax:F3} = 40 ÷ {qk:F4}（**不是 40**）");
-            Tr(Mathf.Abs(rawMin - WantMin) > 0.1f,
-               $"B5 ★ 不换算那一版**确实偏离原版**（|{rawMin:F3} − 18| = {Mathf.Abs(rawMin - WantMin):F3} 个 fontSize）"
-             + " ⇒ `FillRewardRow` 里那个乘号是**必须的**，⛔ 不是装饰");
+              $"B4b 同上，上限：直接传 **40** ⇒ 读回 {rawMax:F3} = 40 ÷ {qk:F4}（本档 qk = 1 ⇒ 恰好也是 40）");
+            Tr(Mathf.Abs(rawMin - WantMin) <= 0.1f,
+               $"B5 **本档 `qk ≡ 1`**（2026-11-06 改判 · φ 断言前提过期，⛔ 不是产品缺陷）：「不换算」与「换算」**逐位相同**"
+             + $"（|{rawMin:F3} − 18| = {Mathf.Abs(rawMin - WantMin):F3}）⇒ 承重在本档看不出来，证据搬去世界档 `B5'`；🧨 把 `EmPerFontSize(Cjk)` 改回汉字墨高 ⇒ 本档 qk = 0.853 ⇒ 读回 21.10 ⇒ 红");
 
             // ---- B6 复原：再走一次生产口 ⇒ 回到 18（B4 只是临时改动，没污染状态）----
             panel.SetRewards(one);
@@ -287,6 +287,55 @@ public static class B98A2_Assert
         finally
         {
             KillPanel(panel, madeCam);
+        }
+    }
+
+    // ============================================================ B5' 世界档换算承重（2026-11-06 · B150 字体波）
+    /// <summary>`SectionB` 的 B2/B5 原来靠「本标签空间 1 个 fontSize ≠ 1 px」来证明 `FillRewardRow` 里那个
+    /// `× qk` 是承重的。`EmPerFontSize` 统一成 0.1 之后，**uGUI 档 `qk ≡ 1`**（`0.1 × UguiFontScale 10 = 1`
+    /// —— 这正是「1 个 fontSize = 1 画布 px」的正确物理）⇒ 那个乘号在这一档**数值上恒等**，B5 的判据自然失效
+    /// （**φ 断言前提过期，⛔ 不是产品缺陷**；反证：基线改回墨高则 `qk = 0.853`，B2/B5 当场红）。
+    /// <para>承重只能在 `qk ≠ 1` 的档里看得见 ⇒ 本节换一颗**世界档**探针：同一个 `Label.SetAutoFitBox`、
+    /// 同一个 px 口径函数，只是 `PxPerUnit` = `PxPerWorld`(108) ⇒ `qk = 0.1 × 108 = 10.8`。</para>
+    /// <para>⚠️ `worldW/worldH` 这两个形参在**世界档**是**世界单位**（这里给的 70×45 只是把折行框设大、不参与 min/max
+    /// 的折算），`minPx/maxPx/basePx` 才是**设计 px** —— 本节只验后三个。</para></summary>
+    static void SectionB5_世界档承重()
+    {
+        MenuCheck.Section(_sink, "B5' 世界档（`qk ≠ 1`）换算承重：`SetAutoFitBox` 的 min/max **是 px**，不乘 qk 就落成 18 ÷ 10.8");
+
+        var root = new GameObject("B98A2_WorldProbeRoot");
+        try
+        {
+            var lb = Label.Create(root.transform, "12345", new Vector3(0f, 9999f, 0f), 4,
+                                  Color.white, new Vector2(0.5f, 0.5f), "B98A2_WorldProbe");
+            Tr(lb != null && lb.CanRenderChinese,
+               "B5'0 **前提断言**：世界档探针建出来了、且走 **TMP** 后端（点阵后端没有自适应 ⇒ 本节一条都证明不了）");
+            if (lb == null || !lb.CanRenderChinese) return;
+
+            lb.SetGlyphHeight(30f / 108f);                                 // 给一个 >0 的档，`TmpFontSize()` 才不为 0
+            float wk = lb.FontSizeToPxNow(1f, lb.ActualFace);
+            Tr(Mathf.Abs(wk - 1f) > 0.01f,
+               $"B5'1 **前提断言**：世界档这个系数**确实不等于 1**（实测 {wk:F4} 设计 px / fontSize）"
+             + " —— 这就是本节能证明承重的前提（uGUI 档那个 1 是口径的正确结果，不是错误）");
+
+            lb.SetAutoFitBox(BoxW, BoxH, WantMin, WantMax, WantBase);      // 直接灌原版数字（**不乘 wk**）
+            float rawMin = lb.FontSizeMin, rawMax = lb.FontSizeMax;
+            N(rawMin, WantMin / wk, 0.05f,
+              $"B5'2 ★ **换算承重（灭自证）**：世界档直接传原版 **18**（不乘 {wk:F4}）⇒ 读回 {rawMin:F3} = 18 ÷ {wk:F4}（**不是 18**）");
+            N(rawMax, WantMax / wk, 0.05f,
+              $"B5'3 同上，上限：直接传 **40** ⇒ 读回 {rawMax:F3} = 40 ÷ {wk:F4}（**不是 40**）");
+            Tr(Mathf.Abs(rawMin - WantMin) > 0.1f,
+               $"B5'4 ★ 不换算那一版**确实偏离原版**（|{rawMin:F3} − 18| = {Mathf.Abs(rawMin - WantMin):F3} 个 fontSize）"
+             + " ⇒ `FillRewardRow` 里那个乘号是**必须的**（本档 uGUI 恰好 `qk = 1`，所以那里今天只是恒等；换任一 `qk ≠ 1` 的档立刻承重）");
+
+            lb.SetAutoFitBox(BoxW, BoxH, WantMin * wk, WantMax * wk, WantBase * wk);   // 乘回 qk ⇒ 落回原版 18/40/36
+            N(lb.FontSizeMin, WantMin, FsEps,
+              "B5'5 ★ 乘回 `qk` ⇒ 下限**回到 18**（= `FillRewardRow` 的写法，跨档通用）");
+            N(lb.FontSizeMax, WantMax, FsEps, "B5'6 ★ 上限也回到 **40**");
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
         }
     }
 }

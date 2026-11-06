@@ -5597,7 +5597,7 @@ namespace CardPresentation
         ///   · `assets_full`：同 prefab 那一路，无。
         /// ⇒ 键名与两列文案**都是我们起的**（形状照原版 `MenuDeck/Error/*` 那一族）。
         /// ⚠️ **中文那一列就是改之前那句写死的原话**（`"写不进存档文件"`）⇒ **今天中文档零变化**；
-        /// 英文那一列是我们译的（原版英文在远端 I2 表，本地取不到）。</summary>
+        /// ⚠️ 2026-11-06 更正：原来写「原版英文在远端 I2 表，本地取不到」—— 实际官方 I2 全表 10,862 键 / 13 语言早在本地（`CardPresentation/Resources/official_loc_13lang.json`，2026-10-18 并入）；本条这个键 `MenuDeck/Error/SaveFailed` 现读**不在表里**（键本身是自拟的，见上行）⇒ 英文列仍是我们译的，但理由**不是「表在远端」**。</summary>
         public const string TermSaveFailed = "MenuDeck/Error/SaveFailed";
 
         /// 🔶 自己设计（非原版）：落盘失败提示「人话走 Loc、诊断串只当兜底」 · 原版提示文案在远端 I2 表；本地只剩诊断串 · TODO(谁定的)｜原注：<summary>落盘失败的原因 —— 🔴 **`2026-10-18（G8）` 起改成「人话走 `Loc`、诊断当兜底」**。

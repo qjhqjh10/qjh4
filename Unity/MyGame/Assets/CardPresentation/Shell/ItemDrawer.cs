@@ -1816,7 +1816,7 @@ namespace CardPresentation
             // 名字（原版 `GetItemName` = 词条 `"PrebuiltDecks/" + deckId`）；fs **32** · base **30** · auto **[8,32]** · V = **Capline**
             var nameR = DeckAnchor(root, 0.08f, 0.052f, 0.92f, 0.15f);
             var nameLb = ClippedText(content, nameR, deck.DisplayName, Color.white, NodeDeckName, 32f * k, st.QText,
-                                     nameR.W, st, 0, 8f * k, 32f * k, 30f * k);
+                                     nameR.W, st, 0, 8f * k, 32f * k, 30f * k, face: TmpFont.Face.LatinUi);   // ✅ 已复刻（2026-11-06 · B150-font2 · 判据 = 原版 `Deck Drawer.prefab` 的 `Content/Collection Deck/content/Deck/Deck Name` `m_fontAsset` = **Asar-Regular SDF**（guid `b80ad157…`，2026-11-06 现读）⇒ `LatinUi`；⛔ 别跟漏斗缺省（Pragati）走
             if (nameLb != null) MenuDraw.SetVAlign(nameLb, Label.VAlign.Capline, nameR);
         }
 

@@ -298,11 +298,13 @@ public static class B114_W16_Assert
 
     /// <summary>一颗文字节点的**字号上限折算成画布 px**（`Label.FontSizeToPxNow` = 官方那条「跟原版 `m_fontSize` 比」的口；
     /// ⛔ 别读 `_tmp.fontSize` —— 开了自适应之后那是二分收敛值，不是作者设的数）。
+    /// 🔴 **必须带 `ActualFace`**（`B150` #9）：2026-11-05 `MenuDraw.Text` 的缺省字体面已是 `LatinCardBody`，
+    /// 而单实参重载恒按 `Face.Cjk` 折算 ⇒ 拉丁面标签**恒差 0.853 倍**（`Battle/Label.cs:1059-1066` 那条 doc 点名的坑）。
     /// 返回 **−1** = 这个节点上没有 `Label`（或点阵后端）。</summary>
     static float FontPxMax(Transform t)
     {
         var lb = t != null ? t.GetComponent<Label>() : null;
-        return lb != null ? lb.FontSizeToPxNow(lb.FontSizeMax) : -1f;
+        return lb != null ? lb.FontSizeToPxNow(lb.FontSizeMax, lb.ActualFace) : -1f;
     }
 
     /// <summary>`MenuDraw.Rect(..., keepAspect: true)` 之后**画出来**的矩形（= uGUI `PreserveSpriteAspectRatio`）。

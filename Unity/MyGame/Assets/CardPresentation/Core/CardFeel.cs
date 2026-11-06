@@ -831,7 +831,7 @@ namespace CardPresentation
               "`BattleManager._ResolveDisplayFromHand_d__548__MoveNext.c:195` 的 `DisplayEnemyCardInCenter(0.3, 0.3)`（两个实参都是 `DAT_1834b2dc8`）"),
             P("DisplayFromHandBlockSeconds", DisplayFromHandBlockSeconds, Src.Field,
               "`_ResolveDisplayFromHand_d__548`：`:199` `twoHalfSecDelay`（2.5）＋ `:238` `twoFractDelay`（0.2）= 2.7；"
-              + "⚠️ `DisplayEnemyCardInCenter` 是 `StartCoroutine`、不 yield ⇒ 它的 1.078 s **不进**这条算式"),
+              + "⚠️ `DisplayEnemyCardInCenter` 是 `StartCoroutine`、不 yield ⇒ 它的 1.078 s **不进**这条算式"), P("CreateDeckCardFlySeconds", CreateDeckCardFlySeconds, Src.Field, "✅ 已复刻（2026-11-05 · B150 账 #5）：`BattleManager._ResolveCreateDeckCard_d__513__MoveNext.c:79`（`CreateCardInGame` 的 duration 实参 = `timeToDrawPlayerCard` 0.3 × `DAT_1834b2e8c` 3.0）+ `CardScript._CreateCardInGame_d__250__MoveNext.c:59-84`"), P("CreateDeckCardToPileSeconds", CreateDeckCardToPileSeconds, Src.Field, "✅ 已复刻（2026-11-05 · B150 账 #5）：`CardScript__MoveToDeck.c:40-47`：`time` 实参 0 ⇒ 落默认 `DAT_1834b2dc8` = 0.3（造出来的卡 state = 12 ⇒ 不走 `ShouldShowCardback/armedTrap` 那个 0 例外档）"),   // 🔴 两条 `P(...)` 追加在**同一物理行**上 = 零行数变化（本文件 `:835` 之后有大量账按行号引，⛔ 不插中间）
         };
 
         /// <summary>没登记进 `Catalog` 的公开常量（自检拿它当断言：**漏一个就红**）</summary>

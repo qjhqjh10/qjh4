@@ -17928,7 +17928,7 @@ namespace RuleEngine
             //   `-1` = 真值快照里没这张卡（= 原版 `choicesDefinition == null` 那一档）⇒ 同判否。
             if (card.ChoicesTargetsAffected <= 0) return false;
 
-            // ---- ② 英雄 + hasChangedActiveAbility(+0x221)：本版没建模，不在此减 ----
+            // ---- ② 英雄 + hasChangedActiveAbility(+0x221)：本版没建模，不在此减 ----（🔴 2026-11-05 `B150` · `B146-S2-ROLLOUT` 铺开现读：`+0x221` 的唯一写点是 `CardScript__AddEffect` 里 `buffType == replaceAbility(40)` 且 `enchantment != null`（ILSpy `CardScript.cs:11474-11477`），而 `cards_truth.json` 全池 1,198 条 buff 里 **buffType 40 = 0 条** ⇒ 唯一读点 `CardScript__NeedsToChooseFromPool.c:28` **恒不命中** ⇒ **零行为**，⛔ 别为它建字段）
 
             // ---- ③ 给了点选目标 ⇒ 先走 `ta == 90 (targetIfMeetsCriteria)` 特例 ------
             if (targetCard != null)

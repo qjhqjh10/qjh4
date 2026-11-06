@@ -1,0 +1,387 @@
+name	原版引用数	guid	判定	我方等价物(文件:行)	原版路径
+2Armies Progress Bar	0	ad6559c588ca55e46844757b4ec2f460	零引用·不搬		2Armies Progress Bar.prefab
+2DCard	0	0204893602ab37946ae83ea51daeed96	零引用·不搬		2DCard.prefab
+Achievement Container	1	d4a2d6a3ccae43c40bc1656731f69db0	有代码等价物	CardPresentation/Editor/MainMenuScene.cs:8120	Achievement Container.prefab
+Achievement Type Toggle	1	4e89df7b60ec33449a1a13e39cf43cc8	有代码等价物	CardPresentation/Editor/MainMenuScene.cs:8074	Achievement Type Toggle.prefab
+Achievements Tab	0	912023cb7fae04348bf996d652fb2df4	零引用·不搬		Achievements Tab.prefab
+Alliance Badge Drawer	0	cefca6921fde6194ab80b93102831275	零引用·不搬		Alliance Badge Drawer.prefab
+Alliance Badge Drawer Icon	0	c9f169a99f567df44826eec86da4a630	零引用·不搬		Alliance Badge Drawer Icon.prefab
+Alliance Event Score Info	0	c7a9c2d6baf16b24db7fd56325158412	零引用·不搬		Alliance Event Score Info.prefab
+Alliance Event Score Panel	0	006d3ca25836c2144b89646d64697fd3	零引用·不搬		Alliance Event Score Panel.prefab
+Alliance List Entry	1	4379a5bb35023654dae96b9e0101edcf	待判		GameObject/Alliance List Entry.prefab
+Alliance Member Entry	1	bf569b60848015241a810d2e6819b940	有代码等价物	CardPresentation/Editor/B102ALLY_Assert.cs:362	GameObject/Alliance Member Entry.prefab
+Alliance Score Bar Line	0	e53bfd9b1462f1f42b06113e503c3ed6	零引用·不搬		Alliance Score Bar Line.prefab
+Alliance Trophy Info Popup	0	804341d32c8021f449c7a35cf2705ff3	零引用·不搬		Alliance Trophy Info Popup.prefab
+AllianceRankingRow Skulls Variant	1	d5b31a1c9da671d43afca62f956c6c37	待判		GameObject/AllianceRankingRow Skulls Variant.prefab
+AllianceRankingRow Variant	2	58204a720eedb7e4683ae38ffd6c5387	待判		GameObject/AllianceRankingRow Variant.prefab
+Army Item Button	5	da958ae8466b90a458a216398e270d0f	待判		Army Item Button.prefab
+Army Item Button No Arrow Variant	0	36ba919855e657c418a4a0588b25bcf0	零引用·不搬		Army Item Button No Arrow Variant.prefab
+Army Selector	0	6325de36127c97d408df41b656bb25e4	零引用·不搬		Army Selector.prefab
+Audio Source Template	1	a10bc5fd3fd0ac940a99abc23bd634fa	待判		Audio Source Template.prefab
+Avatar Border Drawer	0	dea08d9cc8bb89e4b8de77aa45c37015	零引用·不搬		Avatar Border Drawer.prefab
+Avatar Border Drawer Shop Variant	0	539ea3e8a3221cc4b8ef85c367364f9c	零引用·不搬		Avatar Border Drawer Shop Variant.prefab
+Avatar Drawer	0	9789e8db0e6fc1e4ca526c69983f8751	零引用·不搬		Avatar Drawer.prefab
+Avatar Drawer Shop Variant	0	c2df3fc7c824d304ca9e50348f802733	零引用·不搬		Avatar Drawer Shop Variant.prefab
+Avatar Item Small	0	b9f3b58726e909d47b45b02a277ab98a	零引用·不搬		Avatar Item Small.prefab
+Avatar Menu Item	0	7f9a0985fd432dd4e9ee10e53e4cafd5	零引用·不搬		Avatar Menu Item.prefab
+Base Drawer	0	00198b7704fdefb48a5d6b695d93501f	零引用·不搬		Base Drawer.prefab
+Base Event Popup	0	0d113d885425162449b9171038d7c253	零引用·不搬		Base Event Popup.prefab
+Base Expiration Popup	0	757b915a393b9ef48a2927eeaa1ab777	零引用·不搬		Base Expiration Popup.prefab
+Base Game Mode Container 1x1	0	22b394746f0bede41a97e360b7688a96	零引用·不搬		Base Game Mode Container 1x1.prefab
+Base Game Mode Container 1x1 Claim	0	dddeb1c09bd1ea44988a340a5feb687e	零引用·不搬		Base Game Mode Container 1x1 Claim.prefab
+Base Game Mode Container 1x1 Claim AutoCollect	0	7763299e9c6f0dc4ab99a58923a5cd0c	零引用·不搬		Base Game Mode Container 1x1 Claim AutoCollect.prefab
+Base Game Mode Container 1x2	0	04338b5377b4411488f2abf26314b0df	零引用·不搬		Base Game Mode Container 1x2.prefab
+Base Game Mode Container 1x2 No Timer	0	4603280dbd2580c4fb4f11a4168020c0	零引用·不搬		Base Game Mode Container 1x2 No Timer.prefab
+Base Game Mode Container 1x2 Raid or Army Release	0	b82bcb5c66713a240a42a9faf25a1493	零引用·不搬		Base Game Mode Container 1x2 Raid or Army Release.prefab
+Base Offer Popup	0	607e82c8db3f0c740afbcac5ec14c22e	零引用·不搬		Base Offer Popup.prefab
+Base Submenu	0	3d518d6b6ba81754882b1eadde9b923c	零引用·不搬		Base Submenu.prefab
+BasicToolTip	45	92122eebe05487b4c9452004685d43cf	有代码等价物	Core/Tooltip.cs:13	BasicToolTip.prefab
+Battle Arena 3 Baked	0	7c208c4b6ff6eec42822d15005486efa	零引用·不搬		Battle Arena 3 Baked.prefab
+Battle Arena Adepta Sororitas Baked	0	b7cd2328f40e96440979db3d2883122e	零引用·不搬		Battle Arena Adepta Sororitas Baked.prefab
+Battle Arena Aeldari Baked	0	16e9e1af760e1b24695f8538088172f5	零引用·不搬		Battle Arena Aeldari Baked.prefab
+Battle Arena Leviathan	0	e8ac88c64bd48bc4da58aef11fd1cc78	零引用·不搬		Battle Arena Leviathan.prefab
+Battle Arena Leviathan Baked	0	8a7c69a72cd9a334ba16b2321b41cda3	零引用·不搬		Battle Arena Leviathan Baked.prefab
+Battle Arena Necrons FX Sphere	0	1440edadaec5c894fba29617da63e055	零引用·不搬		Battle Arena Necrons FX Sphere.prefab
+Battle Log Popup	0	83f34fb444226bd4ebc086c4855c132d	零引用·不搬		Battle Log Popup.prefab
+Battle Tooltip Variant	0	9d4825035c6c6944cafc7bd0618393db	零引用·不搬		Battle Tooltip Variant.prefab
+Booster Offer Container	0	29ac54169ac993346b07f13bb5236d8d	零引用·不搬		Booster Offer Container.prefab
+Campaign Army Item Button	3	d76040de984503d4aad8ac9846879290	待判		Campaign Army Item Button.prefab
+Campaign Army Selector	0	67a7f8c9c058c6d48a8529e966d76f5e	零引用·不搬		Campaign Army Selector.prefab
+Campaign Node	2	72c49059124c6ae4f8124b6c131a10d0	待判		Campaign Node.prefab
+Campaign Points Drawer	0	278a03ecbee4bc249836151b01206822	零引用·不搬		Campaign Points Drawer.prefab
+Campaign Profile Container Variant	0	6d9da4ab8f6cf7144b35dc60ee0dcd77	零引用·不搬		Campaign Profile Container Variant.prefab
+Campaign Reward Window	0	44591fb933b35a5468e01d599ab622bc	零引用·不搬		Campaign Reward Window.prefab
+Campaign Tab	0	ad266d179dd3cf74e80617db24886294	零引用·不搬		Campaign Tab.prefab
+CandleVerts	0	99270bb22f8ceaf4c894b1d53010e1f8	零引用·不搬		CandleVerts.prefab
+Card Alternate Art Drawer	0	ac23e1addcfbfbc48aa2fae5722015a4	零引用·不搬		Card Alternate Art Drawer.prefab
+Card Drawer	0	77f7600ce2535aa4288b0e04ae3a0d97	零引用·不搬		Card Drawer.prefab
+Card Info Draft Mode button	0	c63038d323b25ed499089227e08f962a	零引用·不搬		Card Info Draft Mode button.prefab
+Card Shop Tab	0	30ae2c450b55bcf46977c5dc6a70a797	零引用·不搬		Card Shop Tab.prefab
+Card Shop VIP Tab Variant	0	3af0f646346d8c642b46577f7f02d0f9	零引用·不搬		Card Shop VIP Tab Variant.prefab
+Card in deck container	0	03776208bd2f21e4c8423e134075ac78	零引用·不搬		Card in deck container.prefab
+CardChooseCardButtonFrame	13	4774133b4042b0a4a98ec4cd2fe9a29d	待判		CardChooseCardButtonFrame.prefab
+CardHalo	0	ed7f6ec9fed417f43be3ba1ba195e4a0	零引用·不搬		CardHalo.prefab
+CardMulliganButtonFrame	13	bbe3a48230c85d744bca6b9c8a3584d8	待判		CardMulliganButtonFrame.prefab
+CardMulliganSelected	1	8ada861889b58bf4e9fab87cccaafef4	待判		GameObject/CardMulliganSelected.prefab
+CardUI	0	b1d3ac213a57ff34e890d7590ae0a4e2	零引用·不搬		CardUI.prefab
+Cardback Drawer	0	94965a2c6be71f542841435e2acb4c0e	零引用·不搬		Cardback Drawer.prefab
+Catalog Item Shop Container	0	3b95d7cf56eae9d4fbe37e4d8652d3ff	零引用·不搬		Catalog Item Shop Container.prefab
+Chat Tab	1	8042359320da2e3458b4517ca093fd26	待判		Chat Tab.prefab
+ChatMessageRow	1	31ecc33d135a43a43ab4a9e371e7c601	有代码等价物	CardPresentation/Editor/B102CHAT_Assert.cs:140	ChatMessageRow.prefab
+ChatPanel	0	920d200aee470d346be3e9032d360eb6	零引用·不搬		ChatPanel.prefab
+ChatPreview	0	65187ecbab567a54190e7120f8978ca5	零引用·不搬		ChatPreview.prefab
+Checkbox	1	48173251a6294704696cd65e8b8f63da	有代码等价物	CardPresentation/Editor/MainMenuScene.cs:14213	GameObject/Checkbox.prefab
+Choose Army Deck FTUE Window	0	e792517d32ed1ab498b31db54775759c	零引用·不搬		Choose Army Deck FTUE Window.prefab
+ChooseNameWindow	0	3eed8642c7001b44699884a77b6da947	零引用·不搬		ChooseNameWindow.prefab
+Circle Mesh	0	4256843fb103a2c4ba2b793564e7f0aa	零引用·不搬		Circle Mesh.prefab
+Collection Card	2	e192ce58b4ab19744b8eff2f95ce9bb3	待判		GameObject/Collection Card.prefab
+Collection Cosmetic	2	cc2f392a1e7bb644ea89defa3e0a1119	待判		GameObject/Collection Cosmetic.prefab
+Collection Deck	1	831931b2d527d534eb4a6f6096e7c237	待判		Collection Deck.prefab
+Collection Deck With Highlight	2	71fc210c7827a4940a9c23c21ff847a8	待判		GameObject/Collection Deck With Highlight.prefab
+Collection Menu Variant	0	3cd020b81ba0a9448b8df21229e4a1c4	零引用·不搬		Collection Menu Variant.prefab
+Collector Level Tooltip	1	b3897a1802648db478333910b0bfb305	有代码等价物	CardPresentation/Editor/ShellScene.cs:8214	GameObject/Collector Level Tooltip.prefab
+Container Drawer	0	138bd5184c8c851469f0f1f4694b697a	零引用·不搬		Container Drawer.prefab
+Cosmetic Item Shop Container	0	9c7c2edb14bd7b24a861b6f8d20aaf3d	零引用·不搬		Cosmetic Item Shop Container.prefab
+Currency Drawer	0	d12247e86caad66429582c907deab80b	零引用·不搬		Currency Drawer.prefab
+Daily Bonus Shop Container	0	161181c31c572884caf081cd046e3469	零引用·不搬		Daily Bonus Shop Container.prefab
+Daily Login Bonus Container	0	5a5cd849446a3a94595d57221e63a39a	零引用·不搬		Daily Login Bonus Container.prefab
+Daily Mission Container	0	c69e2a72344198d4190821915ca70585	零引用·不搬		Daily Mission Container.prefab
+Daily Reward Popup	0	66c57ccb13165534daa58690d01493ac	零引用·不搬		Daily Reward Popup.prefab
+Daily Reward Popup Entry	2	bda0c8188d41b1a4c9e87a143316aee2	待判		Daily Reward Popup Entry.prefab
+Daily Reward Popup Item Drawer	0	a979d1867e3916c49829cfc348a38a8e	零引用·不搬		Daily Reward Popup Item Drawer.prefab
+Daily Shop Tab	0	e6214fc444ec98f439a9f419a9553396	零引用·不搬		Daily Shop Tab.prefab
+Daily Skulls Mission Container	0	a4714386e9d32b847ac86f43a068d181	零引用·不搬		Daily Skulls Mission Container.prefab
+Daily Skulls Mission Container Small	0	e29f11daa73d49a4c87daff1e4efbd77	零引用·不搬		Daily Skulls Mission Container Small.prefab
+Daily Skulls Mission Container Variant  Expansion Pass	0	6391c746a65d71f4c8b5a6d7330d841f	零引用·不搬		Daily Skulls Mission Container Variant  Expansion Pass.prefab
+Daily Streak Popup	0	003b7378451f99f459252839ef13b575	零引用·不搬		Daily Streak Popup.prefab
+Daily Streak Reward Popup Entry	1	83dca8d2ef9e4d8468be3fe268486aeb	待判		Daily Streak Reward Popup Entry.prefab
+Debug Event Entry	1	be322dfb7e346fd4f93529c894c27042	待判		GameObject/Debug Event Entry.prefab
+Debug Play Window	0	68a8208a3cb483f4db9f49d839063272	零引用·不搬		Debug Play Window.prefab
+Debug Reactivate Event Window	0	cd4f396de9b9d1444a2bd7e374455a33	零引用·不搬		Debug Reactivate Event Window.prefab
+Debug Reward Window	1	a264dde510818d445aafeea6b210d0cb	待判		GameObject/Debug Reward Window.prefab
+DebugUIBitField	1	da834ea1d55725143aeac14a496132f6	DebugUI 不搬		GameObject/DebugUIBitField.prefab
+DebugUIButton	1	5108c41a91ad1af4d948d3d73fe5f0ff	DebugUI 不搬		GameObject/DebugUIButton.prefab
+DebugUICanvas	0	2531ae7ad1feb764896ca789dbf11b00	零引用·不搬		Resources/DebugUICanvas.prefab
+DebugUIColor	1	750108130bed11f4f892ddd1898d902d	DebugUI 不搬		GameObject/DebugUIColor.prefab
+DebugUIEnumField	1	1d6ce7130d967df4db7566fbbc5634de	DebugUI 不搬		GameObject/DebugUIEnumField.prefab
+DebugUIEnumHistory	1	5355a6030325fdd459d989b879220da0	DebugUI 不搬		GameObject/DebugUIEnumHistory.prefab
+DebugUIFloatField	1	a5361fabd6ab15340a8ff84ff73afd56	DebugUI 不搬		GameObject/DebugUIFloatField.prefab
+DebugUIFoldout	1	d9aced7279290804385359b0c9a9d2d2	DebugUI 不搬		GameObject/DebugUIFoldout.prefab
+DebugUIGroup	1	463c5b05adf2f994fab7a761c14e4b9a	DebugUI 不搬		GameObject/DebugUIGroup.prefab
+DebugUIHBox	1	b97bfeca9ed986b4c92e8cc476af0851	DebugUI 不搬		GameObject/DebugUIHBox.prefab
+DebugUIHandlerRenderingLayerField	1	fe209a2ed5a737f45b6e7ab949b1a876	DebugUI 不搬		GameObject/DebugUIHandlerRenderingLayerField.prefab
+DebugUIIntField	1	622991e7095f9dd439a132c3e0f882b4	DebugUI 不搬		GameObject/DebugUIIntField.prefab
+DebugUIMessageBox	1	0d7462a9a1a5d6b498bfbba1c075df32	DebugUI 不搬		GameObject/DebugUIMessageBox.prefab
+DebugUIObject	1	9203dfac73ff4ea4b90abda271589b54	DebugUI 不搬		GameObject/DebugUIObject.prefab
+DebugUIObjectList	1	660bc639516b50d4cb4acfc55f364702	DebugUI 不搬		GameObject/DebugUIObjectList.prefab
+DebugUIObjectPopupField	1	877a694fcaf686042ac0b95e1f3f72de	DebugUI 不搬		GameObject/DebugUIObjectPopupField.prefab
+DebugUIPanel	1	0c3f387e8885cd646b457a0c191930e2	DebugUI 不搬		GameObject/DebugUIPanel.prefab
+DebugUIPersistentCanvas	0	6941fd43daf5ab841ac273a0c8347841	零引用·不搬		Resources/DebugUIPersistentCanvas.prefab
+DebugUIProgressBar	1	279ae8417c3cabc49afa6ff0e6ae93a8	DebugUI 不搬		GameObject/DebugUIProgressBar.prefab
+DebugUIRow	1	0a70fb3202712884fb427d87176246ad	DebugUI 不搬		GameObject/DebugUIRow.prefab
+DebugUIToggle	1	c734ebd950791334d969d3d52e63ad66	DebugUI 不搬		GameObject/DebugUIToggle.prefab
+DebugUIToggleHistory	1	15d35da54e6d90f438065e0586618cca	DebugUI 不搬		GameObject/DebugUIToggleHistory.prefab
+DebugUIUIntField	1	1d03c66ca7564d64fb6394f9ea50739b	DebugUI 不搬		GameObject/DebugUIUIntField.prefab
+DebugUIVBox	1	292f8837236eacb49944954e5917a4c4	DebugUI 不搬		GameObject/DebugUIVBox.prefab
+DebugUIValue	1	f3362936e69d9f841ac9d81d054ad3a9	DebugUI 不搬		GameObject/DebugUIValue.prefab
+DebugUIValuePersistent	1	453c3ad569ff6e246ab0216e15127d2f	DebugUI 不搬		GameObject/DebugUIValuePersistent.prefab
+DebugUIValueTuple	1	574f276d3ac3207478d636a246c08071	DebugUI 不搬		GameObject/DebugUIValueTuple.prefab
+DebugUIVector2	1	4f68f96c0c024c04cb602bf6cfcbf27a	DebugUI 不搬		GameObject/DebugUIVector2.prefab
+DebugUIVector3	1	c507d819d36b52942b106572d37656be	DebugUI 不搬		GameObject/DebugUIVector3.prefab
+DebugUIVector4	1	06b0d0e9879f69d47a283349442f6f67	DebugUI 不搬		GameObject/DebugUIVector4.prefab
+Deck CostQuantity Row Drawer	0	30f7500386baa4e48ba8bb1b2980705a	零引用·不搬		Deck CostQuantity Row Drawer.prefab
+Deck Drawer	0	05db7dc0370e7a54aa06939430d19314	零引用·不搬		Deck Drawer.prefab
+Deck Editing Menu	0	1a6f080b7a664e140928bc49901e58d8	零引用·不搬		Deck Editing Menu.prefab
+Deck Selection Popup	0	6bd77ad500f44184f8cd1b8a425c9ef9	零引用·不搬		Deck Selection Popup.prefab
+Deck Selection Popup with Tabs	0	705e469ebb7f54a488981144e6db0344	零引用·不搬		Deck Selection Popup with Tabs.prefab
+Deck Selector Card Info button	1	9975b399dba0b354292407dac5444676	有代码等价物	CardPresentation/Editor/DraftAssertD3.cs:1231	Deck Selector Card Info button.prefab
+Deck Selector Defensive Card Slot	0	2a14814cf22b5424b8226a47361dd8cd	零引用·不搬		Deck Selector Defensive Card Slot.prefab
+Deck Selector Hero Card Info button	0	cc6e3a2b5cda7ef4f80ede9ef8e089c8	零引用·不搬		Deck Selector Hero Card Info button.prefab
+Deck Selector Menu Item	1	9d7ecea096852a147acbd984d3f3a6b0	待判		Deck Selector Menu Item.prefab
+Deck info Popup	0	70735a70dd0c8bf4bb13793c559f21cd	零引用·不搬		Deck info Popup.prefab
+DeckSelectionContinueButton	0	86dc603551eabbd409f521b4e8d1588c	零引用·不搬		DeckSelectionContinueButton.prefab
+Draft Game Mode Container 1x2	0	487882ea06bdac1449ec691649e856af	零引用·不搬		Draft Game Mode Container 1x2.prefab
+Draft Mode Card in deck container Variant	0	ed3fa263767ba164bb39ea951d01d1c4	零引用·不搬		Draft Mode Card in deck container Variant.prefab
+Draft Mode Deck Info Panel	0	bbd124859bed8014797f9b6b39134d54	零引用·不搬		Draft Mode Deck Info Panel.prefab
+Draft Mode Expiring Popup	0	5845326dceb72e24e936a3d16bdb32d0	零引用·不搬		Draft Mode Expiring Popup.prefab
+Draft Mode Menu Demo	0	848164da99254694a9bd04fd980ef8cc	零引用·不搬		Draft Mode Menu Demo.prefab
+Draft Mode Ongoing Content	0	1bd3ebf95aedd2e4e84fb3f8e5a0f586	零引用·不搬		Draft Mode Ongoing Content.prefab
+Draft Mode Ongoing State	0	b2f2be91d4e448b43809066fdd684cf0	零引用·不搬		Draft Mode Ongoing State.prefab
+Draft Mode Timed Mode Window	0	5842b8e788fbc764ead6a22c30d6e0e3	零引用·不搬		Draft Mode Timed Mode Window.prefab
+DraftLeaderboardPopup	0	e080d21dc9163434080aef49fb060d41	零引用·不搬		DraftLeaderboardPopup.prefab
+EnergySinglePlayerOnlyEventWindow	0	b9dd48feb51607a4e9ca40ffbea3a4c0	零引用·不搬		EnergySinglePlayerOnlyEventWindow.prefab
+Event Help Popup Small Image Variant	0	a9f7efee9909cdc459ce68dd381785e9	零引用·不搬		Event Help Popup Small Image Variant.prefab
+Event Help Popup Variant	0	774699bc9916a1e49a3187dbf4c5fae8	零引用·不搬		Event Help Popup Variant.prefab
+Event Navigation Button	0	ac8d12bf02576734a8646ba6a30459b4	零引用·不搬		Event Navigation Button.prefab
+Expansion Pass Missions Tab	0	6f2158b3d724e4146a81998011e4139e	零引用·不搬		Expansion Pass Missions Tab.prefab
+Expansion Pass Points Drawer	0	7bda255ada8feb640a997cbb32b4a442	零引用·不搬		Expansion Pass Points Drawer.prefab
+Expansion Pass Premium Drawer	0	5993944f4a6686a418b061ce7db6643a	零引用·不搬		Expansion Pass Premium Drawer.prefab
+Expansion Pass Progress Bar	0	ff125373e0004b64cbfe8c53f96dd120	零引用·不搬		Expansion Pass Progress Bar.prefab
+Expansion Pass Reward Container	1	14bf6c6ccd2386b4ebddaebffdbd2942	有代码等价物	CardPresentation/Shell/ExpansionPassEventWindow.cs:221	Expansion Pass Reward Container.prefab
+Expansion Pass Tab	0	614e5f649aeb1b04ca46a21bb8944a5f	零引用·不搬		Expansion Pass Tab.prefab
+Explosion Hand UI 0_5s delay	0	678217bbb507870448f2c74c1a5ab378	零引用·不搬		Explosion Hand UI 0_5s delay.prefab
+FactionScoreBig	0	09bd84c0c0c20d043ad1bed65c01e73f	零引用·不搬		FactionScoreBig.prefab
+FactionScoreSmall	1	b17200dca2df7944c879180adf356f9d	有代码等价物	CardPresentation/Editor/B94B17_Assert.cs:290	FactionScoreSmall.prefab
+Fake Light Glow	0	956076ae7d5c05748a44c07ca3613066	零引用·不搬		Fake Light Glow.prefab
+Feedback Scoring Button	1	24924436800cfaa46a1074da2aadf2bd	待判		Feedback Scoring Button.prefab
+Forge Army Item Button	3	75d3a885c42b2164abb9e8c581670394	待判		Forge Army Item Button.prefab
+Forge Army Selector	0	4f4d81272ba39e248bdd3ed7b56cd404	零引用·不搬		Forge Army Selector.prefab
+Forge Menu Reward Button	2	eb3b162566312844582d1fc22e39c939	待判		Forge Menu Reward Button.prefab
+Forge Points Drawer	0	1d67e59dd4b51d343a97ce808fb30538	零引用·不搬		Forge Points Drawer.prefab
+Forge Profile Container Variant	0	94b3dfb72d40e83438d2800755e6dd61	零引用·不搬		Forge Profile Container Variant.prefab
+Forge Tab	0	192fd3468a642d6428445d868fc2c25b	零引用·不搬		Forge Tab.prefab
+Friend Info Item	2	e2e154450cb82274c8a9f0cae635230a	有代码等价物	CardPresentation/Editor/B102FRIEND_Assert.cs:322	GameObject/Friend Info Item.prefab
+Friends Menu Demo	0	59dbede4f7d58334bb7a1b10070a74b1	零引用·不搬		Friends Menu Demo.prefab
+Full Screen Event Announcement Variant	0	4284a89cc9e90654a86e6cdac52d690a	零引用·不搬		Full Screen Event Announcement Variant.prefab
+Gacha Drawer Holder	1	ee9eef8503c810944913db154f187f4b	有代码等价物	CardPresentation/Shell/GachaEventWindow.cs:814	Gacha Drawer Holder.prefab
+Gacha Reward Claimed	0	41c3c0770ac558b49917eb8ee987aec5	零引用·不搬		Gacha Reward Claimed.prefab
+Gacha Tab	0	d63978a79e7dc7e4ab447b9342d75642	零引用·不搬		Gacha Tab.prefab
+Game mode deck selector	1	ee94b754a9a4c0a46bd584aa1270d09e	有代码等价物	CardPresentation/Editor/CollectionScene.cs:1608	GameObject/Game mode deck selector.prefab
+General Basic Offer Container Booster_CardOrAltArt	0	a3ab0ef44464075449e659cec746272d	零引用·不搬		General Basic Offer Container Booster_CardOrAltArt.prefab
+General Basic Offer Container Booster_CardOrAltArt_Cardback_Avatar_Title	0	24758b45dc363764bb59a2e687b2f508	零引用·不搬		General Basic Offer Container Booster_CardOrAltArt_Cardback_Avatar_Title.prefab
+General Basic Offer Container Booster_CardOrAltArt__AvatarORTitle	0	11f0e04784bcc7f4985e8cd2f429f511	零引用·不搬		General Basic Offer Container Booster_CardOrAltArt__AvatarORTitle.prefab
+General Basic Offer Container Variant 2 Currencies	0	93b2d031fba7ca849bf971db6728f6d5	零引用·不搬		General Basic Offer Container Variant 2 Currencies.prefab
+General Basic Offer Container Variant Booster + 2 Currencies	0	4a02288c6f537654eae129ebf6b100c4	零引用·不搬		General Basic Offer Container Variant Booster + 2 Currencies.prefab
+General Basic Offer Container Variant Booster_avatar_cardback_title	0	4e6e729084714ef4d9ae811a506eeced	零引用·不搬		General Basic Offer Container Variant Booster_avatar_cardback_title.prefab
+General Basic Offer Container Variant Booster_avatar_resource	0	67aa9571ea30fb24f8de2ad4b646647d	零引用·不搬		General Basic Offer Container Variant Booster_avatar_resource.prefab
+General Basic Offer Container Variant Booster_cardback_resource	0	aea5e8088aa7b514a93bd3619b5f4aaf	零引用·不搬		General Basic Offer Container Variant Booster_cardback_resource.prefab
+General Basic Offer Container Variant Booster_title_resource	0	ee71f9ab5899b8e4fb3fbe9178bc3b1e	零引用·不搬		General Basic Offer Container Variant Booster_title_resource.prefab
+General Basic Offer Container Variant Deck_cardback_avatar	0	ddbc6a31e9839d049a5156d7747ece80	零引用·不搬		General Basic Offer Container Variant Deck_cardback_avatar.prefab
+General Basic Offer Container Variant Premium_Booster_avatar_cardback_title	0	dc6ff5bb193ab9b46a88b8c295b59189	零引用·不搬		General Basic Offer Container Variant Premium_Booster_avatar_cardback_title.prefab
+General Basic Offer Container Variant Premium_Booster_avatar_cardback_title_resource	0	6fe59f3ff08d8db4cbc3704af9063524	零引用·不搬		General Basic Offer Container Variant Premium_Booster_avatar_cardback_title_resource.prefab
+General Basic Offer Container Variant Premium_Premium_cardback_avatar	0	308c5aed27f989e44a3071209c1a0910	零引用·不搬		General Basic Offer Container Variant Premium_Premium_cardback_avatar.prefab
+General Basic Offer Container Variant Premium_Resource	0	b5ca0bb89636e224982aecb80dadcdaf	零引用·不搬		General Basic Offer Container Variant Premium_Resource.prefab
+General Basic Offer Container Variant Premium_booster_title_avatarOrResource	0	d842cd9aeaa8b4d4fbed52e67cfdbd77	零引用·不搬		General Basic Offer Container Variant Premium_booster_title_avatarOrResource.prefab
+General Basic Offer Container Variant Single Item Type	0	72120b7521f764e469cf385ff7919e95	零引用·不搬		General Basic Offer Container Variant Single Item Type.prefab
+General Basic Offer Container Variant avatarOrTitle_resource	0	1f5ad2d0ab1ef554c825c948bd75b3ac	零引用·不搬		General Basic Offer Container Variant avatarOrTitle_resource.prefab
+General Basic Offer Container Variant cardback_premiumOrAvatarOrResource_titleOrResource	0	109d8e5992504104aa1b2a25e036196b	零引用·不搬		General Basic Offer Container Variant cardback_premiumOrAvatarOrResource_titleOrResource.prefab
+General Basic Offer Popup Booster_CardOrAltArt	0	d2fdc3cdb2bbcee4cb2a5fd9047deb07	零引用·不搬		General Basic Offer Popup Booster_CardOrAltArt.prefab
+General Basic Offer Popup Booster_CardOrAltArt_AvatarORTitle	0	66314b1af8430a4488944c45ce70a37a	零引用·不搬		General Basic Offer Popup Booster_CardOrAltArt_AvatarORTitle.prefab
+General Basic Offer Popup Booster_CardOrAltArt_Cardback_Avatar_Title	0	a6624217bd85c9542b3beacea3d0ee5f	零引用·不搬		General Basic Offer Popup Booster_CardOrAltArt_Cardback_Avatar_Title.prefab
+General Basic Offer Popup Just Foreground	0	c94a5d2de84bb394dacb402727c108e3	零引用·不搬		General Basic Offer Popup Just Foreground.prefab
+General Basic Offer Popup Variant 2 Currencies	0	fd303a6bf7cd9864cadf1337fce3c1cd	零引用·不搬		General Basic Offer Popup Variant 2 Currencies.prefab
+General Basic Offer Popup Variant Booster + 2 Currencies	0	96f7006cde54e194c9c5ef9d97d696be	零引用·不搬		General Basic Offer Popup Variant Booster + 2 Currencies.prefab
+General Basic Offer Popup Variant Booster_avatar_cardback_title	0	f39a0c0fe63ebd24789c5f9aba242a08	零引用·不搬		General Basic Offer Popup Variant Booster_avatar_cardback_title.prefab
+General Basic Offer Popup Variant Booster_avatar_resource	0	98924068ac32e5548895cd37688d9a19	零引用·不搬		General Basic Offer Popup Variant Booster_avatar_resource.prefab
+General Basic Offer Popup Variant Booster_cardback_resource	0	aa807c825027f6240823aaf8deee47f0	零引用·不搬		General Basic Offer Popup Variant Booster_cardback_resource.prefab
+General Basic Offer Popup Variant Booster_title_resource	0	c01e9c99d285c90489d62f75aa766e2b	零引用·不搬		General Basic Offer Popup Variant Booster_title_resource.prefab
+General Basic Offer Popup Variant Deck_cardback_avatar	0	a8f0a4f0285d2d848adc122cae4a237d	零引用·不搬		General Basic Offer Popup Variant Deck_cardback_avatar.prefab
+General Basic Offer Popup Variant Expansion pass	0	c0b9b5a6de421774bb2c943f85e42d0b	零引用·不搬		General Basic Offer Popup Variant Expansion pass.prefab
+General Basic Offer Popup Variant Premium_Booster_avatar_cardback_title	0	4f760ec82f9fdc64ba5773955ab95a0e	零引用·不搬		General Basic Offer Popup Variant Premium_Booster_avatar_cardback_title.prefab
+General Basic Offer Popup Variant Premium_Booster_avatar_cardback_title_resource	0	196f478738ef29b4aa72f0079131ea35	零引用·不搬		General Basic Offer Popup Variant Premium_Booster_avatar_cardback_title_resource.prefab
+General Basic Offer Popup Variant Premium_Premium_cardback_avatar	0	63eac40feae86674fad0665dc1e62881	零引用·不搬		General Basic Offer Popup Variant Premium_Premium_cardback_avatar.prefab
+General Basic Offer Popup Variant Premium_Resource	0	c41136b7d28c8bc4e9d80ac3c947ca33	零引用·不搬		General Basic Offer Popup Variant Premium_Resource.prefab
+General Basic Offer Popup Variant Premium_booster_title_avatarOrResource	0	178db66bf10c8bf45b3df709f70d474a	零引用·不搬		General Basic Offer Popup Variant Premium_booster_title_avatarOrResource.prefab
+General Basic Offer Popup Variant Single Item Type	0	b234bbc85b747524c88c7a71a90c03c1	零引用·不搬		General Basic Offer Popup Variant Single Item Type.prefab
+General Basic Offer Popup Variant avatarOrTitle_resource	0	ad14d65c116029d4693d9553b385d00b	零引用·不搬		General Basic Offer Popup Variant avatarOrTitle_resource.prefab
+General Basic Offer Popup Variant cardback_premiumOrAvatarOrResource_titleOrResource	0	5c12a59c291329b4796df06c4d00d61e	零引用·不搬		General Basic Offer Popup Variant cardback_premiumOrAvatarOrResource_titleOrResource.prefab
+Generic Army Item Drawer	0	16952dd0d6817e346884249735bb9473	零引用·不搬		Generic Army Item Drawer.prefab
+Generic Multi Card Display	0	b1f65cb3411fe474bada62630989a3b3	零引用·不搬		Generic Multi Card Display.prefab
+Generic Multi Card Display Combat	0	a0f005fe6f43cd3468cc7f07a3e29cfb	零引用·不搬		Generic Multi Card Display Combat.prefab
+Generic Options Panel	0	892ba9635c131e546982a5f7796d896c	零引用·不搬		Generic Options Panel.prefab
+Generic Popup Background	0	2ee9afa422f107049a9724357ddf0661	零引用·不搬		Generic Popup Background.prefab
+Generic Shop Tab	0	41b607cca5e51954bb33c5999847fdee	零引用·不搬		Generic Shop Tab.prefab
+Generic Window Red Background Big	0	8715da50353fc8644a1692dd075521c6	零引用·不搬		Generic Window Red Background Big.prefab
+Generic Window Red Background Small	0	6a98304530e39e145984e0d05bd29a30	零引用·不搬		Generic Window Red Background Small.prefab
+GenericDropdown	1	fcb2cf80660d99242bc83aa754dd222a	待判		GameObject/GenericDropdown.prefab
+GenericPromptWindow	0	85af6588477292846a558451fedca5c4	零引用·不搬		GenericPromptWindow.prefab
+Give Feedback Popup menu	0	652b4a25c0032c0469f9a364cb7514c8	零引用·不搬		Give Feedback Popup menu.prefab
+Gold Tab	0	d083cfe0d2268564880e299ced0d49b8	零引用·不搬		Gold Tab.prefab
+Icon Avatar Border Drawer Variant	0	7561e41247dc27b488043ece482b7355	零引用·不搬		Icon Avatar Border Drawer Variant.prefab
+Icon Avatar Drawer Variant	0	bb94a3c337cbc164cb538c0c3477281a	零引用·不搬		Icon Avatar Drawer Variant.prefab
+Icon Campaign Points Drawer Variant	0	f73e3f19df51c464c9bdc97419c42b28	零引用·不搬		Icon Campaign Points Drawer Variant.prefab
+Icon Container Drawer Variant	0	353f0010157267d40b2c541862095989	零引用·不搬		Icon Container Drawer Variant.prefab
+Icon Currency Drawer Variant	0	5c0c35ddc32fb504c962bc33a318ce2d	零引用·不搬		Icon Currency Drawer Variant.prefab
+Icon Expansion Pass Points Drawer Variant	0	2c6e6f38b41983543a5ebb04b499b051	零引用·不搬		Icon Expansion Pass Points Drawer Variant.prefab
+Icon Expansion Pass Premium Drawer Variant	0	cd0269d27ac71254aba1f43268c983c2	零引用·不搬		Icon Expansion Pass Premium Drawer Variant.prefab
+Icon Forge Points Drawer Variant	0	a5564491c08dd6041847bd2f9789873f	零引用·不搬		Icon Forge Points Drawer Variant.prefab
+Icon Premium Campaign Drawer Variant	0	3773d21d4c0149947abdb701ac05c242	零引用·不搬		Icon Premium Campaign Drawer Variant.prefab
+Icon Random Card Drawer Variant	0	7978af8fc4504ca449d37865ee43147b	零引用·不搬		Icon Random Card Drawer Variant.prefab
+Icon Title Drawer Variant	0	b41223563a9c7be4781791d12b08eaaa	零引用·不搬		Icon Title Drawer Variant.prefab
+Icon VIP Premium Campaign Drawer Variant	0	f2ecc8cd10e19e04292bef55de168184	零引用·不搬		Icon VIP Premium Campaign Drawer Variant.prefab
+Icon Wildcard Drawer Variant	0	af56e5e68e1410e4abf5ae21e1699eee	零引用·不搬		Icon Wildcard Drawer Variant.prefab
+Import Deck Popup	0	b2616cacb7bd6b54cb1084de97b4cb23	零引用·不搬		Import Deck Popup.prefab
+InApp Shop Container	0	d7f73529ebe5f194691893fbacb8028c	零引用·不搬		InApp Shop Container.prefab
+InApp Shop Container Disabled	0	08eec2cb7472f7a409b4bd82795e58ef	零引用·不搬		InApp Shop Container Disabled.prefab
+Inbox Menu	0	9ff6bf342310ff14bbd7531a59150ab7	零引用·不搬		Inbox Menu.prefab
+InboxBtn	0	ef3c548d63a2ecc498282e0094792905	零引用·不搬		InboxBtn.prefab
+Invitation List Entry	1	a15ea33adf72de641b7484418767503f	有代码等价物	CardPresentation/Editor/B103F4_Assert.cs:729	GameObject/Invitation List Entry.prefab
+Item Display Window	0	4b4866ea11fc3d640bc6f84325b12d4d	零引用·不搬		Item Display Window.prefab
+Item Shop Tab	0	eaa8fce90fdcafc4493d59f189d957f4	零引用·不搬		Item Shop Tab.prefab
+Item Shop Tab No Automatic Ordering	0	7a08ba76f1c8e3b4fa1b2005ccfa73da	零引用·不搬		Item Shop Tab No Automatic Ordering.prefab
+Legendary Display Profile	0	43570c9d535ec7d45a4dd663c69c55cd	零引用·不搬		Legendary Display Profile.prefab
+LightShaft	0	8ba4e4bfd93f841439611755427ed4fd	零引用·不搬		LightShaft.prefab
+Liveop Event Help Variant	0	b722fd53c47525b4b872747ce87e3c19	零引用·不搬		Liveop Event Help Variant.prefab
+LoadingMenu	0	986601e09742707459867733524780e8	零引用·不搬		LoadingMenu.prefab
+Main Menu Navigation Button	0	5b7c192463f31f748b51fa560b154f09	零引用·不搬		Main Menu Navigation Button.prefab
+Main Menu Offer Container 1x1	0	a2fc10cc28a7f1d46ac52c71e8038c6c	零引用·不搬		Main Menu Offer Container 1x1.prefab
+Main Menu Offer Container 1x1 Premium_booster_title_avatarOrResource	0	d4ce423f00f36cf4baf02b7f0d0ed2e1	零引用·不搬		Main Menu Offer Container 1x1 Premium_booster_title_avatarOrResource.prefab
+Main Menu Offer Container Carousel 1x1	0	ffa3c40969b7da44a8ae2fb6445d0b16	零引用·不搬		Main Menu Offer Container Carousel 1x1.prefab
+Main Menu Offer Container Static Image 1x1	0	e098bc17beb83474384dd187397cb6bb	零引用·不搬		Main Menu Offer Container Static Image 1x1.prefab
+Main Menu Offer Container Static Image 1x2	0	e3cde4ef1ded7f64aab09e803e54c9e1	零引用·不搬		Main Menu Offer Container Static Image 1x2.prefab
+Main Menu Settings Window	0	df5bdad8ecaf70b4caee7cb379f9c358	零引用·不搬		Main Menu Settings Window.prefab
+Match Log	2	97e636349fa4e464dba55318a8a4552d	有代码等价物	CardPresentation/Editor/MainMenuScene.cs:7662	GameObject/Match Log.prefab
+Match Skull Mark	13	6bb3f58d26b79cd4f87a5395e1ae24b2	待判		Match Skull Mark.prefab
+Member Options Panel	0	98b9abc010ac1fb49a2f74d921df77a8	零引用·不搬		Member Options Panel.prefab
+Menu Dark Background	0	27aaad9f8eb2f8741810a522b6ab95be	零引用·不搬		Menu Dark Background.prefab
+Menu Navigation Panel Button	0	bdfefebbcbb44114e97578955e6ab4a3	零引用·不搬		Menu Navigation Panel Button.prefab
+Message Container	0	32341959846ff0946aa4d2b75d0f4469	零引用·不搬		Message Container.prefab
+MessagePopupWindow	0	90a10586544adff438a75f13ba36f4a7	零引用·不搬		MessagePopupWindow.prefab
+MessagePopupWindow2Buttons	0	2c5f43cdb3cc0fa47a67c757a3c8f46e	零引用·不搬		MessagePopupWindow2Buttons.prefab
+MessagePopupWindowDuel	0	1751d1ba8035f2749b4d06073812cedd	零引用·不搬		MessagePopupWindowDuel.prefab
+Mission Container Vertical	0	ddd9034fdb023bd4f8387503cd4500f4	零引用·不搬		Mission Container Vertical.prefab
+Mission Debug Buttons	0	8740c43c9618cb84c984940dcb1fb877	零引用·不搬		Mission Debug Buttons.prefab
+Mission Header	0	ccaddf01d20c87c41b03b6e81a2d14eb	零引用·不搬		Mission Header.prefab
+Mission Milestones Progress	0	601463187914e734e90aa4e1b7492401	零引用·不搬		Mission Milestones Progress.prefab
+Mission Milestones Progress Bar	0	04e4683c0a09f6d42a7408a5dde691b5	零引用·不搬		Mission Milestones Progress Bar.prefab
+Mission Milestones Step	6	9391ca38742c33a48b9351279d3055ea	有代码等价物	CardPresentation/Shell/ExpansionPassEventWindow.cs:1472	Mission Milestones Step.prefab
+Mission Progress Bar	0	9dbf28c6456065d45a6008b6b46288b5	零引用·不搬		Mission Progress Bar.prefab
+Mission Toast Notification	1	e546b91c9ee039f49aeabe1f2fd0bfb3	有代码等价物	CardPresentation/Shell/ToastNotifications.cs:227	GameObject/Mission Toast Notification.prefab
+Missions Tab	0	3a0eba7a977d6f84faf0492211463d34	零引用·不搬		Missions Tab.prefab
+MusicManager	0	236edbcc1577f0d46925a9815213fff1	零引用·不搬		MusicManager.prefab
+Node Line	1	363f0107e88113e439974759f288857b	待判		Node Line.prefab
+Offer Container	0	410399731cb9cda4e9eda64d3a529e9e	零引用·不搬		Offer Container.prefab
+Orange Tab Toggle	0	990697d5c8c32f440831ca1311b06ec4	零引用·不搬		Orange Tab Toggle.prefab
+Packs Tab	0	e44e0fe71e9817043b076c8b65d85756	零引用·不搬		Packs Tab.prefab
+Parent Event Window	0	8db1aafba18d82b4c885f74c3e245a87	零引用·不搬		Parent Event Window.prefab
+Placeholder Generic Leaderboard Display	0	138cbad46ec0f0b4dbb377a35e411051	零引用·不搬		Placeholder Generic Leaderboard Display.prefab
+Plane1x1	0	106ca6f027e6bf8469fc0ecdb9de37a4	零引用·不搬		Plane1x1.prefab
+Player Level	0	3740091125134f94a882b046c4b4290f	零引用·不搬		Player Level.prefab
+Player Profile Container Base	0	949c09833cac82243939e2b08592217f	零引用·不搬		Player Profile Container Base.prefab
+Player Profile Ranked Trophies Bronze	0	a20a02c46fbe9b44084a0c1c8daf3ec6	零引用·不搬		Player Profile Ranked Trophies Bronze.prefab
+Player Profile Ranked Trophies Gold	0	e8f28405fde3d954fb94696875f8dcc1	零引用·不搬		Player Profile Ranked Trophies Gold.prefab
+Player Profile Ranked Trophies Silver	0	5160afed6637dc545bf7125b356a17aa	零引用·不搬		Player Profile Ranked Trophies Silver.prefab
+Player Profile Window	0	26932bb81f7b64a40aff8a221e0abab6	零引用·不搬		Player Profile Window.prefab
+PlayerRankingRow	3	62e2d8e4af25b4b4482e50ff980faa83	有代码等价物	CardPresentation/Editor/B102AUD03_Assert.cs:85	GameObject/PlayerRankingRow.prefab
+PlayerRankingRow For Army	3	ab3f727b4bf9ccb4a9275d435bcd3c63	待判		GameObject/PlayerRankingRow For Army.prefab
+Practice Army Select Button	1	7c897ce76da329440bb452730833d019	待判		Practice Army Select Button.prefab
+Practice Mode Menu	0	803bda8a345f18545bf8963f3bc67c57	零引用·不搬		Practice Mode Menu.prefab
+Prebuilt Pack UI	2	75b1e0f5f60d934419613c1feff1cf6f	有代码等价物	CardPresentation/Shell/DraftModeWindow.cs:2495	Prebuilt Pack UI.prefab
+Premium Drawer	0	362f7491c83cb7f4f851e44dba01fc38	零引用·不搬		Premium Drawer.prefab
+Premium Drawer No Glow	0	df1384f34a9517041863af97fe3cdcaa	零引用·不搬		Premium Drawer No Glow.prefab
+Price Display	0	747fddb255ffc714bbf9473406f1671e	零引用·不搬		Price Display.prefab
+Price Display Button	0	aa3573dcf77a3ac44aabb201bbbf6ba3	零引用·不搬		Price Display Button.prefab
+Price Display Button 2 Variant	0	ae8396203604f9c4ab536db7aa8bff99	零引用·不搬		Price Display Button 2 Variant.prefab
+Profile Cosmetic Tab	0	b155cfb19fc4f5b4081209d4d15c70f5	零引用·不搬		Profile Cosmetic Tab.prefab
+Profile Player Info	0	f06865a88b05f854e8f6aa67ec2af6ce	零引用·不搬		Profile Player Info.prefab
+Purchase Premium Window	0	bd9d62e6da32ce545b2227305bf29a23	零引用·不搬		Purchase Premium Window.prefab
+Raid Progress Bar	0	61eca2f6ff03bc141b214df486f03d10	零引用·不搬		Raid Progress Bar.prefab
+Raid Progress Tab	0	820f27bf7e6b2444288c75a977d0dee6	零引用·不搬		Raid Progress Tab.prefab
+Raid Reward Container	1	4db27059a3a4f9043b0cf8df8bafcf27	有代码等价物	CardPresentation/Shell/RaidEventWindow.cs:168	Raid Reward Container.prefab
+Random Card Drawer	0	f3cbfe952f4f8e44bb3629c34ecac006	零引用·不搬		Random Card Drawer.prefab
+Rank Points	0	bfcb3e70b4a3e7f4bb64ef5d80da1f10	零引用·不搬		Rank Points.prefab
+Ranked Army Selector	0	776aa17196ae7164487b8ca7013babf6	零引用·不搬		Ranked Army Selector.prefab
+Ranked Army Selector Container V2	3	194d1749bf7be2c4ca72e0cb239ac741	待判		Ranked Army Selector Container V2.prefab
+Ranked Boost Reward Event Window	0	bab39c0222fb5cb47b0831b3fa4f62da	零引用·不搬		Ranked Boost Reward Event Window.prefab
+Ranked Deck Selection	0	0ad0e01132dddb446b68cc85fd11216d	零引用·不搬		Ranked Deck Selection.prefab
+Ranked Division Change Window	0	ce8c8928218a75c48bffa5224a30d182	零引用·不搬		Ranked Division Change Window.prefab
+Ranked Division Info	0	f2da953f6d45f2147a98890670c2da6d	零引用·不搬		Ranked Division Info.prefab
+Ranked Game Mode Container 1x2	0	a814362b0675b034aad7e925f458a6e5	零引用·不搬		Ranked Game Mode Container 1x2.prefab
+Ranked Leaderboard Display	0	8e3d5bd9adb2ecc45ac8adc97e6ee6e4	零引用·不搬		Ranked Leaderboard Display.prefab
+Ranked New Season WIndow	0	96d41c05f1986bc45a3ccc8eb7e6ff84	零引用·不搬		Ranked New Season WIndow.prefab
+Ranked Season Ended Window	0	010ef1464e87fd04fbdb8b1ff71abe7e	零引用·不搬		Ranked Season Ended Window.prefab
+RankedClassicLeaderboardPopup Variant	0	d47444d942a3cfc44917f68500c83933	零引用·不搬		RankedClassicLeaderboardPopup Variant.prefab
+RankedEventWindow	0	a94a06b40fa999b43826ff969c73ddfe	零引用·不搬		RankedEventWindow.prefab
+RankedEventWindowV2	0	08e176564e888ae429748068cc498211	零引用·不搬		RankedEventWindowV2.prefab
+RankedSealStep	6	7ff923c4f7949b24983842da3b24e02d	有代码等价物	CardPresentation/Editor/MainMenuScene.cs:11866	RankedSealStep.prefab
+RankedSealStep Animation Disabled	0	6e82c3c507a340140bea796159ca10fa	零引用·不搬		RankedSealStep Animation Disabled.prefab
+RankedSealStep Division Change Variant	1	c50e32d535767eb43ba0a034a682a169	待判		RankedSealStep Division Change Variant.prefab
+RankedSkirmishLeaderboardPopup	0	963f7eb2c6fa9804ca9c8d581ab5fda2	零引用·不搬		RankedSkirmishLeaderboardPopup.prefab
+Rate Popup	0	c9ec011815152ee468972329e708fc46	零引用·不搬		Rate Popup.prefab
+ReRollPopup Variant	0	3c25943f0d205544a9e2c2b2bd9ed580	零引用·不搬		ReRollPopup Variant.prefab
+Referral Container	0	cdbae12bb0bb0284c814361ccc9ba686	零引用·不搬		Referral Container.prefab
+Referral Popup	0	8ee4f577f083a07468a508ac8d49e271	零引用·不搬		Referral Popup.prefab
+Resource Counter Item	1	f48a884df34c7d34283045d27c3fd8cd	有代码等价物	CardPresentation/Editor/DeckScene.cs:8978	GameObject/Resource Counter Item.prefab
+Reward Display Mission	8	b2c247127e754dd478b8d60869e62223	有代码等价物	CardPresentation/Shell/ExpansionPassEventWindow.cs:1356	Reward Display Mission.prefab
+Reward Display Mission Vertical Variant	4	b6ea790d761bda444b9848b438e26e30	有代码等价物	CardPresentation/Shell/ToastNotifications.cs:466	Reward Display Mission Vertical Variant.prefab
+Reward Event Container 1x1	0	a7dfdcb3b3f843e4583992569a3607ad	零引用·不搬		Reward Event Container 1x1.prefab
+Reward Event Faction Bonus Container	1	fb6ea1763f42c5145b5c5fb0040a785d	有代码等价物	CardPresentation/Shell/RankedRewardEventWindow.cs:149	Reward Event Faction Bonus Container.prefab
+Reward Window	0	2d191d7035d0e1148934ffaa64b15df8	零引用·不搬		Reward Window.prefab
+Rewards Base Submenu Variant	0	1f4c2e0ce403aa84cb7619e90becf0fd	零引用·不搬		Rewards Base Submenu Variant.prefab
+Searching Oponent Popup	0	72491fa55115f774980bbd2f2d5ad13a	零引用·不搬		Searching Oponent Popup.prefab
+Searching Opponent Player Info Container	0	536fe6d22427aa145a510ccb210d5e36	零引用·不搬		Searching Opponent Player Info Container.prefab
+SearchingOpponentWindow	0	8b252496b1006b24d8611f34ae458912	零引用·不搬		SearchingOpponentWindow.prefab
+Settings Menu Tab Toggle	0	84f830f5b2e738246ac6f802087ed582	零引用·不搬		Settings Menu Tab Toggle.prefab
+Shop Item Container	0	d85c6e18c67d9be4786c425d731ff84d	零引用·不搬		Shop Item Container.prefab
+Shop Menu Variant	0	e2e1328b17ccd38408cd94bf833642f7	零引用·不搬		Shop Menu Variant.prefab
+Simple Army Icon	1	5b807cedbeba51b42a9c54d55ce5dee2	有代码等价物	CardPresentation/Shell/RankedArmyBonusCard.cs:303	Simple Army Icon.prefab
+Skirmish Ranked Game Mode Container 1x2	0	0719faf0055931b42bdf1a6a9c0cf804	零引用·不搬		Skirmish Ranked Game Mode Container 1x2.prefab
+SkirmishModeEventWindow	0	7baafa369c78ce74691399b0b1da5e6f	零引用·不搬		SkirmishModeEventWindow.prefab
+Small General Basic Offer Container Variant Single Item Type	0	61431450aed45f443a09ea58671aaa31	零引用·不搬		Small General Basic Offer Container Variant Single Item Type.prefab
+Social Submenu Variant	0	2fb8c7e10c7ab6042a5b8c4dddab7d99	零引用·不搬		Social Submenu Variant.prefab
+SoundManager	0	e6c444501d4dad046948af7d40f0008f	零引用·不搬		SoundManager.prefab
+Sunset Popup	0	0e0996552d928ac4090fc0a3233710df	零引用·不搬		Sunset Popup.prefab
+Tau Muzzle Sphere	0	ebf0841c42c7d4d4b98ab757ee451bde	零引用·不搬		Tau Muzzle Sphere.prefab
+Timer	0	2f998582849162d42862d91ea4bc5729	零引用·不搬		Timer.prefab
+Timer With Time Description	0	f93a539779ea3664e86fb37fdcccb621	零引用·不搬		Timer With Time Description.prefab
+Title Drawer	0	1007fecf4481a7f4fb2393ec590aa06f	零引用·不搬		Title Drawer.prefab
+Title Drawer Horizontal Variant	0	4d52d4cae6c751945b0de167c3f4c8da	零引用·不搬		Title Drawer Horizontal Variant.prefab
+Toast	1	5d84afbe508f08940aeea0b6ecd9538f	有代码等价物	CardPresentation/Editor/ProfileDataAssertE13.cs:354	GameObject/Toast.prefab
+Toast Collection Get XP	1	b2c8f55e426cd414285c223127770dd6	有代码等价物	CardPresentation/Shell/ToastNotifications.cs:230	GameObject/Toast Collection Get XP.prefab
+Toast Collection Level Up	1	c1c608401e57c18468c8a6f138432d21	有代码等价物	CardPresentation/Editor/ShellScene.cs:11455	GameObject/Toast Collection Level Up.prefab
+Trait Tooltip	14	08c1f7da83679694c8a1b08978e9697f	有代码等价物	Core/Tooltip.cs:14	Trait Tooltip.prefab
+TrophyDisplay	1	5e456e7a1b963f04581324dfe7cf6990	有代码等价物	CardPresentation/Editor/MainMenuScene.cs:13568	GameObject/TrophyDisplay.prefab
+Tutorial Army Select Button	1	f854a0814b90a554da4425a50b396365	待判		Tutorial Army Select Button.prefab
+Tutorial Message Window PopUp	0	c0b3f1586a91c2c45802b8f16a649dbc	零引用·不搬		Tutorial Message Window PopUp.prefab
+Tutorial Mode Menu	0	c59b2ece4af55d041b39a477e1fb8135	零引用·不搬		Tutorial Mode Menu.prefab
+TutorialPointerBase	0	b163f9aa333429e4b8dfb34eade5be29	零引用·不搬		TutorialPointerBase.prefab
+TutorialPointerCombat	0	c84335c2769647e43983f5ad9bb037cf	零引用·不搬		TutorialPointerCombat.prefab
+TutorialPointerMenu	0	0799f09ad91bdb042bce81e10303d213	零引用·不搬		TutorialPointerMenu.prefab
+TutorialPointerWildcards	0	ec329b088deb04541a3141ee66797757	零引用·不搬		TutorialPointerWildcards.prefab
+Two Side Event Select Team	0	7e698db8e0551ef46b1d1e8fa95c1601	零引用·不搬		Two Side Event Select Team.prefab
+Two Sides Event Window	0	29b135a599b173c468a4557d318e80ec	零引用·不搬		Two Sides Event Window.prefab
+Updated Tooltip Variant	19	bcb14978ca582184a8ab23724ad1f2b8	有代码等价物	Core/Tooltip.cs:14	Updated Tooltip Variant.prefab
+Updated Tooltip Variant - ranked	2	3a72be7682443854bb7c7dcb0a41ef83	有代码等价物	Core/Tooltip.cs:14	Updated Tooltip Variant - ranked.prefab
+Warlord  Mastery Profile Container Variant	0	9b2cf1ad43b5fb043ba0837cdbd4d94a	零引用·不搬		Warlord  Mastery Profile Container Variant.prefab
+Webshop Offer Container	0	13d98d096fdca8d41937cb0d196164d2	零引用·不搬		Webshop Offer Container.prefab
+Weekly Mission Container	0	795bde1d693df154b8807f08701c34c6	零引用·不搬		Weekly Mission Container.prefab
+Weekly Mission Milestone T1	3	65d313c134436654ab265afd197c8f1f	有代码等价物	Shell/MissionsTab.cs:2034	Weekly Mission Milestone T1.prefab
+Weekly Mission Milestone T2	3	6bb20e497f74ec949b459d0ccab3e34e	有代码等价物	Shell/MissionsTab.cs:2034	Weekly Mission Milestone T2.prefab
+Weekly Mission Milestone T3	3	e90e301c4d4205f488aa1abcd7fe6934	有代码等价物	Shell/MissionsTab.cs:2034	Weekly Mission Milestone T3.prefab
+Weekly Mission Milestone T4	3	3396c13546419504ea86d8ccad4c77b0	有代码等价物	Shell/MissionsTab.cs:2034	Weekly Mission Milestone T4.prefab
+Weekly Mission Milestone T5	3	5b8f0301aeaa64f4baf5856fb548e177	有代码等价物	Shell/MissionsTab.cs:2034	Weekly Mission Milestone T5.prefab
+WelcomeScreen Alpha	0	18ace22bcbda1494a8aa938b313f8e85	零引用·不搬		WelcomeScreen Alpha.prefab
+WhereToGetCardsPopup	0	3aa2af92df8201b4987f38bcb49c7a69	零引用·不搬		WhereToGetCardsPopup.prefab
+Wildcard Drawer	0	dd26b52db95e16046aafe8be83584bc8	零引用·不搬		Wildcard Drawer.prefab
+XSolla Offer Drawer	0	746c2020df52aa24f8505abdaf76a3f7	零引用·不搬		XSolla Offer Drawer.prefab
+tooltip trigger	0	a6ad664343562e24185056c51b281fe1	零引用·不搬		tooltip trigger.prefab

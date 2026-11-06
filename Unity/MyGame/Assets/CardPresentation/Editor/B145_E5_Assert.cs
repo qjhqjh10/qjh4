@@ -151,6 +151,8 @@ public static class B145_E5_Assert
 
         // A5 · 结构：`BuildChoiceOptions` 的 `left` / `backup` 两处都走 `SortedChoicePool`
         string er = ReadSrc("RuleEngine/Core/EffectResolver.cs");
+        // ✅ 已复刻（2026-11-05 · B150 · `EffectResolver.cs` 是纯 CRLF，而下面的结束标记写的是 `\n` ⇒ 先规范成 LF 再切）
+        if (!string.IsNullOrEmpty(er)) er = er.Replace("\r\n", "\n");
         Check(!string.IsNullOrEmpty(er), "A5a 前提：`RuleEngine/Core/EffectResolver.cs` 读得到");
         if (!string.IsNullOrEmpty(er))
         {

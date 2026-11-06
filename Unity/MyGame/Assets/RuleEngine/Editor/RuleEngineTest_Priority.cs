@@ -328,8 +328,11 @@ public static partial class RuleEngineTest
         //      ⚠️ 曾经是 7 —— 其中 `BroadcastTurnStartHandHops` 那一层已被 DG1 γ2 删掉
         //      （T24 的「只入队」契约优先）。
         //   数字全部是 `W61CountPumpPoints` 2026-10-30 现算的结果，不是估值；判别力未变。
-        Check(nRule, 23, "★ T26 `RuleCore.cs` 的 `using (BeginAction(ctx))` = 23"
-                     + "（2026-10-31 现读 = 23：上一档 22 + `B104_D` 的 `BeginTurnTail` 作用域 —— "
+        Check(nRule, 24, "★ T26 `RuleCore.cs` 的 `using (BeginAction(ctx))` = 24"
+                     + "（2026-11-05 现读 = 24：上一档 23 + `EnqueueStealthContinuation` 续攻 `body`（`RuleCore.cs:18955`，"
+                     + "2026-11-05 `B148-W2` 新增 —— 原版 `_ResolveAttack_d__438__MoveNext.c:429-489` 的 "
+                     + "`AddFollowResolutionAttackContinuationAction`：续攻在**原动作作用域之外**出队，必须自带泵点）；"
+                     + "上一档 23 = `B104_D` 的 `BeginTurnTail` 作用域 —— "
                      + "抽牌推迟把 `BeginTurnCore` 拆成 pre/post 两段，post 段必须自立作用域"
                      + " ⇒ 该包；判据 `B104_T21与多目标_时间线_施工单.md` D1）");
         Check(nEff, 6, "★ T26 `EffectResolver.cs` 的 `using (BeginAction(ctx))` = 6"
@@ -338,7 +341,7 @@ public static partial class RuleEngineTest
                      + "`HandHops` :18892 · `BroadcastUnitDamagedHandHops` :19034（2026-10-29 `B94_Z2`）；"
                      + "⚠️ 曾短暂是 7 —— 原 `:18882 BroadcastTurnStartHandHops` 那层作用域已按 DG1 γ2 删掉（T24「只入队」契约优先）；"
                      + "旧写的 :2042/:8341/:10185 是**过期行号**）");
-        Check(nRule + nEff, 29, "★ T26 **泵点总数 = 29**（23 + 6；漏一个 ⇒ 那个顶层入口的触发永远不结算）");
+        Check(nRule + nEff, 30, "★ T26 **泵点总数 = 30**（24 + 6；漏一个 ⇒ 那个顶层入口的触发永远不结算）");
     }
 
     /// <summary>`T26` 的行扫描：**整行正则** —— 行内**任意位置**出现

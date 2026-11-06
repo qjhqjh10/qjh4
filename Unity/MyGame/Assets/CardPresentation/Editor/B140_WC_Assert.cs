@@ -69,7 +69,7 @@ public static class B140_WC_Assert
         {
             Debug.Log("=== " + Tag + " 开始（B124-RETHOLD 时序 + 自检-X5 标签收敛）===");
             Timing();
-            LabelConvergence();
+            LabelConvergence(); LabelZeroBoundsSize();          // 🆕 2026-11-05（`B150`）：`Label.RefreshBounds` 的「两轴都≈0」闸（同一物理行追加 ⇒ 行数零变化）
         }
         finally
         {
@@ -274,6 +274,56 @@ public static class B140_WC_Assert
         {
             if (root != null) UnityEngine.Object.DestroyImmediate(root);
             if (root2 != null) UnityEngine.Object.DestroyImmediate(root2);
+        }
+    }
+
+    // ==================================================================
+    //  C 组：TMP 未 awake ⇒ `textBounds` = 默认 `Bounds`（全零）**不算「量到」**（`B150` 生产闸）
+    // ==================================================================
+    /// <summary>盯的是 `Label.RefreshBounds` 守卫里那条「**两轴都≈0**」（判据 → 那一段的注释）。
+    /// 夹具**不**给 TMP 发 `Awake`（编辑模式下 `AddComponent` 本来也不跑 `Awake`）⇒ `m_textInfo == null`
+    /// ⇒ `TMP_Text.textBounds` 返回 `new Bounds()`（`(0,0,0)`；`TMP_Text.cs:1354-1363`），**不是天文哨兵**。
+    /// 🧨 灭自证：把 `RefreshBounds` 那条「两轴都≈0」删掉 ⇒ C4 红（`_measured = true` + `_tmpW = 1e-4`
+    /// ⇒ `HasMeasuredWidth` 放行 ⇒ 对齐被当成「量到」直接摆位到 ≈300）。
+    /// ⚠️ 「新闸会不会误杀正常测量」由本文件 B5（收敛化之后 `WorldW × WorldH` 是真尺寸）兜着 ——
+    /// 过宽就一起红，⛔ 不需要另造一条。</summary>
+    static void LabelZeroBoundsSize()
+    {
+        Section("C 标签 · TMP 未 awake（`textBounds` = 全零）不算「量到」（`B150`）");
+        Check(TmpFont.Available, "C0（前提）TMP 字体资产可用（`TmpFont.Available`）");
+        if (!TmpFont.Available) return;
+
+        GameObject root = null;
+        try
+        {
+            root = new GameObject("B150_zero_bounds");
+            root.SetActive(false);
+            var lb = Label.Create(root.transform, "Hello", Vector3.zero, 6, Color.white,
+                                  new Vector2(0.5f, 0.5f), "b150_lb");
+            Check(lb != null, "C1（前提）夹具建出来了（`Label.Create`）");
+            if (lb == null) return;
+            var t = lb.transform.Find("text");
+            var tmp = t != null ? t.GetComponent<TMP_Text>() : null;
+            Check(tmp != null, "C2（前提）TMP 子件 `text` 在");
+            if (tmp == null) return;
+
+            Bounds b = tmp.textBounds;
+            Check(Mathf.Abs(b.size.x) < 1e-3f && Mathf.Abs(b.size.y) < 1e-3f,
+                  "C3 ★ 前提：TMP 未 awake ⇒ `textBounds.size` 两轴都≈0（实得 "
+                + b.size.x.ToString("E2") + " × " + b.size.y.ToString("E2")
+                + "）—— 它是 `new Bounds()`、**不是天文哨兵** ⇒ 旧的 `UsableBounds` 挡不住");
+
+            float x0 = lb.transform.localPosition.x;
+            lb.AlignLeftOn(300f);                       // 生产那条路：先 `RefreshBounds`，再 `HasMeasuredWidth`
+            float x1 = lb.transform.localPosition.x;
+            Check(Mathf.Abs(x1 - x0) < 1e-3f,
+                  "C4 ★ 全零不算「量到」⇒ `AlignLeftOn(300)` **不摆位**（localPosition.x " + x0.ToString("F4")
+                + " → " + x1.ToString("F4") + "）｜🧨 删掉 `RefreshBounds` 的「两轴都≈0」⇒ `_measured = true`、"
+                + "`_tmpW = 1e-4` ⇒ 这里会摆到 ≈300 ⇒ 红");
+        }
+        finally
+        {
+            if (root != null) UnityEngine.Object.DestroyImmediate(root);
         }
     }
 }

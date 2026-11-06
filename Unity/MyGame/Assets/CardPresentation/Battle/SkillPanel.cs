@@ -1092,7 +1092,7 @@ namespace CardPresentation
         /// <para>🆕 **2026-10-17（`A1024`③ 批 2–4）**：可选字体面，默认 `Cjk` ⇒ 旧调用点零行为变化。
         /// ⚠️ 必须排在 `SetGlyphHeight` **之前** —— 那个口按 `ActualFace` 的 em 比例折字号
         /// （判据 → `Label.TmpFontSize`）；两档都过这一处，⛔ 别在调用点各写一遍。</para></summary>
-        Label MakeLabel(string name, float px, Color c, Vector2? anchor = null, TmpFont.Face face = TmpFont.Face.Cjk, float z = ZText)
+        Label MakeLabel(string name, float px, Color c, Vector2? anchor = null, TmpFont.Face face = TmpFont.Face.LatinUi, float z = ZText)   // ✅ 已复刻（2026-11-06 · B150-font2 · 判据 = `Battle Arena 1.unity` 的 `ActiveSkillDesc` 子树实读：`AbilityContainer/{NameText,DescText,CostPanel/CostText}` = **Asar**（3/4），只有 `TargetsAvailableText` = Pragati ⇒ 缺省按本窗主面 Asar；Pragati 那颗**显式传** `LatinCardBody`（见两处 `_targets = MakeLabel(...)`），⛔ 别按节点名猜
         {
             var a = anchor ?? new Vector2(0.5f, 0.5f);
             if (UguiMode)

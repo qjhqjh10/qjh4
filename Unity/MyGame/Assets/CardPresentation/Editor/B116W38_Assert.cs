@@ -67,11 +67,14 @@ public static class B116W38_Assert
         int keepEdit = CollectionData.PendingEditDeck;
         var keepNew = CollectionData.PendingNewDeck;
         string tmpPath = TempPath("a");
+        string keepSaveRoot = SaveCenter.OverrideRoot;   // 🆕 2026-11-06（B150）：中央档改道存档-还原
         string marker = "W38·未落盘·" + Guid.NewGuid().ToString("N").Substring(0, 6);
         DeckEditingWindow win = null, win2 = null;
         try
         {
             DeckStore.OverridePath = tmpPath;
+            try { if (System.IO.Directory.Exists(tmpPath + ".central")) System.IO.Directory.Delete(tmpPath + ".central", true); } catch { }
+            SaveCenter.OverrideRoot = tmpPath + ".central";   // 🆕 2026-11-06（B150）：中央档同改道（Play 下不写玩家真档；A12 的字节快照量就是这一份）
             SeedOneDeck();                                   // 临时库里先放一副合法满编（下面 `Validate` 才过）
             DeckRuntime.InvalidateSharedLibrary();           // 从干净的一拍开始（别吃上一段留下的库）
 
@@ -100,7 +103,7 @@ public static class B116W38_Assert
                       "★ A4 灭自证：此刻**库里还是旧名字**「" + oldName + "」—— 改动只在编辑副本里"
                     + "（否则下面「库里有改动」分不清是这一次写进去的，还是本来就在）");
 
-            byte[] beforeBytes = ReadBytes(tmpPath);          // 失败之前盘上那份（下面 A12 逐字节比）
+            byte[] beforeBytes = ReadBytes(SaveCenter.PathOf(SaveKeys.PlayerDecks));          // 失败之前盘上那份（下面 A12 逐字节比）
 
             // ---- 让落盘必然失败：换到「父目录不存在」的路径（同 `Editor/DeckScene.cs` 的 A398 手法）----
             string dir = System.IO.Path.GetDirectoryName(tmpPath);
@@ -108,6 +111,10 @@ public static class B116W38_Assert
             CheckTrue(!System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(badPath)),
                       "（前提·A）坏路径的父目录**不存在** ⇒ 这一次落盘必然失败（写得进去 ⇒ 下面全是假绿）");
             DeckStore.OverridePath = badPath;
+            // 🆕 2026-11-06（B150）：落盘开着时产品**只写中央档** ⇒ 光换个写不进的旧档路径不再等于「保存失败」。
+            //   把中央档写口也指到「必然失败」的一处：`blocker` 是个**文件**，`Directory.CreateDirectory(blocker)` 必抛。
+            string blocker = System.IO.Path.Combine(dir, "__wf_b116w38_blocker_file__"); System.IO.File.WriteAllText(blocker, "x");
+            SaveCenter.OverrideRoot = System.IO.Path.Combine(blocker, "central");
 
             rt.UiPressDone();          // = `Done` 钮 → `SaveAndSay()` → 校验过 → `CommitDeck()` **失败**
 
@@ -131,11 +138,12 @@ public static class B116W38_Assert
             //   ⚠️ 只是把 `OverridePath` 指回我们那份临时存档（失败那一下写的是**坏路径**，临时存档没被动过）——
             //      这时**不许**碰 `DeckRuntime.SharedLibrary`：路径一换指纹就变、会触发重读，把要验的内存态冲掉。
             DeckStore.OverridePath = tmpPath;
+            SaveCenter.OverrideRoot = tmpPath + ".central";   // 🆕 2026-11-06（B150）：读口恢复回「成功那一侧」（A12 要比的是那一次真写出来的字节）
             var fresh = DeckLibrary.Load();
             CheckTrue(fresh.Current == null || !string.Equals(fresh.Current.Name, marker, StringComparison.Ordinal),
                       "★★ A11 灭自证：**重新 `Load()` 读不到这个改动** ⇒ A9 读的是**内存那份库**，不是「反正盘上有」"
                     + "（库若是「每次开窗重读盘」的实现 ⇒ 这条与 A9 一起红）");
-            CheckTrue(BytesEqual(beforeBytes, ReadBytes(tmpPath)),
+            CheckTrue(BytesEqual(beforeBytes, ReadBytes(SaveCenter.PathOf(SaveKeys.PlayerDecks))),
                       "★ A12 灭自证：盘上那份**逐字节没变**（失败就是失败，没有半写进去）");
 
             // ---- 结论 ③：**跨窗存活** —— 还是同一份库，重开窗还能看到那份改动 ----
@@ -158,6 +166,9 @@ public static class B116W38_Assert
             CollectionData.PendingEditDeck = keepEdit;
             CollectionData.PendingNewDeck = keepNew;
             DeckStore.OverridePath = keepOverride;
+            SaveCenter.OverrideRoot = keepSaveRoot;   // 🆕 2026-11-06（B150）：中央档改道存档-还原（⛔ 别写死 null）
+            try { if (System.IO.Directory.Exists(tmpPath + ".central")) System.IO.Directory.Delete(tmpPath + ".central", true); } catch { }
+            try { string blk = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(tmpPath), "__wf_b116w38_blocker_file__"); if (System.IO.File.Exists(blk)) System.IO.File.Delete(blk); } catch { }
             DeckRuntime.InvalidateSharedLibrary();          // ⛔ 别把夹具态那份库漏给后面的段落
             try { if (System.IO.File.Exists(tmpPath)) System.IO.File.Delete(tmpPath); } catch { }
         }
@@ -175,11 +186,14 @@ public static class B116W38_Assert
         int keepEdit = CollectionData.PendingEditDeck;
         var keepNew = CollectionData.PendingNewDeck;
         string tmpPath = TempPath("b");
+        string keepSaveRootB = SaveCenter.OverrideRoot;   // 🆕 2026-11-06（B150）：中央档改道存档-还原（不注入 ⇒ Play 下读到的会是玩家真卡组）
         string marker = "W38·已落盘·" + Guid.NewGuid().ToString("N").Substring(0, 6);
         DeckEditingWindow win = null, win2 = null;
         try
         {
             DeckStore.OverridePath = tmpPath;
+            try { if (System.IO.Directory.Exists(tmpPath + ".central")) System.IO.Directory.Delete(tmpPath + ".central", true); } catch { }
+            SaveCenter.OverrideRoot = tmpPath + ".central";   // 🆕 2026-11-06（B150）：中央档同改道（Play 下不写玩家真档；下面 `Load()` 读的也是这一份）
             SeedOneDeck();
             DeckRuntime.InvalidateSharedLibrary();
 
@@ -229,6 +243,8 @@ public static class B116W38_Assert
             CollectionData.PendingEditDeck = keepEdit;
             CollectionData.PendingNewDeck = keepNew;
             DeckStore.OverridePath = keepOverride;
+            SaveCenter.OverrideRoot = keepSaveRootB;   // 🆕 2026-11-06（B150）：中央档改道存档-还原
+            try { if (System.IO.Directory.Exists(tmpPath + ".central")) System.IO.Directory.Delete(tmpPath + ".central", true); } catch { }
             DeckRuntime.InvalidateSharedLibrary();
             try { if (System.IO.File.Exists(tmpPath)) System.IO.File.Delete(tmpPath); } catch { }
         }

@@ -172,7 +172,7 @@ using UnityEngine;
                 || it.pos.Length < it.n * 3 || it.col.Length < it.n * 4)
             {
                 Debug.LogWarning($"[VCol] `{it?.obj}` 的旁挂 `pos`/`col` 不完整（n={it?.n}）—— "
-                               + "重新跑一次 `python 工具/gen_arena_vertexcolors.py`");
+                               + "重新跑一次 `python 工具/gen_arena_vertexcolors.py --write`");
                 return null;
             }
             return new PosMap(it);

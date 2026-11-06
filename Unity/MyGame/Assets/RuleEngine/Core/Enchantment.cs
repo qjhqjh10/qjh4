@@ -1604,7 +1604,7 @@ namespace RuleEngine
         }
 
         /// <summary>
-        /// **一张牌被打出 ⇒ 把它那一族附魔挂到被选中的目标身上**（原版
+        /// **一张牌被打出 ⇒ 把它那一族附魔挂到「按数据行的 `ta` 解出来的载体集」每一个元素上**（原版
         /// `CardScript__AddEffect.c:826-828` → `CardScript__AddEnchantment.c` 的等价入口）。
         ///
         /// <para>调用点 = `EffectResolver.PlayTacticCore`（`BroadcastWhen(Play)` 之后、紧挨着
@@ -1618,7 +1618,7 @@ namespace RuleEngine
         ///
         /// <para>⚠️ 与原版的**如实差异**：① ✅ 已修（2026-11-03 `B124_W39` · 账 `B124-TA10`）：**按 `ta` 取载体集、逐个挂**
         /// （原版 `PlayAbility.c:1183-1224` / `ca 260` 的 `:2534-2551` 都是逐目标；改前一律只挂 `chosen`）；② 本仓的卡面解析（`desc`）
-        /// 对这些卡**本来就没有「选一个目标挂附魔」这一步**，目标来自**落牌那一格**（`PlayTacticCore` 的 `chosen`）。</para>
+        /// 对这些卡**本来就没有「选一个目标挂附魔」这一步** ⇒ 载体由**数据行的 `ta`** 定（`ta = 120` ⇒ 己方督军，判据 `AbilityLogic__GetTargets.c:721-736`；`ta` 判不出来才退回落牌那一格 `chosen` 并记 `GrantedTargetResolveFallback`）。</para>
         /// </summary>
         /// <returns>真挂上了几条（0 = 什么都没做，见上面的静默条件）。</returns>
         public static int AttachGrantedByPlayedCard(BattleContext ctx, CardInstance playedInst, UnitState chosen)
@@ -1640,18 +1640,18 @@ namespace RuleEngine
                 // 🔴 载体闸：`targetsAffected == 50 (inHandFiltered)` 指的是**选中的那张手牌**，而本钩子的
                 //    `chosen` 是**场上单位** ⇒ 挂上去就是挂错人。`DA42` 那一档有专属链
                 //    （`AttachDA42ToChosenHandCard`，已接线）⇒ 这里必须让开，⛔ 别把两条链都跑一遍（会双发）。
-                if (g.TargetsAffected == TargetsAffectedInHand) { GrantedSkippedHandTarget++; continue; }
-                // 同一次出牌里 `(模板, buffType, trigger)` 相同的行只挂一次：`TL47` 有 3 条同模板 logic，
+                if (g.TargetsAffected == TargetsAffectedInHand) { GrantedSkippedHandTarget++; continue; } if (ChosenAbilityBlocksAttach(g.ChosenAbility)) { GrantedSkippedNotAddEffect++; continue; }   // 🔴 2026-11-06（`B150_修_附魔授予`）：`chosenAbility` 闸 —— 原版只有 `ca 30/31`（`PlayAbility.c:1218` 逐目标 `BattleManager__AddEffect`）/ `40`（`:1369` 硬写 `thisCard`）/ `260`（`:2838`）会走到挂载；`0 drawCard`（`:1439`）/ `50 buffHand`（走 `AddHandEffect`）/ `60 buffMana`（`:685`）**不产生 `AddEffect`** ⇒ 在本钩子上挂 = 做多（本钩子范围内实数据 **3 行**：`GSC51 lg1` / `TL47 lg0` / `TL47 lg2`；另有 `SOR29 lg0 (ca 60)` 早被 trigger 闸挡掉）。⛔ 别为了「覆盖数好看」放宽这一行
+                // 同一次出牌里 `(模板, buffType, trigger)` 相同的行只挂一次：`TL47` 有 3 条同模板 logic，🔴 2026-11-06（`B150_修_附魔授予`）：比的是「**真的会挂的行**」—— 被 `ca` 闸挡掉的行不参与去重（否则 `TL47` 的 `lg0 (ca 50)` 会把真正该挂的 `lg1 (ca 30, ta 120)` 顶掉 ⇒ 一条都不挂）。
                 // 而本钩子只拿得到**一个**目标 ⇒ 重复挂会让 `activeEnchantments` 多出原版不会有的记录。
                 bool dup = false;
                 for (int k = 0; k < i; k++)
-                    if (rows[k] != null && rows[k].Trigger == g.Trigger
+                    if (rows[k] != null && rows[k].Trigger == g.Trigger && !ChosenAbilityBlocksAttach(rows[k].ChosenAbility)
                         && rows[k].BuffType == g.BuffType && rows[k].TemplateCardId == g.TemplateCardId)
                     { dup = true; break; }
                 if (dup) continue;
                 var tmpl = ctx.FindEnchantmentTemplate(g.TemplateCardId);
                 if (tmpl == null) { GrantedTemplateMissing++; continue; }   // ⛔ 静默（理由见 doc）；G3 那条断言就是这一格的锁
-                attached += AttachRowToCarrierSet(ctx, playedInst, g, tmpl, chosen);
+                attached += AttachRowToCarrierSet(ctx, playedInst, g, tmpl, chosen, chosenOnly: g.ChosenAbility == ChosenAbilityBuffSelf);   // 🔴 2026-11-06（`B150_修_附魔授予`）：`ca 40 buffSelf` 原版硬写 `thisCard`（`PlayAbility.c:1369` 的 `*(param_3 + 0x10)`）⇒ 只挂本钩子的 `chosen`，⛔ 不走 `ta` 载体集
                 // 🔴 2026-11-03（`B124_W39` · 账 `B124-TA10`）：载体 = **目标集的每一个元素**（原版 `ca 30/31`
                 //   `PlayAbility.c:1183-1224` 逐目标 `AddEffect`；`ca 260` `:2534-2551` 逐目标 `TriggerOtherCardAbility`）
                 //   ⇒ 三态（判不了退回 `chosen` / 空表一件不挂 / 否则逐个挂）全在 helper 里，⛔ 别在这里留第二份。
@@ -1690,7 +1690,7 @@ namespace RuleEngine
             /// `50 = inHandFiltered`（选中的手牌）⇒ 那种行**不走本钩子**（见 `AttachGrantedByPlayedCard` 的闸）。</summary>
             public int TargetsAffected = -1;
             /// <summary>`cardAbilities` 下标（排查用，⛔ 不参与判据）。</summary>
-            public int AbilityIndex = -1;
+            public int AbilityIndex = -1;  public int ChosenAbility = -1;   // 🔴 2026-11-06（`B150_修_附魔授予`）：原版 `AbilityLogic.chosenAbility`（`AbilityEffect`；同一张卡 `triggerAbilityIndices` 的 `ca`，v47 起逐 `(ab, lg)` 有）—— 只有 `30/31`（逐目标 `AddEffect`）/ `40`（硬写 `thisCard`）/ `260` 会挂附魔；`0/50/60` 不产生 `AddEffect`。`-1` = **未知**（旧表 / 键缺失）⇒ 按改前行为，⛔ 不折成 0
             /// <summary>`abilityLogic` 下标（同上）。</summary>
             public int LogicIndex = -1;
         }
@@ -1701,7 +1701,7 @@ namespace RuleEngine
         /// <summary>`TargetsAffected.inHandFiltered = 50` —— 载体是**选中的那张手牌**，不是场上单位。
         /// <para>`DA42 Reconnaissance Mission` 就是这一档，它有自己的专属链
         /// <see cref="AttachDA42ToChosenHandCard"/>；本钩子的 `chosen` 是场上单位 ⇒ 挂上去就是**挂错人**。</para></summary>
-        public const int TargetsAffectedInHand = 50;
+        public const int TargetsAffectedInHand = 50;  public const int ChosenAbilityDrawCard = 0; public const int ChosenAbilityBuffOthers = 30; public const int ChosenAbilityBuffSelf = 40; public const int ChosenAbilityBuffHand = 50; public const int ChosenAbilityBuffMana = 60;   // 🔴 2026-11-06（`B150_修_附魔授予`）：后五个 = 原版 `AbilityEffect.chosenAbility` 里**本钩子要区分**的那几档（枚举 → `d:/2/Warpforge_code/Scripts/Assembly-CSharp/AbilityEffect.cs`）：`30/31 buffOthers` 逐目标 `AddEffect`（`PlayAbility.c:1218`）· `40 buffSelf` 硬写 `thisCard`（`:1369`）· `260 triggerEffectInCard` 逐目标（`:2838`）；而 `0 drawCard`（`:1439`）、`50 buffHand`（`BattleManager__AddHandEffect`）、`60 buffMana`（`:685`）**不产生 `AddEffect`**
 
         /// <summary>数据源钩子（`Data/CardDatabase` 的静态构造里登记）：`卡 uniqueId → 数据行`。
         /// <para>`null` = 没人注册（`ruleprobe` 里就是这个状态）；返回 `null` / 空 = 数据里没有这张卡。</para>
@@ -1715,7 +1715,7 @@ namespace RuleEngine
         /// <summary>诊断计数：数据行指向的模板在本局**查不到**（多半是第二张表没加载）的次数。</summary>
         public static int GrantedTemplateMissing;
         /// <summary>诊断计数：数据行的载体是**手牌**（`targetsAffected == 50`）⇒ 本钩子不挂（有专属链）。</summary>
-        public static int GrantedSkippedHandTarget;
+        public static int GrantedSkippedHandTarget;  public static int GrantedSkippedNotAddEffect;   // 🔴 2026-11-06（`B150_修_附魔授予`）：诊断计数 —— 数据行的 `chosenAbility ∈ {0 drawCard, 50 buffHand, 60 buffMana}`（原版**不产生 `AddEffect`**）⇒ 本钩子不挂。给断言读，⛔ 不参与任何判据
 
         /// <summary>这张卡**全部**「挂附魔」数据行：① 数据源；② 数据里没有它（或没有数据源）⇒ 退白名单。
         /// <para>顺序有语义：数据源是权威，<see cref="PlayerGrantedEnchantments"/> 只是那 3 张的兜底。</para></summary>
@@ -2129,7 +2129,7 @@ namespace RuleEngine
         //  ⚠️ 载体集解算在 `RuleCore.ResolveGrantedEnchantmentCarriers`（`EnchantmentExecutor_B115.cs` 类尾）：
         //     四档判据 + 36 格 criteria + `maxTargets` 裁剪**只许一份**（⛔ 别在 `Enchantments` 里再写）。
         static int AttachRowToCarrierSet(BattleContext ctx, CardInstance playedInst,
-                                         GrantedEnchantmentRow g, CardDef tmpl, UnitState chosen)
+                                         GrantedEnchantmentRow g, CardDef tmpl, UnitState chosen, bool chosenOnly = false)
         {
             if (ctx == null || playedInst == null || g == null || tmpl == null || chosen == null) return 0;
             // `owner` = 打牌那一侧。两处调用点（`RuleCore.PlayCard` 单位路 `:4212` / `PlayTacticCore`
@@ -2137,8 +2137,8 @@ namespace RuleEngine
             //   `ctx.Active`：这两条路都只在**当前行动方出牌**时走。
             //   🔶 自己设计（非原版）：原版 `AbilityData` 自带 `thisCard.player`；我们这层拿不到该形参。
             //   判不出来的 `ta`（旧表 / 本版没实现的档）⇒ 退回改前行为（只挂 `chosen`）并记诊断计数。
-            var carriers = RuleCore.ResolveGrantedEnchantmentCarriers(ctx, ctx.Active, chosen, playedInst.Card,
-                                                                      g.AbilityIndex, g.LogicIndex, g.TargetsAffected);
+            var carriers = chosenOnly ? new List<UnitState>(1) { chosen } : RuleCore.ResolveGrantedEnchantmentCarriers(ctx, ctx.Active, chosen, playedInst.Card,
+                                                                      g.AbilityIndex, g.LogicIndex, g.TargetsAffected);   // 🔴 2026-11-06（`B150_修_附魔授予`）：`chosenOnly` = `ca 40 buffSelf`（原版硬写 `thisCard`，`PlayAbility.c:1369`）⇒ 不按 `ta` 建池
             if (carriers == null) { GrantedTargetResolveFallback++; carriers = new List<UnitState>(1); carriers.Add(chosen); }
             int attached = 0;
             for (int c = 0; c < carriers.Count; c++)
@@ -2162,5 +2162,20 @@ namespace RuleEngine
 
         /// <summary>诊断计数：载体单位没有 `CardInstance`（本该不出现）⇒ 那一件跳过。</summary>
         public static int GrantedCarrierNoInstance;
+
+        /// <summary>🔴 2026-11-06（`B150_修_附魔授予`）：这一条数据行的 `chosenAbility` 会不会**产生对单位的 `AddEffect`**。
+        /// <para>判据（第一权威 `d:/2/tools/decomp_full/AbilityLogic__PlayAbility.c` 逐句现读）：`BattleManager__AddEffect`
+        /// 的调用点只有四处 —— `:1161`（`createCardInHand` 支：挂到**新造进手牌那张卡**上，不是场上目标）、
+        /// `:1218`（`ca 30/31 buffOthers`：逐目标）、`:1369`（`ca 40 buffSelf`：硬写 `thisCard`）、
+        /// `:2838`（`ca 260 triggerEffectInCard`：逐目标 `TriggerOtherCardAbility`）。
+        /// 而 `0 drawCard`（`:1439` → `AddDrawCard`）、`50 buffHand`（→ `BattleManager__AddHandEffect`）、
+        /// `60 buffMana`（`:685` → `AddManaBuff` 后 `return`）**都不产生 `AddEffect`**
+        /// ⇒ 在本钩子（「打出即挂」）上给它们挂附魔 = **做多**（现读池内 **4 行**：`GSC51 lg1` / `TL47 lg0` / `TL47 lg2` / `SOR29 lg0`）。
+        /// <para>⚠️ `< 0`（**未知**：旧表 &lt; v47 / 键缺失 / 白名单兜底行）⇒ **返回 false**（= 按改前行为挂），
+        /// ⛔ 不把「未知」折成「不挂」——那是把缺口藏起来，与本文件其余档「判不了就保留并出声」同一口径。</para></summary>
+        static bool ChosenAbilityBlocksAttach(int ca)
+        {
+            return ca == ChosenAbilityDrawCard || ca == ChosenAbilityBuffHand || ca == ChosenAbilityBuffMana;
+        }
     }
 }

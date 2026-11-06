@@ -94,7 +94,7 @@ public static class B142_E34_Assert
         };
         for (int i = 0; i < durationsMs.Length; i++)
         {
-            var st = new EphemeralState(startMs) { DurationMs = durationsMs[i] };
+            var st = new EphemeralState { StartTimeMs = startMs, DurationMs = durationsMs[i] };   // ⚠️ 构造 `EphemeralState(long)` 的实参是**时长**、不是起点（`Shell/Inventory.cs:759`）⇒ `B150` #15-#18 就地订正（原写 `new EphemeralState(startMs)` ⇒ `StartTimeMs` 恒 0、落 `TimeSpan.Zero`）
             string got = st.FormatTime();
             var ts = TimeSpan.FromMilliseconds(durationsMs[i]);
             string want = TimerDisplay.FormatTimeString(ts, eventTimer: true).Replace("0m", "").Replace("0h", "");
@@ -104,14 +104,14 @@ public static class B142_E34_Assert
         // A1b · 灭自证：旧实现（`Xd Yh Zm` 三档）在 3d 5h 30m 上给 `3d 5h 30m`（ASCII，"d/h/m" 是硬编码的）
         //   ⇒ 新输出**必须**不是它（⛔ 不断具体文案：`FormatTimeString` 会按 `Loc.Current` 换中文格式）
         var ts3 = TimeSpan.FromDays(3) + TimeSpan.FromHours(5) + TimeSpan.FromMinutes(30);
-        var s3 = new EphemeralState(startMs) { DurationMs = (long)ts3.TotalMilliseconds }.FormatTime();
+        var s3 = new EphemeralState { StartTimeMs = startMs, DurationMs = (long)ts3.TotalMilliseconds }.FormatTime();
         string want3 = TimerDisplay.FormatTimeString(ts3, eventTimer: true).Replace("0m", "").Replace("0h", "");
         Check(s3 != "3d 5h 30m" && s3 == want3,
               "A1b ★ 灭自证：3d5h30m 不再输出旧格式 `3d 5h 30m`，而是原版那条链的结果｜实得 [" + s3 + "] want=[" + want3 + "]");
         // A1c · 原版**不带 `Trim`**（`.c` / ILSpy 都只做两次 Replace）：只要那条链留下了首尾空白，就必须原样留着。
         //   ⚠️ 中文表下 `Replace("0m","")` 不一定命中（`0分钟` 里没有 ASCII `m`）⇒ 那条「留白」断言只在真出现留白时才断。
         var ts45 = TimeSpan.FromSeconds(45);
-        var s45 = new EphemeralState(startMs) { DurationMs = 45000L }.FormatTime();
+        var s45 = new EphemeralState { StartTimeMs = startMs, DurationMs = 45000L }.FormatTime();
         string want45 = TimerDisplay.FormatTimeString(ts45, eventTimer: true).Replace("0m", "").Replace("0h", "");
         Check(s45 == want45 && (want45 == want45.Trim() || s45 != s45.Trim()),
               "A1c 45s 档 = 原版那条链；链上有留白时**不 Trim**｜got=[" + s45 + "] want=[" + want45 + "]");
@@ -142,13 +142,13 @@ public static class B142_E34_Assert
                             + nav + "] want=[" + navWant + "]");
         Check(nav != "3d 5h 7m", "A4b ★ 灭自证：不再是旧三档串 `3d 5h 7m`｜实得 [" + nav + "]");
 
-        // A5 · 严格边界原样：正好 24h 落**小时档**（`TotalDays > 1` 是严格大于）⇒ 与 24h1s 同串（都丢秒），
-        //   而 25h 已经进天档 ⇒ 两者必须不同。⛔ 不断具体文案（会随 `Loc.Current` 换语言）。
+        // A5 · 严格边界原样：正好 24h 落**小时档**（`TotalDays > 1` 是严格大于），24h1s 已经进**天档**
+        //   ⇒ 两者必须**不同串**（`B150` #21 就地订正：原写「与 24h1s 同串（都丢秒）」是把 `>` 的后果写反了）。⛔ 不断具体文案。
         string h24 = TimerDisplay.FormatTimeString(TimeSpan.FromHours(24), eventTimer: true);
         string h24b = TimerDisplay.FormatTimeString(TimeSpan.FromHours(24) + TimeSpan.FromSeconds(1), eventTimer: true);
         string h25 = TimerDisplay.FormatTimeString(TimeSpan.FromHours(25), eventTimer: true);
-        Check(h24 == h24b && h24 != h25,
-              "A5 24h 边界照原版落小时档（`TotalDays > 1` 严格大于）｜24h=[" + h24 + "] 24h1s=[" + h24b + "] 25h=[" + h25 + "]");
+        Check(h24 != h24b && h24b != h25 && h24 == string.Format(Loc.T("MainMenu/Time/H_Only"), 24),
+              "A5 24h 落**小时档**（`TotalDays > 1` 严格大于）⇒ 与 24h1s 必须不同档；正控 = 24h 走官方 `MainMenu/Time/H_Only` 模板｜24h=[" + h24 + "] 24h1s=[" + h24b + "] 25h=[" + h25 + "]");
     }
 
     // ==================================================================

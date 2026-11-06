@@ -35,7 +35,7 @@ namespace RuleEngine
             if (asset == null)
             {
                 Debug.LogError("[Tutorial] 找不到 `Resources/" + TutorialData.StagesResourcePath + ".json` —— "
-                    + "跑一下 `\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_tutorial_stages.py`");
+                    + "跑一下 `\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_tutorial_stages.py --write`");
                 return new TutorialStageData[0];
             }
             var f = JsonUtility.FromJson<TutorialStageFile>(asset.text);

@@ -417,7 +417,7 @@ namespace CardPresentation
             if (ta == null)
             {
                 LastError = "`Resources/" + ResourcePath + ".json` 载不到 —— 跑一次 "
-                          + "`python 工具/gen_card_anim_order.py`";
+                          + "`python 工具/gen_card_anim_order.py --write`";
                 _all = new CardAnimOrderCard[0];
                 _byName = new Dictionary<string, CardAnimOrderCard>();
                 _byId = new Dictionary<string, CardAnimOrderCard>();

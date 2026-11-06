@@ -357,7 +357,7 @@ namespace CardPresentation
                 Debug.LogError($"[CardAnimClips] `Resources/{ResourcePath}.json` **没载到** ⇒ 技能动画的"
                              + "位置/移动参数**全部退回默认**（sp=ep=pt=0 = 施法者自己、不位移）—— "
                              + "**显式降级**，玩家会看到「该飞向目标/落在别处的件贴在单位身上播完」。"
-                             + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_cardanim_clips.py");
+                             + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_cardanim_clips.py --write");
                 return;
             }
             RtFile dto;

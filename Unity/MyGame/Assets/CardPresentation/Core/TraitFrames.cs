@@ -332,7 +332,7 @@ namespace CardPresentation
             {
                 _bindingsProblem = $"`Resources/{BindingsResourcePath}.json` **没载到**";
                 Debug.LogError($"[TraitFrames] {_bindingsProblem} ⇒ 状态框(OnPlay/触发那两本)**一本都挂不上**。"
-                             + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_trait_effect_bindings.py");
+                             + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_trait_effect_bindings.py --write");
                 return;
             }
             BindingDoc dto;
@@ -1320,7 +1320,7 @@ namespace CardPresentation
             Debug.LogWarning("[TraitFrames] 绑定表里**没有一条** `inPlayAnim = true` ⇒ 这份 "
                            + "`Resources/" + BindingsResourcePath + ".json` 早于 2026-10-26 的生成器"
                            + "（缺 `CardTrait._hasInPlayAnim` 那一列）⇒ **`inPlayAnim` 闸本轮不生效**（照旧全播）。"
-                           + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_trait_effect_bindings.py");
+                           + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_trait_effect_bindings.py --write");
         }
 
         /// <summary>`DisplayStatus` 入口那道闸（判据见本段开头）。`true` = 允许播。

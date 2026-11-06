@@ -259,7 +259,7 @@ namespace CardPresentation
         public const string TxtPremium = "Premium";
         /// <summary>`Description Content` 里那个 `{0}` 对应的 I2 词条键 —— 原版在
         /// `PuchasePremiumArmyInfo__Initialize.c` 里 `string.Format(GetTranslation("MainMenu/PurchasePremium/Description"), points)`，
-        /// `points = Missions.GetPointsPerArmyOnDailyLogin(army)`。**本地没有词条表、也没有那个 points** ⇒ 留 `{0}` 原样。</summary>
+        /// `points = Missions.GetPointsPerArmyOnDailyLogin(army)`。词条键 `MainMenu/PurchasePremium/Description` **在本地 I2 全表里**（⚠️ 2026-11-06 更正：原来写「本地没有词条表」—— 表本身在本地、10,862 键）；**没有的是那个 `points`** ⇒ 留 `{0}` 原样。</summary>
         public const string TermInfoBody = "MainMenu/PurchasePremium/Description";
 
         // ============================================================ 字号（逐颗 MB 实读）

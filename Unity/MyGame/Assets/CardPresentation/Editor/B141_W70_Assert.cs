@@ -156,10 +156,13 @@ public static class B141_W70_Assert
         Check(!rk.Contains("40k_UI_bt_play"),
               "A9 `RankedEventWindow` 树上**确实没有** `CircleButton`（原版那 1 颗的等价物是 `To Battle Button` ⇒ 无节点）");
         var dr = Src("Shell/DraftModeWindow.cs");
+        // 🔴 2026-11-05（`B150-W-D`）：**先剥整行注释再比** —— `DraftModeWindow.cs:1720` 那句说明注释里就写着
+        //   「`Debug Battle Button Button`」，`Contains` 命中的是**注释**不是接线（原来这条从没绿过就是这个原因）。
+        dr = string.Join("\n", System.Array.FindAll(dr.Split('\n'), l => !l.TrimStart().StartsWith("//")));
         Check(!dr.Contains("40k_UI_bt_play"),
-              "A9b `DraftModeWindow`（轮抽 `To Battle`）同样是 `UI_Button_Mulligan` + 文字 ⇒ 无 `CircleButton` 节点");
+              "A9b `DraftModeWindow`（轮抽 `To Battle`）同样是 `UI_Button_Mulligan` + 文字 ⇒ 无 `CircleButton` 节点（剥注释后比）");
         Check(!dr.Contains("Debug Battle Button"),
-              "A10 `Debug Battle Button` 三颗我们**不建**（原版 `OnEnable` 强制 `SetActive(false)`，正式包也不显示）");
+              "A10 `Debug Battle Button` 三颗我们**不建**（原版 `OnEnable` 强制 `SetActive(false)`，正式包也不显示；剥注释后比）");
 
         // ---- 6 个社交下拉框：⚠️ 2026-11-04 `B141-W81` 已把机制缺陷修掉、6 颗已接上线 ----
         //   原来这条断的是「本批不接的理由写在代码里」；那条理由（`BindNine` 压扁九宫格中段）已经**不成立**

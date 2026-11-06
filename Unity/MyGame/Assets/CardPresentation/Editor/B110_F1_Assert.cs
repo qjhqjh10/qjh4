@@ -211,8 +211,11 @@ public static class B110_F1_Assert
         var wildSnap = new Dictionary<string, int>(wild);
 
         string tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "wf_b110_f1_cardprogress.json");
+        string prevSaveRoot = SaveCenter.OverrideRoot;   // 🆕 2026-11-06（B150）：中央档也改道 —— 否则 Play 下这一段会把探针写进**玩家真中央档**
         try
         {
+            try { if (System.IO.Directory.Exists(tmp + "_central")) System.IO.Directory.Delete(tmp + "_central", true); } catch { }   // 🆕 2026-11-06（B150）：清上一趟残留（否则中央优先会盖掉下面种的旧档）
+            SaveCenter.OverrideRoot = tmp + "_central";    // 🆕 2026-11-06（B150）：`SaveThroughLegacy` 在落盘开着时只写中央档 ⇒ 必须把它也指到临时目录
             // 盘上摆一份「玩家真档」：等级 UM2=3 / 拥有数 B110F1_OWNED=7 / 通配符 epic=42
             // ⚠️ 拥有数用 `B110F1_OWNED`（**故意的**）：`Owned()` 先查卡背包、查不到才看 `_owned`
             //    —— 用 `UM2` 会被 A–D 组加进背包的数量盖住，那就测不到「整份清空」了。
@@ -243,7 +246,7 @@ public static class B110_F1_Assert
               "E4 ★ 盘上的**通配符 42 也没被清掉**"
             + "｜🧨 同上 ⇒ 读到缺省 99 ⇒ 红");
 
-            string written = System.IO.File.Exists(tmp) ? System.IO.File.ReadAllText(tmp) : "";
+            string written = SaveCenter.ReadThroughLegacy(SaveKeys.OursCardProgress, tmp) ?? "";   // 🆕 2026-11-06（B150）：读口 = `ReadThroughLegacy`（落盘开着时产品只写中央档；⛔ 别再读死 `tmp`）
             Tr(written.Contains("\"" + Id + "\"") && written.Contains("\"UM3\""),
                "E5 ★ 落盘那一刻两份都在（文件里同时有 `" + Id + "` 与 `UM3`）—— 这是 E2–E4 的落盘面证据"
              + "｜🧨 不先读档 ⇒ 文件里只剩 `UM3` ⇒ 红");
@@ -251,6 +254,8 @@ public static class B110_F1_Assert
         finally
         {
             CardProgress.OverridePath = keepOverride;
+            SaveCenter.OverrideRoot = prevSaveRoot;    // 🆕 2026-11-06（B150）：中央档改道存档-还原（⛔ 别写死 null）
+            try { if (System.IO.Directory.Exists(tmp + "_central")) System.IO.Directory.Delete(tmp + "_central", true); } catch { }
             lvl.Clear(); foreach (var kv in lvlSnap) lvl[kv.Key] = kv.Value;
             owned.Clear(); foreach (var kv in ownedSnap) owned[kv.Key] = kv.Value;
             wild.Clear(); foreach (var kv in wildSnap) wild[kv.Key] = kv.Value;

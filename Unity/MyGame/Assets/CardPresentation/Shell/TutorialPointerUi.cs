@@ -130,7 +130,7 @@ namespace CardPresentation
         Tier _tier = Tier.Menu;
         Transform _anchor, _pointer, _bubble;
         ImageQuad _pointerImg, _lightImg, _glowImg;
-        ImageQuad _bubbleBg, _bubbleFill;      // 🆕 淡出用（见 SetFade）
+        GameObject _bubbleBgGo, _bubbleFillGo; ImageQuad[] _bubbleBgQuads, _bubbleFillQuads;   // 🆕 淡出用（见 `SetFade`）—— 🔴 `MenuDraw.Nine`/`Tiled` 返回的是**容器根**（`ImageQuad` 挂在 9 / N 个子块上，根上**没有**组件，`Battle/ImageQuad.cs` 的 `CreateNineSlice`/`CreateTiled`）⇒ 存根 + 在 `ApplyFade` 里**一次性**缓存子块（`B150` #12/#13；⛔ 别每帧 `GetComponentsInChildren`）
         float _fade = 1f;                      // 🆕 整组不透明度（战役页滚动淡出，= 原版 TutorialHidePointerInCampaign）
         PointerAction _action = PointerAction.ClickInPosition;
         Vector2 _startPx, _endPx;
@@ -286,7 +286,7 @@ namespace CardPresentation
             MenuDraw.ClearChildren(transform);
             MissingArt.Clear();
             _anchor = _pointer = _bubble = null;
-            _pointerImg = _lightImg = _glowImg = null;
+            _pointerImg = _lightImg = _glowImg = null; _bubbleBgGo = _bubbleFillGo = null; _bubbleBgQuads = _bubbleFillQuads = null;   // ⚠️ 气泡子块缓存必须跟着重建一起清掉（`MoveTo` 每段都重建；`B150` #12/#13）
 
             // 根：零尺寸锚点，中心 = 手指尖（= 原版「根挂到目标、中心对准目标 pivot」的等价）
             _anchor = MenuDraw.Node(transform, "TutorialPointer" + _tier, new PxRect(pos.x, pos.y, pos.x, pos.y));
@@ -344,8 +344,8 @@ namespace CardPresentation
         void ApplyFade()
         {
             if (_pointerImg != null) _pointerImg.SetTint(new Color(1f, 1f, 1f, _fade));
-            if (_bubbleBg != null) _bubbleBg.SetTint(new Color(1f, 1f, 1f, _fade));
-            if (_bubbleFill != null) _bubbleFill.SetTint(new Color(1f, 1f, 1f, _fade));
+            if (_bubbleBgGo != null) { if (_bubbleBgQuads == null) _bubbleBgQuads = _bubbleBgGo.GetComponentsInChildren<ImageQuad>(true); for (int i = 0; i < _bubbleBgQuads.Length; i++) if (_bubbleBgQuads[i] != null) _bubbleBgQuads[i].SetTint(new Color(1f, 1f, 1f, _fade)); }   // 九宫 **9 块逐块**淡（根上没有组件，见字段注释）
+            if (_bubbleFillGo != null) { if (_bubbleFillQuads == null) _bubbleFillQuads = _bubbleFillGo.GetComponentsInChildren<ImageQuad>(true); for (int i = 0; i < _bubbleFillQuads.Length; i++) if (_bubbleFillQuads[i] != null) _bubbleFillQuads[i].SetTint(new Color(1f, 1f, 1f, _fade)); }   // 平铺 N 块逐块淡
             // `Glow (1)`：alpha = **脉冲曲线 × 整组 fade**（脉冲判据 = 文件尾那个 `partial` 块）
             if (_glowImg != null) _glowImg.SetTint(new Color(1f, 1f, 1f, GlowAlphaAt(_glowTime) * _fade));
             // ⚠️ 气泡里的 `TutorialText` 是 TMP（`Label`）—— 本工程 `Label` 只有 `SetColor`，没有独立 alpha 口；
@@ -366,13 +366,13 @@ namespace CardPresentation
             _bubble = MenuDraw.Node(_anchor, "Generic Popup Background", br);
             var bgGo = MenuDraw.Nine(_bubble, Art(ArtBubble, "`Generic Popup Background` 的九宫底"), br, BubbleBorder,
                                      BubbleTexW, BubbleTexH, QBubble, null, true, "Image", null, MenuDraw.NoClip);
-            _bubbleBg = bgGo != null ? bgGo.GetComponent<ImageQuad>() : null;
+            _bubbleBgGo = bgGo;                    // ⚠️ 存**容器根**（`Nine` 的 9 块子件都挂 `ImageQuad`，根上没有 —— `B150` #12）
             // `Mask` / `Background fill`：相对气泡内缩（prefab 实读：10.4 / 9.44 / 10.4 / 9.8）
             var fillR = new PxRect(br.x1 + 10.4f, br.y1 + 9.44f, br.x2 - 10.4f, br.y2 - 9.8f);
             // 平铺尺寸：prefab 是 `40k_popup_texture` 128² + `m_PixelsPerUnitMultiplier = 2` ⇒ 实铺 64 px
             var fillGo = MenuDraw.Tiled(_bubble, Art(ArtBubbleFill, "`Background fill` 的平铺底"), fillR, 64f, QBubbleFill,
                                         "Background fill", null, MenuDraw.NoClip);
-            _bubbleFill = fillGo != null ? fillGo.GetComponent<ImageQuad>() : null;
+            _bubbleFillGo = fillGo;                // ⚠️ 同 `_bubbleBgGo`：`Tiled` 也返回容器根（`B150` #13）
             // `TutorialText`：相对气泡 23 / 21 → 479.5 / 179（prefab 实读 (1052.75,691.05)-(1509.25,848.95)）
             var tr = new PxRect(br.x1 + 23f, br.y1 + 21f, br.x1 + 479.5f, br.y1 + 179f);
             MenuDraw.TextBox(_bubble, tr, text, Color.white, "TutorialText", TextFont, TextAutoMin, QBubbleText,

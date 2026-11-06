@@ -151,6 +151,9 @@ public static class B98G6_Assert
          + "｜🧨 把 `ApplySelectFromChooseResolution` 的 `pool.Count == 0` 早退加回去 ⇒ 选中项会留给下一条效果 ⇒ 红");
 
         // ---- A6/A7：`traitsFilter == 780`（mutation）—— 原版两跳都要被验到 ----
+        //  🔴 2026-11-05（`B150` 第五轮）：这两跳**成立** —— `AbilityLogic__GetTargets.c:1084-1098` 是**所有 ta 分支的共享尾巴**
+        //     （`ta=10` 没有 `goto`，一路落到 `:1095` 的 `FilterMethods__CheckIfMeetsCriteria`），它 `:315-316` 读 `traitsFilter(+0x34)`；
+        //     末尾再走 `:160`/`:1370-1385` 的去重。⛔ 别再像第四轮那样把它当成「ta=10 不跑 criteria」。
         //  ① 筛 = `FilterMethods__MeetsTraitCriteria.c:12-60` ③（候选**当前**带 `mutation`）
         //     → 我们的 `TargetCriteriaEval.TraitPasses`（`:710-721`，`u.Has(key)`）
         //  ② 剔 = `AbilityLogic__GetTargets.c:1370-1385` + `CardScript__HasSingleUseMutation.c`
@@ -195,7 +198,7 @@ public static class B98G6_Assert
         var hand = ctx.Players[0].Hand;
         Tr(hand != null && hand.Count > 0,
            "★ A10 前提：P0 手牌非空（`ta=50` 手牌族才有候选；⛔ 手牌空时本条会**空转绿**）");
-        CardDef hand0 = (hand != null && hand.Count > 0) ? hand[0].Card : null;
+        CardDef hand0 = null; if (hand != null) for (int i = 0; i < hand.Count && hand0 == null; i++) { var hi = hand[i]; if (hi != null && hi.Card != null && hi.Card.CardTraitsKnown) hand0 = hi.Card; } if (hand0 == null && hand != null && hand.Count > 0) hand0 = hand[0].Card;   // 🔴 2026-11-06 `B150` 修（判据 `判据/B150_横切_固定种子手牌断言.md` §三/§五类1）：原来只读 `hand[0]` ⇒ 第 0 张没挂 `cardTraits` 时 A10 整段作废，而「第 0 张是哪张」**取决于牌序/洗牌**；改成**遍历手牌找第一张 `CardTraitsKnown` 的**（一张都没有才退回第 0 张，下面那条前提照旧硬红、不静默）
         Tr(u1.Card.CardTraitsKnown && hand0 != null && hand0.CardTraitsKnown,
            "★ A10 前提：夹具卡与手牌候选**都挂了 `cardTraits`**（空表）⇒ trait 那一格判得了"
          + "｜🧨 去掉 `Unit()` 里的 `AttachCardTraits(new string[0])` ⇒ 本条红（手牌族退回 `cardTraits` gap，"

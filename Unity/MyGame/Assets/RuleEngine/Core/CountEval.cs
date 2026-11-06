@@ -499,18 +499,18 @@ namespace RuleEngine
                     for (int s = 0; s < ps.Board.Length; s++)
                     {
                         var u = ps.Board[s];
-                        // 🆕 2026-10-26（`B1`）：逐候选的 36 格判据**改走 `TargetCriteriaEval.Matches`**
-                        //   （全仓唯一一份）。改前这里只有 `IncludeUnit`（卡种 / 残骸 / 自他），
-                        //   `keywordFilter` / `traitsFilter` / 四组 stat / `filterSpecificCards`
-                        //   四维**一格都没跑**（而且整行被 `SetGap` 挡成 null）。
-                        bool? pass = BoardCandidatePasses(ctx, owner, set, u, actor, out string bWhy);
+                        // 🔴 2026-11-05（`B150` · 第五轮回退）：**恢复逐候选 36 格** —— 原版 `AbilityLogic__GetTargets.c:1084-1098`
+                        //   是**所有 ta 分支的共享尾巴**（`ta=10/55/50/51/52/65` 都没有 `goto`，一路落到 `:1095`），那里逐个候选调
+                        //   `FilterMethods__CheckIfMeetsCriteria(thisCard, 候选, targetCard, criteria, 0)`；而它 `:299` 读的正是
+                        //   `conditionFilter(+0x38)`、`:315-316` 读 `traitsFilter(+0x34)`、`:307-313` 读 `keywordFilter/excludeRace`。
+                        //   ⇒ 「建池只按 include 开关」只是**第一层**，逐候选 36 格是**第二层**，两层都要（⛔ 别只留建池闸）。
+                        if (!InPlayPoolIncludes(u, set)) continue;                // 前置闸（= 原版建池那一步）
+                        bool? pass = BoardCandidatePasses(ctx, owner, set, u, actor, out string bWhy);   // 第二层（= `GetTargets.c:1095` 的共享尾巴）
                         if (pass == null) { gap = bWhy; return null; }
                         if (!pass.Value) continue;
                         var v = ConditionEval.MeetsUnit(ctx, u, cond, false);
                         if (v == null) { gap = $"cond={cond} 在候选身上判不了"; return null; }
                         if (!v.Value) continue;
-                        // 🆕 2026-10-26（`E7P06`）：收集档只记个数 + 候选（加权与截断都在调用方，
-                        //   见方法 doc）；否则照旧就地加权。
                         if (candSides != null) { candSides.Add(p); cands.Add(u); count += 1; }
                         else count += Weight(owner, p, countOption);
                     }
@@ -1183,10 +1183,10 @@ namespace RuleEngine
                 var inst = list[i];
                 var card = inst != null ? inst.Card : null;
                 if (card == null) continue;
-                bool? pass = CardPoolCandidatePasses(owner, side, set, card, actor, inst, out string why);
-                if (pass == null) { gap = why; return null; }
-                if (!pass.Value) continue;
-                var v = ConditionEval.MeetsCard(ctx, card, side, cond, false, inst.Id);
+                if (!CardPoolIncludes(card, set)) continue;   // 前置闸（原版建池：`AddCardsInHandToList.c:30-41`；cardType 10 无条件跳过，0/20/40 各看 includeMinions/Spells/Whispers）
+                bool? pass = CardPoolCandidatePasses(owner, side, set, card, actor, inst, out string why);   // 🔴 2026-11-05（B150 第五轮回退）：第二层 —— `GetTargets.c:1084-1098` 是所有 ta 分支的共享尾巴，逐候选跑整份 criteria
+                if (pass == null) { gap = why; return null; } else if (!pass.Value) continue;
+                var v = ConditionEval.MeetsCard(ctx, card, side, cond, false, inst.Id);   // 第 ⑧ 格 `cond`（`CheckIfMeetsCriteria.c:299`）也在这条尾巴里
                 if (v == null) { gap = $"cond={cond} 在候选卡（{(card.Name ?? "?")}）身上判不了"; return null; }
                 if (!v.Value) continue;
                 if (candSides != null) count += 1;              // 卡片候选没有 `UnitState` ⇒ 收集档只记个数（同墓地那一支）
@@ -1441,6 +1441,53 @@ namespace RuleEngine
             if (v == null) { gap = $"cond={cond} 在上一条能力的手牌候选身上判不了"; return null; }
             if (!v.Value) return 0;
             return Weight(owner, side, countOption);
+        }
+
+        /// <summary>✅ 已复刻（2026-11-05 · B150 · 计数路径对齐原版）：原版 `BattleManager__GetUnitsInPlayPooledList`
+        /// 的**收池闸**（`ta=10 / 0x37 / 0xd2` 三条支共用）—— **只有阵营与卡种 include 开关两维**。
+        ///
+        /// <para>判据（第一权威 `d:/2/tools/decomp_full/BattleManager__GetUnitsInPlayPooledList.c`）：
+        /// `param_2`（= criteria `+0x16`，includeHero）为 0 ⇒ 跳过 `cardType 10`；
+        /// `param_3`（= `+0x17`，includeMinions）为 0 ⇒ 跳过 `cardType 0`；
+        /// `cardType 20 (Tactic)` / `40 (Whispers)` **无条件跳过**（`:47-64` 那句 `!= 0x14 &amp;&amp; != 0x28`）。</para>
+        ///
+        /// <para>⇒ `traitsFilter` / `keywordFilter` / 四组 stat / `filterSpecificCards` / 各类 exclude / `cond`
+        /// **都不在这一路**（它们在 `FilterMethods.CheckIfMeetsCriteria` 里，只在 target / acting / pick 三族被调）。
+        /// ⛔ 别把它们加回这里 —— 那正是 2026-10-26 `B1` 让计数比原版**多筛**的那一刀。</para>
+        ///
+        /// <para>`Unknown(-1)` 当「不限」放行（原版这一格是 **bool**、没有「未知」档；真该挡的格由 `SetGap` 先挡）。</para>
+        /// <para>残骸：原版这一路只在 `includeRemnants`（`param_9`）为真时收「不在场但 state == 5」的单位
+        /// ⇒ 我们按「`IncludeRemnants == 0` ⇒ 跳过 `IsRemnant`」对齐（与改前 `Matches` ⑤ 同口径，⛔ 不顺手改残骸行为）。</para>
+        /// </summary>
+        static bool InPlayPoolIncludes(UnitState u, CardDef.CountSetSpec set)
+        {
+            if (u == null || u.Card == null) return false;
+            string t = u.Card.Type;
+            if (t == "hero") { if (set.IncludeHero == 0) return false; }
+            else if (t == "unit") { if (set.IncludeMinions == 0) return false; }
+            else return false;                        // tactic / defence / enchantment / whispers：原版这一路根本不收
+            if (u.IsRemnant && set.IncludeRemnants == 0) return false;
+            return true;
+        }
+
+        /// <summary>✅ 已复刻（2026-11-05 · B150 · 计数路径对齐原版）：**卡池（手牌 / 牌库）** 的收池闸
+        /// —— 与原版 `BattleManager__AddCardsInHandToList.c:30-41` 同一条：**只按卡种 include 开关**。
+        ///
+        /// <para>`.c`：`iVar1 != 10`（Hero）**无条件跳过**；`cardType 0` 看 `includeMinions`、`0x14`(Tactic) 看
+        /// `includeSpells`、`0x28`(Whispers) 看 `includeWhispers`（三个形参依次是 criteria 的 `+0x17/+0x18/+0x19`）。
+        /// 而 `AbilityLogic__GetTargets.c:893-901` 的 `ta=0x32`（手牌）只调 `GetCardsInHandList`、**不跑任何 criteria**
+        /// ⇒ `traitsFilter` / `keywordFilter` / 四组 stat / `filterSpecificCards` / 各类 exclude 在这一路**都不该跑**。
+        /// （`0x33` 手牌+牌库 / `0x34` 同形；`0x41` 牌库走 `GetCardsInDeck`，口径一致。）</para>
+        /// </summary>
+        static bool CardPoolIncludes(CardDef card, CardDef.CountSetSpec set)
+        {
+            if (card == null) return false;
+            string t = card.Type;
+            if (t == "hero") return false;                                   // `.c:33` `cardType != 10` 无条件
+            if (t == "unit") return set.IncludeMinions != 0;
+            if (t == "tactic" || t == "defence" || t == "enchantment") return set.IncludeSpells != 0;   // 三种 `type` 共用 cardType 20 那一格
+            if (t == "whispers") return set.IncludeWhispers != 0;
+            return false;
         }
     }
 }

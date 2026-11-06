@@ -1002,8 +1002,8 @@ namespace CardPresentation
         /// ⛔ 按**路径**找，不按兄弟序（本窗的子件顺序改过多次）。</summary>
         public const string InputPath = "Holder/Chat/Enter Text/InputField (TMP)";
 
-        /// <summary>正文那颗 `Label`（原版 `Text Area/Text`；2026-10-30 新建，⛔ 别和 `Placeholder` 混）。</summary>
-        public const string TextPath = "Holder/Chat/Enter Text/InputField (TMP)/Text";
+        /// <summary>正文那颗 `Label`（原版 `Text Area/Text`；2026-10-30 新建，⛔ 别和 `Placeholder` 混）—— ⚠️ `B150` #7：2026-11-04（`B141-W68`）在 `InputField (TMP)` 与本颗之间补了原版那层 `Text Area`（`:241` 的 `ViewportClip.Hang`）⇒ 路径必须多这一层。</summary>
+        public const string TextPath = "Holder/Chat/Enter Text/InputField (TMP)/Text Area/Text";
 
         /// <summary>发送键那颗节点的路径（原版 `Enter Text/Button`）。</summary>
         public const string SendPath = "Holder/Chat/Enter Text/Button";

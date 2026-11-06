@@ -112,7 +112,7 @@ namespace CardPresentation
         /// <summary>
         /// 判据：原版 `RankingDisplay__Initialize.c` 尾部 —— `if (this.timerDisplay != null &amp;&amp; dateTime.HasValue)
         /// TimerDisplay.Initialize(dateTime, …)`；而 `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;`（静默）。
-        /// ⇒ 本地恒无截止时刻 ⇒ **`Ranked Division Info/Content/Timer` 整棵不建**（建了只会把 prefab 占位留在屏上 = 假倒计时）。
+        /// ⇒ 本地恒无截止时刻 ⇒ **`Ranked Division Info/Content/Timer` 节点在、`activeSelf == false`**（🔴 `B150` 裁定① 就地订正：原写「整棵不建」**已过期** —— 原版节点在 prefab 里永远在，无值只 `SetActive(false)`）。
         /// </summary>
         static void RankedTimerGate(Action<bool, string> C)
         {
@@ -131,9 +131,9 @@ namespace CardPresentation
                 C(col1 != null, "③（前提）`Ranked Division Info` 建出来了（`BuildLeftColumn` 跑过）");
                 var content1 = col1 != null ? col1.Find("Content") : null;
                 C(content1 != null, "③（前提）`Ranked Division Info/Content` 建出来了（`RankedDivisionInfo.Build` 的产出）");
-                C(content1 != null && content1.Find("Timer") == null,
-                  "★ ③a 无截止时刻 ⇒ **`Content/Timer` 整棵不建**（原版那一支是 `return;` 静默；建了 = 印假倒计时）"
-                + "｜🧨 把闸写死恒真（照旧建）⇒ 本条红；改回 `Compose(prefix, \"--\")` ⇒ 屏上又出现 `--`");
+                C(content1 != null && content1.Find("Timer") != null && !content1.Find("Timer").gameObject.activeSelf,
+                  "★ ③a 无截止时刻 ⇒ **`Content/Timer` 节点在、`activeSelf == false`**（`B150` 裁定①：原版无值是 `SetActive(false)`，⛔ 不是不建）"
+                + "｜🧨 把闸写死成「建出来就一直露」⇒ 本条红；改回 `Compose(prefix, \"--\")` ⇒ 屏上又出现 `--`");
 
                 // ---- 有截止时刻（灭自证：闸写死恒假 ⇒ 下面三条红）----
                 RankedEventWindow.RankTimerDeadline = System.DateTime.Now.AddHours(3);
@@ -176,7 +176,7 @@ namespace CardPresentation
         /// <summary>
         /// 判据：原版 `SinglePlayerOnlyEnergyEventWindow__TryOpen.c` —— `activationType != 0` 才
         /// `timerDisplay.Initialize(事件.GetEndDate())`（`Permanent` ⇒ 整件 `SetActive(false)`），
-        /// 而 `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;`（静默）⇒ 本地恒无截止时刻 ⇒ **整棵不建**。
+        /// 而 `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;`（静默）⇒ 本地恒无截止时刻 ⇒ **节点在、整棵藏**（`B150` 裁定①：原写「整棵不建」已过期）。
         /// </summary>
         static void EnergyTimerGate(Action<bool, string> C)
         {
@@ -189,10 +189,10 @@ namespace CardPresentation
                 w1 = EnergySinglePlayerOnlyEventWindow.Create(mgr);
                 C(w1 != null, "④（前提·不静默）`EnergySinglePlayerOnlyEventWindow.Create` 建出了一扇");
                 if (w1 == null) return;
-                C(w1.transform.Find("Timer") == null,
-                  "★ ④a 无截止时刻 ⇒ **`Timer` 整棵不建**（原版那一支是 `return;` 静默；建了 = 印假倒计时）"
-                + "｜🧨 把闸写死恒真（照旧建）⇒ 本条红");
-                C(w1.TimerText == null, "★ ④b 无截止时刻 ⇒ 自检读口 `TimerText` 也是 `null`（节点没建，没有半截状态）");
+                C(w1.transform.Find("Timer") != null && !w1.transform.Find("Timer").gameObject.activeSelf,
+                  "★ ④a 无截止时刻 ⇒ **`Timer` 节点在、`activeSelf == false`**（`B150` 裁定①：原版无值那一支是 `SetActive(false)`，⛔ 不是不建）"
+                + "｜🧨 退回「整棵不建」/ 建了一直露 ⇒ 本条红");
+                C(w1.TimerText != null, "★ ④b 自检读口 `TimerText` **非 null**（= 节点在；`B150` 裁定① 之前这里是 `null`，那正是「不建」的记号）");
 
                 // ---- 有截止时刻（灭自证）----
                 EnergySinglePlayerOnlyEventWindow.EnergyTimerDeadline = System.DateTime.Now.AddHours(3);

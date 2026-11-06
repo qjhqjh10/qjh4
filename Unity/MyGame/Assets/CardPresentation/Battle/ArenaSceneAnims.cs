@@ -92,7 +92,7 @@ namespace CardPresentation
             if (ta == null)
             {
                 Debug.LogError($"[ArenaAnims] 🔴 `Resources/{ResourcePath}.json` 取不到 ⇒ **战场布景动画一条都不会播**。"
-                             + "先跑 `python -I -X utf8 工具/gen_arena_scene_anims.py`");
+                             + "先跑 `python -I -X utf8 工具/gen_arena_scene_anims.py --write`");
                 return null;
             }
             try { _doc = JsonUtility.FromJson<ArenaAnimsDoc>(ta.text); }

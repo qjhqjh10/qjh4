@@ -318,27 +318,37 @@ public static class B111_S4_Assert
               src.Contains("GetComponentsInChildren<ImageQuad>(true)") && src.Contains("Apply(quads[i], resPath)"));
 
         // 🔴 漂移探测器：这条纪律**不许再长出第 4 份**。
-        //    `MenuFxMaterials.cs` 是唯一合法处；另外两份是已交补丁的等价实现（补丁 P1/P2 落盘后就消失）。
+        //    `MenuFxMaterials.cs` 是唯一合法处。
+        //    🔴 **2026-11-06（`B150` 残余 · 铁律 5）就地订正**：本探测器原来跑的是**裸文本** `Contains`
+        //    ⇒ 两处**说明性注释**被误报成「第 4/第 5 份克隆实现」：
+        //      · `DraftModeWindow.cs:4945/4955`（`// ⛔ 别把 new Material(proto) 写回这里`）—— 产品侧早已收口到
+        //        `MenuFxMaterials.ApplyOrangeButtonToGreen`（`:4919` 的注释 + `:4927` 的 `TryResolve` 那一族）；
+        //      · `ExpansionPassEventWindow.cs:2807/2809`（补丁 P1 的收口说明）—— 产品侧已走
+        //        `MenuFxMaterials.Apply(q, MenuFxMaterials.DistortAtlasSmall)`（`:2818`）。
+        //    ⇒ 先**剥注释**再比（`StripComments`），并把已落地的 `ExpansionPassEventWindow.cs` 从白名单删掉
+        //      （同「`ParentEventWindow.cs` 已收口、从白名单删除」那一条的处理）。
         //    `AvatarTab.cs` **不是** B-21 那套等价实现：`WFUI_FxShine`（头像扫光、不同族）、单实例缓存进 `_shineMat`
         //    反复**就地改** `_Shine_Movement`、无 `_Color` 带过 ⇒ 原版 `AvatarDisplay__DoShine` 的逐字复刻，探测器误命中。
-        var allowed = new HashSet<string> { MatFile, "ExpansionPassEventWindow.cs", "ParentEventWindow.cs", "AvatarTab.cs" };
+        var allowed = new HashSet<string> { MatFile, "AvatarTab.cs" };
         var offenders = new List<string>();
         var hits = new List<string>();
         foreach (var path in Directory.GetFiles(ShellDir, "*.cs"))
         {
             var name = Path.GetFileName(path);
             if (name == MatFile) continue;
-            var txt = File.ReadAllText(path);
+            var txt = StripComments(File.ReadAllText(path));
             if (!txt.Contains("new Material(proto)")) continue;
             hits.Add(name);
             if (!allowed.Contains(name)) offenders.Add(name);
         }
-        Check("除 `" + MatFile + "` 外，出现 `new Material(proto)` 的文件都在**已知清单**里"
-              + "（已知 = `ExpansionPassEventWindow.cs`（`B110_M2` #6，补丁 P1）· `ParentEventWindow.cs`（`B110_D4` #11/#7，补丁 P2）"
+        Check("除 `" + MatFile + "` 外，出现 `new Material(proto)` 的文件都在**已知清单**里（判据 = **剥注释之后**的代码文本）"
+              + "（已知只剩 `AvatarTab.cs`（不同族：`WFUI_FxShine` 头像扫光，见上）；"
+              + "`ExpansionPassEventWindow.cs`（`B110_M2` P1）· `ParentEventWindow.cs`（`B110_D4` P2）· `DraftModeWindow.cs`（`B143-W9`）"
+              + "**都已收口到 `MenuFxMaterials.Apply/ApplyProto`、剥注释后命中 0**"
               + "；另见：" + string.Join(",", hits.ToArray()) + "）",
               offenders.Count == 0);
-        // 📌 只记录、不断言：两份补丁落盘后命中数就是 0，那时这条「已知清单」也该从上面那个 `allowed` 里删掉。
-        Debug.Log("[B111_S4] · 已知清单之外的克隆实现命中 " + hits.Count + " 份（两份补丁落盘后应为 0）");
+        // 📌 只记录、不断言：补丁落盘后命中数就是 0。
+        Debug.Log("[B111_S4] · 已知清单之外的克隆实现命中 " + offenders.Count + " 份（剥注释后；应为 0）");
 
         // 交叉一致性：三处对同一份材质必须用同一个名字（别一边写字面量、一边写常量）
         var pe = Text("CardPresentation/Shell/ParentEventWindow.cs");
@@ -360,5 +370,46 @@ public static class B111_S4_Assert
         int lineStart = text.LastIndexOf('\n', idx) + 1;
         int comment = text.IndexOf("//", lineStart, System.StringComparison.Ordinal);
         return comment < 0 || comment > idx;
+    }
+
+    /// <summary>🆕 **2026-11-06（`B150` 残余 · 铁律 5）**：把 C# 源码里的**注释**剥掉（行注释与块注释），
+    /// 字符串/字符字面量原样保留 —— 漂移探测器要判的是「**这条纪律有没有在代码里再长一份**」，
+    /// ⛔ **不是**「有没有人在注释里提到那串字」。
+    /// <para>为什么必须剥（本波实测）：`DraftModeWindow.cs` 与 `ExpansionPassEventWindow.cs` 收口之后，
+    /// 只剩 `// ⛔ 别把 new Material(proto) 写回这里（B111_S4 探测器会红）` 这类**说明性注释**，
+    /// 按裸文本 `Contains` 会**误报成第 4/第 5 份克隆实现** ⇒ 断言假红（而产品侧一个字节都没错）。</para>
+    /// <para>⚠️ 与 `B142_E31_Assert.CountOfCode` 的「按行首个 `//` 切」不同：本份还要处理块注释与字符串里的 `//`
+    /// （文件里真有 `"Art/vfx/…"` 这种串 ⇒ 裸切会把后半行吞掉）。</para></summary>
+    static string StripComments(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return s ?? "";
+        var sb = new System.Text.StringBuilder(s.Length);
+        bool inStr = false, inChr = false, inLine = false, inBlock = false;
+        for (int i = 0; i < s.Length; i++)
+        {
+            char c = s[i], n = i + 1 < s.Length ? s[i + 1] : '\0';
+            if (inLine) { if (c == '\n') { inLine = false; sb.Append(c); } continue; }
+            if (inBlock) { if (c == '*' && n == '/') { inBlock = false; i++; } else if (c == '\n') sb.Append(c); continue; }
+            if (inStr)
+            {
+                sb.Append(c);
+                if (c == '\\' && i + 1 < s.Length) { sb.Append(s[i + 1]); i++; continue; }
+                if (c == '"') inStr = false;
+                continue;
+            }
+            if (inChr)
+            {
+                sb.Append(c);
+                if (c == '\\' && i + 1 < s.Length) { sb.Append(s[i + 1]); i++; continue; }
+                if (c == '\'') inChr = false;
+                continue;
+            }
+            if (c == '/' && n == '/') { inLine = true; i++; continue; }
+            if (c == '/' && n == '*') { inBlock = true; i++; continue; }
+            if (c == '"') { inStr = true; sb.Append(c); continue; }
+            if (c == '\'') { inChr = true; sb.Append(c); continue; }
+            sb.Append(c);
+        }
+        return sb.ToString();
     }
 }

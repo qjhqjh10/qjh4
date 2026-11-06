@@ -217,7 +217,7 @@ namespace CardPresentation
         /// 每颗**克隆一份**（`renderQueue` / `_Color` 是 per-quad 的），并把换之前那份可带的 `_Color` 带过去。
         /// ⚠️ 原型 shader **没有** `_Color` 时（`B-188` 那一支）**什么都不写** —— ⛔ 别让 `.color` 的 setter
         /// 去打一条 Unity 报错。</summary>
-        static void ApplyProto(ImageQuad q, Material proto)
+        public static void ApplyProto(ImageQuad q, Material proto)
         {
             if (q == null || proto == null) return;
             Color tint = q.Tint;                       // 旧材质（Sprites/Default 那一档）上的那份

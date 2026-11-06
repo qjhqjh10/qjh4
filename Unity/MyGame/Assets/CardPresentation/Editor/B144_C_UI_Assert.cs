@@ -107,6 +107,42 @@ public static class B144_C_UI_Assert
         return com < 0 || ci < com;
     }
 
+    /// <summary>这一行是不是**语句边界**（去掉行内 `//` 之后以 `;` / `{` / `}` 结尾；空行/纯注释也算）。</summary>
+    static bool EndsStatement(string line)
+    {
+        if (line == null) return true;
+        int com = line.IndexOf("//", StringComparison.Ordinal);
+        string s = (com >= 0 ? line.Substring(0, com) : line).TrimEnd();
+        if (s.Length == 0) return true;
+        char c = s[s.Length - 1];
+        return c == ';' || c == '{' || c == '}';
+    }
+
+    /// <summary>把 <paramref name="anchor"/> 所在的**整条语句**拼出来 —— ⛔ 不按物理行。
+    /// 判据 = `B150` #22 / #24：一条调用**可以跨两行**（`SettingsWindow.cs:3054-3056` 的 `SpText(page, "Email Text", …)` ·
+    /// `DeckRuntime.cs:1732-1733` 的 `SetVAlign(…, Capline,\n new PxRect(…)); …SetParagraphSpacing(_wcTxt[i], 0.08f)`）。
+    /// 返回 null = anchor 出现 0 处或**多处**（重复劫持，口径同 <see cref="UniqueLine"/>）。</summary>
+    static string StatementAround(string[] lines, string anchor)
+    {
+        if (lines == null || anchor == null) return null;
+        int at = -1;
+        for (int i = 0; i < lines.Length; i++)
+            if (lines[i] != null && lines[i].IndexOf(anchor, StringComparison.Ordinal) >= 0) { if (at >= 0) return null; at = i; }
+        if (at < 0) return null;
+        int start = at;
+        while (start > 0 && !EndsStatement(lines[start - 1])) start--;
+        int end = at;
+        while (end < lines.Length - 1 && !EndsStatement(lines[end])) end++;
+        var sb = new System.Text.StringBuilder();
+        for (int i = start; i <= end; i++)
+        {
+            if (lines[i] == null) continue;
+            if (sb.Length > 0) sb.Append('\n');
+            sb.Append(lines[i]);
+        }
+        return sb.ToString();
+    }
+
     // ============================================================ Run
     public static void Run()
     {
@@ -205,8 +241,9 @@ public static class B144_C_UI_Assert
             string line = UniqueLine(settings, anchor);
             Check(line != null, "B3a `Email Text` 调用点传了 `lineSpacing 0 · ps 25 · vTop true`，**恰好一处**");
             Check(BeforeLineComment(line, anchor), "B3b 它在行内 `//` 之前");
-            Check(line != null && line.IndexOf("\"Email Text\"", StringComparison.Ordinal) >= 0,
-                  "B3c 这一行就是 `SpText(page, \"Email Text\", …)` 那一处（不是别的调用）");
+            var stmt3 = StatementAround(settings, anchor);
+            Check(stmt3 != null && stmt3.IndexOf("\"Email Text\"", StringComparison.Ordinal) >= 0,
+                  "B3c 这条**语句**就是 `SpText(page, \"Email Text\", …)` 那一处（不是别的调用；`B150` #22：调用跨 `:3054`/`:3056` 两个物理行 ⇒ 按语句判）");
         }
 
         // B4 · Toast 两句
@@ -214,8 +251,16 @@ public static class B144_C_UI_Assert
             string anchor = "SetParagraphSpacing(lb, 20f)";
             Check(CountOccurrences(string.Join("\n", toast ?? new string[0]), anchor) == 2,
                   "B4a `SetParagraphSpacing(lb, 20f)` 在 ToastNotifications **恰好两处**（通用 + 任务）");
-            string l1 = UniqueLine(toast, "Congratulations!"), l2 = UniqueLine(toast, "Deal 500 damage");
-            Check(l1 != null && l2 != null, "B4b（前提）两颗 toast 的占位文案各**恰好一处**");
+            string l2 = UniqueLine(toast, "Deal 500 damage");
+            // 🔴 `B150` #23：`Congratulations!` 在 `ToastNotifications.cs` 里出现 **4 处**（注释 `:118`/`:623` + 代码 `:625`/`:656`）
+            //    ⇒ `UniqueLine` 恒 null（它把「>1 行命中」判成重复劫持）。改成断「**确实是代码里的调用形态**」：
+            //    至少一处出现在 `Tmp(` / `MeasureTextPx(` 之后、且在行内 `//` 之前 —— 比裸串的鉴别力**更强**（注释冒充不了）。
+            bool l1Call = false;
+            foreach (var l in toast ?? new string[0])
+                if (l != null && BeforeLineComment(l, "Congratulations!")
+                    && (l.IndexOf("Tmp(", StringComparison.Ordinal) >= 0 || l.IndexOf("MeasureTextPx(", StringComparison.Ordinal) >= 0))
+                    l1Call = true;
+            Check(l1Call && l2 != null, "B4b（前提）两颗 toast 的占位文案都在（`Congratulations!` 至少一处是 `Tmp(`/`MeasureTextPx(` 的真调用；`Deal 500 damage` 恰好一处）");
             var l20 = new List<string>();
             if (toast != null) foreach (var l in toast) if (l != null && l.IndexOf(anchor, StringComparison.Ordinal) >= 0) l20.Add(l);
             bool ok1 = false, ok2 = false;
@@ -230,8 +275,9 @@ public static class B144_C_UI_Assert
             string line = UniqueLine(deck, anchor);
             Check(line != null, "B5a `SetParagraphSpacing(_wcTxt[i], 0.08f)` 在 DeckRuntime **恰好一处**");
             Check(BeforeLineComment(line, anchor), "B5b 它在行内 `//` 之前");
-            Check(line != null && line.IndexOf("Label.VAlign.Capline", StringComparison.Ordinal) >= 0,
-                  "B5c 它与 Capline 那句在**同一物理行**（万能卡计数）"
+            var stmt5 = StatementAround(deck, anchor);
+            Check(stmt5 != null && stmt5.IndexOf("Label.VAlign.Capline", StringComparison.Ordinal) >= 0,
+                  "B5c 它与 Capline 那句在**同一语句**里（万能卡计数；`B150` #24：调用跨 `DeckRuntime.cs:1732`/`:1733` 两个物理行 ⇒ 按语句判）"
                 + " —— 🧨 删掉 ⇒ B5 红（B131 六#11：原版 `m_paragraphSpacing 0.08`）");
         }
 

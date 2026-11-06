@@ -126,12 +126,27 @@ public static class B144_R1_Assert
         Check(ok, "M0 **前提**：读得到 arena1 manifest");
         if (ok)
         {
-            int nR = Count(mf, "\"renderingLayerMask\"");
-            int nL = Count(mf, "\"lightProbeUsage\"");
-            int nS = Count(mf, "\"sortingOrder\"");
-            Check(nR == 30 && nL == 30 && nS == 30,
-                  "M1 30 条 `meshes` 都带三字段（实得 " + nR + "/" + nL + "/" + nS + "）"
-                + "｜🧨 删掉任一条的三字段 ⇒ 红");
+            // ✅ 已复刻（2026-11-05 · B150 · #5）：原来把 **30** 写死，而它数的是**全文件**里这些键的出现次数
+            //   （现读 `renderingLayerMask` 64 / `lightProbeUsage` 70 / `sortingOrder` 70 —— 它们也出现在
+            //   `particles` 等别的容器里），manifest 的 `meshes` 条数也已经不是 30。
+            //   ⇒ 改成「在 `meshes` 这一段里，三个字段的条数都 == 该段的 mesh 条数」，⛔ 不再出现任何常数。
+            int ma = mf.IndexOf("\"meshes\":", System.StringComparison.Ordinal);
+            int mb = mf.IndexOf("\"particles\":", System.StringComparison.Ordinal);
+            Check(ma >= 0 && mb > ma,
+                  "M1 前提：manifest 里 `meshes` 那一段切得出来（`\"meshes\":` … `\"particles\":`；"
+                + "ma=" + ma + " mb=" + mb + "）｜🧨 生成器换了键次序 ⇒ 本条红（⛔ 不许静默跳过）");
+            if (ma >= 0 && mb > ma)
+            {
+                string seg = mf.Substring(ma, mb - ma);
+                int nM = Count(seg, "\"objFile\"");          // 每个 mesh 条目一条 `objFile` ⇒ 用它当条数
+                int nR = Count(seg, "\"renderingLayerMask\"");
+                int nL = Count(seg, "\"lightProbeUsage\"");
+                int nS = Count(seg, "\"sortingOrder\"");
+                Check(nM > 0 && nR == nM && nL == nM && nS == nM,
+                      "M1 " + nM + " 条 `meshes` 都带三字段（实得 " + nR + "/" + nL + "/" + nS
+                    + "，分母 = 该段的 `objFile` 条数，⛔ 不写死常数）"
+                    + "｜🧨 删掉任一条的三字段 ⇒ 红");
+            }
             Check(mf.Contains("\"renderingLayerMask\": 1") && mf.Contains("\"lightProbeUsage\": 1"),
                   "M2 网格那一半与改前一致（原版这 30 个 MR 就是 `(1,1,0)` —— 已逐节点核过场景）");
         }

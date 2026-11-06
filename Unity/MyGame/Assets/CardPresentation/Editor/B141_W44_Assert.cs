@@ -133,17 +133,17 @@ public static class B141_W44_Assert
 
         // ---- A3 · PlayerProfileWindow（原版 13 颗 = 6 页签 + 5 成就页签 + 2 对局行；本批只到 6 页签 + 2 对局行）----
         var pp = Src("Shell/PlayerProfileWindow.cs");
-        Check(pp.Contains("public const string ArtTabOn = \"40K_settings_button_hover\";"),
-              "A3 档案窗页签选中图 = `40K_settings_button_hover`（6/6 颗逐颗实读同值）");
-        Check(pp.Contains("_btnWb[i].Bind(_btnBg[i], ArtTabOff, null, null, ArtTabOn);"),
-              "A3b 档案窗页签**逐颗**绑了选中图（`Ranked` 那颗按用户口径隐藏 ⇒ 实际生效 5 颗）");
+        Check(pp.Contains("public const string ArtTabOn = \"40K_settings_button_hover\", ArtTabHover = \"40K_settings_button_selected\";"),
+              "A3 档案窗页签选中图 = `40K_settings_button_hover`（6/6 颗逐颗实读同值）· 悬停图 = `40K_settings_button_selected`（= 原版 `m_HighlightedSprite`，判据 `B141` 5-17）");
+        Check(pp.Contains("_btnWb[i].Bind(_btnBg[i], ArtTabOff, ArtTabHover, null, ArtTabOn);"),
+              "A3b 档案窗页签**逐颗**绑了选中图 + 悬停图（`Ranked` 那颗按用户口径隐藏 ⇒ 实际生效 5 颗）");
 
         // ---- A4 · LeaderboardWindow（三份 prefab：Skirmish 3 颗 · Classic 2 颗 · Draft 2 颗）----
         var lb = Src("Shell/LeaderboardWindow.cs");
-        Check(lb.Contains("const string ArtTabOn = \"40K_settings_button_hover\", ArtTabOff = \"40K_settings_button\";"),
-              "A4 排行榜页签选中图 = `40K_settings_button_hover`（三份 prefab 逐颗同值）");
-        Check(lb.Contains("tabWb.Bind(bgQ, ArtTabOff, null, null, ArtTabOn);"),
-              "A4b 排行榜页签**逐颗**绑了选中图（按 `TabsOf(Kind)` 的 2~3 颗）");
+        Check(lb.Contains("const string ArtTabOn = \"40K_settings_button_hover\", ArtTabOff = \"40K_settings_button\", ArtTabHover = \"40K_settings_button_selected\";"),
+              "A4 排行榜页签选中图 = `40K_settings_button_hover`（三份 prefab 逐颗同值）· 悬停图 = `40K_settings_button_selected`");
+        Check(lb.Contains("tabWb.Bind(bgQ, ArtTabOff, ArtTabHover, null, ArtTabOn);"),
+              "A4b 排行榜页签**逐颗**绑了选中图 + 悬停图（按 `TabsOf(Kind)` 的 2~3 颗）");
 
         // ---- A5 · ChatPanel（原版 `ChatPanel ▸ Tab Buttons ▸ Orange Tab Toggle`）----
         var cp = Src("Shell/ChatPanel.cs");

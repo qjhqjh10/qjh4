@@ -299,7 +299,7 @@ public static partial class RuleEngineTest
         Check(trigBad.Length, 0,
               "★★ 白名单件级自检（`SelfCheckRoutedTriggers`）**0 违规**（逐卡：取到的件 = 这张卡自己那批，不多不少）"
             + "｜🧨 **生成器没重跑** ⇒ 这批行还在 `trigger_unmapped` ⇒ 逐条报「漏播」⇒ 红"
-            + "（重跑：`python -I -X utf8 d:/4/Unity/工具/gen_card_vfx_by_card.py`，输入 `VfxMap.cs` 白名单 + `cards_engine.json`，"
+            + "（重跑：`python -I -X utf8 d:/4/Unity/工具/gen_card_vfx_by_card.py --write`，输入 `VfxMap.cs` 白名单 + `cards_engine.json`，"
             + "输出 `MyGame/Assets/CardPresentation/Resources/card_vfx_by_card.json` 与 `数据/游戏数据/card_vfx_by_card.json`）");
         for (int i = 0; i < trigBad.Length; i++) CheckTrue(false, "  件级违规[" + i + "]: " + trigBad[i]);
     }

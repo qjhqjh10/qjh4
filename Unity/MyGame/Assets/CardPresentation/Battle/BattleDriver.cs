@@ -4773,7 +4773,7 @@ namespace CardPresentation
             if (asset == null)
             {
                 Debug.LogError("[Tutorial] 找不到 `Resources/" + TutorialDecksAssetPath + ".json` —— "
-                    + "跑一下 `python d:/4/Unity/工具/gen_prebuilt_decks.py`（那一份里才有教程那 12 副牌）");
+                    + "跑一下 `python d:/4/Unity/工具/gen_prebuilt_decks.py --write`（那一份里才有教程那 12 副牌）");
                 return null;
             }
             var f = JsonUtility.FromJson<TutorialDecksFileDto>(asset.text);
@@ -9844,7 +9844,7 @@ namespace CardPresentation
             if (envItem == null)
             {
                 Debug.LogWarning($"[Battle] 进攻卡选定的环境 `{so}` **在 `Resources/EnvironmentConditions.json` 里查不到**"
-                               + " ⇒ 环境不切（不许静默）。跑一次 `python 工具/gen_environment_conditions.py`。");
+                               + " ⇒ 环境不切（不许静默）。跑一次 `python 工具/gen_environment_conditions.py --write`。");
                 return;
             }
             _envApplier.Apply(envItem, instant: false);
@@ -29515,7 +29515,7 @@ namespace CardPresentation
             }
 
             _resultLabel = Hud(root, "", 0.5f, 0.5f, 7,
-                               new Color(1f, 0.9f, 0.4f), new Vector2(0.5f, 0.5f), "ResultLabel");
+                               new Color(1f, 0.9f, 0.4f), new Vector2(0.5f, 0.5f), "ResultLabel", face: TmpFont.Face.Cjk);   // ✅ 2026-11-06（B150-font2）：缺省面已改 Pragati ⇒ 判不出的这一颗**显式写死 Cjk**（原版结算面板无 result 字，⛔ 不猜）
             // A1024③ 判不出（同 `EndPanel`：原版结算面板无 result 字）⇒ 保持 `Face.Cjk`
 
             // 设置按钮（原版 `SettingsBtn` 63.9²，图 `UI_Settings_Icon`）——
@@ -31664,7 +31664,7 @@ namespace CardPresentation
                   Color c, Vector2 anchor, string name,
                   float boxWpx = 0f, float boxHpx = 0f,
                   float autoMinPx = 0f, float autoMaxPx = 0f, float autoBasePx = 0f,
-                  int wrapMode = 1, TmpFont.Face face = TmpFont.Face.Cjk)
+                  int wrapMode = 1, TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-06 · B150-font2 · 判据 = `Battle Arena 1.unity` 的 `BattleHud` 逐颗实读：Asar 只有 `PlayerNameText`/`EnemyNameText`/`TitleBackground/EnemyTitle`(×2)/`Clock/TurnBtn/TurnText`/`OvertimeSplashText`，其余（`ManaText`/`QPText`/`FaithText`/`SpiritStoneText`/`MatchSkulls Score`/`CardsInHandText`/`Player Deck Size Tex`/`Mulligan…/TurnText`）= Pragati ⇒ 缺省 Pragati；上面那几颗 Asar **逐个显式传** `LatinUi`，`ResultLabel` 判不出 ⇒ 显式 `Cjk`（⛔ 别按节点名批量套）
         {
             // 🔴 **2026-10-16（`T09` §五 第 5 步 · HUD 字族整族迁 uGUI）** —— 口径见本方法 doc 末段，这里只列落点：
             //   ① 父件 = 画布：传进来的是**画布**（子画布，如 `AboveShader Canvas`）就用它；
@@ -34644,7 +34644,7 @@ namespace CardPresentation
                 RightButtonOrTwoFingers = interaction != null && interaction.IsRightButtonOrTwoFingerTouch(),  // `OnTouchEnter.c:12-14`
                 ChoosingUnitOrAbilityTarget = _selectedSlot >= 0 || _command != AttackKind.None,              // 原版 UIstate ∈ {9,10}
                 MulliganElementsVisible = _mulligan != null && _mulligan.Visible,          // 原版 `+0x1E8`
-                // 🔶 自己设计（非原版）：`WaystonePending` 恒 false / `HoverAllowed` 多一道 `Ctx.Turn > 0` —— 判据在本机拿不到（我们无 `waitingToResolveUseWaystoneFlag(+0x419)`；`inactive` 那一档我们用「还没开第 1 回合」近似）。⚠️ `IsAnimatingCombat` **已不再是恒 false**（2026-10-28 `B91_W3`：该字段由 `ToggleCombatState` 写（见下方那行注释））· 调度台 2026-10-26 授权按最接近的等价物接，偏离全部记进报告 §五
+                // 🔶 自己设计（非原版）：`WaystonePending` 恒 false / `HoverAllowed` 多一道 `Ctx.Turn > 0` —— 🔴 2026-11-05（`B150` · `B146-S2-ROLLOUT` 现读）**就地订正（铁律 5）**：原写「判据在本机拿不到（我们无 `waitingToResolveUseWaystoneFlag(+0x419)`）」**已过期** —— 判据是有的（置点 `BattleManager__TryUsingWaystone.c:47/48/158` · 清点 `BattleManager._NextTurn_d__395__MoveNext.c:382`（与 `+0x418` 同一次 u16 清）· 读点 `BattleManager__get_WaitingForResolveUseWaystone.c:5` / `CardScript__TryCardHighlight.c:80`）；恒 false 的**真理由**是「我们的收石是**同步**的（`CanCollectWaystone` → `CollectWaystoneCore`，没有待结算窗口）⇒ 这一位在我们这儿**没有可存在的时段**」（`inactive` 那一档仍用「还没开第 1 回合」近似）。⚠️ `IsAnimatingCombat` **已不再是恒 false**（2026-10-28 `B91_W3`：该字段由 `ToggleCombatState` 写（见下方那行注释））· 调度台 2026-10-26 授权按最接近的等价物接，偏离全部记进报告 §五
                 WaystonePending = false,
                 // 原版 `BattleManager.cardTracked(+0x330)` = **玩家正在行动的那张卡**：`StartAttackFrom.c:14` 置成
                 // **攻方单位**、`StartSpellFrom.c:13` / `StartMovingCardInHand.c:5` 置成法术 / 手牌
@@ -38742,7 +38742,7 @@ namespace CardPresentation
                 if (_warnedUnitTween.Count < 16 && _warnedUnitTween.Add(tweenName))
                     Debug.LogWarning($"[Battle] `tweenAnim` 指向的补间串 `{tweenName}` 在 `Resources/UnitTweens.json` 里**查不到**"
                                    + $"（场景 `{why}`）⇒ 这一拍**不播补间**（其余演出照常）。"
-                                   + "跑一次 `python 工具/gen_unit_tweens.py`；表状态 = " + (UnitTweenTable.Loaded ? "已载入" : "⚠️ " + UnitTweenTable.LastError));
+                                   + "跑一次 `python 工具/gen_unit_tweens.py --write`；表状态 = " + (UnitTweenTable.Loaded ? "已载入" : "⚠️ " + UnitTweenTable.LastError));
                 return 0f;
             }
             var seq = UnitTweenTable.Build(entry,

@@ -5819,8 +5819,8 @@ public static class CollectionScene
             //   ✅ 灭自证：重读前**先清背包** ⇒ 想读到 +1 之后的值，唯一的路就是盘上那份。
             Section("卡牌拥有数落盘（`WarpforgeInventory/cards.json`）：写 → 清背包 → 重读 → 还在");
             {
-                string prevDir2 = InventoryStore.OverrideDir;
-                InventoryStore.OverrideDir = "d:/4/_tmp_view/cards_inv_selftest";
+                string prevDir2 = InventoryStore.OverrideDir; string prevSaveRoot2 = SaveCenter.OverrideRoot;   // 🆕 2026-11-06（B150）：中央档改道也存档-还原
+                InventoryStore.OverrideDir = "d:/4/_tmp_view/cards_inv_selftest"; SaveCenter.OverrideRoot = InventoryStore.OverrideDir;   // 🆕 2026-11-06（B150）：中央档同改道（Play 下不写玩家真档）
                 InventoryStore.Delete(CardProgress.InventoryName);
                 CardDef probe = null;
                 foreach (var c in CollectionWindow.CardsState.Pool) { if (c != null && !string.IsNullOrEmpty(c.Id)) { probe = c; break; } }
@@ -5830,9 +5830,9 @@ public static class CollectionScene
                     int before2 = CardProgress.Owned(probe.Id, probe.Rarity);
                     CardProgress.AddOwned(probe.Id, probe.Rarity, 1);
                     Check(CardProgress.Owned(probe.Id, probe.Rarity), before2 + 1, "（前提）`AddOwned(+1)` ⇒ 拥有数 +1");
-                    CheckTrue(InventoryStore.LastStorePath != null
-                              && System.IO.File.Exists(InventoryStore.StorePath(CardProgress.InventoryName)),
-                              "★ `AddOwned` **真的写盘**了（`InventoryStore.LastStorePath` 非 null + 文件在）");
+                    CheckTrue(InventoryStore.LastStorePath != null && InventoryStore.LastStoreError == null
+                              && SaveCenter.ReadThroughLegacy(SaveKeys.OursInventoryPrefix + CardProgress.InventoryName, InventoryStore.StorePath(CardProgress.InventoryName)) != null,
+                              "★ `AddOwned` **真的写盘**了（`LastStorePath` 非 null · `LastStoreError` 为 null · 读口回读到内容）");
                     Inventories.Cards.ClearForTest();          // 灭自证：先清内存
                     // 🔴 **2026-10-26（C1）**：**播种在前、读盘在后** —— 与生产 `CollectionWindow.CardsState` 同一条顺序（本次一并订正）。`RestoreAmounts` 的契约是「**已在的改、不在的跳过**」⇒ 空背包读盘 = **什么都不读**（原来那句「先读盘再播种」正是拥有数**重启清零**的根因）；`SeedCardsAllUnlocked` 幂等（只补缺条目）⇒ 先播种不会把盘上的值盖掉。
                     Inventories.SeedCardsAllUnlocked(CollectionWindow.CardsState.Pool, c => CardProgress.Owned(c.Id, c.Rarity));
@@ -5843,7 +5843,7 @@ public static class CollectionScene
                     // 收尾：回滚 + 删档 + 关闸
                     CardProgress.AddOwned(probe.Id, probe.Rarity, -1);
                     InventoryStore.Delete(CardProgress.InventoryName);
-                    InventoryStore.OverrideDir = prevDir2;
+                    InventoryStore.OverrideDir = prevDir2; SaveCenter.OverrideRoot = prevSaveRoot2;   // 🆕 2026-11-06（B150）：中央档改道一并还原
                     Inventories.Cards.ClearForTest();
                     Inventories.SeedCardsAllUnlocked(CollectionWindow.CardsState.Pool,
                         c => CardProgress.Owned(c.Id, c.Rarity));
@@ -6723,7 +6723,7 @@ public static class CollectionScene
                     //      ⛔ **不许读 `FilterPanelModel.RarityFontAutoMax` 来比**（那是被测实现里的常量 = 自证）。
                     //   ⚠️ `FontSizeMax` 是 **TMP 的 `fontSize` 单位**（不是 px）⇒ 经 `Label.FontSizeToPx` 折回；
                     //      `_tmp == null`（点阵兜底）时它恒 0 ⇒ 折出 0 ⇒ **这条会红，不会静默绿**。
-                    float rarMaxPx = lb0 != null ? Label.FontSizeToPx(lb0.FontSizeMax) : -1f;
+                    float rarMaxPx = lb0 != null ? lb0.FontSizeToPxNow(lb0.FontSizeMax, lb0.ActualFace) : -1f;
                     CheckNear(rarMaxPx, 27f, 0.35f,
                               $"★ Rarity 族 `Label` 的**上限** = **原版 `m_fontSizeMax` 27.0 px**（实得 {rarMaxPx:F2}；"
                             + "标称那一档是 23.2）"
@@ -7308,7 +7308,7 @@ public static class CollectionScene
                     CheckTrue(CardbackOffsetPx(tex0, CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH,
                                                out odx, out ody),
                               $"（前提）`{tex0.name}` 在 `Resources/Cardbacks.json` 里有 `padL/padR/padB/padT` 四列"
-                            + "（表是旧版就没有 ⇒ 下面两条**空转**；跑 `python d:/4/Unity/工具/gen_cardbacks.py` 重生成）");
+                            + "（表是旧版就没有 ⇒ 下面两条**空转**；跑 `python d:/4/Unity/工具/gen_cardbacks.py --write` 重生成）");
                     if (CardbackOffsetPx(tex0, CollectionWindow.CosmoCellW, CollectionWindow.CosmoCellH, out odx, out ody))
                     {
                         // 第 1 格**整块在视口里**（上面 Wpx/Hpx 两条已经依赖这一点）⇒ 渲染中心 == 框中心 + 偏移
@@ -8258,10 +8258,10 @@ public static class CollectionScene
                                 + "（`FontSizeMin/Max` 恒 0），不前置下面两条会假绿");
                         if (olb != null && olb.CanRenderChinese)
                         {
-                            CheckNear(Label.FontSizeToPx(olb.FontSizeMin), 18f, 0.5f,
+                            CheckNear(olb.FontSizeToPxNow(olb.FontSizeMin, olb.ActualFace), 18f, 0.5f,
                                       "★ `Owned only` 的**自适应下界** = 原版 `m_fontSizeMin` **18px**"
                                     + "（本页走缺省形参 —— 卡组编辑窗那颗是 26，两窗**不再逐字相同**，A270/A271）");
-                            CheckNear(Label.FontSizeToPx(olb.FontSizeMax), 32f, 0.5f,
+                            CheckNear(olb.FontSizeToPxNow(olb.FontSizeMax, olb.ActualFace), 32f, 0.5f,
                                       "★ …**上界** = 原版 `m_fontSizeMax` **32px**（= 原版那颗的 `m_fontSize`）");
                         }
                     }
@@ -9148,9 +9148,9 @@ public static class CollectionScene
                         //   ⚠️ **旧口径已作废**（2026-10-12「Craft 只出声」· 2026-10-18「点击但不起作用 /
                         //     恒可交互 / 存档不动」· 同日早些时候 W5「Upgrade 可交互度 = `CanUpgrade`」）
                         //     —— ⛔ 别再断回那一组。
-                        string craftSavePath = System.IO.Path.Combine(SaveRoot.Path, CardProgress.SaveFileName);   // 🆕 2026-11-03 B128：玩家真档根 = `SaveRoot.Path`
-                        byte[] craftSave0 = System.IO.File.Exists(craftSavePath)
-                                          ? System.IO.File.ReadAllBytes(craftSavePath) : null;
+                        // 🆕 2026-11-06（B150）：量**产品这一趟真正的写口**（沙箱／注入根／真根）+ 真根旧档 + 中央档 —— ⛔ 原来只手拼真根 ⇒ 批处理下产品写沙箱 ⇒ 前后都 null ⇒ 恒绿零鉴别力
+                        string craftSavePath = System.IO.Path.Combine(SaveRoot.Path, CardProgress.SaveFileName);   // 真根旧档（⚠️ 只给消息用；量的是下面那三处）
+                        byte[] craftSave0 = CraftSaveSnap(CardProgress.SaveFileName, SaveKeys.OursCardProgress);
                         // ---- 四档**逐档**走（铁律 5·c：一个值 ≠ 全部情况）----
                         //   每一档都要断「名字选对了 + 两件都播了 + 落点/量纲对 + 没通配符不许播」——
                         //   只测 common 挡不住「rarity 映射串档」（那正是原版 `craftVFXs[]` 最易抄错的地方）。
@@ -9590,8 +9590,8 @@ public static class CollectionScene
                         }
                         if (craftCard0 != null) cd.ShowCard(craftCard0);   // 换回进块前那张
                         // ---- ⑤ 自检绝不许污染玩家真存档（`_persist = false`）----
-                        byte[] craftSave1 = System.IO.File.Exists(craftSavePath)
-                                          ? System.IO.File.ReadAllBytes(craftSavePath) : null;
+                        // 🆕 2026-11-06（B150）：同口径快照（产品写口 + 真根旧档 + 中央档），前后逐字节比
+                        byte[] craftSave1 = CraftSaveSnap(CardProgress.SaveFileName, SaveKeys.OursCardProgress);
                         bool saveSame = craftSave0 == null ? craftSave1 == null
                                                           : (craftSave1 != null && craftSave0.Length == craftSave1.Length);
                         if (saveSame && craftSave0 != null)
@@ -9599,7 +9599,7 @@ public static class CollectionScene
                                 if (craftSave0[bi] != craftSave1[bi]) { saveSame = false; break; }
                         CheckTrue(saveSame,
                                   $"★ 上面这一整轮（四档各合成一次 + 传奇确认窗那三下：合成 / 取消 / owned≠1 直合成）"
-                                + $"**玩家存档一个字节都没动**（`{CardProgress.SaveFileName}`："
+                                + $"**玩家存档一个字节都没动**（`{craftSavePath}`："
                                 + (craftSave0 == null ? "点前不存在" : $"点前 {craftSave0.Length} 字节")
                                 + " → "
                                 + (craftSave1 == null ? "点后不存在" : $"点后 {craftSave1.Length} 字节")
@@ -10410,7 +10410,7 @@ public static class CollectionScene
             if (spage != null)
             {
                 float bw = CollectionWindow.StyleLogoR - CollectionWindow.StyleLogoL;
-                var p1 = win.Text(spage, "Hammer and Bolter",
+                var p1 = win.Text(spage, "Hammer and Bolter Hammer and Bolter",
                                   CollectionWindow.StyleLogoL, CollectionWindow.StyleLogoR,
                                   CollectionWindow.StyleBarT, CollectionWindow.StyleBarB,
                                   5, Color.white, "A1173 Probe Fit", 56f,
@@ -10418,13 +10418,13 @@ public static class CollectionScene
                 float w1 = LabelRenderedPx(p1).x;
                 CheckTrue(p1 != null && w1 > 5f && w1 <= bw + 1f,
                           $"★ A1173 形参契约：`Text(wrapPx: {bw:F0}, autoMinPx: 18)` ⇒ 那行字**渲出来 {w1:F0}px ≤ {bw:F0}**"
-                          + "（删掉漏斗里 `wrapPx > 0` 那两步 ⇒ 按 56px 渲 ≈1270px ⇒ 本条红）");
+                          + "（删掉漏斗里 `wrapPx > 0` 那两步 ⇒ 按 56px 渲出自然宽（探针串 ≈730px）⇒ 本条红）");
                 // 🔴 **判别式那一半**：**只传 `autoMinPx`、不传 `wrapPx` = 死实参**（判据 = `MenuDraw.TextCore`
                 //   那三条：`wrapPx > 0` ∧ `autoMinPx > 0` ∧ `fontPx > autoMinPx` 全真才调 `SetAutoFitBox`）。
                 //   少了这一条，上面那条在「把判据放宽成只看 `autoMinPx`」时**照样绿**（= 让一个死实参蒙混过关）。
                 //   ⚠️ 期望值写成**与 p1 的比值**（不写 ≈1270 那个数）—— 那两串字一样、字号一样
                 //   ⇒ 比值只由「缩没缩」决定，与字体度量无关。
-                var p2 = win.Text(spage, "Hammer and Bolter",
+                var p2 = win.Text(spage, "Hammer and Bolter Hammer and Bolter",
                                   CollectionWindow.StyleLogoL, CollectionWindow.StyleLogoR,
                                   CollectionWindow.StyleBarT, CollectionWindow.StyleBarB,
                                   5, Color.white, "A1173 Probe NoFit", 56f,
@@ -10446,8 +10446,8 @@ public static class CollectionScene
                 CheckTrue(w1 > 5f && w1 <= boxW + 1.5f && w2 > boxW + 1.5f,
                           $"★ A1173 判别式（几何）：**传了 `wrapPx` 的缩进框里、不传的溢出框外**"
                         + $"（框 {boxW:F1}px：p1 {w1:F0}px ≤ 框 · p2 {w2:F0}px > 框）"
-                        + " —— ⚠️ **⛔ 别改回比值**：实测「不缩」只有 569px（那串字本来就短），"
-                        + "原来那句「必须 `> 2×`」是**推算错**");
+                        + " —— ⚠️ **⛔ 别改回比值**：探针串 2026-11-05 起**同句重复两遍**（`B150` 就地订正：原单句在字体度量变过之后自然宽只剩 366px < 框 512 ⇒ 几何那一半结构性判不出来），"
+                        + "比值式仍不成立（`w2/w1` 只由「缩没缩」与串长共同决定）");
                 if (p1 != null) Object.DestroyImmediate(p1.gameObject);
                 if (p2 != null) Object.DestroyImmediate(p2.gameObject);
             }
@@ -10602,9 +10602,9 @@ public static class CollectionScene
                     CheckTrue(sInLb != null, "（前提）异画页搜索框的 `Input Text` 建出来了");
                     if (sInLb != null)
                     {
-                        CheckNear(Label.FontSizeToPx(sInLb.FontSizeMax), 35f, 0.6f,
+                        CheckNear(sInLb.FontSizeToPxNow(sInLb.FontSizeMax, sInLb.ActualFace), 35f, 0.6f,
                                   "★ A248：异画页搜索框字号 = 原版 **35**（卡牌页是 30）");
-                        CheckNear(Label.FontSizeToPx(sInLb.FontSizeMin), 10f, 0.6f,
+                        CheckNear(sInLb.FontSizeToPxNow(sInLb.FontSizeMin, sInLb.ActualFace), 10f, 0.6f,
                                   "…自适应下界 = 原版 **10**（卡牌页是 18）—— 只改上界不改下界 ⇒ 这条红");
                         // 🔴 **A249** 与字号无关、**两页同档**：`Text` 那一半原版就是 `折行=3`
                         //    （`Placeholder` 是 0，我们这颗 `Label` 兼作两者 ⇒ 取 `3`，同 `DeckEditInputWrap` 那条先例）。
@@ -10619,9 +10619,9 @@ public static class CollectionScene
                     CheckTrue(sOwLb != null, "（前提）异画页 `Owned only` 那一格的标签在");
                     if (sOwLb != null)
                     {
-                        CheckNear(Label.FontSizeToPx(sOwLb.FontSizeMax), 36f, 0.6f,
+                        CheckNear(sOwLb.FontSizeToPxNow(sOwLb.FontSizeMax, sOwLb.ActualFace), 36f, 0.6f,
                                   "★ A248：异画页 `Owned only` 字号 = 原版 **36**（卡牌页 32）");
-                        CheckNear(Label.FontSizeToPx(sOwLb.FontSizeMin), 10f, 0.6f,
+                        CheckNear(sOwLb.FontSizeToPxNow(sOwLb.FontSizeMin, sOwLb.ActualFace), 10f, 0.6f,
                                   "…自适应下界 = 原版 **10**（卡牌页 18）");
                         Check(sOwLb.WrappingMode, 0,
                               "…而折行**两页同档**（原版 `'Owned only' 折行=0`）—— 按页分的是**字号**、不是折行；"
@@ -10815,9 +10815,9 @@ public static class CollectionScene
                         var cInLb = cInT != null ? cInT.GetComponent<Label>() : null;
                         if (cInLb != null)
                         {
-                            CheckNear(Label.FontSizeToPx(cInLb.FontSizeMax), 30f, 0.6f,
+                            CheckNear(cInLb.FontSizeToPxNow(cInLb.FontSizeMax, cInLb.ActualFace), 30f, 0.6f,
                                       "★ **对照**：卡牌页搜索框仍是原版 **30**（把共用常量改成 35 ⇒ 这条红）");
-                            CheckNear(Label.FontSizeToPx(cInLb.FontSizeMin), 18f, 0.6f,
+                            CheckNear(cInLb.FontSizeToPxNow(cInLb.FontSizeMin, cInLb.ActualFace), 18f, 0.6f,
                                       "★ …下界仍是原版 **18**");
                             Check(cInLb.WrappingMode, 3,
                                   "★ **对照**：卡牌页搜索框**也是** `折行=3`（原版两页同档 —— 这条钉「折行没被按页分」）");
@@ -10828,9 +10828,9 @@ public static class CollectionScene
                         var cOwLb = cOwL != null ? cOwL.GetComponent<Label>() : null;
                         if (cOwLb != null)
                         {
-                            CheckNear(Label.FontSizeToPx(cOwLb.FontSizeMax), 32f, 0.6f,
+                            CheckNear(cOwLb.FontSizeToPxNow(cOwLb.FontSizeMax, cOwLb.ActualFace), 32f, 0.6f,
                                       "★ **对照**：卡牌页 `Owned only` 仍是原版 **32**（改成 36 ⇒ 这条红）");
-                            CheckNear(Label.FontSizeToPx(cOwLb.FontSizeMin), 18f, 0.6f,
+                            CheckNear(cOwLb.FontSizeToPxNow(cOwLb.FontSizeMin, cOwLb.ActualFace), 18f, 0.6f,
                                       "★ …下界仍是原版 **18**");
                         }
                         else CheckTrue(false, "（前提）卡牌页 `Owned only` 那一格的标签在");
@@ -13314,8 +13314,8 @@ public static class CollectionScene
                 CheckNear(win.WildcardShineRate, 0f, 1e-4f, "（收尾）重开又从 **0** 起"); win.tabButtons.Click(0);   // 复原：本节进来时是 Deck 页（同 `:12087` 的口径，不给后面的段留状态）
             }
 
-            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B107_W14_Assert.RunCollection(win); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B108A4_Assert.Run(); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; CheckUI21Measure(win); CheckB326Uv1(win); B117_WCOLL_Assert.Run(); _sink.Pass += B117_WCOLL_Assert.Pass; _sink.Fail += B117_WCOLL_Assert.Fail; B108A4_Assert.RunCollectionCloseScrolls(win); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; B117F14_Assert.Run(); _sink.Pass += B117F14_Assert.Pass; _sink.Fail += B117F14_Assert.Fail; B117_WPOPUP_Assert.Run(); _sink.Pass += B117_WPOPUP_Assert.Pass; _sink.Fail += B117_WPOPUP_Assert.Fail; B117_WCARD_Assert.Run(); _sink.Pass += B117_WCARD_Assert.Pass; _sink.Fail += B117_WCARD_Assert.Fail;   // 🆕 2026-11-02（调度台代接线 · B117-WWIREB）：收藏窗卡格几何 `B117_WCOLL`（**接在 `B108A4_Assert.RunCollectionCloseScrolls(win)` 之前** —— 那样 D 组才可能量到活窗；A/B/C 是纯几何、随时可跑，D 组无活窗 / 卡池没画时印「未验」并计入 `Unverified`，不静默）· 菜单详情窗卡档 `B117_WPOPUP` · 卡面字号/阴影/命中 `B117_WCARD`（**`B117_WCARD` 放最后** —— 它会临时 `Loc.PersistOverride = true` + `SetLanguage(Chinese)`，`finally` 还原）。同一物理行追加 ⇒ 行数零变化   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md ｜ 🆕 2026-10-31（B107_W27）：同一物理行再追加 `B107_W14_Assert.RunCollection(win)`（N84 关窗重开回初值；**必须排在所有筛选断言之后** —— 它会复位三份 static 筛选；判据 → 报告/B107_W14.md §四·1）
-            Q2_Assert.Run(); _sink.Pass += Q2_Assert.Pass; _sink.Fail += Q2_Assert.Fail; B110_F1_Assert.Run(); _sink.Pass += B110_F1_Assert.Pass; _sink.Fail += B110_F1_Assert.Fail; B110_F2_Assert.Run(); _sink.Pass += B110_F2_Assert.Pass; _sink.Fail += B110_F2_Assert.Fail; B111_S2_Assert.Run(); _sink.Pass += B111_S2_Assert.Pass; _sink.Fail += B111_S2_Assert.Fail; B112_G_Assert.Run(); _sink.Pass += B112_G_Assert.Pass; _sink.Fail += B112_G_Assert.Fail; B113_G3_Assert.Run(); _sink.Pass += B113_G3_Assert.Pass; _sink.Fail += B113_G3_Assert.Fail; B121_C1_Assert.Run(); _sink.Pass += B121_C1_Assert.Pass; _sink.Fail += B121_C1_Assert.Fail; B121_C2_Assert.Run(); _sink.Pass += B121_C2_Assert.Pass; _sink.Fail += B121_C2_Assert.Fail; B121_C3_Assert.Run(); _sink.Pass += B121_C3_Assert.Pass; _sink.Fail += B121_C3_Assert.Fail; B121_COLL16_Assert.Run(); _sink.Pass += B121_COLL16_Assert.Pass; _sink.Fail += B121_COLL16_Assert.Fail; B121_COLLFIX_Assert.Run(); _sink.Pass += B121_COLLFIX_Assert.Pass; _sink.Fail += B121_COLLFIX_Assert.Fail; B141W32_Assert.Run(); _sink.Pass += B141W32_Assert.Pass; _sink.Fail += B141W32_Assert.Fail; B141_W14_Assert.Run(); _sink.Pass += B141_W14_Assert.Pass; _sink.Fail += B141_W14_Assert.Fail; B141_W53_Assert.Run(win); _sink.Pass += B141_W53_Assert.Pass; _sink.Fail += B141_W53_Assert.Fail; int total = _sink.Pass + _sink.Fail + B121_C1_Assert.Unverified;   // 🆕 2026-11-04（B140_WG）：把 `B121_C1_Assert` 的「未验」并入宿主合计（原来只累加 Pass/Fail ⇒「未验」永不显形、静默；判据 → `判据/B140_对账_G3_界面与收藏.md` §二·2「附带缺陷」）
+            B97W6Assert.Run(win); _sink.Pass += B97W6Assert.Pass; _sink.Fail += B97W6Assert.Fail; B99W2Assert.Run(null, win); _sink.Pass += B99W2Assert.Pass; _sink.Fail += B99W2Assert.Fail; B103F5_Assert.Run(); _sink.Pass += B103F5_Assert.Pass; _sink.Fail += B103F5_Assert.Fail; B103F6_Assert.Run(); _sink.Pass += B103F6_Assert.Pass; _sink.Fail += B103F6_Assert.Fail; B104_P4_Assert.Run(); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B104_P4_Assert.RunUi(WindowsManager.Get()); _sink.Pass += B104_P4_Assert.Pass; _sink.Fail += B104_P4_Assert.Fail; B107_W14_Assert.RunCollection(win); _sink.Pass += B107_W14_Assert.Pass; _sink.Fail += B107_W14_Assert.Fail; B108A4_Assert.Run(); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; CheckUI21Measure(win); CheckB326Uv1(win); B117_WCOLL_Assert.Run(); _sink.Pass += B117_WCOLL_Assert.Pass; _sink.Fail += B117_WCOLL_Assert.Fail; B141_W53_Assert.Run(win); _sink.Pass += B141_W53_Assert.Pass; _sink.Fail += B141_W53_Assert.Fail; B108A4_Assert.RunCollectionCloseScrolls(win); _sink.Pass += B108A4_Assert.Pass; _sink.Fail += B108A4_Assert.Fail; B117F14_Assert.Run(); _sink.Pass += B117F14_Assert.Pass; _sink.Fail += B117F14_Assert.Fail; B117_WPOPUP_Assert.Run(); _sink.Pass += B117_WPOPUP_Assert.Pass; _sink.Fail += B117_WPOPUP_Assert.Fail; B117_WCARD_Assert.Run(); _sink.Pass += B117_WCARD_Assert.Pass; _sink.Fail += B117_WCARD_Assert.Fail;   // 🆕 2026-11-02（调度台代接线 · B117-WWIREB）：收藏窗卡格几何 `B117_WCOLL`（**接在 `B108A4_Assert.RunCollectionCloseScrolls(win)` 之前** —— 那样 D 组才可能量到活窗；A/B/C 是纯几何、随时可跑，D 组无活窗 / 卡池没画时印「未验」并计入 `Unverified`，不静默）· 菜单详情窗卡档 `B117_WPOPUP` · 卡面字号/阴影/命中 `B117_WCARD`（**`B117_WCARD` 放最后** —— 它会临时 `Loc.PersistOverride = true` + `SetLanguage(Chinese)`，`finally` 还原）。同一物理行追加 ⇒ 行数零变化   // 🆕 B97_W6：收藏窗卡池 ban 徽标（196.875px / 0.8×0.2 字框 / 默认关）；判据 → 判据/B97_藏卡ban徽标_施工单.md ｜ 🆕 2026-10-31（B107_W27）：同一物理行再追加 `B107_W14_Assert.RunCollection(win)`（N84 关窗重开回初值；**必须排在所有筛选断言之后** —— 它会复位三份 static 筛选；判据 → 报告/B107_W14.md §四·1）｜ 🆕 2026-11-05（`B150`）：`B141_W53_Assert.Run(win)` 从本节末尾**挪到本行**、排在 `B108A4_Assert.RunCollectionCloseScrolls(win)` **之前** —— 后者会真 `Close()` 三轮并让 `ReapClosedWindows` 销毁那台窗，之后传进去的 `win` 是 Unity 假 null（同一隐患的 `CheckB326Uv1(win)` 早已在本行更前面）
+            Q2_Assert.Run(); _sink.Pass += Q2_Assert.Pass; _sink.Fail += Q2_Assert.Fail; B110_F1_Assert.Run(); _sink.Pass += B110_F1_Assert.Pass; _sink.Fail += B110_F1_Assert.Fail; B110_F2_Assert.Run(); _sink.Pass += B110_F2_Assert.Pass; _sink.Fail += B110_F2_Assert.Fail; B111_S2_Assert.Run(); _sink.Pass += B111_S2_Assert.Pass; _sink.Fail += B111_S2_Assert.Fail; B112_G_Assert.Run(); _sink.Pass += B112_G_Assert.Pass; _sink.Fail += B112_G_Assert.Fail; B113_G3_Assert.Run(); _sink.Pass += B113_G3_Assert.Pass; _sink.Fail += B113_G3_Assert.Fail; B121_C1_Assert.Run(); _sink.Pass += B121_C1_Assert.Pass; _sink.Fail += B121_C1_Assert.Fail; B121_C2_Assert.Run(); _sink.Pass += B121_C2_Assert.Pass; _sink.Fail += B121_C2_Assert.Fail; B121_C3_Assert.Run(); _sink.Pass += B121_C3_Assert.Pass; _sink.Fail += B121_C3_Assert.Fail; B121_COLL16_Assert.Run(); _sink.Pass += B121_COLL16_Assert.Pass; _sink.Fail += B121_COLL16_Assert.Fail; B121_COLLFIX_Assert.Run(); _sink.Pass += B121_COLLFIX_Assert.Pass; _sink.Fail += B121_COLLFIX_Assert.Fail; B141W32_Assert.Run(); _sink.Pass += B141W32_Assert.Pass; _sink.Fail += B141W32_Assert.Fail; B141_W14_Assert.Run(); _sink.Pass += B141_W14_Assert.Pass; _sink.Fail += B141_W14_Assert.Fail; int total = _sink.Pass + _sink.Fail + B121_C1_Assert.Unverified;   // 🆕 2026-11-04（B140_WG）：把 `B121_C1_Assert` 的「未验」并入宿主合计（原来只累加 Pass/Fail ⇒「未验」永不显形、静默；判据 → `判据/B140_对账_G3_界面与收藏.md` §二·2「附带缺陷」）
             if (_sink.Fail == 0) Debug.Log(P + $"=== 结束：{_sink.Pass}/{total} 全过 ✅ ===" + (B121_C1_Assert.Unverified > 0 ? $"（另有**未验 {B121_C1_Assert.Unverified} 条**：单独计数、⛔ 不算通过也不算红 —— 见行首 `B121C1 … 未验`）" : ""));
             else
             {
@@ -13843,5 +13843,35 @@ public static class CollectionScene
             Debug.Log("[B124W43] D06." + tag + ".isActiveAndEnabled=" + (tmp != null && tmp.isActiveAndEnabled));
             Debug.Log("[B124W43] D06." + tag + ".pendingWrapApplied=" + (lb != null ? lb.PendingWrapAppliedCount : -1));
             Debug.Log("[B124W43] D06." + tag + ".found.tmp=" + (tmp != null) + " found.label=" + (lb != null));
+        }
+
+        // ============================================================ 🆕 2026-11-06（B150）存档快照助手
+        //  判据 → `资料/完全复刻/判据/B150_横切_断言直读存档.md` §四·2 / §四·3。
+        //  「自检有没有污染存档」必须量**产品这一趟真正的写口**（`SaveSandbox.Dir`：批处理 = 沙箱 / 注入 = 注入根 / 否则真根）
+        //  ＋ **真根旧档**（`SaveSandbox.Dir` 在「闸关掉」那一档）＋ **中央档**（`SaveCenter.PathOf`）。
+        //  ⛔ 别再只手拼 `SaveRoot.Path/<文件>` —— 批处理下产品根本不写那里，量它 = 前后都 null = 恒绿、零鉴别力。
+        //  🧨 改坏法（这条鉴别的就是它）：把 `_persist = false`（`ResetForTest`）丢掉、或把 `SaveSandbox` 那道闸拆掉
+        //     ⇒ 产品这一轮四次合成会落进上面三处之一 ⇒ 前后指纹不同 ⇒ 本条红。
+        static byte[] CraftSaveSnap(string sub, string key)
+        {
+            bool keep = SaveSandbox.DisableForTest;
+            string real;
+            try { SaveSandbox.DisableForTest = true; real = SaveSandbox.Dir(sub); }
+            finally { SaveSandbox.DisableForTest = keep; }
+            string a = B150FileStamp(SaveSandbox.Dir(sub)), b = B150FileStamp(real), c = B150FileStamp(SaveCenter.PathOf(key));
+            return System.Text.Encoding.UTF8.GetBytes(a + "|" + b + "|" + c);
+        }
+
+        /// <summary>一个文件的「内容指纹 + 字节数」；不存在 ⇒ `&lt;none&gt;`。</summary>
+        static string B150FileStamp(string path)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) return "<none>";
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                using (var fs = System.IO.File.OpenRead(path))
+                    return System.Convert.ToBase64String(sha.ComputeHash(fs)) + ":" + new System.IO.FileInfo(path).Length;
+            }
+            catch (System.Exception e) { return "<err:" + e.GetType().Name + ">"; }
         }
 }

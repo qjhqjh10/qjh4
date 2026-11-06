@@ -8,6 +8,11 @@
 > ① **三个族里真正「在用且还缺东西」的只有 Gargoyle Swarm 这一组**（1 VFX 资产 + 3 内核 + 1 材质 + 2 Texture3D）；
 >    **Aeldari Portal / Dust 两套原版 VFX 资产、13 个内核、5 个输出材质早就在工程里**，卡在**没有 `com.unity.visualeffectgraph` 包**
 >    ＋**5 个输出材质的 shader 悬空没有材质级重绑**（后者是本轮新查出来的）。
+>
+> ⚠️ **2026-11-05 更正（铁律 5，两句都已过期）**：
+> · 原来写「**缺 3 个 Gargoyle Swarm 内核**」—— **实际是 16 份 ComputeShader 全在工程里**，其中正是 `_Gargoyle Swarm_ _System_ {Initialize Particle, Update Particle, OutputUpdate}` 三份（现读：`MyGame/Assets/WarpforgeVFX/ArenaOriginalPrefabs/_shared/*.asset`，`find Assets -name '*.asset'` 后按首对象 `--- !u!72` 筛出 16 份）。错因 = 本表成文时还没拷进来，之后没人回来改这一行。
+> · 原来写「**没有 `com.unity.visualeffectgraph` 包**（manifest / packages-lock / PackageCache 三处 0 命中）」—— **实际三处都有**：`MyGame/Packages/manifest.json:12` = `"com.unity.visualeffectgraph": "17.3.0"` · `packages-lock.json:178` 有条目 · `Library/PackageCache/com.unity.visualeffectgraph@b7de1dc238bb/` 在。错因 = 同上（本表写完之后才装的包）。
+> · 另：`Gargoyle Swarm` 这份 VisualEffectAsset **工程内已有**（`MyGame/Assets/WarpforgeVFX/ArenaOriginalPrefabs/_shared/Gargoyle Swarm.asset`，19,474 B，首对象 `--- !u!2058629509`）—— 本表 §二「在用·缺（工程内没有）」那一格也已不成立。
 > ② **Shader 这一族 0 缺口**：**有具体消费者（效果 prefab / 战场材质表 / 代码按名取件）的 107 件 / 90 个名字，100% 都能从随包 bundle 取到原件**；
 >    剩下的是「随包备用」「引擎自带」「第三方只登记在 GraphicsSettings」「原版菜单材质我们没消费」四类，
 >    **没有一件是「要在用但没得用」**。
@@ -41,7 +46,7 @@
 | 分档 | 数量 | 明细 |
 |---|---:|---|
 | **在用·VFX Graph 内核（工程内）** | **13** | Aeldari Portal 10 + Aeldari Dust 3，`!u!72 ComputeShader` 资产都在 `Assets/WarpforgeVFX/ArenaOriginalPrefabs/` |
-| **在用·缺（VFX Graph 内核未导入）** | **3** | `[Gargoyle Swarm] {OutputUpdate, Initialize Particle, Update Particle}` |
+| **在用·缺（VFX Graph 内核未导入）** | **0** | ⚠️ **2026-11-05 更正：原写 3，实际 0** —— 16 份 ComputeShader 全在工程里，这 3 份 `[Gargoyle Swarm] {OutputUpdate, Initialize Particle, Update Particle}` 在其中（`WarpforgeVFX/ArenaOriginalPrefabs/_shared/*.asset`，首对象 `--- !u!72`）。错因 = 成文时未拷入、之后未回改 |
 | 不用·引擎/包自带 | 8 | VFX 包内部件 5（`VFXCopyBuffer` · `VFXPrefixSum` · `VFXFillIndirectArgs` · `UpdateStrips` · `Sort`）＋ URP/Core 2（`VrsTexture` · `ProbeVolumeSamplingDebugPositionNormal`，**PackageCache 实证在 URP/Core 包里**）＋ `GenSdfRayMap`（SDF 生成，包内件，本机两包都没搜到 → 随 VFX/URP 版本来） |
 | 合计 | 24 | **「16」= 13 在工程内 + 3 缺**（= 三套 VFX 的全部内核） |
 
@@ -50,7 +55,7 @@
 | 分档 | 数量 | 明细 |
 |---|---:|---|
 | **在用·原版资产已导入并接线** | 2 | `Aeldari Portal`（9 system）· `Aeldari Dust`（2 system）—— `.asset` + 内核 + 输出材质齐，且**已接进** `battlearenaaeldari__Scenario.prefab` / `battlearenaleviathan__Scenario.prefab` |
-| **在用·缺（工程内没有）** | 1 | `Gargoyle Swarm`（2 system）—— 9 件本地可取，施工单已存在 |
+| **在用·缺（工程内没有）** | **0** | ⚠️ **2026-11-05 更正：原写 1（`Gargoyle Swarm`，2 system），实际工程内已有** —— `WarpforgeVFX/ArenaOriginalPrefabs/_shared/Gargoyle Swarm.asset`（19,474 B，首对象 `--- !u!2058629509`）。剩余的是**接线**（4 处 `m_Asset` 空 guid + 2 个 `Texture3D` + 输出 shader），不是资产本身 |
 
 ---
 
@@ -58,7 +63,7 @@
 
 | 资产 | 类型 | 原版引用链（实数） | 我们工程里 | 定性 | 还缺什么 |
 |---|---|---|---|---|---|
-| **Aeldari Portal** | VisualEffectAsset | 原版 `GameObject/Aeldari Portal VFX`（battleprefabs 包）＋ `battlearenaaeldari` 场景；R4 记 6 个引用者 | `battlearenaaeldari/Aeldari Portal.asset`（48,587 B）+ **10 个内核 `.asset`**（33–134 KB）+ **4 个输出材质 `.mat`**；`VisualEffect` 已接在 Scenario prefab（`:58401/:58512`） | **在用·已导入** | ① `com.unity.visualeffectgraph` **没装**（manifest / packages-lock / PackageCache 三处 0 命中）⇒ `VisualEffect` 组件在本工程里是「缺脚本」的静默不播（属 **A0 判定**：装包 vs 改 ParticleSystem 兜底）；② **5 个输出材质的 `m_Shader` 悬空**（guid 指向原版 shader，工程里没有这个 guid）——现有重绑器只走 **`GetComponentsInChildren<Renderer>`**（`ArenaOriginalShaderRebind.cs:135/179`），**碰不到 VFX 资产引用的材质** ⇒ 就算装了包也渲不出正确外观（见 §七·1） |
+| **Aeldari Portal** | VisualEffectAsset | 原版 `GameObject/Aeldari Portal VFX`（battleprefabs 包）＋ `battlearenaaeldari` 场景；R4 记 6 个引用者 | `battlearenaaeldari/Aeldari Portal.asset`（48,587 B）+ **10 个内核 `.asset`**（33–134 KB）+ **4 个输出材质 `.mat`**；`VisualEffect` 已接在 Scenario prefab（`:58401/:58512`） | **在用·已导入** | ① `com.unity.visualeffectgraph` **没装**（manifest / packages-lock / PackageCache 三处 0 命中）⇒ ⚠️ **2026-11-05 更正：这一句不成立 —— 实际三处都有**（`MyGame/Packages/manifest.json:12` = `17.3.0` · `packages-lock.json:178` 有条目 · `Library/PackageCache/com.unity.visualeffectgraph@b7de1dc238bb/` 在）；错因 = 成文后才装的包、之后未回改本条。原意仍成立的部分 = `VisualEffect` 组件是否真的恢复渲染**尚未验过**（要起 Unity，属 **A0 判定**）；② **5 个输出材质的 `m_Shader` 悬空**（guid 指向原版 shader，工程里没有这个 guid）——现有重绑器只走 **`GetComponentsInChildren<Renderer>`**（`ArenaOriginalShaderRebind.cs:135/179`），**碰不到 VFX 资产引用的材质** ⇒ 就算装了包也渲不出正确外观（见 §七·1） |
 | **Aeldari Dust** | VisualEffectAsset | `battlearenaaeldari` 场景（`VisualEffect_3557`）；R4 记 6 个引用者 | `_shared/Aeldari Dust.asset`（20,386 B）+ **3 个内核 `.asset`** + **1 个输出材质**；接在 Aeldari + Leviathan 两个 Scenario prefab | **在用·已导入** | 同上两条（包 + 材质级 shader 重绑） |
 | **Gargoyle Swarm** | VisualEffectAsset | 原版 3 个 `VisualEffect` 组件：`GameObject/{Gargoyle Swarm Near, Mid, Far}`（battleprefabs 包）→ 落进 `EnvironmentalCondition Leviathan Sweeping Infestation.prefab` 三处；另 `Saim Hann Infinity Circuit Overload.prefab` 一处指向的是 **Aeldari Portal**，同样空 guid | ❌ 工程内 0 命中 | **在用·缺** | **9 件本地全部可取**：VFX 资产（19,474 B）· 3 内核（71,892 B 等）· 输出材质（803 B）· 2 个 `Texture3D`（SDF 31×31×64 · vectorfield 64³）· `40k_battle_fx_gargoyle.png` · 输出 shader（EP 那份 772 B 是 **Dummy**，⛔ 别直拷）。施工单 → `报告/B101_R3_资源接线施工单.md` §B；4 处 `m_Asset` 空的修法照同报告 B-4，但**它给的三个行号已漂**（`44011/80002/80129`）—— 我现读 = Leviathan `:34305 / :44178 / :83372`（3 处 guid 全 0）、Saim Hann `:168211`（1 处，指向 **Aeldari Portal** 的 pid） |
 
@@ -70,7 +75,7 @@
 ### 4·1 16 个 VFX Graph 内核
 
 | 内核（原版名） | 套 | 工程内？ | 内核名 / 线程组 | 参数表（CB）可读？ |
-|---|---|---|:--:|---|---|
+|---|---|:--:|---|---|
 | `[Aeldari Portal] [System] Initialize Particle` | Portal | ✅ `.asset` | CSMain / 64·1·1 | ✅ |
 | `[Aeldari Portal] [System] Update Particle` | Portal | ✅ | CSMain / 64·1·1 | ✅ |
 | `[Aeldari Portal] [System (1)] Initialize Particle` | Portal | ✅ | CSMain | ✅ |

@@ -60,14 +60,18 @@ public static class B141_W9b_Assert
         if (ally == null || enemy == null) return;
 
         // 两条「付费组首」op：group1 打敌人 · group2 打自己人（**目标不同**才验得出「各算各的」）
+        // ✅ 已复刻（2026-11-05 · B150 · ⚠️ `CostKind` 缺省是 null ⇒ `CostKindOf` 返回 "" ⇒ 按**能量**付
+        //   （`EffectResolver.cs:914` → `CostPrefixPayable` 的 `ps.Energy`），而夹具只给了 `Faith`
+        //   ⇒ 单组付不起就整组跳过、且只有 `CostShared` 跟随者才出声（静默 0）。原版带 ≥2 付费组的
+        //   只有 SOR27/SOR68/SOR44 三张、**全是 faith**（`EffectResolver.cs:715-717`）⇒ 标 `faith` 才是原版语义。
         var g1 = new EffectOp
         {
-            Verb = "deal", Amount = 2, AmountMax = 2, Cost = 2, Source = "A-g1",
+            Verb = "deal", Amount = 2, AmountMax = 2, Cost = 2, CostKind = "faith", Source = "A-g1",
             Target = new EffectTargetSpec { Side = "enemy", Kind = "troop", Count = 1 },
         };
         var g2 = new EffectOp
         {
-            Verb = "deal", Amount = 2, AmountMax = 2, Cost = 4, Source = "A-g2",
+            Verb = "deal", Amount = 2, AmountMax = 2, Cost = 4, CostKind = "faith", Source = "A-g2",
             Target = new EffectTargetSpec { Side = "own", Kind = "troop", Count = 1 },
         };
         var ops = new List<EffectOp> { g1, g2 };

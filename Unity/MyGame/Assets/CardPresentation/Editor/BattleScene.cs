@@ -6374,7 +6374,7 @@ public static class BattleScene
                 Check(hv != null, "手牌第 1 张拿得到视图（验高亮缩放用）");
                 if (hv != null)
                 {
-                    float s0 = hv.transform.localScale.x;
+                    float s0 = hv.transform.localScale.x; var st0 = hv.State;   // 🔴 2026-11-05 `B150` 补：#1 —— 记下**进来时**的状态（= `RefreshHandPlayable` 按「打不打得出去」写的那一格），收尾要**还原它**，⛔ 不能写死 `Normal`
                     hv.SetHighlight(CardHighlightState.Hover);
                     Step(0.02f);                                   // 补间刚起步
                     float sMid = hv.transform.localScale.x;
@@ -6384,7 +6384,7 @@ public static class BattleScene
                           $"高亮放大**是补间**（t=0.02s 时 {sMid:F4}，介于 {s0:F4} 与 {s0 * CardHighlight.ScaleFactor:F4} 之间）");
                     Check(Mathf.Abs(s1 - s0 * CardHighlight.ScaleFactor) < 1e-3f,
                           $"高亮到位 = 基础缩放 × {CardHighlight.ScaleFactor}（{s1:F4}）");
-                    hv.SetHighlight(CardHighlightState.Normal);
+                    hv.SetHighlight(st0);                         // 🔴 2026-11-05 `B150` 补：#1 —— **还原**进来时的状态（原来写死 `Normal`）。判据：`CardView.SetHighlight` **不碰** `_Outline`（原版 `ChangeState(regular)` 同样不碰），而 `_outlineTarget` 的唯一写口 `RefreshHandPlayable` 是拿**同一个** `playable` 同时喂 `SetHighlight` 与 `SetOutline` ⇒ 夹具把 `State` 改成 `Normal` 之后，下面那条 ⑦ 会拿「State=Normal ⇒ 该亮」去比「描边仍是 `RefreshHandPlayable` 按真实可打出性写的 alpha」—— 手牌第 1 张不可打出时**必然假红**（`[0]Normal/灭`）
                     Step(CardHighlight.AnimTime + 0.05f);
                     Check(Mathf.Abs(hv.transform.localScale.x - s0) < 1e-3f,
                           $"取消高亮回到 {s0:F4}（`localScale` 与布局不打架）");
@@ -6417,8 +6417,8 @@ public static class BattleScene
 
             int dragIdx = -1;
             for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
-                if (ctx.Players[0].Hand[i].Card.Cost <= ctx.Players[0].Energy) { dragIdx = i; break; }
-
+                if (ctx.Players[0].Hand[i].Card.IsUnit && ctx.Players[0].Hand[i].Card.Targeted != 1 && ctx.Players[0].Hand[i].Card.Cost <= ctx.Players[0].Energy) { dragIdx = i; break; }   // 🔴 2026-11-06 `B150`：条件补齐 `IsUnit && Targeted != 1` —— 拖上场要求「落地即进棋盘」（`targeted` 卡会进等目标态、战术卡不落格），只按费用挑会随洗牌换成验不了的那一档
+            if (dragIdx < 0) { var cheapDef = new RuleEngine.CardDef("SelfTestCheapDrag", "SelfTestCheapDrag", "unit", "", "common", "Test", 1, 1, 3, 0, null, targeted: 0); ctx.Players[0].Energy = Mathf.Max(ctx.Players[0].Energy, 1); ctx.Players[0].Hand.Add(ctx.NewInstance(cheapDef)); driver.RefreshAll(); Step(0.05f); dragIdx = ctx.Players[0].Hand.Count - 1; Debug.Log(P + "   （注入夹具卡 `SelfTestCheapDrag`：手牌里凑不出「付得起 + 非 targeted 的单位卡」）"); } Check(dragIdx >= 0 && driver.HandViewAt(dragIdx) != null, $"（前提）拖拽夹具就位：手牌第 {dragIdx} 张是**付得起、非 `targeted` 的单位卡**，视图也在 —— 🔴 2026-11-06 `B150`：起手有没有这种牌**取决于洗牌结果**，凑不出就注入夹具卡（同 `:16307` 的范式），⛔ 不再落回 `if` 静默跳过整段拖拽");
             if (dragIdx >= 0)
             {
                 // 🔴🆕 2026-10-22（`W63·审查-右键hover`）：**右键按着 ⇒ 悬停/起拖/拖拽三个入口都必须早退**
@@ -7265,7 +7265,7 @@ public static class BattleScene
         int pricey = -1;
         for (int i = 0; i < ctx.Players[0].Hand.Count; i++)
             if (ctx.Players[0].Hand[i].Card.Cost > ctx.Players[0].Energy) { pricey = i; break; }
-        if (pricey >= 0)
+        bool priceyInjected = false; if (pricey < 0) { var priceyDef = new RuleEngine.CardDef("SelfTestPriceyCard", "SelfTestPriceyCard", "unit", "", "common", "Test", ctx.Players[0].Energy + 9, 1, 3, 0, null, targeted: 0); ctx.Players[0].Hand.Add(ctx.NewInstance(priceyDef)); driver.RefreshAll(); Step(0.05f); pricey = ctx.Players[0].Hand.Count - 1; priceyInjected = true; } Check(pricey >= 0, "（前提）手里有一张**付不起**的牌 —— 🔴 2026-11-06 `B150`：起手全都付得起时原来只打一行「跳过」⇒ **费用拒绝这条一次都没验过**，而且「有没有付不起的牌」取决于洗牌结果；现在凑不出就**注入一张高费夹具卡**（同 `:16307` 的范式，用完摘掉还原）"); if (pricey >= 0)
         {
             int code = RuleCore.CanPlayCard(ctx, 0, pricey, 1);
             Check(code == RuleCodes.ErrCost,
@@ -7273,7 +7273,7 @@ public static class BattleScene
                 + $"在 {ctx.Players[0].Energy} 能时被拒绝（{RuleCodes.Describe(code)}）");
         }
         else Debug.Log(P + "   （这局起手都付得起，跳过费用拒绝用例）");
-
+        if (priceyInjected) { ctx.Players[0].Hand.RemoveAt(ctx.Players[0].Hand.Count - 1); driver.RefreshAll(); Step(0.05f); }   // 🔴 2026-11-06 `B150`：注入的高费夹具卡用完**摘掉还原**（后面几节按真实手牌继续跑）
         // ---- 3b. 🆕 2026-10-18（`A985⑧`）：**引擎码 → 给玩家看的那一句** ----
         //   `BattleDriver.HintForCode(rc)`：`RuleCodes.TermKey(rc)` **非 null 且 `Loc.HasEntry(那个键)`**
         //   ⇒ `Loc.T(键)`（原版词条）；**其余**（无键 / 键不在表里）⇒ `RuleCodes.Describe(rc)`
@@ -15413,13 +15413,13 @@ public static class BattleScene
                 // ---- 语音按钮（原版 `Voices Over Button`，`x[1650.0,1738.7] y[945.5,1034.2]`）----
                 // 位置/大小来自权威表；点它播**正在展示那张卡**的单位语音（`VoiceLines`）
                 var voiceWorld = new Vector3((1694.35f - 960f) / EndPanel.PxPerUnit,
-                                             (540f - 989.85f) / EndPanel.PxPerUnit, 0f);
+                                             (540f - 989.85f) / EndPanel.PxPerUnit, 0f); CardDef vcDef = null; { var vcPool = CardDatabase.Load(); if (vcPool != null) foreach (var vc in vcPool) { if (vc != null && CardButtons.HasVoice(vc)) { vcDef = vc; break; } } } var dPrevVoice = cdw.Card.Data; var defPrevVoice = cdw.FrontDef; Check(vcDef != null, "（前提·不静默）卡池里有一张**带单位语音**的卡 —— 否则「语音钮算命中」验不到：`RefreshButtons` 按 `CardButtons.HasVoice` 关钮、`HitVoice` 第一句就挡未激活；🔴 2026-11-05 `B150` 补：#2 —— 原来展示的是手牌第 1 张，洗牌契约一变它可能是一张**没有单位语音的变身卡**（`battle.log:700995` 实得 `TRANSFORM_Ultramarines`）"); if (vcDef != null) { cdw.Show(BattleDriver.ToCardData(vcDef, vcDef.Faction), vcDef); CardTween.Advance(CardFan.OpenTime + 0.05f); }
                 Check(cdw.HitVoice(voiceWorld), "★ 语音按钮**算命中**（原版那个 88.66² 的圆钮位置）");
-                Check(!cdw.HitVoice(Vector3.zero), "★ 屏幕正中**不算**（不会到处都是按钮）");
-                cdw.PlayVoice();
-                Check(cdw.LastVoiceFile != null || !VoiceLines.Has(h0.Id),
-                      $"★ 点语音按钮 → 播了「{cdw.LastVoiceFile}」"
-                      + "（这张卡没有语音时**明说**、不静默 —— 判据是 `VoiceLines.Has`）");
+                Check(!cdw.HitVoice(Vector3.zero), "★ 屏幕正中**不算**（不会到处都是按钮）"); if (vcDef != null) { cdw.Show(dPrevVoice, defPrevVoice); CardTween.Advance(CardFan.OpenTime + 0.05f); }   // 🔴 2026-11-05 `B150` 补：#2 —— **还原**成进来时那张；🔴 2026-11-06 `B150` 就地订正：本行原来那句「下面 `PlayVoice` / `LastVoiceFile` 仍按它原来的口径断、⛔ 别把这条也改成语音卡」**已不成立** —— 下一行已改成「按内容选卡」（窗里那张本来就有语音就用它，没有就换成 `vcDef`），只是 `PlayVoiceCore` 那两跳（`VoiceLines.Clip` + `_voiceAudio`）仍不硬断
+                bool shownHasVoice = CardButtons.HasVoice(dPrevVoice); if (!shownHasVoice && vcDef != null) { cdw.Show(BattleDriver.ToCardData(vcDef, vcDef.Faction), vcDef); CardTween.Advance(CardFan.OpenTime + 0.05f); } cdw.PlayVoice();   // 🔴 2026-11-06 `B150` 补：**按内容选卡** —— 窗里那张本来就有语音就照旧用它；没有（洗牌换人时会碰上）就换成卡池里那张一定有语音的（`vcDef`），⛔ 不再让这条按「手牌第 1 张有没有语音」决定验不验
+                Check(cdw.LastVoiceFile != null,
+                      $"★ 点语音按钮 → 播了「{cdw.LastVoiceFile}」" + (shownHasVoice ? "（展示的是**本来就有语音**的那张）" : $"（展示的这张没有语音 ⇒ 换成卡池里带语音的「{(vcDef != null ? vcDef.Name : "<无>")}」）")
+                      + "；🔴 2026-11-06 `B150`：原来写成 `LastVoiceFile != null || !VoiceLines.Has(h0.Id)` ⇒ 洗牌抽出没语音的卡时这条**恒绿**（等于没验），现在改成硬断「有语音的卡 ⇒ 必须播」"); if (!shownHasVoice && vcDef != null) { cdw.Show(dPrevVoice, defPrevVoice); CardTween.Advance(CardFan.OpenTime + 0.05f); }   // 还原成进来时那张
 
                 // ---- 相关卡那一叠 + 换位：**换一张一定有相关卡的卡再验一遍** ----
                 // 上面那张手牌常常一张相关卡都没有（`SlotCount == 1`）⇒ 扇形/换位/命中那几条会整段跳过。
@@ -19072,7 +19072,7 @@ public static class BattleScene
                         Step(BattleDriver.TurnHeadsUpHold + 0.3f);
                     }
                 }
-                Check(ready, $"试了几个种子之后，「{pickT.Name}」到手且付得起（第 {cT.Turn} 回合）");
+                if (!ready && cT != null && pickT != null) { cT.Players[0].Hand.Add(cT.NewInstance(pickT)); cT.Players[0].Energy = Mathf.Max(cT.Players[0].Energy, pickT.Cost); driver.RefreshAll(); Step(0.05f); tacIdx = cT.Players[0].Hand.Count - 1; ready = true; Debug.Log(P + "   （注入夹具卡「" + pickT.Name + "」：8 个种子 × 14 回合都没摸到 —— 🔴 2026-11-06 `B150`：摸不摸得到**取决于洗牌结果**，夹具只负责「手上有这张战术卡且付得起」，本条要验的是打出它的链路）"); } Check(ready, $"「{pickT.Name}」到手且付得起（第 {cT.Turn} 回合；摸不到就注入夹具卡 —— ⛔ 不再按洗牌结果红在夹具上）");
 
                 if (ready)
                 {
@@ -23897,12 +23897,12 @@ public static class BattleScene
                             + (meleeSameHit ? "（⚠️ 本条跳过：近战逐卡件与命中件同名，计数天然是 2）" : "")
                             + "｜🧨 `PlaySignal` 里 `Hit` 的粒子播回去 ⇒ 2 次 ⇒ 红");
                     }
-                    Check(drv.LastPop != null, "⑤ 数值过渡：伤害数值飘出来了（伤害结算那一拍）");
+                    Check(drv.LastPop != null, "⑤ 数值过渡：伤害数值飘出来了（伤害结算那一拍）"); Label popVictim = FindDamagePopNear(drv, eBoard.DropTargetWorld(victim) + drv.PopOffsetWorldFor(1), 1f); Check(popVictim != null, "（前提·不静默）受击那张卡上有一颗伤害飘字 —— 按 `PopDamageIcon` 子件在期望点 1 世界单位内找（`1` = 下面 `popSeat` 那一格）。找不到 ⇒ 下面「飘在挨打那张卡上」与文本/alpha 那几条等于没验｜🔴 2026-11-05（B150 批 1）：`EventTiming` 把 `Retaliation` 改成与受方伤害**同拍**（`Core/EventTiming.cs:443`）之后，同一次近战会**同一拍**建两颗飘字（受击方 + 攻方反击），`drv.LastPop` 只剩**最后那一颗**（= 打攻方的）⇒ ⛔ 不能拿它当受击方的飘字"); Label pop = popVictim != null ? popVictim : drv.LastPop;
                     if (drv.LastPop != null)
                     {
-                        Debug.Log(P + $"   飘字：「{drv.LastPop.Text}」");
-                        BattleEvent hitPopEv = null; for (int hpi = drv.LastSignals.Count - 1; hpi >= 0; hpi--) { var hpe = drv.LastSignals[hpi]; if (hpe != null && hpe.Kind == EvtKind.Hit && hpe.Amount != 0) { hitPopEv = hpe; break; } } Check(hitPopEv != null, "（前提）伤害结算这一拍真有一条 `Hit` 信号（拿它的 `Amount` 当期望值，⛔ 不从飘字反推）"); if (hitPopEv != null) Check(drv.LastPop.Text == hitPopEv.Amount.ToString(), $"……文本 = `Hit.Amount` 的 **`Int32.ToString()`**（**有符号**：负数就印 `-N`，⛔ 不加 `-`/`+` 前缀、⛔ 不 `Abs`；判据 `decomp_full/CardDamageCounterController__DamageReceived.c:9-15` 的 `undefined4 → System_Int32__ToString` 直塞）—— 事件 Amount={hitPopEv.Amount} ⇒ 期望「{hitPopEv.Amount}」，实得「{drv.LastPop.Text}」｜🧨 改回旧实现 `\"-\" + Mathf.Abs(amount)` ⇒ 正伤害印成 `-N` ⇒ 红");
-                        Check(drv.LastPop.color.a > 0.05f, $"……而且开始显影了（alpha {drv.LastPop.color.a:F2}）");
+                        Debug.Log(P + $"   飘字：「{pop.Text}」");
+                        BattleEvent hitPopEv = null; for (int hpi = drv.LastSignals.Count - 1; hpi >= 0; hpi--) { var hpe = drv.LastSignals[hpi]; if (hpe != null && hpe.Kind == EvtKind.Hit && hpe.Amount != 0 && hpe.Player == 1 && hpe.Slot == victim) { hitPopEv = hpe; break; } } Check(hitPopEv != null, "（前提）伤害结算这一拍真有一条**打受击方（座位 1 · 槽 `victim`）**的 `Hit` 信号（拿它的 `Amount` 当期望值，⛔ 不从飘字反推；🔴 2026-11-05 `B150` 批 1：反击那条 `Hit` 打的是**攻方**、⛔ 别拿 LastSignals 里最后那条）"); if (hitPopEv != null) Check(pop.Text == hitPopEv.Amount.ToString(), $"……文本 = `Hit.Amount` 的 **`Int32.ToString()`**（**有符号**：负数就印 `-N`，⛔ 不加 `-`/`+` 前缀、⛔ 不 `Abs`；判据 `decomp_full/CardDamageCounterController__DamageReceived.c:9-15` 的 `undefined4 → System_Int32__ToString` 直塞）—— 事件 Amount={hitPopEv.Amount} ⇒ 期望「{hitPopEv.Amount}」，实得「{pop.Text}」｜🧨 改回旧实现 `\"-\" + Mathf.Abs(amount)` ⇒ 正伤害印成 `-N` ⇒ 红");
+                        Check(pop.color.a > 0.05f, $"……而且开始显影了（alpha {pop.color.a:F2}）");
                         // ⚠️ 位置也要断言：飘字挂在驱动层自己的节点下，父节点一旦不在原点，
                         //    它会飘到别的地方去（而**截图上看不出来** —— 那一下 alpha 才 0.17、还被烟盖着）
                         // 🔴 **2026-10-11（A359）：靶换成 `DropTargetWorld`** —— 与 `BattleDriver.PlayHitFeel`
@@ -23918,10 +23918,10 @@ public static class BattleScene
                         //   断言还在拿未缩放的 `PopOffset` 比 ⇒ 差值 `0.0929 × |PopOffset| = 0.0532`（日志逐位吻合）。
                         //   ⚠️ 受击者由 `FreeSlot(drv.Ctx, 1)` 摆出 ⇒ **座位 = 1**（`popFoe = true` 那一档）。
                         const int popSeat = 1;
-                        var popAt = popBase + drv.PopOffsetWorldFor(popSeat);
-                        float dPop = new Vector2(drv.LastPop.transform.position.x - popAt.x,
-                                                 drv.LastPop.transform.position.y - popAt.y).magnitude;
-                        Check(dPop < 0.05f && drv.LastPop.transform.position.y > popBase.y,
+                        var popAt = popBase + drv.PopOffsetWorldFor(popSeat);   // `popVictim` / `pop` 已在上面 ⑤ 那一行取好（判据见那一条）
+                        float dPop = new Vector2(pop.transform.position.x - popAt.x,
+                                                 pop.transform.position.y - popAt.y).magnitude;
+                        Check(dPop < 0.05f && pop.transform.position.y > popBase.y,
                               $"……而且飘在**挨打那张卡上**（基准 = 那一格的 3D 投影点，偏差 {dPop:F4} 世界单位、在上方）");
                         // 🔴🆕 **2026-10-22（`W63` · C）：血痕/飘字的【高度】用**卡身几何**量 —— 上面那条是自证。**
                         //   上面那条比的是「飘字 vs `DropTargetWorld + 驱动自己的 PopOffset`」，
@@ -23964,7 +23964,7 @@ public static class BattleScene
                                 var hudTop = HudOf(botW + Vector3.up * cardHWorld);
                                 float cardHHud = Mathf.Abs(hudTop.y - hudBot.y);
                                 float cardMidY = (hudTop.y + hudBot.y) * 0.5f;
-                                float popY = drv.LastPop.transform.position.y;
+                                float popY = pop.transform.position.y;
                                 Check(cardHHud > 0.2f,
                                       $"（前提）卡身投影高度 {cardHHud:F3} HUD 单位（>0.2 才算量到了卡体；"
                                     + "卡底取 `body3D` 网格包围盒、卡身高取 `CardView.Height × 卡根缩放`）");
@@ -23976,7 +23976,7 @@ public static class BattleScene
                                     + "｜🧨 `PopOffset.y` 改回旧的 `CardFeel.ToOurs(0.35)`(0.5903) ⇒ 飘到卡身上部 ⇒ 红");
                                 // 血痕是飘字的**子件**（`PopNumber` 里 `PopDamageIcon`，局部 y −0.104 卡单位）
                                 // ⇒ 它的世界 y 也要落在卡身里（原版它挂在 `DamageCounter` 下、就在那儿）。
-                                var dmgIcon = drv.LastPop.transform.Find("PopDamageIcon");
+                                var dmgIcon = pop.transform.Find("PopDamageIcon");
                                 Check(dmgIcon != null, "（前提·不静默）飘字底下那颗 `PopDamageIcon`（血痕）在 —— 否则「血痕也落在卡身区间里」验不到");
                                 if (dmgIcon != null)
                                 {
@@ -24013,8 +24013,8 @@ public static class BattleScene
                                 + $"（{baseSep:F4} 世界单位）—— 否则下面那条「不是落在 2D 行线上」无从区分"
                                 + "｜🧨 `DropTargetWorld` 退回 `SlotPosition` ⇒ 本条红");
                             var linePop = lineBase + drv.PopOffsetWorldFor(popSeat);
-                            float dLinePop = new Vector2(drv.LastPop.transform.position.x - linePop.x,
-                                                         drv.LastPop.transform.position.y - linePop.y).magnitude;
+                            float dLinePop = new Vector2(pop.transform.position.x - linePop.x,
+                                                         pop.transform.position.y - linePop.y).magnitude;
                             Check(dLinePop > Mathf.Max(0.005f, baseSep * 0.5f),
                                   $"★ ……而且**不是**落在 2D 行线上（离 `SlotPosition` 基准 {dLinePop:F4} 世界单位 ·"
                                 + $" 两个基准相距 {baseSep:F4} · 飘字离 3D 基准 {dPop:F4}）"
@@ -24065,7 +24065,7 @@ public static class BattleScene
                     //    我们上一版 `.gd:4310` 那条「近战击杀免反」的修正记录，由此降为**旁证**。
                     //    ⇒ 目标死了也照样反击，反击是一次真伤害、要占 `EventTiming.DurationOf(Hit)`
                     //      （原版 `WaitForSeconds(1.0)` ⇒ `EventTiming.HitWaitSeconds`；⛔ 别在这里写死数）。
-                    //    **不再写死**：按事件表推出的时刻 = 命中那一刻 + 两次 Hit 的时长 + DeathHold。
+                    //    **不再写死**：按事件表推出的时刻 = 伤害结算那一刻 + **受方那条 `Hit` 的时长**。🔴 **2026-11-05（`B150` 批 1）就地订正（铁律 5）**：原来写「+ **两次** `Hit` 的时长（挨打 + 目标的反击）」—— 那是「两条 `Hit` 串行」的旧口径；`Core/EventTiming.cs:443` 本轮把 `Retaliation` 改成与受方伤害**同拍**（`return -DurationOf(prev)`，判据 `_ResolveAttack_d__438:988-1001,1114-1152`：受方 `ReceiveDamage` 不 `yield`）⇒ 时间线现读是 `Hit(P2) · Retaliation · Hit(P1)` **同一时刻**、`Death` 在它们之后一拍（实测 `[probe] 时间线` = `@369.55 Hit/Retaliation/Hit` → `@370.55 Death`）⇒ 再写 `2f ×` 会把阵亡时刻**多推 1.0 s**，推到那个点时整条阵亡链（0.7 s）早已走完。
                     //    （下次谁动了 `EventTiming`，这条会自己跟上，不会再变成一条骗人的断言。）
                     //    🔴 **2026-09-18 再改：那个 `0.85f` 也是个写死的数** —— 它 = 抬刀 0.2 + **旧的出手 0.65**。
                     //       出手时长按原版改成 `attackStepTime`(0.10) 之后它就不对了
@@ -24076,7 +24076,7 @@ public static class BattleScene
                     //       **出手 → 伤害结算** 现在是 `EventTiming.MeleeDamageLag`（整条近战动画 0.4 s）。
                     float deathAt = EventTiming.AttackWindUp                        // 抬刀
                                   + EventTiming.MeleeDamageLag                      // 出手 → 伤害结算（近战 0.4）
-                                  + 2f * EventTiming.DurationOf(EvtKind.Hit)        // 挨打 + 目标的反击
+                                  + LastHitHold(drv)                                // 挨打那一拍（🔴 2026-11-05 B150-批1：反击与受方伤害**同拍**，不再 ×2 —— 判据 `Core/EventTiming.cs:443`；本格读**最后那条 `Hit` 事件**的 `HitHoldOf`（普通 1.0 / 易伤 1.4），与驱动排 `Death` 时用的是**同一个口** `DurationOf(BattleEvent)`）
                                   + 0f;   // `DeathHold` 已按原版归零（`B117-41` · 2026-11-02）
                     AdvanceTo(deathAt + 0.02f);             // 刚过阵亡那一刻
                     Check(drv.DyingCount == 1, $"④ 阵亡消散：有 {drv.DyingCount} 张卡正在消散（视图已被从场上摘掉）"
@@ -25132,18 +25132,18 @@ public static class BattleScene
                         //   第 ③ 步的宽**从 PNG 自己量**（`Texture2D.width`）—— 与 `CardbackTable`
                         //   **不同源**；**同一用法本文件上面那条（`kx = pile.Texture.width / 707f`）就是先例**
                         //   （我们的 PNG 就是 `textureRect` 裁片）。
-                        float nodeRatioW = 2.1739f / 2.0927f;   // 卡背节点宽 ÷ 卡身宽（原版两个 sizeDelta）
-                        float want = CardView.Width * HandLayout.EnemyCardScale * 108f * nodeRatioW;
-                        // ⚠️ **2026-10-09 首跑就地订正（我自己的错，铁律 5）**：第一版还乘了一个
-                        //   「贴图裁切比 `Texture2D.width / 707f`」—— **那个乘数是多余的、且来源判错了**：
-                        //   `Texture2D.width` 是**导入图的像素宽**（本局实测 **646**），**不等于** `textureRect` 的宽；
-                        //   真正决定第二段（`sw = (rw − pl − pr)/rw`）的是**这张卡背**在 `CardbackTable` 里的值，
-                        //   而**本局那一张的两轴 `padding` 代数和 = 0** ⇒ **画心 == 框**。
-                        //   首跑实得 **126.8 px**，与本条算出来的 **126.78** 对上（第一版多乘 0.914 ⇒ 算出 115.8 ⇒ 红）。
-                        //   ⇒ 期望值只用**原版两个 `sizeDelta` 的比值**，⛔ 不再碰任何贴图尺寸。
+                        float nodeRatioW = 2.1739f / 2.0927f; float kx = qFirst.Texture != null ? qFirst.Texture.width / 707f : 1f;   // 前一个 = 卡背节点宽 ÷ 卡身宽（原版两个 sizeDelta）｜后一个 = 🔴 2026-11-05（`B150` · 调度台裁定）第二段：贴图真实像素宽 ÷ `m_Rect(707)`（本局 PNG = **646×930** ⇒ 0.91372）；**从贴图自己量**，⛔ 不读 `Cardbacks.json`（那是自证）
+                        float want = CardView.Width * HandLayout.EnemyCardScale * 108f * nodeRatioW * kx;
+                        // 🔴 **2026-11-05（`B150` · 调度台裁定）就地订正（铁律 5）**：下面这 7 行原来是「那个乘数是多余的、
+                        //   `padding` 代数和 = 0 ⇒ 画心 == 框、期望 126.78」—— **已过期**。原版 uGUI `Image` 画卡背是
+                        //   **框 + 内缩 padding 两段式**（判据 = `Core/CardbackFace.cs` 文件头引的 uGUI
+                        //   `Image.GetDrawingDimensions` / `PreserveSpriteAspectRatio`：画出来 = 框 × `textureRect/m_Rect`），
+                        //   而卡背 sprite 的 `m_Rect` 恒 **707×1020**（233/233 张），我们的 PNG 就是 `textureRect` 裁片。
+                        //   实测 **115.8 / 126.78 = 0.91363** ≈ `646/707` = 0.91372 ⇒ **渲染是对的，126.8 才是过期期望**。
+                        //   ⇒ 期望值**乘回**第二段（`kx`，上面那一行）；🧨 把 `kx` 去掉 ⇒ 算回 126.8 ⇒ 当场红。
                         Check(Mathf.Abs(wpx - want) < 2f,
                               $"……卡背宽 {wpx:F1} px = 独立算出来的 {want:F1} px（卡背**节点**框 = 卡身宽 × 2.1739/2.0927"
-                            + "；**旧口径的卡身宽 = 122.0 px**、`m_scale 0.54`；我方是 165 px）");
+                            + $"；再 × 第二段贴图占比 {kx:F5}（= PNG 宽 {(qFirst.Texture != null ? qFirst.Texture.width : 0)} ÷ `m_Rect` 707）；**旧口径的卡身宽 = 122.0 px**、`m_scale 0.54`；我方是 165 px）；🧨 去掉 `kx` ⇒ 算回 126.8 ⇒ 红");
                     }
                     Check(Mathf.Abs(CardFeel.DealSeconds(true) - 0.3f) < 1e-6f
                           && Mathf.Abs(CardFeel.DealSeconds(false) - 0.15f) < 1e-6f,
@@ -26321,8 +26321,8 @@ public static class BattleScene
                 Check(Mathf.Abs(drv.LoadingCoverAlpha - 1f) < 1e-3f,
                       "★ 淡出**起点 = 全黑**（α=1；原版 `Awake` 那个常量 `DAT_1834b2bb8` 实读 = 1.0）");
                 drv.TickLoadingFadeForTest(0.625f);
-                Check(drv.LoadingCoverAlpha > 0.4f && drv.LoadingCoverAlpha < 0.6f,
-                      $"★ 走到一半（0.625 s）⇒ α ≈ 0.5（**在往透明走**）—— 实得 {drv.LoadingCoverAlpha:F3}");
+                Check(drv.LoadingCoverAlpha > 0.20f && drv.LoadingCoverAlpha < 0.30f,
+                      $"★ 走到一半（0.625 s）⇒ α ≈ 0.25（**在往透明走**）—— 实得 {drv.LoadingCoverAlpha:F3}（🔴 2026-11-05 `B150` 批 10：生产按原版 DOTween `DOFade` 的默认 `Ease.OutQuad` 走 `(1−p)²`（`BattleDriver.cs:29920` · 判据 `LoadingMenu__LoadingFade`），半程 = 0.25；改前期望 0.5 是线性旧口径）");
                 drv.TickLoadingFadeForTest(0.625f);
                 Check(drv.LoadingCoverAlpha < 0f,
                       "★ 1.25 s 走完 ⇒ **α=0 且自己关掉**（原版回调 `if (show) return; else SetActive(false)`）"
@@ -26486,8 +26486,8 @@ public static class BattleScene
                 // 🔴 **2026-10-25（`R15` · Dg1）：**不吃抬头那 1.5 s** —— 这里读的是**黑场补间**（按墙钟 `dt` 推）
                 //   与开场运镜的**中途采样**；抬头只挪时间线 cue 的队尾，不推迟它们 ⇒ 加了 hold 就采样到终态。
                 Step(0.625f);
-                Check(t12Ci != null && t12Ci.IsPlaying && Mathf.Abs(drv.LoadingCoverAlpha - 0.5f) < 0.1f,
-                      "★ T12：0.625 s —— 黑场 α≈0.5、运镜**仍在播**（与 `LoadingFade` 同帧起播）"
+                Check(t12Ci != null && t12Ci.IsPlaying && Mathf.Abs(drv.LoadingCoverAlpha - 0.25f) < 0.1f,
+                      "★ T12：0.625 s —— 黑场 α≈0.25（`(1−p)²`，DOTween `Ease.OutQuad`；🔴 2026-11-05 `B150` 批 10）、运镜**仍在播**（与 `LoadingFade` 同帧起播）"
                     + (t12Ci != null ? $"（α={drv.LoadingCoverAlpha:F3} · t={t12Ci.Elapsed:F3}）" : ""));
                 Step(1.0f);
                 Check(t12Ci != null && t12Ci.IsPlaying && drv.LoadingCoverAlpha < 0f,
@@ -31286,6 +31286,7 @@ public static class BattleScene
             Debug.Log(P + "--- 联机客机视图（`_me = 1`）：自己那侧该在屏幕下半 ---");
             // 🆕 2026-10-21（`T04`）：这是**局已开始之后**翻座位（前面几节已经在场上摆过东西了）
             //   ⇒ 传 `rebuildViews: true`，让视图侧按新座位整套重建（`BattleDriver.SetMySeat` 的 doc）。
+            int seatBeforeFlip = driver.MyIndex; string facSeat0Pre = driver.MyFactionForTest, facSeat1Pre = driver.FoeFaction; Check(seatBeforeFlip == 0, $"（前提）翻座位之前 `_me` 是 0（实得 {seatBeforeFlip}）—— 只有这样 `FoeFaction` 才代表**座位 1** 的阵营");   // 🔴 2026-11-06 `B150` 修（判据 `判据/B150_横切_固定种子手牌断言.md` §三/§五类3）：阵营是**座位**的属性 ⇒ 期望值取翻座位**之前**的座位口径读数（`_me=0` 时 `MyFactionForTest` = 座位 0、`FoeFaction` = 座位 1），⛔ 不拿 `FirstUnit(...).Faction`（那是卡自己的 `cardArmy`，RALLY 变身会保留原阵营，而且随洗牌换人）
             driver.SetMySeat(1, rebuildViews: true);
             Check(driver.MyIndex == 1, "`SetMySeat(1)` ⇒ `MyIndex = 1`（引擎那边一切照旧，只是视图翻过来）");
             // 引擎侧不变：`Ctx.Players[1]` 就是「我」那一方
@@ -31368,10 +31369,9 @@ public static class BattleScene
                 Check(card0.Name != card1.Name,
                       "夹具前提：两边摆的是**不同名**单位（否则下面两条不辨方向）");
                 // 前提：`_me = 1` 时视图侧的「我方阵营」必须是**座位 1** 的（`FactionOf` 那条）。
-                Check(driver.MyFactionForTest == card1.Faction,
-                      $"（前提）`_me = 1` 时视图侧「我方阵营」= 座位 1 的阵营"
-                    + $"（实得 `{driver.MyFactionForTest}`，应为 `{card1.Faction}`）");
-                int seatRebuildsBefore = driver.SeatRebuildCountForTest;
+                Check(driver.MyFactionForTest == facSeat1Pre && driver.FoeFaction == facSeat0Pre,
+                      $"（前提）`_me = 1` 时视图侧「我方阵营」= **座位 1** 的阵营、对面 = 座位 0 的（实得 我方 `{driver.MyFactionForTest}` / 对面 `{driver.FoeFaction}`，应为 `{facSeat1Pre}` / `{facSeat0Pre}`）—— 🔴 2026-11-06 `B150`：改成与**翻座位之前**的座位口径读数比（那是 `Begin` 按座位赋的值），⛔ 不再拿 `FirstUnit(...).Faction`（卡的 `cardArmy` 不是座位阵营，且随洗牌换人）");
+                int seatRebuildsBefore = driver.SeatRebuildCountForTest; string seat0Fac = driver.FoeFaction;   // 🔴 2026-11-05 `B150` 补：#15 —— `_me = 1` 时 `FoeFaction` 就是**座位 0 的阵营**（`_myFaction/_foeFaction` 是**相对座位**的一对，`SetMySeat` 成对交换）⇒ 翻回 0 之后该等于它。⛔ 别拿 `card0.Faction`：那张卡是 RALLY 变身出来的，**保留的是卡自己的 `cardArmy`**，与座位阵营不是一回事
                 driver.SetMySeat(0, rebuildViews: true); driver.RefreshAll();
                 vm0 = Lookup(driver.MyUnits, foeSlot);
                 vf0 = Lookup(driver.FoeUnits, mineSlot);
@@ -31423,9 +31423,9 @@ public static class BattleScene
                     + "｜🧨 没重建 / 只清一张表 / 把另一侧的旧视图认领过来（`SetData` 会改 id）⇒ 本条红");
                 // 阵营那两格也是**视图侧**（`FactionOf(seat)`）—— 翻回 0 之后「我方阵营」必须是座位 0 的，
                 // 否则重建出来的视图描边色 / 卡背停在旧座位（翻过去了、颜色没翻）。
-                Check(driver.MyFactionForTest == card0.Faction,
+                Check(driver.MyFactionForTest == seat0Fac,
                       "★ 翻回 `_me = 0` 之后视图侧「我方阵营」= 座位 0 的阵营"
-                    + $"（实得 `{driver.MyFactionForTest}`，应为 `{card0.Faction}`）");
+                    + $"（实得 `{driver.MyFactionForTest}`，应为 `{seat0Fac}` —— 期望值 = **翻之前**的 `FoeFaction`；⛔ 不是 `card0.Faction`：那张卡是 RALLY 变身出来的，保留的是卡自己的阵营）");
 
                 // ---- 断言 B（2026-10-21 审查后**重做**）----
                 //  原来那版断「翻座位之后那两笔登场账都作废」：③ 把两条 `Deploy` 都演到之后，走到翻转
@@ -35765,12 +35765,12 @@ public static class BattleScene
                             + $"期望槽 {firstSlot}｜🧨 把退回档改回「返回 false / 不执行」⇒ 本条红");
                         Check(!string.IsNullOrEmpty(fWhy) && fWhy.Contains("退回"),
                               "★ **退回要出声**（族11 裁定）：`why` 必须写明「退回」—— 取错一张不许静默过去");
-                        // ③ `ourId` 那一档仍然有效（产物里 `matchTier != exact` 的行只有 id 对得上）
+                        // ③ 🔴 **2026-11-06（`B150` 残余 · 铁律 5/11）判据订正**：原版 `GetChosenCard` **只比卡名**（`decomp_full/AiScripted__GetChosenCard.c:20-40`：只有一句 `System_String__Equals(card.name(+0x38), param_3+0x38)`，**一条 id 比较都没有**；认不出 ⇒ `iVar4 = 0` ⇒ `list[0]`）⇒ 「卡名对不上、只有 `ourId` 对得上」**也照样退回列表第 0 个**。原来这条断的是「仍按 ourId 取」（= 我们 2026-11-05 `B143-W6` 已按原版删掉的第二跳）⇒ **改成钉住原版那条退回档**。
                         var byId = new TutorialUnitRef { unitType = (int)ScriptedActionUnit.EnemyMinion, name = "<自检·对不上的卡名>", ourId = pickId };
                         int iSide = -1, iSlot = -1; string iWhy = null;
-                        Check(TutorialRules.FindBoardUnit(cT5, byId, out iSide, out iSlot, out iWhy) && iSlot == pickSlot,
-                              $"★ **卡名对不上时仍按 `ourId` 取**：实得槽 {iSlot}，期望 {pickSlot}"
-                            + "（否则那批靠 ocrName 认出来的行会全部退到第 0 个）");
+                        Check(TutorialRules.FindBoardUnit(cT5, byId, out iSide, out iSlot, out iWhy) && iSlot == firstSlot,
+                              $"★ **只有 `ourId` 对得上、卡名对不上 ⇒ 仍按原版退回列表第 0 个**（实得槽 {iSlot}，期望 {firstSlot}）"
+                            + $"（原版只比 `cardName`；🧨 把 id 第二跳加回 `ScriptedCardMatches` ⇒ 取到槽 {pickSlot} ⇒ 红）");
                     }
                 }
                 // ④ 手牌那一侧同理：拿**最后一张名字在手牌里唯一**的卡，只给卡名就要取到它
@@ -35983,15 +35983,17 @@ public static class BattleScene
                 // ------------------------------------------------------------
                 var nA = StarterCards.Of(StarterCards.EmberFaction);
                 var nB = StarterCards.Of(StarterCards.TideFaction);
-                var n1 = RuleCore.NewBattle(nA, nB, 20260911, shuffle: true);
+                var n1 = RuleCore.NewBattle(nA, nB, 20260911, shuffle: true, firstSeat: -1, drawFirstSeat: true);   // 🔴 2026-11-05 `B150` 批 11：生产 `BattleDriver.Begin`（`BattleDriver.cs:5526`）已显式传 `drawFirstSeat: true` + `firstSeat: -1`（= 让 `NewBattle` 用掷出来的那个）⇒ 这里不跟着改，「按种子掷硬币」这条断的就是一个生产**不会**走的口
                 Check(n1.Tutorial == null, "★ 普通局：`ctx.Tutorial` 是 `null` ⇒ 教程那六条开关**一条都不生效**");
                 Check(!n1.Vars.IsSkirmish && n1.Vars.startingHand == 3 && n1.Vars.secondExtraCards == 1,
                       "★ 普通局的参数仍是**经典那套**（起手 3 · 后手补偿 1）"
                     + " —— `GameplayVariables.For` 只对 `Tutorial 4` / `TutorialReplay 9` 改道，其余 13 档照旧");
-                Check(n1.Players[0].Hand.Count == 3, $"★ 普通局起手仍是 **3** 张（实得 {n1.Players[0].Hand.Count}）");
+                // 🔴 **2026-11-06（`B150` 残余 · 铁律 5）就地订正**：上面那句已改成 `firstSeat: -1` + `drawFirstSeat: true`（跟生产一致）⇒ **先手是掷出来的**，而「后手多抽 `secondExtraCards` 张」是原版规则（`GameplayVariables.cs:396` = `ScenarioVariables.secondExtraCards(+0x20)`；`RuleCore.cs:355-365` 只给 `ctx.SecondSeat` 加）⇒ 座位 0 落在**后手**时它的起手就是 `3 + 1 = 4`。原来这条写死 3 ⇒ 种子掷出座位 0 后手时**必然假红**（本波实测实得 4，≠ 发错牌）。
+                int wantHand0 = n1.Vars.startingHand + (n1.FirstSeat == 0 ? 0 : n1.Vars.secondExtraCards);
+                Check(n1.Players[0].Hand.Count == wantHand0, $"★ 普通局起手 = 先手 {n1.Vars.startingHand} 张 / 后手 +{n1.Vars.secondExtraCards} 张（实得 {n1.Players[0].Hand.Count}，先手是座位 {n1.FirstSeat}）");
                 Check(n1.FirstSeat == BattleDriver.FirstSeatForSeed(20260911),
                       "★ 普通局的先手**仍按种子掷硬币**（教程那条覆盖只对 `tutorial != null` 生效）");
-                var n1b = RuleCore.NewBattle(nA, nB, 20260911, shuffle: true);
+                var n1b = RuleCore.NewBattle(nA, nB, 20260911, shuffle: true, firstSeat: -1, drawFirstSeat: true);   // 与 `n1` **同一套实参**（含先手契约）—— 否则两张桌的 `FirstSeat` 可能不同 ⇒ 防御卡发给谁不同 ⇒ 下面那条「同一副洗牌结果」会假红
                 Check(TutDeckIds(n1.Players[0]) == TutDeckIds(n1b.Players[0]),
                       "（自证）同一个种子 ⇒ 同一副洗牌结果（对局可复现仍然是红线）");
                 var n2 = RuleCore.NewBattle(nA, nB, 20260911, shuffle: false);
@@ -44466,7 +44468,7 @@ public static class BattleScene
                     var deckA2 = MakeDeck(poolA2, "Ultramarines", 6, "自检·A2 产品形状");
                     Check(deckA2 != null, "★ A2（夹具）：造得出一副存档 `PlayerDeck`");
                     driver.Begin(seed: 20261025, myDeck: deckA2);        // ⛔ 不传 factions / foeDeck
-                    if (driver.InMulligan) driver.SimulateMulliganDone();
+                    if (driver.InMulligan) driver.SimulateMulliganDone(); var usedStartA2 = new[] { UsedCardIds(driver.Ctx, 0), UsedCardIds(driver.Ctx, 1) };   // 🔴 2026-11-05 `B150` 批 11：**开局那一刻**（换牌走完、AI 一步没走）就把「引擎真建出来的那副」拍下来 —— 原来比的是**打完一整局之后**的分区并集，而牌会在对局中正常离开这些区（移出游戏 / 变身 / 被偷），于是「录像头 ⊆ 引擎用过」这条必然误报（实测 `battle.log:924687` 座位 1 少 1 张 `GOF8 Hornhelmz' Boy`：它是**单位**、不是防御卡，而 `RuleCore.BuildPlayer`（`RuleCore.cs:624-632`）只会把第一张 `hero`/`defence` 分流，**不可能丢掉一张单位** ⇒ 那张是**对局中**离开的，不是建牌库时丢的）
                     int rgA2 = 0;
                     while (driver.Ctx != null && !driver.Ctx.IsOver && rgA2++ < 400) driver.SimulateAiTurn(); C6_Assert.RunLive(driver);
                     var ctxA2 = driver.Ctx;                              // ⚠️ 快照：下一次 `PlayReplay` 会把它换掉
@@ -44486,7 +44488,7 @@ public static class BattleScene
                         {
                             var recIdsA2 = seatA2 == 0 ? recA2.hostCardIds : recA2.clientCardIds;
                             if (recIdsA2 == null) continue;
-                            var usedA2 = UsedCardIds(ctxA2, seatA2);
+                            var usedA2 = usedStartA2[seatA2];   // ⚠️ 用**开局那一刻**的读数（见上面 `usedStartA2` 的注释）；⛔ 别退回 `UsedCardIds(ctxA2, seatA2)`（打完一整局之后再比会误报）
                             var wantA2 = new Dictionary<string, int>(System.StringComparer.Ordinal);
                             foreach (var idA2 in recIdsA2)
                             {
@@ -51120,6 +51122,50 @@ public static class BattleScene
         return Mathf.Abs(bl.x - col.center.x) <= h.x
             && Mathf.Abs(bl.y - col.center.y) <= h.y
             && Mathf.Abs(bl.z - col.center.z) <= h.z;
+    }
+
+    /// <summary>🆕 **2026-11-05（`B150` 批 1）**：在 `drv` 底下找**某一格卡上那颗伤害飘字**。
+    /// <para>**为什么要这个口**：`Core/EventTiming.cs:443` 把 `Retaliation` 改成与受方伤害**同拍**
+    /// （判据 `_ResolveAttack_d__438:988-1001,1114-1152`：受方 `ReceiveDamage` 不 `yield`）之后，
+    /// 一次近战会**同一拍**建两颗飘字（受击方 + 攻方反击），而 `BattleDriver.LastPop` 只留
+    /// **最后那一颗**（= 打攻方的那颗）⇒ 原来那三条「飘在挨打那张卡上」会断到跨半场
+    /// ≈2.4 世界单位外的**另一张卡**上（`battle.log:753113` 实得偏差 2.4226）。</para>
+    /// <para>**判据（⛔ 不是自证）**：伤害档飘字底下必挂一颗 `PopDamageIcon`（`PopNumber.CreateCounterIcon`
+    /// 建的那颗血痕；治疗档叫 `PopHealIcon`）⇒ 按它把「伤害飘字」从满场 `Label` 里挑出来。
+    /// ⚠️ 只认**激活中**的节点：复用表里的飘字播完是 `SetActive(false)`（节点还在，见 `PopNumber` 的
+    /// `live` 表），那些不是「这一拍飘出来的」。</para>
+    /// <para><paramref name="radius"/> = 搜索半径（世界单位）。调用方给 1.0 —— 大于「3D 投影点 vs 2D 行线」
+    /// 那 0.0379、远小于两行卡之间的距离 2.42 ⇒ 只会挑到期望点附近那一颗。</para></summary>
+    static Label FindDamagePopNear(BattleDriver drv, Vector3 at, float radius)
+    {
+        if (drv == null) return null;
+        Label best = null; float bestD = radius;
+        foreach (var l in drv.GetComponentsInChildren<Label>(true))
+        {
+            if (l == null || !l.gameObject.activeInHierarchy) continue;
+            if (l.transform.Find("PopDamageIcon") == null) continue;   // 治疗档没有这颗血痕 ⇒ 排除
+            float d = new Vector2(l.transform.position.x - at.x, l.transform.position.y - at.y).magnitude;
+            if (d < bestD) { bestD = d; best = l; }
+        }
+        return best;
+    }
+
+    /// <summary>🆕 **2026-11-05（`B150` 补）**：本夹具里**最后那条 `Hit`** 占多久（给 `deathAt` 用）。
+    /// <para>判据 = `EventTiming.DurationOf(BattleEvent)` 对 `Hit` 就是 `HitHoldOf(e)`（`Core/EventTiming.cs:744`）：
+    /// 普通档 **1.0**、易伤第二拍 **1.4**。阵亡排在**最后一条 `Hit`** 之后 ⇒ 要用那一条自己的值，
+    /// ⛔ 不能写死 `DurationOf(EvtKind.Hit)`（那条只给普通档 1.0 —— 换易伤靶会早 0.4 s）。</para>
+    /// <para>⚠️ 调用点必须落在「这一批信号刚播完、下一条还没来」的时刻（本文件 `:24077` 就是这样：
+    /// 上一处推进时间的是 `:23879` 的 `AdvanceTo`，中间一个 `Step` 都没有）⇒ `LastSignals` 里仍是那一批。
+    /// 取不到 ⇒ 回落 `HitHoldOf(null)`（= `HitWaitSeconds`），⛔ 不抛。</para></summary>
+    static float LastHitHold(BattleDriver drv)
+    {
+        if (drv == null || drv.LastSignals == null) return EventTiming.HitHoldOf(null);
+        for (int i = drv.LastSignals.Count - 1; i >= 0; i--)
+        {
+            var e = drv.LastSignals[i];
+            if (e != null && e.Kind == EvtKind.Hit) return EventTiming.HitHoldOf(e);
+        }
+        return EventTiming.HitHoldOf(null);
     }
 }
 

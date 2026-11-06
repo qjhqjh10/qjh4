@@ -159,7 +159,7 @@ namespace CardPresentation
             // ⚠️ 它建在 `RankedDivisionInfo.Build` **之后**、挂到它建出来的 `Content` 底下（原版父链 =
             //   `Ranked Division Info ▸ Content ▸ Timer`；`Content` 是那棵树里的 VLG 容器）。
             //   ⛔ 别改成挂在 `col` 下 —— 原版 `RankingDisplay.timerDisplay` 指的就是 `Content/Timer`。
-            if (RankTimerDeadline.HasValue) BuildRankTimer(col); else Debug.Log("[Event] 段位块的 `Content/Timer` **整棵不建** —— 原版 `TimerDisplay__UpdateTimer.c` 取不到目标时刻那一支是 `return;`（静默、一个字都不印）；赛季结束时刻由服务端 LiveOps 下发、本地没有（判据 → `判据/B99_R3b_施工单_其余按文件.md` §2·4 / §五 #1；先例 = `B99_W2` 的 `SkirmishEventWindow.BuildClassicTimer`）。");   // ⛔ 不建 `Timer`/`Timer Icon`、⛔ 一个字都不印（§2·4「留开关，不硬删」：将来接上 liveop 截止时刻只改类尾 `RankTimerDeadline`）
+            BuildRankTimer(col);   // 🔴 2026-11-05（`B150` 裁定①）就地订正：原写「无截止时刻 ⇒ `Content/Timer` **整棵不建**」**已过期** —— 与 `SkirmishEventWindow.cs:370` 同口径「**建节点 + 整棵藏**」（同一份 `RankedDivisionInfo.Build`、同一个 `RankingDisplay.Initialize` / `TimerDisplay.UpdateTimer` 判据：节点在 prefab 里永远在，原版只 `SetActive(false)`）。判据全文 → `判据/B150_失败归类_外壳.md` §三·组 A。   // ⛔ 一个字都不印（§2·4「留开关，不硬删」：将来接上 liveop 截止时刻只改类尾 `RankTimerDeadline`）
 
             // `ChangeRankedToggle`（排位 / 非排位）
             var tg = MenuDraw.Node(col, "ChangeRankedToggle", new PxRect(TgL, TgT, TgR, TgB));
@@ -206,8 +206,8 @@ namespace CardPresentation
         /// （官方 en `Ends in:  <color=#E98A00FF>{0}</color>` / zh `结束于：<color=#E98A00FF>{0}</color>`）——
         /// 与遭遇战窗那颗 `Timer` **同一个词条**（`Shell/SkirmishEventWindow.cs` 的 `BuildTimer`，
         /// 那边已实读 `MonoBehaviour_-800057299095106190.json`）。⛔ 别自己拼「结束于：」四个字。
-        /// 截止时刻是**服务端活动数据**（本地没有）⇒ 🔴 **2026-10-30（`B99_A4` · 反向清单 §五 #1）根节点整棵不建**（调用点那道 `RankTimerDeadline.HasValue` 闸），⛔ 不印 `--`、⛔ 不编日期。</para>
-        /// <para>⚠️ 本方法**只在** <see cref="RankTimerDeadline"/> 有值时才被调用（`BuildLeftColumn` 那道闸）；它内部的建树 / 几何一字未动。</para></summary>
+        /// 截止时刻是**服务端活动数据**（本地没有）⇒ 无值态 = 🔴 **建节点 + 整棵藏**（`B150` 裁定① 就地订正：原写「根节点整棵不建」**已过期**）—— 与 `SkirmishEventWindow.BuildClassicTimer` 同口径，原版 `TimerDisplay.UpdateTimer` 取不到目标时刻是 `return;`（静默）、`SetTimer` 无值是 `SetActive(false)`；节点在 prefab 里**永远在**，⛔ 不印 `--`、⛔ 不编日期。
+        /// <para>⚠️ 本方法**恒被调用**（`BuildLeftColumn` 2026-11-05 起不再有 `RankTimerDeadline.HasValue` 闸）；有没有值只决定「露」还是「藏」，⛔ 不再决定「建不建」。</para></summary>
         void BuildRankTimer(Transform col)
         {
             var content = col.Find("Content");
@@ -224,13 +224,13 @@ namespace CardPresentation
             var txR = new PxRect(TmrTxL, TmrTxT, TmrTxR, TmrTxB);
             var tx = MenuDraw.Text(tm, txR, TimerDisplay.Compose(prefix, ""), Color.white, "Timer", 38f, QText,
                                    face: TmpFont.Face.LatinCardBody);
-            if (tx == null) return;    // 建不出来 ⇒ `Attach` 会自己出声，这里不再补一句
+            if (tx == null) { if (!RankTimerDeadline.HasValue) tm.gameObject.SetActive(false); return; }   // 建不出来 ⇒ `Attach` 会自己出声，这里不再补一句（节点仍按原版建出来并藏）
             // 字号四格 = 原版 `38 / 10 / 38 / 38`（`menu_dump … --depth 6` 现读）。
             // ⚠️ `SetAutoFitBox` 内部会 `SetWrapWidth` ⇒ 紧跟一句把**原版折行 0** 还原（同 `SkirmishEventWindow.BuildTimer`）。
             tx.SetAutoFitBox(LayoutSpace.Px(txR.W), LayoutSpace.Px(txR.H), 10f, 38f, 38f);
             tx.SetWrapping(false); tx.SetSmallScreenFontSizes(38f, 10f);   // ✅ 已复刻（2026-11-04 · B142-E74 · 判据 `B90_N2_小屏字号实例.tsv`：`{RankedEventWindow,RankedEventWindowV2} ▸ Ranked Division Info ▸ Content ▸ Timer/Timer` = 38/10）
-            TimerDisplay.Attach(tx, () => RankTimerDeadline, prefix, "排位窗段位块 Timer",
-                                "赛季结束时刻由服务端 LiveOps 事件下发，本地没有");
+            if (RankTimerDeadline.HasValue) TimerDisplay.Attach(tx, () => RankTimerDeadline, prefix, "排位窗段位块 Timer",
+                                "赛季结束时刻由服务端 LiveOps 事件下发，本地没有"); else tm.gameObject.SetActive(false);   // 无值 ⇒ 建完立刻藏（⛔ 不是不建；`B150` 裁定①）
         }
 
         /// <summary>`40k_menu_bt`：**47×47 · border (10,10,10,10)**（`Sprite/*.json` 实测）。</summary>

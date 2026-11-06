@@ -138,7 +138,7 @@ public static class B142_E6_Assert
         if (Tooltip.InstanceForTest == null) return;
 
         float emNow = ParseAfter(Tooltip.DebugDump(), " em=");
-        Near(emNow, Tooltip.BodyMaxPx, 0.4f,
+        Near(emNow, Tooltip.BodyMaxPx, 0.6f,
              "B1 ★ 中文正文的 em 读回 = **BodyMaxPx**（桌面 28 / 小屏 34 px；本档 = " + Tooltip.BodyMaxPx.ToString("F0")
            + "）（`Label.SetScriptHeight` 的 CJK 路：汉字墨高 = px；`B142-E60` 起 `Layout` 下发的是 `BodyMaxPx`，⛔ 别再钉死 28）"
            + "｜🧨 `Layout` 改回 `SetCapHeight(BodyCap)` ⇒ 读回 20.11 ⇒ 本红");

@@ -135,14 +135,14 @@ public static class B102FRIEND_Assert
          + "｜🧨 绑不上 ⇒ `Value` 永远读不到 ⇒ A1 红");
 
         // 🔴 **版面不变的硬前提**（走 `Bind` 而不是 `Create` 的全部理由，破了下游宿主断言会白红）：
-        var ph = FindByName(sf, "Placeholder");
-        var tx = FindByName(sf, "Text");
-        Tr(ph != null && ph.parent == sf,
-           "A0⑤ `Placeholder` 仍然是 `Search Field` 的**直接子件**（`Bind` 不 re-parent 节点）"
-         + "｜🧨 改用 `Create` ⇒ 提示窗那套 `Text Area` 会把占位字挪成孙节点 ⇒ 这里红、"
-         + "`Editor/MainMenuScene.cs` 那三条按直接子件找它的断言也会红");
-        Tr(tx != null && tx.parent == sf, "A0⑥ 新加的正文节点 `Text` 也是直接子件（同层，不套壳）");
-        Tr(ph != null && tx != null && ph.GetSiblingIndex() < tx.GetSiblingIndex(),
+        var sfArea = FindByName(sf, "Text Area");
+        var ph = FindByName(sfArea, "Placeholder"); var tx = FindByName(sfArea, "Text");
+        Tr(ph != null && sfArea != null && ph.parent == sfArea,
+           "A0⑤ `Placeholder` 是 `Search Field/Text Area` 的**直接子件**（原版 prefab 就是这一层；`Text Area` 是 `RectMask2D` 掩码节点）"
+         + "｜🧨 挂回 `Search Field` 的直接子件 / 改用 `Create` 另建壳 ⇒ 这里红、"
+         + "`Editor/MainMenuScene.cs` 那三条按这条路径找它的断言也会红");
+        Tr(tx != null && sfArea != null && tx.parent == sfArea, "A0⑥ 新加的正文节点 `Text` 也是 `Text Area` 的直接子件（同层，不套壳）");
+        Tr(ph != null && tx != null && ph.parent == sfArea && tx.parent == sfArea && ph.GetSiblingIndex() < tx.GetSiblingIndex(),
            "A0⑦ `Placeholder` 排在 `Text` **前面** —— 宿主那条 `TextOf(Search Field)`（= `GetComponentInChildren<Label>`"
          + " 取**第一个**）读到的仍是占位字｜🧨 把正文插到占位字前面 ⇒ 宿主 `CheckText` 变成读正文（空串）⇒ 红");
     }

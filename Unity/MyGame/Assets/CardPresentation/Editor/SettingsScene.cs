@@ -598,7 +598,7 @@ public static class SettingsScene
         Directory.CreateDirectory(ShotDir);
 
         string tmp = Path.Combine(Path.GetTempPath(), "wf_settings_selftest.json");
-        NetConfig.OverridePath = tmp;
+        string prevNetOverride = NetConfig.OverridePath; NetConfig.OverridePath = tmp;   // 🆕 2026-11-06（B150）：注入点一律**存档-还原**，⛔ 别在 finally 里写死 `= null`（会抹掉宿主设进来的那一档）
         try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
         NetConfig.Load();
 
@@ -1890,15 +1890,15 @@ public static class SettingsScene
                 //   `FontPxNow` 是**二分收敛结果**、「**停在标称**」那一态；谁哪天把 `min/max`
                 //   改一档、或字号资产一换，它就会像 `A171` 当初那样变成**恒红（或恒绿）**
                 //  （诊断原委 → `资料/普查产出_第十会话/D2_全跑8红诊断.md` §4「枚举式字号断言」那一格）。
-                //  ⇒ 改读**字段** `m_fontSizeBase`（`Label.FontSizeBase`，一律经
-                //    `Label.FontSizeToPx` 折成画布 px）—— 同 `A171` 那一节 2026-10-09 定的口径：
+                //  ⇒ 改读**字段** `m_fontSizeBase`（`Label.FontSizeBase`，一律经**实例口**
+                //    `FontSizeToPxNow(·, ActualFace)` 折成画布 px；⚠️ 2026-11-05 `B150` 就地订正：原用静态 `FontSizeToPx`，那口恒按 CJK 墨高 ⇒ 拉丁面恒差 0.853）—— 同 `A171` 那一节 2026-10-09 定的口径：
                 //    **要断「它是什么」读【字段】；要断「它长什么样」读【渲染】。**
                 //    `m_fontSizeBase` 才是那条不变式（autosize 关着时 TMP 让 `m_fontSizeBase ≡ m_fontSize`，
                 //    `TMP_Text.cs:467`）⇒ 两条入口读到的是同一个口径。
                 //  ⚠️ **判别力不减**（原版逐字段实读 `fs **30** · base **14** · auto[18~40]`）：
                 //    30 × 0.9 = 27、14 × 0.9 = **12.6** ⇒ 与同窗另外两档（caption `fs18` → 16.2、
                 //    行标签 `base36` → 32.4）**照样分得开**；谁把 `autoBasePx` 传回 0 ⇒ 字段退回标称 27 ⇒ 红。
-                float l0BasePx = l0 != null ? Label.FontSizeToPx(l0.FontSizeBase) : -1f;
+                float l0BasePx = l0 != null ? l0.FontSizeToPxNow(l0.FontSizeBase, l0.ActualFace) : -1f;
                 CheckNear(l0BasePx, 12.6f, 0.35f,
                           "★ 行内字号 = 原版 `Item Label` 的 `m_fontSizeBase **14**` × 0.9 = **12.6px**"
                         + "（读的是【字段】`m_fontSizeBase` —— 本笔给它接上 autosize 之后 `FontPxNow` 是**收敛值**、"
@@ -1910,8 +1910,8 @@ public static class SettingsScene
                 if (l0 != null)
                 {
                     float l0Now = l0.FontPxNow;
-                    float l0Lo = Label.FontSizeToPx(l0.FontSizeMin) - 0.35f;
-                    float l0Hi = Label.FontSizeToPx(l0.FontSizeMax) + 0.35f;
+                    float l0Lo = l0.FontSizeToPxNow(l0.FontSizeMin, l0.ActualFace) - 0.35f;
+                    float l0Hi = l0.FontSizeToPxNow(l0.FontSizeMax, l0.ActualFace) + 0.35f;
                     CheckTrue(l0.AutoSizing && l0Now > 0f && l0Now >= l0Lo && l0Now <= l0Hi,
                               $"…而且这一颗**真的开着 autosize、实得落在钳位区间里**（实得 {l0Now:F2} ∈ "
                             + $"[{l0Lo:F2}, {l0Hi:F2}]；`AutoSizing` = {l0.AutoSizing}；"
@@ -5166,7 +5166,7 @@ public static class SettingsScene
                 //   ⚠️ **42 是【上限】`m_fontSizeMax`**、**36 才是 `m_fontSizeBase`** ⇒ 这条不变的判据要读 **`FontSizeMax`**
                 //   （仍 = 37.8，**仍能把「42 族」与「40 族」分开**：若谁把调用点改回 `FontLabel`(40)，max 会跟着变 40 ⇒ 36.00）。
                 //   ⛔ **不是把断言放宽** —— 下面另加一条「**实得**必须落在 autosize 区间里」，两条合起来比原来更强。
-                float vsPx = vsLb != null ? Label.FontSizeToPx(vsLb.FontSizeMax) : -1f;
+                float vsPx = vsLb != null ? vsLb.FontSizeToPxNow(vsLb.FontSizeMax, vsLb.ActualFace) : -1f;
                 CheckNear(vsPx, 37.8f, TolPx,
                           "★ 「**行标签**」族字号 = **原版 42 × 0.9 = 37.8 px**（`VSync` 作证；读的是"
                         + " `m_fontSizeMax` —— 那一档是**作者填的原版值**、autosize 开关不会改它）"
@@ -5177,8 +5177,8 @@ public static class SettingsScene
                 if (vsLb != null)
                 {
                     float vsNow = vsLb.FontPxNow;
-                    float vsLo = Label.FontSizeToPx(vsLb.FontSizeMin) - TolPx;
-                    float vsHi = Label.FontSizeToPx(vsLb.FontSizeMax) + TolPx;
+                    float vsLo = vsLb.FontSizeToPxNow(vsLb.FontSizeMin, vsLb.ActualFace) - TolPx;
+                    float vsHi = vsLb.FontSizeToPxNow(vsLb.FontSizeMax, vsLb.ActualFace) + TolPx;
                     CheckTrue(vsLb.AutoSizing && vsNow > 0f && vsNow >= vsLo && vsNow <= vsHi,
                               $"…并且它**真的开着 autosize、实得落在钳位区间里**（实得 {vsNow:F2} ∈ "
                             + $"[{vsLo:F2}, {vsHi:F2}]；`AutoSizing` = {vsLb.AutoSizing}）"
@@ -5215,7 +5215,7 @@ public static class SettingsScene
                 //    ② 期望值取自**原版资产字段**（这里是探针自己传进去的那两个数，就是原版那一档的值），
                 //       ⛔ **不比我们自己的常量**。
                 //    ⚠️ `FontSizeMax` / `FontSizeBase` 都是 **TMP 的 `fontSize` 单位**（不是 px）⇒
-                //       一律经 `Label.FontSizeToPx` 折回画布 px 再比（**唯一那条 px 口径**）。
+                //       一律经**实例口** `FontSizeToPxNow(·, ActualFace)` 折回画布 px 再比（2026-11-05 `B150` 订正：原用静态 `FontSizeToPx`，它恒按 CJK 墨高 ⇒ 拉丁面恒 ×0.853；本组探针/标签都是 `MenuDraw.QText` 拉丁面）。
                 // ================================================================
                 Section("A333/A336：`autoMaxPx` / `autoBasePx` 真的落进 TMP 的 `fontSizeMax` / `m_fontSizeBase`");
                 {
@@ -5228,7 +5228,7 @@ public static class SettingsScene
                                              Color.white, "pMax", NominalPx, MenuDraw.QText,
                                              wrapPx: 300f, autoMinPx: 10f, autoMaxPx: WantMaxPx);
                     CheckTrue(pMax != null, "★ 探针 `pMax` 建出来了（下面那条才有对象可量）");
-                    float maxPx = pMax != null ? Label.FontSizeToPx(pMax.FontSizeMax) : -1f;
+                    float maxPx = pMax != null ? pMax.FontSizeToPxNow(pMax.FontSizeMax, pMax.ActualFace) : -1f;
                     CheckNear(maxPx, WantMaxPx, TolPx,
                               $"★ `MenuDraw.Text(..., autoMaxPx: {WantMaxPx})` ⇒ TMP 的 `m_fontSizeMax` 折回 = "
                             + $"**{WantMaxPx} px**（实得 {maxPx:F2}；标称那一档是 {NominalPx}）"
@@ -5241,7 +5241,7 @@ public static class SettingsScene
                                              Color.white, "pDef", NominalPx, MenuDraw.QText,
                                              wrapPx: 300f, autoMinPx: 10f);
                     CheckTrue(pDef != null, "★ 对照探针 `pDef` 建出来了");
-                    float defPx = pDef != null ? Label.FontSizeToPx(pDef.FontSizeMax) : -1f;
+                    float defPx = pDef != null ? pDef.FontSizeToPxNow(pDef.FontSizeMax, pDef.ActualFace) : -1f;
                     CheckNear(defPx, NominalPx, TolPx,
                               $"★ 对照：**不传** `autoMaxPx` ⇒ 上限 = 调用方那一档 = **{NominalPx} px**"
                             + $"（实得 {defPx:F2}；①+② 差 {Mathf.Abs(maxPx - defPx):F2}px ⇒ 两档分得开）"
@@ -5257,7 +5257,7 @@ public static class SettingsScene
                                                  Color.white, "pBase", NominalPx, 10f, MenuDraw.QText,
                                                  WantMaxPx, WantBasePx);
                     CheckTrue(pBase != null, "★ 探针 `pBase` 建出来了（`MenuDraw.TextBox` 那一口）");
-                    float basePx = pBase != null ? Label.FontSizeToPx(pBase.FontSizeBase) : -1f;
+                    float basePx = pBase != null ? pBase.FontSizeToPxNow(pBase.FontSizeBase, pBase.ActualFace) : -1f;
                     CheckNear(basePx, WantBasePx, TolPx,
                               $"★ `MenuDraw.TextBox(..., autoBasePx: {WantBasePx})` ⇒ TMP 的 `m_fontSizeBase`"
                             + $" 折回 = **{WantBasePx} px**（实得 {basePx:F2}）"
@@ -5562,7 +5562,7 @@ public static class SettingsScene
         }
         finally
         {
-            NetConfig.OverridePath = null;
+            NetConfig.OverridePath = prevNetOverride;   // 🆕 2026-11-06（B150）：还原成注入前的那个值（⛔ 不是写死 null）
             SmallScreenUI.PersistOverride = false;      // A165：把注入点也放回去（开关的内存态上面已放回出厂值）
             AutoZoom.PersistOverride = false;          // A172：同上（那颗开关的内存态也放回去了）
             // 🆕 A176：同上；另外把**那份 URP 资产**放回出厂值并清脏位 —— 自检绝不许把工程资产留在改过的状态

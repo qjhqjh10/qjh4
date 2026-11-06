@@ -228,8 +228,8 @@ public static class B93D3Assert
         // 🔴 2026-10-31（调度台 · B105_D1 诊断）：`NavTimerText` 是**倒计时**（`endUtc − UtcNow`）——
         //   旧断言喂 2026-01-01 的过去时间 ⇒ 恒 `0m`。改为「相对当前 + 26h / +90m」，并留 2 s 余量
         //   防止执行延迟把分钟数往下推一格（判据 = `MainMenuRuntime.NavTimerText` 的 `left = endUtc - UtcNow`）。
-        Eq(MainMenuRuntime.NavTimerTextForTest(System.DateTime.UtcNow.AddHours(26).AddSeconds(2)), "1d 2h 0m", "账 549：`26h` ⇒ `1d 2h 0m`（prefab 样例串 `5d 20h 15m` 那一族）");
-        Eq(MainMenuRuntime.NavTimerTextForTest(System.DateTime.UtcNow.AddMinutes(90).AddSeconds(2)), "1h 30m", "账 549：`90m` ⇒ `1h 30m`（无天时省掉 `d` 段）");
+        Eq(MainMenuRuntime.NavTimerTextForTest(System.DateTime.UtcNow.AddHours(26).AddSeconds(2)), string.Format(Loc.T("MainMenu/Time/DH"), 1, 2), "账 549：`26h` ⇒ 官方 `MainMenu/Time/DH` 的「天, 时」档（en `1d 2h 0m` 那一族 · zh `1天 2小时`；期望值走官方 I2 键 `Shell/TimerDisplay.cs:191`，⛔ 不写死英文）");
+        Eq(MainMenuRuntime.NavTimerTextForTest(System.DateTime.UtcNow.AddMinutes(90).AddSeconds(2)), string.Format(Loc.T("MainMenu/Time/HM"), 1, 30), "账 549：`90m` ⇒ 官方 `MainMenu/Time/HM` 的「时, 分」档（en `1h 30m` · zh `1小时 30分钟`；无天时省掉 `d` 段；期望值同上走官方 I2 键）");
 
         // 泵：造一颗假活动钮（带 `Timer Text` 子件），先把字写成一个假串，再推一次 ⇒
         //   ① 被改写成**期望串**（不是「与假串不同」那种弱断言）；② 同一秒内再推 ⇒ 0 次改写（1 Hz 节流）。
@@ -244,7 +244,7 @@ public static class B93D3Assert
             int n1 = MainMenuRuntime.StepEventNavTimersForTest(1.0f);
             string want = MainMenuRuntime.NavTimerTextForTest(end);
             Ok(n1 >= 1 && lbl.Text == want,
-               "账 549：按秒泵**真的把 `Timer Text` 改写了**（`STALE` → `" + want + "`，改写数 " + n1 + "）");
+               "账 549：按秒泵**真的把 `Timer Text` 改写了**（`STALE` → 实得「" + lbl.Text + "」/ 期望「" + want + "」，改写数 " + n1 + "）");
             int n2 = MainMenuRuntime.StepEventNavTimersForTest(0.2f);
             Eq(n2, 0, "账 549 灭自证：同一秒内再推一次 ⇒ **0 次改写**（1 Hz 节流；⛔ 不是每帧刷 TMP）");
         }

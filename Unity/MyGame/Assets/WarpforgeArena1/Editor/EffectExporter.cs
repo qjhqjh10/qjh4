@@ -466,7 +466,7 @@ public static class EffectExporter
         if (!System.IO.File.Exists(tsv))
         {
             Debug.LogError($"[TEXFIX] 缺旁挂表 {tsv} —— 先跑 " +
-                           "`\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_vfx_texture_mips.py`");
+                           "`\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_vfx_texture_mips.py --write`");
             return;
         }
         int rows = 0, changed = 0, noMip = 0, noPng = 0, ok = 0, seen = 0;

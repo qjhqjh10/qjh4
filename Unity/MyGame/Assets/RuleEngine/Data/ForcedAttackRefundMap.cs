@@ -55,7 +55,7 @@ namespace RuleEngine
                 Debug.LogWarning($"[强制攻击退还] `Resources/{CardDatabase.ResourcePath}.json` **没载到** ⇒ "
                                + "`ForcedAttackRefund.Of` 一律 `Unknown` ⇒ 强制攻击**一律按旧行为退还**"
                                + "（235/236 那两族会被多退还一次行动）。"
-                               + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_cards_engine.py");
+                               + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_cards_engine.py --write");
                 return;
             }
             DocDto dto;

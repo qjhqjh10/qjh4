@@ -260,7 +260,10 @@ public static class B141_W3_Assert
                     float itemTop = MenuCheck.DesignPx(bestItem).y - OrigItemH * 0.5f;
                     float selH = srt.sizeDelta.y / unit;
                     float viewTop = MenuCheck.DesignPx(sel).y - selH * 0.5f;        // 视口上沿（`RectMask2D` 会再裁一刀）
-                    float hitCy = MenuCheck.DesignPx(bestHitTr).y;
+                    var hitQuadTr = bestHitTr.Find("Hit");   // 🔴 2026-11-05（`B150`）：命中区**节点**自己恒在**父原点**（`MenuDraw.Hit` 只写 sizeDelta、不挪位）⇒ 拿它量中心会偏「条目中心 − 命中区中心」
+                    MenuCheck.True(_s, hitQuadTr != null, "（前提）命中区节点下有一颗 quad `Hit`（`MenuDraw.MakeHitQuad` 建的）—— 量命中区中心必须用它，⛔ 不是那个恒在父原点的节点");
+                    if (hitQuadTr == null) hitQuadTr = bestHitTr;
+                    float hitCy = MenuCheck.DesignPx(hitQuadTr).y;
                     float hitTop = hitCy - bestHitH * 0.5f;
                     float hitBot = hitCy + bestHitH * 0.5f;
 

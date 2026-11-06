@@ -4941,18 +4941,18 @@ namespace CardPresentation
             return m;
         }
 
-        /// <summary>把上面那颗材质挂到一张 quad 上。纪律同 `MenuFxMaterials.ApplyProto`：
-        /// **每颗克隆一份**（`renderQueue` 是 per-quad 的）· 原版这支 shader **没有 `_Color`** ⇒ 染色走**顶点色**通道
-        /// （`ImageQuad.SetVertexTint`，判据 = `ImageQuad.cs` 的 `B-190` 那一节：PS 末句 `mul o0, r0, v2` 乘的就是顶点色）。</summary>
+        /// <summary>把上面那颗材质挂到一张 quad 上。🔴 2026-11-05（`B150` #8）：本体**转调** `MenuFxMaterials.ApplyProto`，
+        /// ⛔ 不再本地克隆（那份逐句同形的实现被 `Editor/B111_S4_Assert.cs` 的漂移探测器判成了「第 4 份 `new Material(proto)`」）。
+        /// 判据 = 「`new Material(proto)` 只许出现在 `Shell/MenuFxMaterials.cs`」这一条单源纪律（`B-21`）。</summary>
         static void ApplyOrangeButtonToGreen(ImageQuad q)
         {
-            if (q == null) return;
-            var proto = OrangeToGreenProto();
-            if (proto == null) return;
-            Color tint = q.Tint;                       // ⚠️ 必须在 `SetMaterial` **之前**取（换完读到的就是新材质了）
-            var inst = new Material(proto);
-            if (inst.HasProperty("_Color")) inst.color = tint; else q.SetVertexTint(tint);
-            q.SetMaterial(inst);                       // 队列由 `ImageQuad.SetMaterial` 从旧材质读走（`:299-303`）
+            // 与 `MenuFxMaterials.ApplyOrangeButtonToPurple` 完全同形：每颗克隆一份（`renderQueue` 是 per-quad 的）。
+            // 原版这支 shader **没有 `_Color`** ⇒ 染色走**顶点色**通道（`ImageQuad.SetVertexTint`，判据 = `ImageQuad.cs`
+            // 的 `B-190` 那一节：PS 末句 `mul o0, r0, v2` 乘的就是顶点色）—— 那一支也在 `ApplyProto` 里。
+            MenuFxMaterials.ApplyProto(q, OrangeToGreenProto());
+            // 空 `q` / 空 `proto` 的早退、`_Color` 缺失走顶点色、队列从旧材质读走 —— 全部在 `ApplyProto` 同一份实现里。
+            // 换材质前取旧 tint、`SetMaterial` 之后队列自动接上（`ImageQuad.SetMaterial`）—— 同样不在本地重写。
+            // ⛔ 别把 `new Material(proto)` 写回这里（`B111_S4` 探测器会红）。
         }
 
         // ============================================================ 类尾追加（B143-W9 · 2026-11-05 · `Timer` 那一块）

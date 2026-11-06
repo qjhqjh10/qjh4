@@ -1116,7 +1116,7 @@ namespace RuleEngine
             if (asset == null)
             {
                 Debug.LogError($"[RuleEngine] 找不到卡表 Resources/{ResourcePath}.json —— "
-                             + "跑一下：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_cards_engine.py");
+                             + "跑一下：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_cards_engine.py --write");
                 return new List<CardDef>();
             }
             _cache = Parse(asset.text); EnsureEnchantmentGrantsFrom(asset.text);   // 🆕 v38（B90/B3）：顺手把 `enchantment` 列建成反查表（⛔ 不新增一次解析：复用这一份文本）
@@ -3929,7 +3929,7 @@ namespace RuleEngine
                         Trigger = r.trigger,
                         TargetsAffected = r.ta,
                         AbilityIndex = r.ab,
-                        LogicIndex = r.lg,
+                        LogicIndex = r.lg, ChosenAbility = ChosenAbilityOf(c, r.ab, r.lg, dto.version),   // 🔴 2026-11-06（`B150_修_附魔授予`）：这一行的 `AbilityLogic.chosenAbility`（`ca`）—— 原版只有 `30/31 / 40 / 260` 会挂附魔，见 `Enchantments.ChosenAbilityBlocksAttach` 的判据
                     });
                     rows++;
                 }
@@ -5577,6 +5577,25 @@ namespace RuleEngine
         {
             var variant = TutorialVariantLookup();
             return key => variant(key) ?? (poolLookup != null ? poolLookup(key) : null);
+        }
+
+        /// <summary>🔴 2026-11-06（`B150_修_附魔授予`）：一条 `enchantment` 行（`ab`/`lg`）对应的
+        /// **`AbilityLogic.chosenAbility`**（原版 `AbilityEffect`）—— 从同一张卡的 `triggerAbilityIndices`
+        /// 逐 `(ab, lg)` 反查（那一列 v47 起才有 `ca`）。
+        /// <para>为什么要它：原版只有 `ca 30/31 / 40 / 260` 会走到「对目标 `AddEffect`」，
+        /// `0 drawCard` / `50 buffHand` / `60 buffMana` 不产生 —— 判据全文 →
+        /// `Enchantments.ChosenAbilityBlocksAttach` 的 doc（逐调用点引 `AbilityLogic__PlayAbility.c` 行号）。</para>
+        /// <para>`-1` = **未知**（`version &lt; 47` / 键缺失 / 该行不在 `triggerAbilityIndices` 里）⇒ 消费端按改前行为处理，
+        /// ⛔ 不折成 `0`（`0 = drawCard` 是**合法真值**）。</para></summary>
+        static int ChosenAbilityOf(CardDto c, int ab, int lg, int version)
+        {
+            if (c == null || version < 47 || c.triggerAbilityIndices == null) return -1;
+            for (int i = 0; i < c.triggerAbilityIndices.Length; i++)
+            {
+                var t = c.triggerAbilityIndices[i];
+                if (t != null && t.ab == ab && t.lg == lg) return t.ca >= -1 ? t.ca : -1;
+            }
+            return -1;
         }
     }
 }

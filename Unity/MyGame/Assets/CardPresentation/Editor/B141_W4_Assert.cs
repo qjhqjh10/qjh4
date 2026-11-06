@@ -130,6 +130,31 @@ public static class B141_W4_Assert
         return t != null ? t.GetComponent<ImageQuad>() : null;
     }
 
+    /// <summary>容器根下**每一块** `ImageQuad`。🔴 `MenuDraw.Nine` / `MenuDraw.Tiled` 返回的是**容器根**
+    /// （`Battle/ImageQuad.cs` 的 `CreateNineSlice` / `CreateTiled`：`var root = new GameObject(name)`，
+    /// 组件挂在 9 / N 个子块上，根上**没有**）⇒ ⛔ 不能对根取 `GetComponent`（会恒 null，`B150` #12/#13）。</summary>
+    static ImageQuad[] QuadsUnder(Transform parent, string name)
+    {
+        var t = parent != null ? parent.Find(name) : null;
+        return t != null ? t.GetComponentsInChildren<ImageQuad>(true) : null;
+    }
+
+    /// <summary>一组子块**全部** `RenderQueue == want`（空/缺 ⇒ false，⛔ 不静默跳过）。</summary>
+    static bool AllQueued(ImageQuad[] qs, int want)
+    {
+        if (qs == null || qs.Length == 0) return false;
+        for (int i = 0; i < qs.Length; i++) if (qs[i] == null || qs[i].RenderQueue != want) return false;
+        return true;
+    }
+
+    /// <summary>一组子块**全部** `RenderQueue &lt; ceiling`（空/缺 ⇒ false）。</summary>
+    static bool AllBelow(ImageQuad[] qs, int ceiling)
+    {
+        if (qs == null || qs.Length == 0) return false;
+        for (int i = 0; i < qs.Length; i++) if (qs[i] == null || qs[i].RenderQueue >= ceiling) return false;
+        return true;
+    }
+
     static void SectionC_Applied()
     {
         var root = new GameObject("B141W4_ROOT");
@@ -149,33 +174,33 @@ public static class B141_W4_Assert
             var glow = QuadOf(p.AnchorNode, "Glow (1)");
             var hand = QuadOf(p.PointerNode, "Image");
             var light = QuadOf(p.PointerNode, "light");
-            var bubbleBg = QuadOf(p.BubbleNode, "Image");
-            var bubbleFill = QuadOf(p.BubbleNode, "Background fill");
+            var bubbleBg = QuadsUnder(p.BubbleNode, "Image");
+            var bubbleFill = QuadsUnder(p.BubbleNode, "Background fill");
             var bubbleTextT = p.BubbleNode != null ? p.BubbleNode.Find("TutorialText") : null;
             var bubbleText = bubbleTextT != null ? bubbleTextT.GetComponent<Label>() : null;
 
             T(glow != null, "C4a **前提**：`Glow (1)` 上有 `ImageQuad`");
             T(hand != null, "C4b **前提**：`Pointer/Image` 上有 `ImageQuad`");
             T(light != null, "C4c **前提**：`Pointer/light` 上有 `ImageQuad`");
-            T(bubbleBg != null, "C4d **前提**：`Generic Popup Background/Image` 上有 `ImageQuad`");
-            T(bubbleFill != null, "C4e **前提**：`Background fill` 上有 `ImageQuad`");
+            T(bubbleBg != null && bubbleBg.Length > 0, "C4d **前提**：`Generic Popup Background/Image` 的九宫**子块**上有 `ImageQuad`（根上没有组件；`Nine` 的 9 块）");
+            T(bubbleFill != null && bubbleFill.Length > 0, "C4e **前提**：`Background fill` 的平铺**子块**上有 `ImageQuad`（根上没有组件）");
             T(bubbleText != null, "C4f **前提**：`TutorialText` 上有 `Label`");
-            if (glow == null || hand == null || light == null || bubbleBg == null || bubbleFill == null || bubbleText == null)
+            if (glow == null || hand == null || light == null || bubbleBg == null || bubbleBg.Length == 0 || bubbleFill == null || bubbleFill.Length == 0 || bubbleText == null)
                 return;   // 前提已逐条报红，不再叠假红
 
             // ★ 真正写进材质的那几个数
             C(glow.RenderQueue, TutorialPointerUi.QGlow, "C5a ★ `Glow (1)` 材质队列 = `QGlow`（写进去了，不是只改常量）");
             C(hand.RenderQueue, TutorialPointerUi.QPointer, "C5b ★ 手形图材质队列 = `QPointer`");
             C(light.RenderQueue, TutorialPointerUi.QLight, "C5c ★ `light` 材质队列 = `QLight`");
-            C(bubbleBg.RenderQueue, TutorialPointerUi.QBubble, "C5d ★ 气泡底材质队列 = `QBubble`");
-            C(bubbleFill.RenderQueue, TutorialPointerUi.QBubbleFill, "C5e ★ `Background fill` 材质队列 = `QBubbleFill`");
+            T(AllQueued(bubbleBg, TutorialPointerUi.QBubble), "C5d ★ 气泡底**每一块**（" + bubbleBg.Length + " 块）材质队列都 = `QBubble`（写进去了，不是只改常量）");
+            T(AllQueued(bubbleFill, TutorialPointerUi.QBubbleFill), "C5e ★ `Background fill` **每一块**（" + bubbleFill.Length + " 块）材质队列都 = `QBubbleFill`");
             C(bubbleText.RenderQueue, TutorialPointerUi.QBubbleText, "C5f ★ `TutorialText` 文字队列 = `QBubbleText`");
 
             // 现场复核：四个有材质的件都 <= QBubbleText 且都低于 toast（把常数与实物串起来）
             int toast = ToastNotifications.QShade;      // 4072（钉外部件，不在这里写死数字）
             T(glow.RenderQueue < toast && hand.RenderQueue < toast && light.RenderQueue < toast
-              && bubbleBg.RenderQueue < toast && bubbleFill.RenderQueue < toast && bubbleText.RenderQueue < toast,
-              "C6 ★ 实物复核：六个件**全部**低于 toast（" + toast + "）｜🧨 只改常量不改调用点 ⇒ 本行红");
+              && AllBelow(bubbleBg, toast) && AllBelow(bubbleFill, toast) && bubbleText.RenderQueue < toast,
+              "C6 ★ 实物复核：六个件（气泡的**每一块子件**都算）**全部**低于 toast（" + toast + "）｜🧨 只改常量不改调用点 ⇒ 本行红");
         }
         finally
         {

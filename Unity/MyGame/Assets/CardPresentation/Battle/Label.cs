@@ -527,7 +527,14 @@ namespace CardPresentation
             get
             {
                 var f = ActualFace;
-                float c = TmpFont.CapPerFontSize(f), g = TmpFont.EmPerFontSize(f);
+                // 🔴 **2026-11-06（`B150-font2`）**：CJK 的分母**故意不跟** `EmPerFontSize` 的基线改口径 ——
+                // 本比值的语义是「大写墨高 ÷ **汉字墨高**」（cap→glyph 的实测比 0.8217），不是 ÷ em；
+                // 跟着改会变 0.7012 ⇒ `GlyphHeightWorld` 对「用 `SetCapHeight` 定过」的 CJK 标签**×1.172**。
+                // 拉丁面仍用 em（`SetScriptHeight` 的拉丁路要求「em = px」，判据见上面那段 doc）。
+                // 🔴 **本比值自 2026-11-06 起只服务 `GlyphHeightWorld`** —— `SetScriptHeight` 已改成**按面现算**
+                //   `Cap/Em`（否则「Cjk 面 + 英文文本」会读成 1.172×，实测 42 → 49.24）。⛔ 别把它接回那条路。
+                float c = TmpFont.CapPerFontSize(f);
+                float g = f == TmpFont.Face.Cjk ? TmpFont.WorldGlyphPerFontSize : TmpFont.EmPerFontSize(f);
                 return (c > 0f && g > 0f) ? c / g : 0.72f;
             }
         }
@@ -558,6 +565,10 @@ namespace CardPresentation
         /// 中文文案用它 —— 汉字墨高 ≈ 1 em，而拉丁大写只有 0.72 em（**em 口径**；
         /// 本工程两条 `Set*` 路的实测换算是 `CapOverGlyph` ≈ 0.8217），
         /// 拿 `SetCapHeight` 喂中文会大约 22%（`1 ÷ 0.8217`）。
+        /// 🔴 **2026-11-06（`B150-font2`）口径变了**：`TmpFont.EmPerFontSize(Face.Cjk)` 改成 0.1（px = 原版 `m_fontSize`，
+        ///   判据 `判据/B146_字体CJK与确认键判据.md` §三）之后，本函数**不再**让汉字墨高 = 入参 —— 它现在等价于
+        ///   「把 TMP 的 `fontSize` 设成 入参 ÷ 0.1」，实渲汉字墨高 = **0.853 × 入参**。名字与「占多高」的措辞是历史遗留；
+        ///   ⛔ 别据此把入参乘 1.172 补回去（那正是被修掉的 +17.2%）。
         /// </summary>
         public void SetGlyphHeight(float worldHeight)
         {
@@ -567,8 +578,8 @@ namespace CardPresentation
         /// <summary>
         /// 按「**这段文本的语种**」定字号 —— **全工程唯一一份这个判据在 `Label` 上的实现**。
         /// <para>`px` = 原版那一颗 TMP 的 `m_fontSize`（em 的像素值）、`pxPerUnit` = 本现场的「1 世界单位 = 多少 px」。
-        /// 汉字用 <see cref="SetGlyphHeight"/>（≈1 em）、拉丁用 <see cref="SetCapHeight"/>（大写高 = 汉字墨高 ×
-        /// <see cref="CapOverGlyph"/>）—— 语种判据本身 = `Loc.HasCjk`（**它才是唯一一份**，本方法只是把它接到 `Label` 上）。</para>
+        /// 汉字用 <see cref="SetGlyphHeight"/>（≈1 em）、拉丁用 <see cref="SetCapHeight"/>（大写高 = `px × Cap/Em`，
+        /// **按本标签自己的面现算**，⛔ 不走 `CapOverGlyph`）—— 语种判据本身 = `Loc.HasCjk`（唯一一份，本方法只是把它接到 `Label` 上）。</para>
         /// <para>**为什么要有它**：同一个 `Label` 上的字会**跟着语言变**（`Loc.T`）。
         /// 两条硬写死都会错：只按汉字定 ⇔ 英文大 22%；只按拉丁大写定 ⇔ 中文小 18%
         /// （`1 ÷ 0.8217` 那一档）—— 两条都在这个工程里真发生过（`Battle/SettingsPanel` 那三根滑块的标签、
@@ -577,19 +588,19 @@ namespace CardPresentation
         /// **那个常数让中/英两条路落到两个 px**（英文档比中文档小 12.4%，正是本账记的症状）。
         /// 0.72 是 `capLine/pointSize` 的 **em 口径**，而 `SetGlyphHeight` 的口径是**汉字墨高（含 SDF padding）**
         /// —— 两个分母不同，推导与实据逐条写在 `CapOverGlyph` 的 doc 里。
-        /// 现在两条路都经 `CapOverGlyph`（运行时实测 `Wcap/Wglyph` ≈ 0.8217）⇒
-        /// **同一个 `px` 下 `FontSizeToPxNow` 两档相等**。断言（含「改回 0.72 就红」的灭自证）→
-        /// `Editor/BattleScene.cs` 的 §4.6c。</para>
-        /// <para>🔴 **2026-10-18（`N55`）**：`CapOverGlyph` 的**分母**在拉丁面上换成原版真 em（0.1）
-        /// ⇒ 拉丁路喂的是「**em = px**」、CJK 路仍是「**汉字墨高 = px**」；两条路各自用**自己的面**
-        /// 经 `FontSizeToPxNow` 读回都 = `px`（§4.6c 那两条断言的性质**不变**、数值也不变）。
-        /// 判据 → `R4_Rewards残差.md` §五·B ＋ `D1_桶A字号换算链.md`。</para>
+        /// 现在两条路的乘子**都按本标签自己的面现算** ⇒ **同一个 `px` 下 `FontSizeToPxNow` 两档相等**。
+        /// 断言（含「改回 0.72 就红」的灭自证）→ `Editor/BattleScene.cs` 的 §4.6c。</para>
+        /// <para>🔴 **2026-11-06（`B150-font2`）就地订正**：拉丁路**不再用 `CapOverGlyph`** —— 那个比值当天被
+        /// 钉成「CJK = Cap ÷ **汉字墨高**（0.8217）」给 `GlyphHeightWorld` 用；拿它当本方法乘子，则
+        /// **「Cjk 面 + 英文文本」**这一档会读成 `px × 0.8217 × 0.1 ÷ 0.07012 = 1.172 × px`（实测 42 → **49.24**）。
+        /// ⇒ 现在按 `Cap(ActualFace) ÷ Em(ActualFace)` 现算：非 Cjk 面**逐位不变**（那里两者本来就相等），
+        /// 只修 Cjk 面这一档（0.7012）。判据 → `R4_Rewards残差.md` §五·B ＋ `D1_桶A字号换算链.md`。</para>
         /// </summary>
         public void SetScriptHeight(string text, float px, float pxPerUnit)
         {
             if (pxPerUnit <= 0f) return;
             if (Loc.HasCjk(text)) SetGlyphHeight(px / pxPerUnit);
-            else SetCapHeight(px * CapOverGlyph / pxPerUnit);   // 大写高 = px × Wcap/Em（CJK 面 = 汉字墨高口径；拉丁面 = 真 em）—— 见 `CapOverGlyph`
+            else SetCapHeight(px * TmpFont.CapPerFontSize(ActualFace) / TmpFont.EmPerFontSize(ActualFace) / pxPerUnit);   // ✅ 2026-11-06（B150-font2）：大写高 = px × **Cap/Em 按本面现算**；⛔ 别改用 `CapOverGlyph`（它对 CJK 是 Cap÷墨高 ⇒「Cjk 面 + 英文文本」会读成 1.172× px）
         }
 
         /// <summary>
@@ -697,7 +708,7 @@ namespace CardPresentation
         }
 
         /// <summary>🔴 **2026-10-23（P7）**：**未激活**对象上把版面**真排出来**（含自适应收敛）——
-        /// 反复调 `GetTextInfo` 直到 `textBounds` 是一个**测量值**。
+        /// 反复调 `GetTextInfo` 直到自适应**收敛**（`_tmp.fontSize` 不再变）**且** `textBounds` 是测量值。
         ///
         /// <para>**为什么一遍不够**（判据 = TMP 源码现读，`Library/PackageCache/com.unity.ugui@…
         /// /Runtime/TMP/TextMeshPro.cs`）：`GetTextInfo` 只调**一次** `GenerateTextMesh()`，而**自适应**的
@@ -709,12 +720,11 @@ namespace CardPresentation
         /// **激活**对象由 TMP 自己 `OnPreRenderObject` 的 `while (m_IsAutoSizePointSizeSet == false)`
         /// 收敛；**未激活**对象上那条路被 `IsActive()` 闸掉（`:2119`）⇒ 只能我们推。</para>
         ///
-        /// <para>**为什么反复调能收敛**：每次 early-return 都会按 TMP 自己的二分把 `m_fontSize` 挪一步
-        /// （`m_maxFontSize`/`m_minFontSize` 是**类字段**、跨调用保留）；到 `fontSizeDelta ≤ 0.051`
-        /// 那一遍就走完整条 Phase I+II ⇒ 有真 `textBounds`（那一遍也会照常发 `ON_TEXT_CHANGED`，
-        /// 裁切守卫据此补那一刀）。上限 32（TMP 自己的 `m_AutoSizeMaxIterationCount` = 100，
-        /// 二分实测 ≤ ~15 步）——到不了就**如实返回 false**，由调用方按「没量到」处置
-        /// （⛔ 不拿哨兵去摆位）。</para>
+        /// <para>**为什么反复调能收敛**：每次调用都会按 TMP 自己的二分把 `m_fontSize` 挪一步
+        /// （`m_maxFontSize`/`m_minFontSize` 跨调用保留，但**先要把它们设成 `[min,max]`** —— 见下面那句
+        /// `SyncAutoSizeBoundsForInactive`）。🔴 **2026-11-06（`B150` · `Select Item` 左对齐差 28.17px）就地订正**：
+        /// 原文按「有真 `textBounds`」就收工 —— 而二分**第一遍**（base 那一档）本来就装得下、给得出完整
+        /// `textBounds` ⇒ **「量得到」≠「排到最后一版」**；判据改成**字号不再变**（上限 32，实测 ≤ ~15 步）。</para>
         ///
         /// <para>⚠️ **只在「未激活」这一档被调用**（`ForceRelayout` / `EnsureMeasured` 的分支里）——
         /// 已激活的路径一个字节都没动。⚠️ 它只算版面、**不碰渲染网格**（`GetTextInfo` 走 DontRender）。</para></summary>
@@ -725,14 +735,15 @@ namespace CardPresentation
             // `GetTextBounds` 给全零 ⇒ 下面那个 `|size.x| > 1e-3` 永远过不了 ⇒ 会白跑满 32 遍
             // （而且每一遍都发一次 `ON_TEXT_CHANGED`，裁切守卫会跟着重放）。直接如实答「没量到」。
             if (string.IsNullOrEmpty(_text)) return false;
+            SyncAutoSizeBoundsForInactive();     // 🔴 未激活档：TMP 的二分区间还是 0 ⇒ 先补成 [min,max]（见文件头）
             for (int i = 0; i < 32; i++)
             {
+                float f0 = _tmp.fontSize;             // 自适应每遍都挪它；`m_max/minFontSize` 是类字段、跨调用保留
                 TmpFont.GenerateLayout(_tmp);
-                var b = _tmp.textBounds;
-                // 真测量 = 有限、在画布尺度内、**且不是零宽**（空串给的是全零 `Bounds` ⇒ 没有东西可量，
-                // 继续推也没意义 —— 那一档由 `HasMeasuredWidth` 的 `_text` 守卫负责）。
-                if (UsableBounds(b.size) && UsableBounds(b.min) && Mathf.Abs(b.size.x) > 1e-3f) return true;
-                if (!_tmp.enableAutoSizing) return false;   // 没开自适应 ⇒ 再推多少遍都是同一版
+                var b = _tmp.textBounds;              // 真测量 = 有限、在画布尺度内、**且不是零宽**（空串给全零）
+                bool ok = UsableBounds(b.size) && UsableBounds(b.min) && Mathf.Abs(b.size.x) > 1e-3f;
+                if (!_tmp.enableAutoSizing) return ok;   // 没开自适应 ⇒ 再推多少遍都是同一版
+                if (ok && Mathf.Abs(_tmp.fontSize - f0) < 5e-3f) return true;   // 🔴 量得到 ≠ 排到最后一版（见文件头）
             }
             return false;
         }
@@ -1045,16 +1056,16 @@ namespace CardPresentation
         public float CharSpacing { get { return _tmp != null ? _tmp.characterSpacing : 0f; } }
 
         /// <summary>🔴 **「TMP 的 `fontSize`」↔「画布像素」只此一份换算**：`fontSize × 本式 = 画布 px`。
-        /// 判据 = `TmpFont` 实测的「字形世界高 ÷ fontSize」（≈0.0948）× **108 px / 世界单位**
-        /// （`LayoutSpace.DesignPxH / DesignHeight`）。
+        /// 本式 = `EmPerFontSize(Face.Cjk)`（**em ÷ fontSize**；2026-11-06 起 = 0.1，判据 `TmpFont.EmPerFontSize`）
+        /// × **108 px / 世界单位**（`LayoutSpace.DesignPxH / DesignHeight`）。
         /// ⚠️ 与本文件顶部那个**点阵后端**的私有 `PixelsPerUnit = 100f` **无关**（那个管字块贴图的整数档）。
-        /// 🔴 **2026-10-18（`N55`）**：本口用的是 **CJK 那一支**（汉字墨高 0.0948）。`TmpFont.EmPerFontSize`
-        ///   自本日起**按面分两支**（CJK 0.0948 / 拉丁面原版真 em 0.1）⇒ **量拉丁面标签必须改用
-        ///   `lb.FontSizeToPxNow(x, lb.ActualFace)`**（或下面那个双实参静态口），否则恒差 5.2%。
+        /// 🔴 **2026-11-06（`B150-font2`）就地订正**：本口原来写死 `WorldGlyphPerFontSize`（汉字墨高），
+        ///   而 `EmPerFontSize(Cjk)` 同日已改成 **0.1**（px = 原版 `m_fontSize`，判据 `B146` §三）⇒ 现在**直接
+        ///   转调双实参口**（`Face.Cjk`）。⛔ 不同步的话量 CJK 会恒读 ×0.853（32 → 27.30）。
         ///   判据 → `资料/普查产出_1017/诊断_第四十八会话/R4_Rewards残差.md` §五·B。</summary>
         public static float FontSizeToPx(float fontSize)
         {
-            return fontSize * TmpFont.WorldGlyphPerFontSize * PxPerWorld;
+            return FontSizeToPx(fontSize, TmpFont.Face.Cjk);   // ✅ 已复刻（2026-11-06 · B150-font2）：与 `EmPerFontSize` 同源（原写死墨高 `WorldGlyphPerFontSize` ⇒ 基线改完会恒读 ×0.853）
         }
 
         /// <summary>同上，但**按字体面**（🆕 2026-10-14 · `A1024` ③）。`Face.Cjk` 给出的值与上面那条**逐位相同**。</summary>
@@ -1659,8 +1670,8 @@ namespace CardPresentation
             //   （`:1284` 记的 `TrophyInfoPopup` 那次就是这么红的）。
             //   ⚠️ 这一档**既不写 `_tmpW/_tmpH`**（`WorldW/WorldH` 读到的仍是上一次的真值或初值 0），
             //   也**不挪节点** ⇒ 文字停在 `Label.Create` 给的框心（居中锚点下就是它该在的地方），
-            //   等真测量到了（对象激活后有人再调一次 `SetText`/本函数）再摆精确位。
-            if (!UsableBounds(b.size) || !UsableBounds(b.min)) return;
+            //   等真测量到了（对象激活后有人再调一次 `SetText`/本函数）再摆精确位。🔴 **2026-11-05（`B150`）再加一档「**两轴都≈0**」**：`TMP_Text.textBounds` 在 `m_textInfo == null` 时返回 `new Bounds()`（`(0,0,0)`，判据 `Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TMP_Text.cs:1354-1363`），而 `m_textInfo` 只在 `Awake()` 里 `new`（`TextMeshPro.cs:592`）⇒ 编辑模式下 `AddComponent` 不跑 `Awake` 的路径量到的就是**全零**（不是天文哨兵，旧闸挡不住）；全零能过 `UsableBounds`（0 ≤ 上限），下面又 `Mathf.Max(|0|, 1e-4)` ⇒ 记成「宽 1e-4 的真测量」+ `_measured = true` ⇒ `HasMeasuredWidth` 放行、两个 `Align*On` 拿 1e-4 摆位**且不记 `_pendAlignX` 待办**（静默错位）。⚠️ 这一档只挡 **size**、⛔ **不写进 `UsableBounds`**：`b.min` 共用它，而合法文本的 `min` 落在原点附近是常态（左对齐 + 底对齐）⇒ 写进去会误杀正常测量。⚠️ 运行时 TMP 已 awake ⇒ `textBounds` 是真值 ⇒ 本档**恒不命中**（零影响）。
+            if (!UsableBounds(b.size) || !UsableBounds(b.min) || (Mathf.Abs(b.size.x) < 1e-3f && Mathf.Abs(b.size.y) < 1e-3f)) return;
 
             _tmpW = Mathf.Max(Mathf.Abs(b.size.x), 1e-4f);
             _tmpH = Mathf.Max(Mathf.Abs(b.size.y), 1e-4f);
@@ -1753,7 +1764,7 @@ namespace CardPresentation
         public void AlignLeftOn(float worldLeftX)
         {
             if (_tmp == null) { NoteDotBackendLacks("左对齐", worldLeftX); return; }
-            RefreshBounds();
+            _alignEver = true; RefreshBounds();   // 先打标（`RefreshBounds` 里可能就触发未激活档的测量）· 本类「量到的宽会被拿去摆位」的唯一一族
             // 🔴 见 `HasMeasuredWidth` —— 量不出宽度时**不动位置**。
             // 🆕 **2026-10-23（P7）**：★不再直接丢掉★ —— 把这一次请求**记成待办**，由下一次真测量
             //   落定的那一拍（`RefreshBounds` 尾句的 `TryApplyPendingAlign`）兑现。原来这一句是裸
@@ -1777,7 +1788,7 @@ namespace CardPresentation
         public void AlignRightOn(float worldRightX)
         {
             if (_tmp == null) { NoteDotBackendLacks("右对齐", worldRightX); return; }
-            RefreshBounds();
+            _alignEver = true; RefreshBounds();   // 同 `AlignLeftOn`（打标必须在 `RefreshBounds` 之前）
             // 🔴 同 `AlignLeftOn`（含 🆕 P7 的「记成待办」那一档）
             if (!HasMeasuredWidth()) { _pendAlignX = worldRightX; _pendAlignRight = true; return; }
             _pendAlignX = float.NaN;
@@ -3013,5 +3024,65 @@ namespace CardPresentation
         /// 来源 = TMP 子件的 `rectTransform.sizeDelta.x`（<see cref="TmpFont.SetWrapWidthRect"/> 写的就是它，
         /// 之后 `SetAutoFitBox` 只改 `.y`）。点阵后端（`_tmp == null`）⇒ **0**（如实报「那个后端没有折行这回事」）。</summary>
         public float WrapWidthForTest { get { return _tmp != null ? _tmp.rectTransform.sizeDelta.x : 0f; } }
+
+        // ============================================================================================
+        // 🆕 **2026-11-06（`B150` · `Select Item` 左对齐差 28.17px）** —— 未激活档的自适应**二分区间**。
+        // 判据（TMP 源码现读）：`m_maxFontSize`/`m_minFontSize` **只在** `OnPreRenderCanvas` 的收敛循环前被
+        // 设成 `[m_fontSizeMax, m_fontSizeMin]`（`Library/PackageCache/com.unity.ugui@…/Runtime/TMP/
+        // TextMeshProUGUI.cs:2499-2504`），而 `GetTextInfo`（`PushLayoutInactive` 走的唯一那条路）**不经过
+        // 那一步** ⇒ 未激活对象的这两个字段还是类字段初值 **0**（`TMP_Text.cs:521-522`）⇒ 每次
+        // `fontSizeDelta = max − min = 0` ⇒ **增长分支永不触发** ⇒ 版面永远停在 `m_fontSizeBase` 那一档。
+        // 实况 = `Select Item` 量到 **165.22px**（= base 26.1 的宽），激活后实渲 **221.56px**（= max 35 的宽）
+        // ⇒ `AlignLeftOn` 用旧宽摆位 ⇒ 左沿被多推 `(221.56 − 165.22)/2 = 28.17px`（分毫不差）。
+        // ============================================================================================
+        static System.Reflection.FieldInfo MaxFld, MinFld;
+        bool _warnedNoAutoSizeFld;
+
+        /// <summary>🆕 **2026-11-06（`B150`）**：本标签**被 `AlignLeftOn`/`AlignRightOn` 落过**（一旦为真不再复位）。
+        /// 它是「这一类标签量到的宽会被拿去摆位」的凭据 —— 未激活档的自适应收敛**只对这一族放开**
+        /// （判据与后果 → <see cref="SyncAutoSizeBoundsForInactive"/> 方法体首段）。</summary>
+        bool _alignEver;
+
+        /// <summary>把 TMP 的二分区间补成 `[fontSizeMin, fontSizeMax]`。**只服务未激活那一档**
+        /// （<see cref="PushLayoutInactive"/>，见上面那段的判据），且**只在该标签落过 `Align*On` 时**（见方法体首句）。
+        /// <para>⚠️ 每次进那个循环**只调一次**：二分过程中 TMP 自己会收窄这两个字段，每遍重设 ⇒ 永不收敛。
+        /// 拿不到字段（TMP 换版）⇒ **出声一次**、返回 false —— 调用方照旧只按「量得到」判，行为退回改前那一版
+        /// （⛔ 不假装收敛；「不许静默失败」）。</para></summary>
+        bool SyncAutoSizeBoundsForInactive()
+        {
+            // 🔴 **2026-11-06（`B150` 回改 · 只服务「对齐会拿宽去摆位」这一族）**：没被 `AlignLeftOn`/`AlignRightOn` 落过的标签
+            //   一个字节都不动 —— 未激活档量到的宽**只有对齐会拿去摆位**；其余标签的 `WorldW` 只是诊断/断言读数，按 base 量是
+            //   **改前**的既有行为（打开增长分支会让它们从 base 36 涨到 max 40 ⇒ `B97W41` 的 A7/A9 与 `B98A2` 的 D6 翻红：
+            //   那三条的「< 40 / 短 ≥ 长」正是靠**改前那个 base 读数**成立的，产品侧并没有「真的在压」这回事）。
+            if (!_alignEver) return false;
+            if (_tmp == null || !_tmp.enableAutoSizing) return false;
+            float hi = _tmp.fontSizeMax, lo = _tmp.fontSizeMin;
+            if (hi <= 0f || lo <= 0f || hi <= lo) return false;   // 没写过四格 / 区间退化 ⇒ 没有可收敛的区间
+            if (MaxFld == null || MinFld == null) FindAutoSizeFlds();
+            if (MaxFld == null || MinFld == null)
+            {
+                if (!_warnedNoAutoSizeFld)
+                {
+                    _warnedNoAutoSizeFld = true;
+                    Debug.LogWarning("[Label] ⚠️ 找不到 TMP 的 `m_maxFontSize`/`m_minFontSize` ⇒ 未激活档的"
+                                     + "字号自适应**收敛不了**（版面停在 base 那一档，激活后还会再长一次）");
+                }
+                return false;
+            }
+            MaxFld.SetValue(_tmp, hi);
+            MinFld.SetValue(_tmp, lo);
+            return true;
+        }
+
+        /// <summary>取那两个非公开字段的句柄（同 <see cref="BaseFld"/> 的写法：类型不对 ⇒ 当取不到）。</summary>
+        static void FindAutoSizeFlds()
+        {
+            const System.Reflection.BindingFlags F =
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            MaxFld = typeof(TMP_Text).GetField("m_maxFontSize", F);
+            MinFld = typeof(TMP_Text).GetField("m_minFontSize", F);
+            if (MaxFld != null && MaxFld.FieldType != typeof(float)) MaxFld = null;
+            if (MinFld != null && MinFld.FieldType != typeof(float)) MinFld = null;
+        }
     }
 }

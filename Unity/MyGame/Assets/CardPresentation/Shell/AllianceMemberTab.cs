@@ -2632,15 +2632,15 @@ namespace CardPresentation
             if (_arrowOpen != null) _arrowOpen.gameObject.SetActive(open);
         }
 
-        /// <summary>换条目底图（**同尺寸变体**：`40K_dropdown_item` / `_hover` / `_selected` 都是 717×92
-        /// ⇒ `SetTexture` 冲掉 `_aspect` 也冲成同一个值，不需要拉回 —— 那是 `ChatPanel.RefreshHighlights`
-        /// 那条「换图后要 `SetAspect`」的同族教训**唯一不适用**的情形，理由就是尺寸相同）。</summary>
+        /// <summary>换条目底图。🔴 **2026-11-05（`B150` #11）就地订正**：原写着「同尺寸变体 ⇒ `SetTexture` 冲掉 `_aspect` 也冲成同一个值、不需要拉回」—— **不成立**：建时写进 `_aspect` 的是**矩形**比例（`MenuDraw.Rect` 建完紧跟 `quad.SetAspect((x2-x1)/(y2-y1))`，`Shell/MenuDraw.cs:1677-1679`），不是贴图比例（717/92 = 7.793 VS 5.994）。
+        /// ⇒ 必须走 `keepAspect: true`，否则 `WorldW = WorldH × _aspect` 被算大 1.3 倍，并污染 `WindowButton` 的 `_targetAspect`（换图后永远拉不回 5.994）。
+        /// ⚠️ 三张图（`40K_dropdown_item` / `_hover` / `_selected`）确实是同尺寸变体，但那**救不了** `_aspect` —— 见上面那两句。</summary>
         void SwapArt(ImageQuad q, string name)
         {
             if (q == null) return;
             var tex = _art(name);
             if (tex == null) return;              // 取不到就留在旧图上（`MissingArt` 已记）
-            q.SetTexture(tex);
+            q.SetTexture(tex, keepAspect: true);
         }
 
         /// <summary>第 <paramref name="i"/> 行**该有的常态图**（原版 `m_SpriteState`：选中 ⇒ `m_SelectedSprite`，
@@ -2693,7 +2693,7 @@ namespace CardPresentation
                 if (wbOld == null || (!wbOld.Hovered && !wbOld.Pressed))
                 {
                     var texOld = _art(ItemArtName(old));
-                    if (texOld != null) _itemQuads[old].SetTexture(texOld);
+                    if (texOld != null) _itemQuads[old].SetTexture(texOld, keepAspect: true);   // ⚠️ 同 `SwapArt`：`_aspect` 是**矩形**比例，⛔ 别用一实参重载把它冲成贴图比例（`B150` #11）
                 }
             }
             BindRow(idx);   // 新选中行：只改常态/悬停图的**引用** —— 按下那几帧的显示仍归 `WindowButton`（`_press`）

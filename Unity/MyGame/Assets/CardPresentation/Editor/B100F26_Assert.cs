@@ -31,13 +31,17 @@
 //     **两条结构上不可能同时满足** ⇒ 光「把期望值改成 3」或者「让两边一起回旧写法」都救不回来。
 //   · F4：选中项**不在棋盘上** ⇒ 计数 **0**（原版筛完是空表，⛔ 不是「全部候选」）
 //     ｜🧨 同上（计数不跟着收窄走 ⇒ 仍是 3 ⇒ 红）。
-//   · F5：`traitsFilter = 780` 剔掉一个候选 ⇒ 3 → **2**
-//     ｜🧨 同上（去重不生效 ⇒ 仍是 3 ⇒ 红）。
+//   · F5：`traitsFilter = 780` ⇒ **先按 `mutation` 筛、再去重** ⇒ 只剩 **1**
+//     ｜🧨 删掉 `CountEval.cs:363` 的 `count = cands.Count` ⇒ 回到 2 ⇒ 红。
+//        ⚠️ 2026-11-06（`B150`）就地订正：原来这条写「剔掉一个候选 ⇒ 3 → 2」，那是「780 只当去重、
+//        不逐候选筛」那一版的错读数（判据 → `资料/完全复刻/判据/B150_诊断_F5F7.md` §1；同形 = `B98G6_Assert` A6）。
 //   · F6（灭自证 · 反向）：同一棋盘、`select = 0` 且 `traits = 0` ⇒ 计数**仍是 3**
 //     ｜🧨 把 `count = cands.Count` 写成「无条件执行」而不看「收窄有没有真发生」也**不该**影响本条；
 //        但 🧨 若有人把收窄写成「永远执行」⇒ 本条红。
 //   · F7（灭自证 · 非棋盘族 · 🔶 不许静默失败）：`ta=50`（手牌池）＋ `traitsFilter = 780` ⇒
 //     候选是 `CardInstance`、不是 `UnitState` ⇒ 收窄**重算不了** ⇒ 必须 **gap**（⛔ 不许拿收窄前的数顶）
+//     ⚠️ 2026-11-06（`B150`）：夹具**必须先给一张手牌挂 `mutation`**，否则 `count` 本来就是 0（780 先筛一道）
+//        ⇒ `candFaithful == count` ⇒ 条件不成立 ⇒ 本条空转（判据 → `资料/完全复刻/判据/B150_诊断_F5F7.md` §2）。
 //     ｜🧨 把那一跳的 `else if (narrowingRequested && candFaithful != count) { gap=…; return null; }`
 //        删掉 ⇒ 本条会拿到一个数而不是 gap ⇒ 红。
 //
@@ -92,7 +96,7 @@ public static class B100F26_Assert
         var ctx = Battle();
         var u1 = Place(ctx, 0, 2, Unit("F26CntA", 1, 1, 5), exhausted: false);
         var u2 = Place(ctx, 0, 3, Unit("F26CntB", 1, 1, 5), exhausted: false);
-        Place(ctx, 1, 3, Unit("F26CntFoe", 1, 1, 5), exhausted: true);
+        var foe = Place(ctx, 1, 3, Unit("F26CntFoe", 1, 1, 5), exhausted: true);   // 2026-11-06（`B150`）：F5 要给它挂 `mutation`
 
         // ---- F1：前提 ----
         int count0 = Measure(ctx, Set(10, 0), u1, null);
@@ -122,12 +126,26 @@ public static class B100F26_Assert
         C(cOff, 0, "★ F4 旗开着、选中的那张**不在棋盘上** ⇒ 计数 **0**（原版筛完是空表；⛔ 不是「全部候选」）"
                  + "｜🧨 计数不跟着收窄走 ⇒ 仍是 " + count0 + " ⇒ 红");
 
-        // ---- F5：traitsFilter = 780 去重 ⇒ 3 → 2 ----
+        // ---- F5：traitsFilter = 780 ⇒ ① 按 mutation 筛 → ② 剔掉已挂过的 ⇒ 1 ----
+        //  🔴 2026-11-06（`B150`）就地订正：期望从 `count0 - 1` 改成 **1**。
+        //     `count0-1` 是「`traitsFilter=780` 只当去重、不逐候选筛」那一版的读数（=`TraitNameOf(780)`
+        //     补上之前的制品）。原版是**两跳**：先 `CheckIfMeetsCriteria.c:314-316` → `MeetsTraitCriteria.c:44-55`
+        //     按候选**自带的 `mutation`** 筛，末尾 `GetTargets.c:1370-1385` 才 `HasSingleUseMutation` 去重。
+        //     判据全文 → `资料/完全复刻/判据/B150_诊断_F5F7.md` §1；同形写法见 `B98G6_Assert` A6（已订正为 1）。
+        //  🧨 判别式（四种写法各自红在哪）：① 不生效（780 不筛）⇒ 3 ⇒ 红（正好是那条旧错期望）·
+        //     ② 没接（`needCands` 少了 `|| set.TraitsFilter == 780`）⇒ 3 ⇒ 红 ·
+        //     ② 剔过头（忽略 `ReferenceEquals`）⇒ 0 ⇒ 红 ·
+        //     **主要那条**：删掉 `CountEval.cs:363` 的 `count = cands.Count` ⇒ 回到 2（筛完、未剔）⇒ 红。
+        u2.AddKeyword("mutation", 1);
+        foe.AddKeyword("mutation", 1);
+        Tr(u2.Has("mutation") && foe.Has("mutation"),
+           "F5 前提：两张候选**都**带 `mutation`（`TraitPasses` 读实例上的*当前* trait，⛔ 不读卡模板）");
+        Tr(!u1.Has("mutation"), "F5 前提：载体自己**不**带 `mutation`（它会被 ① 筛掉，不是拿来顶数的）");
         u1.Instance.ActiveEffects.Add(new ActiveCardEffect { EnchantmentCard = u2.Card, BuffType = 15 });
-        int cMut = Measure(ctx, Set(10, 0, traits: 780), u1, null);
-        C(cMut, count0 - 1, "★★ F5 `traitsFilter = 780` 剔掉**已挂过同一条单次变异**的候选（"
-                          + count0 + " → " + (count0 - 1) + "）"
-                        + "｜🧨 去重生效但计数不跟着走 ⇒ 仍是 " + count0 + " ⇒ 红");
+        C(Measure(ctx, Set(10, 0, traits: 780), u1, null), 1,
+          "★★ F5 `traitsFilter = 780` ⇒ ① 按 `mutation` 筛候选（余 u2 + foe）→ ② 剔掉**施放者已挂过的那一条**（u2）⇒ **1**"
+        + "（⚠️ 不是旧的 `count0 - 1`：载体 u1 没有 `mutation`，被 ① 筛掉）"
+        + "｜🧨 删掉 `CountEval.cs:363` 的 `count = cands.Count` ⇒ 回到 2 ⇒ 红；① 不生效 ⇒ 3；② 没接 ⇒ 3；② 剔过头 ⇒ 0");
         u1.Instance.ActiveEffects.Clear();
 
         // ---- F6：灭自证 · 反向（两个位都关 ⇒ 计数不变）----
@@ -141,6 +159,18 @@ public static class B100F26_Assert
         var setHand = Set(50, 0, includeHero: 0, includeMinions: 1);
         int handCount = Measure(ctx, setHand, u1, null);
         Tr(handCount >= 1, "F7 前提：手牌池（`ta=50`）里真数得出候选（实测 " + handCount + " 张；若 ≤ 0 本条无效）");
+        //  🔴 2026-11-06（`B150`）就地订正 · **夹具前提要造出来**：`traitsFilter = 780` 在**卡片族**同样
+        //     先按 `mutation` 筛（`CheckIfMeetsCriteria.c:314-316` → `RawCardMeetsTraitCriteria`；卡片候选读
+        //     `cardTraits`，⛔ 与棋盘族读实例当前 trait 是两个口）。`Deck()` 造的 20 张 filler 一张都不带
+        //     ⇒ `count = 0 == candFaithful = 0` ⇒ `:363` 的 `else if` 不成立 ⇒ 本条**空转到红**（不是「不 gap」）。
+        //     让一张手牌真带 `mutation` ⇒ `count ≥ 1` 而 `cands.Count = 0`（卡片候选不是 `UnitState`）⇒ gap。
+        //     判据全文 → `资料/完全复刻/判据/B150_诊断_F5F7.md` §2。
+        var hand7 = ctx.Players[0].Hand;
+        CardInstance mutCard = hand7.Find(i => i != null && i.Card != null && i.Card.Type == "unit");
+        Tr(mutCard != null, "F7 前提：手牌里有一张**部队**卡（`ta=50` 只认 `includeMinions`；没有 ⇒ 下一条前提会红）");
+        bool hasMut7 = false;
+        if (mutCard != null) { mutCard.Card.AttachCardTraits(new[] { "mutation" }); hasMut7 = mutCard.Card.HasDefaultTrait("mutation", out _); }
+        Tr(hasMut7, "F7 前提：那张手牌现在带 `mutation`（卡片候选读 `cardTraits`）");
         var setHandMut = Set(50, 0, traits: 780, includeHero: 0, includeMinions: 1);
         string g7 = GapOf(ctx, setHandMut, u1);
         Tr(g7 != null && g7.Contains("traitsFilter=780"),
@@ -188,9 +218,16 @@ public static class B100F26_Assert
     // ==================================================================
     //  夹具（与 `B98G6_Assert` / `RuleEngineTest` 的同名夹具**同形**）
     // ==================================================================
-    /// <summary>一份**全字段已知**的 `CountSetSpec`（`Unknown(-1)` 会被判成 gap ⇒ 夹具必须先填实）。</summary>
+    /// <summary>一份**全字段已知**的 `CountSetSpec`（`Unknown(-1)` 会被判成 gap ⇒ 夹具必须先填实）。
+    /// <para>🔴 **2026-11-05（`B150`）就地订正两个缺省值**（离线探针 `ruleprobe` 同形夹具实测）：
+    /// ① `includeHero` 旧缺省 `1` ⇒ 两侧**督军都被数进去**（`Board[4]` 恒坐着督军）⇒ 实得 4 而不是 3；
+    ///    本夹具摆的是 3 个**部队**，所以缺省改成 `0`（= 原版 criteria 那一格就是 0）。
+    /// ② `IncludeSelf` 旧缺省 `0` ⇒ 原版语义「候选 == 载体 且 includeSelf==0 ⇒ 淘汰」
+    ///    （`TargetCriteriaEval.Matches` ③ / `CheckIfMeetsCriteria.c:232-243`）会**把载体自己剔掉**，
+    ///    而本夹具的载体 `u1` **本身就是要数的候选**（F2/F3 还专门「选中 u1」）⇒ 断开成 `1`。
+    ///    改前这两条合起来让 F1 恒 4、F2/F3 恒 0。</para></summary>
     static CardDef.CountSetSpec Set(int ta, int selectFromChooseResolution, int traits = 0, int maxTargets = 0,
-                                    int includeHero = 1, int includeMinions = 1, int includeSpells = 0)
+                                    int includeHero = 0, int includeMinions = 1, int includeSpells = 0)
     {
         return new CardDef.CountSetSpec
         {
@@ -220,7 +257,7 @@ public static class B100F26_Assert
             IncludeWeapons = 0,
             IncludeRemnants = 0,
             IncludeHeroParts = 0,
-            IncludeSelf = 0,
+            IncludeSelf = 1,          // 🔴 2026-11-05（`B150`）：载体 `u1` 本身就是要数的候选（原版 `includeSelf==0 ⇒ 候选==载体时淘汰`）
             ExcludeNotSelf = 0,
             ExcludeSimilarCards = 0,
             ExcludeTargetted = 0,
@@ -236,14 +273,21 @@ public static class B100F26_Assert
 
     static CardDef Unit(string name, int cost, int atk, int hp, params string[] kws)
     {
-        return new CardDef(name, name, "unit", "", null, "Test", cost, atk, hp, 0, kws);
+        // 🔴 2026-11-05（`B150`）：第 5 个实参是 **rarity**（原来传 null）——
+        //   `TargetCriteriaEval.MatchesRawCard` 会无条件 `RarityOf(card)`，拿 null ⇒ **整条判不了**
+        //   ⇒ F7 的手牌池前提（`ta=50`）恒返 `-1`。给 `"common"`（`CardRarity.Common = 1`）。
+        var c = new CardDef(name, name, "unit", "", "common", "Test", cost, atk, hp, 0, kws);
+        c.AttachCardTraits(new string[0]);      // 同理：`cardTraits` 没挂 ⇒ `RawCardMeetsTraitCriteria` 判不了
+        return c;
     }
 
     /// <summary>督军（`subtype` 必须给 `"Warlord"` —— 与 `RuleEngineTest.HeroOf` 同一口径）。</summary>
     static CardDef Hero()
     {
-        return new CardDef("F26FixtureWarlord", "F26FixtureWarlord", "hero", "", null, "Test", 0, 2, 30, 0, null,
-                           subtype: "Warlord");
+        var c = new CardDef("F26FixtureWarlord", "F26FixtureWarlord", "hero", "", "common", "Test", 0, 2, 30, 0, null,
+                            subtype: "Warlord");
+        c.AttachCardTraits(new string[0]);
+        return c;
     }
 
     static List<CardDef> Deck()

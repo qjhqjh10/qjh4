@@ -345,8 +345,8 @@ public static class B141_W20_Assert
             Tr(src != null, "A6-0 **前提**：读得到 `" + SrcSubmenu + "`");
             if (src == null) return;
 
-            Tr(src.IndexOf("原版 uGUI `pos.y` 原值", StringComparison.Ordinal) >= 0,
-                "A6-1 ★ doc 写的是「原版 uGUI `pos.y` **原值**」（BadgeDy 与 pos.y 同号）");
+            Tr(src.IndexOf("红点中心 = ", StringComparison.Ordinal) >= 0 && src.IndexOf("要取负", StringComparison.Ordinal) >= 0,
+                "A6-1 ★ doc 现文的语义锚：摆放式 `红点中心 = cy − BadgeDy` 在，且「`BadgeDy` **要取负**」那条订正痕迹也在（`B150` #14：原断的那句字面 2026-11-04 `B141-BADGEDOC` 改写后已不存在，**结论未变** —— A6-2/A6-3/A6-6 仍绿）");
             Tr(src.IndexOf("`pos.y` 取负", StringComparison.Ordinal) < 0,
                 "A6-2 ★ 旧的「`pos.y` 取负」说法已不存在｜🧨 退回它 ⇒ 红（那会让下一个人把 47.9 存成 −47.9）");
             Tr(src.IndexOf("cy − spec.BadgeDy", StringComparison.Ordinal) >= 0

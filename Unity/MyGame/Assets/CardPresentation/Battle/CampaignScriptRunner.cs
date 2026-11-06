@@ -143,7 +143,7 @@ namespace CardPresentation
         /// 取这条动作的**本地化文案**（原版 `GetLocalizedText`，键 = `"Event_Description/" + textReference`）。
         ///
         /// 🔶 自己设计（非原版）：**缺键时返回空串**（原版 `GetTranslation` 缺键返回什么，本机不可验 ——
-        /// 原版那张表是**远端** I2 词条表，缺键行为拿不到判据）。
+        /// ⚠️ 2026-11-06 更正：原来写「原版那张表是**远端** I2 词条表，缺键行为拿不到判据」—— 实际官方 I2 全表 **10,862 键 / 13 语言早在本地**（`Resources/official_loc_13lang.json`，2026-10-18 并入；`Event_Description/` 前缀现读 145 条）⇒ 缺键行为可按本地表复核；「缺键返回空串」仍是**我们挑的**（`Loc.T` 缺键返键名会印键，见下行）。
         /// 为什么必须自己定：另一条可选路是「回键名」，那会把 `Event_Description/…` **直接印到屏幕上**
         /// （`Loc.T` 缺键就返键名，见 `Core/Loc.cs` 的那条文档；项目红线不许把键名印出来）。
         /// 出声由 `Loc.T` 自己做（缺键 `LogWarning` 且按 `MissingCount` 记账）。

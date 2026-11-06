@@ -115,7 +115,7 @@ namespace CardPresentation
             if (ta == null)
             {
                 Debug.LogError("[Env] 找不到 `Resources/EnvironmentConditions.json` ⇒ 环境切换做不了。"
-                             + "跑一次 `python 工具/gen_environment_conditions.py` 生成。");
+                             + "跑一次 `python 工具/gen_environment_conditions.py --write` 生成。");
                 _all = new Item[0];
                 return;
             }

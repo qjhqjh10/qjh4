@@ -122,7 +122,7 @@ public static class NetBattleTest
     {
         _pass = 0; _fail = 0; _warn = 0;
         string tmp = Path.Combine(Path.GetTempPath(), "wf_netbattletest.json");
-        NetConfig.OverridePath = tmp;
+        string prevNetOverride = NetConfig.OverridePath; NetConfig.OverridePath = tmp;   // 🆕 2026-11-06（B150）：注入点一律存档-还原（先存原值再覆盖；⛔ 别在 finally 里写死 null）
         try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
 
         try
@@ -1928,7 +1928,7 @@ public static class NetBattleTest
         {
             NetBattle.SetClockForTest(null);      // 🔴 把钟还回去（别把静态状态留给下一条自检）
             NetSession.SetClockForTest(null);     // 🔴 同上：`NetSession` 那个钟也是**进程级**的
-            NetConfig.OverridePath = null;
+            NetConfig.OverridePath = prevNetOverride;   // 🆕 2026-11-06（B150）：还原成注入前的那个值（⛔ 不是写死 null）
             try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
         }
 

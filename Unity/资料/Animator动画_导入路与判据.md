@@ -82,11 +82,13 @@ m_Controller: {fileID: 5573443068254224052, guid: 000000000000000000000000000000
 | `Battle Arena Leviathan` | `battlesharedresources` | 战场利维坦触手待机 |
 | `Cannon 1` | `scenes_battlearena1` | 炮台待机 |
 | `Pump 1` · `Dynamic Skulls` · `Battle Arena 2` | `scenes_battlearena2` | 战场道具待机 |
+
 （其余 5 份是**场景侧**的，本导出器不管；数据在表里留全了。）
 
 ### ② 动画片段 → **运行时从原版小包取原件**（与原版 shader 同一条路子）
 
-工程那份 `.anim` **曲线是空的**（muscle 格式落不了盘）⇒ 真正播的由
+⚠️ **2026-11-05 更正：原来写「工程那份 `.anim` 曲线是空的（muscle 格式落不了盘）」—— 实际只对 1/64 成立**。现读 `MyGame/Assets` 共 **64 份 `.anim`**（61 个不同名，`Division Up` / `Level Up Card` / `Rank Up` 各 2 份副本），其中 **63 份有真曲线**：与 `ExportedProject/Assets/AnimationClip/*.anim` 同名件逐条比关键帧数，**58 个名字完全相等**；`Division Up`（29 vs 34）· `Level Up Card`（39 vs 44）· `Rank Up`（24 vs 33）3 个名字我们少几键，而这 3 个**恰好零引用**（运行时走 JSON）。**唯一的空壳 = `WarpforgeVFX/Animations/Card Explosion.anim`**（`grep -c 'time:'` = **0**、`m_FloatCurves: []`、`genericBindings: []`，但 `m_StopTime` 仍是 0.81666666 且被两个阵亡爆散 prefab 经我们的 `.controller` 引用）。**错因** = 本段只看了那两个阵亡爆散 prefab 的那一条链（它们用的正是这 1 份空壳），就写成了通则。判据全表 → `判据/B150_重建资产四类_现状与可解性.md` §三。
+⇒ 真正走「运行时从原版小包取原件」的是**肌肉格式那几族**（阵亡爆散 · `Shield Enter` / `Shield Exit` · 战场那 5 条 muscle clip）；其余 63 份由 `.anim` 直接引用。真正播的由
 `WarpforgeAnimatorBridge` 在 `WarpforgeEffectBinder.Awake` 时从
 `StreamingAssets/WarpforgeVFX/wf_prefabs_extra.bundle` 里 `LoadAsset<RuntimeAnimatorController>(名字)` 换上去。
 

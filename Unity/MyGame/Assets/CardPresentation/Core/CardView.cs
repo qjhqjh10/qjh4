@@ -5604,7 +5604,7 @@ namespace CardPresentation
         TextMeshPro Fill(TextMeshPro t, string name, string text, Vector2 at, float maxWidth,
                          float fontSize, Color32 baseColor, bool wrap, float maxHeight = 0f,
                          bool bottomAlign = false, float lineSpacing = 0f, float paragraphSpacing = 0f,
-                         TmpFont.Face face = TmpFont.Face.Cjk,
+                         TmpFont.Face face = TmpFont.Face.LatinCardBody,   // ✅ 已复刻（2026-11-06 · B150-font2 · 判据 = 原版卡面 `2DCard/.../Card Info` 实读：`NameText*`/`CreatedBy*` = Asar（由调用点显式传 `LatinUi`），其余层 `DescText*`/`CostText`/`HealthText`/攻血甲/`RaceText*`/`ArmyText*` = Pragati ⇒ 缺省 Pragati；⛔ 别整卡一刀切
                          TmpFont.TextOutline outline = TmpFont.TextOutline.None,
                          float bandMin = 0f, float bandMax = 0f)
         {

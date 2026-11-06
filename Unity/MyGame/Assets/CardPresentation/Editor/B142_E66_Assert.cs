@@ -174,11 +174,11 @@ public static class B142_E66_Assert
         ProfileData.SetAchievementValue(IdRoundTrip, 11);
         ProfileData.SaveNowForTest();
 
-        Tr(File.Exists(path), "C1 写盘落到了临时旧档（整份 `SaveDto` payload）");
-        string text = File.Exists(path) ? File.ReadAllText(path) : "";
-        Tr(text.Contains("\"achHighest\""), "C2 ★ payload 里有 `achHighest` 键（新字段真的进了保存形状，⛔ 不是只在内存里）");
+        string text = SaveCenter.ReadThroughLegacy(SaveKeys.CosmeticData, path);
+        Tr(text != null, "C1 写盘落到了中央档（`OverrideRoot` 下的 `CosmeticData`；🔴 2026-11-03 起 `SaveCenter.LegacyMirrorOn` 默认 **false** ⇒ `profile.json` 不再双写，读口走 `SaveCenter.ReadThroughLegacy`）");
+        Tr(text != null && text.Contains("\"achHighest\""), "C2 ★ payload 里有 `achHighest` 键（新字段真的进了保存形状，⛔ 不是只在内存里）");
 
-        var dto = JsonUtility.FromJson<ProfileData.SaveDto>(text);
+        var dto = JsonUtility.FromJson<ProfileData.SaveDto>(text ?? "");
         int idx = -1;
         if (dto != null && dto.achIds != null)
             for (int i = 0; i < dto.achIds.Length; i++) if (dto.achIds[i] == IdRoundTrip) { idx = i; break; }

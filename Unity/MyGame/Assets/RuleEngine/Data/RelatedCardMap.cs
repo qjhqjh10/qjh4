@@ -55,7 +55,7 @@ namespace RuleEngine
             {
                 Debug.LogWarning($"[相关卡] `Resources/{ResourcePath}.json` **没载到** ⇒ "
                                + "两个消费者都退回老路（详情窗走替身三支；伴生部队按卡面名字查池子）。"
-                               + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_related_cards.py");
+                               + "重跑：\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_related_cards.py --write");
                 return;
             }
             FileDto dto;

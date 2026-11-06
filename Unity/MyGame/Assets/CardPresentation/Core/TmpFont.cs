@@ -60,18 +60,19 @@
 //      ⚠️ **换的时候必须一起重量**：下面「字形高度 ÷ fontSize」那套换算
 //         （`WorldGlyphPerFontSize` / `WorldCapPerFontSize`，是**按字体标定**的）⇒ 换字体会**牵动全仓版面**
 //         （页签、按钮、卡面都会位移）⇒ 已裁：**逐件换、逐件验收**，别一次全开。
-//         🔴 **2026-10-18（`N55`）补**：`EmPerFontSize` 自本日起**按面分两支**
-//         （`Face.Cjk` = 汉字墨高 / 拉丁面 = 原版真 em 0.1）——
-//         换面的版面后果从「随面变 9–11%」收紧到「拉丁面按原版 em、CJK 基线不动」。
+//         🔴 **2026-11-06（`B150-font2`）就地订正**：`EmPerFontSize` **不再是「按面分两支」** ——
+//         四个面统一 = `TrueEmPerFontSize`(0.1)（判据 `判据/B146_字体CJK与确认键判据.md` §三）⇒
+//         CJK 的「px」= 原版 `m_fontSize`；换面不再改 px 口径，改的只有字形/行盒（按各资产 faceInfo）。
 //         🔴 **2026-10-21（`A1262`）就地订正（铁律 5）**：上面那半句原来写
 //            「`Face.Cjk` = 汉字墨高 **0.0948 逐位不变**」—— **0.0948 只是 `m_Scale = 1` 那一档的读数**。
 //            原版那份 CJK 资产的 `m_FaceInfo.m_Scale` = **0.9**；我们这一份 2026-10-21 起也对齐成 0.9
 //            ⇒ 这个**实测值**会跟着变（≈ **0.0853** = 0.0948 × 0.9）。
 //            ✅ **不变的是口径**（汉字墨高 ÷ fontSize，运行时现测），⛔ 不是那个数字。
-//            ⚠️ 关键推论：**一切「按 px 要一个字形高」的站点实渲逐位不变** —— px→fontSize 与
-//            fontSize→px 用的是同一个实测比值，而 TMP 的行盒/字形**同时**乘 `m_Scale`
-//            ⇒ 比值 `行盒 ÷ 字形` 与 `m_Scale` 无关（= 1.437 ÷ 0.948 = **1.516**，正是那四条 1.52 读数）。
-//            变的只是内部那个 TMP `fontSize` 数字（× 1/0.9）。判据/影响面 →
+//            ⚠️ 关键推论（⚠️ **2026-11-06（`B150-font2`）订正：只在「px = 墨高」那条旧口径下成立** ——
+//            `EmPerFontSize(Cjk)` 已改成 0.1（px = 原版 `m_fontSize`）⇒ CJK 实渲整族 **×0.853**，
+//            「按 px 要一个字形高」的站点**不再逐位不变**；判据 `判据/B146_字体CJK与确认键判据.md` §三）：
+//            px→fontSize 与 fontSize→px 在**同一支** `EmPerFontSize` 下仍互为逆（比值 `行盒 ÷ 字形` 与
+//            `m_Scale` 无关 = 1.437 ÷ 0.948 = **1.516**，正是那四条 1.52 读数）。判据/影响面 →
 //            `资料/普查产出_1021/W61b_界面_A1262_mScale.md`。
 //         ⚠️ 中文那一侧**判据本来就空**（原版客户端没有中文表）⇒ **只有拉丁这一侧可逐字对**。
 //            🔴 **2026-10-14 更正（铁律 5）**：这句的**前提不成立** —— 原版**有**官方中文表（9,440/9,447
@@ -356,18 +357,17 @@ namespace CardPresentation
         /// <summary>「**1 em** 在世界空间里有多高」÷「fontSize」—— 这是本工程 px 口径的基准
         /// （`Label.FontSizeToPx` = `fontSize × 本值 × 108`）。
         ///
-        /// 🔴🔴 **2026-10-18（账 `N55` · 用户 2026-10-17 拍板的方案 B）：按面分两支 ——
-        ///   `Face.Cjk` 仍走汉字墨高（**逐位不变**），三个拉丁面走【原版真 em = 0.1 × fontSize】。**
-        ///   · **为什么拉丁面是 0.1**：TMP 的 3D 换算 `fontScale = fontSize / pointSize × scale × 0.1`
-        ///     （`TMP_Text.cs:7183`；本机那**三份拉丁**资产 `m_FaceInfo.m_Scale` **是 1**，2026-10-18 现读）
-        ///     ⇒ **1 em = 0.1 × fontSize，与字体无关**。原来拿汉字墨高 0.0948 当拉丁面的 em
-        ///     ⇒ 实渲 em = `0.1 ÷ 0.0948` = **1.052 × 名义 px**（实测 42.19 vs 原版 `m_fontSize 40`）。
-        ///     🔴 **2026-10-21（`A1262`）就地订正**：原来这里写「**本机 4 份**资产全是 1」——
-        ///       **对 CJK 那一份不再成立**：它的 `m_Scale` 已按原版对齐成 **0.9**（有效行盒 1.437 × 0.9）。
-        ///       本常量 `TrueEmPerFontSize` **只服务那三个拉丁面**（`EmPerFontSize` 的 `f != Cjk` 那一支）
-        ///       ⇒ 0.1 本身**仍然正确**；⛔ 别把 CJK 也接到它上面（那会少乘 0.9、行盒凭空高 11%）。
-        ///   · **`Face.Cjk` 走的是实测墨高**（= `WorldGlyphPerFontSize`；`m_Scale = 1` 时读数 0.0948，
-        ///     对齐成 0.9 后 ≈ **0.0853**）—— **口径**不变，⛔ 别把 0.0948 当常数抄走。
+        /// 🔴🔴 **2026-11-06（`B150-font2` · 判据 `判据/B146_字体CJK与确认键判据.md` §三）：
+        ///   四个面**统一**返回 `TrueEmPerFontSize`（= 0.1）—— `Face.Cjk` 不再走汉字墨高。**
+        ///   · **为什么**：原版 `m_fontSize` 是 **TMP fontSize 单位**，不是墨高；`em = 0.9 × fontSize`（Noto
+        ///     `m_Scale = 0.9`）。我们原来把 `m_fontSize` 当墨高再反折字号
+        ///     ⇒ CJK `fontSize = 1.172 × F`、实渲 **+17.2%**（B147 现读：`0.1 / 0.0853`）。
+        ///     改成 0.1 之后：`SetGlyphHeight(F)` ⇒ `fontSize = F`、`em = 0.9F` ⇒ 与原版逐位一致。
+        ///   · **影响面**：全仓 **510+ 站点**（`A1262` §七·1）· CJK 实渲整族 **×0.853**（−14.7%）。
+        ///   · 🔴 **必须成对改**：`Label.FontSizeToPx(fontSize)`（静态口，`Label.cs:1055`）**仍按墨高**折算 ⇒
+        ///     不跟着改的话，所有「读回 fontSize 再折 px」的断言（`Editor/BattleScene.cs` / `Editor/CollectionScene.cs`
+        ///     共 22 处）会读成 **×0.853**。改法 = 静态口改吃 `EmPerFontSize`，或调用点换实例口
+        ///     `lb.FontSizeToPxNow(x, lb.ActualFace)`（判据 → `判据/B150_字体静态口_22处判定.md` §三）。
         ///   · ⚠️ `CapPerFontSize` **仍然按面**（它量的是拉丁大写：Asar 0.0685 / Pragati 0.0656 / Noto 0.0779）。
         ///   · 判据全文 → `资料/普查产出_1017/诊断_第四十八会话/R4_Rewards残差.md` §五·B ＋
         ///     `D1_桶A字号换算链.md` §五·2。
@@ -380,7 +380,7 @@ namespace CardPresentation
         /// ⚠️ 不能直接量 `'国'` 给拉丁面（那三份量出来是 `.notdef` 方框 0.0622）。</summary>
         public static float EmPerFontSize(Face f)
         {
-            if (f == Face.Cjk) return WorldGlyphPerFontSize;   // 汉字墨高口径（全仓基线，逐位不变）
+            if (f == Face.Cjk) return TrueEmPerFontSize;   // ✅ 已复刻（2026-11-06 · B150-font2 · 判据 `判据/B146_字体CJK与确认键判据.md` §三）：CJK 的 px = 原版 `m_fontSize`（em = 0.9×fontSize）· ⛔ 别改回墨高 `WorldGlyphPerFontSize`
             return TrueEmPerFontSize;                          // 拉丁面：原版真 em
         }
 
@@ -389,9 +389,9 @@ namespace CardPresentation
         /// 的 `m_FaceInfo.m_Scale`）**是 1**（2026-10-18 现读）⇒ 恒 0.1。
         /// 🔴 **2026-10-21（`A1262`）就地订正**：原文写「**本机 4 份**……全是 1」——
         ///   **CJK 那一份已经不是 1 了**（按原版对齐成 **0.9**，有效行盒 1.437 × 0.9 = 1.2933 em）。
-        ///   本常量只服务拉丁面 ⇒ 值不变；但 ⛔ 别再引用成「四份都是 1」。
+        ///   ✅ **2026-11-06（`B150-font2`）起 `Face.Cjk` 也走它**（`B146` §三：px = 原版 `m_fontSize`）⇒ 四个面同一支。
         /// 判据 = TMP 的 `fontScale = fontSize / pointSize × scale × 0.1`（`TMP_Text.cs:7183`）。
-        /// ⚠️ 只有 `Face.Cjk` 不走它（Cjk 那一支的「px」是**汉字墨高**，不是 em；读数随 `m_Scale` 变）。</summary>
+        /// ⚠️ 0.1 是「**em ÷ fontSize**」的基数；CJK 的**物理 em** 还要再乘 `m_Scale`(0.9) ⇒ 行盒 = 1.2933 × px。</summary>
         public const float TrueEmPerFontSize = 0.1f;
 
         /// <summary>要让 1 em 占 `worldHeight` 个世界单位高，fontSize 该给多少（按面折算）。</summary>
@@ -407,9 +407,9 @@ namespace CardPresentation
         /// （`WorldCapPerFontSize`）⇒ 零行为变化。
         /// ⚠️ 三份拉丁字体这一项实测**很接近**（`Pragati 0.0656` · `Asar 0.0685` · `Noto 0.0779（2026-10-17 订正：原写 ≈0.0683 是 em 口径推算、非实测）`）
         ///   ⇒ **换面本身几乎不改变字形大小**；真正会变的量在**行盒**。
-        /// 🔴 **2026-10-18（`N55`）就地补注**：这句说的是**本函数（大写墨高）**，⛔ 别当成 `EmPerFontSize` ——
-        ///   `EmPerFontSize` 从 2026-10-18 起**按面分两支**（Cjk 汉字墨高 0.0948 / 拉丁面原版真 em 0.1），
-        ///   那一支**确实随面变**（判据 → `EmPerFontSize` 的 doc）。</summary>
+        /// 🔴 **2026-11-06（`B150-font2`）就地订正**：`EmPerFontSize` **不再是「按面分两支」** ——
+        ///   四个面统一 = 0.1（判据 → `EmPerFontSize` 的 doc / `判据/B146_字体CJK与确认键判据.md` §三）⇒
+        ///   「换面改的是本函数（大写墨高）与行盒，不是 px 口径」这句现在对**四个面**都成立。</summary>
         public static float CapPerFontSize(Face f)
         {
             if (f == Face.Cjk) return WorldCapPerFontSize;
@@ -462,7 +462,11 @@ namespace CardPresentation
         }
 
         /// <summary>要让一个汉字占 `worldHeight` 个世界单位高，fontSize 该给多少。
-        /// （拉丁字母会略矮 —— 拉丁大写高约 0.72 em，汉字 1 em。不是 bug。）</summary>
+        /// （拉丁字母会略矮 —— 拉丁大写高约 0.72 em，汉字 1 em。不是 bug。）
+        /// 🔴 **2026-11-06（`B150-font2`）：本函数与 `Label.SetGlyphHeight` 已经【不是同一件事】** ——
+        ///   `SetGlyphHeight` 现在走 `FontSizeForEm`（px = 原版 `m_fontSize`），而本函数仍按**汉字墨高**反推
+        ///   ⇒ 同一个入参两者差 ×1.172。今天**全仓 0 个调用点**（只剩注释在提它）；要「和 `SetGlyphHeight` 同义」
+        ///   就用 `FontSizeForEm(Face.Cjk, worldHeight)`，⛔ 别拿本函数当它的别名。</summary>
         public static float FontSizeForGlyphHeight(float worldHeight)
         {
             return worldHeight / WorldGlyphPerFontSize;

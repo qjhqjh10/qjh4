@@ -5497,7 +5497,7 @@ public static class MainMenuScene
                             // ---- ⑥ 切回「预组」+ **点一副** ⇒ 回调拿到的是预组（原来这里会静默无事发生）----
                             ds2.SwitchTab(false);
                             Check(ds2.OwnDecks, false, "切回「预组卡组」页");
-                            var first = PrebuiltDecks.Tab[0];
+                            var first = PrebuiltDecks.Tab[0]; var wantPre = PrebuiltDecks.ResolveForGameMode(first, pw.SelectedGameMode);   // ✅ 已复刻（2026-11-05 · B150-WM · 判据 `Shell/PrebuiltDecks.cs:1064-1079` = 原版 `DemoDeckInfoSO.GetDeck(gameMode)`）：`PracticeModePopup.PickPrebuilt` 交回来的是**按 mode 解析后**那一副 ⇒ 下面的期望值必须跟它同一副
                             CheckTrue(ds2.Cells.Count > 0, "预组页**画出了格子**（" + ds2.Cells.Count + " 个）");
 
                             // ---- ⑥b 格子上的三层图标：阵营（**左下**）· 模式 · 难度角标 ----
@@ -5704,20 +5704,20 @@ public static class MainMenuScene
                                 OwnIndex = -1,
                                 PrebuiltDeck = first,
                             });
-                            CheckTrue(pw.PickedPrebuilt != null && pw.PickedPrebuilt.deckId == first.deckId,
-                                      "点一副预组 ⇒ **回调把那一副交出去了**（`PickedPrebuilt` = " + first.deckId + "）");
+                            CheckTrue(pw.PickedPrebuilt != null && pw.PickedPrebuilt.deckId == wantPre.deckId,
+                                      "点一副预组 ⇒ **回调把那一副交出去了**（`PickedPrebuilt` = " + wantPre.deckId + "）");
                             // ---- ⑥b 「本局用这副牌」通道：写进去 = **开战链真能用它**（原版走 `SetPlayerDeck`，没有这条分支）----
                             var pend = PrebuiltDecks.PendingSource;
-                            CheckTrue(pend != null && pend.deckId == first.deckId,
+                            CheckTrue(pend != null && pend.deckId == wantPre.deckId,
                                       "选中预组 ⇒ **写进了「本局用这副牌」通道**（`PendingSource`）—— 开战不再只认 `DeckLibrary.Current`");
-                            var pdck = PrebuiltDecks.ToPlayerDeck(first);
-                            CheckTrue(pdck.WarlordId == first.heroId,
+                            var pdck = PrebuiltDecks.ToPlayerDeck(wantPre);   // ✅ 已复刻（2026-11-05 · B150-WM）：实际交出去的是**按 mode 解析后**那一副 ⇒ 这 5 条必须拿 `wantPre` 算；原来拿 `first`（未解析）且比较项同源 ⇒ 那 4 条比较是自证（验的不是实际交出去那一副）
+                            CheckTrue(pdck.WarlordId == wantPre.heroId,
                                       "搓出来的 `PlayerDeck` 督军 = 预组的督军（**督军不占 30 张位**）");
-                            CheckTrue(pdck.DefensiveId == first.defensiveId,
-                                      "防御卡 = **我们补的那张**（" + first.defensiveNameZh + " " + first.defensiveId +
+                            CheckTrue(pdck.DefensiveId == wantPre.defensiveId,
+                                      "防御卡 = **我们补的那张**（" + wantPre.defensiveNameZh + " " + wantPre.defensiveId +
                                       "）—— 原版预组那份是 null（反汇编证实），**加它是我们的选择**");
-                            Check(pdck.CardIds.Count, first.cardIds.Length, "普通卡位 = 预组卡表长度（督军/防御卡都不在内）");
-                            CheckTrue(pdck.CardbackId == first.cardback, "卡背 = 原版那副牌自己的卡背");
+                            Check(pdck.CardIds.Count, wantPre.cardIds.Length, "普通卡位 = 预组卡表长度（督军/防御卡都不在内）");
+                            CheckTrue(pdck.CardbackId == wantPre.cardback, "卡背 = 原版那副牌自己的卡背");
                             var took = PrebuiltDecks.TakePendingBattleDeck();
                             CheckTrue(took != null && took.Name == pdck.Name,
                                       "`TakePendingBattleDeck()` 拿得到 —— 开局那条路读的就是它");
@@ -5735,9 +5735,9 @@ public static class MainMenuScene
                             //   显式写 −1）⇒ 标题「（未选阵营）」· 曲线 9 行全 0 · 卡表不建 · `Battle!` 被督军闸挡死。
                             //   修法 = **唯一判源 `PracticeModePopup.CurrentDeck`**（预组走 `PrebuiltDecks.ToPlayerDeck`）。
                             //
-                            // 🔴 **期望值一律从【预组数据】取**（`first` = `PrebuiltDecks.Tab[0]` 的 `faction` /
-                            //   `cardIds` / `defensiveId`）。下面对实现只做**三处观测**（`ArmyTitleText` /
-                            //   `CostRows` / `CardRows` + `SearchingMatch`），⛔ **不拿**
+                            // 🔴 **期望值一律从【预组数据】取**（`wantPre` = `first` 经 `PrebuiltDecks.ResolveForGameMode` 解析后那一副 ——
+                            //   与 `PickPrebuilt` 交回去的是**同一副**；取它的 `faction` / `cardIds` / `defensiveId`）。
+                            //   下面对实现只做**三处观测**（`ArmyTitleText` / `CostRows` / `CardRows` + `SearchingMatch`），⛔ **不拿**
                             //   `PracticeModePopup.CurrentDeck` / `SelectedArmyName()` / `CostCurveDrawer.Counts(...)`
                             //   当期望值 —— 那与实现同一个口 = 自证。
                             Section("★ 2026-10-21 预组档全量刷新（面板半空 / 开不了局 —— 真机缺陷）");
@@ -5760,7 +5760,7 @@ public static class MainMenuScene
                                         + "｜🧨 改坏法：`PickPrebuilt` 退回增量刷新 ⇒ 标题停在上一次那副的阵营 ⇒ 本条红");
 
                                 // ---- ② 费用曲线：9 行之和 == 这副牌的卡表长度 ----
-                                // 期望值 = `first.cardIds.Length`（预组数据的字面量；预组的 `cardIds` **不含**
+                                // 期望值 = `wantPre.cardIds.Length`（预组数据的字面量；预组的 `cardIds` **不含**
                                 // 督军与防御卡 —— 与 `Shell/DeckInfoPopup.cs` 那条费用曲线同一个口径）。
                                 // 🧨 **改坏法**：把 `RefreshCostRows` 的判源换回 `CollectionData.Raw(DeckIndex)`
                                 //   （预组档 = −1 ⇒ null ⇒ `Counts` 全 0）⇒ 9 行全 0、和 = 0 ⇒ **本条红**。
@@ -5770,20 +5770,20 @@ public static class MainMenuScene
                                 {
                                     int costSum = 0;
                                     for (int k2 = 0; k2 < pw.CostRows.Count; k2++) costSum += pw.CostRows[k2];
-                                    Check(costSum, first.cardIds.Length,
-                                          "★ 预组的费用曲线：9 行之和 = 这副牌的卡表长度 **" + first.cardIds.Length + "**"
+                                    Check(costSum, wantPre.cardIds.Length,
+                                          "★ 预组的费用曲线：9 行之和 = 这副牌的卡表长度 **" + wantPre.cardIds.Length + "**"
                                         + "（读数：" + CostCurveDrawer.Dump(pw.CostRows.ToArray()) + "）"
                                         + "｜🧨 改坏法：`RefreshCostRows` 的判源换回 `CollectionData.Raw(DeckIndex)`"
                                         + "（预组档 = null）⇒ 9 行全 0 ⇒ 本条红");
                                 }
                                 // ---- ②b **逐档**（只断「和」不够 —— 见下面那条的理由）----
-                                // 期望值 = 从 **`first.cardIds` + 卡表自己的 `Cost`** 现算（舱位 = 费用 0..8，
+                                // 期望值 = 从 **`wantPre.cardIds` + 卡表自己的 `Cost`** 现算（舱位 = 费用 0..8，
                                 // 越界并入两端 —— 那是原版 `DeckEnergyCostDrawer` 那 **9 行**的口径，
                                 // 出处 → `Core/CostCurveDrawer.cs` 文件头）。⛔ 不读 `CostCurveDrawer.Counts(...)`
                                 // —— 那是被测实现，读了就与它同一个口（自证）。
                                 {
                                     int[] wantCost = new int[9];
-                                    foreach (var cid in first.cardIds)
+                                    foreach (var cid in wantPre.cardIds)
                                     {
                                         var cdef = CollectionData.Card(cid);
                                         if (cdef == null) continue;
@@ -5799,7 +5799,7 @@ public static class MainMenuScene
                                         sbGot.Append(k2 < pw.CostRows.Count ? pw.CostRows[k2] : -1);
                                     }
                                     Check(sbGot.ToString(), sbWant.ToString(),
-                                          "★ 预组的费用曲线**逐档**对得上（期望从 `first.cardIds` + 卡表 `Cost` 现算）"
+                                          "★ 预组的费用曲线**逐档**对得上（期望从 `wantPre.cardIds` + 卡表 `Cost` 现算）"
                                         + "｜期望「" + sbWant + "」实得「" + sbGot + "」"
                                         + "｜🧨 改坏法：`RefreshCostRows` 的判源换回 `CollectionData.Raw(DeckIndex)` ⇒ 本条红"
                                         + "｜⚠️ **只断「和 = 30」不够**：改前面板若停在夹具那套「合法 30 张」上，"
@@ -5810,12 +5810,12 @@ public static class MainMenuScene
                                 // 期望值从预组数据推：`cardIds.Length` + 防御卡 1 张（原版预组那份是 null，
                                 // 加它是**我们的选择** —— 见 `PrebuiltDecks.Deck.defensiveId` 的 doc）。
                                 // ⚠️ 先断前提（防御卡 id 在卡表里查得到）—— 否则「+1」这个期望本身不成立。
-                                CheckTrue(!string.IsNullOrEmpty(first.defensiveId)
-                                          && CollectionData.Card(first.defensiveId) != null,
-                                          "（前提）这副预组补的防御卡 `" + first.defensiveId + "` 在卡表里查得到"
+                                CheckTrue(!string.IsNullOrEmpty(wantPre.defensiveId)
+                                          && CollectionData.Card(wantPre.defensiveId) != null,
+                                          "（前提）这副预组补的防御卡 `" + wantPre.defensiveId + "` 在卡表里查得到"
                                         + "（查不到 ⇒ 下面那条「+1」的期望不成立）");
-                                Check(pw.CardRows.Count, first.cardIds.Length + 1,
-                                      "★ 选完预组 ⇒ **卡表建出来了** = " + first.cardIds.Length + " 张 + 防御卡 1 张"
+                                Check(pw.CardRows.Count, wantPre.cardIds.Length + 1,
+                                      "★ 选完预组 ⇒ **卡表建出来了** = " + wantPre.cardIds.Length + " 张 + 防御卡 1 张"
                                     + "｜🧨 改坏法：`BuildCardRows` 的判源换回 `CollectionData.Raw(DeckIndex)`"
                                     + "（预组档 = null）⇒ 首句 `if (deck == null) return;` ⇒ **0 行** ⇒ 本条红");
 
@@ -6776,12 +6776,28 @@ public static class MainMenuScene
                             //   ⚠️ 下面那条**纵向**的**不动**：它量的是 `MenuDraw.Local` 摆下的**框心**，
                             //   不是 `∓ WorldW*0.5f` 这个形状（A617 那张表也没列它）。
                             float nx1, ny1, nx2, ny2;
-                            CheckTrue(TmpRenderedRect(ttl, out nx1, out ny1, out nx2, out ny2),
-                                      "（前提）`Select Item` 那一段字量得到（下面那条挂在它身上）");
+                            CheckTrue(TmpRenderedRectOrPush(ttl, out nx1, out ny1, out nx2, out ny2) && Mathf.Abs(nx1) < 1e6f,
+                                      "（前提）`Select Item` 那一段字**量到了真值**（不是 TMP 未排版时的空集哨兵 ≈±2.3e11；下面那条挂在它身上）");
                             float leftWorld = LayoutSpace.FromPixel(nx1, 0f).x;
                             float wantLeft = MainMenuRuntime.Center(654.16f, 654.16f, 0f, 0f).x;
+                            // 🆕 **2026-11-06（`B150` 残余）**：本条失败时**必须能一眼分开**三种病因 ——
+                            //   ① 对齐真没兑现（节点不在「框左沿 + 宽/2」的位置）
+                            //   ② 期望值/量法过期（`654.16` 是 prefab 框左沿，✅ 判据没变）
+                            //   ③ 字号/字体面变了 ⇒ 实测宽度 ≠ 对齐那一刻量的宽（= 重排过、没重新对齐）
+                            //   ⇒ 把「实测左沿/右沿/宽 · 节点 x · `Label.WorldW`（对齐用的那个宽）·
+                            //   折行宽 · 字号 · 激活态」一起印出来（② 与 ③ 靠 `WorldW × 108` 与实测宽
+                            //   是否相等来分：相等 ⇒ 只在①；不等 ⇒ ③）。
+                            var lbSel = ttl != null ? ttl.GetComponentInChildren<Label>(true) : null;
+                            var tmpSel = ttl != null ? ttl.GetComponentInChildren<TMPro.TMP_Text>(true) : null;
+                            string selDiag = $"实测左沿 {nx1:F2} · 右沿 {nx2:F2} · 实测宽 {(nx2 - nx1):F2} · 对 654.16 差 {nx1 - 654.16f:F2}px"
+                                           + (ttl == null ? " · 节点不在" : $" · 节点 localX {ttl.localPosition.x * 108f:F2}px · 节点世界x {LayoutSpace.PxX(ttl.position.x):F2}px")
+                                           + $" · Label.WorldW×108 {(lbSel != null ? lbSel.WorldW * 108f : float.NaN):F2}"
+                                           + $" · 折行宽 {(lbSel != null ? lbSel.WrapWidthForTest * 108f : float.NaN):F2}px"
+                                           + $" · 字号 {(tmpSel != null ? tmpSel.fontSize : 0f):F2}"
+                                           + $" · 文本「{(tmpSel != null ? tmpSel.text : "")}」"
+                                           + (ttl == null ? "" : $" · 激活 {ttl.gameObject.activeInHierarchy}");
                             CheckTrue(Mathf.Abs(leftWorld - wantLeft) < 0.02f,
-                                      $"`Select Item` **左对齐**到 x=654.16（原版 `m_HorizontalAlignment=Left`；实得 {LayoutSpace.PxX(leftWorld):F2}px）");   // 甲式保留：W57 §1·3 世界帧 —— 上面那句断言刻意在**世界单位**下比（`FromPixel` + 0.02 世界单位），日志必须打印同一帧的值
+                                      $"`Select Item` **左对齐**到 x=654.16（原版 `m_HorizontalAlignment=Left`；实得 {LayoutSpace.PxX(leftWorld):F2}px）〔{selDiag}〕");   // 甲式保留：W57 §1·3 世界帧 —— 上面那句断言刻意在**世界单位**下比（`FromPixel` + 0.02 世界单位），日志必须打印同一帧的值
                             float wantCy = MainMenuRuntime.Center(0f, 0f, 147.51f, 210.70f).y;
                             CheckTrue(Mathf.Abs(ttl.position.y - wantCy) < 0.02f,
                                       $"`Select Item` 垂直居中在 y 147.51..210.70（实得 {(540f - ttl.position.y * 108f):F2}px）");   // 甲式保留：W57 §1·3 世界帧 —— 上面那句断言比的是 `ttl.position.y`（世界单位），日志必须打印同一帧的值
@@ -9488,25 +9504,25 @@ public static class MainMenuScene
                           "左列标题 = 官方词条 `Ranked/Skirmish/ProgressionTitle`（en `Progression` / zh `进步`）");
                 {
                     // 🔴 **2026-10-30（`B99_A4`）**：`Timer` 是 HLG（图标位置由「倒计时文字多宽」决定）而那段文字本地没有
-                    //    ⇒ **整棵不建**（连节点都不建；原版 `TimerDisplay__UpdateTimer.c` 无目标 ⇒ `return;` 静默）—— ⛔ 不再印 `--`。
-                    var tm = FindChild(sk.transform, "Timer");
+                    //    ⇒ **建节点 + 整棵藏**（🔴 2026-11-05 B143-W4 就地订正：原版 `Timer` 节点在 prefab 里永远在，`TryOpen` 无活动时只 `SetActive(false)`；「没有数据」≠「没有节点」）—— ⛔ 不再印 `--`。
+                    var tm = FindChild(sk.transform, "Timer"); var tmIcon = FindChild(tm, "Timer Icon"); var tmIconQ = tmIcon != null ? tmIcon.GetComponentInChildren<ImageQuad>(true) : null;   // ✅ 已复刻（2026-11-05 · B150-WM）：藏起来的是**整棵**——`Timer Icon` 节点还在 ⇒ 它的贴图名断得了（下面那条）
                     // 🔴 **2026-10-30（`B99_A4` · 铁律 5 就地改断言）**：原来断「`Timer` 在 + 文案 = `…--`」——**已过期**：
                     //   活动期倒计时的截止时刻同样是服务端 LiveOps 数据（本地没有）⇒ 原版那一支是 `return;` 静默
-                    //   ⇒ 按 §2·4 改成**整棵不建**（`SkirmishEventWindow.TimerDeadline` 闸）；⛔ 不再印 `--`。
-                    //   ⚠️ 覆盖损失如实记（铁律 5·b）：`Timer Icon` 的贴图名与文案那两条**随节点一起撤**，没有 1:1 替身 ——
-                    //   `B99A4Assert` ①只覆盖「`TimerDisplay` 无目标不写字」、③只覆盖排位窗那一档，**不含**遭遇战活动期这一档
-                    //   （要覆盖得给 `SkirmishEventWindow` 注入截止时刻再建一扇，本宿主没有那个夹具）。
-                    CheckTrue(tm == null, "★ 无截止时刻 ⇒ 活动期 `Timer` **整棵不建**（`Timer Icon` / 文案一起不建）"
-                            + "｜🧨 照旧建 / 印 `--` ⇒ 本条红");
+                    //   ⇒ 现在是**建节点 + 整棵藏**（`SkirmishEventWindow.cs:710` 的 `if (!TimerDeadline.HasValue) tm.gameObject.SetActive(false)`）；⛔ 不再印 `--`。
+                    //   ⚠️ 覆盖（铁律 5·b · 🔴 2026-11-05 B150-WM 就地订正）：`Timer Icon` 的贴图名**下面已补断**（`WF_icon_clock`）；**文案那一条仍是洞** ——
+                    //   节点在，但字是 `TimerDisplay.Compose(前缀, "23d 5h")` 的**出厂占位串**（`UpdateTimer` 无目标 ⇒ `return;` 不改字），
+                    //   断它 = 断我们自己的占位常量（自证）⇒ 如实留洞（`B99A4Assert` ①只覆盖「无目标不写字」、③只覆盖排位窗那一档）。
+                    CheckTrue(tm != null && !tm.gameObject.activeInHierarchy, "★ 无截止时刻 ⇒ 活动期 `Timer` **建了但整棵藏**（原版 `TryOpen` 的 `SetActive(activationType != 0)`；`Timer Icon` / 文案跟着一起藏）"
+                            + "｜🧨 整棵不建 / 照旧显示 / 印 `--` ⇒ 本条红");
                     CheckTrue(FindChild(sk.transform, "Reward Tile") != null,
                               "（对照）左列其它件**照旧在**（`Reward Tile` 仍找得到 ⇒ 不是整块被删来换绿）");
                     CheckTrue(FindChild(sk.transform, "Banned card in deck") != null,
-                              "（对照·灭自证）`Banned card in deck` 也还在 ⇒ 「不建 `Timer`」没有连带拆掉同节的兄弟件"
+                              "（对照·灭自证）`Banned card in deck` 也还在 ⇒ 「藏 `Timer`」没有连带拆掉同节的兄弟件"
                             + "｜🧨 把左列整块删掉 ⇒ 上面两条对照一起红");
                     CheckTrue(FindChild(sk.transform, "Header Back Button") != null,
-                              "（对照）窗头 `Header Back Button` 还在（`Timer` 不建不影响窗头那一支）");
-                    CheckTrue(sk.transform.Find("Timer") == null,
-                              "**窗根的直接子件里也没有 `Timer`**（`Transform.Find` 只看直接子件 ⇒ 断了「换个挂点偷偷建回来」那条路）");
+                              "（对照）窗头 `Header Back Button` 还在（`Timer` 藏起来不影响窗头那一支）");
+                    CheckTrue(sk.transform.Find("Timer") != null && !sk.transform.Find("Timer").gameObject.activeInHierarchy,
+                              "**窗根的直接子件里 `Timer` 建了但关着**（`Transform.Find` 只看直接子件 ⇒ 断了「换个挂点偷偷建回来」那条路）"); CheckTrue(tmIcon != null, "（覆盖补强·前提）藏起来的 `Timer` 里那颗 `Timer Icon` **节点在**（`SkirmishEventWindow.BuildTimer` 无条件 `MenuDraw.Rect` ⇒ 不在 = `WF_icon_clock` 没加载出来，下面那条会空断）；🧨 整棵不建 ⇒ 红"); CheckTrue(tmIconQ != null && tmIconQ.Texture != null && tmIconQ.Texture.name == "WF_icon_clock", "（覆盖补强 · 同 `SkirmishWindowAssertE15` A7c）那颗 `Timer Icon` 用的是 **`WF_icon_clock`**（= `BuildTimer` 的 `Tex` 入参）；🧨 换成别的图 ⇒ 红");
                 }
                 {
                     var ban = FindChild(sk.transform, "Banned card in deck");
@@ -9601,8 +9617,8 @@ public static class MainMenuScene
                     }
                     Check(CollectionData.DeckCount(), before + 1,
                           "（夹具）把那一套入库 ⇒ 库里 +1（真机上由编辑器 `Done` 完成）");
-                    int madeIdx = CollectionData.IndexOf(pendingName);
-                    CheckTrue(madeIdx >= 0, $"（夹具）入库后按名字找得到它（「{pendingName}」@{madeIdx}）");
+                    int madeIdx = before;   // ✅ 已复刻（2026-11-05 · B150-WM · `Shell/CollectionData.cs:369` 起新卡组名是空串 ⇒ `IndexOf("")` 恒 −1（`:183` 显式早退）；`DeckLibrary.Insert` 是**追加**（`RuleEngine/Data/DeckLibrary.cs:206-212`）⇒ 新那套的下标就是入库前的 `DeckCount()`，⛔ 别写成 `CurrentIndex()`（那样 `:9606` 那条就变同义反复））
+                    CheckTrue(madeIdx >= 0, $"（夹具）入库后新那套的下标 = 入库前那格（追加在后；「{pendingName}」@{madeIdx}）");
                     Check(CollectionData.CurrentIndex(), madeIdx,
                           "（夹具）入库那一拍把 `_current` 指过去（照原版 `UploadDeck`；`DeckLibrary.Insert` 的唯一副作用）");
 
@@ -9668,12 +9684,12 @@ public static class MainMenuScene
                     //    然后重开一次窗口 —— 它会**吸附到本窗模式下能用的那一套**（原版是列表里只剩同模式的）
                     {
                         // 🔴 2026-10-12（`A1697`）：**不能再拿「库里最后一套」当新卡组** —— 新卡组是上面
-                        //   夹具那一步入库的，按**名字**取（`ResetForTest` 之后是另一个对象、内容相同）。
+                        //   夹具那一步入库的，**按下标**取（= 入库前那格；`ResetForTest` 之后是另一个对象、内容相同）。
                         var libM = DeckLibrary.Load();
-                        // 🔴 2026-11-05（`B148`）：`CollectionData.cs:369` 起新卡组名清成空串 ⇒ `IndexOf("")` 恒 −1 ⇒ 原来 `Decks[-1]` 抛异常、`RunCore` 中断（其后 12 条没跑）。真修 = 改用 `CurrentIndex()` 或 Insert 返回下标。
-                        int ixMine = CollectionData.IndexOf(pendingName);
-                        Check(ixMine >= 0, true, "（前提）新卡组能在库里按名找到（`pendingName` = \"" + pendingName + "\"）");
-                        var mine = ixMine >= 0 ? libM.Decks[ixMine] : null;
+                        // 🔴 2026-11-05（`B148`）：`CollectionData.cs:369` 起新卡组名清成空串 ⇒ `IndexOf("")` 恒 −1 ⇒ 原来 `Decks[-1]` 抛异常、`RunCore` 中断（其后 12 条没跑）。真修 = 改用 `CurrentIndex()` 或 Insert 返回下标。（✅ 2026-11-05 `B150-WM` 已按「Insert 追加在下标末尾」取 `madeIdx`）
+                        int ixMine = madeIdx;   // ✅ 已复刻（2026-11-05 · B150-WM）：同一个下标（`Insert` 追加在后），⛔ 不再按名字回查（名字已空）
+                        Check(ixMine >= 0, true, "（前提）新卡组在库里取得到（入库下标 " + ixMine + "；`pendingName` = \"" + pendingName + "\"）");
+                        var mine = ixMine >= 0 && ixMine < libM.Decks.Count ? libM.Decks[ixMine] : null;   // 越界护栏：`libM` 是从盘上新读的一份，与 `CollectionData.Lib` 长度不一致时给 null（下游 `landed` 会红出声），⛔ 不抛异常打断整条 `RunCore`
                         if (mine != null)
                         {
                         foreach (var c in CardDatabase.Load())
@@ -9715,7 +9731,7 @@ public static class MainMenuScene
                     var hit = FindChild(sk.transform, "BattleHit");
                     var hb = hit != null ? hit.GetComponent<WindowButton>() : null;
                     CheckTrue(hb != null, "`Battle!` 有点击区");
-                    if (hb != null) hb.Click();
+                    if (hb != null) hb.Click(); ClickDefensiveGateOk(sk);   // ✅ 已复刻（2026-11-05 · B150-WM · 判据 `Shell/LiveOpsEventWindow.cs:2596-2614`）：遭遇战这套夹具牌不设 `DefensiveId` ⇒ 先点掉「还开打吗」两钮窗，否则 `:9720` 那条拿不到匹配窗
                     var sp = FindChild(sk.transform, "Searching Oponent Popup (1)");
                     CheckTrue(sp != null && sp.gameObject.activeSelf,
                               "点 `Battle!` ⇒ `Searching Oponent Popup` 出来（原版 `MatchMakerManager.StartMatch`）");
@@ -10061,22 +10077,22 @@ public static class MainMenuScene
                 //   （`GetComponentsInChildren(true)`）：M1 一建出 `Ranked Division Info ▸ Content ▸ Timer`，
                 //   它就命中那颗**孙件** ⇒ 变成假红（实测 2026-10-22：`✗ **排位窗根上没有 Timer**`）。
                 //   现在按**现况**断两件（⛔ 没删断言、也没放宽成恒真）：
-                //     ① `Ranked Division Info ▸ Content` 下**没有** `Timer`（整棵不建 —— 灭自证那一半在 `B99A4Assert` ③b-③d：
-                //        设 `RankTimerDeadline` 之后必须建出来）；
+                //     ① `Ranked Division Info ▸ Content` 下的 `Timer` **建了但关着**（🔴 `B150` 裁定① 就地订正：原写「整棵不建」**已过期**；灭自证那一半在 `B99A4Assert` ③b-③d：
+                //        设 `RankTimerDeadline` 之后必须建出来且露）；
                 //     ② 排位窗**根的直接子件**里也没有 `Timer`（照旧那条的本意 —— 别把它挂到根上）。
-                //   🧨 改坏法：把 `RankTimerDeadline` 那道闸去掉（照旧建）⇒ ① 红；把 `Timer` 挂到根上 ⇒ ② 红。
-                //   🔴 **2026-10-30（`B99_A4`）**：上面 2026-10-22 那段「`Content/Timer` 在 + 父是 `Content`」**已随闸撤销**（节点不在，父子链无从断）。
+                //   🧨 改坏法：`Timer` 整棵不建 / 照旧显示 ⇒ ① 红；把 `Timer` 挂到根上 ⇒ ② 红。
+                //   🔴 **2026-10-30（`B99_A4`）**：上面 2026-10-22 那段「`Content/Timer` 在 + 父是 `Content`」已撤销；🔴 **`B150` 裁定①**：「节点不在」那一版也已订正为「节点在、`SetActive(false)`」。
                 {
                     var rkCol = FindChild(rk.transform, "Ranked Division Info");
                     var rkContent = rkCol != null ? rkCol.Find("Content") : null;   // `Content` 是 `col` 的**直接**子件
                     var rkTimer = rkContent != null ? rkContent.Find("Timer") : null;
                     // 🔴 **2026-10-30（`B99_A4` · 铁律 5 就地改断言）**：这一块原来断「`Content/Timer` **建了**且父是 `Content`」——**已过期**：
                     //   原版 `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;` 静默、`RankingDisplay__Initialize` 也只在 `dateTime.HasValue` 时才 `Initialize`
-                    //   ⇒ 本地无赛季结束时刻（服务端 LiveOps）⇒ **整棵不建**（`RankedEventWindow.RankTimerDeadline` 闸）；⛔ 印 `--` 是**我们做了、原版没有**的（反向清单 §五 #1）。
+                    //   ⇒ 本地无赛季结束时刻（服务端 LiveOps）⇒ **节点恒建、无值那一下 `SetActive(false)` 整棵藏**（🔴 `B150` 裁定① 就地订正：原写「整棵不建」**已过期** —— 原版节点在 prefab 里永远在）；⛔ 印 `--` 是**我们做了、原版没有**的（反向清单 §五 #1）。
                     CheckTrue(rkContent != null, "（前提·不静默）`Ranked Division Info/Content` 建出来了");
-                    CheckTrue(rkContent != null && rkTimer == null,
-                              "★ 无截止时刻 ⇒ `Ranked Division Info/Content/Timer` **整棵不建**（原版那一支是 `return;`）"
-                            + "｜🧨 照旧建 / 印 `--` ⇒ 本条红；灭自证那一半（设 `RankTimerDeadline` ⇒ 必须建出来）在 `B99A4Assert` ③b-③d");
+                    CheckTrue(rkTimer != null && !rkTimer.gameObject.activeSelf,
+                              "★ 无截止时刻 ⇒ `Ranked Division Info/Content/Timer` **建了但整棵藏**（原版 `SetActive(false)`；`TimerDisplay__UpdateTimer.c` 的 `return;` 只解释「不写字」）"
+                            + "｜🧨 整棵不建 / 照旧显示 / 印 `--` ⇒ 本条红；灭自证那一半（设 `RankTimerDeadline` ⇒ 必须建出来且露）在 `B99A4Assert` ③b-③d");
                     CheckTrue(rk.transform.Find("Timer") == null,
                               "**排位窗根上没有 `Timer`**（`Transform.Find` = **只看直接子件**；⚠️ 别退回递归的 `FindChild` —— 那会命中 `Content/Timer` 这颗**孙件**，2026-10-22 之前就是这么假红的）");
                 }
@@ -10118,7 +10134,7 @@ public static class MainMenuScene
                     var hit = FindChild(rk.transform, "BattleHit");
                     var hb = hit != null ? hit.GetComponent<WindowButton>() : null;
                     CheckTrue(hb != null, "`Battle!` 有点击区");
-                    if (hb != null) hb.Click();
+                    if (hb != null) hb.Click(); ClickDefensiveGateOk(rk);   // ✅ 已复刻（2026-11-05 · B150-WM · 判据 `Shell/LiveOpsEventWindow.cs:2596-2614`）：排位这副夹具牌同样不设 `DefensiveId` ⇒ 先点掉两钮窗，否则全屏搜索窗压根不开
                     var so = SearchingOpponentWindow.LastOpened;
                     CheckTrue(so != null && so.gameObject.activeSelf,
                               "排位：`Battle!` ⇒ 开**全屏** `SearchingOpponentWindow`（**本地入口是我们定的** —— 原版查不到）");
@@ -10271,7 +10287,7 @@ public static class MainMenuScene
                     var hit2 = FindChild(rk.transform, "BattleHit");
                     var hb2 = hit2 != null ? hit2.GetComponent<WindowButton>() : null;
                     CheckTrue(hb2 != null, "（前提）重建之后 `Battle!` 仍有点击区 —— 抓不到 ⇒ 下面那条等于空断");
-                    if (hb2 != null) hb2.Click();
+                    if (hb2 != null) hb2.Click(); ClickDefensiveGateOk(rk);   // ✅ 已复刻（2026-11-05 · B150-WM）：第二遍同样要先点掉防御卡两钮窗（闸每次 `StartMatch` 都会拦一次）
 
                     // ================================================================
                     //  🆕 **2026-10-22（W64）：真机「排位匹配 12 秒冻住」的回归**
@@ -10358,7 +10374,7 @@ public static class MainMenuScene
                         var hit5 = FindChild(rk.transform, "BattleHit");
                         var hb5 = hit5 != null ? hit5.GetComponent<WindowButton>() : null;
                         CheckTrue(hb5 != null, "（W62·⑤ 夹具）ESC 那一遍：`Battle!` 仍有点击区（宿主刚被 ④ 重建过）");
-                        if (hb5 != null) hb5.Click();
+                        if (hb5 != null) hb5.Click(); ClickDefensiveGateOk(rk);   // ✅ 已复刻（2026-11-05 · B150-WM）：ESC 那一遍同样要先点掉防御卡两钮窗
                         var pop5 = FindChild(rk.transform, "Searching Oponent Popup (1)");
                         var pr5 = pop5 != null ? pop5.GetComponent<SearchingMatchPopup>() : null;
                         var so5 = SearchingOpponentWindow.LastOpened;
@@ -10387,7 +10403,7 @@ public static class MainMenuScene
                         var hit3 = FindChild(rk.transform, "BattleHit");
                         var hb3 = hit3 != null ? hit3.GetComponent<WindowButton>() : null;
                         CheckTrue(hb3 != null, "（W64 夹具）第三遍：重建之后 `Battle!` 仍有点击区");
-                        if (hb3 != null) hb3.Click();
+                        if (hb3 != null) hb3.Click(); ClickDefensiveGateOk(rk);   // ✅ 已复刻（2026-11-05 · B150-WM）：第三遍（走生产 ticker）同样要先点掉防御卡两钮窗
                         var pop3 = FindChild(rk.transform, "Searching Oponent Popup (1)");
                         var pr3 = pop3 != null ? pop3.GetComponent<SearchingMatchPopup>() : null;
                         CheckTrue(!rk.gameObject.activeSelf && pr3 != null && pr3.Searching
@@ -10782,8 +10798,8 @@ public static class MainMenuScene
             CheckAtWorld(cb, 1656.81f, 1731.19f, 9.19f, 84.80f, "关窗钮（74.39×75.61）");
             CheckTrue(FindChild(cb, "Background") != null && FindChild(cb, "Icon") != null,
                       "它那两个可见子件（圆底 `40k_general_bt_yellow` + 叉）");
-            CheckTrue(FindChild(t, "Timer") == null,
-                      "**`Timer` 不建**（`Ends in: 23d 5h` = 服务器数据 + 用户明确不要赛季倒计时）");
+            CheckTrue(FindChild(t, "Timer") != null && !FindChild(t, "Timer").gameObject.activeInHierarchy,
+                      "**`Timer` 建了但整棵藏**（原版 `UIRankingListController.SetTimer` 无值那一支 = `timerCounter.SetActive(false)`；`Ends in: 23d 5h` 是服务器数据 + 用户明确不要赛季倒计时）");
             var seasonBtn = FindChild(t, "Generic Simplified UI Button_updated");
             CheckTrue(seasonBtn != null && !seasonBtn.gameObject.activeSelf,
                       "`Last season` 钮**建了但关着** —— 照原版 `AllowChangeSeason(有上一赛季榜)`"
@@ -11877,10 +11893,10 @@ public static class MainMenuScene
                 }
                 // 🔴 **2026-10-30（`B99_A4` · 铁律 5 就地改断言）**：这一块原来断 `Content/Timer` 的**三个矩形 + 文案 `…--` + 图标贴图名** —— **已过期**：
                 //   原版 `TimerDisplay__UpdateTimer.c` 取不到目标时刻是 `return;` 静默、`RankingDisplay__Initialize` 只在 `dateTime.HasValue` 时才 `Initialize`
-                //   ⇒ 本地无赛季结束时刻（服务端 LiveOps）⇒ 那一行**整棵不建**（`RankedEventWindow.RankTimerDeadline` 闸）；⛔ 印 `--` 是**我们做了、原版没有**的。
+                //   ⇒ 本地无赛季结束时刻（服务端 LiveOps）⇒ **节点恒建、无值那一下 `SetActive(false)` 整棵藏**（🔴 `B150` 裁定① 就地订正：原写「整棵不建」**已过期**）；⛔ 印 `--` 是**我们做了、原版没有**的。
                 //
                 // ⚠️ **覆盖损失如实记（铁律 5·b / ⛔ 不用 `CheckTrue(true, …)` 充数）** —— 撤掉的 4 条读数各有去向：
-                //   · `Timer` 在不在 / `Timer Icon` 在不在 / 文案带数字：`B99A4Assert` ③b-③d 在「注入口」（设 `RankTimerDeadline` 再建一扇）逐条断 —— 本处没有那条夹具。
+                //   · 文案带数字：`B99A4Assert` ③b-③d 在「注入口」（设 `RankTimerDeadline` 再建一扇）逐条断 —— 本处没有那条夹具（`Timer` / `Timer Icon` 的**节点在**已由下面两条本处直断）。
                 //   · `Content/Timer` 的世界坐标（7.33 / 630.67 / 785.75 / 846.65 …）与 `Timer Icon` 的贴图名 `WF_icon_clock`：**没有 1:1 替身**（③b-③d 只断「节点在」）。
                 //   · ⚠️ 顺带记：原那三个 `CheckAtWorld` 的四个实参纵向重叠（630.67…785.75 与 785.75…846.65），读起来像 x/y 传反（`B99_A4` 报告 §八·1）
                 //     ⇒ **它就算留着也未必是对读数**；要复刻得先在注入口重建一扇窗再量。
@@ -11890,19 +11906,19 @@ public static class MainMenuScene
                     //   ⇒ 拿 `"Timer"` 去问那颗 `Timer` 组会**命中它自己**（名字就叫 `Timer`），文字那一条会静默量错节点。
                     var tmr = dvContent != null ? dvContent.Find("Timer") : null;
                     CheckTrue(dvContent != null, "（前提·不静默）`Ranked Division Info/Content` 建出来了");
-                    CheckTrue(dvContent != null && tmr == null,
-                              "★ 无截止时刻 ⇒ `Content/Timer` **整棵不建**（`Timer Icon` / 文字一起不建）"
-                            + "｜🧨 照旧建（那行只剩「结束于：」或 `--`）⇒ 本条红");
-                    CheckTrue(FindChild(dvContent, "Timer Icon") == null, "（独立读数·递归 `FindChild`）`Content` **整棵子树**里也没有 `Timer Icon` ⇒ 不是「挪到更深一层偷偷建」");
+                    CheckTrue(dvContent != null && tmr != null && !tmr.gameObject.activeSelf,
+                              "★ 无截止时刻 ⇒ `Content/Timer` **建了但整棵藏**（`Timer Icon` / 文字跟着一起藏；原版 `SetActive(false)`，节点在 prefab 里永远在）"
+                            + "｜🧨 整棵不建 / 照旧显示（那行露出「结束于：」或 `--`）⇒ 本条红");
+                    CheckTrue(FindChild(dvContent, "Timer Icon") != null && FindChild(tmr, "Timer Icon") != null && !tmr.gameObject.activeSelf, "（独立读数·递归 `FindChild`）`Content` **整棵子树**里**找得到** `Timer Icon`（且确实挂在 `Timer` 下），但 `Timer` 整棵是关的 ⇒ 不是「挪到更深一层偷偷建」、也不是「节点被删」");
                     CheckTrue(FindChild(dvContent, "RankedSealStep") != null,
                               "（对照）`Content` 底下的**其它件照旧在**（阶梯 `RankedSealStep` 仍找得到 ⇒ 不是整块被删来换绿）");
                     CheckTrue(FindChild(dvContent, "DivisionText") != null && FindChild(dvContent, "DivisionImage") != null,
-                              "（对照·灭自证）段位名 `DivisionText` / 段位大图 `DivisionImage` **都还在** ⇒ 「不建 `Timer`」没有连带拆掉兄弟件");
+                              "（对照·灭自证）段位名 `DivisionText` / 段位大图 `DivisionImage` **都还在** ⇒ 「藏 `Timer`」没有连带拆掉兄弟件");
                     CheckTrue(FindChild(dvContent, "footer") != null && FindChild(FindChild(dvContent, "footer"), "MainRating") != null,
-                              "（对照）`footer/MainRating` 也还在（`Timer` 不建不影响 `footer` 那一支）"
+                              "（对照）`footer/MainRating` 也还在（`Timer` 藏着不影响 `footer` 那一支）"
                             + "｜🧨 把 `Content` 整棵删掉（去别的宿主里「变绿」）⇒ 上面三条对照一起红");
                     CheckTrue(FindChild(dvContent, "Mission Milestones Progress") != null,
-                              "（对照）`footer/Mission Milestones Progress` 也还在 ⇒ `Timer` 的不建只影响它自己");
+                              "（对照）`footer/Mission Milestones Progress` 也还在 ⇒ `Timer` 的藏只影响它自己");
                     CheckTrue(FindChild(dvContent, "RankedSealStep (1)") != null,
                               "（对照）阶梯第 2 颗 `RankedSealStep (1)` 也还在（同一棵 `steps` 没有被连带拆）");
                 }
@@ -16518,8 +16534,8 @@ public static class MainMenuScene
                 //    ⇒ 现在按原版拆成两颗，见下面那一段。
                 Check(DirectKids(en.transform),
                       "General Red Background|Image Mask|Reward Progress Panel|Header With Back Button|"
-                      + "Event Instructions|Army Selector Panel|BackgroundHit|AbsorbHit",
-                      "★ 根的直接子件（兄弟序照 `m_children`；`BackgroundHit`/`AbsorbHit` 是**我们的**节点）｜🔴 2026-10-30（`B99_A4`）：**`Timer` 不在** —— 截止时刻是服务端 LiveOps 数据、本地没有，原版 `TimerDisplay__UpdateTimer.c` 那一支是 `return;` 静默 ⇒ 按 §2·4 **整棵不建**（⛔ 不是漏建、也⛔ 不再印 `--`）");
+                      + "*Timer|Event Instructions|Army Selector Panel|BackgroundHit|AbsorbHit",
+                      "★ 根的直接子件（兄弟序照 `m_children`；`BackgroundHit`/`AbsorbHit` 是**我们的**节点）｜🔴 `B150` 裁定① 就地订正（原写「`Timer` 不在」**已过期**）：`Timer` **在**第 5 位（`BuildTimer` 紧接 `BuildHeader`），无截止时刻只 `SetActive(false)` ⇒ `DirectKids` 的 `*` 前缀 = 建了但关着（⛔ 不是漏建、也⛔ 不再印 `--`）");
                 Check(DirectKids(FindChild(en.transform, "General Red Background")),
                       "Menu Dark Background|Reward Background Get Reward|Noise|Menu Vignette",
                       "★ 背景那一族的兄弟序（= z 序：先压暗、再红底、再 Noise、最后 Vignette）");
@@ -16586,7 +16602,7 @@ public static class MainMenuScene
                 // 🆕 2026-10-18（三扇标题垂直档漏网）：垂直档补断 —— 本窗以前没传 `TitleVAlign`（走 `Middle`），
                 //   与原版那颗 `Window Title` 的 `m_VerticalAlignment = 8192 (Capline)` 不符。
                 CheckTitleVAlign("能源活动窗", en.transform);
-                CheckTrue(FindChild(en.transform, "Timer") == null, "★ 无截止时刻 ⇒ 能源窗 `Timer` **整棵不建**（原版那一支是 `return;` 静默；⛔ 不再印 `--`）｜🧨 照旧建 ⇒ 本条红；🔴 2026-10-30（`B99_A4`）原 `CheckAtWorld` 那四格（648.33 / 1271.67 / 1008.55 / 1069.45）只在 `EnergyTimerDeadline` 有值时才量得到，建出来时的尺子见 `B99A4Assert` ④c-④e");
+                CheckTrue(en.transform.Find("Timer") != null && !en.transform.Find("Timer").gameObject.activeSelf, "★ 无截止时刻 ⇒ 能源窗 `Timer` **建了但整棵藏**（原版 `SetActive(false)`；`TimerDisplay__UpdateTimer.c` 的 `return;` 只解释「不写字」；⛔ 不印 `--`）｜🧨 整棵不建 / 照旧显示 ⇒ 本条红；🔴 2026-10-30（`B99_A4`）原 `CheckAtWorld` 那四格（648.33 / 1271.67 / 1008.55 / 1069.45）只在 `EnergyTimerDeadline` 有值时才量得到，建出来时的尺子见 `B99A4Assert` ④c-④e");
                 CheckAtWorld(FindChild(en.transform, "Event Instructions"), 24.15f, 680.75f, 208.65f, 645.23f,
                              "`Event Instructions`");
                 CheckAtWorld(FindChild(en.transform, "Army Selector Panel"), 0f, 680.75f, 606.69f, 903.67f,
@@ -17633,7 +17649,7 @@ public static class MainMenuScene
                 {
                     // 夹具快照 / 收尾还原：`DeckStore.OverridePath` 在 `Run()` 开头已指到 `_tmp_view` 的临时文件，
                     // 这里仍然按「先存后还原」做，免得这一段把后续小节看到的库改掉。
-                    string keepStore = File.Exists(DeckStore.Path) ? File.ReadAllText(DeckStore.Path) : null;
+                    string keepStore = SaveCenter.ReadThroughLegacy(SaveKeys.PlayerDecks, DeckStore.Path); string keepSaveRoot = SaveCenter.OverrideRoot; try { if (System.IO.Directory.Exists(DeckStore.Path + ".central")) System.IO.Directory.Delete(DeckStore.Path + ".central", true); } catch { } SaveCenter.OverrideRoot = DeckStore.Path + ".central";   // 🆕 2026-11-06（B150）：中央档也改道到临时目录（Play 下不写玩家真存档；先清上一趟残留）
                     int beforeCount = DeckLibrary.Load().Count;
                     CollectionData.ResetForTest();
 
@@ -17734,8 +17750,8 @@ public static class MainMenuScene
                           "★ 四副起始卡组都发下来了 ⇒ 卡组库 **+4**");
 
                     // ③ **存档文件真的写了**（读原文，不只看内存对象）
-                    CheckTrue(File.Exists(DeckStore.Path), "存档文件真的落盘了：" + DeckStore.Path);
-                    string written = File.Exists(DeckStore.Path) ? File.ReadAllText(DeckStore.Path) : "";
+                    CheckTrue(SaveCenter.ReadThroughLegacy(SaveKeys.PlayerDecks, DeckStore.Path) != null, "存档真的落盘了（读口 = `SaveCenter.ReadThroughLegacy` · 落点 " + SaveCenter.PathOf(SaveKeys.PlayerDecks) + "）");
+                    string written = SaveCenter.ReadThroughLegacy(SaveKeys.PlayerDecks, DeckStore.Path) ?? "";
                     CheckTrue(written.Contains("Master of the Fleet") || written.Contains("舰队之主"),
                               "存档原文里出现第 1 副的名字（= 官方词条 `PrebuiltDecks/UM_SK_Starter` 的中/英值）");
 
@@ -17756,11 +17772,11 @@ public static class MainMenuScene
                     // 收尾：夹具存档还原（这一段全程只碰 `_tmp_view` 的临时档，玩家真存档没被碰过）
                     try
                     {
-                        if (keepStore != null) File.WriteAllText(DeckStore.Path, keepStore);
+                        if (keepStore != null) { string werr; SaveCenter.SaveThroughLegacy(SaveKeys.PlayerDecks, DeckStore.Path, keepStore, out werr); }
                         else if (File.Exists(DeckStore.Path)) File.Delete(DeckStore.Path);
                     }
                     catch { }
-                    CollectionData.ResetForTest();
+                    SaveCenter.OverrideRoot = keepSaveRoot; try { if (System.IO.Directory.Exists(DeckStore.Path + ".central")) System.IO.Directory.Delete(DeckStore.Path + ".central", true); } catch { } CollectionData.ResetForTest();   // 🆕 2026-11-06（B150）：中央档改道还原 + 清临时目录｜（后半句=原收尾）
                 }
                 fw.Close();
             }
@@ -19881,7 +19897,7 @@ public static class MainMenuScene
         float f;
         if (!float.TryParse(s.Substring(i, j - i), System.Globalization.NumberStyles.Float,
                             System.Globalization.CultureInfo.InvariantCulture, out f)) return -1f;
-        return f * TmpFont.WorldGlyphPerFontSize * 108f;
+        return f * TmpFont.EmPerFontSize(lb.ActualFace) * 108f;   // ✅ 2026-11-06（B150-font2 · 调度台）：与 SetGlyphHeight 同源；原来写死 WorldGlyphPerFontSize（墨高），基线改 0.1 后会读成 ×0.853
     }
 
     /// <summary>**渲染宽度必须放得进框** —— 这条才是能抓住「autosize 没生效」的断言
@@ -21246,5 +21262,65 @@ public static class MainMenuScene
     {
         Build(out var root);
         return root;
+    }
+
+    /// <summary>✅ 已复刻（2026-11-05 · B150-WM · 判据 = 原版 `PlayEvent.StartMatch` 第二跳：`MenuDeck/Error/HasNotAssignedDefensiveCard` + 两钮，
+    /// 见 `Shell/LiveOpsEventWindow.cs:2596-2614` `TryDefensiveCardGate` —— 生产闸照原版，⛔ 不许回退）：
+    /// **夹具**在点完 `Battle!` 之后把「没带防御卡，还开打吗」那扇两钮窗的**主钮**点掉。
+    /// <para>主钮 = `Window/Buttons/ButtonLeft`（= `LiveOps[0]` = OK ⇒ 照打）；`WindowButton` 挂在它的**子件** `Image` 上
+    /// ⇒ 必须 `GetComponentInChildren&lt;WindowButton&gt;(true)`（写法同 `Editor/CollectionScene.cs:149-155 ClickPopUpButton`，
+    /// ⛔ 别拿「子树里第一颗 `WindowButton`」—— 那会先撞上压暗层的吸收件，点了等于没点）。</para>
+    /// <para>没弹 ⇒ **静默返回**（这一档本来就不该弹：卡组已带防御卡 / `HaveItAssigned`）；弹了却点不动 ⇒ **红**（不静默变绿）。</para>
+    /// <para>⛔ 备选方案「给夹具牌补一张防御卡」已否决：那会丢掉对这条新闸的覆盖。</para></summary>
+    static void ClickDefensiveGateOk(GameWindow host)
+    {
+        var wm = (host != null && host.Manager != null) ? host.Manager : WindowsManager.Instance;
+        var pop = wm != null ? wm.popUpWindow as PopUpGameWindow : null;
+        if (pop == null) return;
+        var n = FindChild(pop.transform, "ButtonLeft");
+        var wb = n != null ? n.GetComponentInChildren<WindowButton>(true) : null;
+        CheckTrue(wb != null, "（夹具·防御卡两钮闸）`ButtonLeft` 上挂着 `WindowButton`（拿不到 ⇒ 开战链停在弹窗上）");
+        if (wb != null) wb.ClickForTest();
+    }
+
+    /// <summary>🆕 **2026-11-06（`B150` 残余 · `Select Item` 左对齐那条红）**：<see cref="TmpRenderedRect"/> 的
+    /// **哨兵重试**版 —— 量到「TMP 还没排过版」的哨兵时先推一次版面再量。
+    ///
+    /// <para>🔴 **为什么需要它（本波实测的读数）**：`Title Tab ▸ Item Display Panel ▸ Select Item` 那条红印的是
+    /// **`-231928200000.00px`** —— 那正是 `TMP_Text.GetTextBounds()` 的**空集哨兵**
+    /// （`k_LargePositive/NegativeVector2` = **±2.147e9** 世界单位 × 108 ≈ ±2.3e11 px；
+    /// 判据 = `Library/PackageCache/com.unity.ugui@…/Runtime/TMP/TMP_Text.cs:4864-4890`：一次都没排过版 ⇒
+    /// `characterCount == 0` ⇒ 那个循环一个字都没进 ⇒ `min/max` 停在哨兵上）。
+    /// 批处理**没有帧循环**，TMP 自己那一次 `OnPreRenderObject` 不跑 ⇒ 只能显式推（两道：先 `ForceMeshUpdate(ignoreActiveState)`
+    /// —— 它需要 TMP 已 `Awake`；仍量不到就退到 `TmpFont.GenerateLayout`，那个口不查 `m_isAwake`）。
+    /// ⚠️ 这**不是**在放宽断言：推完再量的才是「这一版字段喂给 TMP 之后**真会画在哪**」，
+    /// 期望值一个字没动（与同文件 `CheckLeftAlignedAtWorld` 的 P7 那一档**同一条写法/同一套理由**，
+    /// 见本文件 `:249-263`；⛔ 别在别处再写第 3 份）。</para>
+    /// <para>⚠️ 契约与 <see cref="TmpRenderedRect"/> 逐字相同：找不到 TMP ⇒ `false` + 四个 `out` 全 0；
+    /// 取组件带 `true`（含 inactive）；`ignoreActiveState: true` 让关着的页签也能把版面算出来。</para></summary>
+    static bool TmpRenderedRectOrPush(Transform t, out float x1, out float y1, out float x2, out float y2)
+    {
+        if (!TmpRenderedRect(t, out x1, out y1, out x2, out y2)) return false;   // 找不到 TMP：契约照旧 = false
+        if (!float.IsNaN(x1) && Mathf.Abs(x1) < 1e6f) return true;               // 已经量到真值（画布只有 1920 宽）⇒ 一次都不推
+        var tmp = t != null ? t.GetComponentInChildren<TMPro.TextMeshPro>(true) : null;
+        if (tmp != null) tmp.ForceMeshUpdate(ignoreActiveState: true);
+        TmpRenderedRect(t, out x1, out y1, out x2, out y2);
+        if (!float.IsNaN(x1) && Mathf.Abs(x1) < 1e6f) return true;
+        // 第二道：TMP 还没 `Awake`（编辑模式下 `AddComponent` 不跑它）时 `ForceMeshUpdate` 会在
+        // `OnPreRenderObject` 第一句早退（`TextMeshPro.cs:2119` 的 `m_isAwake` 闸）⇒ 改走 `GetTextInfo`
+        // 这条**不查 `m_isAwake`** 的口，并**反复推到收敛**：自适应档（`SetAutoFitBox` 开 autosize）
+        // 单跑一遍会在 Phase II 之前 early-return、`characterCount` 仍是 0 ⇒ 还是哨兵。
+        // 判据与写法 = `Battle/Label.cs` 的 `PushLayoutInactive`（上限 32、每遍按 TMP 自己的二分挪一步）。
+        if (tmp != null)
+        {
+            for (int i = 0; i < 32; i++)
+            {
+                TmpFont.GenerateLayout(tmp);
+                if (!TmpRenderedRect(t, out x1, out y1, out x2, out y2)) return false;
+                if (!float.IsNaN(x1) && Mathf.Abs(x1) < 1e6f) return true;
+                if (!tmp.enableAutoSizing) break;      // 没开自适应 ⇒ 再推多少遍都是同一版
+            }
+        }
+        return TmpRenderedRect(t, out x1, out y1, out x2, out y2);
     }
 }

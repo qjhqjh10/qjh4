@@ -1323,8 +1323,16 @@ namespace RuleEngine
                           gate1 == 87 && gate1WithCost == 0, "现读 " + gate1 + " / 带费 " + gate1WithCost);
                     var ash1 = CardDatabase.FindById(pool, "ASH1");
                     var am2 = CardDatabase.FindById(pool, "AM2");
-                    check("行29 ⑪ 抽查真卡：`ASH1 Anvirr Keltoc` manaCost=2 ∧ gate=-1（原版 hasActiveAbility=0 ⇒ 缺键）· `AM2 Ursula Creed` gate=1 ∧ manaCost=0",
-                          ash1 != null && am2 != null && ash1.ActiveAbilityManaCost == 2 && ash1.HasActiveAbility == CardDef.GateUnknown
+                    // ✅ 已复刻（2026-11-05 · B150 · #37 裁定：**真值 = 0、不是 `GateUnknown(-1)`**）
+                    //   判据 ①：原版 `hasActiveAbility` 是 **bool** —— `CardScript__SetBaseCardTraits.c:37`
+                    //     直接照抄 SO 的 `RawCardScript +0x2a9`；`AI__ScoreFromManaBuff.c` 只判 `!= '\0'`，
+                    //     **原版根本没有「未知」这一档**。
+                    //   判据 ②：SO 真值（`Resources/cards_truth.json`，源 = 当前 build allcards 1,351 张）
+                    //     `ASH1` = `hasActiveAbility: 0` ∧ `activeAbility.manaCost: 2`
+                    //     ⇒ generator 落 0（缺键 = SO 默认值 = 0，与原版运行时同值）。
+                    //   ⛔ 别改回 `GateUnknown`：`-1` 是我们自己的「卡表没这张」哨兵，不是原版语义。
+                    check("行29 ⑪ 抽查真卡：`ASH1 Anvirr Keltoc` manaCost=2 ∧ gate=0（原版 hasActiveAbility 是 bool、SO 真值 0）· `AM2 Ursula Creed` gate=1 ∧ manaCost=0",
+                          ash1 != null && am2 != null && ash1.ActiveAbilityManaCost == 2 && ash1.HasActiveAbility == 0
                           && am2.HasActiveAbility == 1 && am2.ActiveAbilityManaCost == 0,
                           "两张取自原版 SO 的现读值");
                 }

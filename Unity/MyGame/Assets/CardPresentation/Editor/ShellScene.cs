@@ -5346,15 +5346,15 @@ public static class ShellScene
                 return m;
             }
             // 一颗节点的三连核：框 + 两个原版参数。`why` = 那一处「原来是什么」。
-            void NodeCheck(Transform root, string what, PxRect want, Vector2Int soft, string why)
+            void NodeCheck(Transform root, string what, PxRect want, Vector2Int soft, string why, Vector4 pad = default(Vector4))
             {
                 var vc = NodeOfFrame(root, want);
                 CheckTrue(vc != null,
                           $"★ {what}：**视口节点在**、而且框 ≈ {want.x1:F1},{want.y1:F1} → {want.x2:F1},{want.y2:F1}"
                           + $" —— {why}（改坏法：把那一句 `ViewportClip.Hang` / `AddComponent` 拿掉 ⇒ 红）");
                 if (vc == null) return;
-                CheckTrue(vc.padding == Vector4.zero,
-                          $"★ {what}：`padding` = 原版实读的 `(0,0,0,0)`（现读 ({vc.padding.x},{vc.padding.y},"
+                CheckTrue(vc.padding == pad,
+                          $"★ {what}：`padding` = 原版实读的 ({pad.x},{pad.y},{pad.z},{pad.w})（现读 ({vc.padding.x},{vc.padding.y},"
                           + $"{vc.padding.z},{vc.padding.w})）");
                 CheckTrue(vc.softness == soft,
                           $"★ {what}：`softness` = 原版实读的 ({soft.x},{soft.y})"
@@ -5525,7 +5525,7 @@ public static class ShellScene
                       "迁移前是 `Build`/`RebuildCells` 里那两对 `Clip = vp;` … `Clip = null;`");
             NodeCheck(pgRk != null ? pgRk.transform : null, "A7/A8 · `Ranking Tab/AllFactions/scroll rect/viewport`",
                       new PxRect(1305.29f, 288.62f, 1746.97f, 864.38f), Vector2Int.zero,
-                      "迁移前是 `BuildAllFactions`/`RebuildRows` 里那两对 `Clip = scR;` … `Clip = null;`");
+                      "迁移前是 `BuildAllFactions`/`RebuildRows` 里那两对 `Clip = scR;` … `Clip = null;`", new Vector4(0f, 0f, 0f, -10f));   // ⚠️ 这一格**不是**零：`Player Profile Window.prefab` 现读 `m_Padding (0,0,0,−10)`（顶=外扩 10px），`Shell/RankedTab.cs:582-583` 2026-11-04 已按原版落地；`Editor/B141_W27_Assert.cs:399-400` 另有一条要求同一值（`B150` #3）
             if (pgBl != null && pgBl.RowsScroll != null)
                 NodeCheck(pgBl.transform, "A9 · `Battle Log Tab/Matches/Viewport`", pgBl.RowsScroll.Viewport,
                           Vector2Int.zero, "迁移前是 `BuildRows` 里 `ctx.Clip = _scroll.Viewport` / `= null` 那一对");
@@ -5694,7 +5694,7 @@ public static class ShellScene
                       + " —— 它非空的话形参赢、节点白挂（`Resolve` 第 1 支，静默）");
             var inboxMsgs = new List<InboxWindow.Message>
             {
-                new InboxWindow.Message("WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW", "2026-10-13", true),
+                new InboxWindow.Message("超长标题用于自检测试超长标题用于自检测试超长标题用于自检测试超长标题用于自检测试超长标题用于自检测试", "2026-10-13", true),
             };
             ib.Initialize(inboxMsgs);
             CheckTrue(ib.Rows.Count == 1 && ib.Rows[0] != null,
@@ -5714,11 +5714,11 @@ public static class ShellScene
             bool natOk = tlb != null && TmpSpanPx(tlb, out aMinX, out aMinY, out aMaxX, out aMaxY);
             CheckTrue(natOk && aMaxX > aMinX + 4f,
                       "（前提）态一量得到可用跨度（**直读** `textInfo.meshInfo[..].vertices`，⛔ 不是 `Label.WorldW`）"
-                      + $"（实测 x {aMinX:F2}..{aMaxX:F2}）—— 跨度 ≤ 4px 的话下面态三 / 态四等于没验");
+                      + $"（实测 x {aMinX:F2}..{aMaxX:F2}｜`WorldW` {(tlb != null ? tlb.WorldW.ToString("F2") : "null")} · {(tlb != null ? tlb.DumpSizes() : "null")}）—— 跨度 ≤ 4px 的话下面态三 / 态四等于没验｜🔴 **2026-11-06（`B150` 字体波）张的读口**：`WorldW` = 块的量测宽、`fontSize` = 被自动适应压到的档 —— 这两个数一读就能分清「夹具没生效」/「量法测不出跨度」/「自动适应下限档变了」三种，⛔ 别再靠猜");
 
             // 🔴 **2026-10-14（清单 #12 的**断言半边**）**：态一**本来就压边** —— 它**不是**「未切值」。
-            //    `MsgList` 的右沿是 728.28，而这段字（`InboxWindow` 的 42 个 `W`）的**自然右沿比它宽**
-            //    ⇒ 态一量到的右沿就是**被夹在框沿上**的那个值。判据：`Shell/InboxWindow.cs` 的 `MsgList`。
+            //    `MsgList` 的右沿是 728.28，而这段字（`InboxWindow` 的 50 个汉字）的**自然右沿比它宽**
+            //    ⇒ 态一量到的右沿就是**被夹在框沿上**的那个值。判据：`Shell/InboxWindow.cs` 的 `MsgList`。🔴 **2026-11-06（`B150` 字体波 · 第四轮）**：① 缺省面改 `LatinCardBody` 后 `W` 变窄（**40 个只剩 580.69px**，自动适应把它缩进 `RowTitle` 588.7px 框里 ⇒ 不再溢出）；② **试过 160 个 `W`（2048px）—— 反而塌了**：态一/态三量到 `x 728.28..728.28`（跨度 0，`ClipQuad` 只做 `Mathf.Clamp` ⇒ 说明**整块被顶到框右沿之外**）、态四仍量到自然右沿 2167.38 ⇒ 块宽 2048 时那条「先裁再按 `WorldW` 摆位」的链会把整块推到右边；③ 所以夹具改成 **50 个汉字**：汉字**1 em/字**、自动适应下限 `RowTitleAutoMin` = **18px** ⇒ 自然宽 ≥ `50 × 18 = 900px` > `x2 + 50`，量级落在**历史绿灯的 955 那一档附近**（⛔ 别往 160 个 `W` 那一档加）；另外汉字会把 `ActualFace` 拉回 `Cjk` —— 正是这四态当初验证时的字体面（英文/中文两条路都测过，这里只测裁切几何）。
             //    ⚠️ **更正痕迹（铁律 5）**：原来下面态三/态四把本条读数当「未切值」用（「态一未切时是 {aMaxX}」/
             //    「右沿回到未切值 aMaxX」）—— **那是错的**。**错因** = A804（`Label.AlignLeftOn`/`AlignRightOn`
             //    平移完**不重裁** ⇒ 裁切框被整块推走 `+123.16px`）把这个读数**伪装成了「未切值」**
@@ -8751,11 +8751,11 @@ public static class ShellScene
                 //   preferred 宽**」（原版是 `ContentSizeFitter(h:PreferredSize)` ⇒ 原版运行期框跟文字走）。
                 //   ⇒ **框那两格在这里【故意给到整屏】**：真框是**运行时量出来的**，拿它当字面量断
                 //   就是**同义反复**（⛔ 本仓明令：期望值不许从实现里来）。牙口搬到下面的**关系**断言上。
-                // 🔴 **2026-10-30（`B99_A4` · 铁律 5 就地改断言）**：本窗 `Timer` 现在**只在 `EnergyTimerDeadline.HasValue` 时建**（原版 `TryOpen` 只在 `activationType != 0` 才 `Initialize`；
-                //   `TimerDisplay__UpdateTimer.c` 无值 ⇒ `return;`）⇒ 本地恒无截止时刻 ⇒ 节点不存在。原 `fitCase` 会以「（前提·不静默）Label 拿得到」变红；
-                //   ⚠️ 建出来时的那套尺子（`auto[10~38]` / 折行 0 / 渲出 ≤ 框）**改由 `B99A4Assert` ④c-④e 在「注入口」那一档覆盖**（设 `EnergyTimerDeadline` 再建一扇）。
-                CheckTrue(FindChildIn(a1126En.transform, "Timer") == null,
-                          "★ 无截止时刻 ⇒ 能源窗 `Timer` **整棵不建**（⛔ 不再印 `--`）｜🧨 照旧建 ⇒ 本条红");
+                // 🔴 **`B150` 裁定① 就地订正**：原写「本窗 `Timer` 现在**只在 `EnergyTimerDeadline.HasValue` 时建** ⇒ 节点不存在」——**已过期**：
+                //   现在与 `SkirmishEventWindow` / `RankedEventWindow` 同口径「**建节点 + 无值整棵藏**」（原版节点在 prefab 里永远在，`TryOpen` 只 `SetActive(activationType != 0)`）
+                //   ⇒ 本地恒无截止时刻 ⇒ **节点在、关着**；建出来时的那套尺子仍由 `B99A4Assert` ④c-④e 在「注入口」覆盖（设 `EnergyTimerDeadline` 再建一扇）。
+                CheckTrue(a1126En.transform.Find("Timer") != null && !a1126En.transform.Find("Timer").gameObject.activeSelf,
+                          "★ 无截止时刻 ⇒ 能源窗 `Timer` **建了但整棵藏**（⛔ 不印 `--`）｜🧨 整棵不建 / 照旧显示 ⇒ 本条红");
                 fitCase("`Shell/EnergySinglePlayerOnlyEventWindow.cs` 的 `Vicotries title`",
                         FindChildIn(a1126En.transform, "Vicotries title"),
                         1920f, 1080f, 18f, 53.5f, 36f, 1,
@@ -11660,7 +11660,7 @@ public static class B116_W14_Assert
 /// `LeaderboardWindow ▸ Last Season Text` 1 颗（四个榜单 prefab 同 builder）· `TrophyInfoPopup ▸ RightSide/{Title,Descripton}` 2 颗。</para>
 /// <para>⛔ 没覆盖的（逐条原因见 `报告/B143_W4_断言宿主.md` §三）：`AllFactions` 行 8 颗（`BuildRows` 受 `_scroll.Intersects` 门控）·
 /// `AllianceMemberTab` 10 颗（本宿主不建该窗）· `AllianceEventScorePanel` 1 颗（只在 `DraftModeWindow` 里建）·
-/// 各活动窗 `Timer` 5 颗（`Skirmish/Ranked/Energy` 的截止时刻本地恒 null ⇒ 原版同口径「整棵不建」）。</para></summary>
+/// 各活动窗 `Timer` 5 颗（`Skirmish/Ranked/Energy` 的截止时刻本地恒 null ⇒ 🔴 `B150` 裁定① 就地订正：原写「整棵不建」**已过期**，现在是**建节点 + 整棵藏** ⇒ 本宿主量不到；建出来时的尺子见 `B99A4Assert` ③/④ 那一档）。</para></summary>
 public static class B143W4_E74Stations
 {
     /// <summary>`PlayerProfileWindow` 两个页上 16 颗站点的逐颗期望值（`判据/B90_N2_小屏字号实例.tsv`）。</summary>
@@ -11766,7 +11766,7 @@ public static class B143W4_E74Stations
     {
         const string path = "Ranked Division Info/Content/Timer/Timer";
         B142E74_Assert.CheckStation(root, path, 38f, 10f, "SkirmishEventWindow ▸ 经典式左列 Timer");
-        B142E74_Assert.CheckHidden(root, path, "SkirmishEventWindow ▸ 经典式左列 Timer");
+        B142E74_Assert.CheckHidden(root, "Ranked Division Info/Content/Timer", "SkirmishEventWindow ▸ 经典式左列 Timer");   // ⚠️ 藏的是**父件** `Timer`（产品 `SkirmishEventWindow.cs:408` 的 `tm.gameObject.SetActive(false)`）；`path` 那一条指向同名**文字子件**、它自己的 activeSelf 仍是 true ⇒ ⛔ 别拿 `path` 断藏（`B150` #1）
         B142E74_Assert.CheckTimerPositiveControl("Skirmish Timer 同组件（有值半）");
     }
 
@@ -11775,6 +11775,6 @@ public static class B143W4_E74Stations
     {
         const string path = "Timer/Timer";
         B142E74_Assert.CheckStation(root, path, 38f, 10f, "SkirmishModeEventWindow ▸ Timer/Timer");
-        B142E74_Assert.CheckHidden(root, path, "SkirmishModeEventWindow ▸ Timer/Timer");
+        B142E74_Assert.CheckHidden(root, "Timer", "SkirmishModeEventWindow ▸ Timer/Timer");   // ⚠️ 同上：藏的是父件 `Timer`（产品 `SkirmishEventWindow.cs:710` 的 `tm.gameObject.SetActive(false)`），`Timer/Timer` 是它同名的文字子件（`B150` #2）
     }
 }

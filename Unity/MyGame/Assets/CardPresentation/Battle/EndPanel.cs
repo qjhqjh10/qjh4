@@ -389,11 +389,11 @@ namespace CardPresentation
             //    ⚠️ `MakeText` 拿不到 TMP 字体时**返回 null**（`Label.CreateUgui` 出声、⛔ 不退化成点阵）
             //      ⇒ 下面 `Show()` 里那几句都加了空判（原来 `Label.Create` 恒非 null，没这个必要）。
             _title = HudCanvas.MakeText(_content, "", 0f, 280f, 6, Color.white,
-                                        new Vector2(0.5f, 0.5f), BattleDoors.ZContent, "end_title");
-            // A1024③ 判不出（原版 `EndBattlePanel` 子树无 result 标题字）⇒ 保持 `Face.Cjk`，⛔ 不猜
+                                        new Vector2(0.5f, 0.5f), BattleDoors.ZContent, "end_title", face: TmpFont.Face.Cjk);
+            // 🔶 自己设计（非原版）：结算面板的「胜利/失败」标题 `end_title` —— 原版 `EndBattlePanel` 子树里只有 `RatingText`/`Quantity` 两颗 TMP（2026-11-06 现读 `Battle Arena 1.unity`），胜负字在**开门视频**里 ⇒ 判据为空，只能自定：保留 Cjk 面 + 位置 (0,280)。调度台 2026-11-06 裁定（沿用 A1024③ 的「判不出⇒保持 Cjk」）
             _sub = HudCanvas.MakeText(_content, "", 0f, -190f, 2, new Color(0.8f, 0.8f, 0.85f),
-                                      new Vector2(0.5f, 0.5f), BattleDoors.ZContent, "end_sub");
-            // A1024③ 判不出（同上）⇒ 保持 `Face.Cjk`
+                                      new Vector2(0.5f, 0.5f), BattleDoors.ZContent, "end_sub", face: TmpFont.Face.Cjk);
+            // 🔶 自己设计（非原版）：同上的副标题 `end_sub` —— 原版无对应节点、判据为空 ⇒ 自定：保留 Cjk 面 + 位置 (0,−190)。调度台 2026-11-06 裁定（同上）
 
             // 🔴 **2026-10-24（`B-26`）新增原版那一级：`EndBattlePanel/AllRewardsHolder`**
             //    · **序列化真值 = `ap (0, −260)` · `sd 100×100` · 中心锚/枢轴**

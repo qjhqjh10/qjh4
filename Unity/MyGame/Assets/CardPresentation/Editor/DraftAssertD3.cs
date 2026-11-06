@@ -188,7 +188,7 @@ public static class DraftAssertD3
             if (ch == null || !ch.name.StartsWith(prefix, System.StringComparison.Ordinal)) continue;
             var q = ch.GetComponent<ImageQuad>();
             if (q == null) continue;
-            var r = MenuDraw.QuadRectPx(q);
+            var r = OwnQuadUnionPx(q);
             if (!any) { x1 = r.x1; y1 = r.y1; x2 = r.x2; y2 = r.y2; any = true; }
             else
             {
@@ -200,12 +200,12 @@ public static class DraftAssertD3
         return any;
     }
 
-    /// <summary>期望矩形**先与滚动视口求交** —— 原版 `RectMask2D` 也会把探出视口的那一段裁掉
-    /// （本批实测：第 0 行费用圈的 −3 上探被视口顶 270 裁成 270；我们的 `ViewportClip` 同一条口径）。
-    /// 完全在视口内的件 ⇒ 逐位不变。</summary>
+    /// <summary>期望矩形**先与滚动视口的【渲染框】求交** —— 原版 `RectMask2D` 也会把探出视口的那一段裁掉。
+    /// 🔴 2026-11-05（`B150`）：渲染框 ⛔ 不是 `DeckScrollR` 本身 —— 那颗 `Viewport` 的 `m_Padding=(0,0,0,-10)`
+    /// （Top −10 = 顶上**外扩** 10px，判据 `Shell/DraftModeWindow.cs:1967` 现读 prefab）⇒ 渲染框 y1 = 260、不是 270。</summary>
     static PxRect ClipView(PxRect r)
     {
-        var v = DraftModeWindow.DeckScrollRectForTest;
+        var v = MenuDraw.PaddedRect(DraftModeWindow.DeckScrollRectForTest, new Vector4(0f, 0f, 0f, -10f));
         float x1 = Mathf.Max(r.x1, v.x1), y1 = Mathf.Max(r.y1, v.y1);
         float x2 = Mathf.Min(r.x2, v.x2), y2 = Mathf.Min(r.y2, v.y2);
         return new PxRect(x1, y1, Mathf.Max(x1, x2), Mathf.Max(y1, y2));
@@ -639,13 +639,13 @@ public static class DraftAssertD3
     static void RunSaveGroup()
     {
         Debug.Log(P + "--- (D) 一局存档落盘（`SaveRoot.Path/WarpforgeDraft/run.json`，🆕 2026-11-03 B128：根 = `C:\\warpforgesave`）---");
-        var prevDir = DraftModeWindow.OverrideDir;
+        var prevDir = DraftModeWindow.OverrideDir; string prevSaveRoot = SaveCenter.OverrideRoot;      // 🆕 2026-11-06（B150）：中央档也改道到同一临时目录（否则 Play 下产品会把夹具写进玩家真中央档）
         var tmp = Path.Combine(Path.GetTempPath(), "wf_draft_store_" + Guid.NewGuid().ToString("N"));
         try
         {
-            DraftModeWindow.OverrideDir = tmp;
+            DraftModeWindow.OverrideDir = tmp; SaveCenter.OverrideRoot = tmp;                  // 🆕 2026-11-06（B150）：中央档同改道（`SaveThroughLegacy` ⇒ `tmp/ActiveEvent.json`；旧档 `tmp/run.json` 只在 `LegacyMirrorOn` 时双写）
             DraftModeWindow.DeleteRunForTest();
-            Ok(!File.Exists(DraftModeWindow.StorePath), "① 前提：临时目录里一开始**没有**存档");
+            Ok(SaveCenter.ReadThroughLegacy(SaveKeys.ActiveEvent, DraftModeWindow.StorePath) == null, "① 前提：临时目录里一开始**没有**存档（读口 = `SaveCenter.ReadThroughLegacy`）");
 
             var run = new DraftRunSave
             {
@@ -662,8 +662,8 @@ public static class DraftAssertD3
             };
             DraftModeWindow.SetRunForTest(run);
             DraftModeWindow.SaveRunNowForTest();
-            Ok(File.Exists(DraftModeWindow.StorePath),
-               "② 落盘：存档文件真的写出来了（`" + DraftModeWindow.StorePath + "`）"
+            Ok(SaveCenter.ReadThroughLegacy(SaveKeys.ActiveEvent, DraftModeWindow.StorePath) != null,
+               "② 落盘：存档真的写出来了（读口 = `SaveCenter.ReadThroughLegacy`，落点 `" + SaveCenter.PathOf(SaveKeys.ActiveEvent) + "`）"
              + "🧨 怎么改会红：`SaveRunNow` 没接进 `SyncRun`/`BeginRun`（本组是直调口，红说明写盘本身坏了）");
 
             DraftModeWindow.ReloadRunForTest();
@@ -685,13 +685,13 @@ public static class DraftAssertD3
             // ④ 清档 ⇒ 写盘 = 删文件（放弃 / 收尾之后不该再留一局）
             DraftModeWindow.SetRunForTest(null);
             DraftModeWindow.SaveRunNowForTest();
-            Ok(!File.Exists(DraftModeWindow.StorePath),
-               "④ `_run == null` ⇒ 写盘 = **删档**（否则下次开窗会接着一局已结束的收尾页）");
+            Ok(SaveCenter.ReadThroughLegacy(SaveKeys.ActiveEvent, DraftModeWindow.StorePath) == null,
+               "④ `_run == null` ⇒ 写盘 = **删档**（读口 = `SaveCenter.ReadThroughLegacy`；否则下次开窗会接着一局已结束的收尾页）");
         }
         finally
         {
             DraftModeWindow.DeleteRunForTest();          // 清静态 + 删文件
-            DraftModeWindow.OverrideDir = prevDir;       // ⛔ 必须还原（后面的组 + 真 Play 都靠它）
+            DraftModeWindow.OverrideDir = prevDir; SaveCenter.OverrideRoot = prevSaveRoot;       // ⛔ 必须还原（后面的组 + 真 Play 都靠它）｜🆕 2026-11-06（B150）：中央档改道一并还原（⛔ 写死 null 会抹掉宿主的注入）
             try { if (Directory.Exists(tmp)) Directory.Delete(tmp, true); } catch { }
         }
     }
@@ -1255,7 +1255,7 @@ public static class DraftAssertD3
                 Ok(gradQ != null, who + " `Rarity Gradient` 在（原版 `Background` 的第一个子件 · Simple 拉伸）");
                 if (gradQ != null)
                 {
-                    var gr = MenuDraw.QuadRectPx(gradQ);
+                    var gr = OwnQuadUnionPx(gradQ);
                     Near(gr.x1, rowX1 + 207.32f, 0.6f, who + " 色条左沿 = 行左 + **207.32**（锚 0.60575）");
                     Near(gr.x2, rowX2, 0.6f, who + " 色条右沿 = 行右");
                     Near(gr.H, 44.89f, 0.6f, who + " 色条高 = **44.89**（锚 0→1 + sizeDelta.y −0.1035）");
@@ -1290,13 +1290,13 @@ public static class DraftAssertD3
                     Ok(costQ != null, who + " `Cost Image` 在（`Card Frame Cost Icon` · 51×51）");
                     if (costQ != null)
                     {
-                        var cr = MenuDraw.QuadRectPx(costQ);
-                        // 费用圈**上下各探出行外 3px** ⇒ 第 0 行那 3px 会被视口顶裁掉（原版 `RectMask2D` 同）
+                        var cr = OwnQuadUnionPx(costQ);
+                        // 费用圈**上下各探出行外 3px** ⇒ 第 0 行探出那 3px **不裁**：`Viewport` pad 顶 −10 ⇒ 渲染框顶 = 260
                         var wantCost = ClipView(new PxRect(rowX1 + 2.18f, ry - 3f, rowX1 + 53.18f, ry + 48f));
                         Near(cr.x1, wantCost.x1, 0.6f, who + " 费用圈左沿 = 行左 + **2.18**（锚 0.03 · 中心 27.68）");
                         Near(cr.W, wantCost.W, 0.6f, who + " 费用圈宽 = **51**（高 = 行高 45 + sizeDelta.y 6；ARF 1:1 高控宽）");
                         Near(cr.y1, wantCost.y1, 0.6f, who + " 费用圈上沿 = 行顶 **−3**（**探出行外**，原版就这样；"
-                           + "第 0 行被视口顶裁到 270 = 原版 `RectMask2D` 同一条）");
+                           + "第 0 行探出那 3px **不裁** = `Viewport.m_Padding` 顶 −10 ⇒ 渲染框顶 260 < 267）");
                         Near(cr.H, wantCost.H, 0.6f, who + " 费用圈高 = **51**（整块在视口内时）");
                     }
                     Eq(DraftModeWindow.DeckListRowTextForTest(row, "Cost"), cost.ToString(),
@@ -1611,5 +1611,27 @@ public static class DraftAssertD3
             TimedDraftLocal.PremiumTenCost = prevTen;
             if (hadWalletKey) Wallet.Gold[cur] = prevWallet; else Wallet.Gold.Remove(cur);
         }
+    }
+
+    /// <summary>🆕 2026-11-05（`B150`）：`q` 自己 + 软边切出来的 `_soft` 子块的**并集**矩形。
+    /// <para>为什么需要：`Cards in deck panel/Scroll View/Viewport` 那颗 `ViewportClip` 带着 `m_Softness=(0,54)`
+    /// （判据 `Shell/DraftModeWindow.cs:1967` 现读 prefab：`Viewport ▸ RectMask2D` soft `(0,54)` · pad `(0,0,0,-10)`）
+    /// ⇒ `MenuDraw.ApplySoftEdges` 会在「渲染框边 ± 带宽」处把 quad 切成**主格 + 子块**
+    /// （子块名 = `原名_soft<ij>`，挂在**那个 quad 底下**，见 `Shell/MenuDraw.cs:1066-1069`）。
+    /// 第 0 行正好跨过 **314**（= 渲染框顶 260 + 54）⇒ 主格只量到 314、尾巴那一段在子块里
+    /// （子块是**孙件**，`OwnQuadsPx` 那层只看直接子件 ⇒ 量不到）。只量主格会把
+    /// 「行底 45 / 色条 44.89 / 费用圈 51」量成 **44 / 44 / 47** —— 画面对，量得少。</para>
+    /// <para>⚠️ 只并 `ImageQuad` 后代（软边子块也只可能是 `ImageQuad`），别的子件一个都不碰。</para></summary>
+    static PxRect OwnQuadUnionPx(ImageQuad q)
+    {
+        if (q == null) return default(PxRect);
+        var o = MenuDraw.QuadRectPx(q);
+        var kids = q.GetComponentsInChildren<ImageQuad>(true);
+        for (int i = 0; i < kids.Length; i++)
+        {
+            if (kids[i] == null || kids[i] == q) continue;
+            o = MenuDraw.Union(o, MenuDraw.QuadRectPx(kids[i]));
+        }
+        return o;
     }
 }

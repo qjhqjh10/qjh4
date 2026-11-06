@@ -605,7 +605,7 @@ namespace CardPresentation
         /// ⚠️ 必须排在定字号**之前**（画布档 `MakeText` 内部紧跟 `CreateUgui`；世界档在下面显式补一刀）——
         /// 字号按 `ActualFace` 的 cap 比例折算（判据 → `Label.TmpFontSize`）。</para></summary>
         Label MakeLbl(Transform parent, string name, Vector3 worldOffset, int scale, Color c, float z,
-                      TmpFont.Face face = TmpFont.Face.Cjk)
+                      TmpFont.Face face = TmpFont.Face.LatinUi)   // ✅ 已复刻（2026-11-06 · B150-font2 · 判据 = `Battle Arena 1.unity` 实读：`Tutorial/TutorialTip/ContinueText` · `InitTutorialTip/TipText(+1)` · 卡面 `TutorialObjs/{Melee,Ranged,Health,Energy}Text` = **Asar**（4/5），只有 `TutorialTip/Generic Popup Background/TipText` = Pragati ⇒ 缺省按本窗主面 Asar；那颗 Pragati **显式传** `LatinCardBody`（`_tipText` 那一处），⛔ 别按名字猜
         {
             if (UguiMode)
             {

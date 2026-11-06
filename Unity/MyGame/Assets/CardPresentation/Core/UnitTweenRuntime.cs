@@ -76,7 +76,7 @@ namespace CardPresentation
             var e = UnitTweenTable.Get(req.asset);
             if (e == null)
             {
-                Skip(req, "补间表里没有这个名字 —— 跑一次 `python 工具/gen_unit_tweens.py`"
+                Skip(req, "补间表里没有这个名字 —— 跑一次 `python 工具/gen_unit_tweens.py --write`"
                         + (UnitTweenTable.Loaded ? "" : $"（表根本没载进来：{UnitTweenTable.LastError}）"));
                 return false;
             }

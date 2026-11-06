@@ -3661,6 +3661,53 @@ namespace CardPresentation
         {
             if (lb != null) lb.SetParagraphSpacing(paragraphSpacing);
         }
+
+        /// <summary>✅ 已复刻（2026-11-06 · B150-font2 · 判据 = `MenuDraw.ApplySoftEdges` 的产物形状 ＋ `判据/B150_失败归类_主菜单.md` F 组「三颗件下沿全落到同一根线」那条探针）：
+        /// **软边宿主**的「主块 + 全部 `_soft*` 切块」**并集矩形**（画布 px · 左上原点 · y 向下）。
+        /// <para>🔴 **为什么必须有它**：任何 `m_Softness ≠ 0` 的视口里，落在渐隐带上的 quad 会被 `ApplySoftEdges` 切成
+        /// 「主块（原 `q`）+ 若干 `_soft<i><j>` 子块」（子块由 `ImageQuad.Create(q.transform, …)` 建 ⇒ **挂在 `q.transform` 下**）
+        /// ⇒ **`QuadRectPx(q)` 只给主块那一格**。拿它量「这一件占多大」会**系统性少算带内那一条**
+        /// （实测形状 = 三颗互不相干的件，下沿被同一个切分量到**同一根线**上，而那根本不是它们各自的边）。
+        /// ⇒ 凡「量一棵可能被软边切过的树」的读口**一律走本函数**；⛔ 别在宿主机各写一份循环 ——
+        /// 现在 `Editor/CollectionScene.cs` · `Editor/MainMenuScene.cs` · `Editor/RewardsScene.cs`(×3) · `Editor/ShellScene.cs`
+        /// 各有 1 份同形手写副本（「宿主 + 名字含 `_soft` 的直接子件」），**本函数是它们的唯一正本**（迁移清单见 `报告/B150_修_字体波.md`）。</para>
+        /// <para>⚠️ **只并「子树里名字含 `_soft` 的 `ImageQuad`」**（软边子块由 `ApplySoftEdges` 命名 `baseName + "_soft" + i + j`），
+        /// ⛔ **不把宿主下面别的合法子件算进来** —— 宿主树上可能还挂着图标/角标/端帽（例：`Editor/MainMenuScene.cs` 的
+        /// `Fill` 那棵子树里 `end` 就比 `Fill` 右端探出 5.7px，见 `UnionQuadRectPx` 的 doc）⇒ 整棵
+        /// `GetComponentsInChildren` 会把它们一起算进「这一件的矩形」。名字闸与 `ScanSoftCuts` 那几个副本是同一份契约；
+        /// 用 `GetComponentsInChildren`（而不是只扫直接子件）是为了连**重切后仍挂在子块下面**的块也一起收。</para>
+        /// <para>⚠️ `q == null` ⇒ 返回 `false`（四个 out 归零，与 <see cref="QuadRectPx(ImageQuad, out float, out float, out float, out float)"/> 的契约一致）；
+        /// `quads` = 真被算进去的块数（宿主算 1，软边切 n 块就 +n）。<b>它不是零分配的读口</b>（`GetComponentsInChildren` 会分配一次数组）
+        /// ⇒ **只给自检/诊断用，⛔ 别放进每帧路径**。</para></summary>
+        public static bool QuadRectPxWithSoft(ImageQuad q, out float x1, out float y1, out float x2, out float y2, out int quads)
+        {
+            x1 = y1 = x2 = y2 = 0f; quads = 0;
+            if (q == null) return false;
+            var r = QuadRectPx(q);
+            x1 = r.x1; y1 = r.y1; x2 = r.x2; y2 = r.y2;
+            quads = 1;
+            var kids = q.GetComponentsInChildren<ImageQuad>(true);
+            for (int i = 0; i < kids.Length; i++)
+            {
+                var c = kids[i];
+                if (c == null || c == q) continue;
+                if (c.name.IndexOf("_soft", System.StringComparison.Ordinal) < 0) continue;
+                var cr = QuadRectPx(c);
+                if (cr.x1 < x1) x1 = cr.x1;
+                if (cr.y1 < y1) y1 = cr.y1;
+                if (cr.x2 > x2) x2 = cr.x2;
+                if (cr.y2 > y2) y2 = cr.y2;
+                quads++;
+            }
+            return true;
+        }
+
+        /// <summary>同上（只要矩形，不给块数）；`q == null` ⇒ 空矩形。</summary>
+        public static PxRect QuadRectPxWithSoft(ImageQuad q)
+        {
+            float a, b, c, d; int n;
+            return QuadRectPxWithSoft(q, out a, out b, out c, out d, out n) ? new PxRect(a, b, c, d) : new PxRect();
+        }
     }
 
     // ============================================================ 唯一 id 注册表（B94_S3 · 2026-10-29）

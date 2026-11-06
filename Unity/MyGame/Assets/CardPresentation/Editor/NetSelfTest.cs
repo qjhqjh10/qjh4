@@ -41,7 +41,7 @@ public static class NetSelfTest
     {
         _pass = _fail = _warn = 0;
         string tmp = Path.Combine(Path.GetTempPath(), "wf_netselftest.json");
-        NetConfig.OverridePath = tmp;                 // 🔴 别动玩家的真设置
+        string prevNetOverride = NetConfig.OverridePath; NetConfig.OverridePath = tmp;   // 🔴 别动玩家的真设置｜🆕 2026-11-06（B150）：注入点一律存档-还原（先存原值再覆盖）
         try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
 
         try
@@ -86,7 +86,7 @@ public static class NetSelfTest
         }
         finally
         {
-            NetConfig.OverridePath = null;
+            NetConfig.OverridePath = prevNetOverride;   // 🆕 2026-11-06（B150）：还原成注入前的那个值（⛔ 不是写死 null）
             try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
         }
 

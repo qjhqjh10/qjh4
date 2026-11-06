@@ -530,7 +530,7 @@ namespace CardPresentation
         /// `CreateUgui`）—— 那三个口按 `ActualFace` 的 em/cap 比例折算字号，换面晚了会按旧面算。</para></summary>
         static Label Text(Transform parent, string name, string text, Vector3 pos, int scale,
                           float fontPx, float boxW, float boxH, float autoMin, float autoMax,
-                          float z, Color color, Vector2 anchor, TmpFont.Face face = TmpFont.Face.Cjk)
+                          float z, Color color, Vector2 anchor, TmpFont.Face face = TmpFont.Face.LatinCardBody)   // ✅ 已复刻（2026-11-06 · B150-font2 · 判据 = `Battle Arena 1.unity` 的 `Card Display Window/Card Display` 子树实读：Asar 只有卡面 `NameText*` / `CreatedBy*` / `LoreText` / `TutorialObjs*`，其余（`CostText`/`HealthText`/攻血甲/`Army*`/`RaceText`/`Desc*`/`EffectText`/`EnchanterText`/`AffectedBy`/`Banned Text`/`Text`/`Button Text`）= Pragati ⇒ 缺省 Pragati；上面那些 Asar 站点**逐个显式传** `LatinUi`（⛔ 别在本漏斗按名字猜）
         {
             if (parent == null) return null;
             var lb = HudCanvas.MakeText(parent, text, pos.x, pos.y, scale, color, anchor, z, name, face);

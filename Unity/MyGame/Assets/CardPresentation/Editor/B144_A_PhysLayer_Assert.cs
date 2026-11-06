@@ -351,7 +351,8 @@ public static class B144_A_PhysLayer_Assert
             {
                 if (docs[i].Cls != 1) continue;
                 string nm = Field(docs[i].Body, "m_Name");
-                if (nm != null && nm.StartsWith("BoardCamera", StringComparison.Ordinal)) board = Field(docs[i].Body, "m_TagString");
+                // ✅ 已复刻（2026-11-05 · B150 · 原版名带中文，Unity YAML 会给整串加引号 ⇒ 先剥引号再 StartsWith）
+                if (nm != null && nm.Trim('"').StartsWith("BoardCamera", StringComparison.Ordinal)) board = Field(docs[i].Body, "m_TagString");
                 if (nm == "UI Camera") ui = Field(docs[i].Body, "m_TagString");
             }
             Check(board == "MainCamera",
@@ -492,17 +493,29 @@ public static class B144_A_PhysLayer_Assert
         }
     }
 
-    /// <summary>去掉行注释（`//` 之后）—— 源码闸只认代码，注释里提到旧写法不算接线。</summary>
+    /// <summary>去掉行注释（`//` 之后）与块注释（`/* … */`）—— 源码闸只认代码，注释里提到旧写法不算接线。</summary>
+    // ✅ 已复刻（2026-11-05 · B150 · 原实现只剥 `//`，`DeckRuntime.cs:7237` 的 `onTextInput` 在块注释里 ⇒ 补 `/* */`）
     static string StripLineComments(string src)
     {
         if (string.IsNullOrEmpty(src)) return "";
         var sb = new System.Text.StringBuilder(src.Length);
-        var lines = src.Replace("\r\n", "\n").Split('\n');
-        for (int i = 0; i < lines.Length; i++)
+        bool inBlock = false;
+        for (int i = 0; i < src.Length; i++)
         {
-            int k = lines[i].IndexOf("//", StringComparison.Ordinal);
-            sb.Append(k >= 0 ? lines[i].Substring(0, k) : lines[i]);
-            if (i + 1 < lines.Length) sb.Append('\n');
+            if (inBlock)
+            {
+                if (src[i] == '*' && i + 1 < src.Length && src[i + 1] == '/') { inBlock = false; i++; }
+                else if (src[i] == '\n') sb.Append('\n');
+                continue;
+            }
+            if (src[i] == '/' && i + 1 < src.Length && src[i + 1] == '/')
+            {
+                while (i < src.Length && src[i] != '\n') i++;
+                if (i < src.Length) sb.Append('\n');
+                continue;
+            }
+            if (src[i] == '/' && i + 1 < src.Length && src[i + 1] == '*') { inBlock = true; i++; continue; }
+            sb.Append(src[i]);
         }
         return sb.ToString();
     }

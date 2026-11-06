@@ -410,8 +410,10 @@ public static class B142_E31_Assert
               "D4 ★ `F(\"_Hue_Offset\", 0.303f)` 恰 **1** 处（原版 `m_Floats`）｜🧨 抄成 0.679 ⇒ 0 ⇒ 红");
             C(CountOfCode(dw, "0.679f"), 0,
               "D5 🔴 灭自证：`DraftModeWindow.cs` 里**没有** `0.679f`（那是 `UI Orange Button To Purple`；这里必须是 0.303）");
-            C(CountOfCode(dw, "MenuFxMaterials.ShaderSpriteHueColorChange"), 1,
-              "D5 ★ shader 名走的是 `MenuFxMaterials.ShaderSpriteHueColorChange` 那份唯一常量（⛔ 不另写一份字面量）");
+            C(CountOfCode(dw, "MenuFxMaterials.ShaderSpriteHueColorChange"), 2,
+              "D5 ★ shader 名走的是 `MenuFxMaterials.ShaderSpriteHueColorChange` 那份唯一常量（现读**恰 2 处**：`:4927` 解析 + `:4929` 告警插值串，**两处引的是同一份常量**，⛔ 没有第二份字面量 —— 见下一条）");
+            C(CountOfCode(dw, "Shader Graphs/Sprite HUE Color change"), 0,
+              "D5 ★ 灭自证：`DraftModeWindow.cs` 的**代码**里 0 处那串字面量（抄一份硬编码 ⇒ 1 ⇒ 红；⚠️ 唯一那处在 `:4913` 的 `///` 文档注释里，`CountOfCode` 跳过注释 ⇒ 不算）");
         }
     }
 

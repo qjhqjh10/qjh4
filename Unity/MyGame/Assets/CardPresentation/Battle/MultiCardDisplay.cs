@@ -600,7 +600,7 @@ namespace CardPresentation
                 else
                 {
                     HudCanvas.FillParent(_bgClose.Rect);   // 铺满子画布 = 全屏；⛔ 别写死 1920×1080
-                    _bgCloseBtn = BattleHudButton.Attach(_bgClose, RequestCloseByUgui);
+                    _bgCloseBtn = BattleHudButton.Attach(_bgClose, RequestCloseByBackgroundUgui);
                     if (_bgCloseBtn == null) Debug.LogError("[多卡展示窗] 背景关闭件没挂上 uGUI 点击");
                 }
             }
@@ -636,7 +636,7 @@ namespace CardPresentation
             //   挂上 ⇒ **点它关窗**（与背景同一个回调，判据 → 文件头「点击/关闭」那段）。
             //   它的 `Image`：`m_RaycastTarget = 1` · `m_RaycastPadding = (0,−40,0,−40)`
             //   ⇒ **上下各外扩 40 px、横向不动**；两条都在这里照抄（rect 本来就是原版节点 rect 577.5×63.84）。
-            _continueBtn = BattleHudButton.Attach(_bar, RequestCloseByUgui, WindowSounds.DefaultButtonCue);   // cue 判据：原版 MB 5115 的 `useDefaultAudioClipIfNull = 1` 且 `m_onClickSound` 为空 ⇒ 默认按钮音（`B118-W1` 补）
+            _continueBtn = BattleHudButton.Attach(_bar, RequestCloseByContinueUgui, WindowSounds.DefaultButtonCue);   // cue 判据：原版 MB 5115 的 `useDefaultAudioClipIfNull = 1` 且 `m_onClickSound` 为空 ⇒ 默认按钮音（`B118-W1` 补）｜✅ 2026-11-05（`B150` · 账 #3/#4）：回调**换成继续钮专口**（`overCard` 闸只属于背景件，见 `RequestCloseByContinueUgui`）
             if (_continueBtn == null)
             {
                 Debug.LogError("[多卡展示窗] 「继续」条没挂上 uGUI 点击（点它不会关）");
@@ -1021,12 +1021,25 @@ namespace CardPresentation
         /// <summary>uGUI（`Continue` 条 / 全屏背景关闭件）被点 —— **只记「待关」**，⛔ 不当场 `Hide()`。
         /// <para>🔴 **2026-10-24（`W64·B-25`）**：这一次按下如果**已经横向拖过**（<see cref="DragSlopPx"/>），
         /// 那它是一次**滚动拖拽**、⛔ 不是点击 ⇒ **不关窗**（原版 `ScrollRect` 会吃掉这段拖拽，
-        /// 背景关闭件收不到点击）。</para></summary>
-        void RequestCloseByUgui()
+        /// 背景关闭件收不到点击）。</para>
+        /// <para>🔴🔴 **2026-11-05（`B150` · 账 #3/#4）拆成两条路**：`overCard` 闸（`B144-W3`）的判据只对
+        /// **背景关闭件**成立 —— 原版那条链是「卡片自己挂 `IPointerClickHandler` 吃掉点击 ⇒ 背景件收不到」，
+        /// 而「继续」条在画布右上、**不在任何一张卡的命中区里**（条 y[937.3,1016.9] vs 卡 y≈[280,800]），
+        /// 它跟卡片抢点击这回事**原版根本没有**。复用同一个处理器 ⇒ 只要上一帧指针最后停在一张卡上
+        /// （`_lastPointerWorld` 是**缓存**、不是「本次点击的位置」），点「继续」就被当成「点在卡上」吞掉。
+        /// ⇒ 继续钮走 <see cref="RequestCloseByContinueUgui"/>（**不判 `overCard`**），背景件走
+        /// <see cref="RequestCloseByBackgroundUgui"/>（判）。</para></summary>
+        void RequestCloseByBackgroundUgui() { RequestCloseByUguiCore(fromBackground: true); }
+
+        /// <summary>「继续」条 / 圆钮被点 —— 与背景件同一条记账路径，但**不判 `overCard`**
+        /// （判据见 <see cref="RequestCloseByBackgroundUgui"/> 的 doc）。</summary>
+        void RequestCloseByContinueUgui() { RequestCloseByUguiCore(fromBackground: false); }
+
+        void RequestCloseByUguiCore(bool fromBackground)
         {
             if (!Visible) return;              // 窗关着 ⇒ 这一下不算（件本来也收不到射线，双保险）
             bool dragged = DraggedSincePress;
-            bool overCard = _lastPointerValid && AnyCardHit(_cards, _lastPointerWorld);   // ✅ 已复刻（2026-11-05 · B144-W3 · B129 二·★33 · 判据 = 原版输入链：卡片挂 `IPointerClickHandler`（`CardScript.OnTouchUpAsButton`）+ `EverguildPhysicsRaycaster` ⇒ **卡片自己吃掉点击**、`BackgroundCloseButton` 收不到；我们卡片是世界 `MeshRenderer`、没有 uGUI 射线件 ⇒ 必须在这里挡）
+            bool overCard = fromBackground && _lastPointerValid && AnyCardHit(_cards, _lastPointerWorld);   // ✅ 已复刻（2026-11-05 · B144-W3 · B129 二·★33 · 判据 = 原版输入链：卡片挂 `IPointerClickHandler`（`CardScript.OnTouchUpAsButton`）+ `EverguildPhysicsRaycaster` ⇒ **卡片自己吃掉点击**、`BackgroundCloseButton` 收不到；我们卡片是世界 `MeshRenderer`、没有 uGUI 射线件 ⇒ 必须在这里挡。⚠️ 只管背景件，继续钮不适用）
             if (!ShouldCloseOnPointer(overCard, dragged))
             {
                 if (dragged) _dragTravelPx = 0f;   // 拖完抬手：吃掉这一下（原行为：⛔ 不记待关、⛔ 不报 `CloseRequested`）

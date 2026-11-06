@@ -338,8 +338,8 @@ public static class B142_E17_Assert
                 const float tabPpu = 1.5f;
                 var n4 = ImageQuad.CreateNineSlice(root.transform, tabOn, tBon, tabOn.width, tabOn.height,
                                                    Vector3.zero, LayoutSpace.Px(260f), LayoutSpace.Px(67.6421f), "Tab", tBon / tabPpu, true);
-                var f = Cell(n4, "Tab_00");
-                Check(n4 != null && f != null, "B10b 前提：页签九宫格建出来了（`Tab_00` 在）");
+                var f = Cell(n4, "Tab_01");
+                Check(n4 != null && f != null, "B10b 前提：页签九宫格建出来了（`Tab_01` 在 —— `Tab_00` **结构性不存在**：border `(183,0,128,29)` 的下边 = 0 ⇒ 底排 `j=0` 的高 = 0，被 `ImageQuad.CreateNineSlice` 的 `if (w <= 0f || h <= 0f) continue;` 跳过，见 `Battle/ImageQuad.cs:585`；`Tab_01` = 左列中间行，宽仍是 `wl`）");
                 if (n4 != null && f != null)
                 {
                     var h4 = new GameObject("Hit4");

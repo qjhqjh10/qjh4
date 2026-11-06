@@ -134,11 +134,37 @@ public static class B98G4_Assert
                 pickFrom = "手牌 idx=" + i + "「" + (h.Inst.Card != null ? h.Inst.Card.Name : "?") + "」";
             }
         }
+        CardInstance fxInst = null;                      // 240b 的夹具卡（验完必须撤回；`null` = 没注入）
+        if (pick == null)
+        {
+            // 🆕 **2026-11-06（`B150` 残余 · 铁律 11「夹具自建，⛔ 别依赖宿主现场」）**：
+            //   宿主跑到这一拍时**棋盘与手牌都可能一张卡视图都没有**（本波实测 240b 取到「（没找到）」）
+            //   ⇒ 整段 240c~240e 没验到。做法照本项目现成范式（`Editor/BattleScene.cs` 的
+            //   「手牌里凑不出就注入夹具卡」那一族）：**往自己手牌塞一张单位卡 + `RefreshAll()`**，
+            //   让 `SyncHand` 建出视图，验完再**原样撤回**（`Hand.Remove` + 再 `RefreshAll`），不污染后续断言。
+            //   ⚠️ 只在「自然两条路都取不到」时才注入 ⇒ 健康局面下这一段一次都不走（零行为变化）。
+            string why0 = null;
+            fxInst = InjectHandFixture(drv, out why0);
+            if (fxInst != null)
+            {
+                var hand2 = drv.HandViewsForTest;
+                for (int i = 0; hand2 != null && i < hand2.Count && pick == null; i++)
+                {
+                    var h = hand2[i];
+                    if (h == null || !ReferenceEquals(h.Inst, fxInst) || !h.gameObject.activeSelf) continue;
+                    pick = h;
+                    pickUnit = new UnitState(h.Inst, false);
+                    pickFrom = "夹具手牌 idx=" + i + "「" + (h.Inst.Card != null ? h.Inst.Card.Name : "?") + "」";
+                }
+                Debug.Log("[G4] · 240b 走了**夹具自建**这条路（" + why0 + "）⇒ 取到 " + pickFrom);
+            }
+            else Debug.LogWarning("[G4] · 240b 夹具也建不出来：" + why0);
+        }
         Tr(pick != null && pickUnit != null,
            "240b（前提）有一张**此刻是激活的**卡视图当承受方（先棋盘、取不到退手牌 —— 0x17 的字面语义是"
          + "「造一张手牌」，原版撤的是**那张手牌**的卡体）｜取到：" + pickFrom
          + "｜🧨 两条路都取不到 ⇒ 240c~240e 没验到（⛔ 别读成通过）");
-        if (pick == null) return;
+        if (pick == null) { RemoveHandFixture(drv, fxInst); return; }
 
         bool was = drv.CancelCreateHandCardForTest(pickUnit);
         Tr(was, "240c（前提）调用前那张视图**确实是激活的**（`activeSelf == true`）｜承受方 = " + pickFrom);
@@ -147,6 +173,7 @@ public static class B98G4_Assert
          + "（原版 `targetCard.gameObject.SetActive(false)`；🧨 方法里没真的关 / `FindCardViewOfUnit` 认不出它 ⇒ 红）");
         pick.gameObject.SetActive(true);                 // 还原现场（这一段只验副作用，不留痕）
         Tr(pick.gameObject.activeSelf, "240e（还原）把那张视图重新激活（本段不留副作用）");
+        RemoveHandFixture(drv, fxInst);                  // 夹具卡撤回（只在 240b 真注入过时才动；`null` ⇒ 什么都不做）
     }
 
     // ==================================================================
@@ -414,5 +441,46 @@ public static class B98G4_Assert
         }
         Tr(checkedCards > 0, "1037e（前提）抽到了 " + checkedCards + " 张带正文的卡（引擎取数口自洽性用）");
         C(bad, 0, "1037f ★ `ThisCardPlayedDamage == Σ ThisCardPlayedDamageEntries`（" + checkedCards + " 张逐张对）");
+    }
+
+    // ==================================================================
+    //  🆕 **2026-11-06（`B150` 残余）** 240b 的夹具：宿主现场没有激活的卡视图时**自建一张**
+    //    判据 = 铁律 11「夹具自建，⛔ 别依赖宿主现场」＋ 本项目现成范式
+    //    （`Editor/BattleScene.cs` 的「手牌里凑不出就注入夹具卡」那一族：`Hand.Add(NewInstance(def))` → `RefreshAll()`）
+    //    ⚠️ 只在**两条自然路都取不到**时才注入 ⇒ 健康局面下这一段一次都不走（零行为变化）；
+    //       验完 `RemoveHandFixture` 原样撤回，不污染后面 254/233/94/1037 那些断言。
+    // ==================================================================
+
+    /// <summary>往**自己**手牌塞一张单位卡并同步出视图，返回那个实例（失败 ⇒ `null` + `why`）。</summary>
+    static CardInstance InjectHandFixture(BattleDriver drv, out string why)
+    {
+        why = null;
+        var ctx = drv != null ? drv.Ctx : null;
+        if (ctx == null) { why = "没有对局（`Ctx == null`）"; return null; }
+        int me = drv.MySeat;
+        if (me < 0 || me > 1 || ctx.Players[me] == null) { why = "`MySeat` 取不到（" + me + "）"; return null; }
+        CardDef def = null;
+        for (int i = 0; i < ctx.CardPool.Count && def == null; i++)
+        {
+            var c = ctx.CardPool[i];
+            if (c != null && c.IsUnit) def = c;
+        }
+        if (def == null) { why = "卡池里一张单位卡都没有"; return null; }
+        var inst = ctx.NewInstance(def);
+        if (inst == null) { why = "`ctx.NewInstance` 返回 null"; return null; }
+        ctx.Players[me].Hand.Add(inst);
+        drv.RefreshAll();                       // `SyncHand()` 会给新牌建视图（`BattleDriver.cs:19483` 那一跳）
+        why = "手牌注入夹具卡「" + def.Name + "」";
+        return inst;
+    }
+
+    /// <summary>撤回 <see cref="InjectHandFixture"/> 塞进去的那张（`null` ⇒ 什么都不做）。</summary>
+    static void RemoveHandFixture(BattleDriver drv, CardInstance inst)
+    {
+        if (inst == null || drv == null || drv.Ctx == null) return;
+        var ps = drv.Ctx.Players[drv.MySeat];
+        if (ps == null || ps.Hand == null) return;
+        if (!ps.Hand.Remove(inst)) return;       // 本来就不在（没注入 / 已被消费）⇒ 不动现场
+        drv.RefreshAll();
     }
 }

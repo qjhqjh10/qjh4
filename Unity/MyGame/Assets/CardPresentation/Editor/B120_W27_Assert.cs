@@ -21,8 +21,10 @@
 //   本件**不建任何 GameObject**（纯源码 / 纯静态函数断言）⇒ 编辑模式与播放器都能跑。
 //
 // ============================ 🔴 灭自证（改哪一处会让哪一条红）============================
-//   · A1  ← 任一处 `SetLayer(ArenaSlots.BoardCardLayer)` 改回 `ArenaLayer` ⇒ 计数变 5（应为 6）⇒ 红
-//   · A1b ← 同上，逐行钉：那 6 个行号里任何一行不再是新调用 ⇒ 红（**这是「六处必须一次改完」的机器证据**）
+//   · A0b ← 换层点总数不再是 6（改少/删掉一处）⇒ 红（契约值 `ExpectedCardLayerSites`）
+//   · A1  ← 任一处 `SetLayer(ArenaSlots.BoardCardLayer)` 改回 `ArenaLayer` ⇒ 计数比现算名单少 ⇒ 红
+//   · A1b ← 逐行钉：现算出来的那一行**被注释掉**（= 只剩注释里的示例）⇒ 红
+//          （**这是「六处必须一次改完」的机器证据**；⚠️ 2026-11-06 起行号**现算**、不再钉常量 ⇒ 上游插行不会再红）
 //   · A2  ← 掩码改回 `1 << ArenaSlots.ArenaLayer` ⇒ 红（同时 A2b 会因「文件里仍出现 `1 << ArenaLayer`」红）
 //   · A3  ← 把射线改回「扫缓冲找第一条卡」⇒ 方法体里重新出现 `for (` / `continue;` ⇒ 红
 //   · A4  ← 删掉 `traitRev = u.TraitRev` ⇒ 红（= `B120-W20` dirty 链断线，表现层恒走老行为且**无任何报错**）
@@ -34,8 +36,9 @@
 // ============================ ⚠️ 覆盖边界（如实记）============================
 //   · **不跑 Unity 帧循环**：本件只读源码文本 + 跑纯静态函数，**不**证明「真机上点得中」。
 //   · **不断言相机掩码**：两台相机的 `cullingMask` 由 `Editor/BattleScene.cs` 那边的断言钉（调度台改的，⛔ 不属本件）。
-//   · **A1b 的行号是「当前落点」**：若上游有人在上方插行，A1b 会红 —— 那是**该重新钉行号**的信号，不是缺陷
-//     （此时先看 A1 的计数是否仍为 6：计数对而 A1b 红 ⇒ 只是漂移）。
+//   · **A1b 的行号 2026-11-06 起是【现算】**（`CardLayerSites()` 逐行 grep 源码）：上游插行**不再**让它红。
+//     它会红只剩两种情况 —— 那一行被注释掉（只剩注释里的示例），或换层点被收敛进辅助方法
+//     （那时改成断「**≥1 处**，且每处都在 `SyncBoard` / `RefreshCanView` 里」）。
 using System;
 using System.IO;
 using System.Text;
@@ -53,8 +56,31 @@ public static class B120_W27_Assert
     /// <summary>失败条数（宿主可读）。</summary>
     public static int Fail { get { return _bad; } }
 
-    /// <summary>6 处卡换层点的**契约值**（原版 `SetUnitInPlayLayer` 那一路的 6 个呈现入口）。🔴 2026-11-05（`B145-E9` · 活状态表 `A-28`）：上游插行 ⇒ 六个落点整体漂移，据【现读】重钉为 13907 / 25969 / 26064 / 26534 / 26808 / 37992（旧值 13894 / 25926 / 26021 / 26491 / 26765 / 37921 现在分别指向 `handoff.Apply = …` / 注释 / `startScale` / `GetLastPlayed` / 血量回写注释 / 空行 ⇒ 全不是换层语句）；判据 = `BattleDriver.cs` 里 `SetLayer(ArenaSlots.BoardCardLayer)` **恰 6 处**、逐行现读确认；A1 的计数仍为 6。</summary>
-    static readonly int[] CardLayerSites = { 13907, 25969, 26064, 26534, 26808, 37992 };
+    /// <summary>6 处卡换层点的**契约值**（原版 `SetUnitInPlayLayer` 那一路的 6 个呈现入口）。
+    /// 🔴 2026-11-06（`B150` 账务接线 · 判据 `报告/B150_修_引擎机制零散.md` §四·2）：行号**不再钉常量** ——
+    /// 上游每插一行，写死的 6 个行号就整体漂移、断言必红（2026-11-05 `B150-W-B` 刚为此重钉过一次）。
+    /// 现读 = **`CardLayerSites()` 从源码现算**（逐行找 `SetLayer(ArenaSlots.BoardCardLayer)`），
+    /// 语义不变、且**不会再漂**。⚠️ 边界：将来若把换层收敛成一个辅助方法，grep 会**少**命中 ⇒
+    /// 那时改成断「**≥1 处**，且每处都在 `SyncBoard` / `RefreshCanView` 里」。
+    /// 判据 = `grep -n "SetLayer(ArenaSlots.BoardCardLayer)" CardPresentation/Battle/BattleDriver.cs`（现读 **恰 6 处**）。</summary>
+    const int ExpectedCardLayerSites = 6;
+
+    /// <summary>现算 6 处卡换层点的行号（1 基）：逐行找 `SetLayer(ArenaSlots.BoardCardLayer)`。
+    /// 读不到源码 / 抛异常时返回空表（A0b / A1 会红，⛔ 不静默跳过）。</summary>
+    static int[] CardLayerSites()
+    {
+        var hit = new System.Collections.Generic.List<int>();
+        try
+        {
+            string p = Path.Combine(Application.dataPath, "CardPresentation/Battle/BattleDriver.cs");
+            if (!File.Exists(p)) return hit.ToArray();
+            string[] srcLines = File.ReadAllLines(p);
+            for (int i = 0; i < srcLines.Length; i++)
+                if (srcLines[i].Contains("SetLayer(ArenaSlots.BoardCardLayer)")) hit.Add(i + 1);
+        }
+        catch (Exception e) { Debug.LogError(Prefix + "✗ CardLayerSites 现算失败：" + e.Message); }
+        return hit.ToArray();
+    }
 
     static void Check(bool ok, string what)
     {
@@ -87,25 +113,31 @@ public static class B120_W27_Assert
         string src = StripLineComments(File.ReadAllText(p));   // 注释里的示例不算接线（本文件注释里大量提到旧写法）
         string flat = Flatten(src);
 
-        // ---- A1：6 处卡换层点全部迁到 `BoardCardLayer`，且**没有一处**留在 `ArenaLayer` ----
+        // ---- A0b/A1：6 处卡换层点全部迁到 `BoardCardLayer`，且**没有一处**留在 `ArenaLayer` ----
+        //      🔴 2026-11-06（`B150`）：行号**现算**（`CardLayerSites()`），不再是常量 ⇒ 上游插行不再红。
+        int[] sites = CardLayerSites();
+        Check(sites.Length == ExpectedCardLayerSites,
+            "A0b（前提）现算出的卡换层点有 **" + ExpectedCardLayerSites + " 处**（实得 " + sites.Length + "）"
+            + "｜🧨 换层点少一处（删掉 / 收敛进辅助方法）⇒ 红；若原版确实收敛成辅助方法 ⇒ 改成断「≥1 处，且每处都在 `SyncBoard` / `RefreshCanView` 里」");
         int to10 = CountOf(flat, "SetLayer(ArenaSlots.BoardCardLayer)");
         int to8 = CountOf(flat, "SetLayer(ArenaSlots.ArenaLayer)");
-        Check(to10 == CardLayerSites.Length,
-            "A1 ★ 卡换层点 `SetLayer(ArenaSlots.BoardCardLayer)` **恰好 " + CardLayerSites.Length + " 处**（实得 " + to10 + "）"
-            + "｜🧨 任一处改回 `ArenaLayer` ⇒ 5 ⇒ 红（六处必须一次改完：只改一半 ⇒ 有的卡被透视相机画、有的被 HUD 画）");
+        Check(to10 == sites.Length,
+            "A1 ★ 代码里的卡换层点 `SetLayer(ArenaSlots.BoardCardLayer)` 与**现算名单**同数 **" + sites.Length + " 处**（实得 " + to10 + "）"
+            + "｜🧨 任一处改回 `ArenaLayer` ⇒ 少 1 ⇒ 红（六处必须一次改完：只改一半 ⇒ 有的卡被透视相机画、有的被 HUD 画）"
+            + "；🧨 某一处被注释掉 ⇒ 名单仍含它、代码里少了 ⇒ 红");
         Check(to8 == 0,
             "A1c ★ 文件里**没有** `SetLayer(ArenaSlots.ArenaLayer)`（实得 " + to8 + "）—— 层 8 现在只留给 arena prefab 的地面/背景/VFX 宿主"
             + "｜🧨 把某张卡换回 8 ⇒ 红（那张卡在射线掩码外 ⇒ 点不中）");
 
-        // ---- A1b：逐行钉（灭自证：哪一处改回 8 ⇒ 对应那条红，而不是被「另一处仍然对」掩盖）----
-        for (int i = 0; i < CardLayerSites.Length; i++)
+        // ---- A1b：逐行钉（现算行号；灭自证：哪一处被注释掉 / 挪进注释 ⇒ 对应那条红）----
+        for (int i = 0; i < sites.Length; i++)
         {
-            int ln = CardLayerSites[i];
+            int ln = sites[i];
             bool ok = ln >= 1 && ln <= lines.Length
-                      && lines[ln - 1].Contains("SetLayer(ArenaSlots.BoardCardLayer)");
+                      && StripLineComments(lines[ln - 1]).Contains("SetLayer(ArenaSlots.BoardCardLayer)");
             Check(ok,
-                "A1b-[" + (i + 1) + "] ★ 第 " + ln + " 行的卡换层 = `SetLayer(ArenaSlots.BoardCardLayer)`"
-                + "｜🧨 这一处改回 `ArenaLayer` ⇒ 本条红（⚠️ 若上游插行导致整体漂移，本条会一起红 —— 先看 A1 的计数）");
+                "A1b-[" + (i + 1) + "] ★ 第 " + ln + " 行的卡换层 = **代码里的** `SetLayer(ArenaSlots.BoardCardLayer)`（不在注释里）"
+                + "｜🧨 把这一行注释掉 ⇒ 本条红（A1 的计数也会红）；⚠️ 行号是 2026-11-06 起**现算**的 ⇒ 上游插行不再让它红");
         }
 
         // ---- A2：落点射线掩码 = 1 << BoardCardLayer（= 原版 `1 << NameToLayer("BoardElements")`）----

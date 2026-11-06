@@ -151,8 +151,12 @@ public static class B148_W6_Assert
             "A-3 `AlliancePanelWindow.Txt`（本扇是**标题族** ⇒ Asar；8 个调用点本就全显式传面 ⇒ 本次零渲染变化）");
 
         // ---- 聊天（正文 + 消息行）----
-        CheckFaceDefault(typeof(ChatPanel), "Text", TmpFont.Face.LatinCardBody, 2,
-            "A-4 `ChatPanel.Text`（两个重载：窗内正文口 + `ChatMessageRow` 静态口；原版 `ChatMessageRow` 的 Sender/Time/Message 是正文族）");
+        CheckFaceDefault(typeof(ChatPanel), "Text", TmpFont.Face.LatinCardBody, 1,
+            "A-4 `ChatPanel.Text`（窗内正文口）");
+        // 🔴 2026-11-05（`B150-W-E`）：`ChatMessageRow` 是**独立的静态类**（`Shell/ChatPanel.cs:740`，不是 `ChatPanel` 的嵌套/成员）
+        //   ⇒ 两个口分开断（`GetMethods(DeclaredOnly)` 本来就跨不过类边界，原来那条「2 个重载」的前提是错的）。
+        CheckFaceDefault(typeof(ChatMessageRow), "Text", TmpFont.Face.LatinCardBody, 1,
+            "A-4b `ChatMessageRow.Text`（消息行静态口；原版 `ChatMessageRow` 的 Sender/Time/Message 是正文族）");
 
         // ---- 卡牌详情弹窗 / 反馈弹窗 / 抽屉 ----
         CheckFaceDefault(typeof(DeckInfoPopup), "Txt", TmpFont.Face.LatinCardBody, 1,

@@ -1864,14 +1864,14 @@ public static class RewardsScene
             //    本页画的其实是**全尺寸**那一份 ⇒ 那个节点叫 **`background/body/counter`**、
             //    TMP 实读（MB `-388213497299750215`）：`'x160000'` · **`fs 30`** · `base 36` ·
             //    `m_enableAutoSizing = 1` · **`auto[30 ~ 35]`** · `折行 0` · `H=Left/Midline`。
-            //    ⚠️ **它的 `fs == autoMin == 30`** ⇒ `Txt1` 那条闸（`fontPx > autoMinPx`）**挡住了自适应**
-            //    ⇒ 收敛值 = 标称 = 30 × 1.15 = **34.5**（定死，不像别处那样二分）⇒ 仍然可以用 `CheckFontPx`。
-            //    ⛔ 窗口那条（30/35）**本件不另断**：闸挡住了 ⇒ `FontSizeMin/Max` 不是我们要的那两个数，
-            //       断它会红在「闸」上、不是红在值上（同 A1208 的口径，见下面 ④ 那一行的留痕）。
+            //    ⚠️ **它的 `fs == autoMin == 30`** ⇒ `MenuWindowBase.Text` 那条闸挡住自适应，但 `Txt1` 的 `:550-552` **补了一刀 `SetAutoFitBox`**
+            //    ⇒ 自适应**是开着的**，收敛值随字体面/框变（2026-11-05 `B148-W6` 面改 Pragati 后实测 38.34 ∈ [34.5, 40.25]）⇒ 只能断**窗口**。
+            //    🔴 **2026-11-05（`B150`）就地订正**：原文写「窗口（30/35）本件不另断、断它会红在闸上」—— **不成立**
+            //       （`Txt1` 补的那一刀已经把窗口真的写进去了）⇒ 现在正是**断窗口**，而且它比标称字面量更稳（见下一条）。
             //    改坏法：把 `Txt1` 那个 `30f` 改回 `26.8f`（= Small 那一份的值）⇒ 实得 30.82 ⇒ 红。
-            CheckFontPx(smSkulls, "counter", 34.5f,
-                        "骷髅卡计数 `counter`（`x0`）字号 = **原版 `m_fontSize` 30 × 1.15 = 34.5**"
-                        + "（`Txt1` 那一路；⚠️ 这一颗 `fs == autoMin` ⇒ 自适应被那条闸挡在外面）");
+            CheckFontWindow(smSkulls, "counter", 34.5f, 40.25f,
+                        "骷髅卡计数 `counter`（`x0`）字号 = **原版 `m_fontSizeMin/Max` 30/35 × 1.15 = [34.5, 40.25]**"
+                        + "（`Txt1` 的 `fontPx == autoMin` 那一档会**补一刀 `SetAutoFitBox`** ⇒ 自适应开着、收敛值随面/框变 ⇒ 断窗口才稳）");
             // ④【另一张卡的 `Collect` 文案】🔴 **本件起这一颗开了自适应**（原版 `m_enableAutoSizing = 1`）
             //    ⇒ **不能**再断 `FontPxNow`（那是 TMP 的**收敛值**：文案在框里装不下就会比上界小），只断**窗口**。
             //    原版判据（**两处来源一致** ✓）：`GameObject/Missions Tab.json` 的
@@ -3553,7 +3553,7 @@ public static class RewardsScene
             // 🔴 本宿主此前**完全不碰盘**（`grep OverrideDir` 零命中）⇒ 这一段自带注入与还原，
             //    用的是 A429 那套现成的门（`OverrideDir` + `DeleteStoreForTest` / `SaveNowForTest` / `ReloadForTest`），
             //    ⛔ **不另发明一套**；目录与 `Editor/MainMenuScene.cs` 那份**分开**（两宿主互不干扰）。
-            DailyData.OverrideDir = "d:/4/_tmp_view/daily_selftest_rewards";
+            DailyData.OverrideDir = "d:/4/_tmp_view/daily_selftest_rewards"; string prevSaveRoot = SaveCenter.OverrideRoot; bool prevMirror = SaveCenter.LegacyMirrorOn; SaveCenter.OverrideRoot = DailyData.OverrideDir; SaveCenter.LegacyMirrorOn = true;   // 🆕 2026-11-06（B150）：中央档同改道到该临时目录（Play 下不写玩家真档）；`LegacyMirrorOn` 打开是为了 `StoredStreakDaysForTest`（直读旧档）仍有效 —— 收尾一并还原
             DailyData.DeleteStoreForTest();
             DailyData.ReloadForTest();                                     // 「第一次跑、盘上什么都没有」
             Check(DailyData.StreakLoggedDays, 0, "（前提）盘上没有档 + 内存打回出厂 ⇒ 连登 **0**");
@@ -3569,9 +3569,9 @@ public static class RewardsScene
             // ---- ③ 老档（A815 之前落的盘）里没有这一格 ⇒ 按「从没记过」走，**不许整份作废** ----
             // 🔴 这一条钉住 `StoreDto.version` **不 +1** 那个决定（判据全文在 `StoreDto.streakDays` 的注释）：
             //    旧档必须**照读**（别的字段都在），只是连登那一格回到 0（= 它的确定含义）。
-            File.WriteAllText(DailyData.StorePath,
-                "{\"version\":1,\"nextSet\":false,\"nextResetTicks\":0,\"rows\":null,"
-                + "\"skullsCount\":3,\"skullsState\":0,\"loginState\":0}");
+            CheckTrue(SaveCenter.SetRaw(SaveKeys.DailyCounters, "{\"version\":1,\"nextSet\":false,\"nextResetTicks\":0,\"rows\":null,"
+                + "\"skullsCount\":3,\"skullsState\":0,\"loginState\":0}"),
+                "★ B150：老档种在**读口真正会读的那一侧**（中央档）—— `ReloadForTest` 走 `ReadThroughLegacy`，只写旧档在落盘开着时完全无效");
             DailyData.ReloadForTest();
             Check(DailyData.StreakLoggedDays, 0,
                   "老档（没有 `streakDays` 这个键）⇒ 连登读 **0** = 「本机从没记过」（⛔ 不是垃圾值、也不是硬塞一个默认数）");
@@ -3580,7 +3580,7 @@ public static class RewardsScene
                   + "不是被当成『版本不认识』整份丢掉」（把 `version` 抬到 2 就会是这一条红）");
 
             // ---- 收尾：门关上 + 不留本节造出来的那些数 ----
-            DailyData.OverrideDir = null;                                  // ⚠️ 关掉门（后面的节不再碰盘）
+            DailyData.OverrideDir = null; SaveCenter.OverrideRoot = prevSaveRoot; SaveCenter.LegacyMirrorOn = prevMirror;   // ⚠️ 关掉门（后面的节不再碰盘）｜🆕 2026-11-06（B150）：中央档改道 / 双写开关一并还原（存档-还原，⛔ 不写死 null/false）
             DailyData.ReloadForTest();                                     // 门关着 ⇒ 只把内存打回出厂
             DailyData.ForceNextResetForTest(snapNext);                     // 回本节起点的「下一次刷新时刻」
             // 连登那一格：本节起点本来是 **0/从没记过**（`RewardsScene` 全程不调 `TryDailyReset`，已 `grep` 核过）；
@@ -9019,11 +9019,11 @@ if (glowFx != null)
             if (pvDrawer != null && hitRe != null)
             {
                 pvDrawer.SetState(RewardState.Locked);
-                CheckTrue(hitRe.Interactable, "`Locked` ⇒ 预览命中件**可用**");
+                var shCol = dr.ShadowForTest(pvDay, false); CheckTrue(hitRe.Interactable, "`Locked` ⇒ 预览命中件**可用**（`Shadow` 节点建出来 = " + (shCol != null) + "）");
                 pvDrawer.SetState(RewardState.Unlocked);
-                CheckTrue(!hitRe.Interactable, "`Unlocked` ⇒ 命中件**按灰**（领奖由 `colider` 吞）；改坏法：删 SetState 那句 ⇒ 红");
+                CheckTrue(!hitRe.Interactable && shCol != null && !shCol.gameObject.activeSelf, "`Unlocked` ⇒ 命中件**按灰**（领奖由 `colider` 吞）**且 `Shadow` 关着**；改坏法：删 SetState 那句 ⇒ 红");
                 pvDrawer.SetState(RewardState.Collected);
-                CheckTrue(!hitRe.Interactable, "`Collected` ⇒ 命中件**按灰**（原版 Shadow 吞；我们无图，用命中闸复刻）；改坏法：删那句 ⇒ 红");
+                CheckTrue(shCol != null && shCol.gameObject.activeSelf && shCol.GetComponent<WindowButton>() != null && shCol.GetComponent<WindowButton>().absorbOnly, "`Collected` ⇒ **`Shadow` 压暗层开着**（原版 `shadow` ⇔ `Collected`；`m_RaycastTarget = 1` 的等价物 = `WindowButton.absorbOnly` 吞掉这一格点击）；改坏法：删 SetState 里那句 Shadow ⇒ 红");
                 pvDrawer.SetState(RewardState.Locked);                  // 恢复
             }
 
@@ -11523,12 +11523,12 @@ if (glowFx != null)
         //   🔴 A77⑬③：期望值改成**量**本窗那块 `Menu Dark Background` 的 quad 档。
         MenuDraw.CheckShadeRule(CheckTrue, "收件箱窗", inbox.ShadeHit,
                                 inbox.transform.Find("Menu Dark Background"), InboxWindow.QOverlay);
-        // 🆕 **2026-10-19（`T29` 剩余五屏）**：压暗 alpha = 原版 `m_Color (0,0,0,0.773)`（原来写 0.77）。
+        // 🆕 **2026-10-19（`T29` 剩余五屏）**：压暗 alpha = 原版 `m_Color (0,0,0,0.77254903)`（⚠️ 2026-11-05 `B150` 就地订正：原期望写成取整的 `0.773`、差 4.5e-4 超 1e-4 容差；`InboxWindow.cs:379` 已按精确值）。
         {
             var shN = inbox.transform.Find("Menu Dark Background");
             var shQ = shN != null ? shN.GetComponentInChildren<ImageQuad>() : null;
             CheckTrue(shQ != null, "（前提）收件箱压暗层有 quad");
-            if (shQ != null) CheckNear(shQ.Tint.a, 0.773f, 1e-4f, "★ 收件箱压暗 alpha = 原版 **0.773**");
+            if (shQ != null) CheckNear(shQ.Tint.a, 0.77254903f, 1e-4f, "★ 收件箱压暗 alpha = 原版 prefab `m_Color` 的 **0.77254903**（⛔ 不是取整的 0.773）");
         }
         // 🔴 **2026-10-25（N17）：这条从「期望 false」改成「期望 true」—— 旧期望的依据【已经不成立】。**
         //   旧期望写的是「单机没有消息 ⇒ 走空态」，那句在 2026-10-25 之前是对的（收件箱没有数据源）；
@@ -13236,13 +13236,13 @@ if (glowFx != null)
                             + "（判据 `q1_rm2d.txt:186` 的 `soft=(0,0)`）"
                             + " —— 改坏法：把 `Shell/CampaignTab.cs` 里 `ViewportClip.Hang(…)` 的 softness 实参"
                             + "改成非 0 ⇒ 整条阵营条都带顶点色 ⇒ 这里 > 0（控制组已证明这条带是活的）");
-                        CheckTrue(hitL <= selRA.x1 + 1f,
-                                  $"★ C（pad 那一半）：最左那颗**命中区的左沿 = 视口左沿 {selRA.x1:F2}**（实测 {hitL:F2}）"
-                                + " —— 滚到最左极端时第 1 格正好压在左沿，而命中区 = `R ∩ (V − pad)`、"
-                                + "渲染 = `R ∩ (V − pad)`（`RenderClip`）⇒ pad = 0 时就停在 `V` 上。"
-                                + "**改坏法**：把 `ViewportClip.Hang(…)` 的 pad 实参改成 `(40,40,40,40)`"
-                                + "（= 旧写法里那句 `_win.ClipPad = Vector4.zero;` 被删掉的效果）"
-                                + " ⇒ 命中区与渲染都被缩到 `selRA.x1 + 40` ⇒ 这一条红");
+                        CheckNear(hitL, selRA.x1 + 37f, 1.5f,
+                                  $"★ C（pad 那一半）：最左那颗**命中区的左沿 = 视口左沿 + 37**（视口左 {selRA.x1:F2} · 实测 {hitL:F2}）"
+                                + " —— 37 = `ArmyPadL` **48**（原版 `Army Content` 的 `m_Padding.left`）− `Icon` 的 `m_RaycastPadding` **11**："
+                                + "`MinOffset` 只把**内容**左端压在视口左沿，第 1 格在内容里还要再右移 48 ⇒ pad = 0 时命中区停在 `V.x1 + 37`。"
+                                + "**改坏法**：把 `ViewportClip.Hang(…)` 的 pad 实参改成 `(40,40,40,40)`（> 37 ⇒ 反被 pad 吃掉）"
+                                + " ⇒ 命中区与渲染都被缩到 `selRA.x1 + 40` ⇒ 与 37 差 3px > 1.5 ⇒ 这一条红"
+                                + "；把 `ArmyHitRect` 的 `Icon` 那块 pad 去掉 ⇒ +48 ⇒ 同样红");
                     }
                 }
             }

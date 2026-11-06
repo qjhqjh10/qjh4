@@ -2509,7 +2509,7 @@ public static class DeckScene
                         + $" · 两对的偏移差 ({obx - oax:0.##}, {oby - oay:0.##})px · 最大 {offD:0.##}px"
                         + "（差 ≤ 1.5px ⇒ 下面两条量不出牙 ⇒ 这一条先红）"
                         + "；⚠️ 表是旧版（没有四列 `padding`）⇒ 本函数恒 false ⇒ 这里也会红（跑 "
-                        + "`python d:/4/Unity/工具/gen_cardbacks.py` 重生成）");
+                        + "`python d:/4/Unity/工具/gen_cardbacks.py --write` 重生成）");
                 if (offA >= 0 && offD > 1.5f)
                 {
                     float acx, acy, bcx, bcy;
@@ -2898,8 +2898,8 @@ public static class DeckScene
                 + "｜🧨 改坏法：`DeckRuntime.Build` 里加回「空库 `Library.Create` + `CommitCurrent`」⇒ 这条红");
             CheckTrue(lib.Current == null,
                       "★ W62：……也**没有「选中的卡组」**（空库 = 没有当前那套；原版这时走的是「新建卡组」）");
-            CheckTrue(!File.Exists(RuleEngine.DeckStore.Path),
-                      "★ W62：……而且**一个字节都没写存档**（`WarpforgeDecks.json` 不存在）"
+            CheckTrue(SaveCenter.ReadThroughLegacy(SaveKeys.PlayerDecks, RuleEngine.DeckStore.Path) == null,
+                      "★ W62：……而且**一个字节都没写存档**（旧档 + 中央档都读不到；读口 = `SaveCenter.ReadThroughLegacy`）"
                     + " —— 改前它一开编辑器就被静默写出来（Birth=00:09:26 那次实测）");
             Check(_rt.Library.Count, 0, "★ W62：……运行期那一刻的库也是 0 套（`_rt.Library` 与盘上一致）");
             CheckTrue(_rt.Library.Current == null, "★ W62：……`_rt.Library.Current` 也是 null（没有选中项）");
@@ -2932,7 +2932,7 @@ public static class DeckScene
         static void TestLibraryAfterDone()
         {
             var path = RuleEngine.DeckStore.Path;
-            CheckTrue(!File.Exists(path), "（前提）此刻存档仍不存在（`DeleteFile()` 之后一个字节都没写）");
+            CheckTrue(SaveCenter.ReadThroughLegacy(SaveKeys.PlayerDecks, path) == null, "（前提）此刻存档仍不存在（`DeleteFile()` 之后一个字节都没写；读口 = `SaveCenter.ReadThroughLegacy`）");
             Check(_rt.Library.Count, 0, "（前提）此刻库里 0 套（空库那一拍）");
             Check(_rt.State.Validate(), DeckError.None,
                   "（前提）开场那副演示牌**合法** ⇒ 下面按 `Done` 会放行（原版 `__TrySaveDeck.c:80` 那道闸）");
@@ -2950,7 +2950,7 @@ public static class DeckScene
                 Debug.LogWarning("[DeckScene] 兜底：`Done` 没入库（上一条断言已红）⇒ 显式插入 `PlayerDeckForDemo` 并落盘，让后续各节仍有夹具可跑（⛔ 这不是修复，修复在夹具那一侧）");
             }
             // ⛔ 别再把这句 `Check` 挪到上面兜底之后：那会让「`Done` 这条路坏了」被「兜底插了一条」蒙过去（2026-11-05 B148·W12）—— 现在断言在兜底【之前】跑，兜底只负责让后续各节仍有夹具可跑。
-            CheckTrue(File.Exists(path), "★ W62：……而且**这时才**出现 `WarpforgeDecks.json`");
+            CheckTrue(SaveCenter.ReadThroughLegacy(SaveKeys.PlayerDecks, path) != null, "★ W62：……而且**这时才**出现存档（旧档 / 中央档，读口 = `SaveCenter.ReadThroughLegacy`）");
             var disk = DeckLibrary.Load();
             Check(disk.Count, 1, "★ ……重读存档：库里恰好那 1 套（落盘往返）");
             Check(disk.Current != null ? disk.Current.Name : "(null)",
@@ -2958,13 +2958,13 @@ public static class DeckScene
                   "★ ……盘上那套就是刚按 `Done` 存下去的这一副（名字一致）");
 
             // ---- ② 库里有卡组时，**再开一次编辑器也不写盘**（存档 mtime 一字未变）----
-            DateTime mtime0 = File.GetLastWriteTimeUtc(path);
+            string raw0 = SaveCenter.ReadThroughLegacy(SaveKeys.PlayerDecks, path);   // 🆕 2026-11-06（B150）：原文快照（⛔ 别用 mtime —— 中央档写法不同、Play 下路径根本不是这一份）
             var rgo = new GameObject("W62ReopenSmoke");
             var rrt = rgo.AddComponent<DeckRuntime>();
             rrt.Build(DeckLibrary.Load());
             CheckTrue(rrt.State != null && rrt.State.Deck != null, "（前提）重开也装进了那套（不是空的）");
-            Check(File.GetLastWriteTimeUtc(path), mtime0,
-                  "★ W62：**再开一次编辑器不写盘**（存档 mtime 一字未变）"
+            Check(SaveCenter.ReadThroughLegacy(SaveKeys.PlayerDecks, path), raw0,
+                  "★ W62：**再开一次编辑器不写盘**（存档原文逐字未变；读口 = `SaveCenter.ReadThroughLegacy`）"
                 + "｜🧨 让 `Build` 顺手 `Save()`（或重新建库）⇒ 这条红");
             Check(DeckLibrary.Load().Count, 1, "★ ……而且库也没多没少");
             UnityEngine.Object.DestroyImmediate(rgo);
@@ -8049,16 +8049,16 @@ public static class DeckScene
             //     「恒返回 false」那种假绿。⛔ 不碰玩家的真存档（`OverridePath` 用完还回去）。
             {
                 Section("A398：`DeckLibrary` 的落盘失败**说得出话**（`return Save();` / `SaveOrWarn`）");
-                string keepPath = RuleEngine.DeckStore.OverridePath;
+                string keepPath = RuleEngine.DeckStore.OverridePath; string keepSaveRoot4 = SaveCenter.OverrideRoot;   // 🆕 2026-11-06（B150 同族·A398）：落盘开着时产品只写中央档 ⇒ 光换旧档路径不再等于「写不进去」，中央档写口也要跟着换
                 string probeDir = System.IO.Path.GetDirectoryName(keepPath);
                 string goodPath = System.IO.Path.Combine(probeDir, "_a398_probe.json");
-                string badPath = System.IO.Path.Combine(probeDir, "__wf_a398_no_such_dir__", "x.json");
+                string badPath = System.IO.Path.Combine(probeDir, "__wf_a398_no_such_dir__", "x.json"); string blk4 = System.IO.Path.Combine(probeDir, "__wf_a398_blocker_file__");   // 🆕 2026-11-06（B150 同族）：后者是一个**文件**（下面靠它让中央档也写不进去），`finally` 要清
                 CheckTrue(!string.IsNullOrEmpty(probeDir) && System.IO.Directory.Exists(probeDir),
                           $"（前提）探针要用的目录存在（{probeDir}）—— 不存在 ⇒ 下面全是假绿");
                 try
                 {
                     // ---- ① 写不进去的路径 ----
-                    RuleEngine.DeckStore.OverridePath = badPath;
+                    RuleEngine.DeckStore.OverridePath = badPath; System.IO.File.WriteAllText(blk4, "x"); SaveCenter.OverrideRoot = System.IO.Path.Combine(blk4, "central");   // 🆕 2026-11-06（B150 同族）：`blk4` 是文件 ⇒ 建目录必失败 ⇒ 中央档也写不进去
                     var lib = DeckLibrary.Load();        // 读不到 ⇒ 空库；`LastError` 是 null（那是「还没有存档」，不是失败）
                     CheckTrue(lib.LastError == null, "（前提）起手 `LastError` 是空的");
                     CheckTrue(!lib.Save(), "（前提）这条路径**确实写不进去**（写得进去 ⇒ 下面几条全是假绿）");
@@ -8078,7 +8078,7 @@ public static class DeckScene
                               "★ A398：`Delete` 同上（改回「`Save(); return true;`」⇒ 这条红）");
 
                     // ---- ② 控制组：同几条路，路径正常 ⇒ 回 true ----
-                    RuleEngine.DeckStore.OverridePath = goodPath;
+                    RuleEngine.DeckStore.OverridePath = goodPath; SaveCenter.OverrideRoot = System.IO.Path.Combine(probeDir, "_a398_central");   // 🆕 2026-11-06（B150 同族）：控制组要真的写得进去 ⇒ 中央档指到正常临时目录
                     var lib2 = DeckLibrary.Load();
                     var mk2 = lib2.Create("A398·控制");
                     CheckTrue(mk2 != null && lib2.LastError == null,
@@ -8088,8 +8088,8 @@ public static class DeckScene
                 }
                 finally
                 {
-                    RuleEngine.DeckStore.OverridePath = keepPath;          // 玩家的/夹具的路径还回去
-                    try { if (System.IO.File.Exists(goodPath)) System.IO.File.Delete(goodPath); } catch { }
+                    RuleEngine.DeckStore.OverridePath = keepPath; SaveCenter.OverrideRoot = keepSaveRoot4;          // 玩家的/夹具的路径还回去｜🆕 2026-11-06（B150 同族）：中央档改道一并还原
+                    try { if (System.IO.Directory.Exists(System.IO.Path.Combine(probeDir, "_a398_central"))) System.IO.Directory.Delete(System.IO.Path.Combine(probeDir, "_a398_central"), true); if (System.IO.File.Exists(blk4)) System.IO.File.Delete(blk4); } catch { }
                 }
             }
 
@@ -8522,7 +8522,7 @@ public static class DeckScene
             //     把 `DeckRuntime.SaveFailReason()` 改回写死中文 ⇒ ③ 的**英文档**那条红。
             Section("G8：卡组存档出【错误码】不出「给人看的中文」（两语档）");
             {
-                string keepPath = RuleEngine.DeckStore.OverridePath;
+                string keepPath = RuleEngine.DeckStore.OverridePath; string keepSaveRoot8 = SaveCenter.OverrideRoot; bool keepMirror8 = SaveCenter.LegacyMirrorOn;   // 🆕 2026-11-06（B150）：中央档改道 / 双写开关都存档-还原
                 string probeDir = System.IO.Path.GetDirectoryName(keepPath);
                 CheckTrue(!string.IsNullOrEmpty(probeDir) && System.IO.Directory.Exists(probeDir),
                           $"（前提）探针目录存在（{probeDir}）—— 不存在 ⇒ 下面全是假绿");
@@ -8530,7 +8530,7 @@ public static class DeckScene
                 var langWas = Loc.Current;
                 try
                 {
-                    RuleEngine.DeckStore.OverridePath = p;
+                    RuleEngine.DeckStore.OverridePath = p; try { if (System.IO.Directory.Exists(System.IO.Path.Combine(probeDir, "_g8_central"))) System.IO.Directory.Delete(System.IO.Path.Combine(probeDir, "_g8_central"), true); } catch { } SaveCenter.OverrideRoot = System.IO.Path.Combine(probeDir, "_g8_central"); SaveCenter.LegacyMirrorOn = true;   // 🆕 2026-11-06（B150）：坏档必须种在**读口真正会读的那一侧** ⇒ 中央档指到临时目录（先清残留）且开双写（③那一段靠「旧档写不进」判失败）
 
                     // ---- ① 三条出口各一个【错误码】；`detail` 是诊断串（不是中文整句） ----
                     //  ⚠️ `Empty` / `ReadFailed` 两条走的都是 `DeckStore` **自己拼的**那种串
@@ -8645,7 +8645,7 @@ public static class DeckScene
                 }
                 finally
                 {
-                    RuleEngine.DeckStore.OverridePath = keepPath;
+                    RuleEngine.DeckStore.OverridePath = keepPath; SaveCenter.OverrideRoot = keepSaveRoot8; SaveCenter.LegacyMirrorOn = keepMirror8; try { if (System.IO.Directory.Exists(System.IO.Path.Combine(probeDir, "_g8_central"))) System.IO.Directory.Delete(System.IO.Path.Combine(probeDir, "_g8_central"), true); } catch { }   // 🆕 2026-11-06（B150）：中央档改道 / 双写开关还原 + 清临时目录
                     try { if (System.IO.File.Exists(p)) System.IO.File.Delete(p); } catch { }
                     Loc.RestoreForTest(langWas);                 // ⛔ 自检一个字节都不写 `PlayerPrefs`
                     _rt.CommitDeck();                            // 把 ③ 留下的脏标记与 `LastError` 收回去

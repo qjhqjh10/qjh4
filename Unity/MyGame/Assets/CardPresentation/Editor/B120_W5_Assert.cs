@@ -304,7 +304,7 @@ public static class B120_W5_Assert
     }
 
     // ==================================================================
-    //  H · `WindowSounds` 单层冷却（判据 = 原版 `SoundManager.Play` 只判一次）
+    //  H · `WindowSounds` 冷却 = **全项目共享那一张表**（2026-11-05 并表；判据 = 原版 `lastTimePlayed` 只住在 cue 资产上）
     // ==================================================================
     static void GroupH_WindowSoundsSingleLayer()
     {
@@ -313,21 +313,21 @@ public static class B120_W5_Assert
         Check(found, $"H0 前提：`{WindowSounds.DefaultButtonCue}` 在音效表里（否 ⇒ H1/H2 无从谈起）");
         if (!found) return;
 
-        // ---- H1 🧨 内层**不许**再判一次 ----
+        // ---- H1 🧨 全项目**一张**冷却表（2026-11-05 `B144-B2` 并表后的新契约）----
         WindowSounds.ResetCounters();
         WFSoundPlayer.ResetThrottle();
-        // 先把**内层**那张表写上戳：直接走 `WFSoundPlayer.Play` 一次（`Enabled=false` ⇒ 不出声、不建对象，但「先写戳」照旧，
-        // 判据 = `AudioCue__ConfigAudioSource.c:31` 的次序）。此时内层对这个 cue 已在冷却窗口内。
+        // 先走**内层**那条路写戳：`WFSoundPlayer.Play` 一次（`Enabled=false` ⇒ 不出声，但「先写戳」照旧，
+        // 判据 = `AudioCue__ConfigAudioSource.c:31` 的次序）。此时**共享表**对这个 cue 已在冷却窗口内。
         WFSoundPlayer.Play(cue, Vector3.zero, true);
 
         bool ok = WindowSounds.PlayFx(WindowSounds.DefaultButtonCue, "B120_W5b.H1");
-        Check(ok && WindowSounds.Played == 1 && !WFSoundPlayer.LastCueThrottled,
-              "H1 ★ **单层冷却**：`WindowSounds` 自己判完就走**不判冷却**的播放口 ⇒ 内层不再挡它"
-            + $"（实得 ok={ok} · WindowSounds.Played={WindowSounds.Played} · "
-            + $"WFSoundPlayer.LastCueThrottled={WFSoundPlayer.LastCueThrottled}）"
-            + "｜判据 = 原版 `SoundManager.Play` → `AudioCue.ConfigAudioSource` **只判一次**"
-            + "｜🧨 改回 `WFSoundPlayer.Play(cue, …)` / `WarpforgeAudio.PlayJingle(cue)`（两个都自带冷却）⇒ "
-            + "内层会把这一声挡掉 ⇒ `LastCueThrottled` 变 true ⇒ 本条红（那正是「Played++ 了却没响」）");
+        bool sameTable = !WFSoundPlayer.CanPlayByCooldown(cue);   // 刚写的那一戳还在共享表里（被挡时不写戳）
+        Check(!ok && WindowSounds.Played == 0 && WindowSounds.Throttled == 1 && sameTable,
+              "H1 ★ **全项目一张冷却表**：`WFSoundPlayer.Play` 刚写过戳 ⇒ 同一个 cue 走 `WindowSounds.PlayFx` 被**同一张表**挡掉"
+            + "（原版 `lastTimePlayed` 只住在 cue 资产上，与从哪条路播无关）"
+            + $"（实得 ok={ok} · WindowSounds.Played={WindowSounds.Played} · WindowSounds.Throttled={WindowSounds.Throttled} · 共享表仍挡={sameTable}）"
+            + "｜判据 = `AudioCue__ConfigAudioSource.c:19-21`（键 = cue 上的 `lastTimePlayed`）+ `:31` 先写戳、后挑 clip"
+            + "｜🧨 让 `WindowSounds` 再自持一张表 / 走不判冷却的口绕开共享表 ⇒ ok 变 true、Throttled 变 0 ⇒ 本条红（同一条 cue 两条路两只窗口）");
 
         // ---- H2 🧨 反向：本类那一层**必须还在**（只判一次 ≠ 一次都不判）----
         WindowSounds.ResetCounters();
@@ -338,7 +338,7 @@ public static class B120_W5_Assert
         Check(first && !second && thr1 == 0 && WindowSounds.Throttled == 1,
               $"H2 ★ 本类自己的冷却**仍在**（同一 cue 在 `timeToPlayAgain` 内连播两次 ⇒ 第二次被挡）"
             + $"（实得 first={first} / second={second} / Throttled={WindowSounds.Throttled}）"
-            + "｜🧨 把冷却整段删掉 ⇒ 第二次照播 ⇒ 本条红（与 H1 构成反相：不能既单层又零层）");
+            + "｜🧨 把冷却整段删掉 ⇒ 第二次照播 ⇒ 本条红（与 H1 构成反相：不能既「全走共享表」又「零层」）");
     }
 
     // ==================================================================
@@ -390,10 +390,10 @@ public static class B120_W5_Assert
             + "拿不到 cue 实例，本 build 用一一对应的 `(阵营, 时机)` 作等价身份"
             + "｜🧨 改回 `Dictionary<string,float>` ⇒ 本条红");
 
-        var wt = FieldTypeOf(typeof(WindowSounds), "_lastAt");
+        var wt = FieldTypeOf(typeof(WarpforgeVFX.WFSoundPlayer), "_lastAt");   // 2026-11-05：`WindowSounds._lastAt` 已删，并进共享表
         Check(wt == typeof(System.Collections.Generic.Dictionary<WFSoundCue, float>),
-              "J2 ★ `WindowSounds` 的节流键 = **`WFSoundCue` 资产实例**（原版 `lastTimePlayed` 住在 `AudioCue` 上）"
-            + $"（实得 {TypeName(wt)}）｜🧨 改回按 cue 名（string）⇒ 本条红");
+              "J2 ★ `WindowSounds` 的节流键 = **`WFSoundCue` 资产实例** —— 已并进 `WFSoundPlayer._lastAt` 那张**全项目唯一**的冷却表（原版 `lastTimePlayed` 住在 `AudioCue` 上）"
+            + $"（实得 {TypeName(wt)}）｜🧨 改回按 cue 名（string）⇒ 本条红（或让 `WindowSounds` 再自持一张表 ⇒ 本条找不到共享表/类型不符）");
 
         // #26：残骸音效走 **FX 混音组**，不再在代码里乘滑块
         string src = Application.dataPath + "/CardPresentation/Battle/RemnantSfx.cs";

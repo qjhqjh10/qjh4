@@ -392,8 +392,9 @@ public static class B141_W30_Assert
         Check(Loc.HasAnyTerm("MenuDeck/Error/InvalidCard"),
               "R6 ★★ `MenuDeck/Error/InvalidCard` 在表里 ⇒ R2b 那档**今天就能印出人话**（不是键名）"
             + "｜实读 = 「" + Loc.T("MenuDeck/Error/InvalidCard") + "」");
-        Check(DeckRules.Describe(DeckError.InvalidCard) != DeckRules.Describe(DeckError.EffectOnlyCard),
-              "R7 ★ `InvalidCard` 与 `EffectOnlyCard` 的**键不同**（后者原版没有 ⇒ 归 catch-all）");
+        Check(DeckRules.Describe(DeckError.InvalidCard) == DeckRules.Describe(DeckError.EffectOnlyCard) && DeckRules.Describe(DeckError.EffectOnlyCard) == "MenuDeck/Error/InvalidCard",
+              "R7 ★ `InvalidCard` 与 `EffectOnlyCard` 的**键相同** = `MenuDeck/Error/InvalidCard`（判据 = `CardDeck__CanAddCard.c:40-47` 准入闸给具名 `InvalidCard`；官方 `MenuDeck/Error/*` 15 条里**没有** `EffectOnlyCard` ⇒ 原版这两类是同一句话，⛔ 别再要求两种文案）"
+            + "｜实得 = `" + DeckRules.Describe(DeckError.EffectOnlyCard) + "`｜🧨 把 `EffectOnlyCard` 拆回自己的键（印键名上屏）⇒ 本条红");
     }
 
     // ==================================================================

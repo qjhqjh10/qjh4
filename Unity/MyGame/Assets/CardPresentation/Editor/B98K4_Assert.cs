@@ -173,16 +173,21 @@ public static partial class RuleEngineTest
         Check(ctx2.Players[0].Deck.Contains(inst2), true, "B4（同族）那一份实例进了牌库");
         Check(!ctx2.Players[0].Discard.Contains(inst2), true, "B4（同族）弃牌堆里那一份被摘走（`TakeFromGraveyard` 的唯一口）");
 
-        // B5 ★ 窗口：`died since your last turn` ⇒ 没有死亡记录 ⇒ **排除**（判不了就不猜）
+        // B5 ★ 窗口：`died since your last turn` —— 🔴 2026-11-05（B150）**期望已作废**
+        //   原版 `BattleManager__GetCardsInCemetery.c`（全量反编译，`param_2..param_4` 只筛 cardType、
+        //   `param_6/7` 两个开关、外加 `+0x24b` 放逐标记）**没有死亡回合这一维**
+        //   ⇒ `since_last_turn` 的窗口已由 2026-11-04 `B142-E56`/`E75` 收掉（`EffectResolver.cs:6441/6457/6922/6957`）
+        //   ⇒ `DeathTurn = -1` 也照收 = **1 张**。
         var ctx3 = ProbeBattle(new CardDef[0], new CardDef[0]);
         ToP1Turn(ctx3, 1);
         var handed3 = K4TriggerCard("K4CemUnit3", "", null);
         var inst3 = ctx3.NewInstance(handed3);
         ctx3.Players[0].Discard.Add(inst3);
         var moved3 = new List<CardInstance>();
-        Check(RuleCore.ReturnFromCemeteryForTest(ctx3, 0, "K4", opReturn, spec, "since_last_turn", moved3), 0,
-              "★★ B5 窗口分支：`DeathTurn = -1`（判不了）⇒ **排除** ⇒ 0 张"
-            + "｜🧨 把「判不了」当成「在窗口内」⇒ 实得 1 ⇒ 红（那会把死了一整局的老牌也捞回来）");
+        Check(RuleCore.ReturnFromCemeteryForTest(ctx3, 0, "K4", opReturn, spec, "since_last_turn", moved3), 1,
+              "★★ B5 窗口分支：`DeathTurn = -1`（判不了）⇒ **照收 1 张**"
+            + "｜判据 = 原版 `BattleManager__GetCardsInCemetery.c` **无死亡回合维**（2026-11-04 `B142-E56`/`E75` 裁定收掉窗口）"
+            + "｜🧨 把死亡回合窗口加回来 ⇒ 实得 0 ⇒ 红（原版没有这一维，加回来 = 自己发明规则）");
     }
 
     // ==============================================================================================

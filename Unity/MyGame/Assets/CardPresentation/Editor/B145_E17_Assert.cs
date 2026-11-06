@@ -225,8 +225,12 @@ public static class B145_E17_Assert
            "★ §B-d2 **灭自证（同一次判断的另一半）**：`Amount = 0` 但**没被挡下** ⇒ **照旧弹 `0`**"
          + "（原版 `amount` 不参与判断 —— `B145-E3` 那条改法不能被本笔顺手改回去）"
          + "｜🧨 写成 `amount > 0`（或让 `fullyBlocked` 恒真）⇒ 本条红、d 仍绿 ⇒ 结构上不可能同时满足");
-        Tr(BattleDriver.ShowHitDamagePop(-1, false),
-           "★ §B-d3 负档（幸存者广播标记）仍然不弹（`B145-E3` B3 同一条，别被本笔改掉）");
+        // ✅ 已复刻（2026-11-05 · B150 · #27）：`ShowHitDamagePop` 的语义是「**要不要弹**」（实现 = `BattleDriver.cs:42601`
+        //   `amount >= 0 && !fullyBlocked`）⇒ `(-1, false)` 返回 **false** = **不弹**，正是本档要的。
+        //   改前这里漏了一个 `!`，把「返回 false」当成「失败」⇒ 恒红。
+        Tr(!BattleDriver.ShowHitDamagePop(-1, false),
+           "★ §B-d3 负档（幸存者广播标记）仍然不弹（`B145-E3` B3 同一条，别被本笔改掉）"
+         + "｜判据 = `ShowHitDamagePop` 的语义是「要不要弹」：`amount >= 0 && !fullyBlocked` ⇒ `-1` 必不弹");
     }
 
     // ==================================================================

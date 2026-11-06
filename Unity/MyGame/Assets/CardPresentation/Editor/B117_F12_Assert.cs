@@ -227,8 +227,8 @@ public static class B117F12_Assert
 
         // ---- ⑥ 空态徽记**不是**立绘位（两件事，别混）：它有自己那 59.2px 的下移 ----------------
         Check(Near(LiveOpsEventWindow.FacIconR - LiveOpsEventWindow.FacIconL,
-                   LiveOpsEventWindow.FacIconB - LiveOpsEventWindow.FacIconT, 0.01f),
+                   LiveOpsEventWindow.FacIconB - LiveOpsEventWindow.FacIconT, 0.02f),
               "⑥ 空态 `Faction Icon Image` 也是正方形槽（522.63²）—— 与立绘位**互不替代**"
-            + "（没有卡组时画的是它；有了卡组才画立绘）");
+            + "（没有卡组时画的是它；有了卡组才画立绘。⚠️ 容差 0.02：两轴在 float32 下的可表示差 = 0.0100098，`0.01f` 恒红）");
     }
 }

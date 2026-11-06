@@ -69,10 +69,17 @@ public static class B98H7_Assert
         {
             MenuCheck.Section(_sink, "B98_H7 账 1288 数据桥（triggerAbilityIndices → TriggerOpsByNumber）");
 
-            // 读数打一行（跳过统计的**唯一**出处；⛔ 别在别处再算一遍同样的数）
-            Debug.Log(CardDatabase.TriggerOpsByNumberSummary());
+            // ✅ 已复刻（2026-11-05 · B150 · #28）：下面四个静态计数是**跨 `CardDatabase.Parse` 累积**的
+            //   （`CardDatabasePartial_B98H7.cs:136` 每次 Parse 逐卡 `++`），而本宿主跑到这里时池已经被
+            //   别人 Parse 过多次（日志自陈「卡 1181」而池只有 1142）⇒ 拿它直接和**本池逐卡数**比必然差
+            //   （`归位失败 974` vs 逐卡 966）。⇒ 先把计数清零 + 丢缓存重解析，两处才同口径。
+            CardDatabase.ResetTriggerOpsByNumberStatsForTest();
+            CardDatabase.InvalidateCache();
 
             var cards = CardDatabase.Load();
+            // 读数打一行（跳过统计的**唯一**出处；⛔ 别在别处再算一遍同样的数）—— 挪到重解析**之后**，
+            // 否则打的是上一轮的累积值。
+            Debug.Log(CardDatabase.TriggerOpsByNumberSummary());
             Tr(cards != null && cards.Count > 0,
                "A1 （前提）卡表装得出来（> 0 张）｜🧨 卡表资源缺失 ⇒ 下面全是空转绿");
 

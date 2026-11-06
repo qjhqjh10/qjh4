@@ -1047,7 +1047,7 @@ public static class ArenaBuilder
         if (it == null)
         {
             Debug.LogWarning($"[Arena] WF_ENV=\"{envName}\" 在 `Resources/EnvironmentConditions.json` 里查不到"
-                           + " ⇒ 环境不动（跑一次 `python 工具/gen_environment_conditions.py`）");
+                           + " ⇒ 环境不动（跑一次 `python 工具/gen_environment_conditions.py --write`）");
             return;
         }
         var probeGo = new GameObject("EnvProbe(临时)");
@@ -4222,7 +4222,7 @@ public static class ArenaBuilder
         if (!File.Exists(p))
         {
             Debug.LogWarning($"[Arena] 没有镜像旁挂 `{p}` ⇒ 镜像对象的负缩放仍然按清单的正数列长画"
-                           + "（**会不会画错取决于那场有没有镜像对象**）。跑一次 `python 工具/gen_arena_negscale.py` 生成。");
+                           + "（**会不会画错取决于那场有没有镜像对象**）。跑一次 `python 工具/gen_arena_negscale.py --write` 生成。");
             return;
         }
         var sc = JsonUtility.FromJson<NegScaleSidecar>(File.ReadAllText(p));
@@ -4573,7 +4573,7 @@ public static class ArenaBuilder
         if (mf.tapHits == null || mf.tapHits.Length == 0)
         {
             Debug.LogWarning($"[Arena] {mf.scene}：清单**没有 `tapHits[]`** ⇒ 这一场点地面不会有任何反应。"
-                           + " 重跑 `python 工具/scripts快照/gen_unity_arena_manifest.py --arena " + mf.scene + "`");
+                           + " 重跑 `python 工具/scripts快照/gen_unity_arena_manifest.py --arena " + mf.scene + " --write`");
             return 0;
         }
 
@@ -6398,7 +6398,7 @@ public static class ArenaBuilder
         if (!File.Exists(ArenaTexImportTsv))
         {
             Debug.LogError($"[Arena] 缺旁挂表 {ArenaTexImportTsv} —— 先跑 " +
-                           "`\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_arena_texture_import.py`");
+                           "`\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_arena_texture_import.py --write`");
             return null;
         }
         var d = new Dictionary<string, ArenaTexImportRow>();

@@ -233,7 +233,7 @@ namespace CardPresentation
             {
                 ExactError = $"`Resources/{VfxMap.CardTableResourcePath}.json` 没读到 ⇒ 逐卡精确语音这一档"
                            + "**不起作用**（退回按后缀猜的那一套）。重跑："
-                           + "\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_card_vfx_by_card.py";
+                           + "\"D:/2/Warpforge_tools/py312/python.exe\" d:/4/Unity/工具/gen_card_vfx_by_card.py --write";
                 Debug.LogWarning("[VoiceLines] " + ExactError);
                 return;
             }

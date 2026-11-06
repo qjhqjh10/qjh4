@@ -254,7 +254,7 @@ public static class B143_W6_Anim_Assert
               "E1 ★ 第一段 0.19 s（未到 0.2）⇒ **仍停在相位 1**（这一段里还没 `BeginTurn`）"
             + "｜🧨 把 0.2 改成 0 ⇒ 本条红");
         Check(BattleDriver.AdvancePreBattlePhase(1, 0.19f, 0.02f, out t), 2, "E2 第一段走满 ⇒ 相位 2（开始等 2.5 s）");
-        Check(t, 0.01f, "E2b 跨段的余量要**带进**第二段（0.19+0.02−0.2 = 0.01）");
+        CheckNear(t, 0.01f, 1e-4f, "E2b 跨段的余量要**带进**第二段（0.19+0.02−0.2 = 0.01）");
 
         // 第二段：2.5 之前**依然不开战**（只钉总和的写法在这里会露馅）
         Check(BattleDriver.AdvancePreBattlePhase(2, 2.49f, 0f, out t), 2,
@@ -318,6 +318,12 @@ public static class B143_W6_Anim_Assert
     {
         bool ok = EqualityComparer<T>.Default.Equals(actual, expected);
         Report(ok, msg + "（实际 = " + (actual == null ? "<null>" : actual.ToString()) + "，期望 = " + (expected == null ? "<null>" : expected.ToString()) + "）");
+    }
+    // ✅ 已复刻（2026-11-05 · B150 · 浮点不能走 `EqualityComparer<float>.Default` 精确比：0.19f+0.02f-0.2f 必然不是 0.01f）
+    static void CheckNear(float actual, float expected, float tol, string msg)
+    {
+        bool ok = System.Math.Abs(actual - expected) <= tol;
+        Report(ok, msg + "（实际 = " + actual.ToString("R") + "，期望 = " + expected.ToString("R") + " ± " + tol.ToString("R") + "）");
     }
     static void CheckTrue(bool cond, string msg) { Report(cond, msg); }
     static void Report(bool ok, string msg)

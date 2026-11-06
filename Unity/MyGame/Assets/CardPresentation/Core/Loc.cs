@@ -2184,7 +2184,7 @@ namespace CardPresentation
             //   —— 那个 `工具`（U+5DE5/5177）会让「英文列不许含 CJK」那条断言（`Loc.HasCjk`，区间含 `0x4E00`）
             //   直接红。⛔ 路径没删掉，只是**改成英文描述**（脚本名照旧、目录名写成 `the project's tools folder`）。
             //   ZH 列**不动**（它本来就该是中文）。
-            { "MenuDeck/Error/PrebuiltMissing",        new Entry("预组卡组的数据读不到（Resources/prebuilt_decks.json）⇒ 先如实留空；跑 `python 工具/gen_prebuilt_decks.py` 重新生成",
+            { "MenuDeck/Error/PrebuiltMissing",        new Entry("预组卡组的数据读不到（Resources/prebuilt_decks.json）⇒ 先如实留空；跑 `python 工具/gen_prebuilt_decks.py --write` 重新生成",
                                                                   "Prebuilt-deck data cannot be read (Resources/prebuilt_decks.json) ⇒ left honestly empty for now; run the prebuilt-deck generator (`python gen_prebuilt_decks.py`, in the project's tools folder) to regenerate it") },
             { "MenuDeck/Error/NoUsablePrebuilt",       new Entry("这一页一副可用的都没有（拼不齐的按原版口径整副不显示）",
                                                                   "Not a single usable deck on this page (as in the original, decks that cannot be completed are not shown at all)") },
