@@ -297,3 +297,6 @@ Unity/资料/完全复刻/_parts_B9_*_src.txt
 # 🆕 2026-11-01（B114_W4）：B-204 音频三变体探针的临时导入目录 —— 宿主跑完会自删，
 # 这里挡的是「中途崩/被打断」留下的残骸，别让它被 `git add -A` 带上。
 Unity/MyGame/Assets/_tmp_b204/
+
+# 2026-11-10: 随包依赖（imageio-ffmpeg / tccli），不入库
+Unity/工具/_vendor/

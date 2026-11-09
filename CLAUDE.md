@@ -72,6 +72,10 @@ python -I D:/4/Unity/工具/wf_click.py win Warpforge
 python -I D:/4/Unity/工具/wf_click.py shot E:/warpforge/_tmp_view/shots/<日期>/x.png Warpforge
 python -I D:/4/Unity/工具/wf_click.py click <x> <y> left 1
 
+# 录屏（只录目标窗口 / 可出 MP4；ffmpeg 是随包的，不用装）
+python -I -X utf8 D:/4/Unity/工具/wf_record.py E:/warpforge/_tmp_view/rec/<名字> 8 --fps 12 --win Warpforge --mp4
+python -I -X utf8 D:/4/Unity/工具/wf_record.py <目录> 6 --at 1.5 --drag 458 580 600 460 --mp4
+
 # 多窗口定位（双开时）
 python -I -X utf8 E:/warpforge/_tmp_view/tools/win_pick.py list
 python -I -X utf8 E:/warpforge/_tmp_view/tools/win_pick.py focus <pid>
@@ -92,10 +96,15 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
-- **P0**：`OFF-153` 在线房间端到端（UI 建房 → 客机看到 → 加入 → 开战；当前在修 Il2Cpp 读侧字符串）。
-- **待用户过目**：`OFF-152` / `OFF-157`（房间名片真图 + 行高/放大）。
-- **代码完成待实机**：`OFF-154`（连共享服务器时屏蔽固定房自动匹配）、`OFF-155`（房间版本号显示/校验）。
+> 现读（2026-11-09 第一百五十四会话收尾）：ACTIVE **2 条**，其余都已核销或由用户接手。
+
+- **`OFF-125` 共享社交后端**：✅ 公网已上线（`https://106.54.162.245/t/<token>/`）+ 安全审查与修复全部落地
+  （任意读文件 / gzip 放大 DoS / 令牌轮换 / SSH 防爆破 / 安全组收敛）；**只剩**「找第二台机器或朋友实连一次」。
+- **`OFF-138` 机械神教**：⏸ 用户暂停，等命令恢复（效果与数值未写完）。
+- **`OFF-30` 战斗实机验证**：🚫 已由**用户亲自接手**（#13 主动能力 / 打满结算 / 选秀 / 教程），代理不再派活。
 - **长期**：`LONG-01/02/03`（打包 / 版本 / 邮件），永不核销。
+- **另一个项目（不在本仓库）**：`E:\视频剪辑工具\` —— 本地网页版视频剪辑工具（AI 可驱动 + 字幕拖框 + 配音/语音克隆）。
+  进度看它自己的 `进度_P0P1.md` / `进度_P2.md` / `方案_1109.md`；⛔ 不要拿 `资料/离线原版/` 的任务表管它。
 - ⛔ `OFF-131` 已并入 `LONG-01`；⛔ 不再按旧的 D:\4 复刻任务开工。
 
 ---
