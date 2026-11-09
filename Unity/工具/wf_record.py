@@ -226,6 +226,9 @@ def main(argv=None):
             mp4_path = os.path.join(a.outdir, a.prefix + ".mp4")
             cmd = [ff, "-y", "-loglevel", "error", "-framerate", "%g" % a.fps,
                    "-i", os.path.join(a.outdir, a.prefix + "_%04d.jpg"),
+                   # 🔴 2026-11-10：窗口高度可能是奇数（1616x939）⇒ libx264 要求宽高都能被 2 整除。
+                   #    统一补 1px 黑边到偶数，不改画面内容。
+                   "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", str(a.mp4_crf),
                    "-movflags", "+faststart", mp4_path]
             r = subprocess.run(cmd, capture_output=True, text=True)
