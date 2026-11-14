@@ -100,15 +100,24 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
-> 现读（2026-11-15 第一百八十三会话收尾）：ACTIVE **7 条**；`OFF-183` 线仍可自行推进，其余 6 条等用户。
+> 现读（2026-11-15 第一百八十四会话收尾）：ACTIVE **7 条**；`OFF-183` 线仍可自行推进，其余 6 条等用户。
 > 本会话在 `OFF-183` 下修掉：换手牌四段顺序 · **回合闸自锁** · 天赋窗（标题/自动选满/至少选一张）·
 > 手牌幽灵卡与空位 · **场上卡牌始终显示** · 换牌窗第 4 张卡与按钮尺寸；
 > 新增 **UI 导航工具 `UiNavProbe`**（`ui_cmd.txt` 按文案点按钮）与 **告警表 `alerts.tsv`**（已知问题特征自动落盘）。
+> 🆕 **2026-11-15 第一百八十四会话**：修掉用户报的「星界军卡弹基因窃取者教会三选一」「卡尔加天赋像提古里乌斯」——
+> 同源 = `ChoiceFixProbe` 断点 B 默认开闸（原版 `targetsAffected==any` 恒不弹；全库 11 张含 5 张战将天赋）。
+> `_fixB` 已默认关（`WF_CHOICE_FIXB=1` 可调试复活），实机 2v2 卡尔加 UM46 验证通过；坑 **264**。
+> 卡牌全量审查（1,351 张）→ `报告/卡牌效果与阵营对应_审查_1115.md` · 修复 → `报告/OFF183_多选一开闸与阵营串味_1115.md`。
+> 🆕 **同会话续**：2v2 等待对手恢复 **120 s 超时**（实机 120.0 s）· **卡牌效果代码级全量校验**（1,358 张，引用零悬空）·
+> **两张相同天赋 → 手里两张**已修并实机（`done chosen=2`，两条同 uniqueId 不同 GO）· **UiNav `find`/`clickname`**
+> （换牌窗「继续」一次点掉）。重复登场（交接 ②）仍未复现，留下新判据；**2v2 电脑随机性按用户要求等主线做完再做**。
+> DLL `7ca0c3d830df6f14b8f6b2664dba702a`；坑 **264–267**；交接 `交接_第一百八十四会话.md`。
 
-- **`OFF-183` 2v2**：⏭ **下个会话先做两条**：① 两张相同天赋 → 手里出两张（代码已改，实机点选未走完）；
-  ② 重复登场触发者定位（`b4:fx intoSlot` 的 `useMinionConversionAnim` 探针已就位）。真人 4 端联机仍由**用户亲自做**。
+- **`OFF-183` 2v2**：⏭ **下个会话先做**：① 同 GO `playFromHand` 重复（长对局抓第二次调用）；
+  ② 182 §六 五条真机验收；③ `hand.gap` 复核。真人 4 端联机仍由**用户亲自做**；
+  🔴 2v2 电脑随机性（`aiDecks`）= 用户定「主线做完后再做」。
   🔴 用户 2026-11-14 定：**共享 8 格上限保持不变**（不扩槽）。
-  → `报告/OFF183_四修与动画重放探针_1114.md` · 坑 253–263 · 交接 `交接_第一百八十三会话.md`
+  → `报告/OFF183_天赋第二张与UiNav_1115.md` · 坑 253–267 · 交接 `交接_第一百八十四会话.md`
 - **`OFF-138` 机械神教**：⏸ 用户暂停，等命令恢复（效果与数值未写完）。
 - **`OFF-162`**（等数值/音频）· **`OFF-168`**（暂缓）· **`OFF-173`**（方案）· **`OFF-175`**（方案）· **`OFF-178`**（安卓，暂停）
   —— 都是「已出方案/等用户」，⛔ 不主动开工。
@@ -158,3 +167,34 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
   ⑦ **新增 UI 导航工具 `UiNavProbe`**（`ui_cmd.txt`：state/click/clickoff/path）与 **告警表 `alerts.tsv`**；
   ⑧ `Battle4Probe.cs` 曾被批量脚本改坏、已按成员边界重建并 0 error 编译（坑 259）。新增坑 **253–263**；
   DLL `e6b1669be6c7dc233f029bbe7d6ada32`；报告 `报告/OFF183_四修与动画重放探针_1114.md`；交接 → `Unity/资料/完全复刻/交接_第一百八十三会话.md`。
+
+- 2026-11-15（第一百八十四会话）：**卡牌「多选一」闸口修正**（`OFF-183` 仍 ACTIVE 7 条）——
+  用户报「星界军卡弹出基因窃取者教会三选一」「卡尔加（UM46）天赋看着像提古里乌斯」。查明两条**同源**：
+  `ChoiceFixProbe` 断点 B（`_fixB` 默认开）把「`choicesDefinition.targetsAffected == any` 且 `filterSpecificCards` 非空」
+  的卡一律开闸，而原版 `CardScript.NeedsToChooseFromPool` 对 `any` **恒返回 false**（反编译 `CardScript.cs:10219`）。
+  全库命中 **11 张**，其中 **5 张是战将天赋**（卡尔加 / 列昂图斯 / 登克勒 / 风暴统领 / 简·扎尔）；
+  卡尔加天赋 `Master Tactician` 的候选表与提古里乌斯 `Master of Arcana` 完全相同（3 张 UM 灵能）⇒ 观感错位；
+  星界军 5 张卡的候选表原本就写着 4 张 GSC token（原版死数据）。
+  **改动**：`_fixB` 默认 `false`（断点 A 保留；调试用 `WF_CHOICE_FIXB=1`），DLL `2e7ed91e6d08ba7bff6ecf95cc867baf`；
+  实机 2v2（P4 · 卡尔加卡组）验证：天赋窗 = 2 张「战术大师」，打出后 `CHOICE-FIXB … skip reason=WF_CHOICE_FIXB=0`
+  且无 `ChooseCardMenu`。另派子代理做全量卡牌审查（1,351 卡 / 66 战将 / 251 多选一 / 776 有图）：卡数据无串、
+  角色卡无错挂立绘、服务端卡表 0 差异、uniqueId 无重复。新增坑 **264**；
+  报告 `报告/OFF183_多选一开闸与阵营串味_1115.md` · `报告/卡牌效果与阵营对应_审查_1115.md`。
+
+- 2026-11-15（第一百八十四会话 · 续）：① **2v2 等待对手恢复 120 s 超时**（用户要求；`RoomWaitCo` 去掉 2v2 跳过分支，
+  实机 02:10:38→02:12:38 = 120.0 s，超时后回列表、刷新 `n=0` 房间已解散；DLL `2d792cbe6096ed3f771bb8e3b7c90db7`；
+  报告 `报告/OFF183_2v2等待超时_1115.md`）。② **卡牌效果代码级全量校验**：1,358 张 typetree（1,351 正式 + 7 张 `#HB_*`），
+  引用零悬空、uniqueId 零重复、卡图 GUID 全部命中 catalog；11 张原版死数据候选池、8 张跨阵营全在其中、
+  13 张 choiceEnchantment 空附魔为原版设计；报告 `报告/卡牌效果_代码级校验_1115.md`（脚本 `_tmp_view/scripts/card_effect_validate.py`）。
+  ③ **绿「眼镜」按钮**查明 = 原版 `BattleManager.chatButton`，首回合后一直显示；大图详情里另有一颗同图标语音按钮（关窗消失），
+  实机 `s242_1115_choicefix/30–32` 证明两者独立（坑 265）。④ **2v2 电脑随机性（`aiDecks`）未解决** —— 同侧两座仍共用一份 raw。
+
+- 2026-11-15（第一百八十四会话 · 主线推进）：`OFF-183` 交接 §六 ①②④ ——
+  ① **两张相同天赋 → 手里两张（已修+实机）**：引擎 `ResolveCreateHandCard` 协程在 `targetCard==null` 时整段跳过
+  （反编译 `_ResolveCreateHandCard_d__512__MoveNext.c` state0）；改成 `BattleCardManager.CreateCard(raw, parent, isPlayer, army)`
+  + 加进当拍座位手牌列表。实机 P4 卡尔加：`done chosen=2`，dump 两条同 uniqueId 不同 GO（`#-197244` / `#-201670`）。
+  ④ **UiNavProbe**：场景遍历 20000/24 → **60000/32**；无文字按钮用 GameObject 名/父链名；新增 `find <名字>` 与
+  `clickname <名字>`（深层找第一个 onClick）。`clickname MulliganContinueButton` 4 s 后出 `turnStart`，换牌窗不用鼠标坐标。
+  ② **重复登场未结案**：本轮 3 条 deployAnim 全 n=1；托管层两处 `MoveMinionIntoSlot` 都传 `useMinionConversionAnim=false`，
+  同 GO 重放只能来自 `PlayMinionFromHand` 第二次调用 ⇒ 下一步盯同 GO 的 `b4:fx playFromHand` 重复。
+  DLL `7ca0c3d830df6f14b8f6b2664dba702a`；坑 **266/267**；报告 `报告/OFF183_天赋第二张与UiNav_1115.md`。
