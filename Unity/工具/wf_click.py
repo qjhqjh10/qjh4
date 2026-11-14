@@ -14,7 +14,11 @@
 用法（每条命令独立跑一次；`-I` 避免加载同目录的 `json.py` 之类）：
   python -I d:/4/Unity/工具/wf_click.py info
   python -I d:/4/Unity/工具/wf_click.py win Warpforge            # 找窗口（子串，不分大小写）并置前，打印 rect
-  python -I d:/4/Unity/工具/wf_click.py shot d:/4/_tmp_view/x.png [窗口子串]
+  python -I d:/4/Unity/工具/wf_click.py win 39620                # 🔴 双开：直接给 PID（两个窗口都叫 Warpforge，按标题找必错）
+  python -I d:/4/Unity/工具/wf_click.py win 39620 Warpforge      # 🔴 同 PID 多窗口：第 3 个参数 = 标题子串（坑 230）
+  python -I d:/4/Unity/工具/wf_click.py win 0x1C0018             # 🔴 最稳：直接给 hwnd（十六进制）
+  python -I d:/4/Unity/工具/wf_click.py pidlist Warpforge        # 🔴 双开：列出所有同名窗口的 PID/hwnd/rect
+  python -I d:/4/Unity/工具/wf_click.py shot d:/4/_tmp_view/x.png [窗口子串/PID/hwnd] [标题子串]
   python -I d:/4/Unity/工具/wf_click.py move 960 540
   python -I d:/4/Unity/工具/wf_click.py click 960 540 [left|right] [次数]
   python -I d:/4/Unity/工具/wf_click.py drag 100 200 800 600 [按住ms] [每步ms]   # 🆕 2026-10-25：加按住/步长，模拟真人拖拽
@@ -36,7 +40,22 @@ if any(_wf_help_sys.argv[_i] in ("-h", "--help") for _i in range(1, len(_wf_help
         _wf_help_sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
-    print('用法（每条命令独立跑一次；`-I` 避免加载同目录的 `json.py` 之类）：\n  python -I d:/4/Unity/工具/wf_click.py info\n  python -I d:/4/Unity/工具/wf_click.py win Warpforge            # 找窗口（子串，不分大小写）并置前，打印 rect\n  python -I d:/4/Unity/工具/wf_click.py shot d:/4/_tmp_view/x.png [窗口子串]\n  python -I d:/4/Unity/工具/wf_click.py move 960 540\n  python -I d:/4/Unity/工具/wf_click.py click 960 540 [left|right] [次数]\n  python -I d:/4/Unity/工具/wf_click.py drag 100 200 800 600\n  python -I d:/4/Unity/工具/wf_click.py wheel 960 540 [格数]     # 🆕 正=向上滚、负=向下（一格 = 120）\n  python -I d:/4/Unity/工具/wf_click.py key esc | key space | key f5 | key ctrl+s | key w:200  (w 按住 200ms)\n  python -I d:/4/Unity/工具/wf_click.py cursor          # 只读当前光标位置\n输出一律 `ok ...` / `FAIL ...`（便于调用方判读）。\n  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。')
+    print('''用法（每条命令独立跑一次；`-I` 避免加载同目录的 `json.py` 之类）：
+  python -I d:/4/Unity/工具/wf_click.py info
+  python -I d:/4/Unity/工具/wf_click.py win Warpforge            # 找窗口（子串，不分大小写）并置前，打印 rect
+  python -I d:/4/Unity/工具/wf_click.py win 39620                # ⚠️ 双开：直接给 PID（两个窗口都叫 Warpforge，按标题找必错）
+  python -I d:/4/Unity/工具/wf_click.py win 39620 Warpforge      # ⚠️ 同 PID 多窗口：第 3 个参数 = 标题子串（坑 230）
+  python -I d:/4/Unity/工具/wf_click.py win 0x1C0018             # ⚠️ 最稳：直接给 hwnd（十六进制）
+  python -I d:/4/Unity/工具/wf_click.py pidlist Warpforge        # ⚠️ 双开：列出所有同名窗口的 PID/hwnd/rect
+  python -I d:/4/Unity/工具/wf_click.py shot d:/4/_tmp_view/x.png [窗口子串/PID/hwnd] [标题子串]
+  python -I d:/4/Unity/工具/wf_click.py move 960 540
+  python -I d:/4/Unity/工具/wf_click.py click 960 540 [left|right] [次数]
+  python -I d:/4/Unity/工具/wf_click.py drag 100 200 800 600
+  python -I d:/4/Unity/工具/wf_click.py wheel 960 540 [格数]     # 正=向上滚、负=向下（一格 = 120）
+  python -I d:/4/Unity/工具/wf_click.py key esc | key space | key f5 | key ctrl+s | key w:200  (w 按住 200ms)
+  python -I d:/4/Unity/工具/wf_click.py cursor          # 只读当前光标位置
+输出一律 `ok ...` / `FAIL ...`（便于调用方判读）。
+  -h, --help  只打印本用法并退出（退出码 0），不执行任何真活。''')
     _wf_help_sys.exit(0)
 
 user32 = ctypes.windll.user32
@@ -79,16 +98,93 @@ def find_window(sub):
     return None
 
 
-def focus(sub):
-    w = find_window(sub)
+def find_windows_all(sub):
+    """所有标题命中 `sub` 的顶层窗口（双开时会有两个同名 `Warpforge`）。"""
+    sub = (sub or "").lower()
+    return [w for w in enum_windows() if sub in w["title"].lower()]
+
+
+def window_pid(hwnd):
+    pid = wt.DWORD()
+    user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+    return int(pid.value)
+
+
+def find_window_by_pid(pid, prefer=None):
+    """🔴 2026-11-13（坑 222）：双开时两个窗口标题都叫 `Warpforge`，按标题找**永远只能拿到枚举里的第一个**。
+    ⇒ 双开场景一律用 PID 精确定位（PID 用 `win_pick.py list` 或任务管理器看）。
+
+    🔴 2026-11-14（坑 230）：**同一个 PID 也可能有多个窗口** —— 单开时游戏进程同时有
+    `MelonLoader v0.7.3 … - Warpforge`（控制台）和 `Warpforge`（游戏本体）两扇窗，
+    枚举顺序不固定 ⇒ 按 PID 拿到的可能是控制台。`prefer` 给一个标题子串（大小写不敏感）
+    用来在同 PID 的窗口里挑；没有命中再退回第一个。
+    """
+    cands = []
+    for w in enum_windows():
+        try:
+            if window_pid(w["hwnd"]) == int(pid):
+                cands.append(w)
+        except Exception:
+            continue
+    if not cands:
+        return None
+    if prefer:
+        p = prefer.lower()
+        # ① 标题**完全相同**最优先（`Warpforge` 控制台那条叫 `MelonLoader … - Warpforge 1.35.0`，
+        #   只做子串匹配会先撞上它 ⇒ 实测截到的是控制台，坑 230）
+        for w in cands:
+            if w["title"].strip().lower() == p:
+                return w
+        # ② 其次「含该子串里最短的标题」（短 = 更接近纯标题，不会带上版本号等尾巴）
+        hits = [w for w in cands if p in w["title"].lower()]
+        if hits:
+            return sorted(hits, key=lambda w: len(w["title"]))[0]
+    return cands[0]
+
+
+def resolve_target(target, prefer=None):
+    """`target` 可以是窗口标题子串，也可以是 **PID 数字串**（双开时用这个）；
+    也接受 `0x1C0018` 这样的 **hwnd 十六进制**（同 PID 多窗口时最稳，坑 230）。
+
+    判据（2026-11-13 实测）：双开两个窗口都叫 `Warpforge` 时，`find_window()` 返回枚举顺序里的第一个，
+    「点客机 A」实际落在另一个窗口上 —— 这就是坑 222「点了没反应」的真因（不是按钮吃不到点击）。
+    """
+    t = (target or "").strip()
+    if t.lower().startswith("0x"):
+        try:
+            hw = int(t, 16)
+        except ValueError:
+            hw = None
+        if hw:
+            for w in enum_windows():
+                if w["hwnd"] == hw:
+                    return w
+    if t.isdigit():
+        w = find_window_by_pid(int(t), prefer)
+        if w:
+            return w
+    return find_window(t)
+
+
+def resolve_by_hwnd(hwnd, fallback=None):
+    """按 hwnd 精确找回同一扇窗（置前之后重新枚举，rect 可能变了，但 hwnd 不变）。
+    找不到就退回 `fallback`。坑 230：同 PID 多窗口时只有 hwnd 是唯一的。"""
+    for w in enum_windows():
+        if w["hwnd"] == hwnd:
+            return w
+    return fallback
+
+
+def focus(sub, prefer=None):
+    w = resolve_target(sub, prefer)
     if not w:
         return None
-    if user32.IsIconic(w["hwnd"]):
-        user32.ShowWindow(w["hwnd"], 9)          # SW_RESTORE
-    user32.SetForegroundWindow(w["hwnd"])
+    hw = w["hwnd"]
+    if user32.IsIconic(hw):
+        user32.ShowWindow(hw, 9)                 # SW_RESTORE
+    user32.SetForegroundWindow(hw)
     time.sleep(0.35)
-    w2 = find_window(sub) or w
-    return w2
+    return resolve_by_hwnd(hw, w)
 
 
 # ---------------------------------------------------------------- 输入
@@ -243,11 +339,11 @@ def key(spec):
 
 
 # ---------------------------------------------------------------- 截图
-def shot(path, win_sub=None):
+def shot(path, win_sub=None, prefer=None):
     from PIL import ImageGrab
     box = None
     if win_sub:
-        w = find_window(win_sub)
+        w = resolve_target(win_sub, prefer)
         if not w:
             print("FAIL 找不到窗口:", win_sub); return False
         box = (w["x"], w["y"], w["x"] + w["w"], w["y"] + w["h"])
@@ -271,13 +367,25 @@ def main(argv):
         if cmd == "info":
             print(json.dumps(enum_windows(), ensure_ascii=False, indent=1)[:4000]); return 0
         if cmd == "win":
-            w = focus(argv[2])
+            w = focus(argv[2], argv[3] if len(argv) > 3 else None)
             if not w:
                 print("FAIL 找不到窗口:", argv[2]); return 1
-            print("ok win %s rect=(%d,%d %dx%d)" % (w["title"], w["x"], w["y"], w["w"], w["h"]))
+            print("ok win [hwnd=0x%X] %s rect=(%d,%d %dx%d)" %
+                  (w["hwnd"], w["title"], w["x"], w["y"], w["w"], w["h"]))
+            return 0
+        if cmd == "pidlist":
+            # 🔴 2026-11-13（坑 222）：双开时两个窗口标题一模一样，必须靠 PID 区分。
+            ws = find_windows_all(argv[2] if len(argv) > 2 else "")
+            if not ws:
+                print("FAIL 没有标题含 %r 的窗口" % (argv[2] if len(argv) > 2 else "")); return 1
+            for w in ws:
+                print("pid=%-7d hwnd=0x%-8X rect=(%d,%d %dx%d)  %s" %
+                      (window_pid(w["hwnd"]), w["hwnd"], w["x"], w["y"], w["w"], w["h"], w["title"]))
+            print("ok pidlist n=%d" % len(ws))
             return 0
         if cmd == "shot":
-            return 0 if shot(argv[2], argv[3] if len(argv) > 3 else None) else 1
+            return 0 if shot(argv[2], argv[3] if len(argv) > 3 else None,
+                              argv[4] if len(argv) > 4 else None) else 1
         if cmd == "move":
             move_to(argv[2], argv[3]); print("ok move", argv[2], argv[3]); return 0
         if cmd == "click":

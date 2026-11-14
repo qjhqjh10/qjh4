@@ -71,6 +71,10 @@ cmd //c start "" Warpforge.exe -screen-fullscreen 0 -screen-width 1600 -screen-h
 python -I D:/4/Unity/工具/wf_click.py win Warpforge
 python -I D:/4/Unity/工具/wf_click.py shot E:/warpforge/_tmp_view/shots/<日期>/x.png Warpforge
 python -I D:/4/Unity/工具/wf_click.py click <x> <y> left 1
+# 🔴 双开时**必须用 PID**（两个窗口都叫 Warpforge，按标题找永远只拿到枚举里的第一个 ⇒ 坑 223）
+python -I -X utf8 D:/4/Unity/工具/wf_click.py pidlist Warpforge      # 先查 PID
+python -I D:/4/Unity/工具/wf_click.py win 39620                      # 之后窗口名一律换成 PID
+python -I D:/4/Unity/工具/wf_click.py shot out.png 39620
 
 # 录屏（只录目标窗口 / 可出 MP4；ffmpeg 是随包的，不用装）
 python -I -X utf8 D:/4/Unity/工具/wf_record.py E:/warpforge/_tmp_view/rec/<名字> 8 --fps 12 --win Warpforge --mp4
@@ -96,13 +100,14 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
-> 现读（2026-11-09 第一百五十四会话收尾）：ACTIVE **2 条**，其余都已核销或由用户接手。
+> 现读（2026-11-14 第一百七十六会话收尾）：ACTIVE **7 条**，**全部等用户**，代理没有可自行推进的活。
+> ✅ 本轮核销 4 条：`OFF-185` 商店 · `OFF-186` 断线倒计时弹窗 · `OFF-187` 存档隔离 · `OFF-188` 战斗信息调研。
 
-- **`OFF-125` 共享社交后端**：✅ 公网已上线（`https://106.54.162.245/t/<token>/`）+ 安全审查与修复全部落地
-  （任意读文件 / gzip 放大 DoS / 令牌轮换 / SSH 防爆破 / 安全组收敛）；**只剩**「找第二台机器或朋友实连一次」。
+- **`OFF-183` 2v2**：只剩「真人 4 端联机」——**用户亲自做**（⛔ 代理不派活）。
 - **`OFF-138` 机械神教**：⏸ 用户暂停，等命令恢复（效果与数值未写完）。
-- **`OFF-30` 战斗实机验证**：🚫 已由**用户亲自接手**（#13 主动能力 / 打满结算 / 选秀 / 教程），代理不再派活。
-- **长期**：`LONG-01/02/03`（打包 / 版本 / 邮件），永不核销。
+- **`OFF-162`**（等数值/音频）· **`OFF-168`**（暂缓）· **`OFF-173`**（方案）· **`OFF-175`**（方案）· **`OFF-178`**（安卓，暂停）
+  —— 都是「已出方案/等用户」，⛔ 不主动开工。
+- **长期**：`LONG-01`（打包）/ `LONG-02`（版本）/ `LONG-03`（邮件），永不核销。
 - **另一个项目（不在本仓库）**：`E:\视频剪辑工具\` —— 本地网页版视频剪辑工具（AI 可驱动 + 字幕拖框 + 配音/语音克隆）。
   进度看它自己的 `进度_P0P1.md` / `进度_P2.md` / `方案_1109.md`；⛔ 不要拿 `资料/离线原版/` 的任务表管它。
 - ⛔ `OFF-131` 已并入 `LONG-01`；⛔ 不再按旧的 D:\4 复刻任务开工。
@@ -121,3 +126,9 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 - 2026-11-09：按用户要求瘦身；旧全文归档到 `Unity/资料/历史/CLAUDE_md_复刻工程全文_20261109.md`；
   重心改为离线版，新增长期任务（打包/版本/邮件）与离线版命令、真相源表。
+- 2026-11-14（第一百七十五会话）：§三 常用命令加「双开必须用 PID」（坑 223，`wf_click.py pidlist`）；
+  §四 当前优先级从「2026-11-09 · ACTIVE 2 条」更新为「2026-11-14 · ACTIVE 8 条」，
+  并把 **`OFF-185` 商店列为下一个会话的重点**。
+- 2026-11-14（第一百七十六会话）：§三 再补「同 PID 多窗口要加标题子串 / 可用 hwnd」（坑 230）；
+  §四 更新为 **ACTIVE 7 条·全部等用户**，`OFF-185` 商店与 `OFF-186/187/188` 已核销
+  （交接 → `Unity/资料/完全复刻/交接_第一百七十六会话.md`）。
