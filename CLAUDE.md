@@ -100,7 +100,20 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
-> 现读（2026-11-15 第一百八十六会话收尾）：ACTIVE **7 条**；`OFF-183` 线仍可自行推进，其余 6 条等用户。
+> 现读（2026-11-15 第一百八十七/八十八会话收尾）：ACTIVE **6 条**，全部等用户（`OFF-138` / `162` / `168` / `173` / `175` / `178`）；
+> **`OFF-183`（2v2）已整条核销**（D4 结案=截图伪影 · D5/D3 已修 · AI 卡死/开局双跑按用户口径不修 · alerts 结束观察；
+> 真人对战验收由用户做）→ `历史/任务_离线原版_已核销明细_20261108.md`。
+> 🆕 **2026-11-15 第一百八十七/八十八会话**：① **敌方回合我方手牌消失**已修（`RestoreHandDisplay` + `_shownHandSeat`，坑 284）；
+> ② **2v2「有点卡」**已修（新增 `phase0/perf.tsv` 探针开销采样，元凶 = UiNav/ProfileFix/Config/Inventory 的秒级全场景扫 +
+>   `DisconnectPopupProbe` 每帧 2 ms；修后 OnUpdate 4.5–5.6 ms → 0.24–0.31 ms，坑 285）；③ 机器人换牌窗残留（坑 286）；
+> ④ **D4 结案 = 截图伪影**（窗口 8–12 px 不可见边框透出背景；`wf_click.py shot` 改成只截客户区，坑 289）；
+> ⑤ 天赋窗「选择」按钮跟着面板走（坑 288）+ 压暗层残留守卫（坑 290）；
+> ⑥ **启动先本地、云端健康才连** + 非在线流程不弹「连接服务器出错」（新探针 `ServerErrorPopupProbe`，坑 291），
+>   「初始化Game UI失败」= `SceneInitializer.OnInitializableError`，钩子在、近期未触发；
+> ⑦ **2v2 四座各一副随机卡组**（坑 292）；⑧ **`LONG-01` 已出包**（`打包专用文件夹/WarpforgeOffline_便携版_20261115` 2.6 GB +
+>   `Warpforge离线版1.2.zip` 2.54 GB，prepack PASS 35/WARN 2/FAIL 0）；⑨ **`LONG-02` 版本 1.2 全齐**（云端
+>   `WF_PHOTON_EXPECT_VERSION=1.2` 已 SSH 改好）。DLL `1a2ee2a6a1388b104468bba349618d3e`；坑 284–292；
+>   交接 → `Unity/资料/完全复刻/交接_第一百八十八会话.md`。
 > 🆕 **2026-11-15 第一百八十六会话（`OFF-183` · 交接 §四 ①②③ 全做完）**：
 > ① **重复登场真根因** = `PlayCardTypeValue()` 查错枚举（AI 动作 `AvailableAction.actionType` 是 `PlayerActions.playCard = 0`，
 >   旧码按 `BattleActionType.playCard` 查 ⇒ `Enum.Parse` 恒抛 ⇒ **-1**）⇒ `skip.inPlay` / `skip.doublePlay` 两道闸**从未生效**。
@@ -227,3 +240,18 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
   ③ 顺带：`talent.timeout`「开窗 0.2 s 被关」= `b4_cmd.txt` 残留 `endturn` 的假象；`hand.gap` 换手牌等待窗口假阳性已修；
   `deploy.repeat` 误报（回手后再打出）改判 `deploy.replay`；天赋窗真人路径（反选 / 两张全选 / 继续）实机通过。
   DLL `827830f9fd54452d3bdcf9b794d03b44`；坑 **276–279**；报告 `报告/OFF183_重复登场与双开局_1115.md`；截图 `s246_1115_off183/`。
+
+- 2026-11-15（第一百八十七/八十八会话 · 同日连续）：**`OFF-183` 整条核销**（用户 2026-11-15 定）——
+  ① **敌方回合我方手牌消失**：手牌 UI 按侧一块，队友拍换走后对手拍没换回 ⇒ 新增 `_shownHandSeat` + `RestoreHandDisplay`（坑 284）；
+  ② **2v2 卡顿**：新增 `phase0/perf.tsv` 逐探针计时，元凶 = `UiNav.WatchScreen` 每秒全场景遍历（尖峰 110–127 ms）/
+     `ProfileFix`·`Config`·`Inventory` 秒级全量扫 / `DisconnectPopupProbe` 每帧 2.2 ms / `MenuLayout.FindLayout` 每秒重扫；
+     修后 OnUpdate 平均 4.5–5.6 ms → 0.24–0.31 ms、峰值 153 → 7.6 ms（坑 285）；
+  ③ 机器人换牌窗残留（坑 286）；④ **D4 结案 = 截图伪影**（`GetWindowRect` 含 8–12 px 不可见边框，`PrintWindow`/客户区都没有；
+     `工具/wf_click.py shot` 与 `wf_record.py` 改成只截客户区，坑 289）；⑤ 天赋窗「选择」按钮跟着面板走（坑 288）；
+  ⑥ 压暗层（Shade）残留守卫（坑 290）；⑦ **启动先本地、云端健康才连** + 非在线流程不弹「连接服务器出错」
+     （新探针 `ServerErrorPopupProbe`，坑 291）；「初始化Game UI失败」= `SceneInitializer.OnInitializableError`，钩子在、近期未触发；
+  ⑧ **2v2 四座各一副随机卡组**（`Set2v2SeatRaws`/`SeatRawFor`，坑 292）；
+  ⑨ **`LONG-01` 出包**：`打包专用文件夹/WarpforgeOffline_便携版_20261115`（2.6 GB）+ `Warpforge离线版1.2.zip`（2.54 GB，真 ZIP），
+     prepack **PASS 35 / WARN 2 / FAIL 0**，包内冒烟通过；重打 `wf_server.exe`、刷新 `WfOfflineData`（对拍 0 差异）；
+  ⑩ **`LONG-02` 1.2 全齐**：云端 `WF_PHOTON_EXPECT_VERSION=1.2`（SSH 已改，`version_guard=1.2`），与客户端/包 `版本.txt` 一致。
+  DLL `1a2ee2a6a1388b104468bba349618d3e`；坑 284–292；交接 → `Unity/资料/完全复刻/交接_第一百八十八会话.md`。

@@ -114,7 +114,16 @@ def grab_box(win_sub):
     w = wf_click.find_window(win_sub)
     if not w:
         return None
-    return (w["x"], w["y"], w["x"] + w["w"], w["y"] + w["h"]), w
+    # 🔴 2026-11-15（坑 289）：按「窗口矩形」截屏会把 8–12 px **不可见拖动边框**一起录进来，
+    #   那块透出的是窗口后面的桌面/别的窗口（看起来很像素「游戏里残留了一条边栏」）⇒ 只录客户区。
+    box = None
+    try:
+        box = wf_click._client_box(w)
+    except Exception:
+        box = None
+    if not box:
+        box = (w["x"], w["y"], w["x"] + w["w"], w["y"] + w["h"])
+    return box, w
 
 
 def main(argv=None):

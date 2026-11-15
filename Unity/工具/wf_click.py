@@ -338,6 +338,29 @@ def key(spec):
     return True
 
 
+def _client_box(w):
+    """🔴 2026-11-15（坑 289）：`GetWindowRect` 含 **8–12 px 不可见拖动边框**（Windows 10/11 的 DWM 扩展边框），
+    按窗口矩形截图会把**窗口后面的桌面/别的窗口**一起截进来，看起来像「游戏里残留了一条边栏」。
+    实测：同一帧 `PrintWindow`（窗口自身内容）和「只截客户区」都干净，只有按窗口矩形截图才有那条带。
+    ⇒ 截图一律只截**客户区**（拿不到客户区才退回窗口矩形）。"""
+    try:
+        hwnd = w.get("hwnd")
+        if not hwnd:
+            return None
+        r = wt.RECT()
+        if not user32.GetClientRect(hwnd, ctypes.byref(r)):
+            return None
+        pt = wt.POINT(0, 0)
+        if not user32.ClientToScreen(hwnd, ctypes.byref(pt)):
+            return None
+        cw, ch = r.right - r.left, r.bottom - r.top
+        if cw <= 0 or ch <= 0:
+            return None
+        return (pt.x, pt.y, pt.x + cw, pt.y + ch)
+    except Exception:
+        return None
+
+
 # ---------------------------------------------------------------- 截图
 def shot(path, win_sub=None, prefer=None):
     from PIL import ImageGrab
@@ -346,7 +369,7 @@ def shot(path, win_sub=None, prefer=None):
         w = resolve_target(win_sub, prefer)
         if not w:
             print("FAIL 找不到窗口:", win_sub); return False
-        box = (w["x"], w["y"], w["x"] + w["w"], w["y"] + w["h"])
+        box = _client_box(w) or (w["x"], w["y"], w["x"] + w["w"], w["y"] + w["h"])
     im = ImageGrab.grab(bbox=box, all_screens=True)
     im.save(path)
     print("ok shot %s %dx%d box=%s" % (path, im.size[0], im.size[1], box))
