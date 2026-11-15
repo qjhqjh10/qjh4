@@ -100,6 +100,16 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **现读（2026-11-15 第一百八十九会话收尾）**：ACTIVE 仍 **6 条**、全部等用户（`OFF-138/162/168/173/175/178`）；
+> 本会话处理 **`OFF-183` 余波 4 条用户复查反馈**（不新开任务 ID，已落 `历史/任务_离线原版_已核销明细_20261108.md`）：
+> ① 2v2 **队友手卡散开** = `SwapSeat` 早退 + 手牌指针串牌 ⇒ 已修（坑 293/294）；
+> ② **手卡张数** = 队友拍从本机手牌出牌 / 后手卡按「侧」取 raw ⇒ 已修（坑 293/295；换牌补牌本身正常）；
+> ③ **练习局战将 ≤10 血不再受伤** = **原版 FTUE 新手保护**（`winCount=0/2` 命中、离线胜场永远 0）⇒ 已 patch
+>   `MatchData.GetBotConfigFTUEShouldUseFirstGameLogic()` 返回 false（坑 298），实机战将 22→8→7→3→1→-1 阵亡；
+> ④ **2v2 天赋串到经典/冲突** = `_local2v2` 从不清零 ⇒ 新增 `ResetLocal2v2`（坑 296，实机 `reset2v2`）；
+> 另：压暗层守卫扩到**所有战斗**（坑 299）、只读诊断钩子一批、`FindMethod` DeclaredOnly（坑 300）。
+> 交接 → `Unity/资料/完全复刻/交接_第一百八十九会话.md`；DLL `13bc84fbb9939bdc3acd424ed58102ee`；坑 293–300。
+>
 > 现读（2026-11-15 第一百八十七/八十八会话收尾）：ACTIVE **6 条**，全部等用户（`OFF-138` / `162` / `168` / `173` / `175` / `178`）；
 > **`OFF-183`（2v2）已整条核销**（D4 结案=截图伪影 · D5/D3 已修 · AI 卡死/开局双跑按用户口径不修 · alerts 结束观察；
 > 真人对战验收由用户做）→ `历史/任务_离线原版_已核销明细_20261108.md`。
@@ -255,3 +265,17 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
      prepack **PASS 35 / WARN 2 / FAIL 0**，包内冒烟通过；重打 `wf_server.exe`、刷新 `WfOfflineData`（对拍 0 差异）；
   ⑩ **`LONG-02` 1.2 全齐**：云端 `WF_PHOTON_EXPECT_VERSION=1.2`（SSH 已改，`version_guard=1.2`），与客户端/包 `版本.txt` 一致。
   DLL `1a2ee2a6a1388b104468bba349618d3e`；坑 284–292；交接 → `Unity/资料/完全复刻/交接_第一百八十八会话.md`。
+
+- 2026-11-15（第一百八十九会话 · `OFF-183` 余波 4 条用户复查）：① **2v2 队友手卡散开** = 队友拍 `SwapSeat` 因
+  `_loadedSeat` 与手牌指针脱钩而早退 + `PlayerHand.currentHand` 被当显示开关导致别家抽牌落进本机手牌 ⇒
+  加「手牌列表必须是该座位的」早退判据 + 三个加牌入口 `RestoreTrueHandPointer` + 幽灵手牌清理（坑 293/294）；
+  ② **手卡张数** = 队友拍从本机手牌出牌 / 后手卡用 `RawForSide` 取到别阵营 ⇒ 已修（坑 293/295；换牌补牌本身正常）；
+  ③ **练习局战将 ≤10 血不再受伤** = **原版 FTUE 新手保护**（`CardScript` 里 `isPlayer && currentHealth<=10 &&
+  ShouldBecomeInvulnerableWithLowLife` ⇒ `AddTraitSilently(invulnerable)`；flag 来自 `AIBotsConfig.BotListFTUE` 的
+  `winCount=0/2`，离线练习胜场永远 0 ⇒ 每局命中）⇒ patch `MatchData.GetBotConfigFTUEShouldUseFirstGameLogic()` 返回 false，
+  实机战将 22→8→7→3→1→-1 阵亡（坑 298）；④ **2v2 天赋串到经典/冲突** = `_local2v2` 只置 true 从不清零 ⇒ 新增
+  `ResetLocal2v2()`，见过 Arena 后离开战斗场景 2 s 复位（坑 296，实机 `b4:seat reset2v2`）；另：压暗层守卫扩到
+  **所有战斗模式**（用 `GameWindow.IsOpen` 判合法压暗，坑 299）、只读诊断钩子一批（`battle:CounterText/Adjusted/AddEffect/
+  AddTraitSilently`）、`ProbeUtil.FindMethod` 是 DeclaredOnly 要用 `FindMethodInHierarchy`（坑 300）。
+  DLL `13bc84fbb9939bdc3acd424ed58102ee`；坑 **293–300**；报告 `资料/离线原版/报告/OFF183_手牌指针与2v2外壳_1115.md`；
+  交接 → `Unity/资料/完全复刻/交接_第一百八十九会话.md`。⚠️ 下次出包（LONG-01）必须重打 DLL。
