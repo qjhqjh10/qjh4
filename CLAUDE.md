@@ -100,6 +100,31 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-17 第一百九十四会话（用户三令：OFF-191 核销 / OFF-192 长期挂着 / 继续主线做新模式）**：
+> ① **`OFF-191` 已核销**（用户拍板，不再等观感验收；明细 → `历史/任务_离线原版_已核销明细_20261108.md`）。
+> ② **`OFF-192` 长期挂着**（P3 引擎默认开关；⛔ 不主动改默认、不主动提醒）。
+> ③ **`OFF-193` 混战模式已开工并推进到「能建、能存、能打」** ——
+>   **A 数据/规则**：事件 `OfflineMelee`（服务端模板 + 排行榜定义）· `PlayModes=15` **不能 patch 事件 getter**
+>   （il2cpp cctor 阶段 AccessViolation，坑 315）⇒ 改 patch 消费方 `GameModes.GetActiveEvent(PlayModes)`；
+>   卡组标记 `warcry=WFM1|SUB=<副将>|S=<卡id>xN,…`；`CardDeck.gameMode` 是 `Nullable<PlayModes>` 反射写不进（坑 316）
+>   ⇒ **服务端落盘归一化 gameMode=15**；`MeleeDeckRules` selftest 正/负三例 PASS。
+>   **B 入口**：收藏→卡组→选择游戏模式 **第 2 页 = 混战**（上一页/下一页 + 标题 + 用户给的卡图 `mode_melee_p.raw`）；
+>   在线对战→创建房间 **第 3 页 = 混战 / 混战（人机）**；`ApplyRoomModeGameplay` 对 15 套 `OfflineMelee` 参数。
+>   **C 编辑器（功能通、视觉待收）**：原版编辑器上克隆副栏抽屉（影子卡组 `DeckListDrawer.Initialize` prefix）+ 顶部
+>   `主卡池/副卡池/副战将` 三按钮 + 副池加减卡 + 保存写 `warcry`；⛔ 混战必须跳过 `DeckUtility.RemoveInvalidCards`
+>   （它会删光非主阵营卡，坑 317）。**E**：混战（人机）= 玩家混战卡组 vs 原版经典练习 AI，`StartMatch(OwnDeckTraining)`，
+>   实机进战斗且 turn 推进。
+>   ⏭ 剩：副战将重选手感/双栏视觉 · **D 天赋窗（主+副各 1 选 1）/特殊资源只随主阵营** · 卡组详情→练习链路 · 联机混战房真人 ·
+>   经典/冲突/2v2 回归 + `hook_audit`。报告 → `资料/离线原版/报告/OFF193_混战模式_阶段ABC_1117.md`；
+>   坑 **315–320**；DLL **`93d217f1f368208c82c05a4b114b5626`**；⚠️ 出包要重打 DLL 与 `wf_server.exe`。
+>   🆕 **2026-11-17 追加（用户 3 条）**：① **选战将流程** —— 混战先选主+副战将再开卡池；任一战将点回卡池
+>   ⇒ 回到选战将界面（`OpenCardInformation` prefix 拦战将行）；② **副战将槽**始终可见（空槽写「副战将/主战将」）
+>   并清掉原版 `Initialize` 残留的旧战将克隆行；③ 卡图/效果文本核查（子代理，先死灵后全阵营）：
+>   **13 阵营 39 张防御卡卡图 GUID 39 个互不相同、文本齐全，数据层没有串图**；用户看到的「死灵防御卡=兽人图」
+>   是原版隐藏副本 `Earthquake`（`03b4f101…`，spellType=200 进攻、借 GOF49 Gretchen Tower 图、无文本、`show=0 Hide`）
+>   —— 根因 = 我们的混战池没走原版 `show/inventoryOptions/IsHidden` 过滤（187 张隐藏卡会进池、23 张借图）。
+>   已修：`MeleeProbe.IsEligibleCard` 统一过滤 + 打开编辑器清理旧存档坏卡（主池 181→115 / 副池 86→68；坑 **321**）。
+
 > 🆕 **2026-11-16 第一百九十三会话**：`OFF-191` 的 **P3 自身复验完成** —— 换 **右队 P4** 才暴露
 > `B4TurnCo` 用座位奇偶当队伍的缺陷（敌方座位被装进我方侧），已改 `TeamOfSeat`；顺带修 `SwapSeat`
 > 手牌指针竞态（`inv.I5`）与**结算后冻结**（postBattle 停自愈 / P3 循环 `loop.stop` / `_NextTurn` 交还引擎）。
