@@ -100,6 +100,36 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-17 第一百九十五会话（OFF-193 阶段 D · 战斗，实机验完）**：
+> ① **天赋窗**：复用 2v2 链路（`Battle4Probe.TalentChoiceCo`），混战分支 = 主战将天赋 + **副战将天赋**各 1 张候选、
+>   **只能选 1**（点第二张自动取消第一张，再点自己 = 取消；0 张 `needOne`）；选副天赋后手牌里换成副天赋卡。
+>   副战将天赋**不能走 `GetTalentCard()`**（它是 `CardScript` 的方法，副将不入场）⇒ 静态抽取
+>   `cardAbilities[trigger=46].abilityLogic[0].summonCriteria.unitsToSummon[0]`（坑 322）。
+> ② **判「本局是混战」= `BattleManager.GameplayData` 指针 == `OfflineMelee` 的 `gameplayVariables`**（坑 323），
+>   外加 `MeleeProbe.BattleArmed`（只在混战人机开局登记）+ 主将 id 校验；⛔ 不按卡组名/战将/场景推断。
+> ③ **特殊资源只随主阵营**：prefix `PlayerManager.AddFaithMana/AddSpiritStoneMana/AddQuestPoints`，
+>   主战将 `Uses*` 为 false 时拦（实机：主 SOR1 用 faith 放行 +1、spirit/quest 拦截；诊断命令 `res <kind>`）。
+> ④ **副战将不入场**（场上只有主战将）。**2v2 语义未改**（`_talentSingle` 默认 false；混战分支要求 `!IsLocal2v2`；
+>   `MeleeReset` 在 2v2 里直接 return）。⚠️ **2v2 实机回归没跑通**（「2v2（人机）」本地房 P4 一直「等待对手」、
+>   点开始不进战斗）⇒ 仍欠一次实机回归。
+> ⑤ **2v2 实机回归 PASS**（正确顺序 = 进房先**点一个空位入座** → 再加 3 个电脑 → 开始；先加满 4 个电脑会被
+>   `全是电脑，拒绝开始` 挡掉，坑 327）。实测四座轮转、天赋窗仍**多选**（`toggle idx=0/1`、`done chosen=2`）、
+>   `b4:melee` **0 条**；`BATTLE-GV … match=False` = 指针判据把 2v2 判成非混战 ⇒ 混战分支零泄漏。
+> ⑥ **C 视觉（用户口径）**：主/副栏文字「主栏 20/20」「副栏 10/10」**放下面** + 两栏之间**黄色横线**
+>   （抽屉锚点改成 0–0.44 / 0.56–1 留位；坑 326 = 克隆的 TMP 源是 `SetActive(false)`，克隆后要手动打开）；
+>   **费用曲线/狂野计数 = 整副 30 张统一口径、不分栏**（用户 2026-11-17 定，现状即如此）。
+> ⑦ **E 练习入口（实机通）**：卡组详情 →「练习」→ 原版选电脑卡组（13 套经典预设，列表本来就有、不需要改过滤）
+>   →「选择卡组」⇒ prefix `DeckInfoPopup.StartPracticeMatch` 改走**统一内核** `OnlineGameProbe.StartMeleeMatch(deck, ai, "practice")`
+>   （第 3 页「混战（人机）」= `source=room`，两边共用）；实机 `MELEE start source=practice aiMode=classic mode=15`
+>   → 进战斗 → `TALENT-HEROES main=UM46 sub=SAU66 raws=2`。
+> ⑧ **用户 5 条复查（报告 §十）**：① 主栏**改在上面**（主抽屉 0.56–1.00 / 副 0–0.44）· ② 卡池**按原版排序**
+>   （= `DeckEditingWindow.GetCardCollection` 的 `OrderBy(manaCost)` 稳定排序；英雄池先按阵营）· ③ **副阵营防御卡可入槽**
+>   （根因 `CheckCardDrag` 先问 `CanAddCard`，坑 328）· ④ 战将插图「只显示部分」**未定位 · 用户 2026-11-17 定「先记着、⛔ 不主动追」**（数据层 66 张战将卡图全非空、
+>   GUID 互不相同、无串图；等用户给具体战将再查）· ⑤ 拖出战将后残留名字已修（引擎重建 Hero 行不一定带 `(Clone)`，
+>   坑 329：全隐藏 + 清槽内 TMP + 0.15 s 延迟整理）。
+> ⑨ DLL **`f0ba8422c991ffd655dfe565e55dc37b`**；报告 → `资料/离线原版/报告/OFF193_混战模式_阶段D_1117.md`（§八 · §九 · §十）；
+>   坑 **322–329**；⏭ 剩：④ 等用户举例 · 池按钮高亮/飘出卡槽残留 · 副战将手感 · 联机混战房真人 · 出包（⚠️ 重打 DLL）。
+
 > 🆕 **2026-11-17 第一百九十四会话（用户三令：OFF-191 核销 / OFF-192 长期挂着 / 继续主线做新模式）**：
 > ① **`OFF-191` 已核销**（用户拍板，不再等观感验收；明细 → `历史/任务_离线原版_已核销明细_20261108.md`）。
 > ② **`OFF-192` 长期挂着**（P3 引擎默认开关；⛔ 不主动改默认、不主动提醒）。
