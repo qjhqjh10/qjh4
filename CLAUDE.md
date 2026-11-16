@@ -100,7 +100,19 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
-> 🆕 **现读（2026-11-16 第一百九十会话收尾）**：ACTIVE **7 条** —— **`OFF-190` 已整条核销**（19 条全部完成，
+> 🆕 **现读（2026-11-16 第一百九十二会话收尾）**：ACTIVE **7 条** = `OFF-191` + 原 6 条（全等用户）。
+> **本会话（192）**：① **坑 301 三条全装**（`AddDrawSpecificCard` 7→6 参、`BroadcastUnitSummoned` 2→3 参
+> **+ 第 4 实参 `false` 是「只找非静态」而它是 `static`**；`hook_audit.py` 的 `KNOWN_NOT_INSTALLED` 清空；
+> 1v1 `hook_audit` 零泄漏 PASS）· ② **2v2 本地房战将阵亡后结算不出**已修（`CurrentPlayingEvent` 未设 ⇒
+> `GameModes.CombatFinished` 首句 return；两局含连打第二局结算链全走通）· ③ **用户 6 条反馈**：
+> 4 房间不出名片（坑 303）· 3 电脑阵营跟玩家（坑 306）· 1/2 电脑初始手牌只剩 1 张（坑 305）·
+> 6 回合间隔 1.5 s（坑 307）**均已修/已加并实机验**；**5 手卡切换动画未做（口径已定）** ——
+> 两边队伍各自看自己当前行动队友的手卡，需把「显示座位 / 装载座位」按队伍解耦。
+> DLL **`df6b4a1892d7bed69b3899d3c45ef179`**；报告 `报告/OFF191_2v2五条反馈与结算_1116.md`；
+> 交接 → `Unity/资料/完全复刻/交接_第一百九十二会话.md`。
+> ⚠️ 下次出包（`LONG-01`）必须重打 DLL。
+>
+> （以下为第一百九十会话存档）🆕 **现读（2026-11-16 第一百九十会话收尾）**：ACTIVE **7 条** —— **`OFF-190` 已整条核销**（19 条全部完成，
 > 用户亲测断网可进游戏；明细 → `历史/任务_离线原版_已核销明细_20261108.md`）· `OFF-191`（2v2 重构：**P0 + P1 + P2 已落地并实机验**
 > （P0 = 钩子作用域表 + `b4:hit` + `hook_audit.py`；P1 = `SeatBinding` + 4 条不变量；P2 = `BattleDriver` 单一分叉
 > （`WF_B4_DRIVER=native` 可 A/B）；1v1 三模式 + 2v2 全 PASS、`b4:inv`/`b4:bind` 零违例；**P3 `B4TurnCo` 已实机跑通 8 拍**
@@ -306,3 +318,22 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
   AddTraitSilently`）、`ProbeUtil.FindMethod` 是 DeclaredOnly 要用 `FindMethodInHierarchy`（坑 300）。
   DLL `13bc84fbb9939bdc3acd424ed58102ee`；坑 **293–300**；报告 `资料/离线原版/报告/OFF183_手牌指针与2v2外壳_1115.md`；
   交接 → `Unity/资料/完全复刻/交接_第一百八十九会话.md`。⚠️ 下次出包（LONG-01）必须重打 DLL。
+
+- 2026-11-16（第一百九十二会话）：**坑 301 修复 + 2v2 五条反馈 + 结算修复**（ACTIVE 仍 7 条，未核销任务）——
+  ① **坑 301 三条全装**（用户拍板）：`AddDrawSpecificCard` 代码按 7 参、实际 **6 参**（两处）；
+  `BroadcastUnitSummoned` 按 2 参、实际 **3 参**，且 `FindMethodInHierarchy(..., false)` 的 `false` = 「只找非静态」
+  而它是 `public static`（两个错叠加）⇒ 全部改为正确参数 + `isStatic=true`；`Post_UnitSummoned` 改取 `__args[1]`；
+  `hook_audit.py` 的 `KNOWN_NOT_INSTALLED` 清空。实机三行均 `OK`、`b4:fx summoned card=ASH5#-198452`、
+  1v1 `hook_audit` **零泄漏 PASS**。
+  ② **新缺陷已修（坑 304）**：2v2 本地房**战将阵亡后结算不出、敌人停手** —— 根因 `GameModes.CombatFinished` 首句
+  `currentEvent == null ⇒ return`，本地房走 `StartMatch` 从未设 `CurrentPlayingEvent`；开局前设成 `PracticeEvent`。
+  实机两局（含**连打第二局**）`COMBAT-FINISHED → PROCESS-MATCH-RESULT → SFS → EndBattleDoors` 全走通。
+  ③ **用户 6 条反馈**：4 房间不出名片（坑 303，`Refresh2v2Room` 早退于 Photon 房 null）· 3 电脑阵营/战将跟玩家
+  （坑 306，`DeckCollection` 未加载 ⇒ 回落玩家卡组；改「等 ≤10 s」+ `AssetLocator.GetAssets<PrebuiltDeck>()` 兜底）·
+  1/2 某电脑初始手牌只剩 1 张（坑 305，换牌协程被回合推进打断 ⇒ `CompleteMulliganPhase` 没跑；电脑换牌**默认关**）·
+  6 回合结束到下一名玩家留 **1.5 s**（坑 307）**均已修/已加并实机验证**；**5 手卡切换动画未做（口径已定）** ——
+  **两边队伍各自看自己当前行动队友的手卡**，需把「显示座位 / 装载座位」按队伍解耦（改 `SwapSeat` /
+  `RestoreHandDisplayCo` / `_shownHandSeat`）。
+  DLL **`df6b4a1892d7bed69b3899d3c45ef179`**；坑 **301 转已修 + 新增 303–307**；
+  报告 `报告/OFF191_2v2五条反馈与结算_1116.md`；交接 → `Unity/资料/完全复刻/交接_第一百九十二会话.md`。
+  ⚠️ 下次出包（LONG-01）必须重打 DLL。
