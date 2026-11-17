@@ -100,6 +100,22 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-17 第一百九十七会话（手机两条路线实测 + OFF-194 转向 Frida/JS）**：
+> ① **手机跑 PC 版成功**（盖世游戏 `com.xiaoji.egggame`）：绕开启动器直接跑 `game\Warpforge.exe` → 进中文主菜单；
+>   两个关键坑：**目录名不能有中文**（MelonLoader `plthook_open error` ⇒ 卡「更新数据板…」，坑 337）·
+>   **启动器 `WarpforgeOffline.exe` 在容器里 exit 255**（缺 .NET 6，坑 338）。
+> ② **OFF-194 路线转向并验证**：**Frida Gadget + frida-il2cpp-bridge 在本游戏 Unity 6000.2.6f2 / metadata v31.1 上可用**
+>   —— smali 在 `UnityPlayer.loadNative` 注入 `System.loadLibrary("gadget")`，桥枚举出 **143 个程序集**；
+>   旧 LemonLoader/Cpp2IL 路线作废。报告 `报告/OFF194_FridaGadget_Unity6_验证_1117.md`。
+> ③ **实施方案与新工作区**：`E:\warpforge\08_安卓JS移植\`（`方案.md` · `build/build_apk.py` 一键出包已实测 ·
+>   `build/run_on_phone.py` 热加载 · `src/main.js` M0 骨架 · `tools/` 含 gadget/bridge/`Assembly-CSharp.ts`）。
+>   M0 落点已从安卓 dump 确认：`PlayFabSettings.LocalApiServer` + `PlayFabSettingsRedirect.get_ProductionEnvironmentUrl`；
+>   假服务端数据 = `05_工具/server/responses/*.json` 103 个模板。
+> ④ **`LONG-01` 出包**：`打包专用文件夹\WarpforgeOffline_便携版_20261117\`（2.6 GB，prepack **PASS 37/WARN 2/FAIL 0**，实机进主菜单）；
+>   同包在手机盖世游戏里实测可玩；按用户指示**手机上的副本已删**。
+> ⑤ 坑 **337–339**（中文路径 / 盖世游戏启动器 / Honor 无线调试息屏失效）。
+> ⑥ ⏭ **新会话第一件事 = 做 JS（M0）**：重定向 + 进程内假服务端 + 打桩 ⇒ 判据「断网进中文主菜单」。
+
 > 🆕 **2026-11-17 第一百九十六会话（OFF-193 联机混战房双开实测 + 编辑器收尾）**：
 > ① **分页按钮**只跟「卡组」tab 显示（`TickPagerVisibility`；坑 331 已修）· **池按钮高亮**加强 · **副战将重选**（换阵营自动清副栏）· **经典 1v1 回归 PASS**。
 > ② **联机混战房（真人双开）跑通**：建房 → 客机进房（`source=melee deck`）→ 准备/开始 → 两端 `BATTLE-GV match=True` → 双端天赋窗
