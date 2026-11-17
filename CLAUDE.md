@@ -100,6 +100,28 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-18 凌晨 第一百九十九会话（OFF-194 M0 达成 · 安卓离线进中文主菜单）**：
+> ① **M0 达成**：`08_安卓JS移植` 独立 APK（script 模式）**不连电脑**启动 → 登录 → **中文主菜单**
+>   （截图 `_tmp_view/shots/s209_1117_localcur/after.png`：玩家名 WarpforgeOffline · 顶栏水晶 9999/100/金币 2000 真图标 ·
+>   玩/收藏/商店/奖励/社交 · 小冲突/选秀/播放教程/经典/练习）。手机 adb `192.168.2.103:41709`。
+> ② **三个根因（均已修）**：token 的「环境名」= **`aud` 数组里 `envName:` 前缀项**（坑 348）·
+>   跳过教程后 `SignInAnonymouslyAsync` 真连 Unity 后端回 400 ⇒ `stubAuth` 本地走 `ProcessAuthenticationTokens`（坑 349）·
+>   安卓 `ConfigManager.GetConfig<CurrencyConfig>()` = null ⇒ 资源条 NRE ⇒ **hook `ToCurrency` 优先返回
+>   `AssetLocator.GetAssets<Currency>()` 的 7 个本地资产**（含 gold/raidMedals）+ `GetIcon` 安全实现（坑 350/351）。
+> ③ FTUE 四道闸照 PC `Stubs.cs` 补齐；工具修：adb 多条目必须 `-s`（坑 352）· script/listen split 混装会黑屏（坑 353）·
+>   新增 `_tmp_view/tools/phone_round.sh`（出包→装包→启动→拉日志/截图 一条命令）。
+> ④ **M1 摸底（实机）**：收藏（卡牌/卡组）、商店（13 包 + 详情弹窗）、社交/联盟、练习对战与结算
+>   **天然可用**（同一批服务端模板）；补 **选秀「战斗！」自动转人机** —— `FindMatch` attach →
+>   `ChangeToBotBattle` + `StartBotBattle`（坑 **356**；截图 `s216_botmd2.png` 进换牌界面）。
+> ⑤ **M2 状态层 P0/P1/P2（实机验收）**：`files/wf_state.json` —— 卡组写盘/登录注入（P0）、
+>   商店购买 + 两段式开包（P1，`shop_data.js` 权重掉表 + 30 抽保底）、成就进度 + 卡牌升级档回灌
+>   `UserInventory[].CustomData.CardTier`（P2）；重启判据 `读回状态：卡组 1 · 成就 5 · 档位 1 · 购买 1`。
+>   聊天封禁 4 入口（照 PC `ChatBanProbe`）。坑 **357/358**。
+> ⑥ 报告 → `OFF194_M0_JS离线自举_1117.md` §七 · `OFF194_M1_安卓功能盘点_1118.md` ·
+>   `OFF194_M2_服务端状态方案_1118.md`；坑 **348–358**；交接 → `交接_第一百九十九会话.md`。
+> ⑦ ⏭ **新会话**：P3 选秀 run 状态 · B 档 mod 特性（错误弹窗 10 s 宽限 / 免责声明 / 2v2 本地房 / 混战）。
+>   手机现走 **USB**：`ADB_LIBUSB=1`，序列号 `A9SE024A26003434`；`_tmp_view/tools/phone_round.sh` 一键轮次。
+
 > 🆕 **2026-11-17 第一百九十八会话（安卓原生版跑通 · 只剩主菜单）**：
 > ① **安卓原生版今晚跑通**：`08_安卓JS移植` 的 script 模式**独立 APK 不连电脑**即可启动 → 登录 →
 >   **资源 0 报错** → **进教程战斗场景**（中文正常、可交互）；重定向/进程内假服务端/模板回包全部实机验证。
