@@ -100,6 +100,23 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-17 第一百九十八会话（安卓原生版跑通 · 只剩主菜单）**：
+> ① **安卓原生版今晚跑通**：`08_安卓JS移植` 的 script 模式**独立 APK 不连电脑**即可启动 → 登录 →
+>   **资源 0 报错** → **进教程战斗场景**（中文正常、可交互）；重定向/进程内假服务端/模板回包全部实机验证。
+> ② **资源根因**：不是版本问题，而是 **Unity 缓存放错位置** —— 按
+>   `E:\warpforge\02_解包资源\安卓版\com.Everguild.WarhammerWarpforge\files\UnityCache`（**一台能正常跑的设备的原样数据**）
+>   原样回填后 `Unable to load asset bundle` / `couldn't find item` 全部归零（坑 **347**：`adb push` 目录语义 ·
+>   根/条目两级 `__info` 格式不同 · 目录名 = catalog 的 BundleName/Hash128）。
+> ③ **新模板** `ExecuteCloudScript.OnUnityAuth.json`（CloudHandle 1099；缺它 ⇒ NotImplemented ⇒「无法初始化服务 Game UI」）。
+> ④ **打桩**：`stubCatalog` 有效；返回的托管 `Task` 必须**缓存 + GCHandle 固定**（否则 await 永不醒，坑 345）；
+>   `stubUnity`/`stubContent` 会让客户端更早停住；`stubTutorial` 能跳过教程但会撞 Unity auth ⇒ GameUI 失败。
+> ⑤ **手机侧两个硬坑**：Honor **logcat 被系统关**（自写 `files/wf_offline.log`，坑 343）· **Gadget 没有 Java 桥**
+>   （`typeof Java === undefined`，改用 Unity `Application.*Path` + Frida Socket，坑 344）。
+> ⑥ ⏭ **新会话第一件事 = 攻主菜单**：`OnUnityAuth` 的 access token 过不了 `Unity.Services.Authentication` 校验；
+>   字段表已按 `AccessToken`（安卓 dump TypeDefIndex 19337）对上（`aud`/`scp` 数组、`ext` 对象、`exp/iat/nbf` 整数），
+>   卡在 `environment` claim 名（`configured environment(production) … access token one(null) don't match`）。
+>   细节与复跑命令 → `Unity/资料/完全复刻/交接_第一百九十八会话.md`；报告 → `资料/离线原版/报告/OFF194_M0_JS离线自举_1117.md`。
+
 > 🆕 **2026-11-17 第一百九十七会话（手机两条路线实测 + OFF-194 转向 Frida/JS）**：
 > ① **手机跑 PC 版成功**（盖世游戏 `com.xiaoji.egggame`）：绕开启动器直接跑 `game\Warpforge.exe` → 进中文主菜单；
 >   两个关键坑：**目录名不能有中文**（MelonLoader `plthook_open error` ⇒ 卡「更新数据板…」，坑 337）·
