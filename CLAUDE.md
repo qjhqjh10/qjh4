@@ -100,6 +100,25 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-17 第一百九十六会话（OFF-193 联机混战房双开实测 + 编辑器收尾）**：
+> ① **分页按钮**只跟「卡组」tab 显示（`TickPagerVisibility`；坑 331 已修）· **池按钮高亮**加强 · **副战将重选**（换阵营自动清副栏）· **经典 1v1 回归 PASS**。
+> ② **联机混战房（真人双开）跑通**：建房 → 客机进房（`source=melee deck`）→ 准备/开始 → 两端 `BATTLE-GV match=True` → 双端天赋窗
+>   （`TALENT-HEROES main/sub raws=2` · `done continueBtn chosen=1`，手牌换成所选副天赋）。
+> ③ **天赋窗「继续」**在战斗场景里没有监听 ⇒ 开窗自挂 `AddListener` + 3 s 自动收窗兜底（坑 332）· **客机「没有可用卡组」** ⇒ 两条取库存都走 + `serializedDecks` 兜底（坑 333）。
+> ④ ⚠️ **云端可达时点「在线对战」会把 base 切云端，本地票据 401**（`ExecuteCloudScript`）⇒「放弃/结算上报」弹「连接服务器错误」；未改代码，属服务器相关设计（坑 334）。
+> ⑤ **混战参数残留**：打完混战再开「小冲突」曾被套 `OfflineMelee` 参数 ⇒ `OnMeleeBattleEnded` 清状态（坑 335）。
+> ⑥ **用户选项 A 已落地**：云端可用时先**强制重登云端拿票据**（`CloudscriptHandler.LoginWithSteamAccount`，泛型 `Action<bool,TRes,TErr>` 委托；成功 `RELOGIN-OK` 1.1 s，失败退回本地 60 s 不重试）⇒ 401 的根因被拿掉。
+> ⑦ **「卡组详情→练习」电脑卡组列表为空已修**（坑 336：原版按 `CustomGameModeEvent` 逐字过滤，混战卡组带 OfflineMelee ⇒ 全灭；修法 = 空列表时用 `practiceDecks` 经典 48 套直接喂 `collectionDisplay.Initialize`）· **池按钮高亮观感已验**（金框+高光，三态截图）。
+> ⑧ 报告 → `资料/离线原版/报告/OFF193_联机混战房与编辑器收尾_1117.md`；DLL md5 **`fb8fd026fd39ba128a2c5a363e7010ad`**。
+> ⑨ ✅ **`OFF-193` 用户 2026-11-17 拍板核销**（真人双端结算实测 / 出包 / 战将插图三项均定「不必再管」）
+>   → 明细 `资料/离线原版/历史/任务_离线原版_已核销明细_20261108.md`。
+> ⑩ 🆕 **`OFF-194`（安卓版 mod 运行时移植）已立项**：用户选「直接冲『完整 mod 体验』」，但明确「**先信息搜索、执行别急做**」。
+>   现状：同一款游戏 1.35.0 / Unity 6000.2.6f2 / metadata **v31**，但 PC 与安卓是两份独立平台构建，**不能转换只能移植**；
+>   现成安卓 C# 加载器（LemonLoader **0.6.5.1 / 2025-03**、BepInEx.Android.Launcher）大概率解析不了 v31（Cpp2IL 旧版支持 23–29，ML #768/#1100）；
+>   桌面 ML 0.7.3 能跑 v31（我们 PC 现役）；**本地 Il2CppDumper 已成功 dump 安卓包**（`07_产物/android_il2cpp_1117/dump`）。
+>   ⚠️ 本阶段**未安装任何工具、未接设备**（BlueStacks 安装器已下载未安装）。报告 `资料/离线原版/报告/安卓移植可行性_1117.md`。
+> ⑪ 交接 → `Unity/资料/完全复刻/交接_第一百九十六会话.md`；ACTIVE **8 条**。
+
 > 🆕 **2026-11-17 第一百九十五会话（OFF-193 阶段 D · 战斗，实机验完）**：
 > ① **天赋窗**：复用 2v2 链路（`Battle4Probe.TalentChoiceCo`），混战分支 = 主战将天赋 + **副战将天赋**各 1 张候选、
 >   **只能选 1**（点第二张自动取消第一张，再点自己 = 取消；0 张 `needOne`）；选副天赋后手牌里换成副天赋卡。
