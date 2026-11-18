@@ -100,6 +100,19 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-18 第二百零一会话（OFF-194 安卓：2v2 发牌收尾 / 在线对战骨架 / 2v2 房真开局 / 资源包路线）**：
+> ① **2v2 克隆座位初始手牌走通原版换牌链**（`AddCardsToMulligan → 协程 → CompleteMulliganPhase`），四座 12 拍轮转；
+> ② **修掉原生 SIGSEGV**：自建 `List<CardScript>` 没托管根被 GC ⇒ `obj.ref(true)` 固定（坑 372）；
+> ③ **在线对战骨架实机验**：主菜单「在线对战」卡（克隆 `LiveopMenuContainer`）+ 模式面板（快速对战/2v2/混战）+ 2v2 四座房，
+>   点击用 `Button.Press` hook 按名字分发（坑 367–369）；
+> ④ **2v2 房 → 真开局跑通**：`StartMatch(OwnDeckTraining, pbd, deck, deck, Easy, 1)`，卡组 = `AssetLocator.GetAssets<PrebuiltDeck>()`
+>   → `new CardDeck(prebuilt,null)`；关键坑 = **`MatchMakerManager` 在 `Everguild` 命名空间**（坑 371）；
+> ⑤ **贴图判死 → 转 Unity AssetBundle**：运行时建/克隆 `Texture2D` 全部 abort（坑 373）；已建 `E:/warpforge/09_安卓资源包/WfArtBundle`，
+>   等 **Unity Android 模块**（用户手机下载）到位后打 `wfart`；
+> ⑥ **E:/2hhl（HH Legions）安卓版拆解**写进 `08_安卓JS移植/方案.md` **附录 D**（同一套 Gadget+JS+本地服务端架构，资源用 `assets/offline` + `assets.json`）；
+> ⑦ **模拟器排除**：BlueStacks（仅 32 位实例）与 MuMu 12（`igvk64.dll` Vulkan 崩）均已卸载（坑 374）；测试回到真机；
+> ⑧ 新坑 **367–375**；交接 → `Unity/资料/完全复刻/交接_第二百零一会话.md`；**本会话无核销，ACTIVE 仍 8 条**。
+
 > 🆕 **2026-11-18 第二百会话（安卓：P3 选秀状态 · B 档免责声明/错误弹窗 · 观感两条 · 2v2 P0 前 3 步）**：
 > ① **P3 选秀 run 状态完成并实机验**：`mod_server.js` 照 PC `_apply_draft` 移植 12 个分支 + `InitializeLiveOps` 整块替换
 >   `Persistence`；手机实跑建 run→选将(UM46)→选包(PFX1)→战绩 1-0-0，重启 `读回状态 … 选秀 run 1`；`tools/test_draft_js.js` 29/29。
