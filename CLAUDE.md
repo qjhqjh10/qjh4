@@ -100,6 +100,27 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-18 第二百会话（安卓：P3 选秀状态 · B 档免责声明/错误弹窗 · 观感两条 · 2v2 P0 前 3 步）**：
+> ① **P3 选秀 run 状态完成并实机验**：`mod_server.js` 照 PC `_apply_draft` 移植 12 个分支 + `InitializeLiveOps` 整块替换
+>   `Persistence`；手机实跑建 run→选将(UM46)→选包(PFX1)→战绩 1-0-0，重启 `读回状态 … 选秀 run 1`；`tools/test_draft_js.js` 29/29。
+> ② **B 档第一批**：连接错误弹窗 **10 s 宽限 + 重试**（`/__health` 真检查）；**游戏内免责声明滚动版**
+>   （正文逐字照 PC 第六版 1,888 字 / version 5，`RectMask2D+ScrollRect` 手指拖动实测生效，闸 = 真拖过 `OnBeginDrag` + 10 s 倒计时，
+>   **只在主菜单场景弹**、**不拦登录**、用全屏透明点击盾挡背后 UI）。
+> ③ **两条用户纠偏**（已落代码）：不要分页只要滚动；加载阶段那扇「很小的声明窗」去掉。
+>   🔴 重大教训：**别用「拦 `LoginManager.TryCompleteLogin` 再续跑」当闸** —— 会把**新手引导**带出来（坑 365）。
+> ④ **观感两条**：小冲突 5 条奖励 `1256` = prefab 占位（事件 Data 缺 `rewardsPerTier`，已补 1/3/6/10/15）；
+>   联盟计分条 NRE 同源缺 `DraftEventData.allianceRewards`（已补 1/2/3）。新增 **运行时 UI dump**（`curl /__uidump` → `files/ui_dump.txt`）。
+> ⑤ **2v2 P0 前 3 步**（`mod_battle4.js` + `/__b4?cmd=arm|status|disarm`）：实机确认桥能读 `BattleManager` 两侧槽位；
+>   捕获 P1/P2 基座 + **克隆 P3/P4**（`CreateDeck` + `SetupFullHero` + 写回基座引用 + 挂起新战将，无崩溃）；
+>   挂 `NextTurn.MoveNext`（只 attach）+ **换座生效**（`TURN#3 side1 seat3 → TURN#4 side0 seat2`，四座轮转）。
+>   ⏭ 未完成：克隆座位**初始手牌**（`AddDrawCard` 只入动作队列不生效）· AI 座位出牌 · 四人打完一局。
+> ⑥ 新坑 **359–366**（ShowPopUp 7 参取法 · `SetParent` 在 Transform · `Il2Cpp.Array` 无 `.method` ·
+>   `Localize`/`EverguildTextController` 改字 · `input swipe` 不是拖拽 · 弹窗被场景切换销毁 ·
+>   拦 TryCompleteLogin 带出新手引导 · `1256`=prefab 占位）。
+> ⑦ ⚠️ **模板改了 PC/安卓共用的 `ExecuteCloudScript.InitializeLiveOps.json`** ⇒ 下次出 PC 包（`LONG-01`）
+>   必须重打 `WfOfflineData` / `wf_server.exe`。
+> ⑧ 交接 → `Unity/资料/完全复刻/交接_第二百会话.md`；报告 → `资料/离线原版/报告/OFF194_M2P3与B档_1118.md`（§七–§十一）；ACTIVE **8 条**（本会话**无核销**）。
+
 > 🆕 **2026-11-18 凌晨 第一百九十九会话（OFF-194 M0 达成 · 安卓离线进中文主菜单）**：
 > ① **M0 达成**：`08_安卓JS移植` 独立 APK（script 模式）**不连电脑**启动 → 登录 → **中文主菜单**
 >   （截图 `_tmp_view/shots/s209_1117_localcur/after.png`：玩家名 WarpforgeOffline · 顶栏水晶 9999/100/金币 2000 真图标 ·
