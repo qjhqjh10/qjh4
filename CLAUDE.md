@@ -100,6 +100,19 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-19 第二百零二会话（OFF-194 安卓：贴图包打通 / 在线对战面板与 2v2 房 / 本地存档唯一 / 混战规则移植）**：
+> ① **贴图 AssetBundle 全链路打通（安卓首次）**：`wfart`（6000.3.23f1 打，Android 目标）→ 手机 `files/art/wfart` →
+>   `LoadFromFile` + **`LoadAllAssetsAsync`** → `Image.sprite`；主菜单「在线对战」卡显示基里曼立绘。
+>   🔴 同步 `LoadAsset` 真机**必 abort**（坑 **376**）；必须**按需加载 + 同拍就贴**（坑 **377**）。
+> ② **在线对战面板 / 2v2 房**：点卡 → 探云端 `/__health`（`HttpClient` https 手机实测通）→ 面板（三张模式卡带贴图）→
+>   2v2 房按 PC 常量重排（`plate=2004x856 nodes=8/8`）。中途切云端会崩主菜单 ⇒ **只探测不切换**；克隆卡会被网格重建销毁 ⇒ 常驻模板（坑 **378/379**）。
+> ③ **本地存档唯一（用户 2026-11-19 口径）**：`ServerLinkProbe.OverrideBase` **恒 null**；实机验「云端可达（仅信息）」+ decks 16 套不变；
+>   在线走 **Photon**，云端**不复制**本地卡组。DLL md5 **`3ee0ff850a132a96586d12ebf68922cb`**（game/game_b 已同步）。
+> ④ **混战规则移植**：`src/melee_rules.js` + `tools/test_melee_rules.js` **28/28**；`mod_server.js` 落盘 `gameMode=15`。
+> ⑤ 环境：Android 模块 / Windows IL2CPP / Unity 6000.2.6f2 + Android 模块 / builtin_shaders / Unity 6.3 文档 —— 全装好（Serctl 代理下载）。
+> ⑥ 新坑 **376–380**；报告 → `资料/离线原版/报告/OFF194_安卓贴图与在线对战_1119.md`；交接 → `Unity/资料/完全复刻/交接_第二百零二会话.md`。
+> **本会话无核销，ACTIVE 仍 8 条**。
+
 > 🆕 **2026-11-18 第二百零一会话（OFF-194 安卓：2v2 发牌收尾 / 在线对战骨架 / 2v2 房真开局 / 资源包路线）**：
 > ① **2v2 克隆座位初始手牌走通原版换牌链**（`AddCardsToMulligan → 协程 → CompleteMulliganPhase`），四座 12 拍轮转；
 > ② **修掉原生 SIGSEGV**：自建 `List<CardScript>` 没托管根被 GC ⇒ `obj.ref(true)` 固定（坑 372）；
