@@ -100,6 +100,19 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-21 第二百零九会话（OFF-194 安卓：防御卡修好 / 图形设置实测 / 改名提示窗 / 崩溃诊断说明 / 重装联机 PASS）**：
+> ① **防御卡**：根因 = 离线事件数据 6 个事件 `assignDefensiveCardsInEditMode` 全 false ⇒ 卡池把 39 张防御卡滤光；
+>   全改 true（模板 + `offline_data.js` + `WfOfflineData` + `dist/wf_server/responses` 已同步）⇒ 卡池出现、保存落 `defenseCard`、小冲突不再提示；
+>   **用户 2026-11-21 亲测真手指拖入正常 ⇒ 子项核销**（坑 **419**）。
+> ② **图形设置实测**：高刷新率 ON=60 / OFF=30 fps（60.18 vs 30.09）；质量五档 = URP Low/Medium/Medium/High/Ultra + 钳制 1280/1920/1920·原生/1920·原生/原生 + AA；
+>   屏幕 60Hz 下各档都稳 60 fps；安卓帧率上限看 `hiFPS`、PC 的 `FPSLimit` 在安卓是死字段（坑 **420**）。
+> ③ **改名后提示窗卡死**：`MessagePopupWindow` 无可用按钮 + `BackgroundCloseButton.window=null` + `closeOnEsc=false` ⇒ 永久卡死；
+>   新模块 `mod_popupfix.js` 2 秒自动关（已进正式包，坑 **421**）。
+> ④ **崩溃诊断**：正式包自带；原生崩溃可查（栈/寄存器/模块偏移/日志尾巴），OOM/ANR/温度/性能不采集；最多 10 份 + latest + 标记。
+> ⑤ **重装后联机 PASS**：单 APK 重装 → 小冲突「战斗！」→ 云端 `/__mm` 配对 `wf-mm-skirmish-5` players=2 → 双端同局、回合同步。
+> 报告 → `报告/OFF194_防御卡与图形设置_1120.md` · `OFF194_改名弹窗与崩溃诊断_1120.md` · `OFF194_重装后联机对战实测_1121.md`；
+> APK 980,530,806 B · md5 `57480f33f5a3442fff621893c78e8f51`；交接 → `交接_第二百零九会话.md`。**本会话无整条核销，ACTIVE 仍 8 条**。
+
 > 🆕 **2026-11-19 第二百零二会话（OFF-194 安卓：贴图包打通 / 在线对战面板与 2v2 房 / 本地存档唯一 / 混战规则移植）**：
 > ① **贴图 AssetBundle 全链路打通（安卓首次）**：`wfart`（6000.3.23f1 打，Android 目标）→ 手机 `files/art/wfart` →
 >   `LoadFromFile` + **`LoadAllAssetsAsync`** → `Image.sprite`；主菜单「在线对战」卡显示基里曼立绘。
