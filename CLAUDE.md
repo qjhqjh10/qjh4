@@ -100,6 +100,23 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-20 第二百一十会话（安卓：战斗后闪退排查 —— 未修好，已收窄到「结算视频」）**：
+> ① **闪退稳定复现**：小冲突 → 战斗 → 齿轮「放弃」→ `DEFEAT` 结算 → 回主菜单时进程消失
+>   （`SIGABRT` + `Il2CppExceptionWrapper`）。**与联机无关**，任何「进战斗 → 回主菜单」都走这条。
+> ② ✅ **排除 4 条假设**（真机探针实测，别再重走）：`ToCurrency(0x47)` 返 null（实测非 null）·
+>   `GetOwnedCount(0x47)` 抛（实测返 0）· `ResourcesBarController.Initialize` 的 `Toggle()` 摸死对象
+>   （第一版修复实测无效，`deadToggles=0`）· `UIResourceCounter.Initialize` 的 `icon` 为 null（练习局实测非 null）。
+> ③ 🆕 **用户关键补充：必须先点「结算视频」，回主菜单才崩**。线索 = `videos_assets_all.bundle`
+>   **在 APK 里存在**（13.5 MB），但本地 `files/aa` **只有 3 个包** ⇒ 走 Unity 缓存 ⇒ 离线必失败
+>   ⇒ `EndBattleDoors`（`videoPlayer 0x90` / `renderTex 0xA8`）坏状态。
+>   **下次第一件事 = 把 84 个 bundle 全解到本地**，再测「打完 → 点视频 → 回主菜单」。
+> ④ ⚠️ 第一版修复包 `20261120b`（md5 `6becde4c…`）**无效，⛔ 别发人**；发人仍用 `20261120.apk`（`57480f33…`）。
+> ⑤ 🔴 **手机当前装的是 listen 开发包**（12:32），**脱离电脑起不来**，要恢复可玩先装回正式包。
+> ⑥ 坑 **423**（本闪退，含已证伪清单）· **424**（`install-multiple` 在这台机不可用）· **425**（重装首启免责声明视口 0 ⇒ 整屏卡死，已临时绕过）。
+> ⑦ 🔴 教训：**先加只读探针确认「这条路径被走到」再改代码** —— 本会话没验就出包，白跑一轮（打包+安装约 25 min）。
+> 报告 → `资料/离线原版/报告/OFF194_联机开战闪退_根因_1120.md`（**§八 = 最新**）；交接 → `Unity/资料/完全复刻/交接_第二百一十会话.md`。
+> **本会话无整条核销，ACTIVE 仍 8 条**。
+
 > 🆕 **2026-11-21 第二百零九会话（OFF-194 安卓：防御卡修好 / 图形设置实测 / 改名提示窗 / 崩溃诊断说明 / 重装联机 PASS）**：
 > ① **防御卡**：根因 = 离线事件数据 6 个事件 `assignDefensiveCardsInEditMode` 全 false ⇒ 卡池把 39 张防御卡滤光；
 >   全改 true（模板 + `offline_data.js` + `WfOfflineData` + `dist/wf_server/responses` 已同步）⇒ 卡池出现、保存落 `defenseCard`、小冲突不再提示；
