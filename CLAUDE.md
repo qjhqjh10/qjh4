@@ -110,6 +110,23 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-24 第二百三十三会话（存档上云 · 游戏内伪重启 · 服务器推送文件更新 · PC 云存档；核销 OFF-201/OFF-202，ACTIVE 13 → 11）**：
+> ① **`OFF-201` 核销**：服务器 `/__save`（`SaveStore`，`saves/<pid>.json`，`baseRev`/409）+ 安卓 `src/cloudsave.js`
+>   （**加载/登录零联网**，`GeneralMenuController.Instance` 有效（主菜单起来）才检测；离线照常玩、20 s 重试；冲突窗
+>   「使用本地/使用云端」；选本地立即上传覆盖、选云端应用）。弹窗按钮被原版 `Localize`/`EverguildTextController` 改回「继续」⇒ 关脚本+5 次重写（坑 362）。
+> ② **游戏内伪重启（用户点名要原版那种）**：`SessionManager.RestartSession(true)` → `Reset Scene` → `Intro` → 主菜单；
+>   安卓直接可用、真机 4 次 PASS；⛔ 别绕过 `EverguildSceneManager` 直接 LoadScene（坑 588）、重置期间停自家 JS→Unity 轮询（坑 589）。
+> ③ **`OFF-202` 核销**：`/__update`（`UpdateStore`，`updates/rev-N/` + sha256）+ Java `fetch`（下载+校验+原子写盘）/`commit`
+>   + 启动 `verifyUpdate` + wrapper 优先加载；客户端 `src/updater.js`（同意窗 rev+体积 → 进度弹窗 n/N → 完成弹窗）；
+>   发布工具 `tools/publish_update.py`。真机 rev1/rev2 全链路 PASS；**JS 更新必须下次进程启动生效**。
+> ④ **`OFF-203` PC（仍 ACTIVE）**：`Probes/CloudSaveProbe.cs`（`player_state.json`+`account_save.json` 同 `/__save` 协议）+
+>   冲突窗 + **手动伪重启**（PC 原版 `RestartSession` 被 `Steamworks is not initialized` 打断 ⇒ 坑 590）；PC 真机 PASS。
+>   ⏳ 未做：PC 推送更新（DLL 被锁 ⇒ `.pending`+启动器替换）· `CloseAllWindows`/销毁 PDM 反射取到 null（4/6 步）。
+> ⑤ **出包 `20261124b`**（839,957,814 B · md5 `698560d7…`，release · 内嵌 JS · 含伪重启+推送更新）已装 A 机；云端测试更新已清空（rev0）。
+> ⑥ **开发链修复**：本机 Frida `File.readAll/readBytes` 截断 ⇒ 外部 JS 改 libc（坑 583）· `.busy` 文件传递（坑 584）· `perform(main)`（坑 585）· `Activity.recreate` 杀进程（坑 586）· 菜单就绪判据（坑 587）。
+> 报告 → `资料/离线原版/报告/OFF201_存档上云_1124.md`；交接 → `Unity/资料/完全复刻/交接_第二百三十三会话.md`；坑 **583–590**。
+> ⏭ **新会话第一件事**：等用户验收 `20261124b`；继续 `OFF-203`（PC 推送更新 + 2 步反射）；`OFF-200` 第 2 件等 B 机。
+
 > 🆕 **2026-11-23 第二百三十会话（外部设备闪退：n0–n6 六个对照包 + 本地活捉「卡在 65%」）**：
 > ① **`wf(5)`（m）**：5/5 活过 10 s 等待、开工后 6 ms–0.33 s 停日志；同机 j 构建曾**装完 47 个模块**后照样停
 >   ⇒「哪个 install 有毒」排除。**c vs m 逐项对比**：802 条目/13 so/87 bundle/gadget 同一文件，**唯一差别是 `libwfmod.so`**
