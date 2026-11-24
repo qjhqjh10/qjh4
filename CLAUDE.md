@@ -110,6 +110,19 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-25 第二百三十八会话（JS 冻结根因修复 · 卡组保存链路 · OFF-205 双点 · dev 包 f238b）**：
+> ① **A 机「卡 65%」根因定位到 frida-gum 源码级**：`Process.enumerateThreads()` → `gum_process_modify_thread`
+>   （socketpair + clone 单线程子进程 + PTRACE_ATTACH；子进程卡住 ⇒ 调用线程永久阻塞在 socket read）。
+>   主犯 = `[ALIVE] … threads=`（dev 每 3 s，跑在 JS 事件循环线程）；四处全改 `/proc/self/task`，
+>   **运行路径禁止 `Process.enumerateThreads()`**。真机 **冷启动 20/20 + 伪重启 6/6 PASS**，`js_dead` 不新增、`pidof` 单 pid。
+> ② **卡组保存「没反应」**：原版 = `ValidateDeck → UploadDeck`（不完整不能存）；我们保留本地优先 + ≤2 s 云同步。
+>   根因 = 邮箱登录 `LoginWithEmailAddress` 不在 `DecksApi`/`inv.js`/`friends.js` 白名单 + 模板残留 28 张 `Offline Saim-Hann`；
+>   已修，13 套 30 张初始卡组出现，保存 / 重启 / 云端 **rev=130** 全 PASS。
+> ③ **OFF-205**：A `netgate.js` 恒返回可达（飞行模式待 USB）；B 合成测试无双窗（暂不抑制，真断网待复核）。
+> ④ **OFF-204**：已登录账户页 UI 修好（延迟回写 `playFabEmail` + `AccountTab.Refresh`）；剩删除链路 / 重装 / 正式包。
+> ⑤ **整条核销 0 条（ACTIVE 仍 13）**；坑 **614（已复验）/615/616**；交接 → `Unity/资料/完全复刻/交接_第二百三十八会话.md`。
+> ⏭ **新会话第一件事**：OFF-205 A 飞行模式（需 USB）+ B 真断网；OFF-204 redfox 删除链路 → 重装=游客（先问用户）→ release 包。
+
 > 🆕 **2026-11-24 第二百三十六会话（阶段 F2 三项下沉 Java · 启动等待改「按实际就绪」· 最终包 `20261124p`）**：
 > ① **F2 先做的三项全部完成并真机验证**：**成就**（`StateApi` + `StateStore` + `JsonSpan`；`achievements.js` 不随包；
 >   成就页显示 Java 写入值 **77/1000**）· **商店购买/两段式开包**（`ShopApi`；`shop.js`/`shop_data.js` 不随包；
