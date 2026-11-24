@@ -110,6 +110,16 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-24 第二百三十五会话（阶段 B1 catalog 本地化 · 阶段 F1 云存档 Java 同步 · 包 `20261124m`）**：
+> ① **B1**：catalog 87 bundle = **84 本地 + 3 CCD**（allcards/alternateartstyles/localization）；出包时只改这 3 条并
+>   **crc 归零**（坑 599）；`build_app.verify_catalog()` 产物级断言；`xform.js` 转**兼容垫片**（热更不换 catalog，≤g 老包仍依赖，坑 600）。
+> ② **F1**：新增 `java/.../CloudSync.java` —— 启动最早期（Unity 读档前）处理「无同步标记 + 云端有档」：
+>   本地先备份 → 应用云端 → 写标记（files 缺时用 Android/media 镜像，**先恢复再比较**，坑 601）。真机 `[SAVE-J]` 早于 JS 阶段 A 10 s。
+> ③ **B2/B3 数据级证伪**（PlayFab URL 是代码派生；Photon 走 region 名字服务器）⇒ **不再改资产**，长期走阶段 C 原生钩子。
+> ④ **真机 A**：`env5`（无 xform 对照）9/9 · m 冷启动 **8/8**（env 11.6–12.1 s）· 卡牌页完整 · F1 两条路径 PASS。
+> ⑤ **最终包 `20261124m`**（844,918,070 B · md5 `c490abc16ce66f3264564c21d2340fae`）；报告 → `报告/OFF194_阶段B1_catalog本地化_1124.md`；
+>   交接 → `Unity/资料/完全复刻/交接_第二百三十五会话.md`。**本会话整条核销 0 条**；剩余 = F2/F3 · B4 · 外部设备 · JS 冻死根因。
+
 > 🆕 **2026-11-24 第二百三十三会话（存档上云 · 游戏内伪重启 · 服务器推送文件更新 · PC 云存档；核销 OFF-201/OFF-202，ACTIVE 13 → 11）**：
 > ① **`OFF-201` 核销**：服务器 `/__save`（`SaveStore`，`saves/<pid>.json`，`baseRev`/409）+ 安卓 `src/cloudsave.js`
 >   （**加载/登录零联网**，`GeneralMenuController.Instance` 有效（主菜单起来）才检测；离线照常玩、20 s 重试；冲突窗
