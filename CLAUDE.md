@@ -110,6 +110,23 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-24 第二百三十六会话（阶段 F2 三项下沉 Java · 启动等待改「按实际就绪」· 最终包 `20261124p`）**：
+> ① **F2 先做的三项全部完成并真机验证**：**成就**（`StateApi` + `StateStore` + `JsonSpan`；`achievements.js` 不随包；
+>   成就页显示 Java 写入值 **77/1000**）· **商店购买/两段式开包**（`ShopApi`；`shop.js`/`shop_data.js` 不随包；
+>   游戏内「购买→开包→5 张卡」+ 重启 `purchases=2`）· **卡组 CRUD + 登录注入**（`DecksApi`；`decks.js`/`starterdecks.js` 不随包；
+>   列表 13 阵营 + 注入卡组可见；重启持久）。数据源进包 = `assets/wf_shop.json` / `assets/wf_decks.json`（构建断言）。
+> ② **启动门改「按实际就绪」**（用户口径「根据实际，不要固定数值」）：`libil2cpp + global-metadata + (UnityMain|UnityGfxDeviceW)`
+>   + **最短 3 s**（原固定 10 s；低内存 12 s 档已删）；`--floor-ms` 实验开关。A 机：JS 3.0 s 开工、首个请求 11.3 s ⇒ 余量 **1.3 s → 8 s**，
+>   同门 **8/8**、进主菜单总墙钟不变。⚠️ Unity 线程 1 s 就出现（不能当「初始化完成」）；`nativeRender` 本机挂不上（坑 546）。
+> ③ **等待界面保持原版**（用户 2026-11-24 定：不改 0% 上面的文字）：中间那版「隐藏空面板 + 写『正在准备…』+ 自动重试」**已全部撤掉**；
+>   实测从 JS 调 `LoginManager.RetryLogin()` 会**卡主线程**（坑 607）。迟到时交给玩家点原版「重试」。
+> ④ **包 `20261124p`**（844,930,489 B · md5 `7e755ae01d077b21494fd5f4deef457f` · **41 模块**）已放 `安卓版/APK/`，A 机已装、冷 3/3。
+> ⑤ **坑 603–607**：方法名在路径里 · 状态键单一写者 · 墙钟余量 · `FindObjectOfType` 必须泛型 inflate · `RetryLogin` 卡主线程。
+> ⑥ ⚠️ **未验**：游戏内「编辑卡组 → 保存」按钮当时点了没反应（写接口已用同形状请求验过）。**本会话整条核销 0 条（ACTIVE 仍 11）**。
+> 报告 → `资料/离线原版/报告/OFF194_阶段F2_{成就,商店,卡组}下沉Java_1124.md` · `OFF194_启动等待自适应_1124.md`；
+> 交接 → `Unity/资料/完全复刻/交接_第二百三十六会话.md`。
+> ⏭ **新会话第一件事**：补验「编辑卡组→保存」；继续 F2 余项（好友/联盟列表）→ F3 → B4；外部设备等用户日志。
+
 > 🆕 **2026-11-24 第二百三十五会话（阶段 B1 catalog 本地化 · 阶段 F1 云存档 Java 同步 · 包 `20261124m`）**：
 > ① **B1**：catalog 87 bundle = **84 本地 + 3 CCD**（allcards/alternateartstyles/localization）；出包时只改这 3 条并
 >   **crc 归零**（坑 599）；`build_app.verify_catalog()` 产物级断言；`xform.js` 转**兼容垫片**（热更不换 catalog，≤g 老包仍依赖，坑 600）。
