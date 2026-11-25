@@ -110,6 +110,19 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-25 第二百四十会话（排位荣誉制+Elo · 小冲突排位 · 资料页真实化 · 战役方案）**：
+> ① **排位规则改成原版口径**（🟢 官方 FAQ/Steam 公告）：**7 大段 × 5 小段 = 30 级 + Legendary**；
+>   Iron–Diamond 用 **Honours**（胜 +1 / 负 −1 / 3 连胜起每胜 +2 · 每级 2/3/4/5/5/5 · Iron/Bronze/Rank1 保护）；
+>   **Legendary = Elo（K=32，🔶 官方未公布）**；`rankedRanks` 换成 **31 行累计荣誉 0…120 / `legendaryElo=120`**。
+> ② **小冲突也是排位**（`RankedFastMode`）：排行榜 **`MaxFastRating`**、分支 1111、独立状态 `ranked_fast`；
+>   小冲突窗口本身是里程碑进度条（无段位控件），**段位在资料页**（当前排名取活动优先级 50>40）。
+> ③ **资料页**：自己的资料窗是 `LocalPlayerInfo`（不走 `GetPlayerProfile`）；「常用战将」=`VictoryCounters`
+>   胜场最多的战将（**空表 NRE**，已用 `_send_ok` 统一兜底）；真机「银 I / 银 II / 卡尔加 胜利:5」。
+> ④ **`OFF-210` 战役方案成文**（奖励页第三页签 · 47 节点 · 满级 = NodesCollected 47 + 点数 33100）；**未实现**。
+> ⑤ 坑 **626**（安装器可 `uiautomator dump` 驱动）· **627**（默认禁机器人会挡经典「人机」）· **628**（临时关开关后立刻还原 ⇒ 黑屏）。
+> **整条核销 0 条（ACTIVE 15）**；交接 → `Unity/资料/完全复刻/交接_第二百四十会话.md`。
+> ⏭ **新会话第一件事**：`OFF-210` 先加战役页只读探针 → 再按方案实现；随后 `OFF-206` 资料余项 / `OFF-209` 阶段 3。
+>
 > 🆕 **2026-11-25 第二百三十八会话（JS 冻结根因修复 · 卡组保存链路 · OFF-205 双点 · dev 包 f238b）**：
 > ① **A 机「卡 65%」根因定位到 frida-gum 源码级**：`Process.enumerateThreads()` → `gum_process_modify_thread`
 >   （socketpair + clone 单线程子进程 + PTRACE_ATTACH；子进程卡住 ⇒ 调用线程永久阻塞在 socket read）。
