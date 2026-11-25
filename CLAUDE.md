@@ -110,6 +110,17 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-26 第二百四十三会话（OFF-208 核销 · OFF-214 小冲突段位 PC 完成/安卓暂停 · OFF-209 弹窗模板+赛季护盾）**：
+> ① **`OFF-208` ✅ 核销**（用户：「这个问题我请别人解决」）⇒ ACTIVE 15 → **14**；
+> ② **`OFF-214` PC 已实现并真机验**（`Probes/SkirmishDivisionProbe.cs`，紧凑横条 `[铁 I][徽章]`）；
+>   安卓做到「`ComponentReference<RankingDisplay>.Load()` 加载成功」，卡在 frida 字符串带引号（`cleanStr` 一行）；
+>   🔴 用户叫停「先记着任务，以后再搞」⇒ **两边默认关、游戏已恢复原样**；
+> ③ **`OFF-209` 升段弹窗**：三条事件模板补 `EventComponents[Popup=12]`（`c3ea6a2c…`），dist/data.js/WfOfflineData 已同步；
+>   **真机未验**（需胜利越段，输局被保护 `25→25`）；**赛季护盾**（Legendary 每阵营每季 2 个）已实现，两侧单测全 PASS，
+>   **未推 A 机/未部署云端**。
+> 交接 → `Unity/资料/完全复刻/交接_第二百四十三会话.md`；坑 **637–641**。
+> ⏭ 新会话第一件事：推 A 机 JS（护盾+forceWin 诊断）→ 用 `forceWin`/44→45 验升段弹窗；再继续 `OFF-206` B/C。
+
 > 🆕 **2026-11-26 第二百四十二会话（OFF-213 多阵营战役 · OFF-212 锻造厂满级 · OFF-215 货币空节点修复）**：
 > ① **`OFF-213` 多阵营战役 ✅ 核销**：13 阵营 × 47 节点 / 33100 满级，背景/饰品/卡包/通配符用真实资产；
 >   `tools/gen_campaign_tracks.py` 幂等；PC + A 机 13 家可切、资料页「当前战役 47」。
