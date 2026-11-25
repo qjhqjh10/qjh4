@@ -110,6 +110,22 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-26 第二百四十二会话（OFF-213 多阵营战役 · OFF-212 锻造厂满级 · OFF-215 货币空节点修复）**：
+> ① **`OFF-213` 多阵营战役 ✅ 核销**：13 阵营 × 47 节点 / 33100 满级，背景/饰品/卡包/通配符用真实资产；
+>   `tools/gen_campaign_tracks.py` 幂等；PC + A 机 13 家可切、资料页「当前战役 47」。
+> ② **`OFF-212` 锻造厂 ✅ 核销**（用户「锻造厂也满级，多出的锻造点别管了」）：13 阵营 × 50 档、
+>   `currentPoints=25490` / `rewardsCollected=50`；阈值 `t(i)=10*(i*i+i-1)`（10/50/110 与实拍吻合）；5 档奖励循环；
+>   `tools/gen_forge_tracks.py` 幂等；PC + A 机「等级 50/50」、资料页 50。
+> ③ **`OFF-215` 货币空节点 ✅ 核销**：根因 = Currency SO 无 `uniqueId` ⇒ `LoadableReference` 解析不到 ⇒
+>   `RewardInfo.Item=null` ⇒ `CampaignNode.Setup` 不调 `ItemDrawer.Draw`；
+>   PC `Probes/CurrencyReferenceFixProbe.cs` + 安卓 `src/currencyref.js`；PC/A 机节点显示**红水晶**。
+> ④ **战役节点奖励是服务端下发的**（`CampaignEventData.Nodes`；`Graph` 是 `[JsonIgnore]`；打包资产无 `Nodes`）——
+>   本地 47 节点奖励是编辑器占位值；`OFF-210` 的「真实奖励」说法已在 `OFF215_战役空节点_诊断_1126.md` §七 降级说明。
+> ⑤ 用户口径：**玩家等级始终 1 级**；本次会话内决策点按建议执行（**仅当次，以后仍需先问**）。
+> **本会话核销 3 条（`OFF-212`/`OFF-213`/`OFF-215`）**；ACTIVE **18 → 15**；
+> 交接 → `Unity/资料/完全复刻/交接_第二百四十二会话.md`；坑 **633（更新）/634–636**。
+> ⏭ 新会话第一件事：按 ACTIVE 继续 `OFF-206` / `OFF-209`；`OFF-214`（小冲突段位）待实现；`OFF-208`/`OFF-203` 等用户。
+
 > 🆕 **2026-11-25 第二百四十会话（排位荣誉制+Elo · 小冲突排位 · 资料页真实化 · 战役方案）**：
 > ① **排位规则改成原版口径**（🟢 官方 FAQ/Steam 公告）：**7 大段 × 5 小段 = 30 级 + Legendary**；
 >   Iron–Diamond 用 **Honours**（胜 +1 / 负 −1 / 3 连胜起每胜 +2 · 每级 2/3/4/5/5/5 · Iron/Bronze/Rank1 保护）；
