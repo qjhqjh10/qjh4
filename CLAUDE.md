@@ -110,6 +110,22 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-26 第二百四十五会话（PC 排位结算 · 开关/显示修复 · 赛季掉段 · 统计口径 · 云端两次部署）**：
+> ① **PC 排位结算补齐**：新增 `Server/Ranked.cs`（与 `server.py`/安卓 `ranked.js` 同口径：Honours + 护盾 + Elo + 阵营分），
+>   接进登录统计 / `GetLeaderboard` / `InitializeLiveOps` / 1089·1105·1111 结算；PC 真机段位块 / 排行榜 7 人 / DEFEAT「-1」；
+> ② **小冲突「未排名/排名」真生效**（以前两边硬编码 `isRanked=true`）：PC `RankedModeProbe` + 安卓 `ranked.js` 读
+>   `GameStaticData.unrankedFastMode`；安卓修掉「`Clicked()` 翻成经典事件」（坑 655）；
+> ③ **传奇段 −2380 → 120**：PC 关 `ZeroBasedRank`，安卓钩 `RankingDisplay.Initialize` 补 points（坑 656）；
+> ④ **赛季结束掉段**（用户定）：Iron–Diamond 掉 2 小段 · 传奇 >门槛+500 归到传奇起点 120、否则 Diamond 4 ·
+>   赛季结束 **2027-02-28**（4 个排位事件 endDate）· 三处同口径 + 单测（Python 15 / JS 12 条 PASS）；
+> ⑤ **统计口径**（用户定）：只记经典+小冲突且对手=AI、排位/非排位分开；PC 补 `Server/BattleStats.cs`；
+> ⑥ **云端部署完成**（用户授权，两次）：`server.py` md5 `f23dd34f…`；模板 4 个 endDate 已上；
+> ⑦ **整条核销 0 条，ACTIVE 仍 13**；报告 `OFF209_PC排位结算_1126.md` / `OFF211_战斗统计口径调整_1126.md`；
+>   方案 `方案_赛季结束掉段_1126.md`；坑 **655–658**（658 = 假服务端时钟冻结，用户定**不修**）；
+>   交接 → `Unity/资料/完全复刻/交接_第二百四十五会话.md`。
+> ⏭ 新会话第一件事：A 机真机验 `OFF-206` 阶段 0 的「房间玩家属性」→ 再按 ACTIVE 继续（`OFF-209` 跨玩家 Elo / `RankedApi.java`）。
+> （244 会话：`OFF-214` 核销 · 选秀入口页修复 · 账号名=玩家名 → 见 `交接_第二百四十四会话.md`）
+
 > 🆕 **2026-11-26 第二百四十三会话（OFF-208 核销 · OFF-214 小冲突段位 PC 完成/安卓暂停 · OFF-209 弹窗模板+赛季护盾）**：
 > ① **`OFF-208` ✅ 核销**（用户：「这个问题我请别人解决」）⇒ ACTIVE 15 → **14**；
 > ② **`OFF-214` PC 已实现并真机验**（`Probes/SkirmishDivisionProbe.cs`，紧凑横条 `[铁 I][徽章]`）；
