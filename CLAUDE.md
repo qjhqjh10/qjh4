@@ -110,6 +110,17 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-28 第二百五十二会话（B4 修复 / currency.js 退役 / PC 账号+战斗记录+一次性 Agent / PC 出包 + APK 出货）**：
+> ① ✅ **`OFF-194` 核销**（B4 查明**不需要资产生成**：配置来自 `InitializeLiveOps.TitleData`，真缺口是 `PointsConfig.CampaignPoints`；
+>   `currency.js` 已退役）· ✅ **`OFF-203` 核销**（① PC 推送更新 `PcUpdateProbe`+启动器 `ApplyPendingUpdates`；② 伪重启 6/6；③ 出包）·
+>   ✅ **`OFF-217`**（PC 账号 = 玩家名+密码，同/异 pid 登录均真机验）· ✅ **`OFF-218`**（`/__battles` + 管理网页「战斗记录」，云端已部署）·
+>   ✅ **`OFF-219`**（一次性限权 Agent token，文件在打包文件夹，**未激活等我们批准**，云端已部署）。
+> ② **ACTIVE 只剩 9 条（进行中 1：`OFF-220`）**：`OFF-220` = PC 内置 C# 服务端与 `server.py` 对拍追平（出包时 `prepack S7` 暴露 8 处差异；
+>   **不是功能故障**，正常启动用内置数据）。其余 7 条挂起 + 1 条覆盖。
+> ③ 产物：PC 包 `打包专用文件夹/WarpforgeOffline_便携版_20261128/` + `Warpforge离线版1.2.zip`；APK `20261128a`（md5 `489ba6bb…`）
+>   已放 `安卓版/APK/` 与 `打包专用文件夹/`；旧 APK 清理 **159 个 / ≈134 GB**；DLL `af9fb37d…`。
+> ④ 待查：release APK 主菜单缺「在线对战」卡（坑 710）。交接 → `Unity/资料/完全复刻/交接_第二百五十二会话.md`。
+
 > 🆕 **2026-11-26 第二百四十七会话（跨玩家 Elo 部署验证 · 赛季四桶 · 防御卡 · G15 服务端切片 · **`OFF-209` 核销**）**：
 > ① ✅ **`OFF-209` 整条核销**（用户「检查任务是否核销、已完成任务落账」）⇒ **ACTIVE 13 → 12**；唯一遗留
 >   「`RankedApi.java` 下沉」是架构项，**转入 `OFF-194` F3**。明细 → `历史/任务_离线原版_已核销明细_20261108.md` 247 节。
