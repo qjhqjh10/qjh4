@@ -110,6 +110,20 @@ cd E:/warpforge/05_工具/server && python -I -X utf8 tools/mailbox_check.py --c
 
 ## 四、当前优先级（**以 `活状态表` 为准，这里只是指针**）
 
+> 🆕 **2026-11-28 第二百五十三会话（OFF-221 战斗回放 / OFF-222 支持页 / OFF-223 手机房主）**：
+> ① **`OFF-221` 战斗回放已完成**（只剩真打一局端到端）：结算 430 落 `files/wf_rec/`、440 取回并**能播**、
+>   620/650 回显；`replaysVersion` 补非空（可点判据是 `replaysVersion != ""`，不是 `recordingIndex`）；
+>   登录账号才上传 `/__rec`（游客/LAN 只本地）。云端 `server.py` **`a6019c78…` 已部署**（备份 `…bak_20261128_1134_replay`）。
+> ② ✅ **`OFF-222` 已核销**：设置→支持页原版内容**稳定隐藏**（PC 0.5 s 补隐 / 安卓递归+每次打开+1 s 补隐）；
+>   IP 输入框下方按钮行三个并列 **确定 / 连接测试 / 填入IP**（只认局域网 IP，PC 保留端口）。PC DLL **`7c060cb9…`**；
+>   安卓 **`20261128e`**（md5 `413b426d…`）已装 A 机。
+> ③ 🟡 **`OFF-223` 手机房主（用户说「新会话再做」）**：房主 = `server.py --lan` + Photon 服务端，APK 只有客户端 ⇒
+>   两手机单独不能互连。已交付 Termux 包 `05_工具/lan_host/安卓房主_Termux/` + `打包专用文件夹/Warpforge手机房主_Termux_20261128.zip`
+>   （包内 server/photon PC 上已验，Termux 真机未验）；APK 内置房主 = Photon 服务端移植，新工程未做。
+> ④ **Agent** `agent-0f9e9ad15ff9` 已按用户口径**预批准**（active 到 2026-12-28 11:34 · 500 次）。
+> ⑤ **ACTIVE 12 → 10**（进行中 2：`OFF-220` / `OFF-223` · 挂起 7 · 覆盖 1）；`OFF-221` 完成待端到端、`OFF-222` 已核销；
+>   坑 **711–717**；交接 → `Unity/资料/完全复刻/交接_第二百五十三会话.md`；报告 3 份（`OFF221_…` / `OFF222_…` / `OFF223_…`）。
+
 > 🆕 **2026-11-28 第二百五十二会话（B4 修复 / currency.js 退役 / PC 账号+战斗记录+一次性 Agent / PC 出包 + APK 出货）**：
 > ① ✅ **`OFF-194` 核销**（B4 查明**不需要资产生成**：配置来自 `InitializeLiveOps.TitleData`，真缺口是 `PointsConfig.CampaignPoints`；
 >   `currency.js` 已退役）· ✅ **`OFF-203` 核销**（① PC 推送更新 `PcUpdateProbe`+启动器 `ApplyPendingUpdates`；② 伪重启 6/6；③ 出包）·
